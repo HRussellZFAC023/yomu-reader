@@ -49653,8 +49653,13 @@ ${spelling}`);
   function isYouTubePage() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
   }
+  const YOUTUBE_PREVIEW_CONTAINER_SELECTOR = "ytd-video-preview, #inline-preview-player, ytd-moving-thumbnail-renderer, ytm-video-preview";
+  function isYouTubeFeedPreviewVideo(video) {
+    return Boolean(video?.closest(YOUTUBE_PREVIEW_CONTAINER_SELECTOR));
+  }
   function isYouTubeOwnedVideoElement(video) {
     if (!isYouTubePage()) return true;
+    if (isYouTubeFeedPreviewVideo(video)) return false;
     const currentVideoId = getYouTubeVideoId();
     if (!video || !currentVideoId) return false;
     const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
@@ -52569,8 +52574,19 @@ ${spelling}`);
     if (scopedHost) return scopedHost;
     return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
   }
+  function isMobileYouTubePage() {
+    return /^m\.youtube\.com$/i.test(location.hostname);
+  }
+  function mutationSwapsFullscreenHostCandidate(mutation) {
+    for (const nodes of [mutation.addedNodes, mutation.removedNodes]) {
+      for (const node of nodes) {
+        if (node instanceof HTMLElement && node.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return true;
+      }
+    }
+    return false;
+  }
   function isYouTubeMobileFullscreenHost(element) {
-    return Boolean(element && /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
+    return Boolean(element && isMobileYouTubePage() && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
   }
   function isVisibleYouTubeFullscreenHost(element) {
     if (!element) return false;
@@ -52703,6 +52719,8 @@ ${spelling}`);
   const SUBTITLE_TICK_ACTIVE_MS = 500;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
+  const SUBTITLE_TICK_FORCED_CUE_REFRESH_MS = 5e3;
+  const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3e3;
   const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
@@ -52959,6 +52977,12 @@ ${spelling}`);
     lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
+    // Event-driven cache for the inline/CSS fullscreen host queries; undefined
+    // means dirty (recompute on next read). See queriedFullscreenHost.
+    fullscreenHostQuery;
+    // Dirty-flag + forced-staleness gate for native cue-list re-reads.
+    nativeCueListsDirty = true;
+    lastForcedNativeCueRefreshAt = 0;
     // Per-frame cue/karaoke sampler (rVFC, rAF fallback). Armed only while the
     // bound video plays; cancelled on pause/seek-away/destroy/hidden.
     frameSyncHandle;
@@ -53209,6 +53233,7 @@ ${spelling}`);
         this.syncYouTubeMobileBottomSheetState();
         if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
+          this.invalidateFullscreenHostCache();
           this.syncFullscreenState();
           this.scheduleAlignToVideo();
         }
@@ -53249,6 +53274,7 @@ ${spelling}`);
       log$g.info("Subtitle controller initialized");
     }
     mutationCouldAffectFullscreenState(mutation) {
+      if (mutation.type === "childList") return mutationSwapsFullscreenHostCandidate(mutation);
       if (mutation.type !== "attributes") return false;
       const target = mutation.target;
       if (!(target instanceof HTMLElement)) return false;
@@ -53256,6 +53282,8 @@ ${spelling}`);
     }
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
+      this.invalidateFullscreenHostCache();
+      this.markNativeCueListsDirty();
       this.lastYouTubeTrackDiscoveryAt = 0;
       this.transcriptDefaultOpenApplied = false;
       this.scheduleDiscoverVideo();
@@ -53263,6 +53291,7 @@ ${spelling}`);
       this.scheduleAlignToVideo();
     }
     handleFullscreenLayoutChange() {
+      this.invalidateFullscreenHostCache();
       this.syncFullscreenState();
       if (this.video && !this.video.paused) this.startFrameSync(this.video);
       this.alignToVideo();
@@ -53311,6 +53340,7 @@ ${spelling}`);
       this.subtitleEl = void 0;
       this.transcriptPanel = void 0;
       this.video = void 0;
+      this.invalidateFullscreenHostCache();
     }
     eventOptions(options = {}) {
       return this.abortController ? { ...options, signal: this.abortController.signal } : options;
@@ -53475,6 +53505,7 @@ ${spelling}`);
     }
     clearDiscoveredVideoCandidate() {
       this.video = void 0;
+      this.invalidateFullscreenHostCache();
       this.subtitleSourceContextKey = "";
       this.youtubeVideoId = "";
       this.youtubeAutoSelectSuppressedVideoId = "";
@@ -53487,6 +53518,8 @@ ${spelling}`);
     }
     useDiscoveredVideoCandidate(candidate) {
       this.video = candidate;
+      this.invalidateFullscreenHostCache();
+      this.markNativeCueListsDirty();
       this.clearTransientSubtitleState();
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
@@ -53511,6 +53544,7 @@ ${spelling}`);
       }
       if (this.subtitleSourceContextKey === key) return false;
       this.subtitleSourceContextKey = key;
+      this.markNativeCueListsDirty();
       this.youtubeAutoSelectSuppressedVideoId = "";
       this.lastYouTubeTrackDiscoveryAt = 0;
       this.clearTransientSubtitleState();
@@ -53609,7 +53643,7 @@ ${spelling}`);
     }
     syncSubtitleToPlaybackTime() {
       if (this.destroyed || document.hidden || !this.options.getSettings().subtitlePlayerEnabled) return;
-      this.refreshNativeCueLists();
+      this.refreshNativeCueListsIfStale();
       this.updateFromLoadedCues();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
@@ -53621,6 +53655,7 @@ ${spelling}`);
       const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, "subtitleFallbackLabel")} ${this.tracks.length + 1}`;
       const option = { id, label, kind: "native", language: track.language, track };
       this.tracks.push(option);
+      this.markNativeCueListsDirty();
       track.addEventListener("cuechange", () => this.updateFromNativeTrack(track), this.eventOptions());
       this.maybeAutoSelectNativeTrack(option);
       if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
@@ -53894,7 +53929,7 @@ ${spelling}`);
     tickSubtitlePlayer(settings) {
       this.syncYouTubeMobileBottomSheetState();
       this.refreshSubtitleSourcesForTick();
-      this.refreshNativeCueLists();
+      this.refreshNativeCueListsIfStale();
       this.setNativeTrackModes();
       this.syncShortsReelNavigation();
       this.updateFromLoadedCues();
@@ -53933,7 +53968,7 @@ ${spelling}`);
     // top row and push the rail below it via a CSS inset variable.
     syncNativeControlsInset() {
       if (!this.root) return;
-      const overlay = document.querySelector("#player-control-overlay");
+      const overlay = this.mobileYouTubeControlOverlay();
       this.root.classList.toggle("jpdb-subtitle-native-top-controls", Boolean(overlay));
       if (!overlay) {
         this.root.style.removeProperty("--jpdb-subtitle-native-top-inset");
@@ -53954,7 +53989,13 @@ ${spelling}`);
       }
     }
     isVideoPlayerChromeSurface() {
-      return Boolean(document.querySelector("#player-control-overlay") || this.video?.closest("#movie_player, .html5-video-player"));
+      return Boolean(this.mobileYouTubeControlOverlay() || this.video?.closest("#movie_player, .html5-video-player"));
+    }
+    // #player-control-overlay is m.youtube-only chrome; everywhere else the
+    // per-tick document query burned cycles to find nothing (profiled as part
+    // of the tick's continuous cost).
+    mobileYouTubeControlOverlay() {
+      return isMobileYouTubePage() ? document.querySelector("#player-control-overlay") : null;
     }
     refreshSubtitleSourcesForTick() {
       if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
@@ -53970,6 +54011,31 @@ ${spelling}`);
     shouldUpdateFromDomCaptions() {
       if (!isYouTubePage()) return true;
       return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(this.video) && !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
+    }
+    // Re-reading (and normalizing) every cue of the selected tracks on each
+    // 500ms tick AND every timeupdate was a continuous burner. Everything
+    // event-observable (track add, selection change, cuechange, navigation,
+    // video rebind) marks the dirty flag for an immediate refresh; silent
+    // cue-list APPENDS fire no TextTrack event, so they are caught by the
+    // bounded forced re-read (at most every 5s).
+    refreshNativeCueListsIfStale() {
+      const now = performance.now();
+      if (!this.nativeCueListsDirty && now - this.lastForcedNativeCueRefreshAt < SUBTITLE_TICK_FORCED_CUE_REFRESH_MS) return;
+      this.nativeCueListsDirty = false;
+      this.lastForcedNativeCueRefreshAt = now;
+      this.refreshNativeCueLists();
+    }
+    markNativeCueListsDirty() {
+      this.nativeCueListsDirty = true;
+    }
+    // Completeness-sensitive discrete actions (opening a transcript-backed
+    // panel, snapshotting a batch-mining scan) must not see up to the
+    // staleness bound of silently-appended native cues: refresh NOW and reset
+    // the gate so the next tick does not redo it.
+    forceNativeCueRefresh() {
+      this.nativeCueListsDirty = false;
+      this.lastForcedNativeCueRefreshAt = performance.now();
+      this.refreshNativeCueLists();
     }
     refreshNativeCueLists() {
       const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
@@ -55739,7 +55805,7 @@ ${spelling}`);
       return this.asbPlayerSubtitleMoveRoots().some((root) => this.pointInElement(root, x2, y));
     }
     videoPlayerChromeHidden() {
-      const mobileOverlay = document.querySelector("#player-control-overlay");
+      const mobileOverlay = this.mobileYouTubeControlOverlay();
       if (mobileOverlay) return !mobileOverlay.classList.contains("fadein");
       const player = this.video?.closest("#movie_player, .html5-video-player");
       return Boolean(player?.classList.contains("ytp-autohide") || player?.classList.contains("ytp-hide-controls") || player?.classList.contains("ytp-player-minimized"));
@@ -56282,6 +56348,7 @@ ${spelling}`);
       this.finishTrackSelection("Secondary", id, selected, this.secondaryCues.length);
     }
     finishTrackSelection(role, id, selected, cues) {
+      this.markNativeCueListsDirty();
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.warmParseAroundActiveCue();
@@ -56692,6 +56759,7 @@ ${spelling}`);
     }
     prepareTranscriptPanelOpen(mode, options) {
       if (!this.transcriptPanel || !this.hasTranscriptSurface()) return false;
+      this.forceNativeCueRefresh();
       if (!options.autoPause) this.pausePanelDismissed = false;
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = mode;
@@ -57329,6 +57397,7 @@ ${spelling}`);
       });
     }
     async scanBatchMiningTranscript() {
+      this.forceNativeCueRefresh();
       const rows = this.transcriptRows();
       const settings = this.options.getSettings();
       if (!rows.length || false) {
@@ -58761,6 +58830,7 @@ ${spelling}`);
       return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
+      this.invalidateFullscreenHostCache();
       this.restoreSubtitleDragOffset();
       const fullscreenElement = currentFullscreenElement();
       const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
@@ -58802,15 +58872,45 @@ ${spelling}`);
     }
     subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
       if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
-      const inlineHost = this.inlineFullscreenHostForVideo();
-      if (inlineHost) return inlineHost;
-      const youtubeHost = youtubeFullscreenHostForVideo(this.video);
-      if (youtubeHost) return youtubeHost;
+      const queriedHost = this.queriedFullscreenHost();
+      if (queriedHost) return queriedHost;
       if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
         const target = subtitleVideoLayoutTarget(this.video);
         return target && target !== this.video ? target : null;
       }
       return null;
+    }
+    // The inline/CSS fullscreen host is read on every geometry sample (120ms
+    // frame sampler + 500ms tick via videoLayoutRect), and computing it walks
+    // document.querySelectorAll over the 10-selector fullscreen-host list —
+    // ~1.4% of a core on a YouTube watch page while NOT fullscreen (profiled).
+    // Fullscreen state only changes on discrete signals, so keep the result as
+    // event-driven cached state: invalidated on fullscreenchange events, the
+    // fullscreen-affecting attribute mutations the body observer already
+    // filters for (ytp-fullscreen classes, [fullscreen], the inline-fullscreen
+    // marker), SPA navigation, and video rebinds. A cached non-null host is
+    // revalidated per read with a cheap matches() so a missed signal degrades
+    // to a recompute, never to a stale host.
+    queriedFullscreenHost() {
+      const cached = this.fullscreenHostQuery;
+      if (cached) {
+        if (cached.host === null && performance.now() - cached.at < FULLSCREEN_HOST_NULL_CACHE_TTL_MS) return null;
+        if (cached.host && this.isStillLiveFullscreenHost(cached.host)) return cached.host;
+      }
+      const host = this.inlineFullscreenHostForVideo() ?? youtubeFullscreenHostForVideo(this.video);
+      this.fullscreenHostQuery = { host, at: performance.now() };
+      return host;
+    }
+    // Revalidate the SEMANTIC selection condition a fresh query would apply
+    // (video containment, the m.youtube shell predicate, or the visibility
+    // fallback) — mere selector membership could retain a hidden
+    // wrong-but-matching host after a style-only visibility handoff.
+    isStillLiveFullscreenHost(host) {
+      if (!host.isConnected || !host.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return false;
+      return elementContainsVideo(host, this.video) || isYouTubeMobileFullscreenHost(host) || isVisibleYouTubeFullscreenHost(host);
+    }
+    invalidateFullscreenHostCache() {
+      this.fullscreenHostQuery = void 0;
     }
     shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
       return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && fullscreenElement.contains(this.video));

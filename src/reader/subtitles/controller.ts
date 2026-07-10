@@ -365,9 +365,27 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
             || isVisibleYouTubeFullscreenHost(element)) ?? null;
 }
 
+function isMobileYouTubePage(): boolean {
+    return /^m\.youtube\.com$/i.test(location.hostname);
+}
+
+// A fullscreen-host shell can be inserted/removed ALREADY MARKED (e.g.
+// m.youtube swapping in a <ytm-player fullscreen> that never contains the
+// video), which is a childList-only mutation: no attribute change fires and
+// video discovery ignores a videoless shell, so the host cache would stay
+// stale without this candidate check on the mutation roots.
+function mutationSwapsFullscreenHostCandidate(mutation: MutationRecord): boolean {
+    for (const nodes of [mutation.addedNodes, mutation.removedNodes]) {
+        for (const node of nodes) {
+            if (node instanceof HTMLElement && node.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return true;
+        }
+    }
+    return false;
+}
+
 function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
     return Boolean(element
-        && /^m\.youtube\.com$/i.test(location.hostname)
+        && isMobileYouTubePage()
         && element.matches('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'));
 }
 
@@ -585,6 +603,14 @@ const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
 const SUBTITLE_TICK_ACTIVE_MS = 500;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
+// Cue-list additions fire no TextTrack event, so a bounded forced re-read is
+// the only way to observe them; everything event-observable marks the dirty
+// flag instead of paying the full per-tick re-read.
+const SUBTITLE_TICK_FORCED_CUE_REFRESH_MS = 5000;
+// Bounds how long a cached "not fullscreen" verdict is trusted without any
+// invalidation signal; candidate-aware childList invalidation is the primary
+// signal for marked-shell swaps, this TTL is the fallback bound.
+const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3000;
 const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
 const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
@@ -975,6 +1001,12 @@ export class SubtitlePlayerController {
     private lastPlayerChromeHidden = false;
     private discoverTimer?: number;
     private tickTimer?: number;
+    // Event-driven cache for the inline/CSS fullscreen host queries; undefined
+    // means dirty (recompute on next read). See queriedFullscreenHost.
+    private fullscreenHostQuery?: { host: HTMLElement | null; at: number };
+    // Dirty-flag + forced-staleness gate for native cue-list re-reads.
+    private nativeCueListsDirty = true;
+    private lastForcedNativeCueRefreshAt = 0;
     // Per-frame cue/karaoke sampler (rVFC, rAF fallback). Armed only while the
     // bound video plays; cancelled on pause/seek-away/destroy/hidden.
     private frameSyncHandle?: number;
@@ -1211,6 +1243,7 @@ export class SubtitlePlayerController {
             // the reader root. Bail before the per-mutation fullscreen walk.
             if (mutations.every(mutationInsideReaderRoot)) return;
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
+                this.invalidateFullscreenHostCache();
                 this.syncFullscreenState();
                 this.scheduleAlignToVideo();
             }
@@ -1262,6 +1295,7 @@ export class SubtitlePlayerController {
     }
 
     private mutationCouldAffectFullscreenState(mutation: MutationRecord): boolean {
+        if (mutation.type === 'childList') return mutationSwapsFullscreenHostCandidate(mutation);
         if (mutation.type !== 'attributes') return false;
         const target = mutation.target;
         if (!(target instanceof HTMLElement)) return false;
@@ -1271,6 +1305,8 @@ export class SubtitlePlayerController {
 
     private handleYouTubeNavigation(): void {
         if (!isYouTubePage()) return;
+        this.invalidateFullscreenHostCache();
+        this.markNativeCueListsDirty();
         this.lastYouTubeTrackDiscoveryAt = 0;
         // A new video is a fresh surface: let "open by default" re-apply once.
         this.transcriptDefaultOpenApplied = false;
@@ -1280,6 +1316,7 @@ export class SubtitlePlayerController {
     }
 
     private handleFullscreenLayoutChange(): void {
+        this.invalidateFullscreenHostCache();
         this.syncFullscreenState();
         if (this.video && !this.video.paused) this.startFrameSync(this.video);
         this.alignToVideo();
@@ -1332,6 +1369,7 @@ export class SubtitlePlayerController {
         this.subtitleEl = undefined;
         this.transcriptPanel = undefined;
         this.video = undefined;
+        this.invalidateFullscreenHostCache();
     }
 
     private eventOptions(options: AddEventListenerOptions = {}): AddEventListenerOptions {
@@ -1524,6 +1562,7 @@ export class SubtitlePlayerController {
 
     private clearDiscoveredVideoCandidate(): void {
         this.video = undefined;
+        this.invalidateFullscreenHostCache();
         this.subtitleSourceContextKey = '';
         this.youtubeVideoId = '';
         this.youtubeAutoSelectSuppressedVideoId = '';
@@ -1537,6 +1576,8 @@ export class SubtitlePlayerController {
 
     private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
         this.video = candidate;
+        this.invalidateFullscreenHostCache();
+        this.markNativeCueListsDirty();
         this.clearTransientSubtitleState();
         this.removeStaleNativeTracks(candidate);
         this.attachTextTracks(candidate);
@@ -1567,6 +1608,7 @@ export class SubtitlePlayerController {
         if (this.subtitleSourceContextKey === key) return false;
 
         this.subtitleSourceContextKey = key;
+        this.markNativeCueListsDirty();
         this.youtubeAutoSelectSuppressedVideoId = '';
         this.lastYouTubeTrackDiscoveryAt = 0;
         this.clearTransientSubtitleState();
@@ -1689,7 +1731,7 @@ export class SubtitlePlayerController {
 
     private syncSubtitleToPlaybackTime(): void {
         if (this.destroyed || document.hidden || !this.options.getSettings().subtitlePlayerEnabled) return;
-        this.refreshNativeCueLists();
+        this.refreshNativeCueListsIfStale();
         this.updateFromLoadedCues();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
@@ -1704,7 +1746,12 @@ export class SubtitlePlayerController {
         const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, 'subtitleFallbackLabel')} ${this.tracks.length + 1}`;
         const option: SubtitleTrackOption = { id, label, kind: 'native', language: track.language, track };
         this.tracks.push(option);
+        this.markNativeCueListsDirty();
 
+        // No dirty-mark here: updateFromNativeTrack itself re-reads and
+        // assigns the full cue list for the selected/secondary track (the only
+        // tracks refreshNativeCueLists maintains), so marking the global flag
+        // just made the next tick normalize the same list a second time.
         track.addEventListener('cuechange', () => this.updateFromNativeTrack(track), this.eventOptions());
         this.maybeAutoSelectNativeTrack(option);
         if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
@@ -2019,7 +2066,7 @@ export class SubtitlePlayerController {
     private tickSubtitlePlayer(settings: ReaderSettings): void {
         this.syncYouTubeMobileBottomSheetState();
         this.refreshSubtitleSourcesForTick();
-        this.refreshNativeCueLists();
+        this.refreshNativeCueListsIfStale();
         this.setNativeTrackModes();
         this.syncShortsReelNavigation();
         this.updateFromLoadedCues();
@@ -2065,7 +2112,8 @@ export class SubtitlePlayerController {
     // top row and push the rail below it via a CSS inset variable.
     private syncNativeControlsInset(): void {
         if (!this.root) return;
-        const overlay = document.querySelector<HTMLElement>('#player-control-overlay');
+        // The null path below still clears any previously-applied inset.
+        const overlay = this.mobileYouTubeControlOverlay();
         this.root.classList.toggle('jpdb-subtitle-native-top-controls', Boolean(overlay));
         if (!overlay) {
             this.root.style.removeProperty('--jpdb-subtitle-native-top-inset');
@@ -2092,8 +2140,17 @@ export class SubtitlePlayerController {
     }
 
     private isVideoPlayerChromeSurface(): boolean {
-        return Boolean(document.querySelector('#player-control-overlay')
+        return Boolean(this.mobileYouTubeControlOverlay()
             || this.video?.closest('#movie_player, .html5-video-player'));
+    }
+
+    // #player-control-overlay is m.youtube-only chrome; everywhere else the
+    // per-tick document query burned cycles to find nothing (profiled as part
+    // of the tick's continuous cost).
+    private mobileYouTubeControlOverlay(): HTMLElement | null {
+        return isMobileYouTubePage()
+            ? document.querySelector<HTMLElement>('#player-control-overlay')
+            : null;
     }
 
     private refreshSubtitleSourcesForTick(): void {
@@ -2119,6 +2176,34 @@ export class SubtitlePlayerController {
             && isYouTubeOwnedVideoElement(this.video)
             && !this.cues.length
             && (Boolean(this.selectedTrackId) || !this.tracks.some(track => track.kind === 'youtube'));
+    }
+
+    // Re-reading (and normalizing) every cue of the selected tracks on each
+    // 500ms tick AND every timeupdate was a continuous burner. Everything
+    // event-observable (track add, selection change, cuechange, navigation,
+    // video rebind) marks the dirty flag for an immediate refresh; silent
+    // cue-list APPENDS fire no TextTrack event, so they are caught by the
+    // bounded forced re-read (at most every 5s).
+    private refreshNativeCueListsIfStale(): void {
+        const now = performance.now();
+        if (!this.nativeCueListsDirty && now - this.lastForcedNativeCueRefreshAt < SUBTITLE_TICK_FORCED_CUE_REFRESH_MS) return;
+        this.nativeCueListsDirty = false;
+        this.lastForcedNativeCueRefreshAt = now;
+        this.refreshNativeCueLists();
+    }
+
+    private markNativeCueListsDirty(): void {
+        this.nativeCueListsDirty = true;
+    }
+
+    // Completeness-sensitive discrete actions (opening a transcript-backed
+    // panel, snapshotting a batch-mining scan) must not see up to the
+    // staleness bound of silently-appended native cues: refresh NOW and reset
+    // the gate so the next tick does not redo it.
+    private forceNativeCueRefresh(): void {
+        this.nativeCueListsDirty = false;
+        this.lastForcedNativeCueRefreshAt = performance.now();
+        this.refreshNativeCueLists();
     }
 
     private refreshNativeCueLists(): void {
@@ -4264,7 +4349,7 @@ export class SubtitlePlayerController {
     private videoPlayerChromeHidden(): boolean {
         // m.youtube.com renders its controls in #player-control-overlay and
         // toggles a fadein class; the desktop ytp-* classes never appear there.
-        const mobileOverlay = document.querySelector<HTMLElement>('#player-control-overlay');
+        const mobileOverlay = this.mobileYouTubeControlOverlay();
         if (mobileOverlay) return !mobileOverlay.classList.contains('fadein');
         const player = this.video?.closest<HTMLElement>('#movie_player, .html5-video-player');
         return Boolean(player?.classList.contains('ytp-autohide')
@@ -4912,6 +4997,7 @@ export class SubtitlePlayerController {
     }
 
     private finishTrackSelection(role: 'Primary' | 'Secondary', id: string, selected: SubtitleTrackOption | undefined, cues: number): void {
+        this.markNativeCueListsDirty();
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
         this.warmParseAroundActiveCue();
@@ -5385,6 +5471,10 @@ export class SubtitlePlayerController {
 
     private prepareTranscriptPanelOpen(mode: 'lines' | 'shadow' | 'mine', options: TranscriptPanelOptions): boolean {
         if (!this.transcriptPanel || !this.hasTranscriptSurface()) return false;
+        // Opening a transcript-backed panel is a completeness-sensitive
+        // discrete action: a silently-grown native cue list must not render a
+        // drawer that is missing its tail for up to the staleness bound.
+        this.forceNativeCueRefresh();
         if (!options.autoPause) this.pausePanelDismissed = false;
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = mode;
@@ -6112,6 +6202,10 @@ export class SubtitlePlayerController {
     }
 
     private async scanBatchMiningTranscript(): Promise<void> {
+        // The scan SNAPSHOTS transcriptRows() into batchMiningRows: rows a
+        // later refresh would add can never join this scan, so the cue lists
+        // must be current at the moment of snapshotting.
+        this.forceNativeCueRefresh();
         const rows = this.transcriptRows();
         const settings = this.options.getSettings();
         if (!rows.length || !canParseSubtitleTranscriptRows(settings)) {
@@ -7827,6 +7921,11 @@ export class SubtitlePlayerController {
     }
 
     private syncFullscreenState(): void {
+        // Every caller of this is a discrete fullscreen-relevant signal
+        // (observer batch, fullscreenchange, refresh, viewport change) — never
+        // the per-sample geometry path — so a fresh host query here is cheap
+        // and keeps direct syncFullscreenState() calls authoritative.
+        this.invalidateFullscreenHostCache();
         // Resize, orientationchange, and fullscreen transitions all route through
         // here; reproject the remembered drag nudge so it tracks the new viewport
         // height instead of staying frozen at its previous pixel value.
@@ -7882,15 +7981,53 @@ export class SubtitlePlayerController {
 
     private subtitleFullscreenHost(fullscreenElement: Element | null = currentFullscreenElement()): HTMLElement | null {
         if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
-        const inlineHost = this.inlineFullscreenHostForVideo();
-        if (inlineHost) return inlineHost;
-        const youtubeHost = youtubeFullscreenHostForVideo(this.video);
-        if (youtubeHost) return youtubeHost;
+        const queriedHost = this.queriedFullscreenHost();
+        if (queriedHost) return queriedHost;
         if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
             const target = subtitleVideoLayoutTarget(this.video);
             return target && target !== this.video ? target : null;
         }
         return null;
+    }
+
+    // The inline/CSS fullscreen host is read on every geometry sample (120ms
+    // frame sampler + 500ms tick via videoLayoutRect), and computing it walks
+    // document.querySelectorAll over the 10-selector fullscreen-host list —
+    // ~1.4% of a core on a YouTube watch page while NOT fullscreen (profiled).
+    // Fullscreen state only changes on discrete signals, so keep the result as
+    // event-driven cached state: invalidated on fullscreenchange events, the
+    // fullscreen-affecting attribute mutations the body observer already
+    // filters for (ytp-fullscreen classes, [fullscreen], the inline-fullscreen
+    // marker), SPA navigation, and video rebinds. A cached non-null host is
+    // revalidated per read with a cheap matches() so a missed signal degrades
+    // to a recompute, never to a stale host.
+    private queriedFullscreenHost(): HTMLElement | null {
+        const cached = this.fullscreenHostQuery;
+        if (cached) {
+            // A cached null is only trusted within its TTL: candidate-aware
+            // childList invalidation covers marked-shell swaps, and the TTL is
+            // the belt-and-braces bound for any signal this misses.
+            if (cached.host === null && performance.now() - cached.at < FULLSCREEN_HOST_NULL_CACHE_TTL_MS) return null;
+            if (cached.host && this.isStillLiveFullscreenHost(cached.host)) return cached.host;
+        }
+        const host = this.inlineFullscreenHostForVideo() ?? youtubeFullscreenHostForVideo(this.video);
+        this.fullscreenHostQuery = { host, at: performance.now() };
+        return host;
+    }
+
+    // Revalidate the SEMANTIC selection condition a fresh query would apply
+    // (video containment, the m.youtube shell predicate, or the visibility
+    // fallback) — mere selector membership could retain a hidden
+    // wrong-but-matching host after a style-only visibility handoff.
+    private isStillLiveFullscreenHost(host: HTMLElement): boolean {
+        if (!host.isConnected || !host.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return false;
+        return elementContainsVideo(host, this.video)
+            || isYouTubeMobileFullscreenHost(host)
+            || isVisibleYouTubeFullscreenHost(host);
+    }
+
+    private invalidateFullscreenHostCache(): void {
+        this.fullscreenHostQuery = undefined;
     }
 
     private shouldHostSubtitleRootInFullscreenElement(fullscreenElement: Element | null): fullscreenElement is HTMLElement {
