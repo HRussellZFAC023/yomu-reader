@@ -54,6 +54,7 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 ## Changelog and Docs
 
 - Keep `CHANGELOG.md` up to date for every user-facing release. The website changelog includes this file directly through `docs/changelog.md`, so do not duplicate release notes elsewhere.
+- Release pushes must never carry a skip directive on the pushed HEAD: commit generated assets BEFORE the version-bump release commit (or fold them into it) and never write `[skip ci]` on any commit that can end up as the push HEAD — a `[skip ci]` HEAD suppresses the `Deploy Docs` workflow and production keeps serving the previous release (this bit 1.6.115). After pushing to `main`, confirm with `gh run list --workflow "Deploy Docs"` that a run started for your push; if it did not, start one with `gh workflow run "Deploy Docs" --ref main` and verify it appears.
 - Always publish user-facing versions through the GitHub Releases tab: create/push a `v*` tag or run the `Release` workflow, verify with `gh release view <tag>` that the release is non-draft, marked as the latest when appropriate, and includes the built `yomu.user.js` asset.
 - Before finishing user-facing work, check that `README.md`, the relevant `docs/` page, and credits/license notes all describe the same behavior.
 - Before finishing large UI work, run the Playwright DOM checks plus axe/docs accessibility and complexity checks, or record why a check could not run.
