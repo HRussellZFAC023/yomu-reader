@@ -15,6 +15,18 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
     const inlineKey = '__yomuSubtitleInlineFullscreenElement';
     const inlineClass = 'jpdb-subtitle-inline-fullscreen';
     const inlineAttribute = 'data-yomu-inline-fullscreen';
+
+    // Boot-time sweep: a stale inline-fullscreen marker with no live marked
+    // element (left by a previous session's SPA navigation) is a stranded
+    // scroll-lock — clear it before doing anything else. Runs on every
+    // (re-)inject, including when the prototype patches are already in place.
+    if (win.document.documentElement.classList.contains(inlineClass)) {
+        const marked = win.document.querySelector(`[${inlineAttribute}="true"]`);
+        if (!marked || !marked.isConnected) {
+            win.document.documentElement.classList.remove(inlineClass);
+            delete win[inlineKey];
+        }
+    }
     if (win[flag]) return;
 
     const selector = '#movie_player, .html5-video-player, ytm-player, ytd-player, [data-yomu-video-frame]';
@@ -125,9 +137,38 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
             : result;
     }
 
+    // Inline fullscreen is a SESSION with cleanup obligations: SPA navigation
+    // or a player-node replacement while active used to strand the root class
+    // (scroll-lock + hidden masthead) and a fixed z-index-max black box, since
+    // the only exit path was the patched exit methods. Navigation signals
+    // force-exit (the listeners are bootstrap-level and no-op while inactive);
+    // a per-session watch force-exits when the marked element leaves the DOM.
+    let inlineFullscreenConnectionWatch: number | undefined;
+
+    const exitInlineFullscreenOnNavigation = () => {
+        if (activeInlineFullscreenElement() || win.document.documentElement.classList.contains(inlineClass)) exitInlineFullscreen();
+    };
+    for (const name of ['yt-navigate-finish', 'popstate', 'pagehide']) {
+        win.addEventListener(name, exitInlineFullscreenOnNavigation, true);
+        win.document.addEventListener(name, exitInlineFullscreenOnNavigation, true);
+    }
+
+    function armInlineFullscreenSession(target: HTMLElement): void {
+        disarmInlineFullscreenSession();
+        inlineFullscreenConnectionWatch = win.setInterval(() => {
+            if (!target.isConnected) exitInlineFullscreen();
+        }, 500);
+    }
+
+    function disarmInlineFullscreenSession(): void {
+        if (inlineFullscreenConnectionWatch !== undefined) win.clearInterval(inlineFullscreenConnectionWatch);
+        inlineFullscreenConnectionWatch = undefined;
+    }
+
     function enterInlineFullscreen(target: HTMLElement): unknown {
         const current = activeInlineFullscreenElement();
         if (current && current !== target) clearInlineFullscreenElement(current);
+        armInlineFullscreenSession(target);
         target.setAttribute(inlineAttribute, 'true');
         if (!target.hasAttribute('fullscreen')) {
             target.setAttribute('fullscreen', '');
@@ -148,8 +189,18 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
     }
 
     function exitInlineFullscreen(): unknown {
+        disarmInlineFullscreenSession();
         const current = activeInlineFullscreenElement();
-        if (!current) return typeof win.Promise?.resolve === 'function' ? win.Promise.resolve() : undefined;
+        if (!current) {
+            // Never leave a stranded scroll-lock behind even when the marked
+            // element itself is already gone (node replaced during SPA nav).
+            if (win.document.documentElement.classList.contains(inlineClass)) {
+                win.document.documentElement.classList.remove(inlineClass);
+                delete win[inlineKey];
+                dispatchFullscreenLikeEvents();
+            }
+            return typeof win.Promise?.resolve === 'function' ? win.Promise.resolve() : undefined;
+        }
         clearInlineFullscreenElement(current);
         win.document.documentElement.classList.remove(inlineClass);
         delete win[inlineKey];
@@ -276,7 +327,18 @@ function createTrustedRedirectScript(code: string): unknown {
     }
 }
 
+// The DOM is shared across realms, so the content world can sweep a stranded
+// inline-fullscreen scroll-lock even when the page-world patches (and their
+// bootstrap-time sweep) are already installed and won't re-run.
+export function clearStaleInlineFullscreenState(): void {
+    if (!document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)) return;
+    const marked = document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
+    if (marked && marked.isConnected) return;
+    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
+}
+
 export function installSubtitleFullscreenRedirect(): void {
+    clearStaleInlineFullscreenState();
     injectFullscreenRedirectStyle();
     const unsafe = (globalThis as { unsafeWindow?: PatchableWindow }).unsafeWindow;
     const differentRealm = Boolean(unsafe) && unsafe !== (globalThis as unknown as Window);

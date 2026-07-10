@@ -229,6 +229,57 @@ describe('installSubtitleFullscreenRedirect', () => {
         });
     });
 
+    it('clears a stale inline-fullscreen scroll-lock at boot when no marked element exists', () => {
+        // A previous session's SPA navigation stranded the root class with the
+        // marked player node long gone: boot must sweep it.
+        document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+
+        installSubtitleFullscreenRedirect();
+
+        expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
+    });
+
+    it('keeps a live inline-fullscreen session across boot-time stale-marker cleanup', () => {
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player" data-yomu-inline-fullscreen="true"><video></video></div>';
+        document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+
+        installSubtitleFullscreenRedirect();
+
+        expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(true);
+        expect(document.getElementById('movie_player')!.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(true);
+    });
+
+    it('force-exits inline fullscreen on SPA navigation instead of stranding the scroll-lock', () => {
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-fullscreen fullscreen" data-yomu-inline-fullscreen="true" fullscreen><video></video></div>';
+        const player = document.getElementById('movie_player')!;
+        player.dataset.yomuInlineFullscreenAttr = 'true';
+        player.dataset.yomuInlineYtpFullscreenClass = 'true';
+        player.dataset.yomuInlineFullscreenClass = 'true';
+        document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+        installSubtitleFullscreenRedirect();
+
+        document.dispatchEvent(new Event('yt-navigate-finish'));
+
+        expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
+        expect(player.hasAttribute('fullscreen')).toBe(false);
+        expect(player.classList.contains('ytp-fullscreen')).toBe(false);
+        expect(player.classList.contains('fullscreen')).toBe(false);
+        expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
+    });
+
+    it('clears the stranded scroll-lock on navigation even after the marked player node was replaced', () => {
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player" data-yomu-inline-fullscreen="true"><video></video></div>';
+        document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+        installSubtitleFullscreenRedirect();
+
+        // SPA nav swapped the player subtree: the marked element is gone but
+        // the html-level scroll-lock class remains.
+        document.getElementById('movie_player')!.remove();
+        window.dispatchEvent(new Event('popstate'));
+
+        expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
+    });
+
     it('hides YouTube top chrome only while the inline-fullscreen root class is present', () => {
         // Real YouTube always roots the page in <ytd-app>; the generic
         // #masthead / #masthead-container IDs are scoped under it so they can't
