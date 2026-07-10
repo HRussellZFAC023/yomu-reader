@@ -19,14 +19,14 @@ import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
 
 export type DecorationState = 'prose-full' | 'content-ruby' | 'interactive-passive' | 'skip';
 
-export const DECORATION_STATE_ATTRIBUTE = 'data-yomu-decoration';
+const DECORATION_STATE_ATTRIBUTE = 'data-yomu-decoration';
 
 // ---------------------------------------------------------------------------
 // Shared small helpers (also consumed by dom/index.ts)
 // ---------------------------------------------------------------------------
 
 export const selectorPairs = (names: string, attributes = ['class', 'id']): string => names.split(',').flatMap(name => attributes.map(attribute => `[${attribute}*="${name}" i]`)).join(',');
-export const roleSelectors = (names: string): string => names.split(',').map(name => `[role="${name}"]`).join(',');
+const roleSelectors = (names: string): string => names.split(',').map(name => `[role="${name}"]`).join(',');
 
 export function safeElementMatches(element: HTMLElement, selector: string): boolean {
     try {
@@ -36,7 +36,7 @@ export function safeElementMatches(element: HTMLElement, selector: string): bool
     }
 }
 
-export function safeQuerySelector(root: HTMLElement, selector: string): Element | null {
+function safeQuerySelector(root: HTMLElement, selector: string): Element | null {
     try {
         return root.querySelector(selector);
     } catch {
@@ -69,7 +69,7 @@ export function cssPixels(value: string): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function elementClassName(element: HTMLElement): string {
+function elementClassName(element: HTMLElement): string {
     return String(element.className || '');
 }
 
@@ -91,7 +91,7 @@ export function isEllipsisTextRow(style: CSSStyleDeclaration): boolean {
     return style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' || style.display === '-webkit-box';
 }
 
-export function clipsOverflow(style: CSSStyleDeclaration): boolean {
+function clipsOverflow(style: CSSStyleDeclaration): boolean {
     return style.overflow === 'hidden'
         || style.overflow === 'clip'
         || style.overflowY === 'hidden'
@@ -122,7 +122,7 @@ export function isPositionedTextOverlay(style: CSSStyleDeclaration): boolean {
         && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
 }
 
-export function isVerticalWritingMode(writingMode: string): boolean {
+function isVerticalWritingMode(writingMode: string): boolean {
     return writingMode.startsWith('vertical-') || writingMode.startsWith('sideways-');
 }
 
@@ -150,7 +150,7 @@ interface ConstrainedRowStyleFacts {
 
 const constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; facts: ConstrainedRowStyleFacts }>();
 
-export function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFacts {
+function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFacts {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element);
     if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.facts;
@@ -258,7 +258,7 @@ function borderPaints(style: CSSStyleDeclaration): boolean {
 const PROSE_TAGS = ',P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,';
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
 const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
-export const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
+const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
 export const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 
 export function isLikelyProseElement(element: HTMLElement): boolean {
@@ -328,7 +328,7 @@ function hasControlLinkDisplay(display: string): boolean {
     return display.includes('flex') || display.includes('grid') || display === 'inline-block';
 }
 
-export function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
+function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
     return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack)
         || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth)
         || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
@@ -404,11 +404,11 @@ function readableContextPassiveChromeElement(element: HTMLElement): HTMLElement 
 // constraints). Pure: marking side effects are returned to the caller.
 // ---------------------------------------------------------------------------
 
-export const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
+const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
 export const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
-export const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar')}`;
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -460,7 +460,7 @@ export function applyPassiveChromeMarks(marks: PassiveChromeMark[]): void {
     for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
 }
 
-export function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
+function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
     element.dataset.jpdbReaderPassiveChrome = 'true';
     if (atomic) element.dataset.jpdbReaderPassiveAtomic = 'true';
     if (element.getAttribute('role') === 'button' && !hasExplicitAccessibleName(element)) {
@@ -742,7 +742,7 @@ function comboboxOwnedIds(root: Node): ReadonlySet<string> {
     return ids;
 }
 
-export function isComboboxOwnedPopup(element: Element): boolean {
+function isComboboxOwnedPopup(element: Element): boolean {
     // Resolve within the element's own tree so an open-shadow-root combobox
     // owning an unroled popup is found (document.querySelector cannot see it).
     const ids = comboboxOwnedIds(element.getRootNode());

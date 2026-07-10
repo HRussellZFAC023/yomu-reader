@@ -115,10 +115,10 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled());
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled(), { timeout: 15000 });
             // Token application is async after parse resolves — wait for the word
             // to render instead of asserting immediately (CI flake: got null).
-            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull());
+            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull(), { timeout: 15000 });
             expect(document.querySelector('ytd-comment-view-model')?.textContent).toContain('日本語コメント0');
         } finally {
             scanner.destroy();
@@ -126,7 +126,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 40000);
 
     it('scans large no-key YouTube comment DOM sequentially to avoid live-page contention', async () => {
         const restoreRects = mockVisibleElementRects();

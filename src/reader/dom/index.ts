@@ -52,7 +52,7 @@ import {
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
-export { classifyDecoration, DECORATION_STATE_ATTRIBUTE, resetDecorationPolicyCachesForTest } from './decoration-policy';
+export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';

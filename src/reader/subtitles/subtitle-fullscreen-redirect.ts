@@ -330,7 +330,7 @@ function createTrustedRedirectScript(code: string): unknown {
 // The DOM is shared across realms, so the content world can sweep a stranded
 // inline-fullscreen scroll-lock even when the page-world patches (and their
 // bootstrap-time sweep) are already installed and won't re-run.
-export function clearStaleInlineFullscreenState(): void {
+function clearStaleInlineFullscreenState(): void {
     if (!document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)) return;
     const marked = document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
     if (marked && marked.isConnected) return;

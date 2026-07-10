@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.122] - 2026-07-10
+
+### Fixed
+
+- The automated dead-code gate is green again: helpers used only inside their own modules are no longer exported, and the NHK mirror-overlap smoke test is registered as a runnable script.
+- Releases no longer fail on busy build machines: the YouTube-comment scanner test now waits long enough for slow runners, so a finished release publishes instead of stopping at the final check.
+
 ## [1.6.121] - 2026-07-10
 
 ### Added

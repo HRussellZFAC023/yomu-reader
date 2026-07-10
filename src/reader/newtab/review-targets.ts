@@ -118,7 +118,7 @@ export function passingNewTabGrade(grade: JPDBGrade): boolean {
     return grade === 'pass' || grade === 'easy' || grade === 'okay';
 }
 
-export function usesBunproGradeScale(card?: JPDBCard): boolean {
+function usesBunproGradeScale(card?: JPDBCard): boolean {
     return card?.source === 'bunpro' || card?.reviewSource === 'bunpro-api';
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.121",
+  "version": "1.6.122",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -72,6 +72,7 @@
     "smoke:bookwalker-tap-retry": "node scripts/bookwalker-tap-retry-smoke.mjs",
     "smoke:overlay-scroll-lock": "node scripts/overlay-scroll-lock-smoke.mjs",
     "smoke:passive-decoration": "node scripts/passive-decoration-smoke.mjs",
+    "smoke:nhk-mirror-overlap": "node scripts/nhk-framework-mirror-overlap-smoke.mjs",
     "smoke:anki": "node scripts/anki-mining-smoke.mjs",
     "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
