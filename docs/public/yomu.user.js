@@ -358,13 +358,16 @@ function constrainedRowStyleFacts(element2) {
   return facts;
 }
 function isInsideRubyFragileConstrainedRow(element2) {
+  return closestRubyFragileConstrainedRow(element2) !== null;
+}
+function closestRubyFragileConstrainedRow(element2) {
   let current = element2;
   for (let depth = 0; current && depth < 5; depth += 1) {
   const facts = constrainedRowStyleFacts(current);
-  if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return true;
+  if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
   current = current.parentElement;
   }
-  return false;
+  return null;
 }
 function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
@@ -5657,6 +5660,9 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.renderSignature = signature;
   mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
+  if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
+  mirror.dataset.yomuClipConstrained = "true";
+  }
   const state = styleTextMirrorHost(host, hasRenderedRuby);
   try {
   styleTextMirror(mirror, host, hasRenderedRuby);
@@ -6594,6 +6600,10 @@ function applyTokensToFragmentTarget(target, tokens, settings) {
   if (!safeTokens.length) return;
   const sentence = target.text.replace(/\s+/g, " ").trim();
   const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+  if (!renderTarget.suppressRuby) {
+  const clipRow = closestRubyFragileConstrainedRow(target.parent);
+  if (clipRow) clipRow.dataset.yomuClipConstrained = "true";
+  }
   applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
   markRenderedScanTarget(target);
 }

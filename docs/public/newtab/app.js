@@ -5916,13 +5916,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return facts;
   }
   function isInsideRubyFragileConstrainedRow(element) {
+    return closestRubyFragileConstrainedRow(element) !== null;
+  }
+  function closestRubyFragileConstrainedRow(element) {
     let current = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
       const facts = constrainedRowStyleFacts(current);
-      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return true;
+      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
       current = current.parentElement;
     }
-    return false;
+    return null;
   }
   const MIRROR_BARE_DESCENDANT_LIMIT = 16;
   function hostIsVisuallyBareForMirror(host) {
@@ -9296,6 +9299,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.renderSignature = signature;
     mirror.setAttribute("aria-hidden", "true");
     const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
+    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
+      mirror.dataset.yomuClipConstrained = "true";
+    }
     const state2 = styleTextMirrorHost(host, hasRenderedRuby);
     try {
       styleTextMirror(mirror, host, hasRenderedRuby);
@@ -10021,6 +10027,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+    if (!renderTarget.suppressRuby) {
+      const clipRow = closestRubyFragileConstrainedRow(target.parent);
+      if (clipRow) clipRow.dataset.yomuClipConstrained = "true";
+    }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
   }
