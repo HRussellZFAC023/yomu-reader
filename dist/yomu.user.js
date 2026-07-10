@@ -5583,35 +5583,23 @@ const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,sty
 function hostOriginalTextWithNodeOffsets(host) {
   const nodeOffsets = new Map();
   const whitespaceJoints = [];
-  const styleCache = new Map();
-  const styleOf = (element2) => {
-  let style = styleCache.get(element2);
-  if (!style) {
-    style = safeComputedStyle(element2);
-    styleCache.set(element2, style);
-  }
-  return style;
-  };
+  const styles = new MirrorPlanStyleProbe(host);
   let hostText = "";
-  let previousContext = null;
+  let previousNode = null;
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
   acceptNode: (node) => {
     const parent = node.parentElement;
     if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
-    const style = styleOf(parent);
-    if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") {
-      return NodeFilter.FILTER_REJECT;
-    }
-    if (!node.data.trim() && isItemizedContainerDisplay(style.display)) {
-      return NodeFilter.FILTER_REJECT;
-    }
+    if (styles.isComputedHidden(parent)) return NodeFilter.FILTER_REJECT;
+    if (!node.data.trim() && styles.dropsWhitespaceOnlyChild(parent)) return NodeFilter.FILTER_REJECT;
     return NodeFilter.FILTER_ACCEPT;
   }
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-  const context = inlineFormattingContextKey(node, host, styleOf);
-  if (previousContext !== null && context !== previousContext) whitespaceJoints.push(hostText.length);
-  previousContext = context;
+  if (previousNode && !styles.rendersInterNodeWhitespace(previousNode, node)) {
+    whitespaceJoints.push(hostText.length);
+  }
+  previousNode = node;
   nodeOffsets.set(node, hostText.length);
   hostText += node.data;
   }
@@ -5620,25 +5608,88 @@ function hostOriginalTextWithNodeOffsets(host) {
 function isItemizedContainerDisplay(display) {
   return display === "flex" || display === "grid" || display === "inline-flex" || display === "inline-grid" || display === "table" || display === "inline-table" || display === "table-row" || display === "table-row-group" || display === "table-header-group" || display === "table-footer-group";
 }
-function isInlineLevelDisplay(display) {
-  return display === "inline" || display === "contents" || display.startsWith("ruby");
+function preservesWhitespace(whiteSpace) {
+  return whiteSpace === "pre" || whiteSpace === "pre-wrap" || whiteSpace === "pre-line" || whiteSpace === "break-spaces";
 }
-function inlineFormattingContextKey(node, host, styleOf) {
-  let child = node;
-  let ancestor = node.parentElement;
-  while (ancestor) {
-  const display = styleOf(ancestor).display;
-  if (!isInlineLevelDisplay(display)) {
-    if (!isItemizedContainerDisplay(display)) return ancestor;
-    let head = child;
-    while (head instanceof Text && head.previousSibling instanceof Text) head = head.previousSibling;
-    return head;
+class MirrorPlanStyleProbe {
+  constructor(host) {
+  this.host = host;
   }
-  if (ancestor === host) return ancestor;
-  child = ancestor;
-  ancestor = ancestor.parentElement;
+  styleCache = new Map();
+  hiddenCache = new Map();
+  styleOf(element2) {
+  let style = this.styleCache.get(element2);
+  if (!style) {
+    style = safeComputedStyle(element2);
+    this.styleCache.set(element2, style);
   }
-  return child;
+  return style;
+  }
+  displayOf(element2) {
+  const display = this.styleOf(element2).display;
+  if (display) return display;
+  return BLOCK_TAGS.has(element2.tagName) ? "block" : "inline";
+  }
+  isComputedHidden(element2) {
+  if (element2 === this.host) return false;
+  const cached = this.hiddenCache.get(element2);
+  if (cached !== void 0) return cached;
+  const style = this.styleOf(element2);
+  const parent = element2.parentElement;
+  const visibility = style.visibility;
+  const ownVisibilityHidden = (visibility === "hidden" || visibility === "collapse") && (!parent || this.styleOf(parent).visibility !== visibility);
+  const hidden = style.display === "none" || ownVisibilityHidden || (parent ? this.isComputedHidden(parent) : false);
+  this.hiddenCache.set(element2, hidden);
+  return hidden;
+  }
+  dropsWhitespaceOnlyChild(parent) {
+  if (preservesWhitespace(this.styleOf(parent).whiteSpace)) return false;
+  const container = this.throughContents(parent);
+  return container !== null && isItemizedContainerDisplay(this.displayOf(container));
+  }
+  throughContents(element2) {
+  let current = element2;
+  while (current && this.displayOf(current) === "contents") current = current.parentElement;
+  return current;
+  }
+  rendersInterNodeWhitespace(previous, current) {
+  const lca = this.commonAncestorElement(previous, current);
+  if (!lca) return true;
+  const container = this.throughContents(lca);
+  if (!container) return true;
+  if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
+  const previousChild = childOnPathFrom(lca, previous);
+  const currentChild = childOnPathFrom(lca, current);
+  if (isItemizedContainerDisplay(this.displayOf(container))) {
+    return previousChild instanceof Text && currentChild instanceof Text && contiguousTextSiblings(previousChild, currentChild);
+  }
+  return this.participatesInline(previousChild) && this.participatesInline(currentChild);
+  }
+  participatesInline(node) {
+  if (!(node instanceof HTMLElement)) return true;
+  const display = this.displayOf(node);
+  return display === "inline" || display === "contents" || display.startsWith("inline-") || display.startsWith("ruby");
+  }
+  commonAncestorElement(a, b) {
+  const ancestors = new Set();
+  for (let element2 = a.parentElement; element2; element2 = element2.parentElement) ancestors.add(element2);
+  for (let element2 = b.parentElement; element2; element2 = element2.parentElement) {
+    if (ancestors.has(element2)) return element2;
+  }
+  return null;
+  }
+}
+function childOnPathFrom(ancestor, node) {
+  let current = node;
+  while (current.parentNode && current.parentNode !== ancestor) current = current.parentNode;
+  return current;
+}
+function contiguousTextSiblings(first, second) {
+  for (let sibling = first.nextSibling; sibling; sibling = sibling.nextSibling) {
+  if (sibling === second) return true;
+  if (sibling.nodeType !== Node.TEXT_NODE) return false;
+  }
+  return false;
 }
 function nonDestructiveTargetFragments(target) {
   if (isFragmentTextTarget$1(target)) return target.fragments;
@@ -5696,8 +5747,9 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+  const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   const existing = currentTextMirror(host);
-  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
+  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey) {
   const state2 = textMirrorHosts.get(host);
   if (state2) reassertTextMirrorHostStyles(host, state2);
   return;
@@ -5709,6 +5761,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.jpdbReaderTextMirror = "true";
   mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
+  mirror.dataset.whitespaceJoints = whitespaceJointsKey;
   mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
   if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
@@ -6111,9 +6164,27 @@ function styleTextMirrorHost(host, allowOverflow = true) {
 }
 function withdrawUnfitTextMirrorOverflow(host, state, mirror) {
   if (!state.overflowAdjusted) return;
-  if (mirror.scrollWidth <= mirror.clientWidth + 1) return;
+  if (mirror.dataset.yomuClipConstrained === "true") return;
+  if (!mirrorBaseTextOverflowsBox(mirror)) return;
   restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
   state.overflowAdjusted = false;
+}
+function mirrorBaseTextOverflowsBox(mirror) {
+  const readings = Array.from(mirror.querySelectorAll("rt"));
+  const saved = readings.map((rt) => ({
+  value: rt.style.getPropertyValue("display"),
+  priority: rt.style.getPropertyPriority("display")
+  }));
+  readings.forEach((rt) => rt.style.setProperty("display", "none", "important"));
+  try {
+  return mirror.scrollWidth > mirror.clientWidth + 1;
+  } finally {
+  readings.forEach((rt, index) => {
+    const { value, priority: priority2 } = saved[index] ?? { value: "", priority: "" };
+    if (value) rt.style.setProperty("display", value, priority2);
+    else rt.style.removeProperty("display");
+  });
+  }
 }
 function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
@@ -6409,14 +6480,22 @@ function removeTextMirror(host) {
   if (state) state.staleRemovalTimer = void 0;
   const owned = ownedTextMirrors(host);
   owned.forEach((mirror) => mirror.remove());
-  if (state && !owned.length) removeRelocatedTextMirrors(host);
+  if (state) removeRelocatedTextMirrors(host, owned.length === 0);
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
 }
-function removeRelocatedTextMirrors(host) {
+function removeRelocatedTextMirrors(host, pierceShadow) {
   const root = host.getRootNode();
   if (!(root instanceof Document || root instanceof ShadowRoot || root instanceof Element || root instanceof DocumentFragment)) return;
+  let removed = false;
   root.querySelectorAll(READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
+  if (textMirrorOwners.get(mirror) === host) {
+    mirror.remove();
+    removed = true;
+  }
+  });
+  if (removed || !pierceShadow) return;
+  queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
   if (textMirrorOwners.get(mirror) === host) mirror.remove();
   });
 }
