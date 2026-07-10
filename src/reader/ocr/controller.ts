@@ -20,6 +20,9 @@ import {
     isCanvasReadable,
     isManualCanvasReaderSurface,
     isReaderRasterPage,
+    mutationsMayAddReaderRasterCandidate,
+    mutationsMayRemoveReaderRasterCandidate,
+    pageHasReaderRasterCandidates,
     positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
@@ -368,6 +371,12 @@ export class ImageOcrController {
     private backgroundFrameKeys = new Map<HTMLElement, string>();
     private canvasReaderSignature?: string;
     private canvasReaderSamePageSignatureSkips = 0;
+    // Memoized "this page is provably raster-reader-free" verdict. On a page
+    // with zero raster candidates (e.g. a video site full of background-image
+    // thumbnails) every viewport shift and mutation re-arm must be O(1) — no
+    // selector sweep, no forced layout. Invalidated per navigation (href key)
+    // and by mutations that could introduce a candidate.
+    private readerRasterFreeMemo?: { href: string; free: boolean };
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
     private readonly pendingCanvasSnapshots = new WeakMap<HTMLCanvasElement, PendingCanvasSnapshot>();
@@ -428,6 +437,9 @@ export class ImageOcrController {
 
     init(): void {
         this.destroyed = false;
+        // The observer was disconnected while destroyed, so any memo from a
+        // previous boot could be stale — recompute from the current DOM.
+        this.readerRasterFreeMemo = undefined;
         const body = document.body;
         if (!body) {
             document.addEventListener('DOMContentLoaded', () => {
@@ -472,11 +484,19 @@ export class ImageOcrController {
             window.addEventListener(eventName, this.handleSpaNavigation);
         }
         this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
-        this.mutationObserver.observe(body, {
+        // Observe the root element, not <body>: an SPA that replaces <body>
+        // wholesale (or mounts media directly under <html>) delivers no records
+        // to a body-scoped observer, which would leave a stale raster-free memo
+        // trusted by every scroll/resize/refresh until navigation.
+        this.mutationObserver.observe(document.documentElement, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster', 'data-yomu-canvas-ocr'],
+            // width/height catch a canvas backing store growing to page shape
+            // (a resize mutates only those attributes); the data-* reader
+            // signals catch surfaces marked up after insertion. All feed the
+            // raster-free memo invalidation in handleRenderableMediaMutations.
+            attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster', 'width', 'height', 'data-yomu-canvas-ocr', 'data-page-index', 'data-mokuro-reader'],
         });
         this.startReaderRasterPollingIfNeeded();
     }
@@ -595,7 +615,24 @@ export class ImageOcrController {
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
         const settings = this.options.getSettings();
-        if (!ocrRuntimeActive(settings)) return;
+        if (!ocrRuntimeActive(settings)) {
+            // Master pause stays computationally inert: drop the memo with one
+            // field write instead of matching every paused batch. The resume
+            // path (refreshForModeChange -> refresh) re-censuses once, so a
+            // reader surface added while paused is still found.
+            this.readerRasterFreeMemo = undefined;
+            return;
+        }
+        // A "free" memo dies when a candidate may have been ADDED; a "not free"
+        // memo dies when one may have been REMOVED (or a canvas resized), so a
+        // transient splash/chart canvas cannot permanently disable the O(1)
+        // path — the next check re-censuses (layout-free, one-shot).
+        const memo = this.readerRasterFreeMemo;
+        if (memo && (memo.free
+            ? mutationsMayAddReaderRasterCandidate(mutations)
+            : mutationsMayRemoveReaderRasterCandidate(mutations))) {
+            this.readerRasterFreeMemo = undefined;
+        }
         const summary = summarizeRenderableMediaMutations(mutations);
         if (!summary.touched) return;
         this.schedulePosition();
@@ -614,11 +651,25 @@ export class ImageOcrController {
     }
 
     private hasReaderRasterSurfaces(): boolean {
-        return this.canvasFrames.size > 0
+        if (this.canvasFrames.size > 0
             || this.canvasPendingStatuses.size > 0
-            || this.backgroundFrames.size > 0
-            || collectCanvasReaderSurfaces().length > 0
+            || this.backgroundFrames.size > 0) return true;
+        if (this.isProvenRasterFreePage()) return false;
+        return collectCanvasReaderSurfaces().length > 0
             || collectBackgroundImageReaderSurfaces().length > 0;
+    }
+
+    // A "free" verdict is provable from layout-free facts alone and stays valid
+    // until a mutation could add a candidate (observer invalidates) or the SPA
+    // navigates (href key). A "not free" verdict just means the full sweeps must
+    // run, exactly as before the memo existed — canvas paint can change their
+    // answer without any DOM mutation, so it is never trusted beyond that.
+    private isProvenRasterFreePage(): boolean {
+        const memo = this.readerRasterFreeMemo;
+        if (memo && memo.href === location.href) return memo.free;
+        const free = !pageHasReaderRasterCandidates();
+        this.readerRasterFreeMemo = { href: location.href, free };
+        return free;
     }
 
     private hasVisibleInlineOcrFallback(settings: ReaderSettings): boolean {
@@ -662,6 +713,9 @@ export class ImageOcrController {
     }
 
     async scanVisible(): Promise<void> {
+        // An explicit user scan always re-verifies the page instead of trusting
+        // the memoized raster-free verdict.
+        this.readerRasterFreeMemo = undefined;
         const settings = this.options.getSettings();
         const retriedReaderFrames = this.retryVisibleReaderRasterFrames(settings);
         this.refresh({ userRequested: true });
@@ -1825,7 +1879,8 @@ export class ImageOcrController {
     // --- Reader raster frames (canvas readers + CSS background-image readers) ---
 
     private startReaderRasterPollingIfNeeded(): void {
-        if (this.readerRasterPoll || !isReaderRasterPage()) return;
+        if (this.readerRasterPoll) return;
+        if (this.isProvenRasterFreePage() || !isReaderRasterPage()) return;
         // Canvas redraws and CSS background page swaps emit no useful media load
         // event for us, so a light poll catches page turns and async viewer boot.
         // The per-tick work is cheap (a fingerprint + querySelectorAll); a real
@@ -1839,6 +1894,10 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
+        if (this.isProvenRasterFreePage()) {
+            this.releaseAllCanvasFrames();
+            return;
+        }
         const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
             && settings.ocrAutoScanImages
             && !userRequested;
@@ -2517,7 +2576,7 @@ export class ImageOcrController {
             this.releaseAllBackgroundFrames();
             return;
         }
-        if (!isReaderRasterPage()) {
+        if (this.isProvenRasterFreePage() || !isReaderRasterPage()) {
             this.releaseAllBackgroundFrames();
             return;
         }
