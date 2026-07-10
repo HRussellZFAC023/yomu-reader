@@ -1,7 +1,8 @@
-import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, USERSCRIPT_INSTALL_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
+import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
@@ -97,6 +98,7 @@ const NEW_TAB_STUDY_STEP_HELP_KEYS: Record<NewTabStudyChallengeStep, SettingsTex
 const DEFAULT_SETTINGS_PANEL = 'appearance';
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
     { panel: 'appearance', label: 'Appearance', active: true },
+    { panel: 'backup', label: 'Backup & sync', labelKey: 'backupSync' },
     { panel: 'api', label: 'API' },
     { panel: 'dictionaries', label: 'Sources', labelKey: 'sources' },
     { panel: 'media', label: 'Media' },
@@ -155,13 +157,13 @@ export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string
                         <div class="jpdb-reader-local-title" data-help-update-title>Version</div>
                         <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
                     </div>
-                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel('Update')}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel('Update')}</a>
                 </div>
                 <div class="jpdb-reader-help-update-meta">
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
             <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
                 <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
@@ -223,6 +225,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
             ${renderDictionariesSettingsPanel(settings)}
+            ${renderBackupSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
@@ -959,6 +962,17 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
+                <div class="jpdb-reader-help" data-import-status hidden></div>
+                <div class="jpdb-reader-help" data-help-key="backupMovedHelp">Backup, sync, and settings/dictionary import-export live in the Backup &amp; sync section.</div>
+            </fieldset>
+    `;
+}
+
+function renderBackupSettingsPanel(settings: ReaderSettings): string {
+    return `
+            <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
+                <legend>Backup &amp; sync</legend>
+                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.</div>
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
@@ -1042,6 +1056,7 @@ function renderSettingsFooter(): string {
     return `
             <div class="footer">
                 <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
+                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml(CURRENT_YOMU_VERSION)}</div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
@@ -1197,7 +1212,6 @@ const SETTINGS_ACTION_TEXT_KEYS = [
 const HELP_LINK_PANEL_TEXT_KEYS = [
     ['[data-help-update-title]', 'versionAndUpdates'],
     ['[data-help-update-current]', 'currentYomuVersion'],
-    ['[data-help-update-notes]', 'updateHelpNotes'],
     ['[data-help-anki-title]', 'ankiConnectSetupTitle'],
     ['[data-help-anki-copy]', 'ankiConnectSetupCopy'],
     ['[data-help-anki-config-copy]', 'ankiConnectSetupConfig'],
@@ -1603,8 +1617,9 @@ function localizeLookupPillsHelp(form: HTMLFormElement, text: SettingsText): voi
 }
 
 function localizeDictionaryImportHelp(form: HTMLFormElement, text: SettingsText): void {
-    const importStatus = form.querySelector<HTMLElement>('[data-import-status]');
-    if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? '')) importStatus.textContent = text('dictionaryImportHelp');
+    form.querySelectorAll<HTMLElement>('[data-import-status]').forEach(importStatus => {
+        if (/Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? '')) importStatus.textContent = text('dictionaryImportHelp');
+    });
 }
 
 function localizeSettingsActions(form: HTMLFormElement, text: SettingsText): void {
@@ -2158,6 +2173,11 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     }
     const duplicateStatus = panel.querySelector<HTMLElement>('[data-yomu-duplicate-status]');
     if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+    const updateFlow = detectYomuUpdateFlow();
+    const updateNotes = panel.querySelector<HTMLElement>('[data-help-update-notes]');
+    if (updateNotes) updateNotes.textContent = uiText(language, updateFlowNoteKey(updateFlow.kind));
+    const updateLink = panel.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]');
+    if (updateLink) updateLink.href = updateFlow.url;
 }
 
 function renderCurrentVersionElement(): HTMLElement {

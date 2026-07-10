@@ -69,11 +69,11 @@ describe('Google Drive settings sync client', () => {
         const { renderSettingsForm } = await import('../../src/reader/settings/form');
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }, 'https://jpdb.io/settings');
-        const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
+        const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
 
-        expect(sourcesPanel.querySelector('[data-cloud-settings-sync]')?.textContent).toContain('Google Drive settings sync');
-        expect(sourcesPanel.querySelector('[data-action="sync-cloud-settings"]')?.textContent).toContain('Sync to Google Drive');
-        expect(sourcesPanel.querySelector('[data-action="restore-cloud-settings"]')?.textContent).toContain('Restore from Google Drive');
+        expect(backupPanel.querySelector('[data-cloud-settings-sync]')?.textContent).toContain('Google Drive settings sync');
+        expect(backupPanel.querySelector('[data-action="sync-cloud-settings"]')?.textContent).toContain('Sync to Google Drive');
+        expect(backupPanel.querySelector('[data-action="restore-cloud-settings"]')?.textContent).toContain('Restore from Google Drive');
     });
 
     it('restores settings through the extension Google Drive bridge', async () => {

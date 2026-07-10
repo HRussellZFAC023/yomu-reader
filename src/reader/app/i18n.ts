@@ -53,6 +53,9 @@ const COPY = {
         reading: 'Reading',
         dictionaries: 'Dictionaries',
         sources: 'Sources',
+        backupSync: 'Backup & sync',
+        backupSyncHelp: 'Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.',
+        backupMovedHelp: 'Backup, sync, and settings/dictionary import-export live in the Backup & sync section.',
         media: 'Media',
         mining: 'Mining',
         shortcuts: 'Shortcuts',
@@ -833,7 +836,10 @@ const COPY = {
         updateStatusCurrent: 'Current {current}. Latest {latest}. Up to date.',
         updateStatusAvailable: 'Current {current}. Latest {latest}. Update available.',
         updateStatusUnknown: 'Current {current}. Latest check failed; reinstall if needed.',
-        updateHelpNotes: 'Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.',
+        updateStatusIncomparable: 'Current {current}. Latest {latest}. Cannot compare versions; use Update if this install is old.',
+        updateHelpNotesManager: 'Keep one Yomu script enabled. Update opens your userscript manager’s install screen. If the browser shows a blocked-install banner instead, open your extensions page, open the manager’s details, and turn on "Allow user scripts" (or Developer mode), then retry.',
+        updateHelpNotesExternalManager: 'Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.',
+        updateHelpNotesNoManager: 'No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.',
         updateUserscript: 'Update',
         duplicateStatusSingle: 'One Yomu runtime active ({kind}).',
         duplicateStatusUnknown: 'Duplicate check unavailable. If Yomu appears twice, disable the older script.',
@@ -1794,6 +1800,9 @@ hide	隠す
 appearance	外観
 reading	読解
 sources	ソース
+backupSync	バックアップと同期
+backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
+backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -2372,7 +2381,10 @@ updateStatusChecking	現在 {current}。確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。確認できません。必要なら再インストールしてください。
-updateHelpNotes	よむスクリプトは1つだけ有効にしてください。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてください。
+updateStatusIncomparable	現在 {current}。最新 {latest}。バージョンを比較できません。古い場合は「更新」を使ってください。
+updateHelpNotesManager	よむスクリプトは1つだけ有効にしてください。「更新」でユーザースクリプトマネージャーのインストール画面が開きます。ブラウザにインストールブロックの警告が出る場合は、拡張機能ページでマネージャーの詳細を開き、「ユーザースクリプトを許可」（または開発者モード）を有効にしてから再試行してください。
+updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
+updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。

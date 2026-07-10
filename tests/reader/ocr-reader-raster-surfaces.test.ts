@@ -352,6 +352,12 @@ describe('reader raster OCR surfaces', () => {
                 expect(status).not.toBeNull();
                 expect(status!.dataset.status).toBe('empty');
                 expect(status!.classList.contains('jpdb-ocr-canvas-status')).toBe(true);
+                // Dead-end fix: the empty pill must visibly advertise the retry
+                // click, not just via title/aria (Discord: BookWalker "text not
+                // detected" forced page reloads).
+                expect(status!.dataset.yomuOcrRetry).toBe('true');
+                expect(status!.textContent).toContain('No text found');
+                expect(status!.textContent).toContain('Scan again');
             });
             const contentKey = frame!.dataset.ocrContentKey!;
             const internals = controller as unknown as { cache: Map<string, OcrResult | null> };

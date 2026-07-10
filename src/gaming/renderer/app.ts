@@ -269,7 +269,7 @@ function removeGamingFooterDuplicates(form: HTMLFormElement): void {
 }
 
 function installNativeSettingsSyncSection(form: HTMLFormElement): void {
-    const panel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries');
+    const panel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup');
     if (!panel || panel.querySelector('[data-native-settings-sync]')) return;
     const section = document.createElement('div');
     section.className = 'jpdb-reader-settings-subsection';

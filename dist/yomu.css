@@ -9218,6 +9218,11 @@ html.jpdb-reader-doodle-active * {
   font: 760 11px/1.35 var(--jpdb-reader-font);
   text-align: right;
 }
+.jpdb-reader-settings-footer-version {
+  margin-right: auto;
+  color: var(--jpdb-reader-muted);
+  font: 600 11px/1.35 var(--jpdb-reader-font);
+}
 .jpdb-reader-settings .footer .jpdb-reader-btn {
   min-width: 92px;
   padding-inline: 18px;

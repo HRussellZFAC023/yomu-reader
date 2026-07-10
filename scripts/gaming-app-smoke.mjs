@@ -85,7 +85,7 @@ try {
     await page.locator('input[name="ocrEndpointUrl"]').fill(fixtureOcr.url);
     await settingsCaptureButton(page).waitFor({ timeout: 10_000 });
     step('save and restore native settings snapshot');
-    await page.locator('[data-action="settings-panel"][data-panel="dictionaries"]').click();
+    await page.locator('[data-action="settings-panel"][data-panel="backup"]').click();
     await page.locator('[data-native-settings-sync]').waitFor({ timeout: 10_000 });
     await page.locator('[data-native-settings-sync] [data-action="sync-cloud-settings"]').click();
     await page.locator('[data-gaming-shell-status]').filter({ hasText: 'Settings snapshot saved' }).waitFor({ timeout: 10_000 });
