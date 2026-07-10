@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.125] - 2026-07-10
+
+### Fixed
+
+- Collapsing a dictionary section while hovering a word no longer closes the lookup popup: it stays open when the popup resizes under the pointer, and still dismisses once you move the pointer away.
+
 ## [1.6.124] - 2026-07-10
 
 ### Fixed

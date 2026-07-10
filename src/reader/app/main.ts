@@ -470,6 +470,15 @@ const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1_500;
 // gesture before the link context menu (which we also suppress) fires.
 const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
+// Collapsing/expanding a <details> section inside a HOVER popover resizes it,
+// which can slide the popover edge out from under a STATIONARY pointer. The
+// browser then fires a spurious pointerleave (and drops :hover), and the
+// hover-close machinery would tear the popover down mid-interaction — the
+// "collapsing a section closes the popover" bug. After such a self-resize we
+// treat the hover context as still active until the pointer actually MOVES
+// (its coordinates change) or this backstop elapses, so an abandoned popover
+// still reaps instead of lingering forever.
+const HOVER_POPOVER_RESIZE_STICKY_MS = 4_000;
 const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
@@ -863,6 +872,8 @@ export class ReaderApp {
     private hoverLookupTimer?: number;
     private hoverCloseTimer?: number;
     private hoverWatchTimer?: number;
+    private hoverResizeStickyPointer?: { x: number; y: number };
+    private hoverResizeStickyExpiry = 0;
     private hoverPendingWord?: HTMLElement;
     private hoverPendingLookupKey = '';
     private hoverLookupInFlightKey = '';
@@ -3256,6 +3267,7 @@ export class ReaderApp {
         if (this.activePopoverMode !== 'hover' || !this.activePopover) return;
         window.clearTimeout(this.hoverWatchTimer);
         this.hoverWatchTimer = undefined;
+        this.clearHoverPopoverResizeSticky();
         this.hoverPopoverPointerPosition = undefined;
         this.activePopoverMode = 'modal';
         this.activeHoverWord = undefined;
@@ -4189,6 +4201,39 @@ export class ReaderApp {
         this.hoverCloseTimer = undefined;
     }
 
+    // A <details> inside the hover popover toggled, resizing the popover under a
+    // possibly-stationary pointer. Pin the current pointer position so the hover
+    // context stays "active" until the pointer genuinely moves off — see
+    // HOVER_POPOVER_RESIZE_STICKY_MS.
+    private markHoverPopoverSelfResize(): void {
+        if (this.activePopoverMode !== 'hover' || !this.activePopover || !this.lastPointerPosition) return;
+        this.hoverResizeStickyPointer = { ...this.lastPointerPosition };
+        this.hoverResizeStickyExpiry = Date.now() + HOVER_POPOVER_RESIZE_STICKY_MS;
+        // The spurious pointerleave from the resize may already have scheduled a
+        // close; drop it so the popover holds while the pointer is unmoved.
+        this.cancelHoverClose();
+    }
+
+    private isHoverPopoverResizeStickyActive(): boolean {
+        const sticky = this.hoverResizeStickyPointer;
+        if (!sticky || !this.activePopover || this.activePopoverMode !== 'hover') return false;
+        if (Date.now() > this.hoverResizeStickyExpiry) {
+            this.clearHoverPopoverResizeSticky();
+            return false;
+        }
+        const pointer = this.lastPointerPosition;
+        if (pointer && pointer.x === sticky.x && pointer.y === sticky.y) return true;
+        // The pointer actually moved — the grace is over and normal hover rules
+        // decide from here (re-hovering the popover keeps it, leaving closes it).
+        this.clearHoverPopoverResizeSticky();
+        return false;
+    }
+
+    private clearHoverPopoverResizeSticky(): void {
+        this.hoverResizeStickyPointer = undefined;
+        this.hoverResizeStickyExpiry = 0;
+    }
+
     private scheduleHoverClose(delay = this.settings.hoverCloseDelayMs, options: { ignoreCssHover?: boolean } = {}): void {
         if (this.activePopoverMode !== 'hover') return;
         this.cancelHoverClose();
@@ -4215,6 +4260,7 @@ export class ReaderApp {
     }
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
+        if (this.isHoverPopoverResizeStickyActive()) return true;
         if (this.isMiddlePressHoverContextActive()) return true;
         if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
         if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
@@ -8810,6 +8856,12 @@ export class ReaderApp {
             if (this.activeHoverWord && this.isInsideNode(event.relatedTarget as Node | null, this.activeHoverWord)) return;
             this.scheduleHoverClose(undefined, { ignoreCssHover: true });
         });
+        // <details> collapse/expand fires a non-bubbling `toggle`; a capturing
+        // listener on the popover still catches it from the section inside.
+        popover.addEventListener('toggle', event => {
+            if (this.activePopoverMode !== 'hover') return;
+            if (event.target instanceof HTMLDetailsElement) this.markHoverPopoverSelfResize();
+        }, true);
     }
 
     private startHoverWatch(): void {
@@ -8907,6 +8959,7 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverCloseTimer = undefined;
         this.hoverWatchTimer = undefined;
+        this.clearHoverPopoverResizeSticky();
         this.hoverPopoverPointerPosition = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';

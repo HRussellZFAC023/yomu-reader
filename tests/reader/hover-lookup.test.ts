@@ -2453,4 +2453,120 @@ describe('hover lookup', () => {
             }
         });
     });
+
+    describe('hover popover section collapse', () => {
+        function mountHoverPopoverWithSection(internals: HoverLookupInternals): {
+            popover: HTMLElement;
+            details: HTMLDetailsElement;
+            word: HTMLElement;
+            pageBelow: HTMLElement;
+        } {
+            const word = readerWordFixture('本を読む', '読む');
+            const popover = document.createElement('div');
+            popover.className = 'jpdb-reader-popover';
+            popover.dataset.jpdbReaderRoot = 'true';
+            popover.innerHTML = `
+                <div class="jpdb-reader-popover-body">
+                    <details class="jpdb-reader-source-card" open>
+                        <summary class="jpdb-reader-local-title">JPDB</summary>
+                        <div class="jpdb-reader-source-body">意味</div>
+                    </details>
+                </div>
+            `;
+            // Page content that ends up under the (unmoved) pointer once the section
+            // collapses and the popover shrinks upward past it.
+            const pageBelow = document.createElement('div');
+            pageBelow.textContent = 'page';
+            document.body.append(popover, pageBelow);
+            const details = popover.querySelector<HTMLDetailsElement>('details')!;
+            internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            return { popover, details, word, pageBelow };
+        }
+
+        it('keeps the hover popover open when a section collapses under a stationary pointer', () => {
+            vi.useFakeTimers();
+            const app = new ReaderApp();
+            const internals = app as unknown as HoverLookupInternals;
+            internals.settings = { ...DEFAULT_SETTINGS, hoverCloseDelayMs: 0 };
+            const { popover, details, pageBelow } = mountHoverPopoverWithSection(internals);
+            // The pointer sits over the open section; the SAME coordinate resolves to
+            // page content once the collapse shrinks the popover out from under it.
+            internals.lastPointerPosition = { x: 40, y: 24 };
+            const restorePoint = stubElementFromPoint(pageBelow);
+            const restoreStack = stubElementsFromPoint([pageBelow]);
+
+            try {
+                // Baseline: an unmoved pointer resolving outside the popover would
+                // normally end the hover context, so the popover would close.
+                expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(false);
+
+                // Collapse the section — the reported gesture. The browser then fires
+                // a spurious pointerleave at the unchanged pointer position.
+                details.open = false;
+                details.dispatchEvent(new Event('toggle'));
+                popover.dispatchEvent(hoverPointerEvent(popover, 'mouse', 'pointerleave'));
+                vi.advanceTimersByTime(300);
+
+                // The popover survives its own resize instead of vanishing.
+                expect(internals.activePopover).toBe(popover);
+                expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(true);
+            } finally {
+                restoreStack();
+                restorePoint();
+                cleanupReaderApp(app);
+                vi.useRealTimers();
+            }
+        });
+
+        it('still closes after a collapse once the pointer genuinely moves away', () => {
+            const app = new ReaderApp();
+            const internals = app as unknown as HoverLookupInternals;
+            internals.settings = { ...DEFAULT_SETTINGS, hoverCloseDelayMs: 0 };
+            const { details, pageBelow } = mountHoverPopoverWithSection(internals);
+            internals.lastPointerPosition = { x: 40, y: 24 };
+            const restorePoint = stubElementFromPoint(pageBelow);
+            const restoreStack = stubElementsFromPoint([pageBelow]);
+
+            try {
+                details.open = false;
+                details.dispatchEvent(new Event('toggle'));
+                expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(true);
+
+                // A real pointer move to empty space ends the grace, so a wedged-open
+                // popover can still close normally.
+                internals.lastPointerPosition = { x: 600, y: 500 };
+                expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(false);
+            } finally {
+                restoreStack();
+                restorePoint();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('reaps a collapse-stuck hover popover after the sticky backstop elapses', () => {
+            vi.useFakeTimers();
+            const app = new ReaderApp();
+            const internals = app as unknown as HoverLookupInternals;
+            internals.settings = { ...DEFAULT_SETTINGS, hoverCloseDelayMs: 0 };
+            const { popover, details } = mountHoverPopoverWithSection(internals);
+            internals.lastPointerPosition = { x: 40, y: 24 };
+
+            try {
+                details.open = false;
+                details.dispatchEvent(new Event('toggle'));
+                popover.dispatchEvent(hoverPointerEvent(popover, 'mouse', 'pointerleave'));
+
+                vi.advanceTimersByTime(3_000);
+                expect(internals.activePopover).toBe(popover);
+
+                // Backstop: even a perfectly stationary pointer eventually releases
+                // the popover so it cannot hang open forever.
+                vi.advanceTimersByTime(1_500);
+                expect(internals.activePopover).toBeUndefined();
+            } finally {
+                cleanupReaderApp(app);
+                vi.useRealTimers();
+            }
+        });
+    });
 });

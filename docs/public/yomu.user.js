@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.124
+// @version 1.6.125
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.124#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.124#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.124#sha256=L6iRa+8aKOdobQpFQIKZFtGHp1yaSNklS3s5YWugSJk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.124#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.124#sha256=BBuVY0QhKwDvtascb9sgCRxolvzXcSsKRVUXaxx1mKg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.124#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.124#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.125#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.125#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.125#sha256=L6iRa+8aKOdobQpFQIKZFtGHp1yaSNklS3s5YWugSJk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.125#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.125#sha256=6MQ1iJaLRHUAvvqZEAzKYlVydtjkasl0QAj5JjJpXRI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.125#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.125#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -34895,8 +34895,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.124"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.124"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.125"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.125"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35010,7 +35010,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.124"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.125"}`;
   } catch {
   return null;
   }
@@ -35877,6 +35877,7 @@ const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1500;
 const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
+const HOVER_POPOVER_RESIZE_STICKY_MS = 4e3;
 const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
@@ -36221,6 +36222,8 @@ class ReaderApp {
   hoverLookupTimer;
   hoverCloseTimer;
   hoverWatchTimer;
+  hoverResizeStickyPointer;
+  hoverResizeStickyExpiry = 0;
   hoverPendingWord;
   hoverPendingLookupKey = "";
   hoverLookupInFlightKey = "";
@@ -38109,6 +38112,7 @@ class ReaderApp {
   if (this.activePopoverMode !== "hover" || !this.activePopover) return;
   window.clearTimeout(this.hoverWatchTimer);
   this.hoverWatchTimer = void 0;
+  this.clearHoverPopoverResizeSticky();
   this.hoverPopoverPointerPosition = void 0;
   this.activePopoverMode = "modal";
   this.activeHoverWord = void 0;
@@ -38854,6 +38858,28 @@ class ReaderApp {
   window.clearTimeout(this.hoverCloseTimer);
   this.hoverCloseTimer = void 0;
   }
+  markHoverPopoverSelfResize() {
+  if (this.activePopoverMode !== "hover" || !this.activePopover || !this.lastPointerPosition) return;
+  this.hoverResizeStickyPointer = { ...this.lastPointerPosition };
+  this.hoverResizeStickyExpiry = Date.now() + HOVER_POPOVER_RESIZE_STICKY_MS;
+  this.cancelHoverClose();
+  }
+  isHoverPopoverResizeStickyActive() {
+  const sticky = this.hoverResizeStickyPointer;
+  if (!sticky || !this.activePopover || this.activePopoverMode !== "hover") return false;
+  if (Date.now() > this.hoverResizeStickyExpiry) {
+    this.clearHoverPopoverResizeSticky();
+    return false;
+  }
+  const pointer = this.lastPointerPosition;
+  if (pointer && pointer.x === sticky.x && pointer.y === sticky.y) return true;
+  this.clearHoverPopoverResizeSticky();
+  return false;
+  }
+  clearHoverPopoverResizeSticky() {
+  this.hoverResizeStickyPointer = void 0;
+  this.hoverResizeStickyExpiry = 0;
+  }
   scheduleHoverClose(delay2 = this.settings.hoverCloseDelayMs, options = {}) {
   if (this.activePopoverMode !== "hover") return;
   this.cancelHoverClose();
@@ -38877,6 +38903,7 @@ class ReaderApp {
   return Boolean(liveWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
   }
   isHoverContextActive(options = {}) {
+  if (this.isHoverPopoverResizeStickyActive()) return true;
   if (this.isMiddlePressHoverContextActive()) return true;
   if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
   if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
@@ -42402,6 +42429,10 @@ class ReaderApp {
     if (this.activeHoverWord && this.isInsideNode(event.relatedTarget, this.activeHoverWord)) return;
     this.scheduleHoverClose(void 0, { ignoreCssHover: true });
   });
+  popover.addEventListener("toggle", (event) => {
+    if (this.activePopoverMode !== "hover") return;
+    if (event.target instanceof HTMLDetailsElement) this.markHoverPopoverSelfResize();
+  }, true);
   }
   startHoverWatch() {
   window.clearTimeout(this.hoverWatchTimer);
@@ -42485,6 +42516,7 @@ class ReaderApp {
   this.hoverLookupTimer = void 0;
   this.hoverCloseTimer = void 0;
   this.hoverWatchTimer = void 0;
+  this.clearHoverPopoverResizeSticky();
   this.hoverPopoverPointerPosition = void 0;
   this.hoverPendingWord = void 0;
   this.hoverPendingLookupKey = "";
