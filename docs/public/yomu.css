@@ -10876,17 +10876,22 @@ html.jpdb-reader-doodle-active * {
    focused/hovered), never as a permanent artifact over an idle video. Keyboard
    focus and an in-flight drag keep it alive through the idle timeout. */
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:focus-visible,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:focus,
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
   opacity: .76;
+  visibility: visible;
   pointer-events: auto;
 }
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus, .jpdb-subtitle-dragging) {
   border-color: var(--jpdb-reader-accent);
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);
   opacity: 1;
+}
+.jpdb-subtitle-drag-handle:focus {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
 }
 .jpdb-subtitle-drag-handle.jpdb-subtitle-dragging {
   cursor: grabbing;
@@ -10908,9 +10913,10 @@ html.jpdb-reader-doodle-active * {
 .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable:focus-within > .jpdb-subtitle-asb-drag-handle,
 .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-dragging > .jpdb-subtitle-asb-drag-handle {
   opacity: .7;
+  visibility: visible;
   pointer-events: auto;
 }
-.asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable > .jpdb-subtitle-asb-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
+.asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable > .jpdb-subtitle-asb-drag-handle:is(:hover, :focus, .jpdb-subtitle-dragging) {
   border-color: var(--jpdb-reader-accent);
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
@@ -11470,6 +11476,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(-4px);
 }
@@ -11669,7 +11676,15 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
    always hides the rail; the chrome-lockstep tick re-reveals it whenever the
    player's own controls fade back in. */
 @media (hover: none) {
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail {
+  /* Touch browsers can retain a synthetic :hover on the handle after a drag.
+     Keep the idle control visually gone while leaving it keyboard-focusable;
+     focus still wins for a connected hardware keyboard or screen reader. */
+  .jpdb-subtitle-player.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:not(:focus):not(.jpdb-subtitle-dragging),
+  .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-controls-idle > .jpdb-subtitle-asb-drag-handle:not(:focus):not(.jpdb-subtitle-dragging) {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) {
     opacity: 0;
     pointer-events: none;
     transform: translateY(-4px);
@@ -12927,10 +12942,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-drag-handle {
     left: 50%;
     right: auto;
-    top: -32px;
-    width: 42px;
-    height: 28px;
+    top: -48px;
+    width: 44px;
+    height: 44px;
     transform: translateX(-50%);
+  }
+  .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable > .jpdb-subtitle-asb-drag-handle {
+    top: -48px;
   }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));

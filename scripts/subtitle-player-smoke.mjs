@@ -715,6 +715,90 @@ async function runLocalMobileWrapSmoke(browser) {
     }
     await page.locator('.jpdb-subtitle-panel-close').evaluate(button => button.click()).catch(() => undefined);
 
+    const handle = page.locator('[data-subtitle-drag-handle]');
+    const handleBox = await handle.boundingBox();
+    assert(handleBox, 'Mobile subtitle move handle has no drag geometry');
+    const handleX = handleBox.x + handleBox.width / 2;
+    const handleY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(handleX, handleY);
+    await page.mouse.down();
+    await page.mouse.move(handleX, handleY + 145, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(2700);
+    const displacedIdle = await readMobileSubtitleWakeState(page);
+    assert(
+        displacedIdle.subtitle.top > displacedIdle.video.bottom,
+        'Mobile subtitle was not moved wholly below the video for the wake regression',
+        displacedIdle,
+    );
+    assert(displacedIdle.idle, 'Moved mobile subtitle controls did not return to idle', displacedIdle);
+    assert(displacedIdle.handleVisibility === 'visible' && displacedIdle.handleOpacity === 0, 'Idle move handle was not visually faded while remaining keyboard-accessible', displacedIdle);
+    assert(displacedIdle.railVisibility === 'visible' && displacedIdle.railOpacity === 0, 'Idle subtitle rail was not visually faded while remaining keyboard-accessible', displacedIdle);
+    assert(displacedIdle.handlePointerEvents === 'none' && displacedIdle.railPointerEvents === 'none', 'Idle controls still intercepted pointer input', displacedIdle);
+    assert(!displacedIdle.handleFocused, 'Idle move handle retained stale focus', displacedIdle);
+
+    // Real browser coverage: unlike jsdom, Chromium/WebKit refuse to Tab to
+    // visibility:hidden controls. A test-only ordered sentinel isolates that
+    // browser behavior from WebKit's native-video shadow-control tab loop; it
+    // is removed immediately after proving the idle handle and rail are real
+    // keyboard stops.
+    await page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const handle = document.querySelector('[data-subtitle-drag-handle]');
+        const firstRailButton = document.querySelector('.jpdb-subtitle-rail button');
+        const sentinel = document.createElement('button');
+        sentinel.dataset.subtitleKeyboardSentinel = 'true';
+        sentinel.tabIndex = 1;
+        handle.tabIndex = 2;
+        firstRailButton.tabIndex = 3;
+        root.before(sentinel);
+        sentinel.focus({ preventScroll: true });
+    });
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(180);
+    const keyboardHandle = await readMobileSubtitleWakeState(page);
+    assert(keyboardHandle.handleFocused, 'Keyboard Tab could not reach the idle subtitle move handle', keyboardHandle);
+    assert(!keyboardHandle.idle, 'Keyboard focus did not wake the subtitle control cluster', keyboardHandle);
+    assert(keyboardHandle.handleOpacity > 0, 'Keyboard-focused move handle remained visually hidden', keyboardHandle);
+
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(200);
+    const keyboardRail = await readMobileSubtitleWakeState(page);
+    assert(keyboardRail.railFocused, 'Keyboard Tab could not continue from the move handle into the subtitle rail', keyboardRail);
+    assert(keyboardRail.railOpacity > 0, 'Keyboard-focused subtitle rail remained visually hidden', keyboardRail);
+
+    await page.locator('video').evaluate(video => {
+        document.querySelector('[data-subtitle-keyboard-sentinel]')?.remove();
+        document.querySelector('[data-subtitle-drag-handle]')?.removeAttribute('tabindex');
+        document.querySelector('.jpdb-subtitle-rail button')?.removeAttribute('tabindex');
+        video.controls = true;
+        video.focus({ preventScroll: true });
+    });
+    await page.waitForTimeout(2700);
+    const keyboardBlurred = await readMobileSubtitleWakeState(page);
+    assert(keyboardBlurred.idle, 'Subtitle controls did not return to idle after keyboard focus left', keyboardBlurred);
+    assert(keyboardBlurred.handleOpacity === 0 && keyboardBlurred.railOpacity === 0, 'Subtitle controls stayed painted after keyboard focus left', keyboardBlurred);
+
+    await page.touchscreen.tap(
+        displacedIdle.subtitle.left + displacedIdle.subtitle.width / 2,
+        displacedIdle.subtitle.top + displacedIdle.subtitle.height / 2,
+    );
+    await page.waitForTimeout(80);
+    const displacedTapped = await readMobileSubtitleWakeState(page);
+    assert(!displacedTapped.idle, 'Tapping a subtitle below the video did not reveal its controls', displacedTapped);
+    assert(displacedTapped.handleVisibility === 'visible', 'Tapping a moved subtitle did not reveal its move handle', displacedTapped);
+    assert(displacedTapped.railVisibility === 'visible', 'Tapping a moved subtitle did not reveal its control rail', displacedTapped);
+    assert(displacedTapped.handleWidth >= 44 && displacedTapped.handleHeight >= 44, 'Revealed mobile move handle is smaller than 44px', displacedTapped);
+    assert(displacedTapped.handleLabel.includes('Page Up/Page Down'), 'Move handle lacks screen-reader keyboard instructions', displacedTapped);
+    assert(displacedTapped.handleShortcuts === 'ArrowUp ArrowDown PageUp PageDown Home 0', 'Move handle keyboard shortcuts are not exposed', displacedTapped);
+
+    await page.waitForTimeout(2700);
+    const displacedReIdle = await readMobileSubtitleWakeState(page);
+    assert(displacedReIdle.idle, 'Tapped subtitle controls did not return to idle', displacedReIdle);
+    assert(displacedReIdle.handleOpacity === 0, 'Tapped move handle stayed painted after the idle delay', displacedReIdle);
+    assert(displacedReIdle.railOpacity === 0, 'Tapped subtitle rail stayed painted after the idle delay', displacedReIdle);
+    const wakeAccessibility = { displacedIdle, keyboardHandle, keyboardRail, keyboardBlurred, displacedTapped, displacedReIdle };
+
     await page.evaluate(() => {
         const shell = document.createElement('ytm-app');
         const sheet = document.createElement('bottom-sheet-container');
@@ -730,7 +814,40 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(sheetState.railDisplay === 'none', 'Mobile YouTube bottom sheet did not hide subtitle rail', sheetState);
 
     await page.close();
-    return { ...wrap, controls, sheetState };
+    return { ...wrap, controls, wakeAccessibility, sheetState };
+}
+
+async function readMobileSubtitleWakeState(page) {
+    return page.evaluate(() => {
+        const video = document.querySelector('video');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const subtitle = document.querySelector('.jpdb-subtitle-text');
+        const handle = document.querySelector('[data-subtitle-drag-handle]');
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const handleStyle = handle ? getComputedStyle(handle) : null;
+        const railStyle = rail ? getComputedStyle(rail) : null;
+        const handleRect = handle?.getBoundingClientRect();
+        return {
+            video: video?.getBoundingClientRect().toJSON() ?? null,
+            subtitle: subtitle?.getBoundingClientRect().toJSON() ?? null,
+            idle: root?.classList.contains('jpdb-subtitle-controls-idle') ?? false,
+            handleVisibility: handleStyle?.visibility ?? '',
+            railVisibility: railStyle?.visibility ?? '',
+            handleOpacity: Number(handleStyle?.opacity ?? 0),
+            railOpacity: Number(railStyle?.opacity ?? 0),
+            handlePointerEvents: handleStyle?.pointerEvents ?? '',
+            railPointerEvents: railStyle?.pointerEvents ?? '',
+            handleFocused: document.activeElement === handle,
+            railFocused: Boolean(rail?.contains(document.activeElement)),
+            focusedAction: document.activeElement?.getAttribute?.('data-action') ?? '',
+            focusedTag: document.activeElement?.tagName ?? '',
+            focusedClass: document.activeElement?.getAttribute?.('class') ?? '',
+            handleWidth: handleRect?.width ?? 0,
+            handleHeight: handleRect?.height ?? 0,
+            handleLabel: handle?.getAttribute('aria-label') ?? '',
+            handleShortcuts: handle?.getAttribute('aria-keyshortcuts') ?? '',
+        };
+    });
 }
 
 async function readPrimarySubtitleWrap(page) {

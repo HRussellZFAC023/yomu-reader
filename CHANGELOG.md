@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.117] - 2026-07-10
+## [1.6.118] - 2026-07-10
 
 ### Fixed
 
@@ -16,6 +16,16 @@
 ### Added
 
 - Hardened the release pipeline so the live site and stylesheet deploy can no longer be silently skipped by a release push.
+
+## [1.6.117] - 2026-07-10
+
+### Fixed
+
+- Tapping or moving the pointer over the subtitle line now reveals its compact controls and move handle even after the line has been dragged below the video. Blank subtitle space acts as the video focus surface instead of activating links or buttons underneath it. The reveal works while YouTube's own chrome is hidden and still hides after a short idle delay instead of becoming permanent.
+
+### Improved
+
+- The subtitle move handle now has a 44 × 44 px mobile touch target, an explicit keyboard focus ring, and screen-reader instructions for its drag, arrow/Page Up/Page Down, and reset controls. Idle controls stay out of sight without becoming keyboard- or screen-reader-inaccessible: tabbing to the move handle or rail reveals it immediately, deliberate hardware-keyboard focus stays visible on touch devices, and the controls fade again after focus leaves.
 
 ## [1.6.116] - 2026-07-10
 
