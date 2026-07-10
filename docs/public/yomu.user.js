@@ -5666,9 +5666,10 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
   const clipRow = closestRubyFragileConstrainedRow(host);
   if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
-  const state = styleTextMirrorHost(host, hasRenderedRuby);
+  const mirrorRubyLayout = hasRenderedRuby && !clipRow;
+  const state = styleTextMirrorHost(host, mirrorRubyLayout);
   try {
-  styleTextMirror(mirror, host, hasRenderedRuby);
+  styleTextMirror(mirror, host, mirrorRubyLayout);
   if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
   mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
     parent: host,
@@ -7714,6 +7715,7 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   if (!word.querySelector("rt")) continue;
   const decoration = decorationStateForWord(word);
   if (decoration === "interactive-passive" || decoration === "skip") continue;
+  if (word.closest('[data-yomu-clip-constrained="true"]')) continue;
   const mirror = word.closest(".jpdb-reader-text-mirror");
   for (const box of cropCapableBoxes(word.parentElement, mirror)) {
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
