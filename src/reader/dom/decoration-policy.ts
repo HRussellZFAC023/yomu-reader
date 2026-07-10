@@ -208,6 +208,32 @@ export function isClipConstrainedRow(element: HTMLElement): boolean {
     return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
 }
 
+// POLICY AMENDMENT (owner directive 2026-07-11, Google-search evidence): a
+// clip-constrained row whose words classify as CONTENT (content-ruby /
+// prose-full) keeps furigana AT REST when the row can grow naturally in flow.
+// Google line-clamps ordinary prose snippets; hiding readings at rest there
+// turned body text into hover-only furigana. Deterministic facts:
+//   - the decoration state must be content (interactive/chrome rows stay
+//     hover-only — the banned class-A growth surface);
+//   - the row must have NO definite height/max-height clip: a line-clamp or
+//     ellipsis row with auto height grows in flow when the ruby line box gets
+//     taller (pre-1.6.118 Google behavior — correct), while a fixed-height
+//     clip would cut in-flow readings mid-glyph and stays rest-hidden.
+// Growth here is pure in-flow line-height — no geometry writes of any kind.
+// Scope: the IN-PLACE render channel only. Mirror-channel clip rows (YouTube
+// feed/watch tiles) keep the paint-invariant hover-only overlay by channel
+// fact — the mirror is out-of-flow, so "grow naturally" cannot apply to it.
+export function contentClipRowShowsRestReadings(
+    decoration: DecorationState | undefined,
+    clipRow: HTMLElement,
+): boolean {
+    if (decoration !== 'content-ruby' && decoration !== 'prose-full') return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow) return false;
+    const style = safeComputedStyle(clipRow);
+    return !hasDefiniteCssSize(style.height) && !hasDefiniteCssSize(style.maxHeight);
+}
+
 // The mirror replaces the HOST's rendering (visibility:hidden), so routing a
 // constrained row through it is only safe when the host paints nothing of its
 // own: a pill chip's background/border, a nav row's chevron SVG, or a ::before

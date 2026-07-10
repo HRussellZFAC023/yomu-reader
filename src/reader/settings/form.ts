@@ -539,6 +539,11 @@ const WORD_COLOR_STATE_OPTIONS: Array<[ReaderSettings['wordColorStates'], string
     ['new-only', 'Only new / not-in-deck words'],
 ];
 
+const CLAMPED_ROW_READINGS_OPTIONS: Array<[ReaderSettings['clampedRowReadings'], string]> = [
+    ['show', 'Show (row grows)'],
+    ['hover', 'Hover only'],
+];
+
 function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): string {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS
@@ -764,6 +769,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     </div>
                     ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
                     ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
+                    ${select('clampedRowReadings', 'Readings on clamped rows', settings.clampedRowReadings, CLAMPED_ROW_READINGS_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${renderWordColorHiddenStateGroupControls(settings)}
@@ -1418,6 +1424,10 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
         ['all', text('wordColorStatesAll')],
         ['new-only', text('wordColorStatesNewOnly')],
     ]);
+    setSelectOptionLabels(form, 'clampedRowReadings', [
+        ['show', text('clampedRowReadingsShow')],
+        ['hover', text('clampedRowReadingsHover')],
+    ]);
     setSelectOptionLabels(form, 'furiganaMode', [
         ['auto', text('automatic')],
         ['known-status', text('furiganaHideKnown')],
@@ -1917,7 +1927,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',

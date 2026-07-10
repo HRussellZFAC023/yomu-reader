@@ -52,6 +52,7 @@ const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 // Frame budget for cooperative target collection (perf item 4).
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = 'data-yomu-furigana-mode';
+const CLAMPED_ROW_READINGS_ATTRIBUTE = 'data-yomu-clamped-readings';
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
@@ -552,11 +553,23 @@ export class VisiblePageScanner {
     private syncPageFuriganaMode(): void {
         if (typeof document === 'undefined') return;
         const settings = this.dependencies.getSettings();
+        this.syncClampedRowReadingsMode(settings);
         if (settings.showFurigana && settings.furiganaMode === 'all') {
             document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
             return;
         }
         this.clearPageFuriganaMode();
+    }
+
+    // Owner amendment 2026-07-11: content clip rows show readings at rest by
+    // default; the hover-only preference re-hides them via this root stamp
+    // (the CSS keys on it, so flipping the setting needs no re-render).
+    private syncClampedRowReadingsMode(settings: ReaderSettings): void {
+        if (settings.clampedRowReadings === 'hover') {
+            document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
+            return;
+        }
+        document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
     }
 
     private clearPageFuriganaMode(): void {

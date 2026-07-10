@@ -12,6 +12,7 @@ import {
     boxStyleIsClipCapable,
     classifyDecoration,
     closestRubyFragileConstrainedRow,
+    contentClipRowShowsRestReadings,
     isClipConstrainedRow,
     decorationStateForWord,
     decorationSuppressesRuby,
@@ -3593,9 +3594,17 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // clip row is stamped so CSS hides rt at rest — in-place ruby in a
     // clipped/clamped row otherwise paints outside the row bounds on live
     // pages (tenki/bookwalker/amazon sweep regressions).
+    // POLICY AMENDMENT (owner 2026-07-11): CONTENT rows that can grow in flow
+    // (Google's line-clamped prose snippets) stamp "content" instead — their
+    // readings stay visible at rest by default, re-hidden only under the
+    // opt-in hover-only root mode (data-yomu-clamped-readings="hover").
     if (!renderTarget.suppressRuby) {
         const clipRow = closestRubyFragileConstrainedRow(target.parent);
-        if (clipRow) clipRow.dataset.yomuClipConstrained = 'true';
+        if (clipRow) {
+            clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow)
+                ? 'content'
+                : 'true';
+        }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
