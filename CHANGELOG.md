@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.117] - 2026-07-10
+
+### Fixed
+
+- Tapping or moving the pointer over the subtitle line now reveals its compact controls and move handle even after the line has been dragged below the video. Blank subtitle space acts as the video focus surface instead of activating links or buttons underneath it. The reveal works while YouTube's own chrome is hidden and still hides after a short idle delay instead of becoming permanent.
+
+### Improved
+
+- The subtitle move handle now has a 44 × 44 px mobile touch target, an explicit keyboard focus ring, and screen-reader instructions for its drag, arrow/Page Up/Page Down, and reset controls. Idle controls are removed from keyboard and screen-reader navigation until the video or subtitle surface reveals them, avoiding invisible focus targets, while deliberate hardware-keyboard focus stays visible on touch devices and resumes auto-hide after focus leaves.
+
 ## [1.6.116] - 2026-07-10
 
 ### Fixed

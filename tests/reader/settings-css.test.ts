@@ -98,7 +98,7 @@ describe('settings CSS', () => {
     it('lets subtitle rails idle while the transcript panel is open', () => {
         const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
 
-        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-4px); }');
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-rail:hover, .jpdb-subtitle-style-open .jpdb-subtitle-rail { opacity: 1; }');
         expect(normalizedSubtitlesCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open)');
         expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');

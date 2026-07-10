@@ -2098,6 +2098,7 @@
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
+      moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -3494,6 +3495,7 @@ subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
+moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
 right	右
 left	左
 bottom	下
@@ -40188,7 +40190,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.116".trim() ? "1.6.116".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.117".trim() ? "1.6.117".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -52633,6 +52635,11 @@ ${spelling}`);
     pointerActivityFrame;
     pendingPointerActivity;
     controlsIdleTimer;
+    // A subtitle line can be positioned outside the video frame. Activity on
+    // that displaced line must briefly own control visibility even while the
+    // host player's chrome remains autohidden (notably on touch devices).
+    subtitleSurfaceWakeActive = false;
+    lastControlsInputWasKeyboard = false;
     transcriptHydrationSerial = 0;
     transcriptCacheWarmupSerial = 0;
     transcriptCacheWarmupSignature = "";
@@ -52817,9 +52824,12 @@ ${spelling}`);
         subtree: true
       });
       document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions({ capture: true }));
+      document.addEventListener("focusout", (event) => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
+      document.addEventListener("pointerdown", (event) => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
+      document.addEventListener("click", (event) => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
-      document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
+      document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true, capture: true }));
       window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
       window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, (event) => this.loadSubtitleFilesFromHost(event), this.eventOptions());
       for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
@@ -52970,10 +52980,11 @@ ${spelling}`);
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
+      const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
       const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
       const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
-            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
                 ${ocrButton}
@@ -53511,7 +53522,7 @@ ${spelling}`);
       const chromeHidden = this.videoPlayerChromeHidden();
       if (chromeHidden) {
         this.blurFocusedRailControl();
-        if (this.shouldAutoIdleControls()) this.hideControlsImmediately();
+        if (this.shouldAutoIdleControls() && !this.subtitleSurfaceWakeActive) this.hideControlsImmediately();
       } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
         this.showControlsTemporarily();
       }
@@ -53537,6 +53548,7 @@ ${spelling}`);
       this.root.style.setProperty("--jpdb-subtitle-native-top-inset", `${inset}px`);
     }
     blurFocusedRailControl() {
+      if (this.lastControlsInputWasKeyboard) return;
       const active = document.activeElement;
       if (active instanceof HTMLElement && this.root?.contains(active) && active.closest(".jpdb-subtitle-rail")) {
         active.blur();
@@ -54844,7 +54856,42 @@ ${spelling}`);
       this.closePanelOptionsMenu();
       this.syncPointerActivity(event.clientX, event.clientY);
     }
+    wakeControlsFromSubtitleSurface(event) {
+      this.lastControlsInputWasKeyboard = false;
+      if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+    }
+    handleSubtitleSurfaceClick(event) {
+      if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+      const target = event.target instanceof Element ? event.target : null;
+      const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
+      if (hitSubtitleContent) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const player = this.video?.closest("#movie_player, .html5-video-player");
+      const focusTarget = player?.hasAttribute("tabindex") ? player : this.video;
+      focusTarget?.focus({ preventScroll: true });
+    }
+    handleSubtitleUiFocusOut(event) {
+      const previous = event.target instanceof Element ? event.target : null;
+      if (!previous || !this.isInSubtitleUi(previous)) return;
+      const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+      if (next && this.isInSubtitleUi(next)) return;
+      const signal = this.abortController?.signal;
+      queueMicrotask(() => {
+        if (this.destroyed || signal?.aborted) return;
+        if (!this.hasActiveSubtitleUi()) this.scheduleControlsIdle();
+      });
+    }
+    isInSubtitleUi(element) {
+      return Boolean(this.root?.contains(element) || this.asbPlayerSubtitleMoveRoots().some((root) => root.contains(element)));
+    }
     syncPointerActivity(clientX, clientY) {
+      if (this.pointInVisibleSubtitleSurface(clientX, clientY)) {
+        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+        return;
+      }
       if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
         this.showControlsTemporarily();
       } else {
@@ -55171,6 +55218,7 @@ ${spelling}`);
     ensureAsbPlayerSubtitleMoveHandle(root, settings) {
       let handle = Array.from(root.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR)).find((candidate) => candidate.parentElement === root);
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
+      const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
       if (!handle) {
         handle = document.createElement("button");
         handle.type = "button";
@@ -55182,7 +55230,8 @@ ${spelling}`);
         root.appendChild(handle);
       }
       handle.title = moveLabel;
-      handle.setAttribute("aria-label", moveLabel);
+      handle.setAttribute("aria-label", moveAccessibleLabel);
+      handle.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown PageUp PageDown Home 0");
       if (this.asbSubtitleDragHandles.has(handle)) return;
       handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
       handle.addEventListener("mousedown", (event) => this.startSubtitleMouseDrag(event), this.eventOptions());
@@ -55207,8 +55256,9 @@ ${spelling}`);
       root.style.removeProperty("--jpdb-subtitle-asb-base-transform");
       this.asbSubtitleBaseTransforms.delete(root);
     }
-    showControlsTemporarily() {
+    showControlsTemporarily(options = {}) {
       if (!this.root) return;
+      this.subtitleSurfaceWakeActive = options.independentOfPlayerChrome === true && this.hasAutoIdleMode(this.options.getSettings());
       this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
@@ -55220,15 +55270,18 @@ ${spelling}`);
     }
     hideControlsImmediately() {
       this.clearControlsIdleTimer();
+      this.subtitleSurfaceWakeActive = false;
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
       this.syncAsbPlayerSubtitleMoveHandles();
     }
     scheduleControlsIdle() {
       this.clearControlsIdleTimer();
-      if (!this.shouldAutoIdleControls()) return;
+      const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive && this.hasAutoIdleMode(this.options.getSettings());
+      if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
       this.controlsIdleTimer = window.setTimeout(() => {
         this.controlsIdleTimer = void 0;
+        this.subtitleSurfaceWakeActive = false;
         this.hideControlsImmediately();
       }, SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS);
     }
@@ -55249,7 +55302,8 @@ ${spelling}`);
       return this.hasSubtitleIdleSurface();
     }
     hasActiveSubtitleUi() {
-      return Boolean(this.root?.matches(":focus-within"));
+      const active = document.activeElement;
+      return Boolean(this.root?.matches(":focus-within") || this.asbMoveHandlesActive && active instanceof Element && active.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR));
     }
     hasSubtitleIdleSurface() {
       return Boolean(this.video || this.cues.length || this.currentCue?.text);
@@ -55266,6 +55320,12 @@ ${spelling}`);
       if (this.videoPlayerChromeHidden()) return false;
       return pointInRect(x2, y, this.videoLayoutRect());
     }
+    pointInVisibleSubtitleSurface(x2, y) {
+      const yomuLineVisible = Boolean(this.root && !this.root.hidden && this.root.classList.contains("jpdb-subtitle-has-lines") && !this.root.classList.contains("jpdb-subtitle-hidden") && !this.root.classList.contains("jpdb-subtitle-video-out-of-view"));
+      if (yomuLineVisible && this.pointInElement(this.root?.querySelector(".jpdb-subtitle-text") ?? null, x2, y)) return true;
+      if (!this.asbMoveHandlesActive) return false;
+      return this.asbPlayerSubtitleMoveRoots().some((root) => this.pointInElement(root, x2, y));
+    }
     videoPlayerChromeHidden() {
       const mobileOverlay = document.querySelector("#player-control-overlay");
       if (mobileOverlay) return !mobileOverlay.classList.contains("fadein");
@@ -55281,6 +55341,7 @@ ${spelling}`);
       return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
     }
     handleKeydown(event) {
+      this.lastControlsInputWasKeyboard = true;
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       if (isEditableTarget(event.target)) return;

@@ -16743,6 +16743,7 @@ html.jpdb-reader-doodle-active * {
   box-shadow: none;
   cursor: grab;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateX(-50%);
   transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease, background 120ms ease;
@@ -16766,6 +16767,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:focus-visible,
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
   opacity: .76;
+  visibility: visible;
   pointer-events: auto;
 }
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
@@ -16774,6 +16776,10 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-text);
   box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);
   opacity: 1;
+}
+.jpdb-subtitle-drag-handle:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
 }
 .jpdb-subtitle-drag-handle.jpdb-subtitle-dragging {
   cursor: grabbing;
@@ -16795,6 +16801,7 @@ html.jpdb-reader-doodle-active * {
 .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable:focus-within > .jpdb-subtitle-asb-drag-handle,
 .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-dragging > .jpdb-subtitle-asb-drag-handle {
   opacity: .7;
+  visibility: visible;
   pointer-events: auto;
 }
 .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable > .jpdb-subtitle-asb-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
@@ -17357,12 +17364,14 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(-4px);
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
 .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(-4px);
 }
@@ -17558,6 +17567,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 @media (hover: none) {
   .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transform: translateY(-4px);
   }
@@ -18814,10 +18824,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-drag-handle {
     left: 50%;
     right: auto;
-    top: -32px;
-    width: 42px;
-    height: 28px;
+    top: -48px;
+    width: 44px;
+    height: 44px;
     transform: translateX(-50%);
+  }
+  .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable > .jpdb-subtitle-asb-drag-handle {
+    top: -48px;
   }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));

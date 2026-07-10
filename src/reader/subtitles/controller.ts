@@ -1049,6 +1049,11 @@ export class SubtitlePlayerController {
     private pointerActivityFrame?: number;
     private pendingPointerActivity?: { x: number; y: number };
     private controlsIdleTimer?: number;
+    // A subtitle line can be positioned outside the video frame. Activity on
+    // that displaced line must briefly own control visibility even while the
+    // host player's chrome remains autohidden (notably on touch devices).
+    private subtitleSurfaceWakeActive = false;
+    private lastControlsInputWasKeyboard = false;
     private transcriptHydrationSerial = 0;
     private transcriptCacheWarmupSerial = 0;
     private transcriptCacheWarmupSignature = '';
@@ -1223,9 +1228,16 @@ export class SubtitlePlayerController {
         // event entirely. handleKeydown only preventDefaults on a configured
         // shortcut match, so unmatched keys pass through untouched.
         document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions({ capture: true }));
+        document.addEventListener('focusout', event => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
+        // Reader-word handlers may stop pointerdown propagation for lookup.
+        // Observe the subtitle rectangle first so tapping any part of a moved
+        // line still wakes its controls without intercepting the underlying
+        // video click or the word interaction.
+        document.addEventListener('pointerdown', event => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
+        document.addEventListener('click', event => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
-        document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
+        document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true, capture: true }));
         window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
         window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, event => this.loadSubtitleFilesFromHost(event), this.eventOptions());
         for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
@@ -1399,12 +1411,13 @@ export class SubtitlePlayerController {
         const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
+        const moveAccessibleLabel = uiText(settings.interfaceLanguage, 'moveSubtitlesAccessible');
         const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
         const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
             ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : ''}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`
             : '';
         setInnerHtml(root, `
-            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
                 ${ocrButton}
@@ -2036,7 +2049,7 @@ export class SubtitlePlayerController {
             // Mobile taps leave the last rail button focused, which would
             // otherwise block idling forever via :focus-within.
             this.blurFocusedRailControl();
-            if (this.shouldAutoIdleControls()) this.hideControlsImmediately();
+            if (this.shouldAutoIdleControls() && !this.subtitleSurfaceWakeActive) this.hideControlsImmediately();
         } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
             // Chrome just re-appeared (e.g. the viewer tapped the video):
             // re-reveal the rail alongside the player's own controls.
@@ -2066,6 +2079,11 @@ export class SubtitlePlayerController {
     }
 
     private blurFocusedRailControl(): void {
+        // Touch browsers can leave a clicked control focused after their chrome
+        // fades, but a hardware-keyboard user deliberately tabbed there. Only
+        // clear the former; preserving real keyboard focus keeps the control
+        // visible and prevents focus from disappearing into an idle surface.
+        if (this.lastControlsInputWasKeyboard) return;
         const active = document.activeElement;
         if (active instanceof HTMLElement && this.root?.contains(active) && active.closest('.jpdb-subtitle-rail')) {
             active.blur();
@@ -3651,7 +3669,55 @@ export class SubtitlePlayerController {
         this.syncPointerActivity(event.clientX, event.clientY);
     }
 
+    private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
+        this.lastControlsInputWasKeyboard = false;
+        if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+    }
+
+    private handleSubtitleSurfaceClick(event: MouseEvent): void {
+        if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+        const target = event.target instanceof Element ? event.target : null;
+        const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
+        if (hitSubtitleContent) return;
+        // The subtitle frame itself intentionally has pointer-events:none so
+        // annotated words remain the only painted hit targets. Once the line
+        // is moved outside the player, however, blank space in that frame can
+        // sit over links or buttons. Treat that rectangle as the player's
+        // focus surface and never leak the resulting click to the page below.
+        event.preventDefault();
+        event.stopPropagation();
+        const player = this.video?.closest<HTMLElement>('#movie_player, .html5-video-player');
+        const focusTarget = player?.hasAttribute('tabindex') ? player : this.video;
+        focusTarget?.focus({ preventScroll: true });
+    }
+
+    private handleSubtitleUiFocusOut(event: FocusEvent): void {
+        const previous = event.target instanceof Element ? event.target : null;
+        if (!previous || !this.isInSubtitleUi(previous)) return;
+        const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+        if (next && this.isInSubtitleUi(next)) return;
+        // focusout fires during the focus transfer. Re-check in a microtask so
+        // :focus-within reflects the destination before deciding to restart
+        // the normal idle countdown.
+        const signal = this.abortController?.signal;
+        queueMicrotask(() => {
+            if (this.destroyed || signal?.aborted) return;
+            if (!this.hasActiveSubtitleUi()) this.scheduleControlsIdle();
+        });
+    }
+
+    private isInSubtitleUi(element: Element): boolean {
+        return Boolean(this.root?.contains(element)
+            || this.asbPlayerSubtitleMoveRoots().some(root => root.contains(element)));
+    }
+
     private syncPointerActivity(clientX: number, clientY: number): void {
+        if (this.pointInVisibleSubtitleSurface(clientX, clientY)) {
+            this.showControlsTemporarily({ independentOfPlayerChrome: true });
+            return;
+        }
         if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
             this.showControlsTemporarily();
         } else {
@@ -4039,6 +4105,7 @@ export class SubtitlePlayerController {
         let handle = Array.from(root.querySelectorAll<HTMLButtonElement>(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))
             .find(candidate => candidate.parentElement === root);
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
+        const moveAccessibleLabel = uiText(settings.interfaceLanguage, 'moveSubtitlesAccessible');
         if (!handle) {
             handle = document.createElement('button');
             handle.type = 'button';
@@ -4050,7 +4117,8 @@ export class SubtitlePlayerController {
             root.appendChild(handle);
         }
         handle.title = moveLabel;
-        handle.setAttribute('aria-label', moveLabel);
+        handle.setAttribute('aria-label', moveAccessibleLabel);
+        handle.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown PageUp PageDown Home 0');
         if (this.asbSubtitleDragHandles.has(handle)) return;
         handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
         handle.addEventListener('mousedown', event => this.startSubtitleMouseDrag(event), this.eventOptions());
@@ -4079,8 +4147,10 @@ export class SubtitlePlayerController {
         this.asbSubtitleBaseTransforms.delete(root);
     }
 
-    private showControlsTemporarily(): void {
+    private showControlsTemporarily(options: { independentOfPlayerChrome?: boolean } = {}): void {
         if (!this.root) return;
+        this.subtitleSurfaceWakeActive = options.independentOfPlayerChrome === true
+            && this.hasAutoIdleMode(this.options.getSettings());
         this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.syncAsbPlayerSubtitleMoveHandles();
         this.scheduleControlsIdle();
@@ -4094,6 +4164,7 @@ export class SubtitlePlayerController {
 
     private hideControlsImmediately(): void {
         this.clearControlsIdleTimer();
+        this.subtitleSurfaceWakeActive = false;
         if (!this.root || !this.shouldAutoIdleControls()) return;
         this.root.classList.add('jpdb-subtitle-controls-idle');
         this.syncAsbPlayerSubtitleMoveHandles();
@@ -4101,9 +4172,12 @@ export class SubtitlePlayerController {
 
     private scheduleControlsIdle(): void {
         this.clearControlsIdleTimer();
-        if (!this.shouldAutoIdleControls()) return;
+        const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive
+            && this.hasAutoIdleMode(this.options.getSettings());
+        if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
         this.controlsIdleTimer = window.setTimeout(() => {
             this.controlsIdleTimer = undefined;
+            this.subtitleSurfaceWakeActive = false;
             this.hideControlsImmediately();
         }, SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS);
     }
@@ -4129,7 +4203,11 @@ export class SubtitlePlayerController {
     }
 
     private hasActiveSubtitleUi(): boolean {
-        return Boolean(this.root?.matches(':focus-within'));
+        const active = document.activeElement;
+        return Boolean(this.root?.matches(':focus-within')
+            || (this.asbMoveHandlesActive
+                && active instanceof Element
+                && active.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR)));
     }
 
     private hasSubtitleIdleSurface(): boolean {
@@ -4148,6 +4226,17 @@ export class SubtitlePlayerController {
         if (!this.video) return true;
         if (this.videoPlayerChromeHidden()) return false;
         return pointInRect(x, y, this.videoLayoutRect());
+    }
+
+    private pointInVisibleSubtitleSurface(x: number, y: number): boolean {
+        const yomuLineVisible = Boolean(this.root
+            && !this.root.hidden
+            && this.root.classList.contains('jpdb-subtitle-has-lines')
+            && !this.root.classList.contains('jpdb-subtitle-hidden')
+            && !this.root.classList.contains('jpdb-subtitle-video-out-of-view'));
+        if (yomuLineVisible && this.pointInElement(this.root?.querySelector('.jpdb-subtitle-text') ?? null, x, y)) return true;
+        if (!this.asbMoveHandlesActive) return false;
+        return this.asbPlayerSubtitleMoveRoots().some(root => this.pointInElement(root, x, y));
     }
 
     private videoPlayerChromeHidden(): boolean {
@@ -4175,6 +4264,7 @@ export class SubtitlePlayerController {
     }
 
     private handleKeydown(event: KeyboardEvent): void {
+        this.lastControlsInputWasKeyboard = true;
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
         if (isEditableTarget(event.target)) return;
