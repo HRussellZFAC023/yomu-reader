@@ -841,7 +841,13 @@ export function interactivePassiveControl(element: Element): HTMLElement | null 
 function isMediaTextContentControl(control: HTMLElement): boolean {
     if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
     if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-    return linkHasControlMedia(control) && compactLength(control.textContent ?? '') > 2;
+    // REAL media only (thumbnail/avatar imagery). linkHasControlMedia also
+    // matches svg/icon-class glyphs, but an icon is how CONTROLS decorate
+    // themselves — a dropdown trigger's caret (comments 並べ替え sort button)
+    // must not upgrade the control to content-with-ruby, which re-opened
+    // class-A growth on the comments header (gate-3 stray-growth flag).
+    return Boolean(safeQuerySelector(control, 'img,picture,video,canvas'))
+        && compactLength(control.textContent ?? '') > 2;
 }
 
 export function classifyDecoration(element: Element): DecorationState {
