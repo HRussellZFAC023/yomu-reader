@@ -804,22 +804,32 @@ function interactivePassiveControl(element2) {
   return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
 }
 function isCompactTemporalMetadata(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  if (!HAS_JAPANESE$1.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-  const height = element2.getBoundingClientRect().height;
-  return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+  return isCompactMetadataElement(element2);
 }
 const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
 const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
 function isCompactLinkedCardMetadata(link, element2) {
   const textElement = element2 instanceof HTMLElement ? element2 : element2.parentElement;
-  if (!textElement || textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
+  return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
+}
+function isLinkedCardMetadataElement(link, textElement) {
+  if (textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
   const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
-  if (!heading || heading.contains(textElement) || isLikelyProseElement(textElement)) return false;
-  const text2 = textElement.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  if (!HAS_JAPANESE$1.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-  const height = textElement.getBoundingClientRect().height;
-  return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+  if (!heading) return false;
+  return [
+  !heading.contains(textElement),
+  !isLikelyProseElement(textElement),
+  isCompactMetadataElement(textElement)
+  ].every(Boolean);
+}
+function isCompactMetadataElement(element2) {
+  const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  const height = element2.getBoundingClientRect().height;
+  return [
+  HAS_JAPANESE$1.test(text2),
+  compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+  height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
+  ].every(Boolean);
 }
 function isMediaTextContentControl(control) {
   if (!safeElementMatches$1(control, 'a[href],[role="link"],[role="button"]')) return false;
@@ -5827,9 +5837,7 @@ function shiftTokenOffsets(token, delta) {
   rubies: token.rubies.map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
   };
 }
-function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
-  const host = nonDestructiveScanHost(target);
-  if (!host.isConnected) return;
+function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
   const text2 = plan.text;
   const safeTokens = plan.tokens;
@@ -5838,49 +5846,68 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
-  const clipRow = closestRubyFragileConstrainedRow(host);
-  const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-  const clipHoverOnly = Boolean(clipRow && hasRenderedRuby);
-  const existing = currentTextMirror(host);
-  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey && existing.classList.contains("jpdb-reader-clip-hover-mirror") === clipHoverOnly) {
-  const state2 = textMirrorHosts.get(host);
-  if (state2) reassertTextMirrorHostStyles(host, state2);
-  return;
-  }
+  const { clipRow, hasRenderedRuby, clipHoverOnly } = textMirrorClipMode(host, suppressRuby, safeTokens);
+  return {
+  text: text2,
+  safeTokens,
+  renderPlan,
+  renderSettings,
+  signature,
+  whitespaceJointsKey,
+  clipRow,
+  hasRenderedRuby,
+  clipHoverOnly,
+  suppressRuby,
+  hostText: plan.hostText
+  };
+}
+function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
+  const host = nonDestructiveScanHost(target);
+  if (!host.isConnected) return;
+  const context = nonDestructiveMirrorRenderContext(host, target, tokens, settings);
+  if (reuseCurrentTextMirror(host, context)) return;
   removeTextMirror(host);
-  if (!safeTokens.length) return;
+  if (!context.safeTokens.length) return;
+  mountNonDestructiveTextMirror(host, target, settings, context);
+}
+function reuseCurrentTextMirror(host, context) {
+  const existing = currentTextMirror(host);
+  const matches = [
+  existing?.dataset.sourceText === context.text,
+  existing?.dataset.renderSignature === context.signature,
+  (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
+  existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly
+  ].every(Boolean);
+  if (!matches) return false;
+  const state = textMirrorHosts.get(host);
+  if (state) reassertTextMirrorHostStyles(host, state);
+  return true;
+}
+function createNonDestructiveTextMirror(context) {
   const mirror = document.createElement("span");
   mirror.className = "jpdb-reader-text-mirror";
   mirror.dataset.jpdbReaderTextMirror = "true";
-  mirror.dataset.sourceText = text2;
-  mirror.dataset.renderSignature = signature;
-  mirror.dataset.whitespaceJoints = whitespaceJointsKey;
+  mirror.dataset.sourceText = context.text;
+  mirror.dataset.renderSignature = context.signature;
+  mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
   mirror.setAttribute("aria-hidden", "true");
-  if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
-  const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-  const state = styleTextMirrorHost(host, mirrorRubyLayout, clipHoverOnly, Boolean(clipRow));
+  if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
+  return mirror;
+}
+function mountNonDestructiveTextMirror(host, target, settings, context) {
+  const mirror = createNonDestructiveTextMirror(context);
+  const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+  const state = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
-  if (clipRow) {
-    constrainMirrorToClampBox(mirror, clipRow);
-  }
-  if (clipHoverOnly) {
-    mirror.classList.add("jpdb-reader-clip-hover-mirror");
-    mirror.style.setProperty("visibility", "hidden");
-    const hostColor = safeComputedStyle(host).color;
-    if (hostColor) {
-      mirror.style.setProperty("color", hostColor);
-      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-    }
-    host.dataset.yomuClipHoverHost = "true";
-  }
-  mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
+  styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
+  mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
     mirrorRender: true,
     decoration: target.decoration,
-    suppressRuby,
-    passiveInteraction: target.passiveInteraction || suppressRuby
+    suppressRuby: context.suppressRuby,
+    passiveInteraction: target.passiveInteraction || context.suppressRuby
   }));
   if (!mirror.textContent?.trim()) {
     removeTextMirror(host);
@@ -5894,11 +5921,29 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   withdrawUnfitTextMirrorOverflow(host, state, mirror);
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
-  rememberNonDestructiveRenderForReplay(host, target, text2, safeTokens, plan.hostText, settings);
+  rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
   } catch (error) {
   removeTextMirror(host);
   throw error;
   }
+}
+function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
+  if (!clipRow) return;
+  constrainMirrorToClampBox(mirror, clipRow);
+  if (!clipHoverOnly) return;
+  mirror.classList.add("jpdb-reader-clip-hover-mirror");
+  mirror.style.setProperty("visibility", "hidden");
+  const hostColor = safeComputedStyle(host).color;
+  if (hostColor) {
+  mirror.style.setProperty("color", hostColor);
+  mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+  }
+  host.dataset.yomuClipHoverHost = "true";
+}
+function textMirrorClipMode(host, suppressRuby, tokens) {
+  const clipRow = closestRubyFragileConstrainedRow(host);
+  const hasRenderedRuby = !suppressRuby && tokens.some((token) => token.rubies.length > 0);
+  return { clipRow, hasRenderedRuby, clipHoverOnly: Boolean(clipRow && hasRenderedRuby) };
 }
 function constrainMirrorToClampBox(mirror, clipRow) {
   const height = clipRow.clientHeight;
@@ -6063,39 +6108,53 @@ function currentControlTextMirror(host) {
   const sibling = host.nextElementSibling;
   return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
 }
-function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+function canvasFallbackRenderContext(target, tokens, settings) {
   const canvas = target.parent;
-  if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+  if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return null;
   const host = canvas.parentElement;
-  if (!host) return;
+  if (!host) return null;
   const text2 = target.text;
   const safeTokens = nonOverlappingTokens(tokens, text2);
-  const n = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
-  const noRuby = n || Boolean(target.suppressRuby);
+  const nativeCanvas = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
+  const suppressRuby = [nativeCanvas, Boolean(target.suppressRuby)].includes(true);
   const renderSettings = furiganaSettingsForTarget(settings, canvas);
-  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
-  const existing = currentCanvasFallbackTextLayer(canvas);
-  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
-  removeCanvasFallbackTextLayer(canvas);
-  if (!safeTokens.length) return;
+  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+  return { canvas, host, text: text2, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
+}
+function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+  const context = canvasFallbackRenderContext(target, tokens, settings);
+  if (!context) return;
+  if (canvasFallbackTextLayerMatches(context)) return;
+  removeCanvasFallbackTextLayer(context.canvas);
+  if (!context.safeTokens.length) return;
+  mountCanvasFallbackTextLayer(target, context);
+}
+function canvasFallbackTextLayerMatches(context) {
+  const existing = currentCanvasFallbackTextLayer(context.canvas);
+  return [
+  existing?.dataset.sourceText === context.text,
+  existing?.dataset.renderSignature === context.signature
+  ].every(Boolean);
+}
+function mountCanvasFallbackTextLayer(target, context) {
   const layer = document.createElement("div");
-  layer.className = n ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
-  layer.dataset.sourceText = text2;
-  layer.dataset.renderSignature = signature;
-  const hasRuby = safeTokens.some((token) => token.rubies.length > 0) && !noRuby;
-  styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
-  layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
-  parent: canvas,
+  layer.className = context.nativeCanvas ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
+  layer.dataset.sourceText = context.text;
+  layer.dataset.renderSignature = context.signature;
+  const hasRuby = context.safeTokens.some((token) => token.rubies.length > 0) && !context.suppressRuby;
+  styleCanvasFallbackTextLayer(layer, context.canvas, hasRuby, context.nativeCanvas);
+  layer.append(renderTokenizedScanText(context.text, context.safeTokens, context.renderSettings, {
+  parent: context.canvas,
   hasNativeRuby: targetHasNativeRuby(target),
   mirrorRender: true,
   decoration: target.decoration,
-  suppressRuby: noRuby,
-  passiveInteraction: n || target.passiveInteraction
+  suppressRuby: context.suppressRuby,
+  passiveInteraction: context.nativeCanvas || target.passiveInteraction
   }));
   if (!layer.textContent?.trim()) return;
-  const state = mountCanvasTextLayer(canvas, host, layer, n);
-  canvasFallbackTextLayers.set(canvas, state);
-  host.append(layer);
+  const state = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
+  canvasFallbackTextLayers.set(context.canvas, state);
+  context.host.append(layer);
 }
 function currentCanvasFallbackTextLayer(canvas) {
   const state = canvasFallbackTextLayers.get(canvas);
@@ -8048,29 +8107,56 @@ function makeRoomForRubyInCroppedRows(root = document) {
 function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   const decisions = new Map();
   const words = root.querySelectorAll(".jpdb-reader-word");
-  for (const word of words) {
-  if (!word.querySelector("rt")) continue;
-  const decoration = decorationStateForWord(word);
-  if (decoration === "interactive-passive" || decoration === "skip") continue;
-  if (word.closest("[data-yomu-clip-constrained]")) continue;
+  for (const word of words) collectRubyRoomDecisions(word, adjustedBoxes, decisions);
+  return applyRubyRoomDecisions(decisions, adjustedBoxes);
+}
+function collectRubyRoomDecisions(word, adjustedBoxes, decisions) {
+  const candidate = rubyRoomWordCandidate(word);
+  if (!candidate) return;
+  for (const box of candidate.cropBoxes) {
+  const crop = rubyRoomCropPlan(box, candidate.mirror);
+  if (!crop) continue;
+  collectRubyRoomBoxDecisions(box, crop.curated, candidate.mirror, adjustedBoxes, decisions);
+  }
+}
+function rubyRoomWordCandidate(word) {
+  if (!word.querySelector("rt")) return null;
+  if (["interactive-passive", "skip"].includes(decorationStateForWord(word) ?? "")) return null;
+  if (word.closest("[data-yomu-clip-constrained]")) return null;
   const mirror = word.closest(".jpdb-reader-text-mirror");
-  const cropBoxes = cropCapableBoxes(word.parentElement, mirror);
-  if (cropBoxes.some(isClipConstrainedRow)) continue;
-  for (const box of cropBoxes) {
-    if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
-    const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
-    if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
-    for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
-      if (isClipConstrainedRow(roomBox)) continue;
-      const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
-      if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-      const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
-      if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
-      if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
-      decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
-    }
+  return { mirror, cropBoxes: rubyRoomEligibleCropBoxes(word, mirror) };
+}
+function rubyRoomCropPlan(box, mirror) {
+  const excluded = [
+  box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR),
+  box.closest('[aria-hidden="true"],[hidden]')
+  ].some(Boolean);
+  if (excluded) return null;
+  const curated = [isGoogleSearchRubyRoomTextBox(box), isYouTubeRubyRoomTextBox(box)].some(Boolean);
+  const cropsRuby = curated ? boxActuallyCrops(box, mirror) : genericRubyNeedsRoom(box, mirror);
+  return cropsRuby ? { curated } : null;
+}
+function collectRubyRoomBoxDecisions(box, curated, mirror, adjustedBoxes, decisions) {
+  for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+  const decision = rubyRoomDecisionForBox(roomBox, curated, mirror, adjustedBoxes);
+  if (!decision) continue;
+  recordBestRubyRoomDecision(decisions, roomBox, decision);
   }
-  }
+}
+function rubyRoomDecisionForBox(roomBox, curated, mirror, adjustedBoxes) {
+  if (isClipConstrainedRow(roomBox)) return null;
+  const measuredHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
+  if (measuredHeight > RUBY_ROOM_MAX_PX) return null;
+  const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
+  const roomHeight = measuredHeight + topDeficit;
+  const previousHeightIsEnough = previousRubyRoomHeight(roomBox) >= roomHeight && topDeficit === 0;
+  return previousHeightIsEnough ? null : { roomHeight, topDeficit };
+}
+function recordBestRubyRoomDecision(decisions, roomBox, decision) {
+  if ((decisions.get(roomBox)?.roomHeight ?? 0) >= decision.roomHeight) return;
+  decisions.set(roomBox, decision);
+}
+function applyRubyRoomDecisions(decisions, adjustedBoxes) {
   let adjusted = 0;
   for (const [box, { roomHeight, topDeficit }] of decisions) {
   recordRubyRoomGrowth(box);
@@ -8082,6 +8168,10 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   adjusted += 1;
   }
   return adjusted;
+}
+function rubyRoomEligibleCropBoxes(word, mirror) {
+  const cropBoxes = cropCapableBoxes(word.parentElement, mirror);
+  return cropBoxes.some(isClipConstrainedRow) ? [] : cropBoxes;
 }
 const rubyRoomGrowthRecords = new WeakMap();
 function rubyRoomStyleSnapshot(box) {

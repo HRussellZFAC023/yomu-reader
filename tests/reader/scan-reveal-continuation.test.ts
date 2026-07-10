@@ -182,7 +182,10 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         expect(calls).toBeGreaterThan(1);
         expect(calls).toBeLessThanOrEqual(12);
         scanner.destroy();
-    });
+    // This intentionally paints several thousand synthetic targets. Four-way
+    // CI shard contention can exceed Vitest's 5s default even though the
+    // explicit continuation bound above has already stopped the loop.
+    }, 15_000);
 });
 
 interface FakeTargetOptions {

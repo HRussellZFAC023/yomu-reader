@@ -6386,22 +6386,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
   }
   function isCompactTemporalMetadata(element) {
-    const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    if (!HAS_JAPANESE.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-    const height = element.getBoundingClientRect().height;
-    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+    return isCompactMetadataElement(element);
   }
   const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
   const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
   function isCompactLinkedCardMetadata(link, element) {
     const textElement = element instanceof HTMLElement ? element : element.parentElement;
-    if (!textElement || textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
+    return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
+  }
+  function isLinkedCardMetadataElement(link, textElement) {
+    if (textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
     const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
-    if (!heading || heading.contains(textElement) || isLikelyProseElement(textElement)) return false;
-    const text2 = textElement.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    if (!HAS_JAPANESE.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-    const height = textElement.getBoundingClientRect().height;
-    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+    if (!heading) return false;
+    return [
+      !heading.contains(textElement),
+      !isLikelyProseElement(textElement),
+      isCompactMetadataElement(textElement)
+    ].every(Boolean);
+  }
+  function isCompactMetadataElement(element) {
+    const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const height = element.getBoundingClientRect().height;
+    return [
+      HAS_JAPANESE.test(text2),
+      compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+      height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
+    ].every(Boolean);
   }
   function isMediaTextContentControl(control) {
     if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
@@ -9531,9 +9541,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       rubies: token.rubies.map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
     };
   }
-  function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
-    const host = nonDestructiveScanHost(target);
-    if (!host.isConnected) return;
+  function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text2 = plan.text;
     const safeTokens = plan.tokens;
@@ -9542,43 +9550,62 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
-    const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-    const clipHoverOnly = Boolean(clipRow && hasRenderedRuby);
-    const existing = currentTextMirror(host);
-    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey && existing.classList.contains("jpdb-reader-clip-hover-mirror") === clipHoverOnly) {
-      const state22 = textMirrorHosts.get(host);
-      if (state22) reassertTextMirrorHostStyles(host, state22);
-      return;
-    }
+    const { clipRow, hasRenderedRuby, clipHoverOnly } = textMirrorClipMode(host, suppressRuby, safeTokens);
+    return {
+      text: text2,
+      safeTokens,
+      renderPlan,
+      renderSettings,
+      signature,
+      whitespaceJointsKey,
+      clipRow,
+      hasRenderedRuby,
+      clipHoverOnly,
+      suppressRuby,
+      hostText: plan.hostText
+    };
+  }
+  function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
+    const host = nonDestructiveScanHost(target);
+    if (!host.isConnected) return;
+    const context = nonDestructiveMirrorRenderContext(host, target, tokens, settings);
+    if (reuseCurrentTextMirror(host, context)) return;
     removeTextMirror(host);
-    if (!safeTokens.length) return;
+    if (!context.safeTokens.length) return;
+    mountNonDestructiveTextMirror(host, target, settings, context);
+  }
+  function reuseCurrentTextMirror(host, context) {
+    const existing = currentTextMirror(host);
+    const matches = [
+      existing?.dataset.sourceText === context.text,
+      existing?.dataset.renderSignature === context.signature,
+      (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
+      existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly
+    ].every(Boolean);
+    if (!matches) return false;
+    const state2 = textMirrorHosts.get(host);
+    if (state2) reassertTextMirrorHostStyles(host, state2);
+    return true;
+  }
+  function createNonDestructiveTextMirror(context) {
     const mirror = document.createElement("span");
     mirror.className = "jpdb-reader-text-mirror";
     mirror.dataset.jpdbReaderTextMirror = "true";
-    mirror.dataset.sourceText = text2;
-    mirror.dataset.renderSignature = signature;
-    mirror.dataset.whitespaceJoints = whitespaceJointsKey;
+    mirror.dataset.sourceText = context.text;
+    mirror.dataset.renderSignature = context.signature;
+    mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
     mirror.setAttribute("aria-hidden", "true");
-    if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
-    const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, clipHoverOnly, Boolean(clipRow));
+    if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
+    return mirror;
+  }
+  function mountNonDestructiveTextMirror(host, target, settings, context) {
+    const mirror = createNonDestructiveTextMirror(context);
+    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
     try {
       styleTextMirror(mirror, host, mirrorRubyLayout);
-      if (clipRow) {
-        constrainMirrorToClampBox(mirror, clipRow);
-      }
-      if (clipHoverOnly) {
-        mirror.classList.add("jpdb-reader-clip-hover-mirror");
-        mirror.style.setProperty("visibility", "hidden");
-        const hostColor = safeComputedStyle(host).color;
-        if (hostColor) {
-          mirror.style.setProperty("color", hostColor);
-          mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-        }
-        host.dataset.yomuClipHoverHost = "true";
-      }
-      mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
+      styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
+      mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         mirrorRender: true,
@@ -9586,8 +9613,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         // re-derivation's furigana-mode=all branch would discard the
         // computed suppression and paint ruby into a control's mirror.
         decoration: target.decoration,
-        suppressRuby,
-        passiveInteraction: target.passiveInteraction || suppressRuby
+        suppressRuby: context.suppressRuby,
+        passiveInteraction: target.passiveInteraction || context.suppressRuby
       }));
       if (!mirror.textContent?.trim()) {
         removeTextMirror(host);
@@ -9601,11 +9628,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       withdrawUnfitTextMirrorOverflow(host, state2, mirror);
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
-      rememberNonDestructiveRenderForReplay(host, target, text2, safeTokens, plan.hostText, settings);
+      rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
     } catch (error) {
       removeTextMirror(host);
       throw error;
     }
+  }
+  function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
+    if (!clipRow) return;
+    constrainMirrorToClampBox(mirror, clipRow);
+    if (!clipHoverOnly) return;
+    mirror.classList.add("jpdb-reader-clip-hover-mirror");
+    mirror.style.setProperty("visibility", "hidden");
+    const hostColor = safeComputedStyle(host).color;
+    if (hostColor) {
+      mirror.style.setProperty("color", hostColor);
+      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+    }
+    host.dataset.yomuClipHoverHost = "true";
+  }
+  function textMirrorClipMode(host, suppressRuby, tokens) {
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    const hasRenderedRuby = !suppressRuby && tokens.some((token) => token.rubies.length > 0);
+    return { clipRow, hasRenderedRuby, clipHoverOnly: Boolean(clipRow && hasRenderedRuby) };
   }
   function constrainMirrorToClampBox(mirror, clipRow) {
     const height = clipRow.clientHeight;
@@ -9760,39 +9805,53 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sibling = host.nextElementSibling;
     return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
   }
-  function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+  function canvasFallbackRenderContext(target, tokens, settings) {
     const canvas = target.parent;
-    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return null;
     const host = canvas.parentElement;
-    if (!host) return;
+    if (!host) return null;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2);
-    const n = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
-    const noRuby = n || Boolean(target.suppressRuby);
+    const nativeCanvas = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
+    const suppressRuby = [nativeCanvas, Boolean(target.suppressRuby)].includes(true);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
-    const existing = currentCanvasFallbackTextLayer(canvas);
-    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
-    removeCanvasFallbackTextLayer(canvas);
-    if (!safeTokens.length) return;
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+    return { canvas, host, text: text2, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
+  }
+  function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+    const context = canvasFallbackRenderContext(target, tokens, settings);
+    if (!context) return;
+    if (canvasFallbackTextLayerMatches(context)) return;
+    removeCanvasFallbackTextLayer(context.canvas);
+    if (!context.safeTokens.length) return;
+    mountCanvasFallbackTextLayer(target, context);
+  }
+  function canvasFallbackTextLayerMatches(context) {
+    const existing = currentCanvasFallbackTextLayer(context.canvas);
+    return [
+      existing?.dataset.sourceText === context.text,
+      existing?.dataset.renderSignature === context.signature
+    ].every(Boolean);
+  }
+  function mountCanvasFallbackTextLayer(target, context) {
     const layer = document.createElement("div");
-    layer.className = n ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
-    layer.dataset.sourceText = text2;
-    layer.dataset.renderSignature = signature;
-    const hasRuby = safeTokens.some((token) => token.rubies.length > 0) && !noRuby;
-    styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
-    layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
-      parent: canvas,
+    layer.className = context.nativeCanvas ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
+    layer.dataset.sourceText = context.text;
+    layer.dataset.renderSignature = context.signature;
+    const hasRuby = context.safeTokens.some((token) => token.rubies.length > 0) && !context.suppressRuby;
+    styleCanvasFallbackTextLayer(layer, context.canvas, hasRuby, context.nativeCanvas);
+    layer.append(renderTokenizedScanText(context.text, context.safeTokens, context.renderSettings, {
+      parent: context.canvas,
       hasNativeRuby: targetHasNativeRuby(target),
       mirrorRender: true,
       decoration: target.decoration,
-      suppressRuby: noRuby,
-      passiveInteraction: n || target.passiveInteraction
+      suppressRuby: context.suppressRuby,
+      passiveInteraction: context.nativeCanvas || target.passiveInteraction
     }));
     if (!layer.textContent?.trim()) return;
-    const state2 = mountCanvasTextLayer(canvas, host, layer, n);
-    canvasFallbackTextLayers.set(canvas, state2);
-    host.append(layer);
+    const state2 = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
+    canvasFallbackTextLayers.set(context.canvas, state2);
+    context.host.append(layer);
   }
   function currentCanvasFallbackTextLayer(canvas) {
     const state2 = canvasFallbackTextLayers.get(canvas);
