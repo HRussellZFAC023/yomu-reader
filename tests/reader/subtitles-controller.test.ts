@@ -550,6 +550,103 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('mirrors the synthesized DOM-caption cue stream into the native track during native fullscreen', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        vi.stubGlobal('VTTCue', class {
+            constructor(public startTime: number, public endTime: number, public text: string) {}
+        });
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        try {
+            const video = document.createElement('video');
+            const addCue = vi.fn();
+            const track = { mode: 'hidden', cues: [], addCue, removeCue: vi.fn() } as unknown as TextTrack;
+            Object.defineProperty(video, 'addTextTrack', { configurable: true, value: vi.fn(() => track) });
+            mockElementRect(video, new DOMRect(20, 40, 960, 540));
+            attachVideo(controller, { video, currentTime: 5 });
+            const internals = controllerInternals<{
+                cues: { start: number; end: number; text: string }[];
+                currentCue?: { start: number; end: number; text: string; transcriptEligible?: boolean };
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+                applyDomCaptionFallback: (text: string, selected: undefined) => void;
+            }>(controller);
+            // The m.youtube DOM-caption fallback keeps this.cues EMPTY and
+            // synthesizes one short cue at a time into currentCue — the mirror
+            // must follow that stream too (it used to mirror nothing).
+            internals.cues = [];
+            internals.currentCue = { start: 5, end: 9, text: 'こんにちは', transcriptEligible: true };
+            internals.observeVideoLayout(video);
+
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
+            video.dispatchEvent(new Event('webkitbeginfullscreen'));
+
+            expect(addCue).toHaveBeenCalledTimes(1);
+            expect((addCue.mock.calls[0]![0] as { text: string }).text).toBe('こんにちは');
+            expect(track.mode).toBe('showing');
+
+            // The fallback synthesizes the NEXT caption while still fullscreen:
+            // the mirror follows.
+            internals.applyDomCaptionFallback('次の字幕です。', undefined);
+
+            expect(addCue.mock.calls.length).toBeGreaterThan(1);
+            const lastCue = addCue.mock.calls.at(-1)![0] as { text: string };
+            expect(lastCue.text).toBe('次の字幕です。');
+            expect(track.mode).toBe('showing');
+
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: false });
+            video.dispatchEvent(new Event('webkitendfullscreen'));
+            expect(track.mode).toBe('disabled');
+        } finally {
+            vi.unstubAllGlobals();
+            controller.destroy();
+        }
+    });
+
+    it('restores the host text track for native fullscreen when Yomu has no cue stream, and re-suppresses on exit', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        try {
+            const video = document.createElement('video');
+            mockElementRect(video, new DOMRect(20, 40, 960, 540));
+            attachVideo(controller, { video });
+            const hostTrack = { mode: 'hidden', label: 'Japanese', language: 'ja', cues: [], addEventListener: vi.fn() } as unknown as TextTrack;
+            const internals = controllerInternals<{
+                cues: unknown[];
+                currentCue?: unknown;
+                tracks: Array<{ id: string; label: string; kind: string; track?: TextTrack }>;
+                selectedTrackId: string;
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+            }>(controller);
+            internals.cues = [];
+            internals.currentCue = undefined;
+            internals.tracks = [{ id: 'native-0', label: 'Japanese', kind: 'native', track: hostTrack }];
+            internals.selectedTrackId = 'native-0';
+            internals.observeVideoLayout(video);
+
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
+            video.dispatchEvent(new Event('webkitbeginfullscreen'));
+
+            // Yomu suppressed the host's captions but has nothing of its own to
+            // show in the system player — give the host track back.
+            expect(hostTrack.mode).toBe('showing');
+
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: false });
+            video.dispatchEvent(new Event('webkitendfullscreen'));
+
+            // Back out of the system player the DOM overlay renders again, so
+            // the host track returns to Yomu's suppressed mode.
+            expect(hostTrack.mode).toBe('hidden');
+        } finally {
+            vi.unstubAllGlobals();
+            controller.destroy();
+        }
+    });
+
     it('realigns subtitles immediately when fullscreen starts while the video is playing', () => {
         withViewport(1280, 720, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';

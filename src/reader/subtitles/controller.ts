@@ -1127,6 +1127,7 @@ export class SubtitlePlayerController {
     private subtitleDragPreviewOffsetYPx?: number;
     private nativeFullscreenCueTrack?: TextTrack;
     private nativeFullscreenCueVideo?: HTMLVideoElement;
+    private nativeFullscreenHostTracksRestored = false;
     private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
@@ -2330,7 +2331,10 @@ export class SubtitlePlayerController {
         if (text !== this.lastDomCaption) return;
         this.lastDomCaptionSeenAt = performance.now();
         const now = this.video?.currentTime ?? 0;
-        if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
+        if (now >= this.currentCue.start && this.currentCue.end < now + 1) {
+            this.currentCue.end = now + 4;
+            this.refreshNativeFullscreenCueMirror();
+        }
     }
 
     private ensureYouTubeDomCaptionFallbackActive(selected: SubtitleTrackOption | undefined): void {
@@ -2397,6 +2401,7 @@ export class SubtitlePlayerController {
             this.lastDomCaptionSeenAt = 0;
             this.render();
             this.syncControls();
+            this.refreshNativeFullscreenCueMirror();
         }
     }
 
@@ -2442,6 +2447,7 @@ export class SubtitlePlayerController {
         this.render();
         this.renderOpenSubtitlePanel();
         this.syncControls();
+        this.refreshNativeFullscreenCueMirror();
         void this.autoCopyCurrentCue();
     }
 
@@ -4325,9 +4331,19 @@ export class SubtitlePlayerController {
     }
 
     // The iPhone system player paints in the browser top layer where the DOM
-    // overlay cannot follow, so mirror the loaded cues into a native text track
-    // for the duration of native video fullscreen.
+    // overlay cannot follow, so mirror the CURRENTLY-RENDERING cue stream —
+    // loaded cues, or the DOM-caption fallback's synthesized cue — into a
+    // native text track for the duration of native video fullscreen. With no
+    // cue stream at all, hand the system player the host's own captions back.
     private showNativeFullscreenCueTrack(video: HTMLVideoElement): void {
+        const cues = this.nativeFullscreenMirrorCues();
+        if (!cues.length) {
+            const track = this.nativeFullscreenCueTrack;
+            if (track && track.mode !== 'disabled') track.mode = 'disabled';
+            this.restoreHostTracksForNativeFullscreen();
+            return;
+        }
+        this.reSuppressHostTracksAfterNativeFullscreen();
         if (typeof video.addTextTrack !== 'function' || typeof VTTCue !== 'function') return;
         try {
             if (this.nativeFullscreenCueVideo !== video) {
@@ -4337,8 +4353,10 @@ export class SubtitlePlayerController {
             const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, 'ja');
             this.nativeFullscreenCueTrack = track;
             for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
-            for (const cue of this.cues) {
+            for (const cue of cues) {
                 if (!(cue.end > cue.start)) continue;
+                // Plain base text: the system player renders text only, never
+                // Yomu's annotated furigana markup.
                 track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
             }
             track.mode = 'showing';
@@ -4347,9 +4365,44 @@ export class SubtitlePlayerController {
         }
     }
 
+    // The m.youtube DOM-caption fallback never fills this.cues; it synthesizes
+    // one short-lived cue at a time into currentCue. Mirror whichever stream
+    // is actually rendering.
+    private nativeFullscreenMirrorCues(): SubtitleCue[] {
+        if (this.cues.length) return this.cues;
+        return this.currentCue ? [this.currentCue] : [];
+    }
+
+    // The synthesized cue changes/extends while in native fullscreen; keep the
+    // mirror track following it.
+    private refreshNativeFullscreenCueMirror(): void {
+        const video = this.video;
+        if (!video || !videoIsInNativeFullscreen(video)) return;
+        this.showNativeFullscreenCueTrack(video);
+    }
+
+    private restoreHostTracksForNativeFullscreen(): void {
+        if (this.nativeFullscreenHostTracksRestored) return;
+        const restorable = this.tracks.filter(option => option.track);
+        const selected = restorable.filter(option => option.id === this.selectedTrackId || option.id === this.secondaryTrackId);
+        const targets = selected.length ? selected : restorable.slice(0, 1);
+        if (!targets.length) return;
+        this.nativeFullscreenHostTracksRestored = true;
+        for (const option of targets) {
+            if (option.track) option.track.mode = 'showing';
+        }
+    }
+
+    private reSuppressHostTracksAfterNativeFullscreen(): void {
+        if (!this.nativeFullscreenHostTracksRestored) return;
+        this.nativeFullscreenHostTracksRestored = false;
+        this.setNativeTrackModes();
+    }
+
     private hideNativeFullscreenCueTrack(): void {
         const track = this.nativeFullscreenCueTrack;
         if (track && track.mode !== 'disabled') track.mode = 'disabled';
+        this.reSuppressHostTracksAfterNativeFullscreen();
     }
 
     private seekVideoTo(time: number): void {
@@ -4731,6 +4784,10 @@ export class SubtitlePlayerController {
     }
 
     private setNativeTrackModes(): void {
+        // While the system player is showing the host's own captions (native
+        // fullscreen with no Yomu cue stream), nothing may re-suppress them;
+        // reSuppressHostTracksAfterNativeFullscreen clears the flag first.
+        if (this.nativeFullscreenHostTracksRestored) return;
         const settings = this.options.getSettings();
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
