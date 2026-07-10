@@ -12,7 +12,7 @@ import {
 } from '../dom/index';
 import { formatUiText, uiText } from '../app/i18n';
 import { Logger } from './logger';
-import { collectScanTargets } from './site-parsers';
+import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
 import type { JPDBToken, ReaderSettings } from './types';
 
@@ -46,7 +46,17 @@ const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
 const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
+// Bound on consecutive budget-capped continuation rounds (6 × 200 targets
+// reaches deep pages while keeping a pathological page finite).
+const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
+// Frame budget for cooperative target collection (perf item 4).
+const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
+// 24 chunked slices (~290ms of budgeted work) cover the heat profile's worst
+// monolithic pass; anything beyond finishes synchronously so a loaded event
+// loop can never starve collection (each setTimeout(0) turn is unbounded).
+const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = 'data-yomu-furigana-mode';
+const CLAMPED_ROW_READINGS_ATTRIBUTE = 'data-yomu-clamped-readings';
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
@@ -98,6 +108,11 @@ export class VisiblePageScanner {
     // scrolls/navigations never keep parsing stale regions while the fresh
     // request waits.
     private scanGeneration = 0;
+    // Class E: consecutive continuation scans queued because collection hit the
+    // budget cap. Silent continuations make progress via the mirror-skip (an
+    // already-mirrored head is skipped at the next collection), but a page
+    // whose head never mirrors could otherwise re-walk forever — bound it.
+    private continuationScans = 0;
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
@@ -117,6 +132,7 @@ export class VisiblePageScanner {
         this.scanGeneration++;
         this.scanPending = false;
         this.scanPendingSilent = true;
+        this.continuationScans = 0;
     }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
@@ -249,7 +265,17 @@ export class VisiblePageScanner {
         removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
         const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
-        const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit, window.location.href, { skipMirroredHosts: silent }), settings);
+        // Cooperative collection (perf item 4): the walk is identical to the
+        // sync collectScanTargets, chunked at frame deadlines so a dense page
+        // never spends ~300ms of one task collecting. A fast collection
+        // completes fully synchronously (no await — the P1 abort choreography
+        // depends on the first parse starting in the same task); targets
+        // collected before a mid-collection mutation are re-validated at parse
+        // and apply time (isCurrentScanTarget), like the existing async batches.
+        const collection = this.collectScanTargetsWithFrameBudget(targetCollectionLimit, generation, silent);
+        const collected = Array.isArray(collection) ? collection : await collection;
+        if (!collected || this.isStaleScan(generation)) return;
+        const targets = chunkLongScanTargets(collected, settings);
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
             return;
@@ -257,15 +283,69 @@ export class VisiblePageScanner {
 
         const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
-        if (parsedAnyTokens && targets.length >= targetCollectionLimit && canContinueVisibleScan(targets)) {
+        const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
+        if (parsedAnyTokens && targets.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
             this.queueContinuationScan(silent);
             return;
         }
+        this.continuationScans = 0;
         this.reportVisiblePageCoverage(silent);
+    }
+
+    // singlePassScan stops infinite re-WALKS of a profile's roots — it was
+    // never meant to cancel tail coverage when collection hit the budget cap
+    // (the class-E starvation: comment roots consumed all 200 targets and the
+    // menus/grid tail was simply dropped). A capped collection continues:
+    // unconditionally when any target re-walks (non-single-pass), and for
+    // silent scans (whose collection skips already-mirrored hosts, so each
+    // continuation reaches deeper) under a bounded number of rounds.
+    private canQueueContinuationScan(targets: ScanTextTarget[], silent: boolean): boolean {
+        if (canContinueVisibleScan(targets)) return true;
+        return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
     }
 
     private isStaleScan(generation: number): boolean {
         return this.destroyed || generation !== this.scanGeneration;
+    }
+
+    // Drives the collection generator: fully synchronous while it fits the
+    // frame budget (returns the array directly, no promise), yielding the main
+    // thread between chunks only once the budget is spent. Returns undefined
+    // when the scan went stale across a yield.
+    private collectScanTargetsWithFrameBudget(
+        limit: number,
+        generation: number,
+        silent: boolean,
+    ): ScanTextTarget[] | Promise<ScanTextTarget[] | undefined> {
+        const steps = collectScanTargetsInSteps(limit, window.location.href, { skipMirroredHosts: silent });
+        let sliceStartedAt = Date.now();
+        for (;;) {
+            const next = steps.next();
+            if (next.done) return next.value;
+            if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) {
+                return (async () => {
+                    // Yields are CAPPED: on a busy machine each setTimeout(0)
+                    // turn can take arbitrarily long (CI fork oversubscription
+                    // starved a 170-tile collection past its test timeout), so
+                    // after the cap the tail finishes synchronously — chunking
+                    // bounds long tasks, it must never starve the scan itself.
+                    for (let yields = 0; yields < MAX_VISIBLE_SCAN_COLLECTION_YIELDS; yields += 1) {
+                        await waitForVisibleScanTurn();
+                        if (this.isStaleScan(generation)) return undefined;
+                        sliceStartedAt = Date.now();
+                        for (;;) {
+                            const chunk = steps.next();
+                            if (chunk.done) return chunk.value;
+                            if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) break;
+                        }
+                    }
+                    for (;;) {
+                        const chunk = steps.next();
+                        if (chunk.done) return chunk.value;
+                    }
+                })();
+            }
+        }
     }
 
     private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
@@ -479,6 +559,7 @@ export class VisiblePageScanner {
 
     private queueContinuationScan(silent: boolean): void {
         if (this.destroyed) return;
+        this.continuationScans += 1;
         this.scanPending = true;
         this.scanPendingSilent = this.scanPendingSilent && silent;
     }
@@ -486,11 +567,23 @@ export class VisiblePageScanner {
     private syncPageFuriganaMode(): void {
         if (typeof document === 'undefined') return;
         const settings = this.dependencies.getSettings();
+        this.syncClampedRowReadingsMode(settings);
         if (settings.showFurigana && settings.furiganaMode === 'all') {
             document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
             return;
         }
         this.clearPageFuriganaMode();
+    }
+
+    // Owner amendment 2026-07-11: content clip rows show readings at rest by
+    // default; the hover-only preference re-hides them via this root stamp
+    // (the CSS keys on it, so flipping the setting needs no re-render).
+    private syncClampedRowReadingsMode(settings: ReaderSettings): void {
+        if (settings.clampedRowReadings === 'hover') {
+            document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
+            return;
+        }
+        document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
     }
 
     private clearPageFuriganaMode(): void {

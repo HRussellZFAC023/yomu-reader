@@ -25,7 +25,9 @@ const RUNTIME_MARKER_OBSERVER_OPTIONS: MutationObserverInit = {
     attributeFilter: ['data-yomu-runtime-kind', 'data-yomu-runtime-owner'],
 };
 const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
-const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat)(?:[/?#]|$)/i;
+// live_chat_replay is the VOD chat panel: same-origin frame, no <video>, so
+// without an explicit path match it never booted (class Z).
+const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime: ActiveRuntime | undefined;
 
 export function bootReaderApp(): void {

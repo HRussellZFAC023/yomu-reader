@@ -392,6 +392,10 @@ export interface ReaderSettings {
     annotationsPaused: boolean;
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
+    // Readings on clamped/clip-constrained CONTENT rows (owner amendment
+    // 2026-07-11): 'show' (default) keeps furigana at rest — the row grows
+    // naturally in flow; 'hover' re-hides them until hover/focus.
+    clampedRowReadings: 'show' | 'hover';
     // Furigana mode the puck's power cycle hid, persisted so resuming after a
     // navigation or reload still restores it ('' = nothing to restore). The
     // cycle collapsed to pause<->resume before this survived the page.

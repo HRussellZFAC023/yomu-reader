@@ -205,6 +205,7 @@ import {
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
     shouldAutoScanImageOcr,
+    debouncedAutoScanDeadline,
     throttledAutoScanDelay,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
@@ -382,6 +383,8 @@ const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 // Sustained mirror-churn (live chat, live counters) may force at most one
 // full rescan per this interval; the first stale still refreshes fast.
 const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2_500;
+// TTL for the cached hasVisibleAutoScanWork verdict (perf: mutation bursts).
+const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1_500;
 
 function eventTargetsReaderRoot(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
@@ -827,6 +830,13 @@ export class ReaderApp {
     // Whether the pending timer was set by a debounced request; only such
     // timers may be pushed out by later debounced requests.
     private autoScanDebounced = false;
+    // When the current debounce chain began — every push-out is capped at
+    // AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS past this, so busy pages still scan.
+    private autoScanDebounceStartedAt = 0;
+    // TTL-cached hasVisibleAutoScanWork verdict: the un-cached check runs a
+    // limit-1 profile-root sweep, which a YouTube mutation burst re-ran many
+    // times per second (~1.3% of core CPU in the heat profile).
+    private visibleAutoScanWorkVerdict?: { at: number; verdict: boolean };
     // When the most recent scheduled scan started, used to throttle the
     // steady-state mutation storm from YouTube's comment/sidebar re-renders
     // (5-10 childList mutations/sec) into a bounded scan cadence.
@@ -1922,6 +1932,15 @@ export class ReaderApp {
     private applyAnnotationsPausedState(): void {
         if (this.settings.annotationsPaused) {
             this.cancelPendingHoverLookup();
+            // OFF must also silence work already in motion: a pending
+            // auto-scan timer or an in-flight scan's parse batches would
+            // otherwise re-annotate right after the clear (sol review P1).
+            window.clearTimeout(this.autoScanTimer);
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
+            this.autoScanForced = false;
+            this.autoScanDebounced = false;
+            this.pageScanner.interruptVisiblePageScan?.();
             this.clearAllAnnotations();
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
@@ -2136,6 +2155,7 @@ export class ReaderApp {
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
+                this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
                     force: isBookWalkerStorefrontPage(),
                     debounce: isYouTubeHostname(),
@@ -2186,7 +2206,7 @@ export class ReaderApp {
 
     private shouldScanEmbeddedFrame(): boolean {
         return /(^|\.)youtube\.com$/i.test(location.hostname)
-            && location.pathname === '/live_chat';
+            && (location.pathname === '/live_chat' || location.pathname === '/live_chat_replay');
     }
 
     private pauseAutoScanObserver<T>(callback: () => T): T {
@@ -2211,19 +2231,23 @@ export class ReaderApp {
         // AUTO_SCAN_MIN_INTERVAL_MS since the last scan began; the trailing
         // settle scan still fires so no new-content scan is dropped.
         delay = throttledAutoScanDelay(delay, options, this.lastAutoScanStartedAt, Date.now());
-        const deadline = Date.now() + delay;
+        const now = Date.now();
+        const deadline = now + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
             this.autoScanForced = this.autoScanForced || forced;
             // A debounced request may only push out a timer that was itself
             // debounced. Postponing a hard-scheduled scan breaks its caller's
             // contract — e.g. the render-rejection rescan throttle (10s) used
             // to swallow the immediate forced rescan after a puck toggle.
-            if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < deadline) {
+            // Every push-out is additionally capped at the debounce chain's
+            // max-wait deadline so a busy page still scans (class E).
+            const cappedDeadline = debouncedAutoScanDeadline(deadline, this.autoScanDebounceStartedAt);
+            if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < cappedDeadline) {
                 window.clearTimeout(this.autoScanTimer);
-                this.autoScanDeadline = deadline;
+                this.autoScanDeadline = cappedDeadline;
                 this.autoScanTimer = window.setTimeout(() => {
                     this.runScheduledAutoScan();
-                }, delay);
+                }, cappedDeadline - now);
             }
             return;
         }
@@ -2231,6 +2255,7 @@ export class ReaderApp {
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = forced;
         this.autoScanDebounced = Boolean(options.debounce);
+        if (this.autoScanDebounced) this.autoScanDebounceStartedAt = now;
         this.autoScanDeadline = deadline;
         this.autoScanTimer = window.setTimeout(() => {
             this.runScheduledAutoScan();
@@ -2242,12 +2267,22 @@ export class ReaderApp {
         // scan. The explicit puck/shortcut scan bypasses this entirely via a
         // direct scanVisiblePage call, so on-demand scanning still works.
         if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
-        return !this.isDestroyed
-            && this.canParseJapanese()
-            && (force || this.hasVisibleAutoScanWork());
+        if (this.isDestroyed || !this.canParseJapanese()) return false;
+        // A pending timer means the work-check already passed (or the run was
+        // forced) — merging into it needs no fresh profile-root sweep.
+        return force || this.autoScanTimer !== undefined || this.hasVisibleAutoScanWorkCached();
     }
 
     private runScheduledAutoScan(): void {
+        // Re-check the master gates at fire time: the pause/manual toggle can
+        // flip between scheduling and the timer firing (sol review P1).
+        if (this.isDestroyed || this.settings.annotationsPaused || this.settings.manualScanEnabled) {
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
+            this.autoScanForced = false;
+            this.autoScanDebounced = false;
+            return;
+        }
         const forced = this.autoScanForced;
         this.autoScanTimer = undefined;
         this.autoScanDeadline = 0;
@@ -2260,6 +2295,22 @@ export class ReaderApp {
 
     private hasVisibleAutoScanWork(): boolean {
         return hasVisibleSiteScanTargets() || (allowsGenericVisibleAutoScan() && this.pageHasJapaneseText);
+    }
+
+    private hasVisibleAutoScanWorkCached(): boolean {
+        const now = Date.now();
+        if (this.visibleAutoScanWorkVerdict && now - this.visibleAutoScanWorkVerdict.at < VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS) {
+            return this.visibleAutoScanWorkVerdict.verdict;
+        }
+        const verdict = this.hasVisibleAutoScanWork();
+        this.visibleAutoScanWorkVerdict = { at: now, verdict };
+        return verdict;
+    }
+
+    // The observer just verified the mutation carries Japanese text — trust
+    // that verdict for the TTL window instead of re-running the sweep.
+    private noteVisibleAutoScanWorkObserved(): void {
+        this.visibleAutoScanWorkVerdict = { at: Date.now(), verdict: true };
     }
 
     private scheduleAsbPlayerScan(delay: number): void {
@@ -5896,7 +5947,7 @@ export class ReaderApp {
     }
 
     private prioritizeQueuedPitchEnrichment(card: JPDBCard, options: { immediate?: boolean } = {}): void {
-        if (!this.settings.showPitchAccent || card.pitchAccent.length) return;
+        if (!this.settings.showPitchAccent || cardHasContextPitch(card)) return;
         const key = cardKey(card);
         const queuedToken = this.takeQueuedPitchEnrichmentToken(key);
         if (!queuedToken && !options.immediate) return;
@@ -7522,17 +7573,27 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
-        // An installed local pitch dictionary (e.g. Kanjium) is the default
-        // pitch source: background/deferred enrichment stays fully offline
-        // instead of trickling public jpdb.io lookups. Urgent (popover) flows
-        // keep the bounded public fallback for words the local bank misses.
-        if (options.publicLookup !== false && options.urgent !== true && await this.hasLocalPitchDictionary()) {
+        // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
+        // pitch source: the at-rest pass stays offline. But local-FIRST, not
+        // local-ONLY (class F): words the local bank misses are fed into the
+        // paced deferred public lane below instead of being abandoned at
+        // jpdb-pitch-unknown until clicked. Urgent (popover) flows keep the
+        // bounded public fallback; an EXPLICIT publicLookup choice by the
+        // caller (the deferred drain's true, a surface's deliberate false) is
+        // never overridden.
+        let deferLocalMissesToPublicLane = false;
+        if (options.publicLookup === undefined && options.urgent !== true && await this.hasLocalPitchDictionary()) {
             options = { ...options, publicLookup: false };
+            deferLocalMissesToPublicLane = true;
         }
         const seen = new Set<string>();
         const tokensNeedingLookup = tokens.filter(token => !this.applyCachedPublicVocabularyToToken(token));
         const uniqueTokens = tokensNeedingLookup.filter(token => {
-            if (token.card.pitchAccent.length) return false;
+            // Classifiability, not mere pattern presence: a card whose stored
+            // patterns fit a DIFFERENT reading (dictionary form vs the
+            // conjugated/contextual one) renders jpdb-pitch-unknown forever if
+            // pitchAccent.length excludes it from every enrichment pass.
+            if (cardHasContextPitch(token.card)) return false;
             if (isLowValuePitchEnrichmentToken(token)) return false;
             if (options.substantivePublicLookupOnly && token.card.source === 'fallback' && !isSubstantivePublicPitchLookupToken(token)) return false;
             if (!token.card.spelling.trim()) return false;
@@ -7544,6 +7605,20 @@ export class ReaderApp {
 
         if (options.publicLookup === false) {
             await this.enrichLocalOnlyPitchTokens(uniqueTokens, options);
+            // Local-first: whatever the local bank could not classify goes to
+            // the paced deferred public jpdb.io lane — on EVERY surface (the
+            // Google evidence showed the silent drop is not YouTube-specific).
+            // Volume stays bounded by design: per-URL enqueue cap + dedupe,
+            // idle-gated 4-token chunks, shared concurrency 4, the pitch
+            // client's TTL/persistent caches, and its failure backoff. Tokens
+            // arrive in enrichment-priority order, so visible words drain
+            // first. Callers that explicitly demanded no public lookups are
+            // respected (deferLocalMissesToPublicLane is only set when the
+            // local dictionary forced the offline pass).
+            if (deferLocalMissesToPublicLane) {
+                const misses = uniqueTokens.filter(token => !cardHasContextPitch(token.card));
+                if (misses.length) this.scheduleDeferredPublicPitchEnrichment(misses);
+            }
             return;
         }
 
@@ -7737,7 +7812,11 @@ export class ReaderApp {
             }
             const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
             batch.forEach(token => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
-            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
+            // publicLookup: true — the lane EXISTS to do the paced public
+            // retry; without the explicit flag the local-dictionary override
+            // would force this call offline again and the lane became a no-op
+            // for exactly the users whose local bank missed (class F).
+            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length, publicLookup: true });
         }
     }
 
@@ -7913,9 +7992,12 @@ export class ReaderApp {
         this.pitchEnrichmentQueuedOptions.clear();
         this.deferredPublicPitchQueue = [];
         this.deferredPublicPitchQueuedKeys.clear();
-        this.deferredPublicPitchEnqueuedForUrl = 0;
-        this.backgroundPublicPitchLookupBudgetHref = location.href;
-        this.backgroundPublicPitchLookupBudgetUsed = 0;
+        // Deliberately NOT resetting the per-URL enqueue counter or the page
+        // budget here: this clear runs on every settings save / dictionary
+        // rescan, and zeroing the counters re-admitted another full public
+        // budget for the SAME URL each time (sol review P1 — the cumulative
+        // endpoint bound must survive rescans). URL changes reset both via
+        // resetBackgroundPublicPitchLookupBudgetIfNeeded.
     }
 
     private hasLocalPitchDictionary(): Promise<boolean> {
@@ -8396,10 +8478,22 @@ export class ReaderApp {
         }
         this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
-            setSettings: settings => {
+            setSettings: (settings, options) => {
+                // Class G: the settings dialog's OFF radio (pageScanMode='off')
+                // persisted annotationsPaused but stripped nothing until a
+                // reload. Diff the pause flag here so EVERY dialog-driven
+                // settings write (submit, import, cloud restore) routes the
+                // transition through the same instant path as the puck and
+                // remote-tab toggles: pause clears all annotations + mirrors +
+                // ruby-room growth, resume rescans. Transient probe swaps
+                // (Anki tests, audio previews with unsaved form values) apply
+                // the values but never the transition.
+                const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
                 this.settings = settings;
+                if (options?.transient) return;
                 this.applyPreferredJapaneseSiteLanguage();
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
+                if (pauseChanged) this.applyAnnotationsPausedState();
             },
             jpdb: this.jpdb,
             dictionaries: this.dictionaries,

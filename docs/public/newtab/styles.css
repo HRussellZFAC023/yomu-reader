@@ -7284,6 +7284,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   visibility: visible;
 }
 
+/* POLICY AMENDMENT (owner 2026-07-11): CONTENT clip rows that grow in flow
+   (value "content" — e.g. Google's line-clamped prose snippets) keep their
+   readings AT REST by default; the row grows naturally via the ruby line
+   height, with no geometry writes. The optional hover-only mode (settings:
+   "readings on clamped rows") re-hides them via a root stamp. Interactive/
+   chrome clip rows (value "true") stay rest-hidden above regardless. */
+:root[data-yomu-clamped-readings="hover"]
+  [data-yomu-clip-constrained="content"]
+  .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)
+  rt.jpdb-reader-furi {
+  visibility: hidden;
+}
+
 /* A clip-constrained MIRROR must also clip itself at rest. The paint-invariant
    arrangement (1.6.117) leaves the HOST's overflow untouched, but the mirror
    is absolutely positioned: when the clamp lives on an ANCESTOR row rather

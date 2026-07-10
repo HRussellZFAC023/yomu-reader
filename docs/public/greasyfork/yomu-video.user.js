@@ -1605,6 +1605,7 @@
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    clampedRowReadings: "show",
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
@@ -4040,6 +4041,9 @@
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
+      clampedRowReadings: "Readings on clamped rows",
+      clampedRowReadingsShow: "Show (row grows)",
+      clampedRowReadingsHover: "Hover only",
       showPitchAccent: "Show pitch accent",
       showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
@@ -5785,6 +5789,9 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
+clampedRowReadings	省略行のふりがな
+clampedRowReadingsShow	表示（行が広がる）
+clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	ピッチアクセントを表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示

@@ -394,6 +394,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: 'difficult-kanji',
+    clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
@@ -868,6 +869,7 @@ function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Par
         puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
         showFurigana: booleanSetting(value, 'showFurigana'),
         furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+        clampedRowReadings: settings.clampedRowReadings === 'hover' ? 'hover' : 'show',
         puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== 'off'
             ? settings.puckFuriganaModeBeforeHide
             : '',

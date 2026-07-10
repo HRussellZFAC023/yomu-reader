@@ -2488,6 +2488,7 @@
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    clampedRowReadings: "show",
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
@@ -2897,6 +2898,7 @@
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
       puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
       furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
       wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
@@ -4362,6 +4364,9 @@
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
+      clampedRowReadings: "Readings on clamped rows",
+      clampedRowReadingsShow: "Show (row grows)",
+      clampedRowReadingsHover: "Hover only",
       showPitchAccent: "Show pitch accent",
       showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
@@ -6107,6 +6112,9 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
+clampedRowReadings	省略行のふりがな
+clampedRowReadingsShow	表示（行が広がる）
+clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	ピッチアクセントを表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
@@ -7517,6 +7525,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       furiganaMode,
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
+      clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
       wordColorHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`colorHide-${group}`)),
       showPitchAccent: has("showPitchAccent"),
       showLookupPillFrequency: has("showLookupPillFrequency"),
@@ -9663,6 +9672,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["all", "Use all learning states"],
     ["new-only", "Only new / not-in-deck words"]
   ];
+  const CLAMPED_ROW_READINGS_OPTIONS = [
+    ["show", "Show (row grows)"],
+    ["hover", "Hover only"]
+  ];
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
@@ -9858,6 +9871,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     </div>
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
+                    ${select("clampedRowReadings", "Readings on clamped rows", settings.clampedRowReadings, CLAMPED_ROW_READINGS_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${renderWordColorHiddenStateGroupControls(settings)}
@@ -10467,6 +10481,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["all", text("wordColorStatesAll")],
       ["new-only", text("wordColorStatesNewOnly")]
     ]);
+    setSelectOptionLabels(form, "clampedRowReadings", [
+      ["show", text("clampedRowReadingsShow")],
+      ["hover", text("clampedRowReadingsHover")]
+    ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text("automatic")],
       ["known-status", text("furiganaHideKnown")],
@@ -10971,6 +10989,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "showFloatingButton",
     "pageScanMode",
     "furiganaMode",
+    "clampedRowReadings",
     "wordColorStates",
     "showPitchAccent",
     "showLookupPillFrequency",
@@ -16031,6 +16050,17 @@ ${glossaryKey}`;
     set settings(settings) {
       this.dependencies.setSettings(settings);
     }
+    // Temporary form-derived swaps must not fire host-side transitions (the
+    // dialog's annotations-off instant clear would otherwise trigger from a
+    // mere Anki probe while OFF is selected but unsaved — sol review P1).
+    swapSettingsTransiently(settings) {
+      const previous = this.dependencies.getSettings();
+      this.dependencies.setSettings(settings, { transient: true });
+      return previous;
+    }
+    restoreTransientSettings(previous) {
+      this.dependencies.setSettings(previous, { transient: true });
+    }
     createSettingsForm(panel) {
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
@@ -16608,8 +16638,7 @@ ${glossaryKey}`;
       this.ankiLibraryScanId++;
       this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
       if (!formSettings.ankiEnabled) return;
-      const previous = this.settings;
-      this.settings = formSettings;
+      const previous = this.swapSettingsTransiently(formSettings);
       try {
         const connected = await this.dependencies.anki.isConnected();
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -16626,7 +16655,7 @@ ${glossaryKey}`;
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiConnectionProbe(form, requestId) {
@@ -16644,10 +16673,9 @@ ${glossaryKey}`;
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const scanLibrary = this.dependencies.anki.scanLibrary;
       if (typeof scanLibrary !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending", void 0, "scanning");
@@ -16668,7 +16696,7 @@ ${glossaryKey}`;
         log.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiLibraryScan(form, requestId) {
@@ -16678,10 +16706,9 @@ ${glossaryKey}`;
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
       if (typeof warmStatusIndex !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       try {
@@ -16690,7 +16717,7 @@ ${glossaryKey}`;
       } catch (error) {
         log.warn("Automatic Anki status index warmup failed", error);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     setAnkiStatusLine(form, line) {
@@ -16931,10 +16958,9 @@ ${glossaryKey}`;
     async handleSettingsAudioAction(form, action, control) {
       if (action !== "preview-audio") return false;
       const button = settingsActionButton(control);
-      const previous = this.settings;
       const previewSettings = readFormSettings(new FormData(form), this.settings);
       focusPreviewAudioSource(form, button, previewSettings);
-      this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
+      const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
       button?.setAttribute("disabled", "true");
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       try {
@@ -16949,7 +16975,7 @@ ${glossaryKey}`;
         log.warn("Audio settings preview failed", error);
         this.dependencies.toast(errorMessage(error, uiText(language, "audioPreviewFailed")));
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;
@@ -17090,8 +17116,7 @@ ${glossaryKey}`;
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       const button = settingsActionButton(control);
       const setAnkiStatus = ankiStatusSetter(form.querySelector("[data-anki-status]"));
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       button?.setAttribute("disabled", "true");
       setAnkiStatus(uiText(language, ankiConnectionPendingKey(connectionAction)), "pending");
       try {
@@ -17104,7 +17129,7 @@ ${glossaryKey}`;
       } catch (error) {
         this.handleAnkiConnectionActionError(error, setAnkiStatus, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;

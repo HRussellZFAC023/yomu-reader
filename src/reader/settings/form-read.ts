@@ -378,6 +378,7 @@ function readReadingDisplayFormSettings(
         furiganaMode,
         furiganaHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`furiganaHide-${group}`)),
         wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
+        clampedRowReadings: readOption(get('clampedRowReadings'), ['show', 'hover'] as const, 'show'),
         wordColorHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`colorHide-${group}`)),
         showPitchAccent: has('showPitchAccent'),
         showLookupPillFrequency: has('showLookupPillFrequency'),

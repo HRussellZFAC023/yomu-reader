@@ -35799,8 +35799,15 @@ describe('reader helpers', () => {
 
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributes).toBe(true);
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('open');
-        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).not.toContain('class');
-        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).not.toContain('style');
+        // Class E (2026-07-11, deliberate pin update): style/class ARE watched
+        // now — menus/sheets that keep their DOM and toggle display/class were
+        // invisible to the scan trigger. The noise risk the old pin guarded
+        // against is handled by the reveal-shape filter (oldValue hidden →
+        // shown, value actually changed, element renders now) instead of by
+        // not observing at all.
+        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('class');
+        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('style');
+        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeOldValue).toBe(true);
         expect(mutationMayContainJapaneseText(mutation)).toBe(true);
     });
 

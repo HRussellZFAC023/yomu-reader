@@ -208,6 +208,41 @@ export function isClipConstrainedRow(element: HTMLElement): boolean {
     return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
 }
 
+// POLICY AMENDMENT (owner directive 2026-07-11, Google-search evidence): a
+// clip-constrained row whose words classify as CONTENT (content-ruby /
+// prose-full) keeps furigana AT REST when the row can grow naturally in flow.
+// Google line-clamps ordinary prose snippets; hiding readings at rest there
+// turned body text into hover-only furigana. Deterministic facts:
+//   - the decoration state must be content (interactive/chrome rows stay
+//     hover-only — the banned class-A growth surface);
+//   - the row must have NO definite height/max-height clip: a line-clamp or
+//     ellipsis row with auto height grows in flow when the ruby line box gets
+//     taller (pre-1.6.118 Google behavior — correct), while a fixed-height
+//     clip would cut in-flow readings mid-glyph and stays rest-hidden.
+// Growth here is pure in-flow line-height — no geometry writes of any kind.
+// Scope: the IN-PLACE render channel only. Mirror-channel clip rows (YouTube
+// feed/watch tiles) keep the paint-invariant hover-only overlay by channel
+// fact — the mirror is out-of-flow, so "grow naturally" cannot apply to it.
+export function contentClipRowShowsRestReadings(
+    decoration: DecorationState | undefined,
+    clipRow: HTMLElement,
+): boolean {
+    if (decoration !== 'content-ruby' && decoration !== 'prose-full') return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow) return false;
+    // Only clamp/ellipsis rows have the auto-height shape that grows in flow.
+    if (!facts.clamped && !facts.ellipsisRow) return false;
+    // getComputedStyle().height is a USED value — a pixel string for ANY
+    // displayed element (CSSOM resolved values), so it cannot distinguish
+    // authored height:auto from a fixed row and would veto every real-browser
+    // Google snippet (sol review P1). Author intent is read from computed
+    // max-height (stays 'none' unless authored) and the element's own inline
+    // height/max-height instead.
+    const style = safeComputedStyle(clipRow);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+}
+
 // The mirror replaces the HOST's rendering (visibility:hidden), so routing a
 // constrained row through it is only safe when the host paints nothing of its
 // own: a pill chip's background/border, a nav row's chevron SVG, or a ::before
@@ -815,7 +850,28 @@ export function interactivePassiveControl(element: Element): HTMLElement | null 
 function isMediaTextContentControl(control: HTMLElement): boolean {
     if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
     if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-    return linkHasControlMedia(control) && compactLength(control.textContent ?? '') > 2;
+    // REAL media only (thumbnail/avatar imagery). linkHasControlMedia also
+    // matches svg/icon-class glyphs, but an icon is how CONTROLS decorate
+    // themselves — a dropdown trigger's caret (comments 並べ替え sort button)
+    // must not upgrade the control to content-with-ruby, which re-opened
+    // class-A growth on the comments header (gate-3 stray-growth flag).
+    // An <img>-backed caret is the same icon in different clothes: measured
+    // media smaller than an avatar/thumbnail floor stays a control glyph
+    // (unmeasured media — lazy-loading, detached probes — keeps content).
+    const media = safeQuerySelector(control, 'img,picture,video,canvas');
+    if (!media || !(media instanceof HTMLElement)) return false;
+    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? '') > 2;
+}
+
+// Icon glyphs render 16-24px square; any real thumbnail/avatar has at least
+// one edge well past that. Judged on the LONGEST edge so short-and-wide
+// letterboxed thumbnails stay media.
+const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+
+function mediaElementIsThumbnailSized(media: HTMLElement): boolean {
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return true;
+    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
 
 export function classifyDecoration(element: Element): DecorationState {

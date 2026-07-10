@@ -12,6 +12,7 @@ import {
     boxStyleIsClipCapable,
     classifyDecoration,
     closestRubyFragileConstrainedRow,
+    contentClipRowShowsRestReadings,
     isClipConstrainedRow,
     decorationStateForWord,
     decorationSuppressesRuby,
@@ -1584,19 +1585,20 @@ function nonDestructiveHostRenderPlan(
     host: HTMLElement,
     target: ScanTextTarget,
     tokens: JPDBToken[],
-): { text: string; tokens: JPDBToken[]; whitespaceJoints?: number[] } {
+): { text: string; tokens: JPDBToken[]; whitespaceJoints?: number[]; hostText: string } {
     const fragments = nonDestructiveTargetFragments(target);
     const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
-    if (!fragments.length || !hostText) return { text: target.text, tokens };
     // Identical text needs no token remap, but it MUST keep the joints: a
     // multi-node fragment target covering the whole host (the common Discord
-    // shape) would otherwise lose the layout model and re-invent spaces.
-    if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
+    // shape) — and a replayed cached render (class Y/BB, fragments already
+    // detached) — would otherwise lose the layout model and re-invent spaces.
+    if (hostText && hostText === target.text) return { text: hostText, tokens, whitespaceJoints, hostText };
+    if (!fragments.length || !hostText) return { text: target.text, tokens, hostText };
     const indexed = indexTextFragments(fragments);
     const remapped = tokens
         .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText))
         .filter((token): token is JPDBToken => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints, hostText };
 }
 
 // Text the host never paints must not reach the mirror either — the mirror
@@ -1985,6 +1987,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         withdrawUnfitTextMirrorOverflow(host, state, mirror);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
+        rememberNonDestructiveRenderForReplay(host, target, text, safeTokens, plan.hostText, settings);
     } catch (error) {
         removeTextMirror(host);
         throw error;
@@ -2857,7 +2860,21 @@ function observeTextMirrorHost(host: HTMLElement): void {
             // unrelated scroll scan happened by. Signal staleness first so the
             // app re-scans this surface immediately (the host-text-changed path
             // below already does this for the mirror-survived case).
-            if (liveHost.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+            const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+            if (liveHost.isConnected && HAS_JAPANESE.test(wipedHostText)) {
+                // Class Y/BB: an identical-text re-render (live watch-info
+                // cycle, scroll-recycle rehydration) re-applies the cached
+                // render synchronously in this microtask — the host stays
+                // paint-invariant for the whole cycle (no bare frame, no
+                // height oscillation) and no scan/parse is scheduled at all.
+                // Gated on the page having REWRITTEN content (added nodes /
+                // text writes): a bare mirror.remove() with no rewrite is the
+                // host actively deleting our node, and re-adding it would
+                // start a fight — that case restores native text instead
+                // (pinned by repaint-loop-mirror restore contract).
+                if (wipedHostText === liveState.sourceText
+                    && mutationsRewroteHostContent(mutations)
+                    && replayNonDestructiveRenderFromCache(liveHost)) return;
                 dispatchTextMirrorStale(liveHost);
             }
             removeTextMirror(liveHost);
@@ -2979,9 +2996,139 @@ function dispatchTextMirrorStale(host: HTMLElement): void {
     }));
 }
 
+// Class Y/BB — same-input render replay. Live surfaces re-render on a fixed
+// cadence with UNCHANGED text (ytd-watch-info-text every ~6s on live streams),
+// and mobile scroll recyclers rehydrate tiles with identical content; each
+// cycle used to strip the mirror, dispatch stale, and pay a full debounced
+// re-scan + re-parse + re-render — visible flicker, row-height oscillation
+// under the finger, and CPU churn. The last successful render per host is
+// cached (plan text + remapped tokens + the raw host text it was derived
+// from); when a framework wipe leaves the SAME host text behind, the cached
+// render is re-applied synchronously in the observer microtask — no bare
+// frame, no scan, no parse, no ruby-room geometry. Deterministic: replay only
+// runs when the re-derived host text is byte-identical to the cached input,
+// and the render itself is a pure function of (text, tokens, settings).
+interface NonDestructiveRenderCacheEntry {
+    planText: string;
+    hostTextAtRender: string;
+    tokens: JPDBToken[];
+    settings: ReaderSettings;
+    decoration?: DecorationState;
+    decorationProfileOverride?: boolean;
+    suppressRuby?: boolean;
+    passiveInteraction?: boolean;
+    layoutSensitive?: boolean;
+    insideShadowDOM?: boolean;
+    parserId?: string;
+    hadNativeRuby: boolean;
+    epoch: number;
+}
+
+const nonDestructiveRenderCache = new WeakMap<HTMLElement, NonDestructiveRenderCacheEntry>();
+// Bulk teardown (annotations off, destroy, settings-driven clears) must
+// invalidate every cached render; a WeakMap cannot be iterated, so entries
+// carry the epoch they were written under.
+let nonDestructiveRenderCacheEpoch = 0;
+let nonDestructiveRenderReplayCount = 0;
+
+/** Test hook: replays are otherwise indistinguishable from a fresh scan render. */
+export function nonDestructiveRenderReplayCountForTest(): number {
+    return nonDestructiveRenderReplayCount;
+}
+
+function rememberNonDestructiveRenderForReplay(
+    host: HTMLElement,
+    target: ScanTextTarget,
+    planText: string,
+    tokens: JPDBToken[],
+    hostTextAtRender: string,
+    settings: ReaderSettings,
+): void {
+    nonDestructiveRenderCache.set(host, {
+        planText,
+        hostTextAtRender,
+        tokens,
+        settings,
+        decoration: target.decoration,
+        decorationProfileOverride: isFragmentTextTarget(target) ? target.decorationProfileOverride : undefined,
+        suppressRuby: target.suppressRuby,
+        passiveInteraction: target.passiveInteraction,
+        layoutSensitive: target.layoutSensitive,
+        insideShadowDOM: target.insideShadowDOM,
+        parserId: isFragmentTextTarget(target) ? target.parserId : undefined,
+        hadNativeRuby: targetHasNativeRuby(target),
+        epoch: nonDestructiveRenderCacheEpoch,
+    });
+}
+
+function replayNonDestructiveRenderFromCache(host: HTMLElement): boolean {
+    const entry = nonDestructiveRenderCache.get(host);
+    if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
+    // Native-ruby fragment metadata cannot be reconstructed for detached
+    // fragments — fall back to the stale-rescan path for those rare hosts.
+    if (entry.hadNativeRuby || !host.isConnected) return false;
+    // Strict same-input gate: the raw host text the new subtree renders must
+    // equal the text the cached plan was derived from (the observer's
+    // normalized check is a cheap pre-filter; this is the authoritative one).
+    if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+    // Same-FACTS gate (sol review P1): a recycler can keep the text but change
+    // the host's role/ancestry (content row becoming a button). Re-run the
+    // deterministic classifier; any drift falls back to the stale-rescan path
+    // so the fresh scan re-seals the verdict instead of replaying a stale one.
+    // Profile-overridden verdicts (owner-curated upgrades the classifier
+    // cannot reproduce) only guard the skip transition, like the scanner does.
+    if (entry.decoration) {
+        const current = classifyDecoration(host);
+        if (entry.decorationProfileOverride ? current === 'skip' : current !== entry.decoration) return false;
+    }
+    const target: FragmentTextTarget = {
+        text: entry.planText,
+        parent: host,
+        fragments: [],
+        decoration: entry.decoration,
+        decorationProfileOverride: entry.decorationProfileOverride,
+        suppressRuby: entry.suppressRuby,
+        passiveInteraction: entry.passiveInteraction,
+        layoutSensitive: entry.layoutSensitive,
+        insideShadowDOM: entry.insideShadowDOM,
+        parserId: entry.parserId,
+        nonDestructive: true,
+    };
+    try {
+        withMirrorTokenApply(() => {
+            removeTextMirror(host);
+            // Re-stamp the sealed decoration: a framework re-render may have
+            // rewritten the host's attributes along with its children.
+            stampTargetDecoration(target, host);
+            applyTokensToNonDestructiveScanTarget(target, entry.tokens, entry.settings);
+        });
+    } catch {
+        return false;
+    }
+    if (!currentTextMirror(host)) return false;
+    nonDestructiveRenderReplayCount += 1;
+    return true;
+}
+
 function mutationInsideTextMirror(mutation: MutationRecord): boolean {
     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
     return Boolean(target?.closest(READER_TEXT_MIRROR_SELECTOR));
+}
+
+// True when the batch shows the PAGE writing content (fresh nodes or text
+// writes outside our mirror) — the recycler/re-render shape — as opposed to
+// merely deleting our mirror node.
+function mutationsRewroteHostContent(mutations: MutationRecord[]): boolean {
+    return mutations.some(mutation => {
+        if (mutationInsideTextMirror(mutation)) return false;
+        if (mutation.type === 'characterData') return true;
+        return mutation.type === 'childList'
+            && Array.from(mutation.addedNodes).some(node => !nodeIsReaderMirrorNode(node));
+    });
+}
+
+function nodeIsReaderMirrorNode(node: Node): boolean {
+    return node instanceof Element && Boolean(node.closest?.(READER_TEXT_MIRROR_SELECTOR));
 }
 
 function nativeTextMirrorHostText(host: HTMLElement): string {
@@ -3135,6 +3282,10 @@ function registeredTextMirrorHostFor(mirror: HTMLElement): HTMLElement | null {
 }
 
 export function removeNonDestructiveScanMirrors(root: ParentNode = document): number {
+    // A bulk clear is a statement that NOTHING may re-decorate on its own:
+    // invalidate every cached replay render (class Y/BB) so a framework
+    // re-render after "annotations off" cannot resurrect a mirror.
+    nonDestructiveRenderCacheEpoch += 1;
     const hosts = new Set<HTMLElement>();
     // Pierce open shadow roots: a shadow-scan mirror is appended INSIDE its
     // shadow root, which root.querySelectorAll does not cross. Missing it here
@@ -3453,9 +3604,17 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // clip row is stamped so CSS hides rt at rest — in-place ruby in a
     // clipped/clamped row otherwise paints outside the row bounds on live
     // pages (tenki/bookwalker/amazon sweep regressions).
+    // POLICY AMENDMENT (owner 2026-07-11): CONTENT rows that can grow in flow
+    // (Google's line-clamped prose snippets) stamp "content" instead — their
+    // readings stay visible at rest by default, re-hidden only under the
+    // opt-in hover-only root mode (data-yomu-clamped-readings="hover").
     if (!renderTarget.suppressRuby) {
         const clipRow = closestRubyFragileConstrainedRow(target.parent);
-        if (clipRow) clipRow.dataset.yomuClipConstrained = 'true';
+        if (clipRow) {
+            clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow)
+                ? 'content'
+                : 'true';
+        }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);

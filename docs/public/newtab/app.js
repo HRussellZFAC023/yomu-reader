@@ -1602,6 +1602,9 @@
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
+      clampedRowReadings: "Readings on clamped rows",
+      clampedRowReadingsShow: "Show (row grows)",
+      clampedRowReadingsHover: "Hover only",
       showPitchAccent: "Show pitch accent",
       showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
@@ -3347,6 +3350,9 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
+clampedRowReadings	省略行のふりがな
+clampedRowReadingsShow	表示（行が広がる）
+clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	ピッチアクセントを表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
@@ -5955,6 +5961,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return null;
   }
+  function contentClipRowShowsRestReadings(decoration, clipRow) {
+    if (decoration !== "content-ruby" && decoration !== "prose-full") return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow) return false;
+    if (!facts.clamped && !facts.ellipsisRow) return false;
+    const style = safeComputedStyle(clipRow);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+  }
   const MIRROR_BARE_DESCENDANT_LIMIT = 16;
   function hostIsVisuallyBareForMirror(host) {
     if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
@@ -6365,7 +6380,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isMediaTextContentControl(control) {
     if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
     if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-    return linkHasControlMedia(control) && compactLength(control.textContent ?? "") > 2;
+    const media = safeQuerySelector(control, "img,picture,video,canvas");
+    if (!media || !(media instanceof HTMLElement)) return false;
+    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? "") > 2;
+  }
+  const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+  function mediaElementIsThumbnailSized(media) {
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return true;
+    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
   }
   function classifyDecoration(element) {
     if (element.closest(READER_ROOT_SELECTOR)) return "content-ruby";
@@ -7500,6 +7523,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    clampedRowReadings: "show",
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
@@ -7909,6 +7933,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
       puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
       furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
       wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
@@ -9245,11 +9270,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function nonDestructiveHostRenderPlan(host, target, tokens) {
     const fragments = nonDestructiveTargetFragments(target);
     const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
-    if (!fragments.length || !hostText) return { text: target.text, tokens };
-    if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
+    if (hostText && hostText === target.text) return { text: hostText, tokens, whitespaceJoints, hostText };
+    if (!fragments.length || !hostText) return { text: target.text, tokens, hostText };
     const indexed = indexTextFragments(fragments);
     const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints, hostText };
   }
   const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
   function hostOriginalTextWithNodeOffsets(host) {
@@ -9535,6 +9560,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       withdrawUnfitTextMirrorOverflow(host, state2, mirror);
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
+      rememberNonDestructiveRenderForReplay(host, target, text2, safeTokens, plan.hostText, settings);
     } catch (error) {
       removeTextMirror(host);
       throw error;
@@ -10149,7 +10175,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       if (mutations.every(mutationInsideTextMirror)) return;
       if (!currentTextMirror(liveHost)) {
-        if (liveHost.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+        const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+        if (liveHost.isConnected && HAS_JAPANESE.test(wipedHostText)) {
+          if (wipedHostText === liveState.sourceText && mutationsRewroteHostContent(mutations) && replayNonDestructiveRenderFromCache(liveHost)) return;
           dispatchTextMirrorStale(liveHost);
         }
         removeTextMirror(liveHost);
@@ -10185,14 +10213,99 @@ recommendedJiten	Jiten由来の頻度バッジです。
     lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(observer), { once: true });
   }
   const liveTextMirrorObservers = /* @__PURE__ */ new Map();
+  let mirrorTokenApplyDepth = 0;
+  function withMirrorTokenApply(callback) {
+    mirrorTokenApplyDepth += 1;
+    try {
+      return callback();
+    } finally {
+      mirrorTokenApplyDepth -= 1;
+      if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
+    }
+  }
+  function sweepAndDrainTextMirrorObservers() {
+    for (const [observer, hostRef] of liveTextMirrorObservers) {
+      const host = hostRef.deref();
+      if (!host || !host.isConnected) {
+        liveTextMirrorObservers.delete(observer);
+        observer.disconnect();
+        if (host) removeTextMirror(host);
+        continue;
+      }
+      observer.takeRecords();
+    }
+  }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
       bubbles: true
     }));
   }
+  const nonDestructiveRenderCache = /* @__PURE__ */ new WeakMap();
+  let nonDestructiveRenderCacheEpoch = 0;
+  function rememberNonDestructiveRenderForReplay(host, target, planText, tokens, hostTextAtRender, settings) {
+    nonDestructiveRenderCache.set(host, {
+      planText,
+      hostTextAtRender,
+      tokens,
+      settings,
+      decoration: target.decoration,
+      decorationProfileOverride: isFragmentTextTarget(target) ? target.decorationProfileOverride : void 0,
+      suppressRuby: target.suppressRuby,
+      passiveInteraction: target.passiveInteraction,
+      layoutSensitive: target.layoutSensitive,
+      insideShadowDOM: target.insideShadowDOM,
+      parserId: isFragmentTextTarget(target) ? target.parserId : void 0,
+      hadNativeRuby: targetHasNativeRuby(target),
+      epoch: nonDestructiveRenderCacheEpoch
+    });
+  }
+  function replayNonDestructiveRenderFromCache(host) {
+    const entry = nonDestructiveRenderCache.get(host);
+    if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
+    if (entry.hadNativeRuby || !host.isConnected) return false;
+    if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+    if (entry.decoration) {
+      const current = classifyDecoration(host);
+      if (entry.decorationProfileOverride ? current === "skip" : current !== entry.decoration) return false;
+    }
+    const target = {
+      text: entry.planText,
+      parent: host,
+      fragments: [],
+      decoration: entry.decoration,
+      decorationProfileOverride: entry.decorationProfileOverride,
+      suppressRuby: entry.suppressRuby,
+      passiveInteraction: entry.passiveInteraction,
+      layoutSensitive: entry.layoutSensitive,
+      insideShadowDOM: entry.insideShadowDOM,
+      parserId: entry.parserId,
+      nonDestructive: true
+    };
+    try {
+      withMirrorTokenApply(() => {
+        removeTextMirror(host);
+        stampTargetDecoration(target, host);
+        applyTokensToNonDestructiveScanTarget(target, entry.tokens, entry.settings);
+      });
+    } catch {
+      return false;
+    }
+    if (!currentTextMirror(host)) return false;
+    return true;
+  }
   function mutationInsideTextMirror(mutation) {
     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
     return Boolean(target?.closest(READER_TEXT_MIRROR_SELECTOR));
+  }
+  function mutationsRewroteHostContent(mutations) {
+    return mutations.some((mutation) => {
+      if (mutationInsideTextMirror(mutation)) return false;
+      if (mutation.type === "characterData") return true;
+      return mutation.type === "childList" && Array.from(mutation.addedNodes).some((node) => !nodeIsReaderMirrorNode(node));
+    });
+  }
+  function nodeIsReaderMirrorNode(node) {
+    return node instanceof Element && Boolean(node.closest?.(READER_TEXT_MIRROR_SELECTOR));
   }
   function nativeTextMirrorHostText(host) {
     let text2 = "";
@@ -10311,7 +10424,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
     if (!renderTarget.suppressRuby) {
       const clipRow = closestRubyFragileConstrainedRow(target.parent);
-      if (clipRow) clipRow.dataset.yomuClipConstrained = "true";
+      if (clipRow) {
+        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) ? "content" : "true";
+      }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
@@ -41203,6 +41318,7 @@ ${spelling}`);
       furiganaMode,
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
+      clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
       wordColorHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`colorHide-${group}`)),
       showPitchAccent: has("showPitchAccent"),
       showLookupPillFrequency: has("showLookupPillFrequency"),
@@ -43137,6 +43253,10 @@ ${spelling}`);
     ["all", "Use all learning states"],
     ["new-only", "Only new / not-in-deck words"]
   ];
+  const CLAMPED_ROW_READINGS_OPTIONS = [
+    ["show", "Show (row grows)"],
+    ["hover", "Hover only"]
+  ];
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
@@ -43332,6 +43452,7 @@ ${spelling}`);
                     </div>
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
+                    ${select("clampedRowReadings", "Readings on clamped rows", settings.clampedRowReadings, CLAMPED_ROW_READINGS_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${renderWordColorHiddenStateGroupControls(settings)}
@@ -43941,6 +44062,10 @@ ${spelling}`);
       ["all", text2("wordColorStatesAll")],
       ["new-only", text2("wordColorStatesNewOnly")]
     ]);
+    setSelectOptionLabels(form, "clampedRowReadings", [
+      ["show", text2("clampedRowReadingsShow")],
+      ["hover", text2("clampedRowReadingsHover")]
+    ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text2("automatic")],
       ["known-status", text2("furiganaHideKnown")],
@@ -44445,6 +44570,7 @@ ${spelling}`);
     "showFloatingButton",
     "pageScanMode",
     "furiganaMode",
+    "clampedRowReadings",
     "wordColorStates",
     "showPitchAccent",
     "showLookupPillFrequency",
@@ -45514,6 +45640,17 @@ ${spelling}`);
     set settings(settings) {
       this.dependencies.setSettings(settings);
     }
+    // Temporary form-derived swaps must not fire host-side transitions (the
+    // dialog's annotations-off instant clear would otherwise trigger from a
+    // mere Anki probe while OFF is selected but unsaved — sol review P1).
+    swapSettingsTransiently(settings) {
+      const previous = this.dependencies.getSettings();
+      this.dependencies.setSettings(settings, { transient: true });
+      return previous;
+    }
+    restoreTransientSettings(previous) {
+      this.dependencies.setSettings(previous, { transient: true });
+    }
     createSettingsForm(panel) {
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
@@ -46091,8 +46228,7 @@ ${spelling}`);
       this.ankiLibraryScanId++;
       this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
       if (!formSettings.ankiEnabled) return;
-      const previous = this.settings;
-      this.settings = formSettings;
+      const previous = this.swapSettingsTransiently(formSettings);
       try {
         const connected = await this.dependencies.anki.isConnected();
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -46109,7 +46245,7 @@ ${spelling}`);
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiConnectionProbe(form, requestId) {
@@ -46127,10 +46263,9 @@ ${spelling}`);
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const scanLibrary = this.dependencies.anki.scanLibrary;
       if (typeof scanLibrary !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending", void 0, "scanning");
@@ -46151,7 +46286,7 @@ ${spelling}`);
         log$i.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiLibraryScan(form, requestId) {
@@ -46161,10 +46296,9 @@ ${spelling}`);
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const warmStatusIndex2 = this.dependencies.anki.warmStatusIndex;
       if (typeof warmStatusIndex2 !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       try {
@@ -46173,7 +46307,7 @@ ${spelling}`);
       } catch (error) {
         log$i.warn("Automatic Anki status index warmup failed", error);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     setAnkiStatusLine(form, line) {
@@ -46414,10 +46548,9 @@ ${spelling}`);
     async handleSettingsAudioAction(form, action, control) {
       if (action !== "preview-audio") return false;
       const button = settingsActionButton(control);
-      const previous = this.settings;
       const previewSettings = readFormSettings(new FormData(form), this.settings);
       focusPreviewAudioSource(form, button, previewSettings);
-      this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
+      const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
       button?.setAttribute("disabled", "true");
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       try {
@@ -46432,7 +46565,7 @@ ${spelling}`);
         log$i.warn("Audio settings preview failed", error);
         this.dependencies.toast(errorMessage$1(error, uiText(language, "audioPreviewFailed")));
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;
@@ -46573,8 +46706,7 @@ ${spelling}`);
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       const button = settingsActionButton(control);
       const setAnkiStatus = ankiStatusSetter(form.querySelector("[data-anki-status]"));
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       button?.setAttribute("disabled", "true");
       setAnkiStatus(uiText(language, ankiConnectionPendingKey(connectionAction)), "pending");
       try {
@@ -46587,7 +46719,7 @@ ${spelling}`);
       } catch (error) {
         this.handleAnkiConnectionActionError(error, setAnkiStatus, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;
