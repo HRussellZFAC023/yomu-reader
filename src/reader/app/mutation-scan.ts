@@ -65,7 +65,14 @@ export function mutationMayContainJapaneseText(mutation: MutationRecord): boolea
         if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
         return nodeTextMayContainJapanese(mutation.target);
     }
-    return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+    // Reader-owned additions (the replay path re-appends a mirror outside the
+    // scanner's paused-observer window) are our own paint, never new page text.
+    return Array.from(mutation.addedNodes).some(node => !nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node));
+}
+
+function nodeIsReaderOwned(node: Node): boolean {
+    const element = mutationNodeElement(node);
+    return Boolean(element?.closest(`${READER_ROOT_SELECTOR},.jpdb-reader-text-mirror`));
 }
 
 // Cheap reveal filter for the noisy style/class channel, checked BEFORE the

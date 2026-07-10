@@ -70,7 +70,11 @@ interface Refreshable {
 
 interface SettingsDialogDependencies {
     getSettings: () => ReaderSettings;
-    setSettings: (settings: ReaderSettings) => void;
+    // `transient` marks a temporary form-derived swap (Anki probes, audio
+    // previews) that will be restored immediately: the host must apply the
+    // values (dependency calls read getSettings) but skip side-effectful
+    // transitions such as the annotations-off instant clear.
+    setSettings: (settings: ReaderSettings, options?: { transient?: boolean }) => void;
     jpdb: JpdbClient;
     dictionaries: YomitanDictionaryStore;
     anki: AnkiConnectClient;
@@ -608,6 +612,19 @@ export class SettingsDialogController {
 
     private set settings(settings: ReaderSettings) {
         this.dependencies.setSettings(settings);
+    }
+
+    // Temporary form-derived swaps must not fire host-side transitions (the
+    // dialog's annotations-off instant clear would otherwise trigger from a
+    // mere Anki probe while OFF is selected but unsaved — sol review P1).
+    private swapSettingsTransiently(settings: ReaderSettings): ReaderSettings {
+        const previous = this.dependencies.getSettings();
+        this.dependencies.setSettings(settings, { transient: true });
+        return previous;
+    }
+
+    private restoreTransientSettings(previous: ReaderSettings): void {
+        this.dependencies.setSettings(previous, { transient: true });
     }
 
     private createSettingsForm(panel?: string): HTMLFormElement {
@@ -1228,8 +1245,7 @@ export class SettingsDialogController {
         this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
         if (!formSettings.ankiEnabled) return;
 
-        const previous = this.settings;
-        this.settings = formSettings;
+        const previous = this.swapSettingsTransiently(formSettings);
         try {
             const connected = await this.dependencies.anki.isConnected();
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -1246,7 +1262,7 @@ export class SettingsDialogController {
             this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
             void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
         } finally {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
         }
     }
 
@@ -1268,10 +1284,9 @@ export class SettingsDialogController {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         const scanLibrary = this.dependencies.anki.scanLibrary;
         if (typeof scanLibrary !== 'function') return;
-        const previous = this.settings;
-        this.settings = readFormSettings(new FormData(form), this.settings);
+        const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
         if (!this.settings.ankiEnabled) {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
             return;
         }
         this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending', undefined, 'scanning');
@@ -1292,7 +1307,7 @@ export class SettingsDialogController {
             log.warn('Automatic Anki library scan failed', error);
             this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success', undefined, 'connected');
         } finally {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
         }
     }
 
@@ -1304,10 +1319,9 @@ export class SettingsDialogController {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
         if (typeof warmStatusIndex !== 'function') return;
-        const previous = this.settings;
-        this.settings = readFormSettings(new FormData(form), this.settings);
+        const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
         if (!this.settings.ankiEnabled) {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
             return;
         }
         try {
@@ -1316,7 +1330,7 @@ export class SettingsDialogController {
         } catch (error) {
             log.warn('Automatic Anki status index warmup failed', error);
         } finally {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
         }
     }
 
@@ -1594,10 +1608,9 @@ export class SettingsDialogController {
         if (action !== 'preview-audio') return false;
 
         const button = settingsActionButton(control);
-        const previous = this.settings;
         const previewSettings = readFormSettings(new FormData(form), this.settings);
         focusPreviewAudioSource(form, button, previewSettings);
-        this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
+        const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
         button?.setAttribute('disabled', 'true');
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         try {
@@ -1614,7 +1627,7 @@ export class SettingsDialogController {
             log.warn('Audio settings preview failed', error);
             this.dependencies.toast(errorMessage(error, uiText(language, 'audioPreviewFailed')));
         } finally {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
             button?.removeAttribute('disabled');
         }
         return true;
@@ -1767,8 +1780,7 @@ export class SettingsDialogController {
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const button = settingsActionButton(control);
         const setAnkiStatus = ankiStatusSetter(form.querySelector<HTMLElement>('[data-anki-status]'));
-        const previous = this.settings;
-        this.settings = readFormSettings(new FormData(form), this.settings);
+        const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
         button?.setAttribute('disabled', 'true');
         setAnkiStatus(uiText(language, ankiConnectionPendingKey(connectionAction)), 'pending');
         try {
@@ -1781,7 +1793,7 @@ export class SettingsDialogController {
         } catch (error) {
             this.handleAnkiConnectionActionError(error, setAnkiStatus, language);
         } finally {
-            this.settings = previous;
+            this.restoreTransientSettings(previous);
             button?.removeAttribute('disabled');
         }
         return true;

@@ -80,6 +80,12 @@ describe('clamped CONTENT rows keep readings at rest (owner amendment)', () => {
         expect(row.dataset.yomuClipConstrained).toBe('true');
     });
 
+    it('vetoes at-rest readings when the clamp row carries an authored max-height cap', () => {
+        document.body.innerHTML = `<div id="capped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px">${SNIPPET}</div>`;
+        const row = document.querySelector<HTMLElement>('#capped')!;
+        expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(false);
+    });
+
     it('never grants at-rest readings to interactive-passive or skip rows', () => {
         document.body.innerHTML = `<div id="row" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</div>`;
         const row = document.querySelector<HTMLElement>('#row')!;

@@ -1219,6 +1219,15 @@ export interface SiteScanOptions {
     skipMirroredHosts?: boolean;
 }
 
+// The scanner's continuation gate must compare against the limit collection
+// actually enforces: profiles can cap it below the requested budget
+// (scanLimit), and comparing against the raw budget made capped profiles
+// (live-chat frame, scanLimit 80) unable to ever continue (sol review P1).
+export function effectiveSiteScanCollectionLimit(limit: number, href = window.location.href): number {
+    const profiles = getMatchingSiteParsers(href);
+    return profiles.length ? effectiveScanTargetLimit(profiles, limit) : limit;
+}
+
 export function collectSiteScanTargets(limit = 40, href = window.location.href, options: SiteScanOptions = {}): ScanTextTarget[] | null {
     return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
 }
@@ -1326,7 +1335,7 @@ function normalizedAttributeText(element: HTMLElement, attribute: string): strin
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
     if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
+    const collected = collectFragmentTextTargetsIn(root, mirrorSkipAwareCandidateLimit(context), profile.visibleOnly ?? true, excludeSelector, {
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
@@ -1539,6 +1548,17 @@ function plainScanTarget(target: FragmentTextTarget): FragmentTextTarget {
 
 function siteScanRemaining(context: SiteScanContext): number {
     return context.effectiveLimit - context.targets.length;
+}
+
+// When silent scans skip already-mirrored hosts, the SKIPPED head must not
+// consume the candidate budget or continuation scans re-collect the same
+// decorated head and never reach the tail (sol review P1: one broad root with
+// 2x the budget of targets starved forever). Bounded headroom, not an
+// unbounded walk: each continuation reaches one budget-width deeper.
+function mirrorSkipAwareCandidateLimit(context: SiteScanContext): number {
+    const remaining = siteScanRemaining(context);
+    if (!context.skipMirroredHosts) return remaining;
+    return remaining * 2 + 24;
 }
 
 function siteScanHasRoom(context: SiteScanContext): boolean {

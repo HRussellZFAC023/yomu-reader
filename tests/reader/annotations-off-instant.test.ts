@@ -28,11 +28,13 @@ interface AppInternals {
     getSettingsDialog(): { } | undefined;
     settingsDialog?: { };
     scheduleAutoScan: (delay: number, options?: { force?: boolean }) => void;
+    pageScanner: { interruptVisiblePageScan?: () => void };
+    autoScanTimer?: number;
     toast: (message: string) => void;
 }
 
 interface DialogInternals {
-    dependencies: { setSettings: (settings: ReaderSettings) => void };
+    dependencies: { setSettings: (settings: ReaderSettings, options?: { transient?: boolean }) => void };
 }
 
 function annotate(): void {
@@ -95,6 +97,43 @@ describe('annotations-off via the settings dialog is instant (class G)', () => {
         dialog!.dependencies.setSettings({ ...app.settings, annotationsPaused: false });
         expect(app.settings.annotationsPaused).toBe(false);
         expect(scheduleAutoScan).toHaveBeenCalledWith(0, { force: true });
+    });
+
+    it('cancels pending and in-flight scan work when pausing (no re-annotation after the clear)', () => {
+        const app = new ReaderApp() as unknown as AppInternals;
+        app.settings = { ...DEFAULT_SETTINGS };
+        app.ocr = { refreshForModeChange: vi.fn() } as AppInternals['ocr'];
+        app.toast = vi.fn();
+        app.scheduleAutoScan = vi.fn();
+        const interrupt = vi.fn();
+        app.pageScanner = { interruptVisiblePageScan: interrupt };
+        app.autoScanTimer = window.setTimeout(() => undefined, 60_000);
+        const dialog = app.getSettingsDialog() as unknown as DialogInternals;
+
+        dialog.dependencies.setSettings({ ...app.settings, annotationsPaused: true });
+
+        // A previously armed auto-scan timer and any in-flight scan must be
+        // dropped, or they would re-annotate right after the clear.
+        expect(app.autoScanTimer).toBeUndefined();
+        expect(interrupt).toHaveBeenCalled();
+    });
+
+    it('never treats a TRANSIENT probe swap as a pause transition (unsaved OFF + Anki test)', () => {
+        const app = new ReaderApp() as unknown as AppInternals;
+        app.settings = { ...DEFAULT_SETTINGS };
+        app.ocr = { refreshForModeChange: vi.fn() } as AppInternals['ocr'];
+        app.toast = vi.fn();
+        app.scheduleAutoScan = vi.fn();
+        const dialog = app.getSettingsDialog() as unknown as DialogInternals;
+
+        annotate();
+        // The dialog's Anki probes / audio previews swap form-derived settings
+        // in temporarily; with OFF selected but unsaved this must not clear.
+        dialog.dependencies.setSettings({ ...app.settings, annotationsPaused: true }, { transient: true });
+        expect(document.querySelectorAll('.jpdb-reader-word').length).toBeGreaterThan(0);
+        expect(document.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        dialog.dependencies.setSettings({ ...app.settings, annotationsPaused: false }, { transient: true });
+        expect(app.scheduleAutoScan).not.toHaveBeenCalled();
     });
 
     it('does not clear or rescan when a dialog write leaves the pause flag unchanged', () => {

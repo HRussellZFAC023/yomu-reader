@@ -62,6 +62,20 @@ describe('comments-header sort trigger classifies interactive-passive', () => {
         expect(classifyDecoration(label)).toBe('interactive-passive');
     });
 
+    it('treats a small measured <img> caret exactly like an svg icon (still a control)', () => {
+        document.body.innerHTML = `
+            <ytd-comments>
+                <div role="button" id="row"><img id="caret" src="caret.png"><span id="text">並べ替え</span></div>
+            </ytd-comments>
+        `;
+        const caret = document.getElementById('caret')!;
+        Object.defineProperty(caret, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ x: 0, y: 0, left: 0, top: 0, right: 16, bottom: 16, width: 16, height: 16, toJSON: () => ({}) }) as DOMRect,
+        });
+        expect(classifyDecoration(document.getElementById('text')!)).toBe('interactive-passive');
+    });
+
     it('keeps a channel avatar link (real media + name) as content', () => {
         document.body.innerHTML = `
             <ytd-comments>

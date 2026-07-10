@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { collectScanTargets } from '../../src/reader/app/site-parsers';
+import { collectScanTargets, effectiveSiteScanCollectionLimit } from '../../src/reader/app/site-parsers';
 
 // Class Z: the /live_chat (and /live_chat_replay) iframe is same-origin and
 // boots a restricted reader instance; its frame profile must collect the
@@ -43,6 +43,14 @@ describe('YouTube live-chat frame collection (class Z)', () => {
             </yt-live-chat-app>
         `;
     }
+
+    it('exposes the profile-capped collection limit so capped frames can still continue (sol P1)', () => {
+        stubChatFrame('/live_chat');
+        // The live-chat frame profile caps collection at 80; the scanner must
+        // gate its continuation on THAT number, not the raw 200 budget.
+        expect(effectiveSiteScanCollectionLimit(200, 'https://www.youtube.com/live_chat?x=1')).toBeLessThanOrEqual(80);
+        expect(effectiveSiteScanCollectionLimit(200, 'https://example.com/')).toBe(200);
+    });
 
     for (const pathname of ['/live_chat', '/live_chat_replay'] as const) {
         it(`collects chat message and author text inside the ${pathname} frame as non-destructive targets`, () => {

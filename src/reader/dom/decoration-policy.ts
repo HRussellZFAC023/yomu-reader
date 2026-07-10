@@ -230,8 +230,17 @@ export function contentClipRowShowsRestReadings(
     if (decoration !== 'content-ruby' && decoration !== 'prose-full') return false;
     const facts = constrainedRowStyleFacts(clipRow);
     if (facts.clippedShortRow) return false;
+    // Only clamp/ellipsis rows have the auto-height shape that grows in flow.
+    if (!facts.clamped && !facts.ellipsisRow) return false;
+    // getComputedStyle().height is a USED value — a pixel string for ANY
+    // displayed element (CSSOM resolved values), so it cannot distinguish
+    // authored height:auto from a fixed row and would veto every real-browser
+    // Google snippet (sol review P1). Author intent is read from computed
+    // max-height (stays 'none' unless authored) and the element's own inline
+    // height/max-height instead.
     const style = safeComputedStyle(clipRow);
-    return !hasDefiniteCssSize(style.height) && !hasDefiniteCssSize(style.maxHeight);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
 }
 
 // The mirror replaces the HOST's rendering (visibility:hidden), so routing a
@@ -846,8 +855,23 @@ function isMediaTextContentControl(control: HTMLElement): boolean {
     // themselves — a dropdown trigger's caret (comments 並べ替え sort button)
     // must not upgrade the control to content-with-ruby, which re-opened
     // class-A growth on the comments header (gate-3 stray-growth flag).
-    return Boolean(safeQuerySelector(control, 'img,picture,video,canvas'))
-        && compactLength(control.textContent ?? '') > 2;
+    // An <img>-backed caret is the same icon in different clothes: measured
+    // media smaller than an avatar/thumbnail floor stays a control glyph
+    // (unmeasured media — lazy-loading, detached probes — keeps content).
+    const media = safeQuerySelector(control, 'img,picture,video,canvas');
+    if (!media || !(media instanceof HTMLElement)) return false;
+    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? '') > 2;
+}
+
+// Icon glyphs render 16-24px square; any real thumbnail/avatar has at least
+// one edge well past that. Judged on the LONGEST edge so short-and-wide
+// letterboxed thumbnails stay media.
+const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+
+function mediaElementIsThumbnailSized(media: HTMLElement): boolean {
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return true;
+    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
 
 export function classifyDecoration(element: Element): DecorationState {

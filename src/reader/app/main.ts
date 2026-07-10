@@ -1922,6 +1922,15 @@ export class ReaderApp {
     private applyAnnotationsPausedState(): void {
         if (this.settings.annotationsPaused) {
             this.cancelPendingHoverLookup();
+            // OFF must also silence work already in motion: a pending
+            // auto-scan timer or an in-flight scan's parse batches would
+            // otherwise re-annotate right after the clear (sol review P1).
+            window.clearTimeout(this.autoScanTimer);
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
+            this.autoScanForced = false;
+            this.autoScanDebounced = false;
+            this.pageScanner.interruptVisiblePageScan?.();
             this.clearAllAnnotations();
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
@@ -2255,6 +2264,15 @@ export class ReaderApp {
     }
 
     private runScheduledAutoScan(): void {
+        // Re-check the master gates at fire time: the pause/manual toggle can
+        // flip between scheduling and the timer firing (sol review P1).
+        if (this.isDestroyed || this.settings.annotationsPaused || this.settings.manualScanEnabled) {
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
+            this.autoScanForced = false;
+            this.autoScanDebounced = false;
+            return;
+        }
         const forced = this.autoScanForced;
         this.autoScanTimer = undefined;
         this.autoScanDeadline = 0;
@@ -7911,9 +7929,12 @@ export class ReaderApp {
         this.pitchEnrichmentQueuedOptions.clear();
         this.deferredPublicPitchQueue = [];
         this.deferredPublicPitchQueuedKeys.clear();
-        this.deferredPublicPitchEnqueuedForUrl = 0;
-        this.backgroundPublicPitchLookupBudgetHref = location.href;
-        this.backgroundPublicPitchLookupBudgetUsed = 0;
+        // Deliberately NOT resetting the per-URL enqueue counter or the page
+        // budget here: this clear runs on every settings save / dictionary
+        // rescan, and zeroing the counters re-admitted another full public
+        // budget for the SAME URL each time (sol review P1 — the cumulative
+        // endpoint bound must survive rescans). URL changes reset both via
+        // resetBackgroundPublicPitchLookupBudgetIfNeeded.
     }
 
     private hasLocalPitchDictionary(): Promise<boolean> {
@@ -8394,16 +8415,19 @@ export class ReaderApp {
         }
         this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
-            setSettings: settings => {
+            setSettings: (settings, options) => {
                 // Class G: the settings dialog's OFF radio (pageScanMode='off')
                 // persisted annotationsPaused but stripped nothing until a
                 // reload. Diff the pause flag here so EVERY dialog-driven
                 // settings write (submit, import, cloud restore) routes the
                 // transition through the same instant path as the puck and
                 // remote-tab toggles: pause clears all annotations + mirrors +
-                // ruby-room growth, resume rescans.
+                // ruby-room growth, resume rescans. Transient probe swaps
+                // (Anki tests, audio previews with unsaved form values) apply
+                // the values but never the transition.
                 const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
                 this.settings = settings;
+                if (options?.transient) return;
                 this.applyPreferredJapaneseSiteLanguage();
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
                 if (pauseChanged) this.applyAnnotationsPausedState();

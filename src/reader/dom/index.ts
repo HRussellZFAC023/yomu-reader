@@ -3071,6 +3071,16 @@ function replayNonDestructiveRenderFromCache(host: HTMLElement): boolean {
     // equal the text the cached plan was derived from (the observer's
     // normalized check is a cheap pre-filter; this is the authoritative one).
     if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+    // Same-FACTS gate (sol review P1): a recycler can keep the text but change
+    // the host's role/ancestry (content row becoming a button). Re-run the
+    // deterministic classifier; any drift falls back to the stale-rescan path
+    // so the fresh scan re-seals the verdict instead of replaying a stale one.
+    // Profile-overridden verdicts (owner-curated upgrades the classifier
+    // cannot reproduce) only guard the skip transition, like the scanner does.
+    if (entry.decoration) {
+        const current = classifyDecoration(host);
+        if (entry.decorationProfileOverride ? current === 'skip' : current !== entry.decoration) return false;
+    }
     const target: FragmentTextTarget = {
         text: entry.planText,
         parent: host,

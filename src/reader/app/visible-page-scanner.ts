@@ -12,7 +12,7 @@ import {
 } from '../dom/index';
 import { formatUiText, uiText } from '../app/i18n';
 import { Logger } from './logger';
-import { collectScanTargetsInSteps } from './site-parsers';
+import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
 import type { JPDBToken, ReaderSettings } from './types';
 
@@ -283,7 +283,8 @@ export class VisiblePageScanner {
 
         const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
-        if (parsedAnyTokens && targets.length >= targetCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+        const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
+        if (parsedAnyTokens && targets.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
             this.queueContinuationScan(silent);
             return;
         }
