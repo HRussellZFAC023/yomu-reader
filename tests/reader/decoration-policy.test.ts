@@ -305,13 +305,12 @@ describe('clip-constrained chrome rows (engine-unconditional)', () => {
     }
 
     function expectNoInFlowRuby(row: HTMLElement): void {
-        // The reading may render in the out-of-flow mirror; the row's own flow
-        // must stay ruby-free so the fixed-height clip cannot shave it.
+        // Any reading in the row must live in a rest-hidden channel: a
+        // hover-only mirror or a clip-constrained-stamped scope (CSS hides
+        // its rt at rest). Nothing may paint ruby at rest.
         for (const rt of Array.from(row.querySelectorAll('rt'))) {
-            expect(rt.closest('.jpdb-reader-text-mirror')).not.toBeNull();
-        }
-        for (const furi of Array.from(row.querySelectorAll('.jpdb-reader-has-furi'))) {
-            expect(furi.closest('.jpdb-reader-text-mirror')).not.toBeNull();
+            const scoped = rt.closest('.jpdb-reader-text-mirror') ?? rt.closest('[data-yomu-clip-constrained="true"]');
+            expect(scoped).not.toBeNull();
         }
     }
 
@@ -477,7 +476,10 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 // carry the data-yomu-clip-constrained stamp wherever their readings render,
 // so CSS can hide rt at rest (hover reveals; ruby-room growth re-shows).
 describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', () => {
-    it('stamps the mirror of a bare clipped category tile (kakaku shape)', () => {
+    it('renders a bare clipped category tile in place with the reading stamp (kakaku shape)', () => {
+        // Paint-invariant design: no mirror reroute for clip rows — the tile
+        // renders in place; its in-flow rt lives inside the stamped row so the
+        // rest-hide CSS keeps it invisible until hover.
         document.body.innerHTML = `
             <div class="category-tile">
                 <p><strong><span id="label" style="display:block;height:15px;overflow:hidden">パソコン周辺機器</span></strong></p>
@@ -491,10 +493,11 @@ describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', ()
             token('周辺', 'パソコン周辺機器'.indexOf('周辺'), 'パソコン周辺機器', 'しゅうへん'),
         ], FURIGANA_SETTINGS);
 
-        const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
-        expect(mirror).toBeTruthy();
-        expect(mirror?.querySelector('rt')).toBeTruthy();
-        expect(mirror?.dataset.yomuClipConstrained).toBe('true');
+        expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(label.style.getPropertyValue('visibility')).not.toBe('hidden');
+        const rt = label.querySelector('rt');
+        expect(rt).toBeTruthy();
+        expect(rt?.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
     });
 
     it('stamps a styled fixed-height menu row rendered in place (tenki shape)', () => {

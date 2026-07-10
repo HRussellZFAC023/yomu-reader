@@ -782,6 +782,7 @@ const COPY = {
         trackStatusWaiting: 'waiting for captions',
         trackStatusFailed: 'failed',
         moveSubtitles: 'Move subtitles',
+        moveSubtitlesAccessible: 'Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.',
         toggleImageReading: 'Toggle image reading',
         toggleSubtitleOverlay: 'Toggle subtitle overlay',
         toggleYoutubeImmersion: 'Toggle YouTube filter',
@@ -2193,6 +2194,7 @@ subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
+moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
 right	右
 left	左
 bottom	下

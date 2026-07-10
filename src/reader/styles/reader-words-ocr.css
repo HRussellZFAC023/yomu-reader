@@ -991,6 +991,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: none;
 }
 
+/* Clip-constrained HOVER-ONLY mirror (paint-invariant design, third live
+   gate): at rest the host text paints naturally and the mirror stays hidden
+   (inline visibility on the element). Hovering the stamped host reveals the
+   annotated mirror over it and blanks the host glyphs so the two texts never
+   double-paint; the mirror carries its own inline colour. */
+[data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
+  visibility: visible !important;
+}
+[data-yomu-clip-hover-host="true"]:hover {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
 /* Class Q (2026-07-10 site sweep): clip-constrained rows (fixed-height nav
    rows, line-clamped titles) show NO at-rest furigana in any channel — both
    the out-of-flow mirror's rt and in-place rt paint outside the clipped row
@@ -1003,6 +1016,24 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 [data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi,
 [data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
   visibility: visible;
+}
+
+/* A clip-constrained MIRROR must also clip itself at rest. The paint-invariant
+   arrangement (1.6.117) leaves the HOST's overflow untouched, but the mirror
+   is absolutely positioned: when the clamp lives on an ANCESTOR row rather
+   than the host itself, the mirror's own base line — wider than the
+   ellipsized host — could escape horizontally across neighbouring cards
+   before any ancestor clip catches it. !important beats the mirror's inline
+   overflow:visible; hover/focus and a ruby-room-grown row release the
+   self-clip so the mirror itself never cuts its reveal. */
+.jpdb-reader-text-mirror[data-yomu-clip-constrained="true"] {
+  overflow: hidden !important;
+}
+.jpdb-reader-text-mirror[data-yomu-clip-constrained="true"]:hover,
+.jpdb-reader-text-mirror[data-yomu-clip-constrained="true"]:focus-within,
+.jpdb-reader-text-mirror[data-yomu-clip-constrained="true"]:has(.jpdb-reader-keyboard-active),
+[data-yomu-ruby-room="true"] .jpdb-reader-text-mirror[data-yomu-clip-constrained="true"] {
+  overflow: visible !important;
 }
 
 /* UT-47: hover-only furigana — ruby is rendered but only visible while the

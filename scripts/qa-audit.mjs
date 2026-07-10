@@ -4289,8 +4289,13 @@ async function auditVideoFixture(browser, server) {
         removeClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-panel-open'],
     });
     assertHiddenControlsRailSnapshot(hiddenControlsRailSnapshot);
+    await subtitleRailControlSnapshot(page, {
+        addClasses: ['jpdb-subtitle-controls-auto'],
+        removeClasses: ['jpdb-subtitle-controls-hidden', 'jpdb-subtitle-controls-idle'],
+        settleMs: 50,
+    });
     await page.evaluate(advanceFixtureVideoCue);
-    await page.locator('.jpdb-subtitle-rail button[data-action="panel"]').click({ force: true });
+    await page.locator('.jpdb-subtitle-rail button[data-action="panel"]').click();
     await waitForAudit(page, transcriptPanelOpenWithActiveLine, 6000, 'transcript panel did not open with active-line highlighting');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-subtitle-list .jpdb-reader-word').length > 0, 8000, 'transcript rows did not hydrate into lookup words');
     const desktopTranscriptLayout = await page.evaluate(() => {
@@ -4650,7 +4655,11 @@ function isSubtitleRailVisuallyHidden(snapshot) {
 }
 
 function isSubtitleRailLaidOut(snapshot) {
-    return snapshot.rail?.visibility !== 'hidden' && snapshot.rail?.display !== 'none';
+    return [
+        snapshot.rail?.display !== 'none',
+        isAtLeast(snapshot.rail?.width, 1),
+        isAtLeast(snapshot.rail?.height, 1),
+    ].every(Boolean);
 }
 
 function isSubtitlePanelToggleLaidOut(snapshot) {

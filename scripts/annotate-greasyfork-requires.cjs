@@ -5,8 +5,10 @@ const {
   GREASY_FORK_LIBRARIES,
   greasyForkLibraryPath,
   greasyForkLibraryUrl,
+  readerCssResourceUrl,
 } = require('./lib/greasyfork-libraries.cjs');
 const {
+  DIST_READER_CSS_PATH,
   DIST_USERSCRIPT_PATH,
   ROOT,
   fail,
@@ -32,8 +34,24 @@ for (const library of GREASY_FORK_LIBRARIES) {
   code = code.replace(pattern, `$1${sriUrl}`);
 }
 
+annotateReaderCssResource();
+
 writeText(DIST_USERSCRIPT_PATH, code);
-console.log(`Annotated ${DIST_USERSCRIPT_PATH} Greasy Fork companion @require URLs with SRI hashes.`);
+console.log(`Annotated ${DIST_USERSCRIPT_PATH} Greasy Fork companion @require URLs and the yomuCss @resource with SRI hashes.`);
+
+function annotateReaderCssResource() {
+  // Tampermonkey verifies @resource content against a URL hash fragment the
+  // same way it does @require (see "Subresource Integrity" in the @resource
+  // docs at tampermonkey.net/documentation.php). Annotated last, after
+  // build-reader-css.mjs has written the final dist/yomu.css, so the hash
+  // matches the served file byte-for-byte.
+  if (!fileExists(DIST_READER_CSS_PATH)) fail('dist/yomu.css is missing. Run node scripts/build-reader-css.mjs first.');
+  const url = readerCssResourceUrl();
+  const sriUrl = `${url}#sha256=${sha256Base64(readText(DIST_READER_CSS_PATH))}`;
+  const pattern = new RegExp(`(^// @resource\\s+yomuCss\\s+)${escapeRegExp(url)}(?:#[^\\s]+)?$`, 'm');
+  if (!pattern.test(code)) fail(`dist/yomu.user.js is missing @resource metadata for ${url}.`);
+  code = code.replace(pattern, `$1${sriUrl}`);
+}
 
 function sha256Base64(value) {
   return createHash('sha256').update(value).digest('base64');

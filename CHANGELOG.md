@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.117] - 2026-07-10
+## [1.6.119] - 2026-07-10
 
 ### Added
 
@@ -13,6 +13,33 @@
 - Bunpro writes are now session-safe: Yomu sends the current review-session context, refuses unsessioned popup writes, refreshes after every Bunpro grade instead of reusing stale failed-review ids, and does not queue Bunpro grades offline. The frontend token is the only Bunpro credential Yomu uses; saved legacy keys remain preserved for backward compatibility.
 - Bunpro definition/mining matching is now exact and id/type-aware, so fuzzy search results or grammar/vocabulary collisions cannot display or add the wrong item. Offline cache warming no longer fans out private Bunpro searches, and definition searches no longer request private notes or bookmarks.
 - Bunpro live QA now exercises the actual quiz queue endpoint, verifies required definition fields, and can opt in to one session-aware grade.
+
+## [1.6.118] - 2026-07-10
+
+### Fixed
+
+- Feed, watch-page and Shorts rows no longer blow up into giant tiles: rows that clamp their text never grow for hidden readings and never hide the page's own text — at rest an annotated row paints exactly as it would without Yomu.
+- Vanished text on annotated rows — video titles collapsing to empty tiles, the subscriber count turning invisible — is fixed: the original text always keeps painting.
+- Cramped rows that clip their text now keep readings hidden at rest and reveal them on hover, instead of painting cropped readings outside the row.
+- Mirrored text no longer invents spaces the page never showed, so Discord messages and similar layouts stop splitting Japanese words with stray gaps.
+- Long unbroken annotated lines can wrap again instead of forcing the page to scroll sideways.
+- Style updates now actually reach existing installs: the stylesheet ships as a versioned, integrity-pinned resource, so each release reliably delivers its matching styles instead of serving a stale cached sheet.
+- Text hidden inside closed menus and dropdowns no longer paints into mirrored annotations.
+- A page's own furigana (native ruby) is no longer flattened into the surrounding text when mirrored, so readings stay readings instead of merging into the sentence.
+
+### Added
+
+- Hardened the release pipeline so the live site and stylesheet deploy can no longer be silently skipped by a release push.
+
+## [1.6.117] - 2026-07-10
+
+### Fixed
+
+- Tapping or moving the pointer over the subtitle line now reveals its compact controls and move handle even after the line has been dragged below the video. Blank subtitle space acts as the video focus surface instead of activating links or buttons underneath it. The reveal works while YouTube's own chrome is hidden and still hides after a short idle delay instead of becoming permanent.
+
+### Improved
+
+- The subtitle move handle now has a 44 × 44 px mobile touch target, an explicit keyboard focus ring, and screen-reader instructions for its drag, arrow/Page Up/Page Down, and reset controls. Idle controls stay out of sight without becoming keyboard- or screen-reader-inaccessible: tabbing to the move handle or rail reveals it immediately, deliberate hardware-keyboard focus stays visible on touch devices, and the controls fade again after focus leaves.
 
 ## [1.6.116] - 2026-07-10
 

@@ -2,7 +2,11 @@ import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { getUserscriptHttpRequest } from '../userscript/index';
 
 const READER_CSS_RESOURCE = 'yomuCss';
-const READER_CSS_RESOURCE_URL = 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css';
+// Cache-busted per release: raw.githubusercontent and intermediary caches key
+// on the full URL, so without ?v= a stale sheet can outlive an update.
+// (Release tags stopped at v1.6.105 while dist/ is committed to main per
+// release, so main + version query is the deterministic-enough pin available.)
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`;
 const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`;
 
 export const READER_CSS = resourceReaderCss();
@@ -145,7 +149,10 @@ function hostedReaderCssUrl(href: string): string | null {
         const url = new URL(href);
         if (!isHostedYomuPage(url)) return null;
         const path = url.hostname === 'hrussellzfac023.github.io' ? '/yomu-reader/yomu.css' : '/yomu.css';
-        return new URL(path, url.origin).href;
+        // Same per-release cache-bust as the @resource URL: yomureader.com sits
+        // behind a CDN cache (max-age 14400), so an unversioned URL can serve
+        // the previous release's sheet for hours after a deploy.
+        return `${new URL(path, url.origin).href}?v=${__YOMU_VERSION__}`;
     } catch {
         return null;
     }
