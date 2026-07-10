@@ -277,7 +277,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         mirror(host).querySelectorAll<HTMLElement>('rt').forEach(rt => expect(rt.style.display).not.toBe('none'));
     });
 
-    it('clip-constrained rows: host stays unclipped for the reveal, but the MIRROR self-clips at rest', () => {
+    it('clip-constrained rows: host overflow stays untouched (paint-invariant), and the MIRROR self-clips at rest', () => {
         vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (this: Element) {
             return (this instanceof HTMLElement && this.classList.contains('jpdb-reader-text-mirror')) ? 500 : 100;
         });
@@ -288,10 +288,14 @@ describe('sol review: mirror fidelity edge cases', () => {
             const base = target.text.indexOf('言語');
             return [tokenAt(target.text, '言語', 'げんご', base), tokenAt(target.text, '学習', 'がくしゅう', base + 2)];
         });
-        // The host unclip must survive (hover/ruby-room ruby reveal paints
-        // outside the row) …
+        // 1.6.117 paint-invariant composition (feed-growth supersedes the old
+        // host unclip): the host text keeps painting its own nowrap/ellipsis
+        // line, so its overflow must stay UNTOUCHED — forcing it visible would
+        // un-ellipsize the page's own text sideways. The hover reveal lives on
+        // the rest-hidden mirror instead (clipHoverOnly) …
         expect(mirror(host).dataset.yomuClipConstrained).toBe('true');
-        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         // … while the MIRROR clips itself to the host box at rest, so a 500px
         // base line cannot escape a 100px ellipsized title horizontally.
         // CSS-driven so :hover / ruby-room growth can release it.
