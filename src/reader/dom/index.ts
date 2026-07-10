@@ -11,6 +11,7 @@ import {
     applyPassiveChromeMarks,
     boxStyleIsClipCapable,
     classifyDecoration,
+    closestRubyFragileConstrainedRow,
     decorationStateForWord,
     decorationSuppressesRuby,
     interactivePassiveControl,
@@ -1710,6 +1711,13 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // the clean original host text instead of doubled/garbled clipboard.
     mirror.setAttribute('aria-hidden', 'true');
     const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
+    // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
+    // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
+    // clipped row bounds. Mark the mirror so CSS hides its readings at rest
+    // (hover reveals them; a ruby-room-grown row shows them again).
+    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
+        mirror.dataset.yomuClipConstrained = 'true';
+    }
     const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
@@ -3040,6 +3048,15 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     const renderTarget = target.decoration === 'interactive-passive' && interactivePassiveControl(target.parent)
         ? { ...target, suppressRuby: true }
         : (targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target);
+    // Class Q for the in-place fragment channel: readings stay in the DOM
+    // (owner-pinned compact-content behaviors keep their annotations) but the
+    // clip row is stamped so CSS hides rt at rest — in-place ruby in a
+    // clipped/clamped row otherwise paints outside the row bounds on live
+    // pages (tenki/bookwalker/amazon sweep regressions).
+    if (!renderTarget.suppressRuby) {
+        const clipRow = closestRubyFragileConstrainedRow(target.parent);
+        if (clipRow) clipRow.dataset.yomuClipConstrained = 'true';
+    }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
 }

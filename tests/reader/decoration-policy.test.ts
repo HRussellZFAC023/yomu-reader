@@ -469,3 +469,84 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
     });
 });
+
+// Site-sweep release blocker (2026-07-10): at-rest furigana escaped
+// overflow-hidden / line-clamped one-line rows on live pages through BOTH
+// channels — the out-of-flow mirror's rt (sankei/kakaku) and in-place
+// fragment-path rt (tenki/bookwalker/amazon). Clip-constrained rows must
+// carry the data-yomu-clip-constrained stamp wherever their readings render,
+// so CSS can hide rt at rest (hover reveals; ruby-room growth re-shows).
+describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', () => {
+    it('stamps the mirror of a bare clipped category tile (kakaku shape)', () => {
+        document.body.innerHTML = `
+            <div class="category-tile">
+                <p><strong><span id="label" style="display:block;height:15px;overflow:hidden">パソコン周辺機器</span></strong></p>
+            </div>
+        `;
+        const label = document.querySelector<HTMLElement>('#label')!;
+        mockRect(label, { width: 154, height: 15 });
+        const target = collectTargets().find(candidate => candidate.text === 'パソコン周辺機器');
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [
+            token('周辺', 'パソコン周辺機器'.indexOf('周辺'), 'パソコン周辺機器', 'しゅうへん'),
+        ], FURIGANA_SETTINGS);
+
+        const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+        expect(mirror).toBeTruthy();
+        expect(mirror?.querySelector('rt')).toBeTruthy();
+        expect(mirror?.dataset.yomuClipConstrained).toBe('true');
+    });
+
+    it('stamps a styled fixed-height menu row rendered in place (tenki shape)', () => {
+        document.body.innerHTML = `
+            <aside>
+                <ul>
+                    <li><a href="/week/">
+                        <span id="row" style="display:block;height:15px;overflow:hidden;background-color:rgb(240,240,240)">週間天気と予報の一覧</span>
+                    </a></li>
+                </ul>
+            </aside>
+        `;
+        const row = document.querySelector<HTMLElement>('#row')!;
+        mockRect(row, { width: 154, height: 15 });
+        const target = collectTargets().find(candidate => candidate.text === '週間天気と予報の一覧');
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [
+            token('週間', 0, '週間天気と予報の一覧', 'しゅうかん'),
+        ], FURIGANA_SETTINGS);
+
+        // Styled host: no mirror-hiding of the painted row; the reading
+        // renders in place and the clip row must carry the stamp so CSS keeps
+        // the rt invisible at rest.
+        expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(row.querySelector('rt')).toBeTruthy();
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+    });
+
+    it('stamps the reading channel of a line-clamped store book title (bookwalker shape)', () => {
+        document.body.innerHTML = `
+            <article>
+                <div>
+                    <h3 class="t-o-heading-book-title" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:53px;line-height:26px">
+                        <a id="title-link" class="t-o-heading-book-title__link" href="/de/12345/">英雄村の少年、無自覚に無双する</a>
+                    </h3>
+                </div>
+            </article>
+        `;
+        const link = document.querySelector<HTMLElement>('#title-link')!;
+        mockRect(link, { width: 129, height: 53 });
+        const target = collectTargets().find(candidate => candidate.text === '英雄村の少年、無自覚に無双する');
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [
+            token('英雄', 0, '英雄村の少年、無自覚に無双する', 'えいゆう'),
+        ], FURIGANA_SETTINGS);
+
+        // Wherever the reading landed (mirror or in place), its clip scope
+        // carries the stamp — no unstamped at-rest rt exists in the row.
+        const rts = Array.from(document.querySelectorAll<HTMLElement>('rt'));
+        expect(rts.length).toBeGreaterThan(0);
+        for (const rt of rts) {
+            expect(rt.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
+        }
+    });
+});

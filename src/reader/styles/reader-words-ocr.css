@@ -991,6 +991,20 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: none;
 }
 
+/* Class Q (2026-07-10 site sweep): clip-constrained rows (fixed-height nav
+   rows, line-clamped titles) show NO at-rest furigana in any channel — both
+   the out-of-flow mirror's rt and in-place rt paint outside the clipped row
+   bounds. The stamp is written by the scanner on the mirror (mirror channel)
+   or on the clip row itself (in-place channel); readings reveal on
+   hover/focus, and stay visible once ruby-room has grown the row. */
+[data-yomu-clip-constrained="true"] .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
+  visibility: hidden;
+}
+[data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi,
+[data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
+  visibility: visible;
+}
+
 /* UT-47: hover-only furigana — ruby is rendered but only visible while the
    word is hovered (visibility keeps the line height stable). */
 .yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {

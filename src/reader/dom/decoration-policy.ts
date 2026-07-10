@@ -179,13 +179,17 @@ export function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowSt
 // half-leading and ancestor overflow clips shave it mid-glyph on healthy
 // engines too, so this fact (not an engine probe) decides protection.
 export function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
+    return closestRubyFragileConstrainedRow(element) !== null;
+}
+
+export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
         const facts = constrainedRowStyleFacts(current);
-        if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return true;
+        if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
         current = current.parentElement;
     }
-    return false;
+    return null;
 }
 
 // The style-only clip-capability fact used by ruby-room's ancestor walk.

@@ -161,6 +161,18 @@ describe('reader stylesheet loading', () => {
         expect(furiRule).toContain('line-height: 1.08');
     });
 
+    it('hides clip-constrained readings at rest and re-shows them once the row has grown', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        // Sweep blocker (2026-07-10): mirror/in-place rt painted outside
+        // overflow-hidden and line-clamped one-line rows at rest.
+        expect(css).toContain('[data-yomu-clip-constrained="true"] .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi');
+        const hideRule = css.match(/\[data-yomu-clip-constrained="true"\] \.jpdb-reader-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\) rt\.jpdb-reader-furi\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(hideRule).toContain('visibility: hidden');
+        // A ruby-room-grown row has real room: readings stay visible at rest.
+        expect(css).toContain('[data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"]');
+        expect(css).toContain('[data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"]');
+    });
+
     it('keeps pitch underline and state decorations on passive content words at rest', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 
