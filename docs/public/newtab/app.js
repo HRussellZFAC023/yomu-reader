@@ -9314,12 +9314,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.renderSignature = signature;
     mirror.setAttribute("aria-hidden", "true");
     const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
-      mirror.dataset.yomuClipConstrained = "true";
-    }
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
     const state2 = styleTextMirrorHost(host, hasRenderedRuby);
     try {
       styleTextMirror(mirror, host, hasRenderedRuby);
+      if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
       mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
@@ -9342,6 +9342,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch (error) {
       removeTextMirror(host);
       throw error;
+    }
+  }
+  function constrainMirrorToClampBox(mirror, clipRow) {
+    const style = safeComputedStyle(clipRow);
+    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
+    if (clamp2 && clamp2 !== "none" && clamp2 !== "0") {
+      mirror.style.setProperty("display", "-webkit-box");
+      mirror.style.setProperty("-webkit-box-orient", "vertical");
+      mirror.style.setProperty("-webkit-line-clamp", clamp2);
+      mirror.style.setProperty("overflow", "hidden");
+    }
+    const height = clipRow.clientHeight;
+    if (height > 0) {
+      mirror.style.setProperty("max-height", `${height}px`);
+      mirror.style.setProperty("overflow", "hidden");
     }
   }
   function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
@@ -12892,6 +12907,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

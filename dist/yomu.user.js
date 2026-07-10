@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.116#sha256=u11cF8Se9Hqn7VrjYbKZMhkeWdsIpaBRJLN8b/4bwXI=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.116#sha256=0yDwxZ5dj5rKbU9TmmjpCQ+QwOtJrjAhvm/rgfzm9Fg=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.116#sha256=kC/bh4Uxn8PP/ylxAUgMzR/rvzkUBKoxBBtpzHvOflY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.116#sha256=uvCPmlm64gN6D7ixlNNJqYkVpbrj84lSrIM0d+bZm/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.116#sha256=fgiCj6FLfMHjkS6qMlqMiVz0RT2uVc2pdOm4MJE8yoM=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.116#sha256=9O1O+qBs7rObcmkYmiwNrz13Ui6vUEDwsMD9av/wH3M=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
@@ -372,6 +372,10 @@ function closestRubyFragileConstrainedRow(element2) {
 function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
   return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
+}
+function isClipConstrainedRow(element2) {
+  const facts = constrainedRowStyleFacts(element2);
+  return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
 }
 const MIRROR_BARE_DESCENDANT_LIMIT = 16;
 function hostIsVisuallyBareForMirror(host) {
@@ -5660,12 +5664,12 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.renderSignature = signature;
   mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-  if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
-  mirror.dataset.yomuClipConstrained = "true";
-  }
+  const clipRow = closestRubyFragileConstrainedRow(host);
+  if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
   const state = styleTextMirrorHost(host, hasRenderedRuby);
   try {
   styleTextMirror(mirror, host, hasRenderedRuby);
+  if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
   mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
@@ -5685,6 +5689,21 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   } catch (error) {
   removeTextMirror(host);
   throw error;
+  }
+}
+function constrainMirrorToClampBox(mirror, clipRow) {
+  const style = safeComputedStyle(clipRow);
+  const clamp = style.getPropertyValue("-webkit-line-clamp").trim();
+  if (clamp && clamp !== "none" && clamp !== "0") {
+  mirror.style.setProperty("display", "-webkit-box");
+  mirror.style.setProperty("-webkit-box-orient", "vertical");
+  mirror.style.setProperty("-webkit-line-clamp", clamp);
+  mirror.style.setProperty("overflow", "hidden");
+  }
+  const height = clipRow.clientHeight;
+  if (height > 0) {
+  mirror.style.setProperty("max-height", `${height}px`);
+  mirror.style.setProperty("overflow", "hidden");
   }
 }
 function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
@@ -7701,6 +7720,7 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
     const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
     if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
     for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+      if (isClipConstrainedRow(roomBox)) continue;
       const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
       const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
