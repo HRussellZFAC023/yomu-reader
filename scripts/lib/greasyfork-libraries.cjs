@@ -47,6 +47,13 @@ const GREASY_FORK_LIBRARIES = [
   },
 ];
 
+function readerCssResourceUrl() {
+  // Must match rawReaderCssUrl in vite.config.ts. Versioned so
+  // Tampermonkey-family managers (which cache @resource content keyed by URL
+  // at install time) re-download the sheet on every release.
+  return `${docsUrl}yomu.css?v=${encodeURIComponent(packageVersion)}`;
+}
+
 function greasyForkLibraryPath(fileName) {
   return `${greasyForkLibraryDir}/${fileName}`;
 }
@@ -65,4 +72,5 @@ module.exports = {
   greasyForkLibraryPath,
   greasyForkLibraryUrl,
   greasyForkLibraryUrls,
+  readerCssResourceUrl,
 };
