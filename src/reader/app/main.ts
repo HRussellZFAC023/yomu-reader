@@ -8367,9 +8367,18 @@ export class ReaderApp {
         this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
+                // Class G: the settings dialog's OFF radio (pageScanMode='off')
+                // persisted annotationsPaused but stripped nothing until a
+                // reload. Diff the pause flag here so EVERY dialog-driven
+                // settings write (submit, import, cloud restore) routes the
+                // transition through the same instant path as the puck and
+                // remote-tab toggles: pause clears all annotations + mirrors +
+                // ruby-room growth, resume rescans.
+                const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
                 this.settings = settings;
                 this.applyPreferredJapaneseSiteLanguage();
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
+                if (pauseChanged) this.applyAnnotationsPausedState();
             },
             jpdb: this.jpdb,
             dictionaries: this.dictionaries,
