@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.115#sha256=u11cF8Se9Hqn7VrjYbKZMhkeWdsIpaBRJLN8b/4bwXI=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.115#sha256=wdofpUKI/CFjiz/YN6LyPfpbzVMrOBxxj3O2ywvUaXU=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.115#sha256=kC/bh4Uxn8PP/ylxAUgMzR/rvzkUBKoxBBtpzHvOflY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.115#sha256=uvCPmlm64gN6D7ixlNNJqYkVpbrj84lSrIM0d+bZm/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.115#sha256=fgiCj6FLfMHjkS6qMlqMiVz0RT2uVc2pdOm4MJE8yoM=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.115#sha256=9O1O+qBs7rObcmkYmiwNrz13Ui6vUEDwsMD9av/wH3M=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
@@ -5569,17 +5569,13 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
 function nonDestructiveHostRenderPlan(host, target, tokens) {
   const fragments = nonDestructiveTargetFragments(target);
   const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
-  if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
-  return { text: target.text, tokens };
-  }
+  if (!fragments.length || !hostText) return { text: target.text, tokens };
+  if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
   const indexed = indexTextFragments(fragments);
   const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
   return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
 }
-function collapsedTextKey(text2) {
-  return text2.replace(/\s+/gu, "");
-}
-const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
+const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
 function hostOriginalTextWithNodeOffsets(host) {
   const nodeOffsets = new Map();
   const whitespaceJoints = [];
@@ -5617,6 +5613,7 @@ class MirrorPlanStyleProbe {
   }
   styleCache = new Map();
   hiddenCache = new Map();
+  flattenedCache = new Map();
   styleOf(element2) {
   let style = this.styleCache.get(element2);
   if (!style) {
@@ -5632,18 +5629,23 @@ class MirrorPlanStyleProbe {
   }
   isComputedHidden(element2) {
   if (element2 === this.host) return false;
+  if (this.isDisplayNoneHidden(element2)) return true;
+  if (this.hostVisibilityInjected) return false;
+  const visibility = this.styleOf(element2).visibility;
+  return visibility === "hidden" || visibility === "collapse";
+  }
+  get hostVisibilityInjected() {
+  return this.host.style.getPropertyValue("visibility") === "hidden";
+  }
+  isDisplayNoneHidden(element2) {
+  if (element2 === this.host) return false;
   const cached = this.hiddenCache.get(element2);
   if (cached !== void 0) return cached;
-  const style = this.styleOf(element2);
-  const parent = element2.parentElement;
-  const visibility = style.visibility;
-  const ownVisibilityHidden = (visibility === "hidden" || visibility === "collapse") && (!parent || this.styleOf(parent).visibility !== visibility);
-  const hidden = style.display === "none" || ownVisibilityHidden || (parent ? this.isComputedHidden(parent) : false);
+  const hidden = this.styleOf(element2).display === "none" || (element2.parentElement ? this.isDisplayNoneHidden(element2.parentElement) : false);
   this.hiddenCache.set(element2, hidden);
   return hidden;
   }
   dropsWhitespaceOnlyChild(parent) {
-  if (preservesWhitespace(this.styleOf(parent).whiteSpace)) return false;
   const container = this.throughContents(parent);
   return container !== null && isItemizedContainerDisplay(this.displayOf(container));
   }
@@ -5657,18 +5659,47 @@ class MirrorPlanStyleProbe {
   if (!lca) return true;
   const container = this.throughContents(lca);
   if (!container) return true;
-  if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
-  const previousChild = childOnPathFrom(lca, previous);
-  const currentChild = childOnPathFrom(lca, current);
+  const previousItem = this.flattenedItemChild(container, previous);
+  const currentItem = this.flattenedItemChild(container, current);
   if (isItemizedContainerDisplay(this.displayOf(container))) {
-    return previousChild instanceof Text && currentChild instanceof Text && contiguousTextSiblings(previousChild, currentChild);
+    if (!(previousItem instanceof Text && currentItem instanceof Text)) return false;
+    return this.flattenedContiguousText(container, previousItem, currentItem);
   }
-  return this.participatesInline(previousChild) && this.participatesInline(currentChild);
+  if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
+  return this.participatesInline(previousItem) && this.participatesInline(currentItem);
   }
   participatesInline(node) {
   if (!(node instanceof HTMLElement)) return true;
   const display = this.displayOf(node);
-  return display === "inline" || display === "contents" || display.startsWith("inline-") || display.startsWith("ruby");
+  return display === "inline" || display.startsWith("inline-") || display.startsWith("ruby");
+  }
+  flattenedItemChild(container, node) {
+  let item = node;
+  for (let element2 = node.parentElement; element2 && element2 !== container; element2 = element2.parentElement) {
+    if (this.displayOf(element2) !== "contents") item = element2;
+  }
+  return item;
+  }
+  flattenedContiguousText(container, first, second) {
+  const flattened = this.flattenedChildren(container);
+  const start = flattened.indexOf(first);
+  const end = flattened.indexOf(second);
+  if (start < 0 || end <= start) return false;
+  return flattened.slice(start + 1, end).every((node) => node.nodeType === Node.TEXT_NODE);
+  }
+  flattenedChildren(container) {
+  const cached = this.flattenedCache.get(container);
+  if (cached) return cached;
+  const flattened = [];
+  const visit = (element2) => {
+    for (const child of Array.from(element2.childNodes)) {
+      if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit(child);
+      else flattened.push(child);
+    }
+  };
+  visit(container);
+  this.flattenedCache.set(container, flattened);
+  return flattened;
   }
   commonAncestorElement(a, b) {
   const ancestors = new Set();
@@ -5678,18 +5709,6 @@ class MirrorPlanStyleProbe {
   }
   return null;
   }
-}
-function childOnPathFrom(ancestor, node) {
-  let current = node;
-  while (current.parentNode && current.parentNode !== ancestor) current = current.parentNode;
-  return current;
-}
-function contiguousTextSiblings(first, second) {
-  for (let sibling = first.nextSibling; sibling; sibling = sibling.nextSibling) {
-  if (sibling === second) return true;
-  if (sibling.nodeType !== Node.TEXT_NODE) return false;
-  }
-  return false;
 }
 function nonDestructiveTargetFragments(target) {
   if (isFragmentTextTarget$1(target)) return target.fragments;
@@ -5743,7 +5762,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
   const text2 = plan.text;
   const safeTokens = plan.tokens;
-  const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
+  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -5785,8 +5804,10 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
+  state.mirror = new WeakRef(mirror);
   tightenMirrorRubyOverhang(mirror);
   withdrawUnfitTextMirrorOverflow(host, state, mirror);
+  syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   } catch (error) {
   removeTextMirror(host);
@@ -6170,20 +6191,27 @@ function withdrawUnfitTextMirrorOverflow(host, state, mirror) {
   state.overflowAdjusted = false;
 }
 function mirrorBaseTextOverflowsBox(mirror) {
-  const readings = Array.from(mirror.querySelectorAll("rt"));
-  const saved = readings.map((rt) => ({
-  value: rt.style.getPropertyValue("display"),
-  priority: rt.style.getPropertyPriority("display")
-  }));
-  readings.forEach((rt) => rt.style.setProperty("display", "none", "important"));
+  const restores = [];
+  const neutralize = (element2, property, value, priority2) => {
+  const saved = { value: element2.style.getPropertyValue(property), priority: element2.style.getPropertyPriority(property) };
+  restores.push(() => {
+    if (saved.value) element2.style.setProperty(property, saved.value, saved.priority);
+    else element2.style.removeProperty(property);
+  });
+  if (value) element2.style.setProperty(property, value, priority2);
+  else element2.style.removeProperty(property);
+  };
+  for (const rt of mirror.querySelectorAll("rt")) {
+  neutralize(rt, "display", "none", "important");
+  }
+  for (const ruby of mirror.querySelectorAll("ruby")) {
+  if (ruby.style.getPropertyValue("margin-left")) neutralize(ruby, "margin-left", "", "");
+  if (ruby.style.getPropertyValue("margin-right")) neutralize(ruby, "margin-right", "", "");
+  }
   try {
   return mirror.scrollWidth > mirror.clientWidth + 1;
   } finally {
-  readings.forEach((rt, index) => {
-    const { value, priority: priority2 } = saved[index] ?? { value: "", priority: "" };
-    if (value) rt.style.setProperty("display", value, priority2);
-    else rt.style.removeProperty("display");
-  });
+  restores.forEach((restore) => restore());
   }
 }
 function hideTextMirrorHost(host, state, mirror) {
@@ -6480,30 +6508,28 @@ function removeTextMirror(host) {
   if (state) state.staleRemovalTimer = void 0;
   const owned = ownedTextMirrors(host);
   owned.forEach((mirror) => mirror.remove());
-  if (state) removeRelocatedTextMirrors(host, owned.length === 0);
+  const tracked = state?.mirror?.deref();
+  if (tracked?.isConnected) tracked.remove();
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
 }
-function removeRelocatedTextMirrors(host, pierceShadow) {
-  const root = host.getRootNode();
-  if (!(root instanceof Document || root instanceof ShadowRoot || root instanceof Element || root instanceof DocumentFragment)) return;
-  let removed = false;
-  root.querySelectorAll(READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-  if (textMirrorOwners.get(mirror) === host) {
-    mirror.remove();
-    removed = true;
+function syncTextMirrorVisibilityToPage(host, mirror) {
+  mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
+}
+function pageConcealsTextMirrorHost(host) {
+  for (let element2 = host.parentElement; element2; element2 = element2.parentElement) {
+  const style = safeComputedStyle(element2);
+  if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
   }
-  });
-  if (removed || !pierceShadow) return;
-  queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-  if (textMirrorOwners.get(mirror) === host) mirror.remove();
-  });
+  return false;
 }
 function reassertTextMirrorHostStyles(host, state) {
-  if (!currentTextMirror(host)) {
+  const mirror = currentTextMirror(host);
+  if (!mirror) {
   removeTextMirror(host);
   return;
   }
+  syncTextMirrorVisibilityToPage(host, mirror);
   if (state.concealTextOnly) {
   reassertConcealedTextMirrorHostText(host, state);
   } else if (host.style.getPropertyValue("visibility") !== "hidden") {

@@ -9223,17 +9223,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function nonDestructiveHostRenderPlan(host, target, tokens) {
     const fragments = nonDestructiveTargetFragments(target);
     const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
-    if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
-      return { text: target.text, tokens };
-    }
+    if (!fragments.length || !hostText) return { text: target.text, tokens };
+    if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
     const indexed = indexTextFragments(fragments);
     const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
     return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
   }
-  function collapsedTextKey(text2) {
-    return text2.replace(/\s+/gu, "");
-  }
-  const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
+  const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
   function hostOriginalTextWithNodeOffsets(host) {
     const nodeOffsets = /* @__PURE__ */ new Map();
     const whitespaceJoints = [];
@@ -9271,6 +9267,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     styleCache = /* @__PURE__ */ new Map();
     hiddenCache = /* @__PURE__ */ new Map();
+    flattenedCache = /* @__PURE__ */ new Map();
     styleOf(element) {
       let style = this.styleCache.get(element);
       if (!style) {
@@ -9290,29 +9287,36 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // display:none anywhere on the ancestor chain (up to the host) removes the
     // whole subtree from rendering; getComputedStyle does NOT resolve that for
     // descendants (an <em> inside a display:none <span> still computes
-    // display:inline), so this walks. The HOST itself is never "hidden" here:
-    // a re-plan runs while the previous mirror still hides the host
-    // (visibility:hidden !important), and counting Yomu's own hiding — or the
-    // computed visibility descendants INHERIT from it in real browsers — would
-    // empty every repaint. An element's visibility therefore only counts as
-    // hidden when it differs from its parent's (its own, not inherited).
+    // display:inline), so this walks. Visibility uses the element's OWN
+    // computed value: browsers resolve inheritance in the computed value, and
+    // CSS 2.2 lets an explicitly visibility:visible descendant render under a
+    // hidden ancestor — an ancestor walk would wrongly drop it. The one
+    // exception: while a previous mirror hides the host (Yomu's own
+    // visibility:hidden !important), descendants inherit that value, so all
+    // visibility verdicts are suspended for the re-plan (display:none still
+    // counts). The HOST itself is never "hidden" here for the same reason.
     isComputedHidden(element) {
+      if (element === this.host) return false;
+      if (this.isDisplayNoneHidden(element)) return true;
+      if (this.hostVisibilityInjected) return false;
+      const visibility = this.styleOf(element).visibility;
+      return visibility === "hidden" || visibility === "collapse";
+    }
+    get hostVisibilityInjected() {
+      return this.host.style.getPropertyValue("visibility") === "hidden";
+    }
+    isDisplayNoneHidden(element) {
       if (element === this.host) return false;
       const cached = this.hiddenCache.get(element);
       if (cached !== void 0) return cached;
-      const style = this.styleOf(element);
-      const parent = element.parentElement;
-      const visibility = style.visibility;
-      const ownVisibilityHidden = (visibility === "hidden" || visibility === "collapse") && (!parent || this.styleOf(parent).visibility !== visibility);
-      const hidden = style.display === "none" || ownVisibilityHidden || (parent ? this.isComputedHidden(parent) : false);
+      const hidden = this.styleOf(element).display === "none" || (element.parentElement ? this.isDisplayNoneHidden(element.parentElement) : false);
       this.hiddenCache.set(element, hidden);
       return hidden;
     }
-    // A collapsible whitespace-only child of an itemized container (resolved
-    // THROUGH display:contents wrappers) never becomes a box. Preserving
-    // white-space modes make it a rendered anonymous item instead — keep it.
+    // A whitespace-only child sequence of an itemized container (resolved
+    // THROUGH display:contents wrappers) never becomes a box — per
+    // css-flexbox-1 §4 this holds regardless of the white-space property.
     dropsWhitespaceOnlyChild(parent) {
-      if (preservesWhitespace(this.styleOf(parent).whiteSpace)) return false;
       const container = this.throughContents(parent);
       return container !== null && isItemizedContainerDisplay(this.displayOf(container));
     }
@@ -9322,13 +9326,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return current;
     }
     // Whether the page can render whitespace between two consecutive text
-    // nodes. The whitespace lives inside their closest common ancestor
-    // (resolved through display:contents to the box that actually lays it
-    // out): an itemized container drops inter-item whitespace (except between
-    // nodes of one contiguous direct text run — a single anonymous item),
-    // and any block-level box on either side collapses the whitespace at its
-    // boundary. Only when both sides participate inline-level in the shared
-    // context does the space render. Atomic inline-level boxes (inline-flex/
+    // nodes. The whitespace lives inside their closest common ancestor,
+    // resolved through display:contents to the box that actually lays it out
+    // (css-display-4: contents elements are elided from box construction, so
+    // items are resolved against the FLATTENED child list, not the DOM). An
+    // itemized container drops inter-item whitespace — except between nodes
+    // of one contiguous flattened text run, which form a single anonymous
+    // item; a block-level box on either side collapses boundary whitespace.
+    // Only when both sides participate inline-level in the shared context
+    // does the space render. Atomic inline-level boxes (inline-flex/
     // inline-grid/inline-block) participate IN the surrounding context, so
     // whitespace beside them is real.
     rendersInterNodeWhitespace(previous, current) {
@@ -9336,18 +9342,54 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!lca) return true;
       const container = this.throughContents(lca);
       if (!container) return true;
-      if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
-      const previousChild = childOnPathFrom(lca, previous);
-      const currentChild = childOnPathFrom(lca, current);
+      const previousItem = this.flattenedItemChild(container, previous);
+      const currentItem = this.flattenedItemChild(container, current);
       if (isItemizedContainerDisplay(this.displayOf(container))) {
-        return previousChild instanceof Text && currentChild instanceof Text && contiguousTextSiblings(previousChild, currentChild);
+        if (!(previousItem instanceof Text && currentItem instanceof Text)) return false;
+        return this.flattenedContiguousText(container, previousItem, currentItem);
       }
-      return this.participatesInline(previousChild) && this.participatesInline(currentChild);
+      if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
+      return this.participatesInline(previousItem) && this.participatesInline(currentItem);
     }
     participatesInline(node) {
       if (!(node instanceof HTMLElement)) return true;
       const display = this.displayOf(node);
-      return display === "inline" || display === "contents" || display.startsWith("inline-") || display.startsWith("ruby");
+      return display === "inline" || display.startsWith("inline-") || display.startsWith("ruby");
+    }
+    // The box-tree child of `container` a text node belongs to: the OUTERMOST
+    // non-contents element on the DOM path, or the text node itself when the
+    // whole path is display:contents (a flattened direct text run).
+    flattenedItemChild(container, node) {
+      let item = node;
+      for (let element = node.parentElement; element && element !== container; element = element.parentElement) {
+        if (this.displayOf(element) !== "contents") item = element;
+      }
+      return item;
+    }
+    // Whether two flattened direct text nodes sit in one contiguous text run
+    // (nothing but text nodes between them in the container's FLATTENED child
+    // list) — such a run becomes a single anonymous item whose internal
+    // whitespace renders normally.
+    flattenedContiguousText(container, first2, second) {
+      const flattened = this.flattenedChildren(container);
+      const start = flattened.indexOf(first2);
+      const end = flattened.indexOf(second);
+      if (start < 0 || end <= start) return false;
+      return flattened.slice(start + 1, end).every((node) => node.nodeType === Node.TEXT_NODE);
+    }
+    flattenedChildren(container) {
+      const cached = this.flattenedCache.get(container);
+      if (cached) return cached;
+      const flattened = [];
+      const visit = (element) => {
+        for (const child of Array.from(element.childNodes)) {
+          if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit(child);
+          else flattened.push(child);
+        }
+      };
+      visit(container);
+      this.flattenedCache.set(container, flattened);
+      return flattened;
     }
     commonAncestorElement(a, b) {
       const ancestors = /* @__PURE__ */ new Set();
@@ -9357,18 +9399,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       return null;
     }
-  }
-  function childOnPathFrom(ancestor, node) {
-    let current = node;
-    while (current.parentNode && current.parentNode !== ancestor) current = current.parentNode;
-    return current;
-  }
-  function contiguousTextSiblings(first2, second) {
-    for (let sibling = first2.nextSibling; sibling; sibling = sibling.nextSibling) {
-      if (sibling === second) return true;
-      if (sibling.nodeType !== Node.TEXT_NODE) return false;
-    }
-    return false;
   }
   function nonDestructiveTargetFragments(target) {
     if (isFragmentTextTarget(target)) return target.fragments;
@@ -9422,7 +9452,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
     const text2 = plan.text;
     const safeTokens = plan.tokens;
-    const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
+    const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -9467,8 +9497,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hideTextMirrorHost(host, state2, mirror);
       host.append(mirror);
       registerTextMirrorOwner(mirror, host);
+      state2.mirror = new WeakRef(mirror);
       tightenMirrorRubyOverhang(mirror);
       withdrawUnfitTextMirrorOverflow(host, state2, mirror);
+      syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
     } catch (error) {
       removeTextMirror(host);
@@ -9846,20 +9878,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     state2.overflowAdjusted = false;
   }
   function mirrorBaseTextOverflowsBox(mirror) {
-    const readings2 = Array.from(mirror.querySelectorAll("rt"));
-    const saved = readings2.map((rt) => ({
-      value: rt.style.getPropertyValue("display"),
-      priority: rt.style.getPropertyPriority("display")
-    }));
-    readings2.forEach((rt) => rt.style.setProperty("display", "none", "important"));
+    const restores = [];
+    const neutralize = (element, property, value, priority) => {
+      const saved = { value: element.style.getPropertyValue(property), priority: element.style.getPropertyPriority(property) };
+      restores.push(() => {
+        if (saved.value) element.style.setProperty(property, saved.value, saved.priority);
+        else element.style.removeProperty(property);
+      });
+      if (value) element.style.setProperty(property, value, priority);
+      else element.style.removeProperty(property);
+    };
+    for (const rt of mirror.querySelectorAll("rt")) {
+      neutralize(rt, "display", "none", "important");
+    }
+    for (const ruby of mirror.querySelectorAll("ruby")) {
+      if (ruby.style.getPropertyValue("margin-left")) neutralize(ruby, "margin-left", "", "");
+      if (ruby.style.getPropertyValue("margin-right")) neutralize(ruby, "margin-right", "", "");
+    }
     try {
       return mirror.scrollWidth > mirror.clientWidth + 1;
     } finally {
-      readings2.forEach((rt, index) => {
-        const { value, priority } = saved[index] ?? { value: "", priority: "" };
-        if (value) rt.style.setProperty("display", value, priority);
-        else rt.style.removeProperty("display");
-      });
+      restores.forEach((restore) => restore());
     }
   }
   function hideTextMirrorHost(host, state2, mirror) {
@@ -10134,30 +10173,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (state2) state2.staleRemovalTimer = void 0;
     const owned = ownedTextMirrors(host);
     owned.forEach((mirror) => mirror.remove());
-    if (state2) removeRelocatedTextMirrors(host, owned.length === 0);
+    const tracked = state2?.mirror?.deref();
+    if (tracked?.isConnected) tracked.remove();
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
   }
-  function removeRelocatedTextMirrors(host, pierceShadow) {
-    const root = host.getRootNode();
-    if (!(root instanceof Document || root instanceof ShadowRoot || root instanceof Element || root instanceof DocumentFragment)) return;
-    let removed = false;
-    root.querySelectorAll(READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-      if (textMirrorOwners.get(mirror) === host) {
-        mirror.remove();
-        removed = true;
-      }
-    });
-    if (removed || !pierceShadow) return;
-    queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-      if (textMirrorOwners.get(mirror) === host) mirror.remove();
-    });
+  function syncTextMirrorVisibilityToPage(host, mirror) {
+    mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
+  }
+  function pageConcealsTextMirrorHost(host) {
+    for (let element = host.parentElement; element; element = element.parentElement) {
+      const style = safeComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
+    }
+    return false;
   }
   function reassertTextMirrorHostStyles(host, state2) {
-    if (!currentTextMirror(host)) {
+    const mirror = currentTextMirror(host);
+    if (!mirror) {
       removeTextMirror(host);
       return;
     }
+    syncTextMirrorVisibilityToPage(host, mirror);
     if (state2.concealTextOnly) {
       reassertConcealedTextMirrorHostText(host, state2);
     } else if (host.style.getPropertyValue("visibility") !== "hidden") {
@@ -10185,15 +10222,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (current && current !== injectedValue) return;
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
-  }
-  function queryAllPiercingShadow(root, selector, depth = 0) {
-    const matches = Array.from(root.querySelectorAll(selector));
-    if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
-    for (const host of root.querySelectorAll("*")) {
-      const shadowRoot = host.shadowRoot;
-      if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
-    }
-    return matches;
   }
   function appendPlainTextBeforeToken(fragment2, text2, start, end, followedByToken = false) {
     if (end <= start) return;
@@ -13082,6 +13110,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
