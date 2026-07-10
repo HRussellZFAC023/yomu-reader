@@ -817,6 +817,14 @@ function flashSubtitleCopyFeedback(target: HTMLElement): void {
     window.setTimeout(() => button.classList.remove('jpdb-subtitle-copy-flash'), 1200);
 }
 
+// The row wrapper keeps .jpdb-subtitle-primary display:inline (per-line
+// background pills via box-decoration-break) while giving the grid-layout
+// .jpdb-subtitle-lines a block row that is independent of the native
+// secondary line's reserved bottom row.
+function subtitlePrimaryRowHtml(primaryHtml: string): string {
+    return `<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">${primaryHtml}</div></div>`;
+}
+
 function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
     for (let attempt = 0; attempt < 10; attempt++) {
         if (!subtitleElementOverflows(element)) return fitted;
@@ -1119,6 +1127,7 @@ export class SubtitlePlayerController {
     private subtitleDragPreviewOffsetYPx?: number;
     private nativeFullscreenCueTrack?: TextTrack;
     private nativeFullscreenCueVideo?: HTMLVideoElement;
+    private nativeFullscreenHostTracksRestored = false;
     private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
@@ -1271,6 +1280,10 @@ export class SubtitlePlayerController {
 
     destroy(): void {
         this.destroyed = true;
+        // A destroy mid-native-fullscreen would otherwise strand the mirror
+        // track showing and any restored host track modes ('showing') under
+        // the next controller, which assumes suppressed defaults.
+        this.hideNativeFullscreenCueTrack();
         this.resetShadowPracticeState();
         this.clearPlaybackPauseReassert();
         this.abortController?.abort();
@@ -2322,7 +2335,10 @@ export class SubtitlePlayerController {
         if (text !== this.lastDomCaption) return;
         this.lastDomCaptionSeenAt = performance.now();
         const now = this.video?.currentTime ?? 0;
-        if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
+        if (now >= this.currentCue.start && this.currentCue.end < now + 1) {
+            this.currentCue.end = now + 4;
+            this.refreshNativeFullscreenCueMirror();
+        }
     }
 
     private ensureYouTubeDomCaptionFallbackActive(selected: SubtitleTrackOption | undefined): void {
@@ -2389,6 +2405,7 @@ export class SubtitlePlayerController {
             this.lastDomCaptionSeenAt = 0;
             this.render();
             this.syncControls();
+            this.refreshNativeFullscreenCueMirror();
         }
     }
 
@@ -2434,6 +2451,7 @@ export class SubtitlePlayerController {
         this.render();
         this.renderOpenSubtitlePanel();
         this.syncControls();
+        this.refreshNativeFullscreenCueMirror();
         void this.autoCopyCurrentCue();
     }
 
@@ -2456,7 +2474,7 @@ export class SubtitlePlayerController {
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
         const primary = this.renderPrimarySubtitle(text, settings);
-        const changed = this.applySubtitleHtml(`<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
+        const changed = this.applySubtitleHtml(`${subtitlePrimaryRowHtml(primary.html)}${this.renderSecondarySubtitle(settings)}`);
         this.applyRenderedPrimarySubtitle(primary, text);
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
@@ -2587,7 +2605,7 @@ export class SubtitlePlayerController {
             // Keep the applied-html cache aligned with the live DOM so the
             // next composed render() is a no-op and the freshly applied state
             // colors survive instead of being rebuilt away.
-            this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
+            this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
             this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
             this.fitSubtitleTextToVideo();
             return primary as HTMLElement;
@@ -3317,23 +3335,22 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
         const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
         if (!primary) return;
-        const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.9));
-        fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
+        // The floor is the legibility minimum, NOT a fraction of the target:
+        // a 90% floor left tall wrapped cues overflowing the height cap, and
+        // the old em-based cap shrank with the font so the loop could never
+        // converge — the residue was clipped off the native secondary line.
+        fitted = this.fitPrimarySubtitleFontSize(fitted, subtitleMinimumFontSize(this.root));
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
     }
 
     private fitPrimarySubtitleFontSize(fitted: number, minimum: number): number {
         if (!this.root || !this.subtitleEl) return fitted;
-        const secondaryLines = Array.from(this.subtitleEl.querySelectorAll<HTMLElement>('.jpdb-subtitle-secondary'));
-        const previousDisplay = secondaryLines.map(element => element.style.display);
-        for (const element of secondaryLines) element.style.display = 'none';
-        try {
-            return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
-                this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
-            });
-        } finally {
-            secondaryLines.forEach((element, index) => { element.style.display = previousDisplay[index] ?? ''; });
-        }
+        // Measure WITH the native secondary line: it shares the height budget,
+        // and fitting without it let the primary grow into the secondary's
+        // space (the fullscreen "native subtitle cut off" bug).
+        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
+            this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
+        });
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
@@ -4330,20 +4347,38 @@ export class SubtitlePlayerController {
     }
 
     // The iPhone system player paints in the browser top layer where the DOM
-    // overlay cannot follow, so mirror the loaded cues into a native text track
-    // for the duration of native video fullscreen.
+    // overlay cannot follow, so mirror the CURRENTLY-RENDERING cue stream —
+    // loaded cues, or the DOM-caption fallback's synthesized cue — into a
+    // native text track for the duration of native video fullscreen. With no
+    // cue stream at all, hand the system player the host's own captions back.
     private showNativeFullscreenCueTrack(video: HTMLVideoElement): void {
+        const cues = this.nativeFullscreenMirrorCues();
+        if (!cues.length && this.restoreHostTracksForNativeFullscreen()) {
+            // The host's own captions cover the system player; park the mirror.
+            const track = this.nativeFullscreenCueTrack;
+            if (track && track.mode !== 'disabled') track.mode = 'disabled';
+            return;
+        }
+        this.reSuppressHostTracksAfterNativeFullscreen();
         if (typeof video.addTextTrack !== 'function' || typeof VTTCue !== 'function') return;
         try {
             if (this.nativeFullscreenCueVideo !== video) {
                 this.nativeFullscreenCueTrack = undefined;
                 this.nativeFullscreenCueVideo = video;
             }
+            // Create and show the track even with ZERO cues: on m.youtube the
+            // DOM-caption fallback synthesizes its first cue only after native
+            // fullscreen is up (and YouTube exposes no host TextTracks to
+            // restore), so the mirror must be armed at entry for the system
+            // player to register it; refreshNativeFullscreenCueMirror fills it
+            // as cues appear.
             const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, 'ja');
             this.nativeFullscreenCueTrack = track;
             for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
-            for (const cue of this.cues) {
+            for (const cue of cues) {
                 if (!(cue.end > cue.start)) continue;
+                // Plain base text: the system player renders text only, never
+                // Yomu's annotated furigana markup.
                 track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
             }
             track.mode = 'showing';
@@ -4352,9 +4387,48 @@ export class SubtitlePlayerController {
         }
     }
 
+    // The m.youtube DOM-caption fallback never fills this.cues; it synthesizes
+    // one short-lived cue at a time into currentCue. Mirror whichever stream
+    // is actually rendering.
+    private nativeFullscreenMirrorCues(): SubtitleCue[] {
+        if (this.cues.length) return this.cues;
+        return this.currentCue ? [this.currentCue] : [];
+    }
+
+    // The synthesized cue changes/extends while in native fullscreen; keep the
+    // mirror track following it.
+    private refreshNativeFullscreenCueMirror(): void {
+        const video = this.video;
+        if (!video || !videoIsInNativeFullscreen(video)) return;
+        this.showNativeFullscreenCueTrack(video);
+    }
+
+    // Returns true when host captions are (already) covering the system
+    // player; false when there is nothing restorable (e.g. YouTube, which
+    // exposes no host TextTracks) so the caller arms the mirror instead.
+    private restoreHostTracksForNativeFullscreen(): boolean {
+        if (this.nativeFullscreenHostTracksRestored) return true;
+        const restorable = this.tracks.filter(option => option.track);
+        const selected = restorable.filter(option => option.id === this.selectedTrackId || option.id === this.secondaryTrackId);
+        const targets = selected.length ? selected : restorable.slice(0, 1);
+        if (!targets.length) return false;
+        this.nativeFullscreenHostTracksRestored = true;
+        for (const option of targets) {
+            if (option.track) option.track.mode = 'showing';
+        }
+        return true;
+    }
+
+    private reSuppressHostTracksAfterNativeFullscreen(): void {
+        if (!this.nativeFullscreenHostTracksRestored) return;
+        this.nativeFullscreenHostTracksRestored = false;
+        this.setNativeTrackModes();
+    }
+
     private hideNativeFullscreenCueTrack(): void {
         const track = this.nativeFullscreenCueTrack;
         if (track && track.mode !== 'disabled') track.mode = 'disabled';
+        this.reSuppressHostTracksAfterNativeFullscreen();
     }
 
     private seekVideoTo(time: number): void {
@@ -4736,6 +4810,10 @@ export class SubtitlePlayerController {
     }
 
     private setNativeTrackModes(): void {
+        // While the system player is showing the host's own captions (native
+        // fullscreen with no Yomu cue stream), nothing may re-suppress them;
+        // reSuppressHostTracksAfterNativeFullscreen clears the flag first.
+        if (this.nativeFullscreenHostTracksRestored) return;
         const settings = this.options.getSettings();
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
