@@ -220,12 +220,14 @@ describe('generic reader layout overflow guards', () => {
         const words = Array.from(link.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
-        // Class Q: the clamped 36px title row is clip-constrained, so the
-        // reading renders in the out-of-flow mirror instead of in-flow ruby
-        // (in-flow rt would paint into the clip and be shaved mid-glyph).
-        expect(link.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
-        expect(link.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
-        expect(link.querySelector('rt')?.closest('.jpdb-reader-text-mirror')).not.toBeNull();
+        // Paint-invariant design (third live gate): the clamped 36px title row
+        // renders IN PLACE — no mirror, host text painting — and its in-flow
+        // rt lives inside the clip-constrained-stamped row, which the rest-
+        // hide CSS keeps invisible until hover.
+        expect(link.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        const rt = link.querySelector('rt');
+        expect(rt).not.toBeNull();
+        expect(rt?.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
     });
 
     it('suppresses ruby on compact tabindex and onclick controls without named button roles', () => {

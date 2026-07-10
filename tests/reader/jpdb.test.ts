@@ -33662,10 +33662,10 @@ describe('reader helpers', () => {
         expect(document.querySelector('.volume-card__title rt')?.textContent).toBe('おわり');
     });
 
-    it('keeps single-line ellipsis rows lookupable with furigana via the mirror', () => {
-        // Class Q: a clipped single-line row never takes in-flow ruby (the rt
-        // would paint into the clip); the reading renders in the out-of-flow
-        // text mirror instead, on every engine.
+    it('keeps single-line ellipsis rows lookupable and paint-invariant at rest', () => {
+        // Paint-invariant design: a clipped single-line row renders IN PLACE
+        // with the reading suppressed (no mirror, host text painting); the
+        // word stays lookupable via the hover/long-press popover.
         document.body.innerHTML = `
             <main>
                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -33687,7 +33687,8 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
-        expect(document.querySelector('.jpdb-reader-text-mirror rt')?.textContent).toBe('しんそつ');
+        expect(document.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(document.querySelector('rt')).toBeNull();
     });
 
     it('keeps furigana on wrapping prose where text-overflow is declared but inert', () => {

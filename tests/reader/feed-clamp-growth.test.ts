@@ -84,15 +84,20 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        // The mirror reproduces the clamp: same line count, never taller than
-        // the 44px clamp box; readings hidden at rest via the stamp.
-        expect(mirror.style.getPropertyValue('-webkit-line-clamp')).toBe('2');
+        // PAINT INVARIANT (third live gate): at rest the HOST text paints
+        // naturally — never hidden, no display coercion — and the mirror is a
+        // rest-hidden hover overlay, capped by the engine-stable pixel
+        // max-height (inline -webkit-line-clamp diverges across engines).
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(host.style.getPropertyValue('display')).toBe('');
+        expect(host.dataset.yomuClipHoverHost).toBe('true');
+        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(true);
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
         expect(mirror.style.maxHeight).toBe('44px');
         expect(mirror.style.overflow).toBe('hidden');
         expect(mirror.dataset.yomuClipConstrained).toBe('true');
-        // The mirror keeps the HOST's line metrics: with the ruby-friendly
-        // ~1.78em line-height only ONE tall line fit the 44px cap — the live
-        // watch page showed one-line titles and invisible base text.
+        // Host line metrics preserved (a ruby-friendly ~1.78em line-height
+        // under the height cap over-clamped 2-line titles to one line).
         expect(mirror.style.lineHeight).toBe('22px');
 
         // The full unclamped mirror is taller than the box — ruby-room must
@@ -129,6 +134,9 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror).toBeTruthy();
         expect(mirror.style.maxHeight).toBe('40px');
         expect(mirror.style.overflow).toBe('hidden');
+        // Paint invariant: shorts title text keeps painting at rest.
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
 
         mockOverflow(mirror, 120, 40);
         makeRoomForRubyInCroppedRows(document);
@@ -213,6 +221,9 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         expect(mirror.dataset.yomuClipConstrained).toBe('true');
         expect(mirror.style.lineHeight).toBe('20px');
         expect(mirror.style.maxHeight).toBe('20px');
+        // Paint invariant: channel name keeps painting; mirror is hover-only.
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
 
         // The channel-name mirror is taller in scroll terms — the rest-hidden
         // reading must not grow #owner / #top-row / the anchor.
@@ -224,6 +235,42 @@ describe('watch metadata rows never grow and keep their base text painting', () 
             expect(box.style.getPropertyValue('min-height')).toBe('');
             expect(box.dataset.yomuRubyRoom).toBeUndefined();
         }
+    });
+
+    it('keeps a fixed metadata row unwritten with no at-rest reading (WebKit T residual)', () => {
+        // WebKit probe: grown metadata rows showed cramped visible rt (つき
+        // colliding into 月前). Under the paint-invariant design the row never
+        // grows and its reading lives in the rest-hidden hover mirror — no
+        // visible rt at rest on any engine.
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                <div class="ytContentMetadataViewModelMetadataRow" id="meta-row" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                    <span id="meta-host" style="line-height:22px">3 か月前にライブ配信</span>
+                </div>
+            </ytd-watch-metadata>
+        `;
+        const row = document.querySelector<HTMLElement>('#meta-row')!;
+        const host = document.querySelector<HTMLElement>('#meta-host')!;
+        mockOverflow(row, 22, 22);
+        mockRect(row, { width: 320, height: 22 });
+        const text = '3 か月前にライブ配信';
+        const target: ScanTextTarget = { node: host.firstChild as Text, parent: host, text, nonDestructive: true };
+
+        applyTokensToScanTarget(target, [token('配信', text.indexOf('配信'), text, 'はいしん')], FURI);
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(mirror.style.lineHeight).toBe('22px');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+
+        mockOverflow(mirror, 42, 22);
+        makeRoomForRubyInCroppedRows(document);
+        makeRoomForRubyInCroppedRows(document);
+        expect(row.style.minHeight).toBe('');
+        expect(row.style.height).toBe('22px');
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
     it('keeps a clamp-2 watch H1 unwritten with a host-metric mirror', () => {
@@ -245,9 +292,12 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         applyTokensToScanTarget(target, [token('新卒', 0, text, 'しんそつ')], FURI);
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
-        expect(mirror.style.getPropertyValue('-webkit-line-clamp')).toBe('2');
+        // Engine-stable cap only (no clamp copy) + host line metrics + the
+        // paint invariant: title text paints at rest, mirror hover-only.
         expect(mirror.style.lineHeight).toBe('28px');
         expect(mirror.style.maxHeight).toBe('56px');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
 
         mockOverflow(mirror, 100, 56);
         makeRoomForRubyInCroppedRows(document);

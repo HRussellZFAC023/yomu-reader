@@ -36,14 +36,18 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
         document.body.innerHTML = '';
     });
 
-    it('gives a visually bare clipped row its reading via the text mirror', () => {
+    it('renders a bare clipped row IN PLACE, paint-invariant at rest (no mirror, no visible reading)', () => {
+        // Paint-invariant design (third live gate): clip-constrained rows are
+        // never mirror-rerouted — hiding the host and anchoring the mirror to
+        // a clamped box collapsed live feed titles to 0px. The row renders in
+        // place with the reading suppressed; host text keeps painting.
         document.body.innerHTML = `<div id="host" style="${CLIP_STYLE}">${TEXT}</div>`;
         const host = document.getElementById('host')!;
         paint(host);
-        const mirror = host.querySelector('.jpdb-reader-text-mirror');
-        expect(mirror).toBeTruthy();
-        expect(mirror?.querySelector('rt')?.textContent).toBe('にほんご');
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(host.querySelector('rt')).toBeNull();
     });
 
     it('keeps a styled clipped row (own background) rendering in place with the reading suppressed', () => {
@@ -69,15 +73,14 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
     });
 
     it('protects clipped rows on every engine (class Q): the probe verdict is irrelevant', () => {
-        // rt paints into the half-leading on healthy engines too, so a bare
-        // clipped row gets its reading via the out-of-flow mirror regardless
-        // of the old rubyDistortsConstrainedRows() verdict.
+        // Engine-unconditional: no probe verdict re-enables in-flow ruby in a
+        // clipped row; the row renders in place, suppressed, host painted.
         setRubyDistortsConstrainedRowsForTest(false);
         document.body.innerHTML = `<div id="host" style="${CLIP_STYLE}">${TEXT}</div>`;
         const host = document.getElementById('host')!;
         paint(host);
-        const mirror = host.querySelector('.jpdb-reader-text-mirror');
-        expect(mirror).toBeTruthy();
-        expect(mirror?.querySelector('rt')?.textContent).toBe('にほんご');
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.querySelector('rt')).toBeNull();
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 });

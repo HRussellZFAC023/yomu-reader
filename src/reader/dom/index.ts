@@ -331,6 +331,9 @@ interface TextMirrorHostState {
      * under the mirror; bare hosts use plain visibility:hidden. */
     concealTextOnly: boolean;
     concealedText: ConcealedTextRecord[];
+    // Clip-constrained hover-only arrangement: the host text keeps painting
+    // and the mirror is only revealed on hover (paint-invariant at rest).
+    clipHoverOnly?: boolean;
 }
 
 interface ConcealedTextRecord {
@@ -1425,24 +1428,15 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-    // Constrained rows (line-clamp, ellipsis, sub-line clips) cannot take
-    // in-place ruby on engines where it collapses or grows the clip window —
-    // the absolutely-positioned mirror sizes its own line above the host, so
-    // those rows keep full furigana instead of a suppressed reading.
-    // Interactive-passive targets render no reading at all, so there is
-    // nothing for the clip to shave — they stay in place (mirroring them
-    // would hide the host text for zero gain).
-    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion
-        && !target.suppressRuby
-        && isInsideRubyFragileConstrainedRow(nonDestructiveHost)
-        // Only visually-bare hosts may be mirror-hidden: a styled host (pill
-        // background, border, chevron SVG, ::before separator) would lose its
-        // box paint with visibility:hidden — the bloomee bug class. Styled
-        // constrained rows render in place with the reading suppressed.
-        && hostIsVisuallyBareForMirror(nonDestructiveHost);
+    // Clip-constrained rows are NOT mirror-rerouted (paint-invariant design,
+    // 2026-07-10 third live gate): hiding the host and anchoring the mirror to
+    // a clamped box collapsed feed titles to 0px. They render in place — the
+    // in-place channel suppresses/rest-hides readings — and only hosts that
+    // REQUIRE the mirror (framework/shadow/nonDestructive) keep it, where the
+    // mirror becomes a hover-only overlay over the still-painted host text.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
-        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
@@ -1727,12 +1721,24 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
     const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state = styleTextMirrorHost(host, mirrorRubyLayout);
+    const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
-        // clamp on the mirror so it cannot paint past the clip row's box.
-        if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
+        // clamp on the mirror so it cannot paint past the clip row's box, and
+        // make the mirror a HOVER-ONLY overlay — at rest the host text paints
+        // naturally and the hidden mirror contributes nothing.
+        if (clipRow) {
+            constrainMirrorToClampBox(mirror, clipRow);
+            mirror.classList.add('jpdb-reader-clip-hover-mirror');
+            mirror.style.setProperty('visibility', 'hidden');
+            const hostColor = safeComputedStyle(host).color;
+            if (hostColor) {
+                mirror.style.setProperty('color', hostColor);
+                mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
+            }
+            host.dataset.yomuClipHoverHost = 'true';
+        }
         mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -1763,14 +1769,10 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 // absolutely-positioned mirror escapes the host clip and paints the full
 // unclamped text.
 function constrainMirrorToClampBox(mirror: HTMLElement, clipRow: HTMLElement): void {
-    const style = safeComputedStyle(clipRow);
-    const clamp = style.getPropertyValue('-webkit-line-clamp').trim();
-    if (clamp && clamp !== 'none' && clamp !== '0') {
-        mirror.style.setProperty('display', '-webkit-box');
-        mirror.style.setProperty('-webkit-box-orient', 'vertical');
-        mirror.style.setProperty('-webkit-line-clamp', clamp);
-        mirror.style.setProperty('overflow', 'hidden');
-    }
+    // Engine-stable mechanism ONLY: a pixel max-height from the clip row's
+    // box. Inline `display:-webkit-box; -webkit-line-clamp` computes as
+    // -webkit-box (clamp active) on WebKit but flow-root (clamp INERT) on
+    // Chromium, so line-count copying diverges across engines.
     const height = clipRow.clientHeight;
     if (height > 0) {
         mirror.style.setProperty('max-height', `${height}px`);
@@ -2219,7 +2221,7 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirrorHostState {
+function styleTextMirrorHost(host: HTMLElement, allowOverflow = true, clipHoverOnly = false): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -2228,15 +2230,18 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
         visibilityPriority: host.style.getPropertyPriority('visibility'),
         overflow: host.style.getPropertyValue('overflow'),
         overflowPriority: host.style.getPropertyPriority('overflow'),
-        overflowAdjusted: allowOverflow,
+        overflowAdjusted: allowOverflow && !clipHoverOnly,
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
         display: host.style.getPropertyValue('display'),
         displayPriority: host.style.getPropertyPriority('display'),
-        displayAdjusted: computed.display === 'inline',
+        // Paint invariance for clip-constrained hosts: no display coercion —
+        // the host must lay out exactly as without the userscript.
+        displayAdjusted: computed.display === 'inline' && !clipHoverOnly,
         concealTextOnly: !hostIsVisuallyBareForMirror(host),
         concealedText: [],
+        clipHoverOnly,
     };
     textMirrorHosts.set(host, state);
     if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
@@ -2247,6 +2252,9 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
 
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
     textMirrorHosts.set(host, state);
+    // Hover-only arrangement (clip-constrained hosts): the host text KEEPS
+    // painting — never hide or conceal it; the mirror is a reveal affordance.
+    if (state.clipHoverOnly) return;
     if (state.concealTextOnly) {
         // The mirror inherits colour from the host; pin the host's REAL text
         // colour on it before the host's colour goes transparent. (Bare hosts
@@ -2700,6 +2708,7 @@ function removeTextMirror(host: HTMLElement): void {
     // untouched.
     ownedTextMirrors(host).forEach(mirror => mirror.remove());
     if (state) restoreTextMirrorHost(host, state);
+    delete host.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host);
 }
 
@@ -2715,7 +2724,9 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
         removeTextMirror(host);
         return;
     }
-    if (state.concealTextOnly) {
+    if (state.clipHoverOnly) {
+        // Host stays painted; only the anchoring position may need re-assert.
+    } else if (state.concealTextOnly) {
         reassertConcealedTextMirrorHostText(host, state);
     } else if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');

@@ -171,6 +171,12 @@ describe('reader stylesheet loading', () => {
         // A ruby-room-grown row has real room: readings stay visible at rest.
         expect(css).toContain('[data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"]');
         expect(css).toContain('[data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"]');
+        // Hover-only mirror (paint-invariant): the stamped host reveals its
+        // mirror on hover and blanks its own glyphs so the texts never
+        // double-paint.
+        expect(css).toContain('[data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror');
+        const hoverHostRule = css.match(/\[data-yomu-clip-hover-host="true"\]:hover\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(hoverHostRule).toContain('color: transparent');
     });
 
     it('keeps pitch underline and state decorations on passive content words at rest', () => {
