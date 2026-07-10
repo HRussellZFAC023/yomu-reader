@@ -5664,6 +5664,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
     mirrorRender: true,
+    decoration: target.decoration,
     suppressRuby,
     passiveInteraction: target.passiveInteraction || suppressRuby
   }));
@@ -5804,6 +5805,7 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
   parent: host,
   hasNativeRuby: false,
+  decoration: target.decoration,
   mirrorRender: true,
   suppressRuby,
   passiveInteraction: target.passiveInteraction,
@@ -5845,6 +5847,7 @@ function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
   parent: canvas,
   hasNativeRuby: targetHasNativeRuby(target),
   mirrorRender: true,
+  decoration: target.decoration,
   suppressRuby: noRuby,
   passiveInteraction: n || target.passiveInteraction
   }));

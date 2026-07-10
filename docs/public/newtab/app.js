@@ -9303,6 +9303,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         mirrorRender: true,
+        // Carry the SEALED decision into the inner render: without it the
+        // re-derivation's furigana-mode=all branch would discard the
+        // computed suppression and paint ruby into a control's mirror.
+        decoration: target.decoration,
         suppressRuby,
         passiveInteraction: target.passiveInteraction || suppressRuby
       }));
@@ -9437,6 +9441,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
       parent: host,
       hasNativeRuby: false,
+      decoration: target.decoration,
       mirrorRender: true,
       suppressRuby,
       passiveInteraction: target.passiveInteraction,
@@ -9478,6 +9483,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       parent: canvas,
       hasNativeRuby: targetHasNativeRuby(target),
       mirrorRender: true,
+      decoration: target.decoration,
       suppressRuby: noRuby,
       passiveInteraction: n || target.passiveInteraction
     }));
