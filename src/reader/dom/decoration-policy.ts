@@ -198,6 +198,16 @@ export function boxStyleIsClipCapable(box: HTMLElement): boolean {
     return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
 }
 
+// A single element's own clip-constrained verdict (line-clamp, single-line
+// ellipsis, or overflow-clip at fixed short height). Such a row shows no
+// at-rest ruby, so ruby-room must never grow it either — growth on a clamped
+// feed title expands a 44px box to its full unclamped mirror height (the
+// 1.6.115 iPad home-feed blow-up).
+export function isClipConstrainedRow(element: HTMLElement): boolean {
+    const facts = constrainedRowStyleFacts(element);
+    return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
+}
+
 // The mirror replaces the HOST's rendering (visibility:hidden), so routing a
 // constrained row through it is only safe when the host paints nothing of its
 // own: a pill chip's background/border, a nav row's chevron SVG, or a ::before

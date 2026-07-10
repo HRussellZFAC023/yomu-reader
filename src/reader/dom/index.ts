@@ -12,6 +12,7 @@ import {
     boxStyleIsClipCapable,
     classifyDecoration,
     closestRubyFragileConstrainedRow,
+    isClipConstrainedRow,
     decorationStateForWord,
     decorationSuppressesRuby,
     interactivePassiveControl,
@@ -334,6 +335,9 @@ interface TextMirrorHostState {
      * under the mirror; bare hosts use plain visibility:hidden. */
     concealTextOnly: boolean;
     concealedText: ConcealedTextRecord[];
+    // Clip-constrained hover-only arrangement: the host text keeps painting
+    // and the mirror is only revealed on hover (paint-invariant at rest).
+    clipHoverOnly?: boolean;
 }
 
 interface ConcealedTextRecord {
@@ -1428,24 +1432,15 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-    // Constrained rows (line-clamp, ellipsis, sub-line clips) cannot take
-    // in-place ruby on engines where it collapses or grows the clip window —
-    // the absolutely-positioned mirror sizes its own line above the host, so
-    // those rows keep full furigana instead of a suppressed reading.
-    // Interactive-passive targets render no reading at all, so there is
-    // nothing for the clip to shave — they stay in place (mirroring them
-    // would hide the host text for zero gain).
-    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion
-        && !target.suppressRuby
-        && isInsideRubyFragileConstrainedRow(nonDestructiveHost)
-        // Only visually-bare hosts may be mirror-hidden: a styled host (pill
-        // background, border, chevron SVG, ::before separator) would lose its
-        // box paint with visibility:hidden — the bloomee bug class. Styled
-        // constrained rows render in place with the reading suppressed.
-        && hostIsVisuallyBareForMirror(nonDestructiveHost);
+    // Clip-constrained rows are NOT mirror-rerouted (paint-invariant design,
+    // 2026-07-10 third live gate): hiding the host and anchoring the mirror to
+    // a clamped box collapsed feed titles to 0px. They render in place — the
+    // in-place channel suppresses/rest-hides readings — and only hosts that
+    // REQUIRE the mirror (framework/shadow/nonDestructive) keep it, where the
+    // mirror becomes a hover-only overlay over the still-painted host text.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
-        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
@@ -1931,13 +1926,36 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
     // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
     // clipped row bounds. Mark the mirror so CSS hides its readings at rest
-    // (hover reveals them; a ruby-room-grown row shows them again).
-    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
-        mirror.dataset.yomuClipConstrained = 'true';
-    }
-    const state = styleTextMirrorHost(host, hasRenderedRuby);
+    // (hover reveals them), and constrain the mirror to the host's clamp box:
+    // an unconstrained mirror renders the FULL unclamped text below the tile
+    // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
+    // A clip-constrained mirror must lay out EXACTLY like its host: the
+    // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
+    // room for only one tall line — hiding base glyphs (invisible subscriber
+    // count) and over-clamping 2-line titles to one. Readings are rest-hidden
+    // there anyway, so the mirror keeps the host's own line metrics and the
+    // host's overflow stays closed.
+    const mirrorRubyLayout = hasRenderedRuby && !clipRow;
+    const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
     try {
-        styleTextMirror(mirror, host, hasRenderedRuby);
+        styleTextMirror(mirror, host, mirrorRubyLayout);
+        // After styleTextMirror (which opens overflow): re-impose the host's
+        // clamp on the mirror so it cannot paint past the clip row's box, and
+        // make the mirror a HOVER-ONLY overlay — at rest the host text paints
+        // naturally and the hidden mirror contributes nothing.
+        if (clipRow) {
+            constrainMirrorToClampBox(mirror, clipRow);
+            mirror.classList.add('jpdb-reader-clip-hover-mirror');
+            mirror.style.setProperty('visibility', 'hidden');
+            const hostColor = safeComputedStyle(host).color;
+            if (hostColor) {
+                mirror.style.setProperty('color', hostColor);
+                mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
+            }
+            host.dataset.yomuClipHoverHost = 'true';
+        }
         mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -1964,6 +1982,22 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     } catch (error) {
         removeTextMirror(host);
         throw error;
+    }
+}
+
+// Reproduce the clip row's truncation inside the mirror: same line count for
+// line-clamped rows, and never taller than the row box. Without this the
+// absolutely-positioned mirror escapes the host clip and paints the full
+// unclamped text.
+function constrainMirrorToClampBox(mirror: HTMLElement, clipRow: HTMLElement): void {
+    // Engine-stable mechanism ONLY: a pixel max-height from the clip row's
+    // box. Inline `display:-webkit-box; -webkit-line-clamp` computes as
+    // -webkit-box (clamp active) on WebKit but flow-root (clamp INERT) on
+    // Chromium, so line-count copying diverges across engines.
+    const height = clipRow.clientHeight;
+    if (height > 0) {
+        mirror.style.setProperty('max-height', `${height}px`);
+        mirror.style.setProperty('overflow', 'hidden');
     }
 }
 
@@ -2428,7 +2462,7 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirrorHostState {
+function styleTextMirrorHost(host: HTMLElement, allowOverflow = true, clipHoverOnly = false): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -2437,15 +2471,18 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
         visibilityPriority: host.style.getPropertyPriority('visibility'),
         overflow: host.style.getPropertyValue('overflow'),
         overflowPriority: host.style.getPropertyPriority('overflow'),
-        overflowAdjusted: allowOverflow,
+        overflowAdjusted: allowOverflow && !clipHoverOnly,
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
         display: host.style.getPropertyValue('display'),
         displayPriority: host.style.getPropertyPriority('display'),
-        displayAdjusted: computed.display === 'inline',
+        // Paint invariance for clip-constrained hosts: no display coercion —
+        // the host must lay out exactly as without the userscript.
+        displayAdjusted: computed.display === 'inline' && !clipHoverOnly,
         concealTextOnly: !hostIsVisuallyBareForMirror(host),
         concealedText: [],
+        clipHoverOnly,
     };
     textMirrorHosts.set(host, state);
     if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
@@ -2511,6 +2548,9 @@ function mirrorBaseTextOverflowsBox(mirror: HTMLElement): boolean {
 
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
     textMirrorHosts.set(host, state);
+    // Hover-only arrangement (clip-constrained hosts): the host text KEEPS
+    // painting — never hide or conceal it; the mirror is a reveal affordance.
+    if (state.clipHoverOnly) return;
     if (state.concealTextOnly) {
         // The mirror inherits colour from the host; pin the host's REAL text
         // colour on it before the host's colour goes transparent. (Bare hosts
@@ -2972,6 +3012,7 @@ function removeTextMirror(host: HTMLElement): void {
     const tracked = state?.mirror?.deref();
     if (tracked?.isConnected) tracked.remove();
     if (state) restoreTextMirrorHost(host, state);
+    delete host.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host);
 }
 
@@ -2985,6 +3026,13 @@ function removeTextMirror(host: HTMLElement): void {
 // an ancestor-only hide with no host mutation is caught on the next apply
 // cadence — accepted latency, no per-ancestor observers.
 function syncTextMirrorVisibilityToPage(host: HTMLElement, mirror: HTMLElement): void {
+    // A hover-only clip mirror is rest-hidden by inline visibility with a CSS
+    // hover reveal, while its host text KEEPS painting (paint invariance).
+    // Forcing visibility:visible !important here would double-paint it over
+    // the visible host and defeat the hover reveal; the page's own conceal
+    // reaches it by inheritance (a hidden ancestor also cannot be hovered),
+    // so force nothing in either direction.
+    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror')) return;
     mirror.style.setProperty('visibility', pageConcealsTextMirrorHost(host) ? 'hidden' : 'visible', 'important');
 }
 
@@ -3010,7 +3058,9 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
         return;
     }
     syncTextMirrorVisibilityToPage(host, mirror);
-    if (state.concealTextOnly) {
+    if (state.clipHoverOnly) {
+        // Host stays painted; only the anchoring position may need re-assert.
+    } else if (state.concealTextOnly) {
         reassertConcealedTextMirrorHostText(host, state);
     } else if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
@@ -4841,6 +4891,11 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
         // grows any box — that is the class-A chrome-growth kill.
         const decoration = decorationStateForWord(word);
         if (decoration === 'interactive-passive' || decoration === 'skip') continue;
+        // A reading inside a clip-constrained scope (stamped mirror or row) is
+        // hidden at rest — it never needs room, so it must not grow ANY
+        // ancestor (the 1.6.115 watch-metadata #owner/#top-row/H1 blow-ups
+        // were grown by rest-hidden readings' inflated mirror metrics).
+        if (word.closest('[data-yomu-clip-constrained="true"]')) continue;
         // A box may only ever grow for the mirror that renders THIS word —
         // never for an unrelated (taller) descendant mirror in document order.
         const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
@@ -4854,6 +4909,11 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
             const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
             if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
             for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+                // The clip-constrained fact DOMINATES growth eligibility,
+                // curated selectors and prose classification included: a
+                // clamped/fixed-short row shows no at-rest ruby, so growing it
+                // only blows the tile up to its unclamped mirror height.
+                if (isClipConstrainedRow(roomBox)) continue;
                 const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
                 if (roomHeight > RUBY_ROOM_MAX_PX) continue;
                 // Repeat passes only correct HEIGHT under-growth (content can

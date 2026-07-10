@@ -373,6 +373,10 @@ function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
   return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
 }
+function isClipConstrainedRow(element2) {
+  const facts = constrainedRowStyleFacts(element2);
+  return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
+}
 const MIRROR_BARE_DESCENDANT_LIMIT = 16;
 function hostIsVisuallyBareForMirror(host) {
   if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
@@ -5467,9 +5471,8 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && !target.suppressRuby && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
   const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
@@ -5660,12 +5663,23 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.renderSignature = signature;
   mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-  if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
-  mirror.dataset.yomuClipConstrained = "true";
-  }
-  const state = styleTextMirrorHost(host, hasRenderedRuby);
+  const clipRow = closestRubyFragileConstrainedRow(host);
+  if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
+  const mirrorRubyLayout = hasRenderedRuby && !clipRow;
+  const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
   try {
-  styleTextMirror(mirror, host, hasRenderedRuby);
+  styleTextMirror(mirror, host, mirrorRubyLayout);
+  if (clipRow) {
+    constrainMirrorToClampBox(mirror, clipRow);
+    mirror.classList.add("jpdb-reader-clip-hover-mirror");
+    mirror.style.setProperty("visibility", "hidden");
+    const hostColor = safeComputedStyle(host).color;
+    if (hostColor) {
+      mirror.style.setProperty("color", hostColor);
+      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+    }
+    host.dataset.yomuClipHoverHost = "true";
+  }
   mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
@@ -5685,6 +5699,13 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   } catch (error) {
   removeTextMirror(host);
   throw error;
+  }
+}
+function constrainMirrorToClampBox(mirror, clipRow) {
+  const height = clipRow.clientHeight;
+  if (height > 0) {
+  mirror.style.setProperty("max-height", `${height}px`);
+  mirror.style.setProperty("overflow", "hidden");
   }
 }
 function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
@@ -6022,7 +6043,7 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function styleTextMirrorHost(host, allowOverflow = true) {
+function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false) {
   const computed = safeComputedStyle(host);
   const state = {
   observer: new MutationObserver(() => void 0),
@@ -6031,15 +6052,16 @@ function styleTextMirrorHost(host, allowOverflow = true) {
   visibilityPriority: host.style.getPropertyPriority("visibility"),
   overflow: host.style.getPropertyValue("overflow"),
   overflowPriority: host.style.getPropertyPriority("overflow"),
-  overflowAdjusted: allowOverflow,
+  overflowAdjusted: allowOverflow && !clipHoverOnly,
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
   positioned: computed.position === "static",
   display: host.style.getPropertyValue("display"),
   displayPriority: host.style.getPropertyPriority("display"),
-  displayAdjusted: computed.display === "inline",
+  displayAdjusted: computed.display === "inline" && !clipHoverOnly,
   concealTextOnly: !hostIsVisuallyBareForMirror(host),
-  concealedText: []
+  concealedText: [],
+  clipHoverOnly
   };
   textMirrorHosts.set(host, state);
   if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -6049,6 +6071,7 @@ function styleTextMirrorHost(host, allowOverflow = true) {
 }
 function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
+  if (state.clipHoverOnly) return;
   if (state.concealTextOnly) {
   if (mirror) {
     const hostColor = safeComputedStyle(host).color;
@@ -6341,6 +6364,7 @@ function removeTextMirror(host) {
   if (state) state.staleRemovalTimer = void 0;
   ownedTextMirrors(host).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
+  delete host.dataset.yomuClipHoverHost;
   textMirrorHosts.delete(host);
 }
 function reassertTextMirrorHostStyles(host, state) {
@@ -6348,7 +6372,8 @@ function reassertTextMirrorHostStyles(host, state) {
   removeTextMirror(host);
   return;
   }
-  if (state.concealTextOnly) {
+  if (state.clipHoverOnly) ;
+  else if (state.concealTextOnly) {
   reassertConcealedTextMirrorHostText(host, state);
   } else if (host.style.getPropertyValue("visibility") !== "hidden") {
   host.style.setProperty("visibility", "hidden", "important");
@@ -7695,12 +7720,14 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   if (!word.querySelector("rt")) continue;
   const decoration = decorationStateForWord(word);
   if (decoration === "interactive-passive" || decoration === "skip") continue;
+  if (word.closest('[data-yomu-clip-constrained="true"]')) continue;
   const mirror = word.closest(".jpdb-reader-text-mirror");
   for (const box of cropCapableBoxes(word.parentElement, mirror)) {
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
     const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
     if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
     for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+      if (isClipConstrainedRow(roomBox)) continue;
       const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
       const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);

@@ -1556,7 +1556,7 @@ describe('VisiblePageScanner', () => {
         const restoreRects = mockVisibleElementRects();
         const laterParse = deferred<JPDBToken[][]>();
         document.body.innerHTML = `
-            <ytd-rich-item-renderer><div id="video-title" style="overflow:hidden;height:22px;line-height:22px">日本語の動画0</div></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><div id="video-title" style="height:22px;line-height:22px">日本語の動画0</div></ytd-rich-item-renderer>
             ${Array.from({ length: 89 }, (_, index) => `<p>日本語の動画${index + 1}</p>`).join('')}
         `;
         const title = document.querySelector<HTMLElement>('#video-title')!;
@@ -1577,8 +1577,9 @@ describe('VisiblePageScanner', () => {
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
 
             expect(title.querySelector('rt')).not.toBeNull();
-            // 36px measured room + 1px top clearance for the flush reading
-            // (single-line rows push the annotation off the clip edge).
+            // Unclipped short row (clipped rows are clip-constrained and no
+            // longer grow): 36px measured room + 1px top clearance for the
+            // flush reading.
             expect(title.style.height).toBe('37px');
 
             laterParse.resolve(parseJapanese.mock.calls[1]![0].map((text: string) => [rubyToken(text, '日本語', 'にほんご', 0, 3)]));
