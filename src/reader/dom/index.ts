@@ -50,7 +50,7 @@ import {
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
-export { classifyDecoration, DECORATION_STATE_ATTRIBUTE } from './decoration-policy';
+export { classifyDecoration, DECORATION_STATE_ATTRIBUTE, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
@@ -210,6 +210,11 @@ export interface FragmentTextTarget {
     fragments: TextFragment[];
     parserId?: string;
     decoration?: DecorationState;
+    // Set when a site profile deliberately overrode the classifier's verdict
+    // (owner-surface naming, e.g. hosted docs controls upgraded to content).
+    // The staleness re-check cannot reproduce the override, so it only guards
+    // the skip transition for such targets.
+    decorationProfileOverride?: boolean;
     suppressRuby?: boolean;
     proseWrap?: boolean;
     layoutSensitive?: boolean;
@@ -1255,11 +1260,28 @@ function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTar
 }
 
 export function isCurrentScanTarget(target: ScanTextTarget): boolean {
+    if (scanTargetDecorationIsStale(target)) return false;
     if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
     return target.parent.isConnected
         && target.node.isConnected
         && target.node.parentElement === target.parent
         && (target.node.textContent ?? '').trim() === target.text;
+}
+
+// A sealed verdict can go stale between collection and the asynchronous
+// apply: a framework may keep the text node but turn its container into a
+// textbox/contenteditable (or vice versa). Re-run the deterministic
+// classification and drop the target for rescan when the facts changed —
+// applying a stale content verdict inside an editor is never acceptable.
+function scanTargetDecorationIsStale(target: ScanTextTarget): boolean {
+    if (!target.decoration || !target.parent.isConnected) return false;
+    const current = isFragmentTextTarget(target)
+        ? fragmentTargetDecoration(target.parent, target.fragments)
+        : classifyDecoration(target.parent);
+    if (isFragmentTextTarget(target) && target.decorationProfileOverride) {
+        return current === 'skip' && target.decoration !== 'skip';
+    }
+    return current !== target.decoration;
 }
 
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
@@ -1496,6 +1518,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
     const fragment = renderTokenizedScanText(target.text, tokens, settings, {
         parent: target.parent,
         hasNativeRuby: target.hasNativeRuby,
+        decoration: target.decoration,
         suppressRuby: target.suppressRuby,
         proseWrap: target.proseWrap,
         passiveInteraction: target.passiveInteraction,
@@ -1507,10 +1530,10 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; decoration?: DecorationState; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
     const passiveInteraction = target.passiveInteraction || (suppressRuby && !target.suppressRubyDoesNotImplyPassive);
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
@@ -1664,7 +1687,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const text = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
@@ -2078,14 +2101,26 @@ function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement
     return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
-function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean, inPlace = true): boolean {
+function scanTargetSuppressesRuby(
+    parent: HTMLElement,
+    suppressRuby?: boolean,
+    inPlace = true,
+    decoration?: DecorationState,
+): boolean {
     // Yomu-owned surfaces (lookup panel, drawer) may always force readings.
     if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
-    // Constrained rows only reject IN-PLACE ruby (it collapses or grows the
-    // clip window on distorting engines); the absolutely-positioned mirror
-    // sizes its own line, so mirrored renders keep the reading. This is an
-    // ENGINE-BUG guard: even the page-wide furigana-mode=all attribute must
-    // not force in-place ruby into a row the engine will distort.
+    // The SEALED interactive-passive decision dominates the page-wide
+    // furigana-mode=all attribute for EXPLICIT CONTROLS: a button/menuitem
+    // must never regain in-flow ruby just because the user forces readings.
+    // Cascade-derived compact-chrome suppression (notification rows, chrome-
+    // shaped links) keeps the old precedence — forcing readings re-enables
+    // them, as the owner-pinned scanner behaviors require.
+    if (decoration === 'interactive-passive' && interactivePassiveControl(parent)) return true;
+    // Constrained rows reject IN-PLACE ruby on every engine (class Q): the rt
+    // paints into the half-leading and the ancestor clip shaves it. The
+    // absolutely-positioned mirror sizes its own line, so mirrored renders
+    // keep the reading. Even furigana-mode=all must not force in-flow ruby
+    // into a clipped row.
     if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
@@ -2713,6 +2748,12 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     hosts.forEach(removeTextMirror);
     controlHosts.forEach(removeControlTextMirror);
     canvasHosts.forEach(removeCanvasFallbackTextLayer);
+    // Bulk mirror teardown is a real clear (destroy, language refresh,
+    // annotations off): boxes grown for those mirrors must shrink back too.
+    // Per-refresh removeTextMirror deliberately does NOT release — a mirror is
+    // removed and immediately re-appended on every re-apply, and releasing
+    // there would oscillate row heights (the CI rewrap-convergence contract).
+    releaseRubyRoomGrowth(root);
     return hosts.size + controlHosts.size + canvasHosts.size;
 }
 
@@ -2983,9 +3024,16 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
-    const renderTarget = targetForcesAllFurigana(target.parent)
-        ? { ...target, suppressRuby: false }
-        : target;
+    // furigana-mode=all may force readings back onto CONTENT whose collector
+    // suppressed them, but never onto a sealed explicit-control target.
+    // NOTE (deferred): unlike the single-node path, fragment renders do not
+    // yet consult the clip-constrained-row fact in place — closing that here
+    // flips several owner-pinned compact-content behaviors (breadcrumbs,
+    // footer links, media-card titles keep in-flow furigana today) and needs
+    // an owner call on mirror-vs-suppress for non-bare fragile content.
+    const renderTarget = target.decoration === 'interactive-passive' && interactivePassiveControl(target.parent)
+        ? { ...target, suppressRuby: true }
+        : (targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target);
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
 }
@@ -4456,7 +4504,7 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
                 // Repeat passes only correct HEIGHT under-growth (content can
                 // rewrap once the box grows); top padding is exact on first
                 // application and must not accumulate across passes.
-                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
+                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
                 if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
                 if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
                 decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
@@ -4469,6 +4517,7 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
         box.dataset.yomuRubyRoom = 'true';
         box.dataset.yomuRubyRoomHeight = String(roomHeight);
         makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
+        recordRubyRoomGrowthWrite(box);
         adjustedBoxes.add(box);
         adjusted += 1;
     }
@@ -4480,7 +4529,7 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
 // same box) and restored by releaseRubyRoomGrowth. Growth stays monotonic
 // within a page session (the CI rewrap-convergence contract); release happens
 // only on the explicit clear path (annotations off / teardown).
-interface RubyRoomGrowthRecord {
+interface RubyRoomStyleSnapshot {
     minHeight: string;
     minHeightPriority: string;
     height: string;
@@ -4491,11 +4540,19 @@ interface RubyRoomGrowthRecord {
     paddingTopPriority: string;
 }
 
+interface RubyRoomGrowthRecord {
+    // The box's inline values before the FIRST growth write.
+    before: RubyRoomStyleSnapshot;
+    // The inline values as of OUR last write. Release restores a property only
+    // while its current inline value still equals what we wrote — a framework
+    // that re-styled the box since then keeps its own value.
+    written?: RubyRoomStyleSnapshot;
+}
+
 const rubyRoomGrowthRecords = new WeakMap<HTMLElement, RubyRoomGrowthRecord>();
 
-function recordRubyRoomGrowth(box: HTMLElement): void {
-    if (rubyRoomGrowthRecords.has(box)) return;
-    rubyRoomGrowthRecords.set(box, {
+function rubyRoomStyleSnapshot(box: HTMLElement): RubyRoomStyleSnapshot {
+    return {
         minHeight: box.style.getPropertyValue('min-height'),
         minHeightPriority: box.style.getPropertyPriority('min-height'),
         height: box.style.getPropertyValue('height'),
@@ -4504,7 +4561,17 @@ function recordRubyRoomGrowth(box: HTMLElement): void {
         maxHeightPriority: box.style.getPropertyPriority('max-height'),
         paddingTop: box.style.getPropertyValue('padding-top'),
         paddingTopPriority: box.style.getPropertyPriority('padding-top'),
-    });
+    };
+}
+
+function recordRubyRoomGrowth(box: HTMLElement): void {
+    if (rubyRoomGrowthRecords.has(box)) return;
+    rubyRoomGrowthRecords.set(box, { before: rubyRoomStyleSnapshot(box) });
+}
+
+function recordRubyRoomGrowthWrite(box: HTMLElement): void {
+    const record = rubyRoomGrowthRecords.get(box);
+    if (record) record.written = rubyRoomStyleSnapshot(box);
 }
 
 export function releaseRubyRoomGrowth(root: ParentNode = document): number {
@@ -4513,10 +4580,10 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
     boxes.push(...Array.from(root.querySelectorAll<HTMLElement>('[data-yomu-ruby-room]')));
     for (const box of boxes) {
         const record = rubyRoomGrowthRecords.get(box);
-        restoreRubyRoomProperty(box, 'min-height', record?.minHeight, record?.minHeightPriority);
-        restoreRubyRoomProperty(box, 'height', record?.height, record?.heightPriority);
-        restoreRubyRoomProperty(box, 'max-height', record?.maxHeight, record?.maxHeightPriority);
-        restoreRubyRoomProperty(box, 'padding-top', record?.paddingTop, record?.paddingTopPriority);
+        restoreRubyRoomProperty(box, 'min-height', record, r => [r.minHeight, r.minHeightPriority]);
+        restoreRubyRoomProperty(box, 'height', record, r => [r.height, r.heightPriority]);
+        restoreRubyRoomProperty(box, 'max-height', record, r => [r.maxHeight, r.maxHeightPriority]);
+        restoreRubyRoomProperty(box, 'padding-top', record, r => [r.paddingTop, r.paddingTopPriority]);
         delete box.dataset.yomuRubyRoom;
         delete box.dataset.yomuRubyRoomHeight;
         delete box.dataset.yomuRubyRoomPadTop;
@@ -4525,7 +4592,21 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
     return boxes.length;
 }
 
-function restoreRubyRoomProperty(box: HTMLElement, property: string, value: string | undefined, priority: string | undefined): void {
+function restoreRubyRoomProperty(
+    box: HTMLElement,
+    property: string,
+    record: RubyRoomGrowthRecord | undefined,
+    pick: (snapshot: RubyRoomStyleSnapshot) => [string, string],
+): void {
+    if (record?.written) {
+        const [writtenValue, writtenPriority] = pick(record.written);
+        const currentValue = box.style.getPropertyValue(property);
+        const currentPriority = box.style.getPropertyPriority(property);
+        // The framework re-styled this property since our write: its value is
+        // newer than both our write and our pre-write snapshot — keep it.
+        if (currentValue !== writtenValue || currentPriority !== writtenPriority) return;
+    }
+    const [value, priority] = record ? pick(record.before) : ['', ''];
     if (value) box.style.setProperty(property, value, priority);
     else box.style.removeProperty(property);
 }
@@ -4539,12 +4620,12 @@ function restoreRubyRoomProperty(box: HTMLElement, property: string, value: stri
 const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
 const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
 
-function rubyTopClearanceDeficit(box: HTMLElement): number {
-    const raw = rubyTopOverflowRaw(box);
+function rubyTopClearanceDeficit(box: HTMLElement, mirror: HTMLElement | null): number {
+    const raw = rubyTopOverflowRaw(box, mirror);
     // A reading genuinely above the box top always needs the push-down; a
     // merely flush reading only counts on single-line rows (rubyTouchesBoxTop)
     // where the flush edge is the clip edge.
-    if (raw <= 0 && !rubyTouchesBoxTop(box)) return 0;
+    if (raw <= 0 && !rubyTouchesBoxTop(box, mirror)) return 0;
     if (raw <= -RUBY_ROOM_TOP_CLEARANCE_PX) return 0;
     const applied = previousRubyRoomTopPad(box);
     const deficit = Math.ceil(raw + RUBY_ROOM_TOP_CLEARANCE_PX);
@@ -4557,7 +4638,7 @@ function previousRubyRoomTopPad(box: HTMLElement): number {
 }
 
 function rubyCropsBox(box: HTMLElement, mirror: HTMLElement | null): boolean {
-    return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box, mirror) > 1;
+    return rubyBottomOverflow(box, mirror) > 1 || rubyTouchesBoxTop(box, mirror) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 
 // A reading pinned within a hair of the box's top edge is already shaved by
@@ -4565,11 +4646,11 @@ function rubyCropsBox(box: HTMLElement, mirror: HTMLElement | null): boolean {
 // "flush with the top" as cropped so the row gains clearance. Only single-line
 // rows (chips, tabs, action labels) qualify: a multi-line clamp box crops at
 // its BOTTOM, and its first-line annotation legitimately starts at the top.
-function rubyTouchesBoxTop(box: HTMLElement): boolean {
+function rubyTouchesBoxTop(box: HTMLElement, mirror: HTMLElement | null): boolean {
     const style = safeComputedStyle(box);
     const lineHeight = cssPixels(style.lineHeight) || (cssPixels(style.fontSize) || 16) * 1.4;
     if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
-    return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
+    return rubyTopOverflowRaw(box, mirror) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 
 function genericRubyNeedsRoom(box: HTMLElement, mirror: HTMLElement | null): boolean {
@@ -4645,7 +4726,7 @@ function genericRubyRoomHeight(box: HTMLElement, mirror: HTMLElement | null): nu
     const shortRowHeight = rubyLayoutOverflowsShortRow(box, mirror) ? box.scrollHeight : 0;
     const compactRowHeight = rubyOverflowsCompactClippedRow(box, mirror) ? compactClippedRubyOverflow(box, mirror) : 0;
     return Math.ceil(Math.max(
-        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+        box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
         owned ? owned.scrollHeight : 0,
         shortRowHeight,
         compactRowHeight,
@@ -4768,8 +4849,8 @@ function isShortRubyRowDisplay(style: CSSStyleDeclaration): boolean {
 
 function boxActuallyCrops(box: HTMLElement, mirror: HTMLElement | null): boolean {
     return box.scrollHeight > box.clientHeight + 1
-        || rubyBottomOverflow(box) > 1
-        || rubyTouchesBoxTop(box)
+        || rubyBottomOverflow(box, mirror) > 1
+        || rubyTouchesBoxTop(box, mirror)
         || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 
@@ -4784,7 +4865,7 @@ function rubyRoomHeight(box: HTMLElement, mirror: HTMLElement | null): number {
     const mirrorHeight = owned ? owned.scrollHeight : 0;
     const measuredHeight = Math.max(
         box.scrollHeight,
-        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+        box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
         mirrorHeight,
     );
     const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX
@@ -4802,17 +4883,18 @@ function rubyMirrorBlockOverflow(box: HTMLElement, mirror: HTMLElement | null): 
 // fixed-height overflow-hidden row (a chip label) clips the reading at the
 // box TOP while scrollHeight and bottom overflow both read clean. Measure the
 // rt annotations directly.
-function rubyTopOverflow(box: HTMLElement): number {
-    return Math.max(0, rubyTopOverflowRaw(box));
+function rubyTopOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
+    return Math.max(0, rubyTopOverflowRaw(box, mirror));
 }
 
 // Raw signed clearance: positive = the reading pokes above the box top,
 // negative = how much breathing room it has. -Infinity when the box has no
 // visible annotated word at all.
-function rubyTopOverflowRaw(box: HTMLElement): number {
+function rubyTopOverflowRaw(box: HTMLElement, mirror: HTMLElement | null): number {
     const boxRect = box.getBoundingClientRect();
     let overflow = Number.NEGATIVE_INFINITY;
     for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
         const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
         if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
         const rt = ruby.querySelector<HTMLElement>('rt');
@@ -4822,10 +4904,19 @@ function rubyTopOverflowRaw(box: HTMLElement): number {
     return overflow;
 }
 
-function rubyBottomOverflow(box: HTMLElement): number {
+// Geometry measurements may only consult in-flow rubies or rubies inside the
+// triggering word's OWN mirror — another host's mirror inside a shared clipped
+// ancestor must never supply the growth deficit (RC3 cross-attribution).
+function rubyBelongsToBoxMeasurement(ruby: HTMLElement, mirror: HTMLElement | null): boolean {
+    const owner = ruby.closest<HTMLElement>('.jpdb-reader-text-mirror');
+    return !owner || owner === mirror;
+}
+
+function rubyBottomOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
     const boxRect = box.getBoundingClientRect();
     let overflow = 0;
     for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
         const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
         const baseRect = base.getBoundingClientRect();
         if (!baseVisibleInBox(baseRect, boxRect)) continue;

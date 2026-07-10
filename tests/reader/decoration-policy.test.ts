@@ -4,7 +4,9 @@ import {
     applyTokensToScanTarget,
     classifyDecoration,
     collectFragmentTextTargetsIn,
+    isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
+    resetDecorationPolicyCachesForTest,
     setRubyDistortsConstrainedRowsForTest,
     removeNonDestructiveScanMirrors,
     type FragmentTextTarget,
@@ -89,6 +91,7 @@ afterEach(() => {
     removeNonDestructiveScanMirrors(document);
     document.body.innerHTML = '';
     setRubyDistortsConstrainedRowsForTest(null);
+    resetDecorationPolicyCachesForTest();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
 });
@@ -337,3 +340,90 @@ describe('clip-constrained chrome rows (engine-unconditional)', () => {
     });
 });
 
+
+// The sealed interactive-passive decision must dominate the page-wide
+// furigana-mode=all attribute: an UNCONSTRAINED control (no clip styles, so
+// the constrained-row guard cannot mask the check) still gets no in-flow ruby.
+describe('interactive-passive under furigana-mode=all', () => {
+    it('keeps in-flow ruby off an unconstrained button when readings are forced page-wide', () => {
+        document.body.innerHTML = `
+            <div data-yomu-furigana-mode="all">
+                <button id="open">設定を開く</button>
+            </div>
+        `;
+        const target = collectTargets().find(candidate => candidate.text === '設定を開く');
+        expect(target).toBeTruthy();
+        expect(target?.decoration).toBe('interactive-passive');
+        applyTokensToScanTarget(target!, [
+            token('設定', 0, '設定を開く', 'せってい'),
+        ], FURIGANA_SETTINGS);
+        const button = document.querySelector<HTMLElement>('#open')!;
+        expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(button.querySelector('rt')).toBeNull();
+        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+    });
+});
+
+// A sealed verdict must go stale when the classification-relevant facts
+// change between collection and the asynchronous apply.
+describe('sealed decoration staleness', () => {
+    it('drops a content target whose container became an editor', () => {
+        document.body.innerHTML = '<div id="row">今日の日記を書く</div>';
+        const row = document.querySelector<HTMLElement>('#row')!;
+        const target = collectTargets().find(candidate => candidate.text === '今日の日記を書く')!;
+        expect(target.decoration).toBe('content-ruby');
+        expect(isCurrentScanTarget(target)).toBe(true);
+
+        row.setAttribute('contenteditable', 'true');
+        expect(isCurrentScanTarget(target)).toBe(false);
+
+        row.removeAttribute('contenteditable');
+        expect(isCurrentScanTarget(target)).toBe(true);
+
+        row.setAttribute('role', 'button');
+        expect(isCurrentScanTarget(target)).toBe(false);
+    });
+});
+
+// Combobox-owned popup facts: only genuine combobox/search owners skip, and
+// ownership resolves inside shadow roots too.
+describe('combobox popup ownership', () => {
+    it('does not skip a region merely referenced by a checkbox aria-controls', () => {
+        document.body.innerHTML = `
+            <input type="checkbox" aria-controls="details">
+            <article id="details"><p id="body">日本語の説明文がここにあります。</p></article>
+        `;
+        expect(classifyDecoration(document.querySelector('#body')!)).toBe('prose-full');
+    });
+
+    it('skips a suggestion popup owned by a combobox inside an open shadow root', () => {
+        document.body.innerHTML = '<div id="shadow-host"></div>';
+        const shadow = document.querySelector<HTMLElement>('#shadow-host')!.attachShadow({ mode: 'open' });
+        shadow.innerHTML = `
+            <input role="combobox" aria-controls="sr-popup" type="text">
+            <div id="sr-popup"><div id="sr-row">日本語の候補</div></div>
+        `;
+        expect(classifyDecoration(shadow.querySelector('#sr-row')!)).toBe('skip');
+    });
+});
+
+// A clipped host whose DESCENDANT paints (background icon, ::before glyph)
+// must not be mirror-hidden — the mirror recreates text only.
+describe('mirror bareness with painted descendants', () => {
+    it('keeps a clipped row with a background-painted inner span rendering in place', () => {
+        document.body.innerHTML = `
+            <div id="row" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="background-image:url(chevron.png)"></span>日本語の見出し</div>
+        `;
+        const target = collectTargets().find(candidate => candidate.text === '日本語の見出し')!;
+        applyTokensToScanTarget(target, [
+            token('日本語', 0, '日本語の見出し', 'にほんご'),
+        ], FURIGANA_SETTINGS);
+        const row = document.querySelector<HTMLElement>('#row')!;
+        // The P2 contract under test: the painted row is NOT mirror-hidden
+        // (its icon would vanish). Whether its reading is suppressed in place
+        // is the fragment-path clip decision, deferred separately.
+        expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(row.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(row.querySelector('.jpdb-reader-word')).toBeTruthy();
+    });
+});

@@ -199,9 +199,22 @@ export function boxStyleIsClipCapable(box: HTMLElement): boolean {
 // own: a pill chip's background/border, a nav row's chevron SVG, or a ::before
 // separator would all vanish with the host. Styled hosts keep in-place
 // rendering (ruby suppression handles the clip) instead of losing their box.
+const MIRROR_BARE_DESCENDANT_LIMIT = 16;
+
 export function hostIsVisuallyBareForMirror(host: HTMLElement): boolean {
     if (host.querySelector('svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr')) return false;
-    return elementHasNoOwnPaint(host);
+    if (!elementHasNoOwnPaint(host)) return false;
+    // Descendants can paint too (an icon drawn via background-image or a
+    // ::before glyph on an inner span): hiding the host would erase it while
+    // the mirror recreates only text. Check a bounded number of descendants;
+    // a bigger subtree is not a bare text row — refuse the mirror.
+    const descendants = host.querySelectorAll<HTMLElement>('*');
+    if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
+    for (const descendant of Array.from(descendants)) {
+        if (descendant.closest('.jpdb-reader-text-mirror')) continue;
+        if (!elementHasNoOwnPaint(descendant)) return false;
+    }
+    return true;
 }
 
 function elementHasNoOwnPaint(element: HTMLElement): boolean {
@@ -677,42 +690,71 @@ function isEditableComposingContext(element: Element): boolean {
     return isComboboxOwnedPopup(element);
 }
 
-export function isComboboxOwnedPopup(element: Element): boolean {
-    let current: Element | null = element;
-    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-        const id = current.id;
-        if (!id) continue;
-        const escaped = cssEscapeIdent(id);
-        if (!escaped) continue;
-        try {
-            if (document.querySelector(
-                `[role="combobox"][aria-owns~="${escaped}"],[role="combobox"][aria-controls~="${escaped}"],`
-                + `input[aria-owns~="${escaped}"],input[aria-controls~="${escaped}"]`,
-            )) return true;
-        } catch {
-            // Malformed id after escaping: not a combobox-owned popup.
-        }
-    }
-    return false;
+// Only genuine combobox/search facts may own a popup: role=combobox,
+// role=searchbox, or an input with aria-autocomplete. A checkbox (or any
+// other control) pointing aria-controls at an article/section must never
+// skip that whole region.
+const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
+
+// Hot-loop guard (every scan target reaches this): the popup check resolves
+// against ONE cached id-set per document/shadow root instead of a global
+// querySelector per ancestor id — thousands of document-wide attribute
+// queries per 200-target pass would jank mobile scans. Short TTL keeps the
+// verdict deterministic in current-DOM terms while amortizing a pass.
+let comboboxOwnedIdMemo = new WeakMap<Node, { at: number; ids: ReadonlySet<string> }>();
+const COMBOBOX_OWNED_ID_TTL_MS = 250;
+
+/** Test hook: fixtures share one jsdom document, so the per-root owned-id
+ * memo would leak between them. Production staleness is bounded by the TTL. */
+export function resetDecorationPolicyCachesForTest(): void {
+    comboboxOwnedIdMemo = new WeakMap();
 }
 
-function cssEscapeIdent(value: string): string {
-    try {
-        if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
-    } catch {
-        // fall through to the conservative validator below
+function comboboxOwnedIds(root: Node): ReadonlySet<string> {
+    const now = Date.now();
+    const memo = comboboxOwnedIdMemo.get(root);
+    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+    const ids = new Set<string>();
+    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
+        for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
+            for (const attribute of ['aria-owns', 'aria-controls'] as const) {
+                for (const token of (owner.getAttribute(attribute) ?? '').split(/\s+/)) {
+                    if (token) ids.add(token);
+                }
+            }
+        }
     }
-    // No CSS.escape (older WebViews, jsdom): accept only plain identifiers —
-    // an id needing escaping simply doesn't participate in the combobox check.
-    return /^[A-Za-z][\w-]*$/.test(value) ? value : '';
+    comboboxOwnedIdMemo.set(root, { at: now, ids });
+    return ids;
+}
+
+export function isComboboxOwnedPopup(element: Element): boolean {
+    // Resolve within the element's own tree so an open-shadow-root combobox
+    // owning an unroled popup is found (document.querySelector cannot see it).
+    const ids = comboboxOwnedIds(element.getRootNode());
+    if (!ids.size) return false;
+    let current: Element | null = element;
+    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+        if (current.id && ids.has(current.id)) return true;
+    }
+    return false;
 }
 
 // Interactive-control ancestry: the explicit fact set (tags/roles the page
 // author declared). Links are controls only when they carry control ancestry
 // (nav/toolbar/menu context) — a link inside prose flow stays content.
-const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors('button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio')},[aria-expanded],[aria-controls],[slot="more-button"],.more-button,#more,#less`;
+// Deliberately WITHOUT bare [aria-expanded]/[aria-controls]: accordions put
+// those on containers wrapping whole content bodies, and passive-izing the
+// body strips its ruby. The bare attributes still contribute to the CSS
+// passivity channel (PASSIVE_INTERACTION_SELECTOR) and compact toggles are
+// still caught by the compact cascade.
+const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors('button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio')},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
-const INTERACTIVE_LINK_CONTEXT_SELECTOR = `header,nav,footer,${roleSelectors('banner,navigation,contentinfo,menu,menubar,toolbar,tablist')}`;
+// Strict control contexts only: links in header/nav/footer/breadcrumbs are
+// content-bearing (owner-pinned: breadcrumb, footer-help, global-nav labels
+// keep furigana) — the compact cascade still classifies the genuinely
+// chrome-shaped ones. Menus/toolbars/tablists are unambiguous control rows.
+const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors('menu,menubar,toolbar,tablist');
 
 // Site-unique DOM naming (allowed; the BEHAVIOR decision stays here in the
 // policy): subscribe buttons are always controls, even inside content roots;
@@ -743,13 +785,23 @@ const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CON
 
 export function interactivePassiveControl(element: Element): HTMLElement | null {
     const control = element.closest<HTMLElement>(INTERACTIVE_CONTROL_SELECTOR);
-    // Conversation content wrapped in a clickable shell (Discord's
-    // role=button messageContent) is CONTENT — pitch underlines and ruby stay.
-    if (control && !isConversationTextClass(control)) return control;
+    if (control
+        // Conversation content wrapped in a clickable shell (Discord's
+        // role=button messageContent) is CONTENT — pitch underline and ruby stay.
+        && !isConversationTextClass(control)
+        // A media card (thumbnail link/role=button with a real text label) is
+        // CONTENT, not an icon button — UT-52's media-text tier.
+        && !isMediaTextContentControl(control)) return control;
     const link = element.closest<HTMLElement>(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+
+function isMediaTextContentControl(control: HTMLElement): boolean {
+    if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
+    if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
+    return linkHasControlMedia(control) && compactLength(control.textContent ?? '') > 2;
 }
 
 export function classifyDecoration(element: Element): DecorationState {

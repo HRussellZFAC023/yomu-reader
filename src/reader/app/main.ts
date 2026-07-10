@@ -1302,6 +1302,7 @@ export class ReaderApp {
     private clearHostedPageReaderWords(): void {
         if (!isYomuHostedAppUrl(location.href)) return;
         const count = unwrapReaderWords(document);
+        releaseRubyRoomGrowth(document);
         if (count > 0) refreshReaderWordContrast(document);
     }
 

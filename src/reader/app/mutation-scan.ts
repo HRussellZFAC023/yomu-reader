@@ -5,12 +5,12 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded'],
+    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled'],
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
-const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded']);
+const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled']);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     '.result.vocabulary',
