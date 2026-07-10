@@ -124,6 +124,15 @@ let themeClassObserver: MutationObserver | undefined;
 let hostedDocsShellSyncPending = false;
 let hostedDocsLocalizationPending = false;
 let hostedDocsLocalizationResetPending = false;
+// Last language actually APPLIED to the document copy. The runtime mirrors new
+// settings to localStorage before dispatching its change event (and earlier
+// theme/accent listeners patch effective state first), so "effective state
+// before the event" already reads the NEW language — comparisons must be made
+// against what localization last applied, not against effective state.
+let hostedAppliedDocsLanguage: InterfaceLanguage | undefined;
+// Fingerprint of the annotation-affecting settings last seen/applied, seeded
+// from stored settings at install time (before any change event can fire).
+let hostedAppliedAnnotationSettings: string | undefined;
 let hostedAccentSignature = '';
 let hostedDocumentTitleOriginal: string | undefined;
 let hostedRuntimeIntentController: AbortController | undefined;
@@ -2861,6 +2870,7 @@ function saveInterfaceLanguage(language: InterfaceLanguage): void {
 
 function localizeHostedDocsCopy(options: { resetReaderWords?: boolean } = {}): void {
     const language = effectiveInterfaceLanguage();
+    hostedAppliedDocsLanguage = language;
     syncHostedDocumentLocale(language);
     if (options.resetReaderWords) unwrapHostedDocsReaderWords();
     localizeHostedStructuredDocsCopy(document.body, language);
@@ -3452,6 +3462,11 @@ function installHostedDocsEnhancements(): void {
     installHostedHomepageInteractions();
     if (routeSyncBound) return;
     routeSyncBound = true;
+    // Baseline the annotation-affecting settings from storage now, before the
+    // runtime can dispatch a change event (its first event already carries the
+    // NEW values mirrored to storage, so seeding from the event would miss the
+    // first real change).
+    hostedAppliedAnnotationSettings ??= hostedAnnotationSettingsFingerprint(readStoredSettings());
     window.addEventListener(SETTINGS_CHANGE_EVENT, syncHostedLanguageFromSettingsEvent);
     window.addEventListener(LANGUAGE_EVENT, () => {
         syncHostedLanguageToggle();
@@ -3724,14 +3739,57 @@ function formatHostedSupportGbp(value: number): string {
     return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
 }
 
+// Settings whose values are baked into rendered reader-word DOM (ruby rt
+// presence, pitch classes, token boundaries). When one of these changes, the
+// existing annotations are stale and must be torn down so the runtime's next
+// scan rebuilds them (destructively painted words are excluded from rescan
+// collection, so without a teardown old rt would linger after e.g.
+// Furigana → Off). CSS-driven channels (theme, accent, colour sources) and
+// subtitle state have their own refresh paths and are deliberately absent.
+const HOSTED_ANNOTATION_SETTINGS_KEYS = [
+    'furiganaMode',
+    'showFurigana',
+    'hideKnownFurigana',
+    'showPitchAccent',
+    'parserProvider',
+    'dictionaryPreferences',
+] as const;
+
+function hostedAnnotationSettingsFingerprint(settings: Record<string, unknown>): string {
+    return JSON.stringify(HOSTED_ANNOTATION_SETTINGS_KEYS.map(key => settings[key] ?? null));
+}
+
 function syncHostedLanguageFromSettingsEvent(event: Event): void {
     const change = settingsFromChangeEvent(event);
     if (!change) return;
-    if (!hostedInterfaceLanguagePreferenceFromValue(change.settings.interfaceLanguage)) return;
-    rememberHostedSettingsChange(change.settings, !change.preview);
-    syncHostedLanguageToggle();
-    syncHostedOverflowMenu();
-    syncHostedMobileNavSettings();
+    const annotationFingerprint = hostedAnnotationSettingsFingerprint(change.settings);
+    const annotationSettingsChanged = hostedAppliedAnnotationSettings !== undefined
+        && hostedAppliedAnnotationSettings !== annotationFingerprint;
+    hostedAppliedAnnotationSettings = annotationFingerprint;
+    const language = hostedInterfaceLanguagePreferenceFromValue(change.settings.interfaceLanguage);
+    if (language) {
+        rememberHostedSettingsChange(change.settings, !change.preview);
+        syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
+        syncHostedMobileNavSettings();
+    }
+    // The runtime persists its full settings object for reasons unrelated to
+    // the page copy (e.g. the demo video's subtitle module saving state), and
+    // it mirrors the new values to storage BEFORE dispatching this event — so
+    // effective state always reads the NEW values here. Compare the payload
+    // against what was last APPLIED instead: re-localize (with annotation
+    // teardown, since the wrapped text is about to be replaced) only when the
+    // language actually changed, and tear down annotations only when an
+    // annotation-affecting setting changed. Every other save is layout-inert;
+    // stripping annotations on it collapsed ruby line heights page-wide and
+    // yanked the scroll position on engines without scroll anchoring
+    // (iOS Safari).
+    // effectiveInterfaceLanguage() resolves an 'auto' preference via the
+    // browser locale, and after rememberHostedSettingsChange it reflects the
+    // event payload — so this compares "language the page should show" against
+    // "language the copy last rendered in".
+    const languageChanged = language !== undefined && effectiveInterfaceLanguage() !== hostedAppliedDocsLanguage;
+    if (!languageChanged && !annotationSettingsChanged) return;
     scheduleHostedDocsLocalization({ resetReaderWords: true });
 }
 
