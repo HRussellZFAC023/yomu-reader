@@ -2481,6 +2481,7 @@
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    clampedRowReadings: "show",
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
@@ -2886,6 +2887,7 @@
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
       puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
       furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
       wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
@@ -4351,6 +4353,9 @@
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
+      clampedRowReadings: "Readings on clamped rows",
+      clampedRowReadingsShow: "Show (row grows)",
+      clampedRowReadingsHover: "Hover only",
       showPitchAccent: "Show pitch accent",
       showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
@@ -6087,6 +6092,9 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
+clampedRowReadings	省略行のふりがな
+clampedRowReadingsShow	表示（行が広がる）
+clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	ピッチアクセントを表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
@@ -7488,6 +7496,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       furiganaMode,
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
+      clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
       wordColorHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`colorHide-${group}`)),
       showPitchAccent: has("showPitchAccent"),
       showLookupPillFrequency: has("showLookupPillFrequency"),
@@ -9624,6 +9633,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["all", "Use all learning states"],
     ["new-only", "Only new / not-in-deck words"]
   ];
+  const CLAMPED_ROW_READINGS_OPTIONS = [
+    ["show", "Show (row grows)"],
+    ["hover", "Hover only"]
+  ];
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
@@ -9819,6 +9832,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     </div>
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
+                    ${select("clampedRowReadings", "Readings on clamped rows", settings.clampedRowReadings, CLAMPED_ROW_READINGS_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${renderWordColorHiddenStateGroupControls(settings)}
@@ -10428,6 +10442,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["all", text("wordColorStatesAll")],
       ["new-only", text("wordColorStatesNewOnly")]
     ]);
+    setSelectOptionLabels(form, "clampedRowReadings", [
+      ["show", text("clampedRowReadingsShow")],
+      ["hover", text("clampedRowReadingsHover")]
+    ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text("automatic")],
       ["known-status", text("furiganaHideKnown")],
@@ -10932,6 +10950,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "showFloatingButton",
     "pageScanMode",
     "furiganaMode",
+    "clampedRowReadings",
     "wordColorStates",
     "showPitchAccent",
     "showLookupPillFrequency",
@@ -13021,6 +13040,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

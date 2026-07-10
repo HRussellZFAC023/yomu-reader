@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.118#sha256=j+LXVNMku3xQzHf8whD2eq6kw3sLkaFIu8k4SZQXTa4=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.118#sha256=Pok2u680GrlKRdGbh6ZwScN+YhvOYJLDFOQsr8FEd0w=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.118#sha256=6OCqnqyt+lbXfsUAAQG5ii582w7QY++A21fzy8rbxM4=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.118#sha256=JQbaOTE8lck+/X/0FU3hOz13FbyqLmvSGkuk3TsknXo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=WEnqa7iTJpELNyvneiqA7AmaBAZ1boTGjbBk3T7ulgM=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.118#sha256=ZAbsMv730iU/Yt+XPIcYS+gN2KaS0m7Iv1PjNiuI/4E=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.118#sha256=KXYbCev/m15b6pg43HHlagmaOcSiQhRxrBFtLWqCZWg=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.118#sha256=7KuqbkITprIFM8HXkC78s1ivqIyJBuU5Pj5xP+tpCdo=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.118#sha256=GGIhFwzYAtfSaUhs0OHeXB6mXinvUMdkGfNfqYk4esM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.118#sha256=/m5/c3kYNkVKAa7PrtQL6FJwADSGNWWkYWG14RrithY=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.118#sha256=tOjOWu0gGVDoEQeXl1pedx2u30qfC1yLS/z7dmAm2oc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=HU+I+KZl7LjUInJlFgi2jGqA7kDipqCfSozIWiSdEfo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.118#sha256=CpK0YGYSDZNBx2cN2Gasuahr+t9yEFCI2YTPvbCW0cs=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.118#sha256=Ooy/xY/9qGSdfseJgyKlmFBvQv5sVVyOaJc9NYRqRp0=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -376,6 +376,13 @@ function boxStyleIsClipCapable(box) {
 function isClipConstrainedRow(element2) {
   const facts = constrainedRowStyleFacts(element2);
   return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
+}
+function contentClipRowShowsRestReadings(decoration, clipRow) {
+  if (decoration !== "content-ruby" && decoration !== "prose-full") return false;
+  const facts = constrainedRowStyleFacts(clipRow);
+  if (facts.clippedShortRow) return false;
+  const style = safeComputedStyle(clipRow);
+  return !hasDefiniteCssSize(style.height) && !hasDefiniteCssSize(style.maxHeight);
 }
 const MIRROR_BARE_DESCENDANT_LIMIT = 16;
 function hostIsVisuallyBareForMirror(host) {
@@ -789,7 +796,7 @@ function interactivePassiveControl(element2) {
 function isMediaTextContentControl(control) {
   if (!safeElementMatches$1(control, 'a[href],[role="link"],[role="button"]')) return false;
   if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-  return linkHasControlMedia(control) && compactLength(control.textContent ?? "") > 2;
+  return Boolean(safeQuerySelector(control, "img,picture,video,canvas")) && compactLength(control.textContent ?? "") > 2;
 }
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
@@ -3608,6 +3615,7 @@ const DEFAULT_SETTINGS = {
   annotationsPaused: false,
   showFurigana: true,
   furiganaMode: "difficult-kanji",
+  clampedRowReadings: "show",
   puckFuriganaModeBeforeHide: "",
   furiganaHiddenStateGroups: ["known", "due", "failed"],
   wordColorStates: "all",
@@ -4007,6 +4015,7 @@ function normalizeReaderDisplaySettings(value) {
   puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
   showFurigana: booleanSetting(value, "showFurigana"),
   furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+  clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
   puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
   furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
   wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
@@ -5572,11 +5581,11 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
 function nonDestructiveHostRenderPlan(host, target, tokens) {
   const fragments = nonDestructiveTargetFragments(target);
   const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
-  if (!fragments.length || !hostText) return { text: target.text, tokens };
-  if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
+  if (hostText && hostText === target.text) return { text: hostText, tokens, whitespaceJoints, hostText };
+  if (!fragments.length || !hostText) return { text: target.text, tokens, hostText };
   const indexed = indexTextFragments(fragments);
   const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
-  return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
+  return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints, hostText };
 }
 const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
 function hostOriginalTextWithNodeOffsets(host) {
@@ -5823,6 +5832,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   withdrawUnfitTextMirrorOverflow(host, state, mirror);
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
+  rememberNonDestructiveRenderForReplay(host, target, text2, safeTokens, plan.hostText, settings);
   } catch (error) {
   removeTextMirror(host);
   throw error;
@@ -6442,7 +6452,9 @@ function observeTextMirrorHost(host) {
   }
   if (mutations.every(mutationInsideTextMirror)) return;
   if (!currentTextMirror(liveHost)) {
-    if (liveHost.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+    const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+    if (liveHost.isConnected && HAS_JAPANESE$1.test(wipedHostText)) {
+      if (wipedHostText === liveState.sourceText && mutationsRewroteHostContent(mutations) && replayNonDestructiveRenderFromCache(liveHost)) return;
       dispatchTextMirrorStale(liveHost);
     }
     removeTextMirror(liveHost);
@@ -6505,9 +6517,68 @@ function dispatchTextMirrorStale(host) {
   bubbles: true
   }));
 }
+const nonDestructiveRenderCache = new WeakMap();
+let nonDestructiveRenderCacheEpoch = 0;
+function rememberNonDestructiveRenderForReplay(host, target, planText, tokens, hostTextAtRender, settings) {
+  nonDestructiveRenderCache.set(host, {
+  planText,
+  hostTextAtRender,
+  tokens,
+  settings,
+  decoration: target.decoration,
+  decorationProfileOverride: isFragmentTextTarget$1(target) ? target.decorationProfileOverride : void 0,
+  suppressRuby: target.suppressRuby,
+  passiveInteraction: target.passiveInteraction,
+  layoutSensitive: target.layoutSensitive,
+  insideShadowDOM: target.insideShadowDOM,
+  parserId: isFragmentTextTarget$1(target) ? target.parserId : void 0,
+  hadNativeRuby: targetHasNativeRuby(target),
+  epoch: nonDestructiveRenderCacheEpoch
+  });
+}
+function replayNonDestructiveRenderFromCache(host) {
+  const entry = nonDestructiveRenderCache.get(host);
+  if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
+  if (entry.hadNativeRuby || !host.isConnected) return false;
+  if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+  const target = {
+  text: entry.planText,
+  parent: host,
+  fragments: [],
+  decoration: entry.decoration,
+  decorationProfileOverride: entry.decorationProfileOverride,
+  suppressRuby: entry.suppressRuby,
+  passiveInteraction: entry.passiveInteraction,
+  layoutSensitive: entry.layoutSensitive,
+  insideShadowDOM: entry.insideShadowDOM,
+  parserId: entry.parserId,
+  nonDestructive: true
+  };
+  try {
+  withMirrorTokenApply(() => {
+    removeTextMirror(host);
+    stampTargetDecoration(target, host);
+    applyTokensToNonDestructiveScanTarget(target, entry.tokens, entry.settings);
+  });
+  } catch {
+  return false;
+  }
+  if (!currentTextMirror(host)) return false;
+  return true;
+}
 function mutationInsideTextMirror(mutation) {
   const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
   return Boolean(target?.closest(READER_TEXT_MIRROR_SELECTOR));
+}
+function mutationsRewroteHostContent(mutations) {
+  return mutations.some((mutation) => {
+  if (mutationInsideTextMirror(mutation)) return false;
+  if (mutation.type === "characterData") return true;
+  return mutation.type === "childList" && Array.from(mutation.addedNodes).some((node) => !nodeIsReaderMirrorNode(node));
+  });
+}
+function nodeIsReaderMirrorNode(node) {
+  return node instanceof Element && Boolean(node.closest?.(READER_TEXT_MIRROR_SELECTOR));
 }
 function nativeTextMirrorHostText(host) {
   let text2 = "";
@@ -6598,6 +6669,7 @@ function registeredTextMirrorHostFor(mirror) {
   return null;
 }
 function removeNonDestructiveScanMirrors(root = document) {
+  nonDestructiveRenderCacheEpoch += 1;
   const hosts = new Set();
   queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
   const host = registeredTextMirrorHostFor(mirror);
@@ -6815,7 +6887,9 @@ function applyTokensToFragmentTarget(target, tokens, settings) {
   const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
   if (!renderTarget.suppressRuby) {
   const clipRow = closestRubyFragileConstrainedRow(target.parent);
-  if (clipRow) clipRow.dataset.yomuClipConstrained = "true";
+  if (clipRow) {
+    clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) ? "content" : "true";
+  }
   }
   applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
   markRenderedScanTarget(target);
@@ -27640,7 +27714,7 @@ const SITE_PARSER_PROFILES = [
   suppressResidualVisibleScan: true,
   includePassiveInteractionRoots: false,
   scanLimit: 80,
-  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && url.pathname === "/live_chat"
+  matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && (url.pathname === "/live_chat" || url.pathname === "/live_chat_replay")
   },
   {
   id: "youtube-comments-parser",
@@ -27907,28 +27981,39 @@ function mokuroDisplayOcrEnabled() {
   }
 }
 function collectSiteScanTargets(limit = 40, href = window.location.href, options = {}) {
+  return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
+}
+function* siteScanTargetSteps(limit, href, options) {
   const profiles = getMatchingSiteParsers(href);
   if (!profiles.length) return null;
   const context = createSiteScanContext(profiles, limit, options);
-  for (const profile of profiles) collectProfileScanTargets(profile, context);
+  for (const profile of profiles) yield* profileScanTargetSteps(profile, context);
   return siteScanResult(profiles, context.targets);
+}
+function drainCollectionSteps(steps) {
+  for (; ; ) {
+  const next = steps.next();
+  if (next.done) return next.value;
+  }
 }
 function createSiteScanContext(profiles, limit, options = {}) {
   return {
   effectiveLimit: effectiveScanTargetLimit(profiles, limit),
   targets: [],
   seen: new Set(),
-  skipMirroredHosts: Boolean(options.skipMirroredHosts)
+  skipMirroredHosts: Boolean(options.skipMirroredHosts),
+  rootQueryCache: new Map()
   };
 }
-function collectProfileScanTargets(profile, context) {
+function* profileScanTargetSteps(profile, context) {
   if (profile.id === "youtube-comments-parser") collectYouTubeSyntheticTextTargets(profile, context);
-  for (const root of queryParserRoots(profile)) {
+  for (const root of queryParserRoots(profile, context.rootQueryCache)) {
   if (!siteScanHasRoom(context)) break;
   collectRootScanTargets(profile, root, context);
+  yield;
   }
   if (profile.includePassiveInteractionRoots !== false) {
-  collectProfilePassiveInteractionTargets(profile, context);
+  yield* profilePassiveInteractionTargetSteps(profile, context);
   }
 }
 function collectYouTubeSyntheticTextTargets(profile, context) {
@@ -28007,11 +28092,12 @@ function collectCanvasFallbackTextTarget(profile, canvas, context) {
 function canvasFallbackText(canvas) {
   return (canvas.textContent ?? "").replace(/\r\n?/gu, "\n").trim();
 }
-function collectProfilePassiveInteractionTargets(profile, context) {
+function* profilePassiveInteractionTargetSteps(profile, context) {
   if (!siteScanHasRoom(context)) return;
   for (const root of queryProfilePassiveInteractionRoots(profile)) {
   if (!siteScanHasRoom(context)) break;
   collectRootScanTargets(profile, root, context, siteScanPassiveInteractionExcludeSelector(profile));
+  yield;
   }
 }
 function queryProfilePassiveInteractionRoots(profile) {
@@ -28135,44 +28221,56 @@ function siteScanResult(profiles, targets) {
   if (targets.length) return targets;
   return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
 }
-function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
+function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
+  return scanTargetCollectionSteps(limit, href, options);
+}
+function* scanTargetCollectionSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
   const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
   const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-  const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href, options);
+  const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, effectiveLimit, href, options);
   const baseTargets = siteTargets ?? [];
   if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
     return baseTargets;
   }
+  yield;
   const residualTargets = collectResidualVisibleJapaneseTargets(
     effectiveLimit - baseTargets.length,
     baseTargets,
-    matchingProfiles
+    matchingProfiles,
+    options
   );
   return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
   }
+  yield;
   const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
   const profileTargets = [...baseTargets, ...profileUiChromeTargets];
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
+  yield;
   const residualTargets = collectResidualVisibleJapaneseTargets(
     effectiveLimit - profileTargets.length,
     profileTargets,
-    matchingProfiles
+    matchingProfiles,
+    options
   );
   return residualTargets.length ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : profileTargets;
   }
+  yield;
   const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
+  yield;
   const uiChromeTargets = collectSafeUiChromeTargets(
   effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
   [...baseTargets, ...profileUiChromeTargets, ...genericTargets]
   );
   const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
-  const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles);
+  yield;
+  const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
   if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
+  yield;
   const broadTargets = collectWholePageScanTargets(effectiveLimit);
-  const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles);
+  const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
   if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
   const visibleTargets = collectVisibleTextTargets(effectiveLimit);
   return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
@@ -28217,13 +28315,13 @@ function markTargetsNonDestructive(targets) {
   nonDestructive: true
   }));
 }
-function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles) {
+function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
   const remaining = effectiveLimit - targets.length;
   if (remaining <= 0) return targets;
-  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles);
+  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
   return residual.length ? [...targets, ...residual] : targets;
 }
-function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, _href = window.location.href) {
+function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, options = {}) {
   if (limit <= 0 || !document.body) return [];
   const collection = {
   targets: [],
@@ -28242,6 +28340,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   minLength: 1
   });
   for (const target of collected) {
+  if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
   appendGenericProseTarget(collection.targets, collection.seen, {
     ...target,
     parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
@@ -28264,11 +28363,12 @@ function residualVisibleJapaneseExcludeSelector(profiles) {
   }
   return entries2.join(",");
 }
-function completeSiteScanTargets(profiles, limit, href, options = {}) {
+function* completeSiteScanTargetSteps(profiles, limit, href, options = {}) {
   if (!profiles.length) return null;
-  const siteTargets = collectSiteScanTargets(limit, href, options) ?? [];
+  const siteTargets = (yield* siteScanTargetSteps(limit, href, options)) ?? [];
   if (siteTargets.length) return siteTargets;
   if (hasWholePageFallback(profiles)) {
+  yield;
   const broadTargets = collectWholePageScanTargets(limit);
   if (broadTargets.length) return broadTargets;
   }
@@ -28482,13 +28582,20 @@ function isVisibleSafeUiChromeRoot(root) {
   const style = getComputedStyle(root);
   return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
 }
-function queryParserRoots(profile) {
+function queryParserRoots(profile, rootQueryCache) {
   const roots = [];
   for (const selector of profile.roots) {
-  roots.push(...Array.from(document.querySelectorAll(selector)));
+  roots.push(...queryRootsBySelector(selector, rootQueryCache));
   }
   const unique2 = uniqueVisibleRoots(roots);
   return profile.id === "mokuro-parser" ? nearestMokuroRoots(unique2) : unique2;
+}
+function queryRootsBySelector(selector, rootQueryCache) {
+  const cached = rootQueryCache?.get(selector);
+  if (cached) return cached;
+  const elements = Array.from(document.querySelectorAll(selector));
+  rootQueryCache?.set(selector, elements);
+  return elements;
 }
 function nearestMokuroRoots(roots) {
   const margin = mokuroScanViewportMargin();
@@ -28680,6 +28787,10 @@ function visibleAutoScanInitialDelay(defaultDelay = 600) {
   return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
 const AUTO_SCAN_MIN_INTERVAL_MS = 900;
+const AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS = 1e3;
+function debouncedAutoScanDeadline(requestedDeadline, debounceStartedAt) {
+  return Math.min(requestedDeadline, debounceStartedAt + AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS);
+}
 function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequentHost = allowsFrequentVisibleAutoScan()) {
   if (!options.debounce || !frequentHost) return delay2;
   const floorDelay = AUTO_SCAN_MIN_INTERVAL_MS - (now - lastScanStartedAt);
@@ -29801,9 +29912,11 @@ const AUTO_SCAN_OBSERVER_OPTIONS = {
   subtree: true,
   characterData: true,
   attributes: true,
-  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]
+  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", "style", "class"],
+  attributeOldValue: true
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]);
@@ -29844,10 +29957,33 @@ function mutationInsideReaderRoot(mutation) {
 function mutationMayContainJapaneseText(mutation) {
   if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
   if (mutation.type === "attributes") {
-  if (!TEXT_REVEAL_ATTRIBUTES.has(mutation.attributeName ?? "")) return false;
+  const attribute = mutation.attributeName ?? "";
+  if (attribute === "style" || attribute === "class") return styleOrClassMutationRevealsJapaneseText(mutation, attribute);
+  if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
   return nodeTextMayContainJapanese(mutation.target);
   }
   return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+}
+function styleOrClassMutationRevealsJapaneseText(mutation, attribute) {
+  const element2 = mutation.target instanceof HTMLElement ? mutation.target : null;
+  if (!element2) return false;
+  const current = element2.getAttribute(attribute) ?? "";
+  if ((mutation.oldValue ?? "") === current) return false;
+  if (attribute === "style") {
+  const wasHidden = HIDDEN_INLINE_STYLE_RE.test(mutation.oldValue ?? "");
+  if (!wasHidden || HIDDEN_INLINE_STYLE_RE.test(current)) return false;
+  }
+  if (!elementRendersNow(element2)) return false;
+  return nodeTextMayContainJapanese(element2);
+}
+function elementRendersNow(element2) {
+  if (!element2.isConnected) return false;
+  if (element2.closest("[hidden]")) return false;
+  if (typeof element2.checkVisibility === "function") return element2.checkVisibility();
+  const view = element2.ownerDocument.defaultView;
+  if (!view) return false;
+  const style = view.getComputedStyle(element2);
+  return style.display !== "none" && style.visibility !== "hidden";
 }
 function nodeTextMayContainJapanese(node) {
   if (node.nodeType === Node.TEXT_NODE) return HAS_JAPANESE.test(node.textContent ?? "");
@@ -34442,7 +34578,11 @@ const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
 const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
+const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
+const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
+const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = "data-yomu-furigana-mode";
+const CLAMPED_ROW_READINGS_ATTRIBUTE = "data-yomu-clamped-readings";
 class VisiblePageScanner {
   constructor(dependencies) {
   this.dependencies = dependencies;
@@ -34452,6 +34592,7 @@ class VisiblePageScanner {
   scanPendingSilent = true;
   destroyed = false;
   scanGeneration = 0;
+  continuationScans = 0;
   asbScanInFlight = false;
   asbDrainTimer;
   clampSweepTimer;
@@ -34468,6 +34609,7 @@ class VisiblePageScanner {
   this.scanGeneration++;
   this.scanPending = false;
   this.scanPendingSilent = true;
+  this.continuationScans = 0;
   }
   async scanVisiblePage(options = {}) {
   const silent = Boolean(options.silent);
@@ -34565,21 +34707,55 @@ class VisiblePageScanner {
   removeStaleControlTextMirrors(document);
   const settings = this.dependencies.getSettings();
   const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
-  const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit, window.location.href, { skipMirroredHosts: silent }), settings);
+  const collection = this.collectScanTargetsWithFrameBudget(targetCollectionLimit, generation, silent);
+  const collected = Array.isArray(collection) ? collection : await collection;
+  if (!collected || this.isStaleScan(generation)) return;
+  const targets = chunkLongScanTargets(collected, settings);
   if (!targets.length) {
     this.handleEmptyVisiblePageScan(silent);
     return;
   }
   const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
   if (this.isStaleScan(generation)) return;
-  if (parsedAnyTokens && targets.length >= targetCollectionLimit && canContinueVisibleScan(targets)) {
+  if (parsedAnyTokens && targets.length >= targetCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
     this.queueContinuationScan(silent);
     return;
   }
+  this.continuationScans = 0;
   this.reportVisiblePageCoverage(silent);
+  }
+  canQueueContinuationScan(targets, silent) {
+  if (canContinueVisibleScan(targets)) return true;
+  return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
   }
   isStaleScan(generation) {
   return this.destroyed || generation !== this.scanGeneration;
+  }
+  collectScanTargetsWithFrameBudget(limit, generation, silent) {
+  const steps = collectScanTargetsInSteps(limit, window.location.href, { skipMirroredHosts: silent });
+  let sliceStartedAt = Date.now();
+  for (; ; ) {
+    const next = steps.next();
+    if (next.done) return next.value;
+    if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) {
+      return (async () => {
+        for (let yields = 0; yields < MAX_VISIBLE_SCAN_COLLECTION_YIELDS; yields += 1) {
+          await waitForVisibleScanTurn();
+          if (this.isStaleScan(generation)) return void 0;
+          sliceStartedAt = Date.now();
+          for (; ; ) {
+            const chunk = steps.next();
+            if (chunk.done) return chunk.value;
+            if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) break;
+          }
+        }
+        for (; ; ) {
+          const chunk = steps.next();
+          if (chunk.done) return chunk.value;
+        }
+      })();
+    }
+  }
   }
   async parseAndApplyTargets(targets, generation, scanStartSettings) {
   if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
@@ -34746,17 +34922,26 @@ class VisiblePageScanner {
   }
   queueContinuationScan(silent) {
   if (this.destroyed) return;
+  this.continuationScans += 1;
   this.scanPending = true;
   this.scanPendingSilent = this.scanPendingSilent && silent;
   }
   syncPageFuriganaMode() {
   if (typeof document === "undefined") return;
   const settings = this.dependencies.getSettings();
+  this.syncClampedRowReadingsMode(settings);
   if (settings.showFurigana && settings.furiganaMode === "all") {
     document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, "all");
     return;
   }
   this.clearPageFuriganaMode();
+  }
+  syncClampedRowReadingsMode(settings) {
+  if (settings.clampedRowReadings === "hover") {
+    document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, "hover");
+    return;
+  }
+  document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
   }
   clearPageFuriganaMode() {
   if (typeof document === "undefined") return;
@@ -35159,6 +35344,7 @@ const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2500;
+const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1500;
 function eventTargetsReaderRoot(event) {
   return Boolean(event.target?.closest?.(READER_ROOT_SELECTOR));
 }
@@ -35518,6 +35704,8 @@ class ReaderApp {
   autoScanDeadline = 0;
   autoScanForced = false;
   autoScanDebounced = false;
+  autoScanDebounceStartedAt = 0;
+  visibleAutoScanWorkVerdict;
   lastAutoScanStartedAt = 0;
   autoScanObserver;
   lastMirrorStaleScanAt = 0;
@@ -36614,6 +36802,7 @@ class ReaderApp {
     else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
     else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
       this.pageHasJapaneseText = true;
+      this.noteVisibleAutoScanWorkObserved();
       this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
         force: isBookWalkerStorefrontPage(),
         debounce: isYouTubeHostname()
@@ -36651,7 +36840,7 @@ class ReaderApp {
   this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
   }
   shouldScanEmbeddedFrame() {
-  return /(^|\.)youtube\.com$/i.test(location.hostname) && location.pathname === "/live_chat";
+  return /(^|\.)youtube\.com$/i.test(location.hostname) && (location.pathname === "/live_chat" || location.pathname === "/live_chat_replay");
   }
   pauseAutoScanObserver(callback) {
   const observer = this.autoScanObserver;
@@ -36667,21 +36856,24 @@ class ReaderApp {
   const forced = Boolean(options.force);
   if (!this.canScheduleAutoScan(forced)) return;
   delay2 = throttledAutoScanDelay(delay2, options, this.lastAutoScanStartedAt, Date.now());
-  const deadline = Date.now() + delay2;
+  const now = Date.now();
+  const deadline = now + delay2;
   if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
     this.autoScanForced = this.autoScanForced || forced;
-    if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < deadline) {
+    const cappedDeadline = debouncedAutoScanDeadline(deadline, this.autoScanDebounceStartedAt);
+    if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < cappedDeadline) {
       window.clearTimeout(this.autoScanTimer);
-      this.autoScanDeadline = deadline;
+      this.autoScanDeadline = cappedDeadline;
       this.autoScanTimer = window.setTimeout(() => {
         this.runScheduledAutoScan();
-      }, delay2);
+      }, cappedDeadline - now);
     }
     return;
   }
   window.clearTimeout(this.autoScanTimer);
   this.autoScanForced = forced;
   this.autoScanDebounced = Boolean(options.debounce);
+  if (this.autoScanDebounced) this.autoScanDebounceStartedAt = now;
   this.autoScanDeadline = deadline;
   this.autoScanTimer = window.setTimeout(() => {
     this.runScheduledAutoScan();
@@ -36689,7 +36881,8 @@ class ReaderApp {
   }
   canScheduleAutoScan(force = false) {
   if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
-  return !this.isDestroyed && this.canParseJapanese() && (force || this.hasVisibleAutoScanWork());
+  if (this.isDestroyed || !this.canParseJapanese()) return false;
+  return force || this.autoScanTimer !== void 0 || this.hasVisibleAutoScanWorkCached();
   }
   runScheduledAutoScan() {
   const forced = this.autoScanForced;
@@ -36703,6 +36896,18 @@ class ReaderApp {
   }
   hasVisibleAutoScanWork() {
   return hasVisibleSiteScanTargets() || allowsGenericVisibleAutoScan() && this.pageHasJapaneseText;
+  }
+  hasVisibleAutoScanWorkCached() {
+  const now = Date.now();
+  if (this.visibleAutoScanWorkVerdict && now - this.visibleAutoScanWorkVerdict.at < VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS) {
+    return this.visibleAutoScanWorkVerdict.verdict;
+  }
+  const verdict = this.hasVisibleAutoScanWork();
+  this.visibleAutoScanWorkVerdict = { at: now, verdict };
+  return verdict;
+  }
+  noteVisibleAutoScanWorkObserved() {
+  this.visibleAutoScanWorkVerdict = { at: Date.now(), verdict: true };
   }
   scheduleAsbPlayerScan(delay2) {
   if (this.isDestroyed) return;
@@ -39376,7 +39581,7 @@ class ReaderApp {
   });
   }
   prioritizeQueuedPitchEnrichment(card, options = {}) {
-  if (!this.settings.showPitchAccent || card.pitchAccent.length) return;
+  if (!this.settings.showPitchAccent || cardHasContextPitch(card)) return;
   const key = cardKey(card);
   const queuedToken = this.takeQueuedPitchEnrichmentToken(key);
   if (!queuedToken && !options.immediate) return;
@@ -40646,13 +40851,15 @@ class ReaderApp {
   }
   async enrichPitchWords(tokens, options = {}) {
   if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
-  if (options.publicLookup !== false && options.urgent !== true && await this.hasLocalPitchDictionary()) {
+  let deferLocalMissesToPublicLane = false;
+  if (options.publicLookup === void 0 && options.urgent !== true && await this.hasLocalPitchDictionary()) {
     options = { ...options, publicLookup: false };
+    deferLocalMissesToPublicLane = true;
   }
   const seen = new Set();
   const tokensNeedingLookup = tokens.filter((token) => !this.applyCachedPublicVocabularyToToken(token));
   const uniqueTokens = tokensNeedingLookup.filter((token) => {
-    if (token.card.pitchAccent.length) return false;
+    if (cardHasContextPitch(token.card)) return false;
     if (isLowValuePitchEnrichmentToken(token)) return false;
     if (options.substantivePublicLookupOnly && token.card.source === "fallback" && !isSubstantivePublicPitchLookupToken(token)) return false;
     if (!token.card.spelling.trim()) return false;
@@ -40663,6 +40870,10 @@ class ReaderApp {
   }).sort((first, second) => pitchEnrichmentPriority(first) - pitchEnrichmentPriority(second));
   if (options.publicLookup === false) {
     await this.enrichLocalOnlyPitchTokens(uniqueTokens, options);
+    if (deferLocalMissesToPublicLane) {
+      const misses = uniqueTokens.filter((token) => !cardHasContextPitch(token.card));
+      if (misses.length) this.scheduleDeferredPublicPitchEnrichment(misses);
+    }
     return;
   }
   if (options.urgent && typeof options.publicLookupLimit !== "number") {
@@ -40826,7 +41037,7 @@ class ReaderApp {
     }
     const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
     batch.forEach((token) => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
-    await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
+    await this.enrichPitchWords(batch, { publicLookupLimit: batch.length, publicLookup: true });
   }
   }
   shouldPauseBackgroundPublicPitchLookup(options) {
@@ -41382,9 +41593,11 @@ class ReaderApp {
   this.settingsDialog ??= new Controller({
     getSettings: () => this.settings,
     setSettings: (settings) => {
+      const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
       this.settings = settings;
       this.applyPreferredJapaneseSiteLanguage();
       if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
+      if (pauseChanged) this.applyAnnotationsPausedState();
     },
     jpdb: this.jpdb,
     dictionaries: this.dictionaries,
@@ -41810,7 +42023,7 @@ const RUNTIME_MARKER_OBSERVER_OPTIONS = {
   attributeFilter: ["data-yomu-runtime-kind", "data-yomu-runtime-owner"]
 };
 const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
-const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat)(?:[/?#]|$)/i;
+const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime;
 function bootReaderApp() {
   reconcileActiveRuntimeMarker();
