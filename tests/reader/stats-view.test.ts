@@ -7,9 +7,21 @@ const EMPTY_CARDS: StatsCardBreakdown = {
     total: 0, new: 0, learning: 0, review: 0, due: 0, failed: 0, known: 0, suspended: 0, ignored: 0,
 };
 
+// The chart windows the last 30 days relative to the real clock, so the
+// fixture days must be derived from today to stay inside it.
+function localDateKey(daysAgo: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+const ACTIVE_DAY = localDateKey(5);
+const QUIET_DAY = localDateKey(4);
+
 const DAILY: StatsDailyPoint[] = [
-    { date: '2026-06-10', reviews: 3, correct: 3, failed: 0, newCards: 1, minutes: 5 },
-    { date: '2026-06-11', reviews: 0, correct: 0, failed: 0, newCards: 0, minutes: 0 },
+    { date: ACTIVE_DAY, reviews: 3, correct: 3, failed: 0, newCards: 1, minutes: 5 },
+    { date: QUIET_DAY, reviews: 0, correct: 0, failed: 0, newCards: 0, minutes: 0 },
 ];
 
 function statsSource(id: StatsSourceSnapshot['id']): StatsSourceSnapshot {
@@ -60,9 +72,9 @@ describe('new tab stats view', () => {
     });
 
     it('marks only the explicitly selected day', () => {
-        const root = renderStats('2026-06-10');
+        const root = renderStats(ACTIVE_DAY);
         const selected = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-bar[data-selected="true"]'));
-        expect(selected.map(bar => bar.dataset.statsDay)).toEqual(['2026-06-10']);
+        expect(selected.map(bar => bar.dataset.statsDay)).toEqual([ACTIVE_DAY]);
     });
 
     it('renders separate source tabs only for visible stats sources', () => {
