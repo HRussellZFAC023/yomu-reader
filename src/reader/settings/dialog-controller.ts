@@ -168,14 +168,18 @@ const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_ac
 const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
 
 // Import/export lives in the Backup & sync panel while dictionary row actions
-// stay under Sources; both panels carry a [data-import-status] line so the
-// feedback is visible wherever the action was triggered.
-function settingsStatusSetter(statuses: HTMLElement[]): SettingsStatusSetter {
+// stay under Sources; both panels carry a [data-import-status] line. Feedback
+// writes ONLY to the panel the action originated from — broadcasting to every
+// node left stale success/error text visible on the other panel later.
+function settingsStatusSetter(form: HTMLFormElement, control?: HTMLElement | null): SettingsStatusSetter {
     return message => {
-        for (const status of statuses) {
-            status.textContent = message;
-            status.hidden = false;
-        }
+        const originPanel = control?.closest<HTMLElement>('fieldset[data-settings-panel]');
+        const status = originPanel?.querySelector<HTMLElement>('[data-import-status]')
+            ?? form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]')
+            ?? form.querySelector<HTMLElement>('[data-import-status]');
+        if (!status) return;
+        status.textContent = message;
+        status.hidden = false;
     };
 }
 
@@ -1523,7 +1527,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
-        const setStatus = settingsStatusSetter(Array.from(form.querySelectorAll<HTMLElement>('[data-import-status]')));
+        const setStatus = settingsStatusSetter(form, control);
 
         try {
             await this.runSettingsAction(form, action, control, setStatus);

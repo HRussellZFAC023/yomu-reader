@@ -19,10 +19,21 @@ describe('yomu update flow detection', () => {
         }
     });
 
-    it('treats an unknown manager with GM_info present as intercepting', () => {
-        const flow = detectYomuUpdateFlow({ script: { name: 'yomu' } });
-        expect(flow.kind).toBe('manager');
-        expect(flow.url).toBe(USERSCRIPT_INSTALL_URL);
+    it('treats an unknown manager as intercepting only when GM_openInTab is callable', () => {
+        // Callable openInTab proves a real manager context.
+        const withTab = detectYomuUpdateFlow({ script: { name: 'yomu' } }, true);
+        expect(withTab.kind).toBe('manager');
+        expect(withTab.url).toBe(USERSCRIPT_INSTALL_URL);
+        // A stray GM_info-shaped object with no openInTab must NOT target the
+        // raw .user.js — window.open there hits the blocked-install banner.
+        const withoutTab = detectYomuUpdateFlow({ script: { name: 'yomu' } }, false);
+        expect(withoutTab.kind).toBe('no-manager');
+        expect(withoutTab.url).toBe(INSTALL_GUIDE_URL);
+        // Known intercepting handlers keep the install screen even if
+        // openInTab is not exposed (e.g. not @grant-ed).
+        const knownWithoutTab = detectYomuUpdateFlow({ scriptHandler: 'Tampermonkey' }, false);
+        expect(knownWithoutTab.kind).toBe('manager');
+        expect(knownWithoutTab.url).toBe(USERSCRIPT_INSTALL_URL);
     });
 
     it('keeps the raw source URL but switches guidance for Safari-app managers', () => {
