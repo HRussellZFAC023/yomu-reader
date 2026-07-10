@@ -72,7 +72,7 @@ describe('reader stylesheet loading', () => {
         await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://hrussellzfac023.github.io/yomu-reader/'))
             .resolves.toBe(FULL_READER_CSS);
 
-        expect(fetcher).toHaveBeenCalledWith('https://hrussellzfac023.github.io/yomu-reader/yomu.css', expect.objectContaining({
+        expect(fetcher).toHaveBeenCalledWith(`https://hrussellzfac023.github.io/yomu-reader/yomu.css?v=${__YOMU_VERSION__}`, expect.objectContaining({
             cache: 'force-cache',
             credentials: 'omit',
         }));
@@ -100,7 +100,7 @@ describe('reader stylesheet loading', () => {
             anonymous: true,
             method: 'GET',
             responseType: 'text',
-            url: 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css',
+            url: `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`,
         }));
         expect(fetcher).not.toHaveBeenCalled();
         expect([...stored.values()]).toContain(FULL_READER_CSS);
@@ -118,7 +118,7 @@ describe('reader stylesheet loading', () => {
 
     it('falls back to the raw CSS asset off the hosted site', () => {
         expect(readerCssFallbackUrls('https://example.com/article'))
-            .toEqual(['https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css']);
+            .toEqual([`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`]);
     });
 
     it('lets scanned prose wrap while keeping passive/mirror labels compact with furigana', () => {

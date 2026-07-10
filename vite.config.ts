@@ -15,7 +15,12 @@ const configRoot = path.dirname(fileURLToPath(import.meta.url));
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = 'https://yomureader.com/';
-const rawReaderCssUrl = `${docsUrl}yomu.css`;
+// Versioned like the companion @require URLs: Tampermonkey-family managers
+// cache @resource content at install time keyed by URL, so an unversioned URL
+// keeps serving a stale stylesheet across script updates. The
+// annotate-greasyfork-requires build step appends #sha256= last, once
+// dist/yomu.css is final.
+const rawReaderCssUrl = `${docsUrl}yomu.css?v=${encodeURIComponent(pkg.version)}`;
 const userscriptIcon = `${docsUrl}favicon-32x32.png`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // Required for user-configured audio, OCR, proxy, dictionary,

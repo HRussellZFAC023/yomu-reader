@@ -21,7 +21,7 @@ const {
   userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;
@@ -41,7 +41,7 @@ if (!hasMetadataValue('grant', 'GM.xmlHttpRequest')) fail('GM.xmlHttpRequest gra
 if (!hasMetadataValue('grant', 'GM_getResourceText')) fail('GM_getResourceText grant is missing.');
 if (!hasMetadataValue('connect', 'www.google.com')) fail('Google Search connect metadata is missing for the Lens fallback.');
 if (!hasMetadataValue('connect', 'yomureader.com')) fail('hosted Yomu data connect metadata is missing.');
-if (!hasMetadataPattern('resource', /^yomuCss\s+https:\/\/yomureader\.com\/yomu\.css$/)) fail('reader CSS resource metadata is missing.');
+assertReaderCssResourceMetadata();
 if (!hasMetadataValue('inject-into', 'content')) fail('Violentmonkey content-world injection metadata is missing.');
 
 assertNoRemoteExecutableMetadata(code);
@@ -91,6 +91,22 @@ function hasMetadataValue(key, expectedValue) {
 
 function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
+
+function assertReaderCssResourceMetadata() {
+  // Tampermonkey-family managers cache @resource content at install time
+  // keyed by URL, so the CSS URL must change every release (?v=<version>) and
+  // carry a #sha256= of the exact dist/yomu.css that sync-docs publishes —
+  // otherwise updated installs silently keep the previous release's sheet.
+  if (!fileExists(DIST_READER_CSS_PATH)) fail(`${READER_CSS_RELATIVE_PATH} is missing. Run npm run build first.`);
+  const expectedHash = createHash('sha256').update(readText(DIST_READER_CSS_PATH)).digest('base64');
+  const expected = `${readerCssResourceUrl()}#sha256=${expectedHash}`;
+  const resourceValue = userscriptMetadataValues(code, 'resource').find(value => value.startsWith('yomuCss'));
+  if (!resourceValue) fail('reader CSS @resource metadata is missing.');
+  const resourceUrl = resourceValue.replace(/^yomuCss\s+/, '');
+  if (resourceUrl !== expected) {
+    fail(`yomuCss @resource must be the current-version, SRI-hashed URL ${expected}; found: ${resourceUrl}`);
+  }
 }
 
 function assertCompanionRequireSriHashes() {
