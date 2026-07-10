@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.118#sha256=Pok2u680GrlKRdGbh6ZwScN+YhvOYJLDFOQsr8FEd0w=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.118#sha256=6OCqnqyt+lbXfsUAAQG5ii582w7QY++A21fzy8rbxM4=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.118#sha256=JQbaOTE8lck+/X/0FU3hOz13FbyqLmvSGkuk3TsknXo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=d0gDM1fpa9Tv0kpaJgqnckdxOOFMEYpu6S0a2K3GPQc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=WEnqa7iTJpELNyvneiqA7AmaBAZ1boTGjbBk3T7ulgM=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.118#sha256=ZAbsMv730iU/Yt+XPIcYS+gN2KaS0m7Iv1PjNiuI/4E=
 // @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.118#sha256=KXYbCev/m15b6pg43HHlagmaOcSiQhRxrBFtLWqCZWg=
 // @connect api.jiten.moe
