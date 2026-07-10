@@ -2020,6 +2020,7 @@
       playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
+      readVideoFrameStop: "Stop reading video frames (OCR)",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -2832,6 +2833,7 @@ jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
+readVideoFrameStop	動画フレームの読み取りを停止（OCR）
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -3648,6 +3650,7 @@ nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
+readVideoFrameStop	動画フレームの読み取りを停止（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -39988,7 +39991,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.113".trim() ? "1.6.113".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.114".trim() ? "1.6.114".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -52449,7 +52452,7 @@ ${spelling}`);
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
-      ocr: () => this.requestVideoFrameOcr(),
+      ocr: () => this.toggleVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
@@ -52697,8 +52700,8 @@ ${spelling}`);
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
-      const ocrLabel = uiText(settings.interfaceLanguage, "readVideoFrame");
-      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}">${subtitleIcon("scan")}</button>` : "";
+      const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
+      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
@@ -55078,9 +55081,17 @@ ${spelling}`);
       if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "lines") this.renderTranscriptPanel();
     }
-    // Rail OCR button: pause first (reading needs a still frame), then ask the
-    // OCR controller for a manual paused-frame snapshot — works even when the
-    // automatic ocrVideoPauseFrames setting is off.
+    toggleVideoFrameOcr() {
+      const settings = this.options.getSettings();
+      if (settings.ocrVideoPauseFrames) {
+        settings.ocrVideoPauseFrames = false;
+        this.options.onSettingsChange();
+        return;
+      }
+      this.requestVideoFrameOcr();
+      settings.ocrVideoPauseFrames = true;
+      this.options.onSettingsChange();
+    }
     requestVideoFrameOcr() {
       const video = this.video;
       if (!video) return;
@@ -55662,6 +55673,7 @@ ${spelling}`);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
       this.syncVisibilityRailButton();
+      this.syncVideoFrameOcrButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
       this.setNativeTrackModes();
@@ -55692,6 +55704,17 @@ ${spelling}`);
       button.setAttribute("aria-label", label);
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
+    }
+    syncVideoFrameOcrButton() {
+      const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');
+      if (!button) return;
+      const settings = this.options.getSettings();
+      const active = settings.ocrVideoPauseFrames;
+      const label = uiText(settings.interfaceLanguage, active ? "readVideoFrameStop" : "readVideoFrame");
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("jpdb-subtitle-ocr-active", active);
     }
     syncLineNavigationButtons(hasLines) {
       const language = this.options.getSettings().interfaceLanguage;

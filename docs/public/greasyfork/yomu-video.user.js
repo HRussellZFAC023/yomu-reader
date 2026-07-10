@@ -4454,6 +4454,7 @@
       playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
+      readVideoFrameStop: "Stop reading video frames (OCR)",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -5266,6 +5267,7 @@ jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
+readVideoFrameStop	動画フレームの読み取りを停止（OCR）
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -6082,6 +6084,7 @@ nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
+readVideoFrameStop	動画フレームの読み取りを停止（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -11027,7 +11030,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
-      ocr: () => this.requestVideoFrameOcr(),
+      ocr: () => this.toggleVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
@@ -11275,8 +11278,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
-      const ocrLabel = uiText(settings.interfaceLanguage, "readVideoFrame");
-      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}">${subtitleIcon("scan")}</button>` : "";
+      const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
+      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
@@ -13656,9 +13659,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "lines") this.renderTranscriptPanel();
     }
-    // Rail OCR button: pause first (reading needs a still frame), then ask the
-    // OCR controller for a manual paused-frame snapshot — works even when the
-    // automatic ocrVideoPauseFrames setting is off.
+    toggleVideoFrameOcr() {
+      const settings = this.options.getSettings();
+      if (settings.ocrVideoPauseFrames) {
+        settings.ocrVideoPauseFrames = false;
+        this.options.onSettingsChange();
+        return;
+      }
+      this.requestVideoFrameOcr();
+      settings.ocrVideoPauseFrames = true;
+      this.options.onSettingsChange();
+    }
     requestVideoFrameOcr() {
       const video = this.video;
       if (!video) return;
@@ -14240,6 +14251,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
       this.syncVisibilityRailButton();
+      this.syncVideoFrameOcrButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
       this.setNativeTrackModes();
@@ -14270,6 +14282,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       button.setAttribute("aria-label", label);
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
+    }
+    syncVideoFrameOcrButton() {
+      const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');
+      if (!button) return;
+      const settings = this.options.getSettings();
+      const active = settings.ocrVideoPauseFrames;
+      const label = uiText(settings.interfaceLanguage, active ? "readVideoFrameStop" : "readVideoFrame");
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("jpdb-subtitle-ocr-active", active);
     }
     syncLineNavigationButtons(hasLines) {
       const language = this.options.getSettings().interfaceLanguage;

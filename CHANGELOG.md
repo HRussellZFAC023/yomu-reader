@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.114] - 2026-07-10
+
+### Changed
+
+- The scan button on the video subtitle rail is now a toggle for reading paused video frames. Tapping it still reads the current frame immediately, and also keeps frame reading on so every pause is read automatically; tapping it again turns automatic frame reading off. The button shows its state (highlighted while on) and stays in sync with the same setting in the settings panel.
+
 ## [1.6.113] - 2026-07-09
 
 ### Added

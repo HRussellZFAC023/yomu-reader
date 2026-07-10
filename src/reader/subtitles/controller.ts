@@ -1131,7 +1131,7 @@ export class SubtitlePlayerController {
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
         playback: () => this.toggleVideoPlayback(),
-        ocr: () => this.requestVideoFrameOcr(),
+        ocr: () => this.toggleVideoFrameOcr(),
         visibility: () => this.toggleOverlayVisibility(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
@@ -1386,9 +1386,9 @@ export class SubtitlePlayerController {
         const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
-        const ocrLabel = uiText(settings.interfaceLanguage, 'readVideoFrame');
+        const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
         const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
-            ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}">${subtitleIcon('scan')}</button>`
+            ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : ''}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`
             : '';
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
@@ -4243,9 +4243,21 @@ export class SubtitlePlayerController {
         else if (this.panelMode === 'lines') this.renderTranscriptPanel();
     }
 
-    // Rail OCR button: pause first (reading needs a still frame), then ask the
-    // OCR controller for a manual paused-frame snapshot — works even when the
-    // automatic ocrVideoPauseFrames setting is off.
+    private toggleVideoFrameOcr(): void {
+        const settings = this.options.getSettings();
+        if (settings.ocrVideoPauseFrames) {
+            settings.ocrVideoPauseFrames = false;
+            this.options.onSettingsChange();
+            return;
+        }
+
+        // Request the manual snapshot before enabling pause-frame OCR so this
+        // click cannot also enter the automatic pause path for the same frame.
+        this.requestVideoFrameOcr();
+        settings.ocrVideoPauseFrames = true;
+        this.options.onSettingsChange();
+    }
+
     private requestVideoFrameOcr(): void {
         const video = this.video;
         if (!video) return;
@@ -4914,6 +4926,7 @@ export class SubtitlePlayerController {
         this.syncDrawerButtons(hasLines);
         this.syncSubtitleStyleControls();
         this.syncVisibilityRailButton();
+        this.syncVideoFrameOcrButton();
         this.syncTranscriptAutoScrollPausedClass();
         this.syncStatus();
         this.setNativeTrackModes();
@@ -4948,6 +4961,18 @@ export class SubtitlePlayerController {
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-pressed', String(visible));
         setInnerHtml(button, subtitleIcon(visible ? 'eye' : 'eye-off'));
+    }
+
+    private syncVideoFrameOcrButton(): void {
+        const button = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="ocr"]');
+        if (!button) return;
+        const settings = this.options.getSettings();
+        const active = settings.ocrVideoPauseFrames;
+        const label = uiText(settings.interfaceLanguage, active ? 'readVideoFrameStop' : 'readVideoFrame');
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(active));
+        button.classList.toggle('jpdb-subtitle-ocr-active', active);
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {

@@ -507,6 +507,55 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('toggles paused-frame OCR while preserving the immediate manual OCR request', () => {
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController({ ocrVideoPauseFrames: false }, { onSettingsChange });
+        const video = attachVideo(controller);
+        let paused = false;
+        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+        const pause = vi.spyOn(video, 'pause').mockImplementation(() => { paused = true; });
+        const requests: HTMLVideoElement[] = [];
+        document.addEventListener('yomu-ocr-video-frame-request', event => {
+            requests.push((event as CustomEvent<{ video: HTMLVideoElement }>).detail.video);
+        }, { once: true });
+
+        const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="ocr"]')!;
+        expect(button.getAttribute('aria-pressed')).toBe('false');
+        expect(button.title).toBe('Read video frame (OCR)');
+
+        button.click();
+
+        expect(pause).toHaveBeenCalledTimes(1);
+        expect(requests).toEqual([video]);
+        expect(settings.ocrVideoPauseFrames).toBe(true);
+        expect(onSettingsChange).toHaveBeenCalledTimes(1);
+        expect(button.getAttribute('aria-pressed')).toBe('true');
+        expect(button.classList.contains('jpdb-subtitle-ocr-active')).toBe(true);
+        expect(button.title).toBe('Stop reading video frames (OCR)');
+
+        button.click();
+
+        expect(pause).toHaveBeenCalledTimes(1);
+        expect(requests).toEqual([video]);
+        expect(settings.ocrVideoPauseFrames).toBe(false);
+        expect(onSettingsChange).toHaveBeenCalledTimes(2);
+        expect(button.getAttribute('aria-pressed')).toBe('false');
+        expect(button.classList.contains('jpdb-subtitle-ocr-active')).toBe(false);
+        expect(button.title).toBe('Read video frame (OCR)');
+    });
+
+    it('syncs the rail OCR toggle after the setting changes elsewhere', () => {
+        const { controller, settings } = createInstalledSubtitleController({ ocrVideoPauseFrames: false });
+        const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="ocr"]')!;
+
+        (settings as ReaderSettings).ocrVideoPauseFrames = true;
+        controller.refresh();
+
+        expect(button.getAttribute('aria-pressed')).toBe('true');
+        expect(button.classList.contains('jpdb-subtitle-ocr-active')).toBe(true);
+        expect(button.getAttribute('aria-label')).toBe('Stop reading video frames (OCR)');
+    });
+
     it('mirrors cues into a native text track when the video enters native fullscreen by itself', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         vi.stubGlobal('VTTCue', class {

@@ -740,6 +740,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
 }
+.jpdb-subtitle-ocr-trigger.jpdb-subtitle-ocr-active {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+}
 .jpdb-subtitle-icon {
   display: block;
   width: 17px;
