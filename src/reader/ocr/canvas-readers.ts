@@ -333,11 +333,13 @@ function hasBackgroundReaderSignal(element: HTMLElement): boolean {
 }
 
 function isLikelyBackgroundImagePage(element: HTMLElement, hostname: string): boolean {
-    if (!backgroundImageReaderUrl(element)) return false;
-    const rect = element.getBoundingClientRect();
-    if (!hasRenderedPageShape(rect)) return false;
+    // Layout-free facts first: a page with hundreds of decorative
+    // background-image tiles (e.g. video thumbnails) must reject every one
+    // without a computed-style read or a forced layout.
     const knownHost = isKnownBackgroundImageReaderHost(hostname);
     if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
+    if (!backgroundImageReaderUrl(element)) return false;
+    if (!hasRenderedPageShape(element.getBoundingClientRect())) return false;
     return knownHost || isViewportProminent(element);
 }
 
@@ -373,6 +375,66 @@ export function isReaderRasterPage(hostname: string = location.hostname): boolea
         || isBackgroundImageReaderPage(hostname)
         || isKnownCanvasReaderHost(hostname)
         || isKnownBackgroundImageReaderHost(hostname);
+}
+
+// Anything the raster detectors could EVER accept carries one of these signals;
+// plain background-image styling without them can never qualify (see
+// isLikelyBackgroundImagePage), so it is deliberately NOT a candidate signal.
+const READER_RASTER_SIGNAL_SELECTOR = '[data-page-index], [data-mokuro-reader], [data-yomu-canvas-ocr]';
+const READER_RASTER_CANDIDATE_NODE_SELECTOR = `canvas, ${PAGE_COUNTER_SELECTOR}, ${READER_RASTER_SIGNAL_SELECTOR}`;
+const READER_RASTER_CANDIDATE_ATTRIBUTES = new Set([
+    'width',
+    'height',
+    'data-page-index',
+    'data-mokuro-reader',
+    'data-yomu-canvas-ocr',
+]);
+
+/**
+ * Layout-free census of everything the raster-reader detectors could ever
+ * accept: a known reader host, a reader signal attribute, a reader page
+ * counter, or a page-shaped canvas backing store. Canvas PAINT can flip the
+ * full detectors without any DOM mutation, so a page-shaped canvas counts as a
+ * candidate even when it currently fails the prominence/content sniff. When
+ * this returns false the page is provably raster-reader-free and the sweeps
+ * can be skipped until a mutation introduces a candidate.
+ */
+export function pageHasReaderRasterCandidates(hostname: string = location.hostname): boolean {
+    if (isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname)) return true;
+    if (document.querySelector(READER_RASTER_SIGNAL_SELECTOR)) return true;
+    if (document.querySelector(PAGE_COUNTER_SELECTOR)) return true;
+    for (const canvas of document.querySelectorAll<HTMLCanvasElement>('canvas')) {
+        if (hasPageShape(canvas)) return true;
+    }
+    return false;
+}
+
+/**
+ * True when a mutation batch could add a raster candidate to a page that was
+ * proven raster-free: an added canvas / signal element (or subtree containing
+ * one), a candidate attribute flip, or a canvas backing-store resize (a 300x150
+ * placeholder growing to page shape mutates only width/height).
+ */
+export function mutationsMayAddReaderRasterCandidate(mutations: MutationRecord[]): boolean {
+    for (const mutation of mutations) {
+        if (mutation.type === 'attributes') {
+            const attribute = mutation.attributeName;
+            if (!attribute || !READER_RASTER_CANDIDATE_ATTRIBUTES.has(attribute)) continue;
+            if (attribute === 'width' || attribute === 'height') {
+                if (mutation.target instanceof HTMLCanvasElement) return true;
+                continue;
+            }
+            return true;
+        }
+        if (mutation.type !== 'childList') continue;
+        for (const node of mutation.addedNodes) {
+            if (node instanceof HTMLCanvasElement) return true;
+            if (!(node instanceof Element)) continue;
+            if (node.matches(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
+            if (node.querySelector(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
+        }
+    }
+    return false;
 }
 
 export function canvasReaderPageCounter(): string {
