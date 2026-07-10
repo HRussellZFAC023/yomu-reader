@@ -10780,17 +10780,28 @@ html.jpdb-reader-doodle-active * {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
-  max-height: min(5.4em, 45%, calc(100% - 24px));
+  /* The cap must not be em-based: the fit loop shrinks the font to fit under
+     it, and an em cap shrank in lockstep so the loop never converged. */
+  max-height: min(45%, calc(100% - 24px), 320px);
   overflow: visible;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
 }
+/* Grid with the native secondary line as its own bottom row: the annotated
+   primary can wrap tall without ever consuming the native line's slot, and
+   end-aligned content makes any residual overflow extend UP into the video
+   instead of clipping cue text at the bottom. */
 .jpdb-subtitle-lines {
   min-height: 1.36em;
   max-height: inherit;
-  overflow: hidden;
+  display: grid;
+  align-content: end;
+  overflow: visible;
   pointer-events: none;
+}
+.jpdb-subtitle-primary-row {
+  min-width: 0;
 }
 .jpdb-subtitle-primary,
 .jpdb-subtitle-secondary,

@@ -800,6 +800,7 @@
   }
   const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
   const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
+  const INTERCEPTING_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey", "violentmonkey", "greasemonkey", "scriptcat", "orangemonkey", "firemonkey", "adguard"]);
   function scriptHandlerName(info) {
     if (!info || typeof info !== "object") return "";
     const handler = info.scriptHandler;
@@ -809,11 +810,16 @@
     const g = globalThis;
     return g.GM_info ?? g.GM?.info;
   }
-  function detectYomuUpdateFlow(info = readGmInfo()) {
+  function hasCallableOpenInTab() {
+    const g = globalThis;
+    return typeof g.GM_openInTab === "function" || typeof g.GM?.openInTab === "function";
+  }
+  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab()) {
     if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
     const handler = scriptHandlerName(info);
     if (EXTERNAL_APP_HANDLERS.has(handler.toLowerCase())) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
-    return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+    if (INTERCEPTING_HANDLERS.has(handler.toLowerCase()) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+    return { kind: "no-manager", handler, url: INSTALL_GUIDE_URL };
   }
   function updateFlowNoteKey(kind) {
     switch (kind) {
@@ -15630,12 +15636,13 @@ ${glossaryKey}`;
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
-  function settingsStatusSetter(statuses) {
+  function settingsStatusSetter(form, control) {
     return (message) => {
-      for (const status of statuses) {
-        status.textContent = message;
-        status.hidden = false;
-      }
+      const originPanel = control?.closest("fieldset[data-settings-panel]");
+      const status = originPanel?.querySelector("[data-import-status]") ?? form.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form.querySelector("[data-import-status]");
+      if (!status) return;
+      status.textContent = message;
+      status.hidden = false;
     };
   }
   function focusPreviewAudioSource(form, button, previewSettings) {
@@ -16826,7 +16833,7 @@ ${glossaryKey}`;
       });
     }
     async handleSettingsAction(form, action, control) {
-      const setStatus = settingsStatusSetter(Array.from(form.querySelectorAll("[data-import-status]")));
+      const setStatus = settingsStatusSetter(form, control);
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {

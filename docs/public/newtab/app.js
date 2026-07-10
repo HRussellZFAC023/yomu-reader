@@ -40124,6 +40124,7 @@ ${spelling}`);
   }
   const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
   const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
+  const INTERCEPTING_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey", "violentmonkey", "greasemonkey", "scriptcat", "orangemonkey", "firemonkey", "adguard"]);
   function scriptHandlerName(info) {
     if (!info || typeof info !== "object") return "";
     const handler = info.scriptHandler;
@@ -40133,11 +40134,16 @@ ${spelling}`);
     const g = globalThis;
     return g.GM_info ?? g.GM?.info;
   }
-  function detectYomuUpdateFlow(info = readGmInfo()) {
+  function hasCallableOpenInTab() {
+    const g = globalThis;
+    return typeof g.GM_openInTab === "function" || typeof g.GM?.openInTab === "function";
+  }
+  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab()) {
     if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
     const handler = scriptHandlerName(info);
     if (EXTERNAL_APP_HANDLERS.has(handler.toLowerCase())) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
-    return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+    if (INTERCEPTING_HANDLERS.has(handler.toLowerCase()) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+    return { kind: "no-manager", handler, url: INSTALL_GUIDE_URL };
   }
   function updateFlowNoteKey(kind) {
     switch (kind) {
@@ -40173,7 +40179,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.114".trim() ? "1.6.114".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.115".trim() ? "1.6.115".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -44769,12 +44775,13 @@ ${spelling}`);
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
-  function settingsStatusSetter(statuses) {
+  function settingsStatusSetter(form, control) {
     return (message) => {
-      for (const status of statuses) {
-        status.textContent = message;
-        status.hidden = false;
-      }
+      const originPanel = control?.closest("fieldset[data-settings-panel]");
+      const status = originPanel?.querySelector("[data-import-status]") ?? form.querySelector("#jpdb-reader-settings-panel-backup [data-import-status]") ?? form.querySelector("[data-import-status]");
+      if (!status) return;
+      status.textContent = message;
+      status.hidden = false;
     };
   }
   function focusPreviewAudioSource(form, button, previewSettings) {
@@ -45965,7 +45972,7 @@ ${spelling}`);
       });
     }
     async handleSettingsAction(form, action, control) {
-      const setStatus = settingsStatusSetter(Array.from(form.querySelectorAll("[data-import-status]")));
+      const setStatus = settingsStatusSetter(form, control);
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
@@ -49791,6 +49798,13 @@ ${spelling}`);
     const inlineKey = "__yomuSubtitleInlineFullscreenElement";
     const inlineClass = "jpdb-subtitle-inline-fullscreen";
     const inlineAttribute = "data-yomu-inline-fullscreen";
+    if (win.document.documentElement.classList.contains(inlineClass)) {
+      const marked = win.document.querySelector(`[${inlineAttribute}="true"]`);
+      if (!marked || !marked.isConnected) {
+        win.document.documentElement.classList.remove(inlineClass);
+        delete win[inlineKey];
+      }
+    }
     if (win[flag]) return;
     const selector = "#movie_player, .html5-video-player, ytm-player, ytd-player, [data-yomu-video-frame]";
     const elementCtor = win.HTMLElement;
@@ -49882,9 +49896,28 @@ ${spelling}`);
       const promise = result;
       return typeof promise?.catch === "function" ? promise.catch(() => fallback()) : result;
     }
+    let inlineFullscreenConnectionWatch;
+    const exitInlineFullscreenOnNavigation = () => {
+      if (activeInlineFullscreenElement() || win.document.documentElement.classList.contains(inlineClass)) exitInlineFullscreen();
+    };
+    for (const name of ["yt-navigate-finish", "popstate", "pagehide"]) {
+      win.addEventListener(name, exitInlineFullscreenOnNavigation, true);
+      win.document.addEventListener(name, exitInlineFullscreenOnNavigation, true);
+    }
+    function armInlineFullscreenSession(target) {
+      disarmInlineFullscreenSession();
+      inlineFullscreenConnectionWatch = win.setInterval(() => {
+        if (!target.isConnected) exitInlineFullscreen();
+      }, 500);
+    }
+    function disarmInlineFullscreenSession() {
+      if (inlineFullscreenConnectionWatch !== void 0) win.clearInterval(inlineFullscreenConnectionWatch);
+      inlineFullscreenConnectionWatch = void 0;
+    }
     function enterInlineFullscreen(target) {
       const current = activeInlineFullscreenElement();
       if (current && current !== target) clearInlineFullscreenElement(current);
+      armInlineFullscreenSession(target);
       target.setAttribute(inlineAttribute, "true");
       if (!target.hasAttribute("fullscreen")) {
         target.setAttribute("fullscreen", "");
@@ -49904,8 +49937,16 @@ ${spelling}`);
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
     function exitInlineFullscreen() {
+      disarmInlineFullscreenSession();
       const current = activeInlineFullscreenElement();
-      if (!current) return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
+      if (!current) {
+        if (win.document.documentElement.classList.contains(inlineClass)) {
+          win.document.documentElement.classList.remove(inlineClass);
+          delete win[inlineKey];
+          dispatchFullscreenLikeEvents();
+        }
+        return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
+      }
       clearInlineFullscreenElement(current);
       win.document.documentElement.classList.remove(inlineClass);
       delete win[inlineKey];
@@ -50003,7 +50044,14 @@ ${spelling}`);
       return null;
     }
   }
+  function clearStaleInlineFullscreenState() {
+    if (!document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)) return;
+    const marked = document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
+    if (marked && marked.isConnected) return;
+    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
+  }
   function installSubtitleFullscreenRedirect() {
+    clearStaleInlineFullscreenState();
     injectFullscreenRedirectStyle();
     const unsafe = globalThis.unsafeWindow;
     const differentRealm = Boolean(unsafe) && unsafe !== globalThis;
@@ -52382,6 +52430,9 @@ ${spelling}`);
     button.classList.add("jpdb-subtitle-copy-flash");
     window.setTimeout(() => button.classList.remove("jpdb-subtitle-copy-flash"), 1200);
   }
+  function subtitlePrimaryRowHtml(primaryHtml) {
+    return `<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">${primaryHtml}</div></div>`;
+  }
   function fittedSubtitleFontSize(element, fitted, minimum, apply) {
     for (let attempt = 0; attempt < 10; attempt++) {
       if (!subtitleElementOverflows(element)) return fitted;
@@ -52655,6 +52706,7 @@ ${spelling}`);
     subtitleDragPreviewOffsetYPx;
     nativeFullscreenCueTrack;
     nativeFullscreenCueVideo;
+    nativeFullscreenHostTracksRestored = false;
     transcriptResizeActive = false;
     asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
@@ -52809,6 +52861,7 @@ ${spelling}`);
     }
     destroy() {
       this.destroyed = true;
+      this.hideNativeFullscreenCueTrack();
       this.resetShadowPracticeState();
       this.clearPlaybackPauseReassert();
       this.abortController?.abort();
@@ -53701,7 +53754,10 @@ ${spelling}`);
       if (text2 !== this.lastDomCaption) return;
       this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
-      if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
+      if (now >= this.currentCue.start && this.currentCue.end < now + 1) {
+        this.currentCue.end = now + 4;
+        this.refreshNativeFullscreenCueMirror();
+      }
     }
     ensureYouTubeDomCaptionFallbackActive(selected) {
       if (selected?.kind !== "youtube") return;
@@ -53755,6 +53811,7 @@ ${spelling}`);
         this.lastDomCaptionSeenAt = 0;
         this.render();
         this.syncControls();
+        this.refreshNativeFullscreenCueMirror();
       }
     }
     shouldHoldRecentDomCaption() {
@@ -53787,6 +53844,7 @@ ${spelling}`);
       this.render();
       this.renderOpenSubtitlePanel();
       this.syncControls();
+      this.refreshNativeFullscreenCueMirror();
       void this.autoCopyCurrentCue();
     }
     render() {
@@ -53806,7 +53864,7 @@ ${spelling}`);
     renderActiveSubtitle(text2, settings) {
       if (!this.subtitleEl) return;
       const primary = this.renderPrimarySubtitle(text2, settings);
-      const changed = this.applySubtitleHtml(`<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
+      const changed = this.applySubtitleHtml(`${subtitlePrimaryRowHtml(primary.html)}${this.renderSecondarySubtitle(settings)}`);
       this.applyRenderedPrimarySubtitle(primary, text2);
       if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
@@ -53915,7 +53973,7 @@ ${spelling}`);
         const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
         const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
         setInnerHtml(primary, replacement);
-        this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
+        this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
         this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
         this.fitSubtitleTextToVideo();
         return primary;
@@ -54521,24 +54579,14 @@ ${spelling}`);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;
-      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.9));
-      fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
+      fitted = this.fitPrimarySubtitleFontSize(fitted, subtitleMinimumFontSize(this.root));
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
     }
     fitPrimarySubtitleFontSize(fitted, minimum) {
       if (!this.root || !this.subtitleEl) return fitted;
-      const secondaryLines = Array.from(this.subtitleEl.querySelectorAll(".jpdb-subtitle-secondary"));
-      const previousDisplay = secondaryLines.map((element) => element.style.display);
-      for (const element of secondaryLines) element.style.display = "none";
-      try {
-        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
-          this.root?.style.setProperty("--subtitle-font-size", `${value}px`);
-        });
-      } finally {
-        secondaryLines.forEach((element, index) => {
-          element.style.display = previousDisplay[index] ?? "";
-        });
-      }
+      return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
+        this.root?.style.setProperty("--subtitle-font-size", `${value}px`);
+      });
     }
     applyKaraokeStateToPrimary(cue, time) {
       const state2 = this.primaryKaraokeState(cue);
@@ -55371,9 +55419,18 @@ ${spelling}`);
       this.playbackPauseReassert = void 0;
     }
     // The iPhone system player paints in the browser top layer where the DOM
-    // overlay cannot follow, so mirror the loaded cues into a native text track
-    // for the duration of native video fullscreen.
+    // overlay cannot follow, so mirror the CURRENTLY-RENDERING cue stream —
+    // loaded cues, or the DOM-caption fallback's synthesized cue — into a
+    // native text track for the duration of native video fullscreen. With no
+    // cue stream at all, hand the system player the host's own captions back.
     showNativeFullscreenCueTrack(video) {
+      const cues = this.nativeFullscreenMirrorCues();
+      if (!cues.length && this.restoreHostTracksForNativeFullscreen()) {
+        const track = this.nativeFullscreenCueTrack;
+        if (track && track.mode !== "disabled") track.mode = "disabled";
+        return;
+      }
+      this.reSuppressHostTracksAfterNativeFullscreen();
       if (typeof video.addTextTrack !== "function" || typeof VTTCue !== "function") return;
       try {
         if (this.nativeFullscreenCueVideo !== video) {
@@ -55383,7 +55440,7 @@ ${spelling}`);
         const track = this.nativeFullscreenCueTrack ?? video.addTextTrack("subtitles", NATIVE_FULLSCREEN_CUE_TRACK_LABEL, "ja");
         this.nativeFullscreenCueTrack = track;
         for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
-        for (const cue of this.cues) {
+        for (const cue of cues) {
           if (!(cue.end > cue.start)) continue;
           track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
         }
@@ -55391,9 +55448,44 @@ ${spelling}`);
       } catch {
       }
     }
+    // The m.youtube DOM-caption fallback never fills this.cues; it synthesizes
+    // one short-lived cue at a time into currentCue. Mirror whichever stream
+    // is actually rendering.
+    nativeFullscreenMirrorCues() {
+      if (this.cues.length) return this.cues;
+      return this.currentCue ? [this.currentCue] : [];
+    }
+    // The synthesized cue changes/extends while in native fullscreen; keep the
+    // mirror track following it.
+    refreshNativeFullscreenCueMirror() {
+      const video = this.video;
+      if (!video || !videoIsInNativeFullscreen(video)) return;
+      this.showNativeFullscreenCueTrack(video);
+    }
+    // Returns true when host captions are (already) covering the system
+    // player; false when there is nothing restorable (e.g. YouTube, which
+    // exposes no host TextTracks) so the caller arms the mirror instead.
+    restoreHostTracksForNativeFullscreen() {
+      if (this.nativeFullscreenHostTracksRestored) return true;
+      const restorable = this.tracks.filter((option) => option.track);
+      const selected = restorable.filter((option) => option.id === this.selectedTrackId || option.id === this.secondaryTrackId);
+      const targets = selected.length ? selected : restorable.slice(0, 1);
+      if (!targets.length) return false;
+      this.nativeFullscreenHostTracksRestored = true;
+      for (const option of targets) {
+        if (option.track) option.track.mode = "showing";
+      }
+      return true;
+    }
+    reSuppressHostTracksAfterNativeFullscreen() {
+      if (!this.nativeFullscreenHostTracksRestored) return;
+      this.nativeFullscreenHostTracksRestored = false;
+      this.setNativeTrackModes();
+    }
     hideNativeFullscreenCueTrack() {
       const track = this.nativeFullscreenCueTrack;
       if (track && track.mode !== "disabled") track.mode = "disabled";
+      this.reSuppressHostTracksAfterNativeFullscreen();
     }
     seekVideoTo(time) {
       const video = this.video;
@@ -55721,6 +55813,7 @@ ${spelling}`);
       log$g.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
+      if (this.nativeFullscreenHostTracksRestored) return;
       const settings = this.options.getSettings();
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
