@@ -36,7 +36,11 @@ function mockRect(el: HTMLElement, rect: Pick<DOMRect, 'top' | 'bottom' | 'heigh
 // caught generically without enumeration. Prose (article/main) and tall
 // collapsed "read more" regions are left at their authored size.
 describe('makeRoomForRubyInCroppedRows', () => {
-    it('grows a generic compact line-clamp row that crops its ruby', () => {
+    it('never grows a line-clamped row (clip-constrained fact dominates growth)', () => {
+        // 1.6.115 iPad home-feed blocker: growing clamped tile titles expanded
+        // 44px boxes to their full unclamped mirror height. A line-clamped row
+        // shows no at-rest ruby (clip-constrained CSS), so it must never grow
+        // either — readings are hover-revealed instead.
         document.body.innerHTML = `
             <div id="title" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:40px;line-height:20px">
                 ${annotatedWord()}エンジニアの勉強
@@ -46,13 +50,10 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockOverflow(titleBox, 56, 40);
         const adjusted = makeRoomForRubyInCroppedRows(document);
 
-        // The compact clamp row grows to fit the reading (line-clamp lifts its
-        // height cap so the "N lines" become N taller ruby lines).
-        expect(adjusted).toBe(1);
-        expect(titleBox.dataset.yomuRubyRoom).toBe('true');
-        expect(titleBox.style.maxHeight).toBe('none');
-        expect(titleBox.style.minHeight).toBe('56px');
-        expect(document.querySelectorAll('#title rt')).toHaveLength(1);
+        expect(adjusted).toBe(0);
+        expect(titleBox.dataset.yomuRubyRoom).toBeUndefined();
+        expect(titleBox.style.maxHeight).toBe('40px');
+        expect(titleBox.style.minHeight).toBe('');
         document.body.innerHTML = '';
     });
 
@@ -145,7 +146,11 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
-    it('grows generic boxes whose rendered ruby geometry is cropped by the box', () => {
+    it('refuses to grow a measured fixed-short clipped row (clip-constrained fact dominates)', () => {
+        // Was: 'grows generic boxes whose rendered ruby geometry is cropped'.
+        // A measured overflow-hidden row of ~2 lines is clip-constrained: its
+        // at-rest ruby is hidden, so cropped-ruby geometry must not grow it
+        // (1.6.115 feed blow-up class).
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:42px;line-height:21px">${annotatedWord()}の短い動画</div>
         `;
@@ -155,10 +160,9 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockRect(title, { top: 0, bottom: 42, height: 42 });
         mockRect(base, { top: 22, bottom: 44, height: 22 });
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.dataset.yomuRubyRoom).toBe('true');
-        expect(title.style.minHeight).toBe('44px');
-        expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.dataset.yomuRubyRoom).toBeUndefined();
+        expect(title.style.minHeight).toBe('');
         document.body.innerHTML = '';
     });
 
@@ -318,7 +322,10 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
-    it('uses absolute text-mirror height to detect clipped YouTube title ruby', () => {
+    it('never grows a line-clamped YouTube title to its unclamped mirror height', () => {
+        // Was: 'uses absolute text-mirror height to detect clipped YouTube
+        // title ruby' — the exact 1.6.115 mechanism (44px lockup title grown
+        // to the full unclamped mirror). The clamp now dominates growth.
         document.body.innerHTML = `
             <yt-lockup-view-model>
                 <h3 id="title-row" class="ytLockupMetadataViewModelHeadingReset" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px;line-height:22px">
@@ -338,11 +345,10 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockOverflow(row, 44, 44);
         mockOverflow(mirror, 66, 44);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(row.style.maxHeight).toBe('none');
-        expect(row.style.minHeight).toBe('66px');
-        expect(row.dataset.yomuRubyRoomHeight).toBe('66');
-        expect(mirror.closest<HTMLElement>('.ytAttributedStringHost')?.dataset.yomuRubyRoom).toBeUndefined();
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(row.style.maxHeight).toBe('44px');
+        expect(row.style.minHeight).toBe('');
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
         document.body.innerHTML = '';
     });
 
@@ -441,7 +447,12 @@ describe('makeRoomForRubyInCroppedRows', () => {
 // row grows downward: the missing clearance must become padding-top so the
 // text is pushed down into the new room.
 describe('makeRoomForRubyInCroppedRows top clearance', () => {
-    it('pads a single-line clipped row whose reading pokes above the box top', () => {
+    it('never pads a measured single-line CLIPPED chip (clip-constrained fact dominates)', () => {
+        // Was: 'pads a single-line clipped row whose reading pokes above the
+        // box top'. A measured single-line clip row is clip-constrained — its
+        // at-rest ruby is hidden, so top clearance is unnecessary and growth
+        // is banned (1.6.115). Unclamped rows keep the padding behavior (see
+        // the unclipped variant below).
         document.body.innerHTML = `
             <div id="tab" style="overflow:hidden;height:24px;line-height:24px">${annotatedWord()}順</div>
         `;
@@ -451,13 +462,26 @@ describe('makeRoomForRubyInCroppedRows top clearance', () => {
         mockRect(tab.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!, { top: 8, bottom: 22, height: 14 });
         mockRect(tab.querySelector<HTMLElement>('rt')!, { top: -3, bottom: 5, height: 8 });
 
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(tab.style.paddingTop).toBe('');
+        expect(tab.dataset.yomuRubyRoomPadTop).toBeUndefined();
+        document.body.innerHTML = '';
+    });
+
+    it('still pads an UNCLIPPED single-line row whose reading pokes above the box top', () => {
+        document.body.innerHTML = `
+            <div id="tab" style="display:block;height:24px;line-height:24px">${annotatedWord()}順</div>
+        `;
+        const tab = document.querySelector<HTMLElement>('#tab')!;
+        mockOverflow(tab, 28, 24);
+        mockRect(tab, { top: 0, bottom: 24, height: 24 });
+        mockRect(tab.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!, { top: 8, bottom: 22, height: 14 });
+        mockRect(tab.querySelector<HTMLElement>('rt')!, { top: -3, bottom: 5, height: 8 });
+
         expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
         expect(tab.dataset.yomuRubyRoom).toBe('true');
-        // 3px overflow + 1px clearance pushed down as padding, and the room
-        // height accounts for the same 4px so the base line is not re-cropped.
         expect(tab.style.paddingTop).toBe('4px');
         expect(tab.dataset.yomuRubyRoomPadTop).toBe('4');
-        expect(Number(tab.dataset.yomuRubyRoomHeight)).toBeGreaterThanOrEqual(28);
         document.body.innerHTML = '';
     });
 

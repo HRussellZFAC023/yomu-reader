@@ -12,6 +12,7 @@ import {
     boxStyleIsClipCapable,
     classifyDecoration,
     closestRubyFragileConstrainedRow,
+    isClipConstrainedRow,
     decorationStateForWord,
     decorationSuppressesRuby,
     interactivePassiveControl,
@@ -1714,13 +1715,17 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
     // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
     // clipped row bounds. Mark the mirror so CSS hides its readings at rest
-    // (hover reveals them; a ruby-room-grown row shows them again).
-    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
-        mirror.dataset.yomuClipConstrained = 'true';
-    }
+    // (hover reveals them), and constrain the mirror to the host's clamp box:
+    // an unconstrained mirror renders the FULL unclamped text below the tile
+    // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
     const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
+        // After styleTextMirror (which opens overflow): re-impose the host's
+        // clamp on the mirror so it cannot paint past the clip row's box.
+        if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
         mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -1743,6 +1748,26 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     } catch (error) {
         removeTextMirror(host);
         throw error;
+    }
+}
+
+// Reproduce the clip row's truncation inside the mirror: same line count for
+// line-clamped rows, and never taller than the row box. Without this the
+// absolutely-positioned mirror escapes the host clip and paints the full
+// unclamped text.
+function constrainMirrorToClampBox(mirror: HTMLElement, clipRow: HTMLElement): void {
+    const style = safeComputedStyle(clipRow);
+    const clamp = style.getPropertyValue('-webkit-line-clamp').trim();
+    if (clamp && clamp !== 'none' && clamp !== '0') {
+        mirror.style.setProperty('display', '-webkit-box');
+        mirror.style.setProperty('-webkit-box-orient', 'vertical');
+        mirror.style.setProperty('-webkit-line-clamp', clamp);
+        mirror.style.setProperty('overflow', 'hidden');
+    }
+    const height = clipRow.clientHeight;
+    if (height > 0) {
+        mirror.style.setProperty('max-height', `${height}px`);
+        mirror.style.setProperty('overflow', 'hidden');
     }
 }
 
@@ -4522,6 +4547,11 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
             const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
             if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
             for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+                // The clip-constrained fact DOMINATES growth eligibility,
+                // curated selectors and prose classification included: a
+                // clamped/fixed-short row shows no at-rest ruby, so growing it
+                // only blows the tile up to its unclamped mirror height.
+                if (isClipConstrainedRow(roomBox)) continue;
                 const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
                 if (roomHeight > RUBY_ROOM_MAX_PX) continue;
                 // Repeat passes only correct HEIGHT under-growth (content can

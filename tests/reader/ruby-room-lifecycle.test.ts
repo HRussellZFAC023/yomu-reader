@@ -37,11 +37,14 @@ describe('releaseRubyRoomGrowth', () => {
     });
 
     it('restores injected padding-top and the pad marker', () => {
+        // Unclipped row: clipped chips are clip-constrained and no longer
+        // grow/pad at all (1.6.115 feed blocker), so the padding lifecycle is
+        // exercised on the surviving unclipped-growth path.
         document.body.innerHTML = `
-            <div id="tab" style="overflow:hidden;height:24px;line-height:24px">${annotatedWord()}順</div>
+            <div id="tab" style="display:block;height:24px;line-height:24px">${annotatedWord()}順</div>
         `;
         const tab = document.querySelector<HTMLElement>('#tab')!;
-        mockOverflow(tab, 24, 24);
+        mockOverflow(tab, 28, 24);
         const rect = (element: HTMLElement, top: number, bottom: number, height: number) => Object.defineProperty(element, 'getBoundingClientRect', {
             configurable: true,
             value: () => ({ x: 0, y: top, left: 0, right: 200, top, bottom, width: 200, height, toJSON: () => ({}) }) as DOMRect,
