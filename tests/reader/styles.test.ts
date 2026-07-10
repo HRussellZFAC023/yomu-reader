@@ -165,9 +165,12 @@ describe('reader stylesheet loading', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         // Sweep blocker (2026-07-10): mirror/in-place rt painted outside
         // overflow-hidden and line-clamped one-line rows at rest.
-        expect(css).toContain('[data-yomu-clip-constrained="true"] .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi');
-        const hideRule = css.match(/\[data-yomu-clip-constrained="true"\] \.jpdb-reader-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\) rt\.jpdb-reader-furi\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(css).toContain('[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi');
+        const hideRule = css.match(/\[data-yomu-clip-constrained="true"\]:not\(\.jpdb-reader-text-mirror\) \.jpdb-reader-word rt\.jpdb-reader-furi\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(hideRule).toContain('display: none');
         expect(hideRule).toContain('visibility: hidden');
+        expect(css).toContain(':not(.jpdb-reader-text-mirror) .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('line-height: inherit');
         // A ruby-room-grown row has real room: readings stay visible at rest.
         expect(css).toContain('[data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"]');
         expect(css).toContain('[data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"]');

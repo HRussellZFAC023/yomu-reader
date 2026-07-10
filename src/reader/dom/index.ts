@@ -1,6 +1,6 @@
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
-import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import {
     COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR,
     PASSIVE_INTERACTION_BOUNDARY_SELECTOR,
@@ -937,10 +937,11 @@ function visitFragmentElement(
     visitFragmentShadowRoot(element, state);
 }
 
-// Phase 1 caps shadow traversal at ONE boundary: shadow-of-shadow is rare in
-// UI-label web components and is left for a later phase. Raising this alone
-// enables deeper recursion, but re-audit perf/observer bounds before doing so.
-const SHADOW_SCAN_MAX_DEPTH = 1;
+// Reddit and similar component libraries commonly nest the actual button one
+// component below a shell component. Two boundaries reach those visible
+// labels; a hard cap still prevents unbounded component-tree traversal.
+const SHADOW_SCAN_MAX_DEPTH = 2;
+const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 
 function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
     if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
@@ -948,9 +949,11 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // skip, it is unreachable and not an error.
     const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
-    // Fast path: never walk a shadow root with no Japanese. reddit renders ~155
-    // shadow hosts per page, most Latin-only; this gate keeps them cheap.
-    if (!HAS_JAPANESE.test(shadowRoot.textContent ?? '')) return;
+    // Fast path: never walk a shadow branch with no Japanese. textContent does
+    // not cross a nested shadow boundary, so use a bounded one-level lookahead
+    // when another descent is available (the shreddit shell -> Join button
+    // shape). Latin-only roots still stop before their childNodes are walked.
+    if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
     // COMMIT any pending inline light-DOM run BEFORE descending: an inline host
     // (e.g. <span> that also hosts a shadow root) leaves its light run in
     // state.fragments here. Flushing it now — the same block-boundary primitive
@@ -974,6 +977,23 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     }
     flushFragmentTextTarget(state);
     state.shadowDepth -= 1;
+}
+
+function shadowBranchHasJapanese(root: ShadowRoot, remainingDepth: number): boolean {
+    if (HAS_JAPANESE.test(root.textContent ?? '')) return true;
+    if (remainingDepth <= 1) return false;
+    // TreeWalker enforces the element budget while traversing. querySelectorAll
+    // would first allocate every descendant in a large component root and only
+    // then let us stop at 160, defeating the mobile performance bound.
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode();
+        node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT;
+        inspected += 1, node = walker.nextNode()) {
+        const element = node as HTMLElement;
+        const nested = element.shadowRoot;
+        if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+    }
+    return false;
 }
 
 function shouldIgnoreFragmentElement(
@@ -1506,7 +1526,7 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     }
 
     const text = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const safeTokens = nonOverlappingTokens(tokens, text);
     if (!safeTokens.length) return;
 
     const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
@@ -1598,7 +1618,7 @@ function nonDestructiveHostRenderPlan(
     const remapped = tokens
         .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText))
         .filter((token): token is JPDBToken => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints, hostText };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText), whitespaceJoints, hostText };
 }
 
 // Text the host never paints must not reach the mirror either — the mirror
@@ -1885,7 +1905,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const host = nonDestructiveScanHost(target);
     if (!host.isConnected) return;
 
-    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
+    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text = plan.text;
     const safeTokens = plan.tokens;
     // A preserving host (pre/pre-wrap/pre-line/break-spaces) renders its
@@ -1909,10 +1929,17 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // host-hidden arrangement. The mode is part of idempotency, like the
     // whitespace joints above.
     const clipRow = closestRubyFragileConstrainedRow(host);
+    const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
+    // A clipped mirror only needs the rest-hidden hover channel when it
+    // actually contains ruby. Interactive/passive controls deliberately
+    // suppress ruby; keeping those mirrors hidden also hid every underline and
+    // lookup word on touch devices, which is the Reddit/iPad "no annotations"
+    // failure. Their plain-line-metric mirror can paint safely at rest.
+    const clipHoverOnly = Boolean(clipRow && hasRenderedRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature
         && (existing.dataset.whitespaceJoints ?? '') === whitespaceJointsKey
-        && existing.classList.contains('jpdb-reader-clip-hover-mirror') === Boolean(clipRow)) {
+        && existing.classList.contains('jpdb-reader-clip-hover-mirror') === clipHoverOnly) {
         const state = textMirrorHosts.get(host);
         if (state) reassertTextMirrorHostStyles(host, state);
         return;
@@ -1931,7 +1958,6 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // paired with user-select:none in CSS this keeps Cmd+A/copy grabbing only
     // the clean original host text instead of doubled/garbled clipboard.
     mirror.setAttribute('aria-hidden', 'true');
-    const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
     // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
     // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
     // clipped row bounds. Mark the mirror so CSS hides its readings at rest
@@ -1946,15 +1972,18 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
     const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
+    const state = styleTextMirrorHost(host, mirrorRubyLayout, clipHoverOnly, Boolean(clipRow));
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
-        // clamp on the mirror so it cannot paint past the clip row's box, and
-        // make the mirror a HOVER-ONLY overlay — at rest the host text paints
-        // naturally and the hidden mirror contributes nothing.
+        // clamp on the mirror so it cannot paint past the clip row's box.
         if (clipRow) {
             constrainMirrorToClampBox(mirror, clipRow);
+        }
+        // Mirrors with real readings are hover-only at rest; ruby-suppressed
+        // control mirrors stay visible so word state and lookup remain usable
+        // on touch screens without changing the host's line geometry.
+        if (clipHoverOnly) {
             mirror.classList.add('jpdb-reader-clip-hover-mirror');
             mirror.style.setProperty('visibility', 'hidden');
             const hostColor = safeComputedStyle(host).color;
@@ -2154,7 +2183,11 @@ export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boole
     // A clamp/unclamp re-style with identical text must not be skipped: the
     // mirror has to flip between the hover-only overlay and the standard
     // host-hidden arrangement (same mode check as the apply idempotency).
-    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror') !== Boolean(closestRubyFragileConstrainedRow(host))) return false;
+    const shouldClipHover = Boolean(
+        closestRubyFragileConstrainedRow(host)
+        && mirror.dataset.jpdbReaderHasRuby === 'true',
+    );
+    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror') !== shouldClipHover) return false;
     const source = mirror.dataset.sourceText ?? '';
     return normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
 }
@@ -2185,7 +2218,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     if (!host.isConnected) return;
 
     const text = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const safeTokens = nonOverlappingTokens(tokens, text);
     const placeholderOverlay = isPlaceholderControlTextMirror(host, text);
     const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
@@ -2231,7 +2264,7 @@ function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBT
     if (!host) return;
 
     const text = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const safeTokens = nonOverlappingTokens(tokens, text);
     const n = canvas.parentElement?.classList.contains('lesson-canvas-clipper') ?? false;
     const noRuby = n || Boolean(target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
@@ -2483,7 +2516,12 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement, allowOverflow = true, clipHoverOnly = false): TextMirrorHostState {
+function styleTextMirrorHost(
+    host: HTMLElement,
+    allowOverflow = true,
+    clipHoverOnly = false,
+    preserveConstrainedLayout = false,
+): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -2500,7 +2538,7 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true, clipHoverO
         displayPriority: host.style.getPropertyPriority('display'),
         // Paint invariance for clip-constrained hosts: no display coercion —
         // the host must lay out exactly as without the userscript.
-        displayAdjusted: computed.display === 'inline' && !clipHoverOnly,
+        displayAdjusted: computed.display === 'inline' && !preserveConstrainedLayout,
         concealTextOnly: !hostIsVisuallyBareForMirror(host),
         concealedText: [],
         clipHoverOnly,
@@ -3585,7 +3623,7 @@ function mutationTargetElement(target: Node): Element | null {
 function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!hasFragmentTokenWork(target, tokens)) return;
 
-    const safeTokens = nonOverlappingTokens(tokens, target.text.length);
+    const safeTokens = nonOverlappingTokens(tokens, target.text);
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
@@ -3604,10 +3642,10 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // clip row is stamped so CSS hides rt at rest — in-place ruby in a
     // clipped/clamped row otherwise paints outside the row bounds on live
     // pages (tenki/bookwalker/amazon sweep regressions).
-    // POLICY AMENDMENT (owner 2026-07-11): CONTENT rows that can grow in flow
-    // (Google's line-clamped prose snippets) stamp "content" instead — their
-    // readings stay visible at rest by default, re-hidden only under the
-    // opt-in hover-only root mode (data-yomu-clamped-readings="hover").
+    // Semantic prose rows that can grow in flow stamp "content" instead —
+    // their readings stay visible at rest by default, re-hidden only under the
+    // opt-in hover-only root mode. Search cards/headings remain "true" and CSS
+    // removes their rt from in-place layout while retaining word lookup.
     if (!renderTarget.suppressRuby) {
         const clipRow = closestRubyFragileConstrainedRow(target.parent);
         if (clipRow) {
@@ -4172,7 +4210,7 @@ function leadingEdgeFragmentBoundary(fragments: IndexedTextFragment[], offset: n
 export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: ReaderSettings): string {
     let html = '';
     let offset = 0;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const safeTokens = nonOverlappingTokens(tokens, text);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
         if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
@@ -4248,22 +4286,26 @@ function uniqueNonEmptyStrings(values: string[]): string[] {
     return [...new Set(values.map(value => value.trim()).filter(Boolean))];
 }
 
-function nonOverlappingTokens(tokens: JPDBToken[], textLength: number): JPDBToken[] {
+function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
     const safe: JPDBToken[] = [];
     let offset = 0;
     for (const token of tokens) {
-        if (!isSafeTokenSpan(token, offset, textLength)) continue;
+        if (!isSafeTokenSpan(token, offset, text)) continue;
         safe.push(token);
         offset = token.end;
     }
     return safe;
 }
 
-function isSafeTokenSpan(token: JPDBToken, offset: number, textLength: number): boolean {
-    return token.start >= offset
-        && token.start >= 0
-        && token.end > token.start
-        && token.end <= textLength;
+function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolean {
+    if (token.start < offset
+        || token.start < 0
+        || token.end <= token.start
+        || token.end > text.length) return false;
+    // API/parser offset drift must never decorate a Latin or punctuation-only
+    // range. This is the final render-boundary invariant: even a structurally
+    // valid token is discarded unless the bytes it would replace are Japanese.
+    return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
 }
 
 function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
@@ -5072,11 +5114,17 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
         // hidden at rest — it never needs room, so it must not grow ANY
         // ancestor (the 1.6.115 watch-metadata #owner/#top-row/H1 blow-ups
         // were grown by rest-hidden readings' inflated mirror metrics).
-        if (word.closest('[data-yomu-clip-constrained="true"]')) continue;
+        if (word.closest('[data-yomu-clip-constrained]')) continue;
         // A box may only ever grow for the mirror that renders THIS word —
         // never for an unrelated (taller) descendant mirror in document order.
         const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
-        for (const box of cropCapableBoxes(word.parentElement, mirror)) {
+        const cropBoxes = cropCapableBoxes(word.parentElement, mirror);
+        // If ANY box in the ancestor chain is a clamp/fixed-short row, the
+        // whole word is paint-invariant. Growing a different ancestor still
+        // creates the same giant blank card even if the clamp box itself is
+        // skipped, which was the Google/iPad gap left by the per-box guard.
+        if (cropBoxes.some(isClipConstrainedRow)) continue;
+        for (const box of cropBoxes) {
             if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
             // Curated YouTube/Google rows grow on any crop signal (their crop
             // is always ruby-caused). Every OTHER site's clamped/ellipsis/

@@ -208,16 +208,14 @@ export function isClipConstrainedRow(element: HTMLElement): boolean {
     return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
 }
 
-// POLICY AMENDMENT (owner directive 2026-07-11, Google-search evidence): a
-// clip-constrained row whose words classify as CONTENT (content-ruby /
-// prose-full) keeps furigana AT REST when the row can grow naturally in flow.
-// Google line-clamps ordinary prose snippets; hiding readings at rest there
-// turned body text into hover-only furigana. Deterministic facts:
-//   - the decoration state must be content (interactive/chrome rows stay
-//     hover-only — the banned class-A growth surface);
+// A clip-constrained SEMANTIC PROSE row may keep furigana at rest when it can
+// grow naturally in flow. Search cards, headings and app chrome never take
+// this exception: on WebKit their hidden ruby metrics can crop the base or
+// expand a containing flex card. Deterministic facts:
+//   - the decoration state must be prose-full in readable article/main prose;
 //   - the row must have NO definite height/max-height clip: a line-clamp or
 //     ellipsis row with auto height grows in flow when the ruby line box gets
-//     taller (pre-1.6.118 Google behavior — correct), while a fixed-height
+//     taller, while a fixed-height
 //     clip would cut in-flow readings mid-glyph and stays rest-hidden.
 // Growth here is pure in-flow line-height — no geometry writes of any kind.
 // Scope: the IN-PLACE render channel only. Mirror-channel clip rows (YouTube
@@ -227,7 +225,14 @@ export function contentClipRowShowsRestReadings(
     decoration: DecorationState | undefined,
     clipRow: HTMLElement,
 ): boolean {
-    if (decoration !== 'content-ruby' && decoration !== 'prose-full') return false;
+    // Only semantic prose gets the in-flow exception. Search-result cards,
+    // headings and app chrome are commonly nested in flex/fixed-height shells
+    // whose USED height looks auto in CSSOM but cannot safely absorb ruby on
+    // iOS. Treating every content-ruby DIV as growable caused Google result
+    // gaps and rows where the base glyphs fell below the clip while rt stayed.
+    if (decoration !== 'prose-full') return false;
+    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
+    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
     const facts = constrainedRowStyleFacts(clipRow);
     if (facts.clippedShortRow) return false;
     // Only clamp/ellipsis rows have the auto-height shape that grows in flow.
@@ -240,7 +245,11 @@ export function contentClipRowShowsRestReadings(
     // height/max-height instead.
     const style = safeComputedStyle(clipRow);
     if (hasDefiniteCssSize(style.maxHeight)) return false;
-    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+    if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
+    const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : '';
+    return !parentDisplay.includes('flex')
+        && !parentDisplay.includes('grid')
+        && !parentDisplay.startsWith('table');
 }
 
 // The mirror replaces the HOST's rendering (visibility:hidden), so routing a
@@ -833,6 +842,8 @@ const CONTENT_CHIP_ROOT_SELECTOR = [
 const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 
 export function interactivePassiveControl(element: Element): HTMLElement | null {
+    const temporalMetadata = element.closest<HTMLElement>('time,[datetime]');
+    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
     const control = element.closest<HTMLElement>(INTERACTIVE_CONTROL_SELECTOR);
     if (control
         // Conversation content wrapped in a clickable shell (Discord's
@@ -843,8 +854,36 @@ export function interactivePassiveControl(element: Element): HTMLElement | null 
         && !isMediaTextContentControl(control)) return control;
     const link = element.closest<HTMLElement>(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
+    if (isCompactLinkedCardMetadata(link, element)) return link;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+
+function isCompactTemporalMetadata(element: HTMLElement): boolean {
+    const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    if (!HAS_JAPANESE.test(text) || compactLength(text) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
+    const height = element.getBoundingClientRect().height;
+    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+}
+
+// A clickable card may contain both a real reading title and one or more short
+// metadata rows (vote/comment counts, time, category). The title remains
+// content; a compact non-heading row is control metadata. Letting a framework
+// mirror give that 14-16px row ruby-friendly line metrics can move the base out
+// of the fixed card on WebKit, leaving only rt visible. This structural rule is
+// deliberately site-neutral: linked card + heading + short non-prose sibling.
+const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
+const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
+
+function isCompactLinkedCardMetadata(link: HTMLElement, element: Element): boolean {
+    const textElement = element instanceof HTMLElement ? element : element.parentElement;
+    if (!textElement || textElement.closest('h1,h2,h3,h4,h5,h6')) return false;
+    const heading = safeQuerySelector(link, 'h1,h2,h3,h4,h5,h6');
+    if (!heading || heading.contains(textElement) || isLikelyProseElement(textElement)) return false;
+    const text = textElement.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    if (!HAS_JAPANESE.test(text) || compactLength(text) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
+    const height = textElement.getBoundingClientRect().height;
+    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
 }
 
 function isMediaTextContentControl(control: HTMLElement): boolean {

@@ -45,20 +45,19 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-// POLICY AMENDMENT (owner directive 2026-07-11, Google-search evidence):
-// clip-constrained rows whose words classify as CONTENT keep furigana AT REST
-// (the row grows naturally in flow); interactive/chrome clip rows and rows
-// with a definite-height clip stay hover-only. Google line-clamps ordinary
-// prose snippets — 1.6.118's blanket rest-hide turned them hover-only.
-describe('clamped CONTENT rows keep readings at rest (owner amendment)', () => {
-    it('stamps a line-clamped Google-style prose snippet as "content" (readings visible at rest)', () => {
+// Only semantic long-form prose may let a clamped row grow naturally for
+// in-flow readings. Search cards and app chrome use the paint-invariant
+// hover-only channel: WebKit can otherwise crop the base while leaving rt, or
+// grow a flex card into the large empty gap reported on iPad.
+describe('clamped content preserves base text and bounded geometry', () => {
+    it('stamps a semantic article paragraph as "content" (readings visible at rest)', () => {
         document.body.innerHTML = `
-            <div id="search"><div class="g">
-                <div class="VwiC3b" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</div>
-            </div></div>
+            <main><article>
+                <p class="prose" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</p>
+            </article></main>
         `;
-        const row = document.querySelector<HTMLElement>('.VwiC3b')!;
-        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
+        const row = document.querySelector<HTMLElement>('.prose')!;
+        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'prose-full'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
         // The in-place channel stamps "content", NOT "true": the rest-hide CSS
         // is value-exact on "true", so readings stay visible at rest and the
@@ -67,23 +66,35 @@ describe('clamped CONTENT rows keep readings at rest (owner amendment)', () => {
         expect(row.querySelector('.jpdb-reader-word ruby rt')?.textContent).toBe('とうきょう');
     });
 
-    it('keeps a definite-height clip row rest-hidden even for content (in-flow growth impossible)', () => {
+    it('stamps a Google-style result DIV as "true" so its base stays in the authored row', () => {
         document.body.innerHTML = `
-            <div id="fixed" style="overflow:hidden;max-height:44px;line-height:22px">${SNIPPET}</div>
+            <div id="search"><div class="g">
+                <div class="VwiC3b" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</div>
+            </div></div>
         `;
+        const row = document.querySelector<HTMLElement>('.VwiC3b')!;
+        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
+
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.querySelector('.jpdb-reader-word ruby rt')?.textContent).toBe('とうきょう');
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
+    });
+
+    it('keeps a definite-height clip row rest-hidden even for content (in-flow growth impossible)', () => {
+        document.body.innerHTML = `<main><p id="fixed" style="overflow:hidden;max-height:44px;line-height:22px">${SNIPPET}</p></main>`;
         const row = document.querySelector<HTMLElement>('#fixed')!;
         Object.defineProperty(row, 'getBoundingClientRect', {
             configurable: true,
             value: () => ({ x: 0, y: 0, left: 0, top: 0, right: 320, bottom: 44, width: 320, height: 44, toJSON: () => ({}) }) as DOMRect,
         });
-        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
+        applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'prose-full'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
         expect(row.dataset.yomuClipConstrained).toBe('true');
     });
 
     it('vetoes at-rest readings when the clamp row carries an authored max-height cap', () => {
-        document.body.innerHTML = `<div id="capped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px">${SNIPPET}</div>`;
+        document.body.innerHTML = `<main><p id="capped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px">${SNIPPET}</p></main>`;
         const row = document.querySelector<HTMLElement>('#capped')!;
-        expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(false);
+        expect(contentClipRowShowsRestReadings('prose-full', row)).toBe(false);
     });
 
     it('never grants at-rest readings to interactive-passive or skip rows', () => {
@@ -92,8 +103,12 @@ describe('clamped CONTENT rows keep readings at rest (owner amendment)', () => {
         expect(contentClipRowShowsRestReadings('interactive-passive', row)).toBe(false);
         expect(contentClipRowShowsRestReadings('skip', row)).toBe(false);
         expect(contentClipRowShowsRestReadings(undefined, row)).toBe(false);
-        expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(true);
-        expect(contentClipRowShowsRestReadings('prose-full', row)).toBe(true);
+        expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(false);
+        expect(contentClipRowShowsRestReadings('prose-full', row)).toBe(false);
+
+        document.body.innerHTML = `<main><p id="prose" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</p></main>`;
+        const prose = document.querySelector<HTMLElement>('#prose')!;
+        expect(contentClipRowShowsRestReadings('prose-full', prose)).toBe(true);
     });
 
     it('ships the hover-only override CSS keyed on the root stamp and keeps the rest-hide rule value-exact', () => {
@@ -103,7 +118,7 @@ describe('clamped CONTENT rows keep readings at rest (owner amendment)', () => {
         // The blanket rest-hide must stay scoped to the chrome value so
         // "content" rows are visible at rest by default: the ONLY selector
         // that hides "content" readings is the :root hover-mode rule.
-        expect(css).toContain('[data-yomu-clip-constrained="true"] .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi');
+        expect(css).toContain('[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi');
         const contentSelectorUses = css.split('[data-yomu-clip-constrained="content"]').length - 1;
         expect(contentSelectorUses).toBe(1);
         expect(css).toMatch(/:root\[data-yomu-clamped-readings="hover"\]\s*\[data-yomu-clip-constrained="content"\]/);

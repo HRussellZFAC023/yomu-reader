@@ -60,7 +60,12 @@ describe('shadow DOM scanner (Phase 1)', () => {
         document.body.innerHTML = '<yomu-open-host></yomu-open-host>';
         const host = document.querySelector('yomu-open-host') as HTMLElement;
 
-        const targets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
+        const targets = collectFragmentTextTargetsIn(document.body, 40, false, '', {
+            allowUiText: true,
+            includeUiChrome: true,
+            includePassiveInteractions: true,
+            minLength: 1,
+        });
         const shadowTarget = targets.find(t => t.text === TEXT);
         expect(shadowTarget, 'shadow text should be collected as a scan target').toBeTruthy();
         expect(shadowTarget!.insideShadowDOM).toBe(true);
@@ -185,24 +190,46 @@ describe('shadow DOM scanner (Phase 1)', () => {
         }
     });
 
-    it('does not descend shadow-of-shadow (depth limited to 1)', () => {
+    it('descends two open-shadow boundaries and still caps traversal before depth three', () => {
         defineShadowHost('yomu-inner-host', 'open', `<p>深い階層</p>`);
-        // The outer shadow carries its OWN Japanese (so the HAS_JAPANESE gate
-        // lets the walk in and depth-1 descent happens) AND hosts an inner
-        // custom element with a second shadow root.
         defineShadowHost('yomu-outer-host', 'open', `<p>浅い階層</p><yomu-inner-host></yomu-inner-host>`);
         document.body.innerHTML = '<yomu-outer-host></yomu-outer-host>';
         const outer = document.querySelector('yomu-outer-host') as HTMLElement;
-        // Guard the fixture: the inner host must really carry a depth-2 shadow,
-        // else the test would pass vacuously.
         const inner = outer.shadowRoot!.querySelector('yomu-inner-host') as HTMLElement;
         expect(inner.shadowRoot, 'inner depth-2 shadow must exist for this test to bite').toBeTruthy();
 
         const targets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
-        // Depth-1 (outer shadow) text IS collected.
         expect(targets.some(t => t.text.includes('浅い階層')), 'depth-1 shadow text should be collected').toBe(true);
-        // Depth-2 (inner shadow) text is NOT.
-        expect(targets.some(t => t.text.includes('深い階層')), 'depth-2 shadow text must not be collected').toBe(false);
+        expect(targets.some(t => t.text.includes('深い階層')), 'depth-2 shadow text should be collected').toBe(true);
+
+        defineShadowHost('yomu-depth-three-host', 'open', `<p>第三階層</p>`);
+        defineShadowHost('yomu-depth-two-host', 'open', `<p>第二階層</p><yomu-depth-three-host></yomu-depth-three-host>`);
+        defineShadowHost('yomu-depth-one-host', 'open', `<p>第一階層</p><yomu-depth-two-host></yomu-depth-two-host>`);
+        document.body.innerHTML = '<yomu-depth-one-host></yomu-depth-one-host>';
+        const cappedTargets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
+        expect(cappedTargets.some(t => t.text.includes('第一階層'))).toBe(true);
+        expect(cappedTargets.some(t => t.text.includes('第二階層'))).toBe(true);
+        expect(cappedTargets.some(t => t.text.includes('第三階層')), 'depth-3 shadow text must remain outside the bounded scan').toBe(false);
+    });
+
+    it('looks through a Latin-only outer shell to reach Reddit-style nested Japanese controls', () => {
+        defineShadowHost('yomu-reddit-join-host', 'open', '<button id="join">参加</button>');
+        // The outer component has no direct Japanese text. ShadowRoot.textContent
+        // therefore cannot see the label; the bounded lookahead must discover
+        // it through the nested component boundary.
+        defineShadowHost('yomu-reddit-header-shell', 'open', '<div class="actions"><yomu-reddit-join-host></yomu-reddit-join-host></div>');
+        document.body.innerHTML = '<yomu-reddit-header-shell></yomu-reddit-header-shell>';
+
+        const targets = collectFragmentTextTargetsIn(document.body, 40, false, '', {
+            allowUiText: true,
+            includeUiChrome: true,
+            includePassiveInteractions: true,
+            minLength: 1,
+        });
+        const joinTarget = targets.find(target => target.text === '参加');
+        expect(joinTarget, 'nested Reddit join label should be collected').toBeTruthy();
+        expect(joinTarget?.insideShadowDOM).toBe(true);
+        expect(joinTarget?.nonDestructive).toBe(true);
     });
 });
 

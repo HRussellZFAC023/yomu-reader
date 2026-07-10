@@ -1,26 +1,16 @@
 #!/usr/bin/env node
-// Generic reddit-style community-header chrome smoke.
+// iPad-shaped Reddit annotation regression smoke.
 //
-// Two invariants on a narrow flex <button> whose Japanese label is a SINGLE text
-// node holding TWO kanji words ("投稿を作成"), plus a "詳細" button and a stats
-// line, under reddit-like host CSS (narrow max-width flex buttons, small font,
-// word-break/overflow-wrap, and a descendant rule that overrides the reading's
-// white-space — reddit's cascade beats a plain, non-!important nowrap):
+// This is a deterministic loopback fixture, not visual proof from reddit.com.
+// It reproduces the structural facts observed on the live site:
+//   - a Join button two open-shadow boundaries below a Latin-only shell;
+//   - fixed-height header/sort/share controls;
+//   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
+//   - Latin-only and punctuation-only source ranges returned as bogus tokens.
 //
-//   Bug 2a — every kanji word in the label carries a non-empty reading (rt):
-//            ruby over BOTH 投稿 AND 作成, never just the leading word.
-//   Bug 1  — no reading (rt) may stack onto a second line inside the narrow
-//            chrome. Measured as getClientRects().length === 1 AND
-//            offsetHeight <= ~1.6× the rt's own line-height. The stacked-kana
-//            wrap (しょう/さい over 詳細) is a WebKit rendering behaviour that a
-//            plain white-space:nowrap can't hold once host CSS overrides it, so
-//            this smoke runs BOTH Chromium and WebKit — the WebKit pass is what
-//            turns red before the rt-nowrap !important hardening and green after.
-//
-// Uses a synthetic local fixture served over loopback — never real reddit.
-// Modeled on live-furigana-layout-smoke.mjs (createSmokePaths /
-// assertBuiltArtifacts / addGmStorageBridgeInitScript /
-// mockJpdbParseFromVocabulary).
+// The safe contract is annotation without geometry-changing ruby in controls or
+// compact metadata. Base text stays visible, buttons remain clickable, cards do
+// not grow, and only source ranges that actually contain Japanese are painted.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -41,18 +31,24 @@ import {
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const REQUEST_BRIDGE = '__yomuRedditChromeRequest';
-const PAGE_PATH = '/reddit-community-header.html';
+const PAGE_PATH = '/reddit-ipad-annotation-regression.html';
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 
-// Tokenization: longest-match, so 訪問者 wins over 訪問 where present. The
-// "投稿を作成" label deliberately yields two separate kanji word tokens (投稿
-// then 作成) around the kana を, exactly like the reported reddit label.
 const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
-    ['詳細', '詳細', 'しょうさい', 'details', ['noun'], 100, ['not-in-deck'], ['LHHH']],
-    ['訪問者', '訪問者', 'ほうもんしゃ', 'visitor', ['noun'], 100, ['not-in-deck'], ['LHHHHH']],
-    ['訪問', '訪問', 'ほうもん', 'visit', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['賛成票数順', '賛成票数順', 'さんせいひょうすうじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
+    ['告知', '告知', 'こくち', 'announcement', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['賛成票', '賛成票', 'さんせいひょう', 'upvote', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['コメント', 'コメント', 'コメント', 'comment', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['時間', '時間', 'じかん', 'hour', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['前', '前', 'まえ', 'ago', ['noun'], 100, ['not-in-deck'], ['LH']],
+    ['共有', '共有', 'きょうゆう', 'share', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    // Deliberately malformed parser outputs: valid offsets but non-Japanese
+    // source slices. The renderer must discard both at its final boundary.
+    ['r/singularity', '日本語', 'にほんご', 'invalid Latin token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['…', '日本語', 'にほんご', 'invalid punctuation token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
 ];
 
 const settings = {
@@ -64,7 +60,6 @@ const settings = {
     localDictionariesEnabled: false,
     ankiEnabled: false,
     audioEnabled: false,
-    autoPlayAudio: false,
     lookupOnClick: true,
     lookupOnHover: false,
     popupActivationMode: 'click',
@@ -77,66 +72,91 @@ const settings = {
     enableLogging: false,
 };
 
-// Reddit-like community-header chrome. The action buttons are narrow flex items
-// with an icon span before a single label text node; reddit sets word-break and
-// overflow-wrap on its buttons and — critically — a descendant rule that forces
-// the reading's white-space, so a plain nowrap can't hold the reading together
-// (the `.action-button rt` override below reproduces that cascade). The
-// create-post button holds two kanji words in one text node; the label wraps to
-// its own line so both readings render, exercising Bug 2a.
 const PAGE = `<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reddit Community Header Fixture</title>
+<title>Reddit iPad Annotation Regression</title>
 <style>
-html, body { margin: 0; min-height: 100%; background: #0b1416; color: #d7dadc; font: 14px/1.2 system-ui, sans-serif; }
+html, body { margin: 0; min-height: 100%; background: #0b1416; color: #f2f4f5; font: 16px/1.25 system-ui, sans-serif; }
 body { display: grid; place-items: start center; }
-.shell { width: min(760px, 100vw); padding: 16px; box-sizing: border-box; }
-.header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-/* Reddit-style action button: narrow flex item, icon + single label text node,
-   word-break/overflow-wrap set on the button, small font. */
-.action-button {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 96px;
-  min-height: 32px;
-  padding: 4px 12px;
-  border: 1px solid #343536;
-  border-radius: 999px;
-  background: #1a282d;
-  color: #d7dadc;
-  font: 600 14px/1.15 system-ui, sans-serif;
-  cursor: pointer;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+.shell { width: min(760px, 100vw); padding: 18px; box-sizing: border-box; }
+.community { font-size: 30px; font-weight: 700; margin: 18px 0; }
+.actions, .feed-tools, .post-actions { display: flex; align-items: center; gap: 10px; }
+.safe-control {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px; height: 40px; max-height: 40px; padding: 0 18px; overflow: hidden;
+  border: 1px solid #748087; border-radius: 999px; background: #0b1416; color: #f2f4f5;
+  font: 600 16px/20px system-ui, sans-serif; white-space: nowrap; cursor: pointer;
 }
-.action-button svg { flex: 0 0 auto; width: 16px; height: 16px; }
-.action-button .flex { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-/* Reddit's cascade overrides descendant white-space; a non-!important nowrap on
-   the reading loses to it, which is what let the reading stack in narrow chrome
-   (Bug 1). Kept minimal and generic — it targets the annotation, not the app. */
-.action-button rt { white-space: normal !important; word-break: break-all !important; }
-/* A tightly-clamped label button (詳細): the base kanji fit on one line but the
-   longer reading (しょうさい) is wider than the box, so with the rt white-space
-   override above WebKit stacks the kana onto two lines unless the reading is
-   pinned nowrap — this button is where Bug 1 turns red on WebKit before the fix.
-   inline-block (not flex) gives the reading a block context it can wrap in. */
-.detail-button { display: inline-block; text-align: center; max-width: 34px; padding: 4px 2px; }
-.stats { margin-top: 16px; color: #818384; font-size: 13px; line-height: 1.4; }
+.feed-tools { justify-content: space-between; margin: 22px 0 16px; }
+.highlight-card {
+  box-sizing: border-box; display: block; height: 120px; max-height: 120px; overflow: hidden;
+  padding: 18px 16px; border: 1px solid #343d42; border-radius: 18px; color: inherit; text-decoration: none;
+}
+.highlight-card h2 { margin: 0 0 14px; font-size: 22px; line-height: 26px; }
+.card-row { display: block; height: 16px; max-height: 16px; overflow: hidden; font-size: 14px; line-height: 16px; color: #b7c2c8; }
+.post { margin-top: 16px; padding-top: 14px; border-top: 1px solid #343d42; }
+.post-meta { height: 20px; max-height: 20px; overflow: hidden; color: #b7c2c8; font-size: 14px; line-height: 20px; }
+.post-meta time { display: inline-block; height: 20px; max-height: 20px; overflow: hidden; }
+.post-actions { margin-top: 18px; }
+#subreddit, #punctuation { display: inline-block; margin-right: 10px; }
 </style>
 </head>
 <body>
-<main class="shell">
-  <div class="header-actions">
-    <button id="create-post" class="action-button" type="button"><span class="flex"><span class="icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>投稿を作成</span></button>
-    <button id="detail" class="action-button detail-button" type="button"><span class="flex">詳細</span></button>
-  </div>
-  <div id="stats" class="stats">週に 61万 訪問者 と 1.1万</div>
-</main>
+<shreddit-app>
+  <main class="shell">
+    <div class="community"><span id="subreddit">r/singularity</span><span id="punctuation">…</span></div>
+    <div class="actions">
+      <button id="create-post" class="safe-control" type="button">＋ 投稿を作成</button>
+      <reddit-header-shell id="join-shell"></reddit-header-shell>
+    </div>
+    <div class="feed-tools"><span>フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
+    <a id="highlight-card" class="highlight-card" href="#highlight">
+      <h2>Discord Server Link</h2>
+      <span id="flair" class="card-row">告知</span>
+      <span id="card-metadata" class="card-row">10件の賛成票・0件のコメント</span>
+    </a>
+    <article id="post" class="post">
+      <div class="post-meta"><span>u/ResultBackground2470・</span><time id="post-meta" datetime="2026-07-10T19:01:00Z">2時間前</time></div>
+      <h2>GPT Solves Yet Another Problem</h2>
+      <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
+    </article>
+  </main>
+</shreddit-app>
+<script>
+window.__redditSmokeClicks = { create: 0, join: 0, sort: 0, share: 0 };
+document.getElementById('create-post').addEventListener('click', () => { window.__redditSmokeClicks.create += 1; });
+document.getElementById('share').addEventListener('click', () => { window.__redditSmokeClicks.share += 1; });
+class RedditJoinControl extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 18px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 16px/20px system-ui;white-space:nowrap}</style><button id="join" type="button">参加</button>';
+    root.getElementById('join').addEventListener('click', () => { window.__redditSmokeClicks.join += 1; });
+  }
+}
+customElements.define('reddit-join-control', RedditJoinControl);
+class RedditHeaderShell extends HTMLElement {
+  constructor() {
+    super();
+    // No direct Japanese in this root: the scanner must look through the
+    // nested component boundary to discover the visible label.
+    this.attachShadow({ mode: 'open' }).innerHTML = '<reddit-join-control></reddit-join-control>';
+  }
+}
+customElements.define('reddit-header-shell', RedditHeaderShell);
+class RedditSortControl extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}</style><button id="sort" type="button">賛成票数順⌄</button>';
+    root.getElementById('sort').addEventListener('click', () => { window.__redditSmokeClicks.sort += 1; });
+  }
+}
+customElements.define('reddit-sort-control', RedditSortControl);
+</script>
 </body>
 </html>`;
 
@@ -152,17 +172,12 @@ const server = await startLoopbackServer((request, response) => {
     }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(PAGE);
-}, 'Could not bind reddit community-header smoke server');
-
-const ENGINES = [
-    { name: 'chromium', type: chromium },
-    { name: 'webkit', type: webkit },
-];
+}, 'Could not bind Reddit iPad regression server');
 
 const summaries = [];
 const failures = [];
 try {
-    for (const engine of ENGINES) {
+    for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', type: webkit }]) {
         const launched = await launchOptionalBrowser(engine.type, engine.name, { headless: true });
         if (launched.skipped) {
             summaries.push({ engine: engine.name, skipped: true, reason: launched.reason });
@@ -171,7 +186,7 @@ try {
         try {
             summaries.push(await runEngine(engine.name, launched.browser));
         } catch (error) {
-            failures.push(`${engine.name}: ${String(error).slice(0, 5000)}`);
+            failures.push(`${engine.name}: ${String(error).slice(0, 8000)}`);
         } finally {
             await launched.browser.close().catch(() => undefined);
         }
@@ -185,12 +200,17 @@ if (failures.length) {
     console.error(`FAILURES:\n${failures.join('\n')}`);
     process.exit(1);
 }
-assert(summaries.some(summary => !summary.skipped), 'No browser engine was available to run the reddit-chrome smoke');
+assert(summaries.some(summary => !summary.skipped), 'No browser engine was available to run the Reddit smoke');
 console.log('reddit-chrome-furigana smoke passed');
 
 async function runEngine(engineName, browser) {
     const requests = [];
-    const context = await browser.newContext({ bypassCSP: true, colorScheme: 'dark', locale: 'ja-JP', viewport: { width: 760, height: 520 } });
+    const context = await browser.newContext({
+        bypassCSP: true,
+        colorScheme: 'dark',
+        locale: 'ja-JP',
+        viewport: { width: 760, height: 980 },
+    });
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error)));
@@ -203,32 +223,45 @@ async function runEngine(engineName, browser) {
             requestBridgeName: REQUEST_BRIDGE,
         });
         await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+        const baseline = await page.evaluate(snapshotRedditLayout);
         await page.addStyleTag({ path: CSS_PATH });
         await page.addScriptTag({ path: SCRIPT_PATH });
 
-        await page.waitForFunction(() => document.querySelectorAll('#create-post .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
-        // Let ruby-room sweeps + furigana render settle.
+        await page.waitForFunction(() => {
+            const deep = (root, selector) => {
+                const found = root.querySelector(selector);
+                if (found) return found;
+                for (const element of root.querySelectorAll('*')) {
+                    if (element.shadowRoot) {
+                        const nested = deep(element.shadowRoot, selector);
+                        if (nested) return nested;
+                    }
+                }
+                return null;
+            };
+            return document.querySelectorAll('#create-post .jpdb-reader-word').length >= 2
+                && document.querySelectorAll('#card-metadata .jpdb-reader-word').length >= 2
+                && document.querySelector('#share .jpdb-reader-word')
+                && deep(document, '#join .jpdb-reader-word')
+                && deep(document, '#sort .jpdb-reader-word');
+        }, null, { timeout: 20_000 });
         await page.waitForTimeout(400);
 
-        const snapshot = await page.evaluate(snapshotRedditChrome);
+        await page.locator('#create-post').click();
+        await page.locator('#share').click();
+        await page.evaluate(() => {
+            const join = document.querySelector('reddit-header-shell').shadowRoot
+                .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+            const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
+            join.click();
+            sort.click();
+        });
+
+        const snapshot = await page.evaluate(snapshotRedditRegression);
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
-
-        assert(pageErrors.length === 0, `${engineName}: page errors during smoke`, { pageErrors, snapshot });
-
-        // Bug 2a: every kanji word in the create-post label must carry a non-empty rt.
-        const createPost = snapshot.buttons['create-post'];
-        assert(createPost, `${engineName}: create-post button was not scanned`, snapshot);
-        for (const expression of ['投稿', '作成']) {
-            const word = createPost.words.find(entry => entry.expression === expression || entry.text.includes(expression));
-            assert(word, `${engineName}: no reader word for ${expression}`, createPost);
-            assert(word.rubyText.length > 0, `${engineName} Bug 2a: create-post word "${expression}" rendered NO furigana (rt empty)`, createPost);
-        }
-
-        // Bug 1: no rt may stack to a second line inside any of the narrow chrome.
-        assert(snapshot.wrappedReadings.length === 0, `${engineName} Bug 1: a reading (rt) stacked onto two lines inside narrow chrome`, snapshot.wrappedReadings);
-
-        return { engine: engineName, screenshot, requests: requests.length, ...snapshot };
+        assertRedditRegression(engineName, baseline, snapshot, pageErrors);
+        return { engine: engineName, screenshot, requests: requests.length, baseline, ...snapshot };
     } finally {
         await context.close().catch(() => undefined);
     }
@@ -249,68 +282,116 @@ function mockedYomuRequest(request, requestLog) {
     return jsonHttpResponse({});
 }
 
-function snapshotRedditChrome() {
-    function furiText(word) {
-        return [...word.querySelectorAll('rt,.jpdb-reader-furi')].map(rt => rt.textContent?.trim() ?? '').join('');
-    }
+function snapshotRedditLayout() {
+    const card = document.querySelector('#highlight-card').getBoundingClientRect();
+    const post = document.querySelector('#post').getBoundingClientRect();
+    return {
+        createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
+        shareHeight: document.querySelector('#share').getBoundingClientRect().height,
+        cardHeight: card.height,
+        cardToPostGap: post.top - card.bottom,
+    };
+}
 
-    function wordSnapshot(word) {
-        return {
-            text: word.textContent?.replace(/\s+/g, '').trim() ?? '',
-            expression: word.getAttribute('data-expression') ?? '',
-            rubyCount: word.querySelectorAll('rt,.jpdb-reader-furi').length,
-            rubyText: furiText(word),
-        };
-    }
-
-    function buttonSnapshot(element) {
-        const words = [...element.querySelectorAll('.jpdb-reader-word')].map(wordSnapshot);
-        return {
-            id: element.id,
-            text: element.textContent?.replace(/\s+/g, '').trim() ?? '',
-            passiveChrome: element.getAttribute('data-jpdb-reader-passive-chrome') ?? '',
-            wordCount: words.length,
-            rubyCount: element.querySelectorAll('rt,.jpdb-reader-furi').length,
-            words,
-        };
-    }
-
-    // A reading has wrapped when its rt renders across more than one client rect
-    // OR its box is materially taller than one line of the rt's own computed
-    // line-height (WebKit reports the stacked-kana wrap as a single, ~2× tall
-    // client rect rather than two rects — pins Bug 1 either way).
-    function wrappedReadings() {
-        const issues = [];
-        for (const rt of document.querySelectorAll('.jpdb-reader-word rt.jpdb-reader-furi, .jpdb-reader-word rt, .jpdb-reader-furi')) {
-            const text = rt.textContent?.trim() ?? '';
-            if (!text) continue;
-            const rects = rt.getClientRects();
-            const style = getComputedStyle(rt);
-            const fontSize = parseFloat(style.fontSize) || 8;
-            const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.2;
-            const tall = rt.offsetHeight > lineHeight * 1.6;
-            if (rects.length > 1 || tall) {
-                issues.push({ text, rects: rects.length, offsetHeight: rt.offsetHeight, lineHeight: Math.round(lineHeight), whiteSpace: style.whiteSpace, wordBreak: style.wordBreak });
+function snapshotRedditRegression() {
+    function findDeep(selector, root = document) {
+        const found = root.querySelector(selector);
+        if (found) return found;
+        for (const element of root.querySelectorAll('*')) {
+            if (element.shadowRoot) {
+                const nested = findDeep(selector, element.shadowRoot);
+                if (nested) return nested;
             }
         }
-        return issues;
+        return null;
     }
 
-    const buttons = {};
-    for (const element of document.querySelectorAll('button[id]')) {
-        buttons[element.id] = buttonSnapshot(element);
+    function visibleChannelText(element) {
+        const mirrors = [...element.querySelectorAll(':scope > .jpdb-reader-text-mirror')]
+            .filter(mirror => getComputedStyle(mirror).visibility !== 'hidden');
+        if (mirrors.length) return mirrors.map(mirror => mirror.textContent ?? '').join('').replace(/\s+/g, ' ').trim();
+        if (getComputedStyle(element).visibility === 'hidden') return '';
+        const clone = element.cloneNode(true);
+        clone.querySelectorAll('.jpdb-reader-text-mirror,rt,rp').forEach(node => node.remove());
+        return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
     }
-    const statsWords = [...document.querySelectorAll('#stats .jpdb-reader-word')].map(wordSnapshot);
+
+    function label(selector, expected) {
+        const element = findDeep(selector);
+        const rect = element.getBoundingClientRect();
+        const words = [...element.querySelectorAll('.jpdb-reader-word')];
+        const wordStates = words.map(word => {
+            const wordRect = word.getBoundingClientRect();
+            const style = getComputedStyle(word);
+            return {
+                width: wordRect.width,
+                height: wordRect.height,
+                visibility: style.visibility,
+                opacity: style.opacity,
+            };
+        });
+        return {
+            expected,
+            visibleText: visibleChannelText(element),
+            height: rect.height,
+            wordCount: words.length,
+            expressions: words.map(word => word.getAttribute('data-expression') ?? ''),
+            rubyCount: element.querySelectorAll('rt,.jpdb-reader-furi').length,
+            rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length + (element.hasAttribute('data-yomu-ruby-room') ? 1 : 0),
+            visibleWords: wordStates.every(word => word.visibility !== 'hidden' && word.opacity !== '0' && word.width > 0 && word.height > 0),
+        };
+    }
+
+    const card = document.querySelector('#highlight-card').getBoundingClientRect();
+    const post = document.querySelector('#post').getBoundingClientRect();
     return {
-        buttons,
-        stats: {
-            wordCount: statsWords.length,
-            words: statsWords,
+        labels: {
+            create: label('#create-post', '投稿を作成'),
+            join: label('#join', '参加'),
+            sort: label('#sort', '賛成票数順'),
+            flair: label('#flair', '告知'),
+            metadata: label('#card-metadata', '賛成票・コメント'),
+            time: label('#post-meta', '時間前'),
+            share: label('#share', '共有'),
         },
-        wrappedReadings: wrappedReadings(),
+        rejected: {
+            subredditWords: document.querySelectorAll('#subreddit .jpdb-reader-word').length,
+            punctuationWords: document.querySelectorAll('#punctuation .jpdb-reader-word').length,
+            subredditText: visibleChannelText(document.querySelector('#subreddit')),
+            punctuationText: visibleChannelText(document.querySelector('#punctuation')),
+        },
         layout: {
-            viewportWidth: window.innerWidth,
+            createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
+            shareHeight: document.querySelector('#share').getBoundingClientRect().height,
+            cardHeight: card.height,
+            cardToPostGap: post.top - card.bottom,
+            viewportWidth: innerWidth,
             scrollWidth: document.documentElement.scrollWidth,
+            rubyRoomCount: document.querySelectorAll('[data-yomu-ruby-room]').length,
         },
+        clicks: window.__redditSmokeClicks,
     };
+}
+
+function assertRedditRegression(engineName, baseline, snapshot, pageErrors) {
+    assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
+    for (const [name, label] of Object.entries(snapshot.labels)) {
+        assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
+        assert(label.rubyCount === 0, `${engineName}: ${name} gained layout-changing ruby`, label);
+        assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
+        assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
+        for (const fragment of label.expected.split('・')) {
+            assert(label.visibleText.includes(fragment), `${engineName}: ${name} lost visible base text "${fragment}"`, label);
+        }
+    }
+    assert(snapshot.rejected.subredditWords === 0, `${engineName}: Latin-only r/singularity was annotated`, snapshot.rejected);
+    assert(snapshot.rejected.punctuationWords === 0, `${engineName}: punctuation-only range was annotated`, snapshot.rejected);
+    assert(snapshot.rejected.subredditText === 'r/singularity' && snapshot.rejected.punctuationText === '…', `${engineName}: rejected source text changed`, snapshot.rejected);
+    assert(Math.abs(snapshot.layout.createHeight - baseline.createHeight) <= 1, `${engineName}: create button height changed`, { baseline, layout: snapshot.layout });
+    assert(Math.abs(snapshot.layout.shareHeight - baseline.shareHeight) <= 1, `${engineName}: share button height changed`, { baseline, layout: snapshot.layout });
+    assert(Math.abs(snapshot.layout.cardHeight - baseline.cardHeight) <= 1, `${engineName}: highlight card grew`, { baseline, layout: snapshot.layout });
+    assert(snapshot.layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout: snapshot.layout });
+    assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, snapshot.layout);
+    assert(snapshot.layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, snapshot.layout);
+    assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);
 }

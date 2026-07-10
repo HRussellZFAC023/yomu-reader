@@ -57,6 +57,31 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('never grows a different ancestor when the word also belongs to a clamped row', () => {
+        // Google cards can have both a line-clamped text row and a separately
+        // clipped/flex card ancestor. Skipping only the clamp box is not enough:
+        // the same word must not make the outer card reserve its full ruby
+        // scrollHeight, which appeared as a large blank gap on iPad.
+        document.body.innerHTML = `
+            <section id="card" style="overflow:hidden;max-height:120px;line-height:20px">
+                <div id="snippet" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:20px">
+                    ${annotatedWord()}エンジニアの勉強
+                </div>
+            </section>
+        `;
+        const card = document.querySelector<HTMLElement>('#card')!;
+        const snippet = document.querySelector<HTMLElement>('#snippet')!;
+        mockRect(card, { top: 0, bottom: 120, height: 120 });
+        mockRect(snippet, { top: 0, bottom: 40, height: 40 });
+        mockOverflow(card, 110, 80);
+        mockOverflow(snippet, 56, 40);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(card.dataset.yomuRubyRoom).toBeUndefined();
+        expect(card.style.maxHeight).toBe('120px');
+        expect(snippet.dataset.yomuRubyRoom).toBeUndefined();
+    });
+
     it('grows a generic non-clamp compact clipped byline that crops its ruby', () => {
         document.body.innerHTML = `
             <div id="byline" style="overflow:hidden;max-height:22px">${annotatedWord()}チャンネル</div>

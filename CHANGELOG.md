@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.124] - 2026-07-10
+
+### Fixed
+
+- Google Search on iPad no longer develops large empty gaps or clipped/missing result text. Tight headings and snippets keep their original line geometry and visible base text while still supporting Yomu word highlighting and tap lookup.
+- Reddit controls and compact metadata are annotated again without growing or hiding them, including nested web-component buttons such as 参加, sort labels, post age, share, announcement flair, and vote/comment rows.
+- Parser offset mistakes can no longer turn Latin labels or punctuation into stray Japanese annotations, fixing floating dots and accidental decoration of text such as r/singularity.
+
 ## [1.6.123] - 2026-07-10
 
 ### Fixed
