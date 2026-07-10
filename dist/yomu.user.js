@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.113#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.113#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.113#sha256=Z5lad4ZNBuFnSse/5E7lZxnj9AH0C31Rv276m+nEJOA=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.113#sha256=3V2oAJLHRXLhwzyDqK242jtkdLsCKHqTswmVl1oD4+o=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.113#sha256=xNVaX11YdhllkRle6yR2R/NURvDNjYaTKklc4TaFDbc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.113#sha256=LiJneUrYDOqNyuwiUwwikan4hQE+uQ6kbTm0YJWoOEE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.113#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.113#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.113#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.113#sha256=FPFf2SyAdCqCTmlpy4jkYNlXOz/S/yYpPFvsg9U4wnY=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.113#sha256=IX6PinDvRkxRDc9oAiV8hWPiX8UxKGkw54z5WoHPkWQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -192,6 +192,8 @@ function addDeckSourceClasses(classes, source, names) {
   classes.add(`${source}-deck-${slug}`);
   });
 }
+const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
+const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 const CORE_COLOR_TOKENS = {
   black: "#000000",
   white: "#ffffff",
@@ -264,8 +266,529 @@ const LOGGER_COLOR_TOKENS = {
   warn: "#a15c00",
   error: "#b91c1c"
 };
-const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
-const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
+const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+function safeElementMatches$1(element2, selector) {
+  try {
+  return element2.matches(selector);
+  } catch {
+  return false;
+  }
+}
+function safeQuerySelector(root, selector) {
+  try {
+  return root.querySelector(selector);
+  } catch {
+  return null;
+  }
+}
+function safeComputedStyle(element2) {
+  try {
+  return getComputedStyle(element2);
+  } catch {
+  return element2.style;
+  }
+}
+function safePseudoContent(element2, pseudo) {
+  try {
+  return getComputedStyle(element2, pseudo).content;
+  } catch {
+  return "";
+  }
+}
+function compactLength(value) {
+  return Array.from(value.replace(/\s+/g, "")).length;
+}
+function cssPixels(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function elementClassName(element2) {
+  return String(element2.className || "");
+}
+function hasLineClamp(style) {
+  const clamp = style.getPropertyValue("-webkit-line-clamp").trim();
+  return Boolean(clamp && clamp !== "none" && clamp !== "0");
+}
+function isEllipsisTextRow(style) {
+  if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
+  return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
+}
+function clipsOverflow(style) {
+  return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+}
+function hasDefiniteCssSize(value) {
+  const normalized = value.trim().toLowerCase();
+  return Boolean(normalized && normalized !== "auto" && normalized !== "none" && normalized !== "normal" && normalized !== "initial" && normalized !== "inherit" && normalized !== "unset");
+}
+function hasClippedTextConstraint(style) {
+  if (!clipsOverflow(style)) return false;
+  return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
+}
+function isPositionedTextOverlay(style) {
+  return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
+}
+function isVerticalWritingMode(writingMode) {
+  return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
+}
+const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
+const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+const constrainedRowStyleFactMemo = new WeakMap();
+function constrainedRowStyleFacts(element2) {
+  const now = Date.now();
+  const memo = constrainedRowStyleFactMemo.get(element2);
+  if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.facts;
+  const style = safeComputedStyle(element2);
+  const clamped = hasLineClamp(style);
+  const ellipsisRow = isEllipsisTextRow(style);
+  const clips = clipsOverflow(style);
+  let clippedShortRow = false;
+  if (clips && !clamped && !ellipsisRow) {
+  const height = element2.getBoundingClientRect().height;
+  clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+  }
+  const facts = {
+  clamped,
+  ellipsisRow,
+  clippedConstraint: hasClippedTextConstraint(style),
+  clippedShortRow
+  };
+  constrainedRowStyleFactMemo.set(element2, { at: now, facts });
+  return facts;
+}
+function isInsideRubyFragileConstrainedRow(element2) {
+  let current = element2;
+  for (let depth = 0; current && depth < 5; depth += 1) {
+  const facts = constrainedRowStyleFacts(current);
+  if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return true;
+  current = current.parentElement;
+  }
+  return false;
+}
+function boxStyleIsClipCapable(box) {
+  const facts = constrainedRowStyleFacts(box);
+  return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
+}
+function hostIsVisuallyBareForMirror(host) {
+  if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
+  return elementHasNoOwnPaint(host);
+}
+function elementHasNoOwnPaint(element2) {
+  const style = safeComputedStyle(element2);
+  if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
+  const background = style.backgroundColor;
+  if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
+  if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
+  if (style.boxShadow && style.boxShadow !== "none") return false;
+  if (borderPaints(style)) return false;
+  for (const pseudo of ["::before", "::after"]) {
+  const content = safePseudoContent(element2, pseudo);
+  if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
+  }
+  return true;
+}
+function borderPaints(style) {
+  return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
+}
+const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
+const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
+const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
+const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+function isLikelyProseElement(element2) {
+  if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
+  return isLikelyProseClass(element2) || isConversationTextClass(element2);
+}
+function isReadableProseContext(element2) {
+  let current = element2;
+  while (current && current !== document.body && current !== document.documentElement) {
+  if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+  if (isConversationTextClass(current)) return true;
+  current = current.parentElement;
+  }
+  return false;
+}
+function isLikelyProseClass(element2) {
+  return PROSE_CLASS_RE.test(elementClassName(element2));
+}
+function isConversationTextClass(element2) {
+  return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
+}
+function isLikelyProseLink(link, element2) {
+  return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
+}
+function isProseFullContext(element2) {
+  let current = element2;
+  while (current && current !== document.body && current !== document.documentElement) {
+  if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+  current = current.parentElement;
+  }
+  return false;
+}
+function isExplicitControlLink(link) {
+  return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
+}
+function linkHasControlMedia(link) {
+  return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+}
+function linkHasControlShape(link, text2) {
+  const style = safeComputedStyle(link);
+  const rect = link.getBoundingClientRect();
+  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
+}
+function hasControlLinkStyle(style) {
+  return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
+}
+function hasControlLinkDisplay(display) {
+  return display.includes("flex") || display.includes("grid") || display === "inline-block";
+}
+function hasVisibleControlLinkBox(style) {
+  return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+}
+function hasVisibleBorderSide(style, width) {
+  return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
+}
+function hasShortControlLinkText(link, text2) {
+  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+}
+function hasControlLinkWidth(rect) {
+  return rect.width > 0 && rect.width < 360;
+}
+function hasUiBox(style) {
+  return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
+}
+function hasInlineControlShape(display) {
+  return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
+}
+const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+function isPassiveInteractionElement(element2) {
+  if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
+  if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
+  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
+}
+function isCompactPassiveInteractionElement(element2) {
+  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+  return element2.childElementCount <= 4;
+}
+function isCompactPassiveChromeElement(element2) {
+  if (isLikelyProseElement(element2)) return false;
+  return isCompactPassiveInteractionElement(element2);
+}
+function readableContextPassiveChromeElement(element2) {
+  const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
+  if (interaction) {
+  if (isConversationTextClass(interaction)) return null;
+  if (safeElementMatches$1(interaction, 'a[href],[role="link"]')) return interaction;
+  if (isCompactPassiveInteractionElement(interaction)) return interaction;
+  }
+  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
+  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
+}
+const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
+const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
+const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
+const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
+const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
+const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
+const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
+const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
+const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
+const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
+const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
+const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
+const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
+const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
+const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+function compactScanRubySuppression(parent) {
+  if (parent.closest(READER_ROOT_SELECTOR$3)) return { suppress: false, marks: [] };
+  if (shouldSuppressCompactMediaRuby(parent)) {
+  return { suppress: true, marks: [compactMediaPassiveChromeMark(parent)] };
+  }
+  const marks = [];
+  const notice = compactConstrainedNotificationElement(parent);
+  if (notice) marks.push({ element: notice, atomic: true });
+  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
+  if (chrome) marks.push({ element: chrome, atomic: true });
+  return { suppress: Boolean(chrome || notice), marks };
+}
+function compactMediaPassiveChromeMark(parent) {
+  const mediaLink = parent.closest('a[href],button,[role="link"],[role="button"]');
+  const host = mediaLink ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
+  return { element: host, atomic: Boolean(mediaLink && isNavigationChromeContext(mediaLink)) };
+}
+function applyPassiveChromeMarks(marks) {
+  for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
+}
+function markPassiveChromeElement(element2, atomic = false) {
+  element2.dataset.jpdbReaderPassiveChrome = "true";
+  if (atomic) element2.dataset.jpdbReaderPassiveAtomic = "true";
+  if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
+  element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
+  }
+}
+function hasExplicitAccessibleName(element2) {
+  return Boolean(
+  element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
+  );
+}
+function passiveChromeAccessibleLabel(element2) {
+  return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
+}
+function compactInteractiveChromeElement(parent) {
+  const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
+  if (!chrome) return null;
+  const text2 = compactInteractiveChromeText(chrome);
+  if (!isCompactInteractiveChromeText(text2)) return null;
+  if (safeElementMatches$1(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
+  return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
+  }
+  return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
+}
+function compactInteractiveChromeText(element2) {
+  return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+}
+function compactPassiveChromeElement(parent) {
+  if (isReadableProseContext(parent)) return null;
+  if (!isCompactInteractiveChromeContext(parent)) return null;
+  const text2 = compactInteractiveChromeText(parent);
+  if (!isCompactInteractiveChromeText(text2)) return null;
+  return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+}
+function compactPassiveInteractionRubyElement(parent) {
+  if (isReadableProseContext(parent)) return null;
+  const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (!interaction) return null;
+  if (safeElementMatches$1(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+  if (isLikelyProseElement(interaction)) return null;
+  if (!isCompactPassiveInteractionElement(interaction)) return null;
+  const style = safeComputedStyle(interaction);
+  if (isVerticalWritingMode(style.writingMode)) return interaction;
+  if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+  if (isCompactInteractiveChromeContext(interaction)) return interaction;
+  return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
+}
+function isCompactInteractiveChromeText(text2) {
+  const length = compactLength(text2);
+  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
+}
+function isCompactInteractiveChromeLink(link, parent, text2) {
+  if (isLikelyProseLink(link, parent)) return false;
+  if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
+  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
+  return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
+}
+function isCompactInteractiveChromeControl(control, parent) {
+  if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
+  if (safeElementMatches$1(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
+  const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches$1(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+  return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
+}
+function isCompactInteractiveChromeContext(element2) {
+  return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+}
+function hasCompactInteractiveChromeGeometry(element2) {
+  const style = safeComputedStyle(element2);
+  const rect = element2.getBoundingClientRect();
+  if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+  if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
+  return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
+}
+function hasCompactInteractiveChromeRubyRisk(element2) {
+  const style = safeComputedStyle(element2);
+  if (isVerticalWritingMode(style.writingMode)) return true;
+  if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+  if (isCompactInteractiveChromeContext(element2)) return true;
+  if (safeElementMatches$1(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
+  if (!hasCompactInteractiveChromeGeometry(element2)) return false;
+  if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
+  return clipsOverflow(style) && style.whiteSpace === "nowrap";
+}
+function compactConstrainedNotificationElement(parent) {
+  if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
+  const textLength = compactLength(parent.textContent ?? "");
+  if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
+  let current = parent;
+  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+  if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
+  if (isConstrainedNotificationContainer(current, parent)) return current;
+  current = current.parentElement;
+  }
+  return null;
+}
+function isConstrainedNotificationContainer(container, textElement) {
+  if (!safeElementMatches$1(container, CONSTRAINED_NOTIFICATION_SELECTOR)) return false;
+  if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
+  return hasNotificationActionPeer(container, textElement);
+}
+function hasConstrainedNotificationGeometry(container, textElement) {
+  const rect = container.getBoundingClientRect();
+  const textRect = textElement.getBoundingClientRect();
+  return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
+}
+function notificationContainerLooksLikePageSection(container) {
+  const rect = container.getBoundingClientRect();
+  if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
+  return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
+}
+function hasNotificationActionPeer(container, textElement) {
+  const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
+  if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
+  if (container === textElement) return false;
+  const row = container.parentElement;
+  if (!row) return false;
+  return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
+}
+function shouldSuppressCompactMediaRuby(parent) {
+  return isYouTubeFeedbackChromeLinkText(parent);
+}
+function isYouTubeHost() {
+  const hostname = location.hostname.toLowerCase();
+  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+}
+function isYouTubeFeedbackChromeLinkText(parent) {
+  if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+  return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
+}
+function closestMediaCarousel(parent) {
+  let current = parent;
+  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+  const match = mediaCarouselMatch(current);
+  if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === "explicit" };
+  current = current.parentElement;
+  }
+  return null;
+}
+function mediaCarouselMatch(element2) {
+  const className = elementClassName(element2);
+  if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className) || element2.hasAttribute("data-carousel") || element2.hasAttribute("data-slider")) return "explicit";
+  return MEDIA_CAROUSEL_CLASS_RE.test(className) ? "implicit" : null;
+}
+function mediaCarouselClipsHorizontally(element2) {
+  const style = safeComputedStyle(element2);
+  if (style.overflowX === "hidden" || style.overflowX === "clip") return true;
+  if ((style.overflowX === "auto" || style.overflowX === "scroll") && element2.clientWidth > 0) return true;
+  return element2.clientWidth > 0 && element2.scrollWidth > element2.clientWidth + 1;
+}
+function isNavigationChromeContext(element2) {
+  return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
+}
+function closestCompactMediaContext(parent) {
+  let current = parent;
+  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT; depth++) {
+  if (isReadableProseContext(current)) return null;
+  if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
+  current = current.parentElement;
+  }
+  return null;
+}
+function hasMediaPeer(container, textElement) {
+  return Array.from(container.querySelectorAll("img, picture, video, canvas")).some((media) => {
+  if (!(media instanceof HTMLElement)) return false;
+  if (media.closest(READER_ROOT_SELECTOR$3)) return false;
+  return media !== textElement && !textElement.contains(media);
+  });
+}
+function isCompactMediaContext(element2) {
+  const style = safeComputedStyle(element2);
+  const rect = element2.getBoundingClientRect();
+  if (element2.matches('a[href], button, [role="link"], [role="button"]')) return true;
+  if (safeQuerySelector(element2, 'a[href], button, [role="link"], [role="button"]')) return true;
+  const display = style.display;
+  const structured = display.includes("grid") || display.includes("flex") || display === "block";
+  const compact = rect.width === 0 || rect.width <= 560;
+  return structured && compact;
+}
+const EDITABLE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="listbox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
+function isEditableComposingContext(element2) {
+  if (element2.closest(EDITABLE_SKIP_SELECTOR)) return true;
+  return isComboboxOwnedPopup(element2);
+}
+function isComboboxOwnedPopup(element2) {
+  let current = element2;
+  for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+  const id = current.id;
+  if (!id) continue;
+  const escaped = cssEscapeIdent(id);
+  if (!escaped) continue;
+  try {
+    if (document.querySelector(
+      `[role="combobox"][aria-owns~="${escaped}"],[role="combobox"][aria-controls~="${escaped}"],input[aria-owns~="${escaped}"],input[aria-controls~="${escaped}"]`
+    )) return true;
+  } catch {
+  }
+  }
+  return false;
+}
+function cssEscapeIdent(value) {
+  try {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
+  } catch {
+  }
+  return /^[A-Za-z][\w-]*$/.test(value) ? value : "";
+}
+const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[aria-expanded],[aria-controls],[slot="more-button"],.more-button,#more,#less`;
+const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
+const INTERACTIVE_LINK_CONTEXT_SELECTOR = `header,nav,footer,${roleSelectors("banner,navigation,contentinfo,menu,menubar,toolbar,tablist")}`;
+const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
+const CONTENT_CHIP_ROOT_SELECTOR = [
+  "ytm-slim-video-metadata-section-renderer",
+  "ytm-expandable-video-description-body-renderer",
+  "ytm-structured-description-content-renderer",
+  "ytd-watch-info-text",
+  "yt-live-chat-viewer-engagement-message-renderer",
+  "yt-live-chat-restricted-participation-renderer",
+  "yt-live-chat-banner-renderer",
+  "yt-live-chat-ticker-renderer",
+  ".yomu-hosted-overflow-group"
+].join(",");
+const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+function interactivePassiveControl(element2) {
+  const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
+  if (control && !isConversationTextClass(control)) return control;
+  const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
+  if (!link) return null;
+  if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
+  return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+function classifyDecoration(element2) {
+  if (element2.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
+  if (isEditableComposingContext(element2)) return "skip";
+  const control = interactivePassiveControl(element2);
+  if (control) {
+  if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return "interactive-passive";
+  if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
+  return "interactive-passive";
+  }
+  if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
+  if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
+  return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+}
+function decorationSuppressesRuby(state) {
+  return state === "interactive-passive";
+}
+function stampDecorationState(host, state) {
+  host.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
+}
+function decorationStateForWord(word) {
+  const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
+  const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
+  return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
+}
 const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 const initialWindowAddEventListener = initialWindowMethod("addEventListener");
 const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -4148,8 +4671,6 @@ const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAIL
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
@@ -4189,34 +4710,8 @@ const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECT
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
 const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],${EDITABLE_TEXT_SURFACE_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]`;
 const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
-const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
-const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
-const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
-const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
-const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
-const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
-const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
-const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
-const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
-const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
-const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
-const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
-const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
-const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
-const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
-const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
 const FORM_CONTROL_TEXT_TARGET_SELECTOR = "select,input,textarea";
@@ -4417,7 +4912,9 @@ function shouldRejectInvisibleTextTarget(parent, visibleOnly) {
 function textTargetFromAcceptedNode(node) {
   const parent = node.parentElement;
   if (!parent) return null;
-  const suppressRuby = shouldSuppressCompactScanRuby(parent);
+  const decoration = classifyDecoration(parent);
+  if (decoration === "skip") return null;
+  const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
   const text2 = nodeTextContent(node).trim();
   return {
@@ -4425,6 +4922,7 @@ function textTargetFromAcceptedNode(node) {
   text: text2,
   parent,
   hasNativeRuby: Boolean(parent.closest("ruby")),
+  decoration,
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
@@ -4564,12 +5062,15 @@ function fragmentTextTargetFrom(fragments, options) {
   const parent = trimmedFragments[0]?.node.parentElement;
   if (!parent) return null;
   if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
-  const suppressRuby = fragmentTargetSuppressesCompactScanRuby(parent, trimmedFragments);
+  const decoration = fragmentTargetDecoration(parent, trimmedFragments);
+  if (decoration === "skip") return null;
+  const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
   return {
   text: text2,
   parent,
   fragments: trimmedFragments,
+  decoration,
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
@@ -4589,12 +5090,17 @@ function shadowDomTargetMetadata(parent) {
   shadowRoot: root
   };
 }
-function fragmentTargetSuppressesCompactScanRuby(parent, fragments) {
-  if (shouldSuppressCompactScanRuby(parent)) return true;
-  return fragments.some((fragment) => {
+function fragmentTargetDecoration(parent, fragments) {
+  const parentDecoration = classifyDecoration(parent);
+  if (parentDecoration === "skip" || parentDecoration === "interactive-passive") return parentDecoration;
+  const seen = new Set([parent]);
+  for (const fragment of fragments) {
   const element2 = fragment.node.parentElement;
-  return Boolean(element2 && shouldSuppressCompactScanRuby(element2));
-  });
+  if (!element2 || seen.has(element2)) continue;
+  seen.add(element2);
+  if (classifyDecoration(element2) === "interactive-passive") return "interactive-passive";
+  }
+  return parentDecoration;
 }
 function isCollectableFragmentText(text2, fragments, options) {
   if (!HAS_JAPANESE$1.test(text2)) return false;
@@ -4774,36 +5280,6 @@ function hasRawJapaneseOutsideReaderWords(element2) {
   });
   return Boolean(walker.nextNode());
 }
-function isPassiveInteractionElement(element2) {
-  if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
-  if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
-  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-  if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
-  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-  return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
-}
-function isCompactPassiveInteractionElement(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-  return element2.childElementCount <= 4;
-}
-function isCompactPassiveChromeElement(element2) {
-  if (isLikelyProseElement(element2)) return false;
-  return isCompactPassiveInteractionElement(element2);
-}
-function readableContextPassiveChromeElement(element2) {
-  const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
-  if (interaction) {
-  if (isConversationTextClass(interaction)) return null;
-  if (safeElementMatches$1(interaction, 'a[href],[role="link"]')) return interaction;
-  if (isCompactPassiveInteractionElement(interaction)) return interaction;
-  }
-  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-  if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
-  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-  return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
-}
 function isFragmentPassiveInteractionElement(element2, options) {
   if (isPassiveInteractionElement(element2)) return true;
   return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$3) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
@@ -4825,28 +5301,6 @@ function isLayoutSensitiveTextBox(element2) {
   if (isEllipsisTextRow(style)) return true;
   if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
   return element2.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
-}
-function isEllipsisTextRow(style) {
-  if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
-  return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
-}
-function hasLineClamp(style) {
-  const clamp = style.getPropertyValue("-webkit-line-clamp").trim();
-  return Boolean(clamp && clamp !== "none" && clamp !== "0");
-}
-function hasClippedTextConstraint(style) {
-  if (!clipsOverflow(style)) return false;
-  return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
-}
-function isPositionedTextOverlay(style) {
-  return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
-}
-function clipsOverflow(style) {
-  return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
-}
-function hasDefiniteCssSize(value) {
-  const normalized = value.trim().toLowerCase();
-  return Boolean(normalized && normalized !== "auto" && normalized !== "none" && normalized !== "normal" && normalized !== "initial" && normalized !== "inherit" && normalized !== "unset");
 }
 function trimTextFragments(fragments) {
   const trimmed = fragments.map((fragment) => ({ ...fragment }));
@@ -4954,6 +5408,15 @@ function scanHostIsLiveFrameworkRegion(host) {
   if (!elementIsFrameworkManaged(host)) return false;
   return hostInConversationContext(host);
 }
+function stampTargetDecoration(target, host) {
+  const decoration = target.decoration;
+  if (!decoration) return;
+  stampDecorationState(host, decoration);
+  if (decoration !== "interactive-passive") return;
+  const control = interactivePassiveControl(target.parent);
+  if (control) stampDecorationState(control, decoration);
+  applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
+}
 function applyTokensToScanTarget(target, tokens, settings) {
   if (target.controlTextMirror) {
   applyTokensToControlTextMirrorTarget(target, tokens, settings);
@@ -4964,14 +5427,16 @@ function applyTokensToScanTarget(target, tokens, settings) {
   return;
   }
   if (target.insideShadowDOM) {
+  stampTargetDecoration(target, nonDestructiveScanHost(target));
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
   const nonDestructiveHost = nonDestructiveScanHost(target);
+  stampTargetDecoration(target, nonDestructiveHost);
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
+  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && !target.suppressRuby && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
   const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
   if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
@@ -5487,288 +5952,12 @@ function furiganaSettingsForTarget(settings, parent) {
 }
 function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
   if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
+  if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
   if (targetForcesAllFurigana(parent)) return false;
-  return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
+  return Boolean(suppressRuby);
 }
 function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
-}
-let rubyDistortsConstrainedRowsCache = null;
-function rubyDistortsConstrainedRows() {
-  if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
-  if (!document.body) return false;
-  const host = document.createElement("div");
-  host.style.cssText = "position:absolute;left:-9999px;top:0;";
-  const styledRuby = '<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span>';
-  const clampStyle = "width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
-  const growStyle = "font-size:20px;line-height:24px;white-space:nowrap;";
-  host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div><div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
-  document.body.appendChild(host);
-  const measure = (key) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
-  const probeRt = host.querySelector("rt.jpdb-reader-furi");
-  const probeRtStyle = probeRt ? safeComputedStyle(probeRt) : null;
-  const rtFontSize = probeRtStyle ? Number.parseFloat(probeRtStyle.fontSize || "0") : 0;
-  const readerCssApplied = probeRtStyle?.userSelect === "none" || probeRtStyle?.webkitUserSelect === "none";
-  const collapses = measure("clamp-base") > 0 && measure("clamp") < measure("clamp-base") * 0.6;
-  const grows = measure("grow-base") > 0 && measure("grow") > measure("grow-base") + 6;
-  host.remove();
-  if (!readerCssApplied && rtFontSize > 0) return collapses;
-  rubyDistortsConstrainedRowsCache = collapses || grows;
-  return rubyDistortsConstrainedRowsCache;
-}
-const constrainedRowVerdicts = new WeakMap();
-const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
-function isInsideRubyFragileConstrainedRow(element2) {
-  const now = Date.now();
-  const memo = constrainedRowVerdicts.get(element2);
-  if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-  let value = false;
-  let current = element2;
-  for (let depth = 0; current && depth < 5; depth += 1) {
-  const style = safeComputedStyle(current);
-  if (hasLineClamp(style) || isEllipsisTextRow(style) || clipsOverflow(style) && (() => {
-    const height = current.getBoundingClientRect().height;
-    return height > 0 && height <= 96;
-  })()) {
-    value = true;
-    break;
-  }
-  current = current.parentElement;
-  }
-  constrainedRowVerdicts.set(element2, { at: now, value });
-  return value;
-}
-function hostIsVisuallyBareForMirror(host) {
-  if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
-  return elementHasNoOwnPaint(host);
-}
-function elementHasNoOwnPaint(element2) {
-  const style = safeComputedStyle(element2);
-  if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
-  const background = style.backgroundColor;
-  if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
-  if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
-  if (style.boxShadow && style.boxShadow !== "none") return false;
-  if (borderPaints(style)) return false;
-  for (const pseudo of ["::before", "::after"]) {
-  const content = safePseudoContent(element2, pseudo);
-  if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
-  }
-  return true;
-}
-function borderPaints(style) {
-  return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
-}
-function safePseudoContent(element2, pseudo) {
-  try {
-  return getComputedStyle(element2, pseudo).content;
-  } catch {
-  return "";
-  }
-}
-function shouldSuppressCompactScanRuby(parent) {
-  if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (shouldSuppressCompactMediaRuby(parent)) {
-  markCompactMediaPassiveChrome(parent);
-  return true;
-  }
-  const notice = compactConstrainedNotificationElement(parent);
-  if (notice) markPassiveChromeElement(notice, true);
-  if (isYouTubeHost()) return Boolean(notice);
-  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
-  if (chrome) markPassiveChromeElement(chrome, true);
-  return Boolean(chrome || notice);
-}
-function markCompactMediaPassiveChrome(parent) {
-  const mediaLink = parent.closest('a[href],button,[role="link"],[role="button"]');
-  const host = mediaLink ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
-  markPassiveChromeElement(host, Boolean(mediaLink && isNavigationChromeContext(mediaLink)));
-}
-function markPassiveChromeElement(element2, atomic = false) {
-  element2.dataset.jpdbReaderPassiveChrome = "true";
-  if (atomic) element2.dataset.jpdbReaderPassiveAtomic = "true";
-  if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
-  element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
-  }
-}
-function hasExplicitAccessibleName(element2) {
-  return Boolean(
-  element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
-  );
-}
-function passiveChromeAccessibleLabel(element2) {
-  return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
-}
-function compactInteractiveChromeElement(parent) {
-  const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
-  if (!chrome) return null;
-  const text2 = compactInteractiveChromeText(chrome);
-  if (!isCompactInteractiveChromeText(text2)) return null;
-  if (safeElementMatches$1(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-  return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
-  }
-  return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
-}
-function compactInteractiveChromeText(element2) {
-  return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-}
-function compactPassiveChromeElement(parent) {
-  if (isReadableProseContext(parent)) return null;
-  if (!isCompactInteractiveChromeContext(parent)) return null;
-  const text2 = compactInteractiveChromeText(parent);
-  if (!isCompactInteractiveChromeText(text2)) return null;
-  return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
-}
-function compactPassiveInteractionRubyElement(parent) {
-  if (isReadableProseContext(parent)) return null;
-  const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-  if (!interaction) return null;
-  if (safeElementMatches$1(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
-  if (isLikelyProseElement(interaction)) return null;
-  if (!isCompactPassiveInteractionElement(interaction)) return null;
-  const style = safeComputedStyle(interaction);
-  if (isVerticalWritingMode(style.writingMode)) return interaction;
-  if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
-  if (isCompactInteractiveChromeContext(interaction)) return interaction;
-  return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
-}
-function isCompactInteractiveChromeText(text2) {
-  const length = compactLength(text2);
-  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
-}
-function isCompactInteractiveChromeLink(link, parent, text2) {
-  if (isLikelyProseLink(link, parent)) return false;
-  if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
-  return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
-}
-function isCompactInteractiveChromeControl(control, parent) {
-  if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
-  if (safeElementMatches$1(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
-  const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches$1(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
-  return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
-}
-function isCompactInteractiveChromeContext(element2) {
-  return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
-}
-function hasCompactInteractiveChromeGeometry(element2) {
-  const style = safeComputedStyle(element2);
-  const rect = element2.getBoundingClientRect();
-  if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
-  if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
-  return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
-}
-function hasCompactInteractiveChromeRubyRisk(element2) {
-  const style = safeComputedStyle(element2);
-  if (isVerticalWritingMode(style.writingMode)) return true;
-  if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-  if (isCompactInteractiveChromeContext(element2)) return true;
-  if (safeElementMatches$1(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
-  if (!hasCompactInteractiveChromeGeometry(element2)) return false;
-  if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
-  return clipsOverflow(style) && style.whiteSpace === "nowrap";
-}
-function compactConstrainedNotificationElement(parent) {
-  if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
-  let current = parent;
-  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-  if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
-  if (isConstrainedNotificationContainer(current, parent)) return current;
-  current = current.parentElement;
-  }
-  return null;
-}
-function isConstrainedNotificationContainer(container, textElement) {
-  if (!isNotificationLikeContainer(container)) return false;
-  if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
-  return hasNotificationActionPeer(container, textElement);
-}
-function isNotificationLikeContainer(container) {
-  return safeElementMatches$1(container, CONSTRAINED_NOTIFICATION_SELECTOR);
-}
-function hasConstrainedNotificationGeometry(container, textElement) {
-  const rect = container.getBoundingClientRect();
-  const textRect = textElement.getBoundingClientRect();
-  return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
-}
-function notificationContainerLooksLikePageSection(container) {
-  const rect = container.getBoundingClientRect();
-  if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
-  return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
-}
-function hasNotificationActionPeer(container, textElement) {
-  const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
-  if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
-  if (container === textElement) return false;
-  const row = container.parentElement;
-  if (!row) return false;
-  return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
-}
-function shouldSuppressCompactMediaRuby(parent) {
-  return isYouTubeFeedbackChromeLinkText(parent);
-}
-function isYouTubeHost() {
-  const hostname = location.hostname.toLowerCase();
-  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
-}
-function isYouTubeFeedbackChromeLinkText(parent) {
-  if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-  return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
-}
-function closestMediaCarousel(parent) {
-  let current = parent;
-  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-  const match = mediaCarouselMatch(current);
-  if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === "explicit" };
-  current = current.parentElement;
-  }
-  return null;
-}
-function mediaCarouselMatch(element2) {
-  const className = elementClassName(element2);
-  if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className) || element2.hasAttribute("data-carousel") || element2.hasAttribute("data-slider")) return "explicit";
-  return MEDIA_CAROUSEL_CLASS_RE.test(className) ? "implicit" : null;
-}
-function mediaCarouselClipsHorizontally(element2) {
-  const style = safeComputedStyle(element2);
-  if (style.overflowX === "hidden" || style.overflowX === "clip") return true;
-  if ((style.overflowX === "auto" || style.overflowX === "scroll") && element2.clientWidth > 0) return true;
-  return element2.clientWidth > 0 && element2.scrollWidth > element2.clientWidth + 1;
-}
-function isNavigationChromeContext(element2) {
-  return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-}
-function closestCompactMediaContext(parent) {
-  let current = parent;
-  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT; depth++) {
-  if (isReadableProseContext(current)) return null;
-  if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
-  current = current.parentElement;
-  }
-  return null;
-}
-function isVerticalWritingMode(writingMode) {
-  return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
-}
-function hasMediaPeer(container, textElement) {
-  return Array.from(container.querySelectorAll("img, picture, video, canvas")).some((media) => {
-  if (!(media instanceof HTMLElement)) return false;
-  if (media.closest(READER_ROOT_SELECTOR$3)) return false;
-  return media !== textElement && !textElement.contains(media);
-  });
-}
-function isCompactMediaContext(element2) {
-  const style = safeComputedStyle(element2);
-  const rect = element2.getBoundingClientRect();
-  if (element2.matches('a[href], button, [role="link"], [role="button"]')) return true;
-  if (safeQuerySelector(element2, 'a[href], button, [role="link"], [role="button"]')) return true;
-  const display = style.display;
-  const structured = display.includes("grid") || display.includes("flex") || display === "block";
-  const compact = rect.width === 0 || rect.width <= 560;
-  return structured && compact;
 }
 function nonDestructiveScanHost(target) {
   if (!isFragmentTextTarget$1(target)) return target.parent;
@@ -7385,38 +7574,6 @@ function hasProminentCenteredTypography(style, fontSize) {
 function isReadableArticleHeading(element2, compactLength2) {
   return compactLength2 >= 4 && Boolean(element2.closest('article, main, [role="main"]'));
 }
-function hasUiBox(style) {
-  return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
-}
-function hasInlineControlShape(display) {
-  return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
-}
-function isLikelyProseElement(element2) {
-  if (PROSE_TAGS.includes(`,${element2.tagName},`)) return true;
-  return isLikelyProseClass(element2) || isConversationTextClass(element2);
-}
-function isReadableProseContext(element2) {
-  let current = element2;
-  while (current && current !== document.body && current !== document.documentElement) {
-  if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-  if (isConversationTextClass(current)) return true;
-  current = current.parentElement;
-  }
-  return false;
-}
-function isLikelyProseClass(element2) {
-  return PROSE_CLASS_RE.test(elementClassName(element2));
-}
-function isConversationTextClass(element2) {
-  return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
-}
-function elementClassName(element2) {
-  return String(element2.className || "");
-}
-function cssPixels(value) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 function ancestorClassLooksLikeUi(element2) {
   let current = element2;
   while (current) {
@@ -7437,62 +7594,6 @@ function isInsideMediaTextLink(element2, text2) {
   const link = element2.closest("a[href]");
   if (!link || isLikelyProseLink(link, element2)) return false;
   return linkHasControlMedia(link) && compactLength(text2) > 2;
-}
-function isLikelyProseLink(link, element2) {
-  return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
-}
-function isExplicitControlLink(link) {
-  return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
-}
-function linkHasControlMedia(link) {
-  return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
-}
-function linkHasControlShape(link, text2) {
-  const style = safeComputedStyle(link);
-  const rect = link.getBoundingClientRect();
-  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
-}
-function safeElementMatches$1(element2, selector) {
-  try {
-  return element2.matches(selector);
-  } catch {
-  return false;
-  }
-}
-function safeQuerySelector(root, selector) {
-  try {
-  return root.querySelector(selector);
-  } catch {
-  return null;
-  }
-}
-function safeComputedStyle(element2) {
-  try {
-  return getComputedStyle(element2);
-  } catch {
-  return element2.style;
-  }
-}
-function hasShortControlLinkText(link, text2) {
-  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
-}
-function compactLength(value) {
-  return Array.from(value.replace(/\s+/g, "")).length;
-}
-function hasControlLinkWidth(rect) {
-  return rect.width > 0 && rect.width < 360;
-}
-function hasControlLinkStyle(style) {
-  return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
-}
-function hasControlLinkDisplay(display) {
-  return display.includes("flex") || display.includes("grid") || display === "inline-block";
-}
-function hasVisibleControlLinkBox(style) {
-  return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
-}
-function hasVisibleBorderSide(style, width) {
-  return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
@@ -7548,12 +7649,15 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   const words = root.querySelectorAll(".jpdb-reader-word");
   for (const word of words) {
   if (!word.querySelector("rt")) continue;
-  for (const box of cropCapableBoxes(word.parentElement)) {
+  const decoration = decorationStateForWord(word);
+  if (decoration === "interactive-passive" || decoration === "skip") continue;
+  const mirror = word.closest(".jpdb-reader-text-mirror");
+  for (const box of cropCapableBoxes(word.parentElement, mirror)) {
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
     const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
-    if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
-    for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
-      const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
+    if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
+    for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+      const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
       const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
       if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
@@ -7564,6 +7668,7 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   }
   let adjusted = 0;
   for (const [box, { roomHeight, topDeficit }] of decisions) {
+  recordRubyRoomGrowth(box);
   box.dataset.yomuRubyRoom = "true";
   box.dataset.yomuRubyRoomHeight = String(roomHeight);
   makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
@@ -7571,6 +7676,41 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   adjusted += 1;
   }
   return adjusted;
+}
+const rubyRoomGrowthRecords = new WeakMap();
+function recordRubyRoomGrowth(box) {
+  if (rubyRoomGrowthRecords.has(box)) return;
+  rubyRoomGrowthRecords.set(box, {
+  minHeight: box.style.getPropertyValue("min-height"),
+  minHeightPriority: box.style.getPropertyPriority("min-height"),
+  height: box.style.getPropertyValue("height"),
+  heightPriority: box.style.getPropertyPriority("height"),
+  maxHeight: box.style.getPropertyValue("max-height"),
+  maxHeightPriority: box.style.getPropertyPriority("max-height"),
+  paddingTop: box.style.getPropertyValue("padding-top"),
+  paddingTopPriority: box.style.getPropertyPriority("padding-top")
+  });
+}
+function releaseRubyRoomGrowth(root = document) {
+  const boxes = [];
+  if (root instanceof HTMLElement && root.matches("[data-yomu-ruby-room]")) boxes.push(root);
+  boxes.push(...Array.from(root.querySelectorAll("[data-yomu-ruby-room]")));
+  for (const box of boxes) {
+  const record = rubyRoomGrowthRecords.get(box);
+  restoreRubyRoomProperty(box, "min-height", record?.minHeight, record?.minHeightPriority);
+  restoreRubyRoomProperty(box, "height", record?.height, record?.heightPriority);
+  restoreRubyRoomProperty(box, "max-height", record?.maxHeight, record?.maxHeightPriority);
+  restoreRubyRoomProperty(box, "padding-top", record?.paddingTop, record?.paddingTopPriority);
+  delete box.dataset.yomuRubyRoom;
+  delete box.dataset.yomuRubyRoomHeight;
+  delete box.dataset.yomuRubyRoomPadTop;
+  rubyRoomGrowthRecords.delete(box);
+  }
+  return boxes.length;
+}
+function restoreRubyRoomProperty(box, property, value, priority2) {
+  if (value) box.style.setProperty(property, value, priority2);
+  else box.style.removeProperty(property);
 }
 const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
 const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
@@ -7586,8 +7726,8 @@ function previousRubyRoomTopPad(box) {
   const value = Number(box.dataset.yomuRubyRoomPadTop ?? "");
   return Number.isFinite(value) ? value : 0;
 }
-function rubyCropsBox(box) {
-  return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
+function rubyCropsBox(box, mirror) {
+  return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 function rubyTouchesBoxTop(box) {
   const style = safeComputedStyle(box);
@@ -7595,33 +7735,45 @@ function rubyTouchesBoxTop(box) {
   if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
   return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
-function genericRubyNeedsRoom(box) {
-  return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box) || rubyOverflowsCompactClippedRow(box);
+function genericRubyNeedsRoom(box, mirror) {
+  return rubyCropsBox(box, mirror) || rubyLayoutOverflowsShortRow(box, mirror) || rubyOverflowsCompactClippedRow(box, mirror);
 }
-function rubyOverflowsCompactClippedRow(box) {
+function rubyOverflowsCompactClippedRow(box, mirror) {
   const clientHeight = box.clientHeight;
   if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
   if (isReadableProseContext(box)) return false;
   if (isVisuallyHiddenBox(box)) return false;
-  if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
-  const overflow = compactClippedRubyOverflow(box) - clientHeight;
+  if (!boxHasRubySignal(box, mirror)) return false;
+  const overflow = compactClippedRubyOverflow(box, mirror) - clientHeight;
   return overflow > 2 && overflow <= RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX;
+}
+function ownedRubyMirrorFor(box, mirror) {
+  return mirror && box.contains(mirror) ? mirror : null;
+}
+function ownedRubyMirrorWithRuby(box, mirror) {
+  const owned = ownedRubyMirrorFor(box, mirror);
+  return owned?.dataset.jpdbReaderHasRuby === "true" ? owned : null;
+}
+function boxHasRubySignal(box, mirror) {
+  if (ownedRubyMirrorWithRuby(box, mirror)) return true;
+  const word = box.querySelector(".jpdb-reader-word rt");
+  return Boolean(word && !word.closest(".jpdb-reader-text-mirror"));
 }
 function isVisuallyHiddenBox(box) {
   const visibility = safeComputedStyle(box).visibility;
   return visibility === "hidden" || visibility === "collapse";
 }
-function compactClippedRubyOverflow(box) {
-  const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-  return Math.max(box.scrollHeight, mirror ? mirror.scrollHeight : 0);
+function compactClippedRubyOverflow(box, mirror) {
+  const owned = ownedRubyMirrorWithRuby(box, mirror);
+  return Math.max(box.scrollHeight, owned ? owned.scrollHeight : 0);
 }
-function genericRubyRoomHeight(box) {
-  const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-  const shortRowHeight = rubyLayoutOverflowsShortRow(box) ? box.scrollHeight : 0;
-  const compactRowHeight = rubyOverflowsCompactClippedRow(box) ? compactClippedRubyOverflow(box) : 0;
+function genericRubyRoomHeight(box, mirror) {
+  const owned = ownedRubyMirrorWithRuby(box, mirror);
+  const shortRowHeight = rubyLayoutOverflowsShortRow(box, mirror) ? box.scrollHeight : 0;
+  const compactRowHeight = rubyOverflowsCompactClippedRow(box, mirror) ? compactClippedRubyOverflow(box, mirror) : 0;
   return Math.ceil(Math.max(
   box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
-  mirror ? mirror.scrollHeight : 0,
+  owned ? owned.scrollHeight : 0,
   shortRowHeight,
   compactRowHeight
   ));
@@ -7631,18 +7783,18 @@ const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = `:is(#botstuff,#bres,.MjjYud,[data-at
 function isGoogleSearchRubyRoomTextBox(box) {
   return /(^|\.)google\./i.test(location.hostname) && location.pathname === "/search" && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
 }
-function rubyRoomBoxesForCroppedBox(box, curated) {
+function rubyRoomBoxesForCroppedBox(box, curated, mirror) {
   if (!curated) return [box];
   const boxes = [box];
-  const googleControl = googleSearchRubyRoomControl(box);
+  const googleControl = googleSearchRubyRoomControl(box, mirror);
   if (googleControl && googleControl !== box) boxes.push(googleControl);
   return boxes;
 }
-function googleSearchRubyRoomControl(box) {
+function googleSearchRubyRoomControl(box, mirror) {
   if (!/(^|\.)google\./i.test(location.hostname) || location.pathname !== "/search") return null;
   const control = box.closest(RUBY_ROOM_GOOGLE_CONTROL_SELECTOR);
   if (!control || !safeElementMatches$1(control, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)) return null;
-  if (!control.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return null;
+  if (!ownedRubyMirrorWithRuby(control, mirror)) return null;
   return control;
 }
 function isYouTubeRubyRoomTextBox(box) {
@@ -7671,45 +7823,35 @@ function makeRoomForRubyInBox(box, style, roomHeight, topDeficit = 0) {
   box.style.setProperty("max-height", contentHeight, "important");
   }
 }
-function cropCapableBoxes(element2) {
+function cropCapableBoxes(element2, mirror) {
   const boxes = [];
   let fallback;
   let current = element2;
   while (current && current !== document.body && current !== document.documentElement) {
   if (current.dataset.jpdbReaderRoot) break;
-  if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current)) {
+  if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current, mirror)) {
     boxes.push(current);
-  } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector(".jpdb-reader-text-mirror")) {
+  } else if (!fallback && isYouTubeRubyRoomTextBox(current) && ownedRubyMirrorFor(current, mirror)) {
     fallback = current;
   }
   current = current.parentElement;
   }
   return boxes.length || !fallback ? boxes : [fallback];
 }
-const clipCapableStyleVerdicts = new WeakMap();
-function boxStyleIsClipCapable(box) {
-  const now = Date.now();
-  const memo = clipCapableStyleVerdicts.get(box);
-  if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-  const style = safeComputedStyle(box);
-  const value = hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style);
-  clipCapableStyleVerdicts.set(box, { at: now, value });
-  return value;
-}
 const shortRowVerdicts = new WeakMap();
-function rubyLayoutOverflowsShortRow(box) {
+function rubyLayoutOverflowsShortRow(box, mirror) {
   const now = Date.now();
   const memo = shortRowVerdicts.get(box);
   if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-  const value = rubyLayoutOverflowsShortRowUncached(box);
+  const value = rubyLayoutOverflowsShortRowUncached(box, mirror);
   shortRowVerdicts.set(box, { at: now, value });
   return value;
 }
-function rubyLayoutOverflowsShortRowUncached(box) {
+function rubyLayoutOverflowsShortRowUncached(box, mirror) {
   if (safeElementMatches$1(box, ".jpdb-reader-word,ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base")) return false;
   const clientHeight = box.clientHeight;
   if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
-  if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+  if (!boxHasRubySignal(box, mirror)) return false;
   const overflow = box.scrollHeight - clientHeight;
   if (overflow <= 2 || overflow > RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX) return false;
   const style = safeComputedStyle(box);
@@ -7719,12 +7861,12 @@ function rubyLayoutOverflowsShortRowUncached(box) {
 function isShortRubyRowDisplay(style) {
   return style.display.includes("flex") || style.display.includes("grid") || style.display === "block" || style.display === "flow-root" || style.display === "list-item" || style.display === "table" || style.display === "table-row" || style.display === "table-cell" || style.display === "inline-block";
 }
-function boxActuallyCrops(box) {
-  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
+function boxActuallyCrops(box, mirror) {
+  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
-function rubyRoomHeight(box) {
-  const mirror = box.querySelector(".jpdb-reader-text-mirror");
-  const mirrorHeight = mirror ? mirror.scrollHeight : 0;
+function rubyRoomHeight(box, mirror) {
+  const owned = ownedRubyMirrorFor(box, mirror);
+  const mirrorHeight = owned ? owned.scrollHeight : 0;
   const measuredHeight = Math.max(
   box.scrollHeight,
   box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
@@ -7733,10 +7875,10 @@ function rubyRoomHeight(box) {
   const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX && mirrorHeight > box.clientHeight + RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX;
   return Math.ceil(measuredHeight + (wrappedMirror ? RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX : 0));
 }
-function rubyMirrorBlockOverflow(box) {
-  const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-  if (!mirror) return 0;
-  return Math.max(0, mirror.scrollHeight - box.clientHeight);
+function rubyMirrorBlockOverflow(box, mirror) {
+  const owned = ownedRubyMirrorWithRuby(box, mirror);
+  if (!owned) return 0;
+  return Math.max(0, owned.scrollHeight - box.clientHeight);
 }
 function rubyTopOverflow(box) {
   return Math.max(0, rubyTopOverflowRaw(box));
@@ -27637,20 +27779,17 @@ function targetSpansMultipleYouTubeWatchMetadataTextHosts(target) {
 }
 function siteScanTargetWithProfileOptions(profile, target) {
   const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-  const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
   const youtubePassiveChrome = isYouTubeSiteParserProfile(profile) && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
   const baseTarget = {
   ...target,
   parserId: profile.id,
-  suppressRuby: targetSuppressRuby || suppressRuby || void 0,
+  decoration: target.decoration ?? classifyDecoration(target.parent),
+  suppressRuby: target.suppressRuby || suppressRuby || void 0,
   passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
   singlePassScan: profile.singlePassScan || void 0,
   nonDestructive: profile.nonDestructive || void 0
   };
   return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
-}
-function profileKeepsProfileRootRuby(profile) {
-  return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
 function isYouTubeSiteParserProfile(profile) {
   return profile.id.startsWith("youtube-");
@@ -36086,6 +36225,7 @@ class ReaderApp {
   }
   clearAllAnnotations() {
   removeNonDestructiveScanMirrors(document);
+  releaseRubyRoomGrowth(document);
   document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
     if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
       const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");

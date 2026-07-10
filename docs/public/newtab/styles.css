@@ -7126,6 +7126,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ytm-reel-player-overlay-renderer,
   ytm-shorts-video-title-view-model,
   .jpdb-reader-control-text-mirror,
+  /* The DecorationPolicy stamp: ONE attribute the scanner writes at apply
+     time for every interactive-passive host — colour and pitch underline
+     stay; only the highlight channel is stripped at rest. */
+  [data-yomu-decoration="interactive-passive"],
   [data-jpdb-reader-passive-chrome="true"]
 ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) {
   --jpdb-reader-word-accessible-highlight: transparent;
