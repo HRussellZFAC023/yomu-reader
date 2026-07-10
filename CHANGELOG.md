@@ -8,7 +8,7 @@
 
 ### Improved
 
-- The subtitle move handle now has a 44 × 44 px mobile touch target, an explicit keyboard focus ring, and screen-reader instructions for its drag, arrow/Page Up/Page Down, and reset controls. Idle controls are removed from keyboard and screen-reader navigation until the video or subtitle surface reveals them, avoiding invisible focus targets, while deliberate hardware-keyboard focus stays visible on touch devices and resumes auto-hide after focus leaves.
+- The subtitle move handle now has a 44 × 44 px mobile touch target, an explicit keyboard focus ring, and screen-reader instructions for its drag, arrow/Page Up/Page Down, and reset controls. Idle controls stay out of sight without becoming keyboard- or screen-reader-inaccessible: tabbing to the move handle or rail reveals it immediately, deliberate hardware-keyboard focus stays visible on touch devices, and the controls fade again after focus leaves.
 
 ## [1.6.116] - 2026-07-10
 

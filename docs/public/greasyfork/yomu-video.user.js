@@ -11192,6 +11192,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         subtree: true
       });
       document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions({ capture: true }));
+      document.addEventListener("focusin", (event) => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
       document.addEventListener("focusout", (event) => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
       document.addEventListener("click", (event) => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
@@ -13235,6 +13236,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const target = event.target instanceof Element ? event.target : null;
       const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
       if (hitSubtitleContent) return;
+      if (target && this.isInNativeVideoPlayer(target)) return;
       event.preventDefault();
       event.stopPropagation();
       const player = this.video?.closest("#movie_player, .html5-video-player");
@@ -13252,8 +13254,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (!this.hasActiveSubtitleUi()) this.scheduleControlsIdle();
       });
     }
+    handleSubtitleUiFocusIn(event) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || !this.isInSubtitleUi(target)) return;
+      this.showControlsTemporarily();
+    }
     isInSubtitleUi(element) {
       return Boolean(this.root?.contains(element) || this.asbPlayerSubtitleMoveRoots().some((root) => root.contains(element)));
+    }
+    isInNativeVideoPlayer(element) {
+      if (element === this.video) return true;
+      const player = this.video?.closest("#movie_player, .html5-video-player, ytm-player, #player");
+      return Boolean(player?.contains(element));
     }
     syncPointerActivity(clientX, clientY) {
       if (this.pointInVisibleSubtitleSurface(clientX, clientY)) {
@@ -13626,7 +13638,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     showControlsTemporarily(options = {}) {
       if (!this.root) return;
-      this.subtitleSurfaceWakeActive = options.independentOfPlayerChrome === true && this.hasAutoIdleMode(this.options.getSettings());
+      if (options.independentOfPlayerChrome === true) {
+        this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
+      }
       this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
@@ -13709,10 +13723,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
     }
     handleKeydown(event) {
-      this.lastControlsInputWasKeyboard = true;
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       if (isEditableTarget(event.target)) return;
+      this.lastControlsInputWasKeyboard = true;
       const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
       const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
       if (previousSubtitle || nextSubtitle) {

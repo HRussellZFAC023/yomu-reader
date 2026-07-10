@@ -1228,6 +1228,7 @@ export class SubtitlePlayerController {
         // event entirely. handleKeydown only preventDefaults on a configured
         // shortcut match, so unmatched keys pass through untouched.
         document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions({ capture: true }));
+        document.addEventListener('focusin', event => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
         document.addEventListener('focusout', event => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
         // Reader-word handlers may stop pointerdown propagation for lookup.
         // Observe the subtitle rectangle first so tapping any part of a moved
@@ -3681,6 +3682,11 @@ export class SubtitlePlayerController {
         const target = event.target instanceof Element ? event.target : null;
         const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
         if (hitSubtitleContent) return;
+        // While the subtitle is still over the video, preserve the player's
+        // native click/tap behavior (play/pause or revealing its own chrome).
+        // The click shield is only for a displaced line landing over page
+        // content below the player.
+        if (target && this.isInNativeVideoPlayer(target)) return;
         // The subtitle frame itself intentionally has pointer-events:none so
         // annotated words remain the only painted hit targets. Once the line
         // is moved outside the player, however, blank space in that frame can
@@ -3708,9 +3714,24 @@ export class SubtitlePlayerController {
         });
     }
 
+    private handleSubtitleUiFocusIn(event: FocusEvent): void {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !this.isInSubtitleUi(target)) return;
+        // Idle controls remain in the accessibility tree as a skip-link-style
+        // gateway. Real DOM focus must paint the whole control cluster even on
+        // touch browsers whose :focus-within invalidation can lag behind Tab.
+        this.showControlsTemporarily();
+    }
+
     private isInSubtitleUi(element: Element): boolean {
         return Boolean(this.root?.contains(element)
             || this.asbPlayerSubtitleMoveRoots().some(root => root.contains(element)));
+    }
+
+    private isInNativeVideoPlayer(element: Element): boolean {
+        if (element === this.video) return true;
+        const player = this.video?.closest('#movie_player, .html5-video-player, ytm-player, #player');
+        return Boolean(player?.contains(element));
     }
 
     private syncPointerActivity(clientX: number, clientY: number): void {
@@ -4149,8 +4170,9 @@ export class SubtitlePlayerController {
 
     private showControlsTemporarily(options: { independentOfPlayerChrome?: boolean } = {}): void {
         if (!this.root) return;
-        this.subtitleSurfaceWakeActive = options.independentOfPlayerChrome === true
-            && this.hasAutoIdleMode(this.options.getSettings());
+        if (options.independentOfPlayerChrome === true) {
+            this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
+        }
         this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.syncAsbPlayerSubtitleMoveHandles();
         this.scheduleControlsIdle();
@@ -4264,10 +4286,10 @@ export class SubtitlePlayerController {
     }
 
     private handleKeydown(event: KeyboardEvent): void {
-        this.lastControlsInputWasKeyboard = true;
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
         if (isEditableTarget(event.target)) return;
+        this.lastControlsInputWasKeyboard = true;
         const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
         const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
         if (previousSubtitle || nextSubtitle) {
