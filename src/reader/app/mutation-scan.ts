@@ -88,6 +88,9 @@ function styleOrClassMutationRevealsJapaneseText(mutation: MutationRecord, attri
 }
 
 function elementRendersNow(element: HTMLElement): boolean {
+    // Detached nodes can appear in queued records after a framework swap —
+    // nothing to reveal there.
+    if (!element.isConnected) return false;
     if (element.closest('[hidden]')) return false;
     if (typeof element.checkVisibility === 'function') return element.checkVisibility();
     const view = element.ownerDocument.defaultView;
