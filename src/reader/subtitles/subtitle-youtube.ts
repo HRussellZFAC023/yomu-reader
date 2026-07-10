@@ -196,8 +196,19 @@ export function isYouTubePage(): boolean {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
 }
 
+// Feed hover-preview players (inline previews on home/subscriptions tiles and
+// the moving-thumbnail variant). Deterministic container facts, no geometry:
+// binding the subtitle controller to these would paint a caption box over a
+// hover preview and burn per-hover discovery work.
+const YOUTUBE_PREVIEW_CONTAINER_SELECTOR = 'ytd-video-preview, #inline-preview-player, ytd-moving-thumbnail-renderer, ytm-video-preview';
+
+export function isYouTubeFeedPreviewVideo(video: HTMLVideoElement | undefined): boolean {
+    return Boolean(video?.closest(YOUTUBE_PREVIEW_CONTAINER_SELECTOR));
+}
+
 export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined): boolean {
     if (!isYouTubePage()) return true;
+    if (isYouTubeFeedPreviewVideo(video)) return false;
     const currentVideoId = getYouTubeVideoId();
     if (!video || !currentVideoId) return false;
     const player = video.closest<HTMLElement>(YOUTUBE_VIDEO_PLAYER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;

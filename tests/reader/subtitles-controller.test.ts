@@ -747,6 +747,183 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('caches the fullscreen host query between geometry samples and refreshes it on fullscreen signals', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        try {
+            document.body.insertAdjacentHTML('beforeend', '<div id="movie_player" class="html5-video-player"><video></video></div>');
+            const player = document.getElementById('movie_player')!;
+            const video = player.querySelector('video') as HTMLVideoElement;
+            // init (not bare install): the fullscreenchange listeners and the
+            // fullscreen-attribute observer under test are registered there.
+            controller.init();
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
+            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+
+            // The 120ms geometry sampler reads this on every sample while NOT
+            // fullscreen; the 10-selector document.querySelectorAll walk was
+            // ~1.4% of a core (profiled). Steady-state reads must be O(1).
+            const querySpy = vi.spyOn(document, 'querySelectorAll');
+            const singleQuerySpy = vi.spyOn(document, 'querySelector');
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+            expect(querySpy).not.toHaveBeenCalled();
+            expect(singleQuerySpy.mock.calls.filter(call => String(call[0]).includes('data-yomu-inline-fullscreen'))).toHaveLength(0);
+            querySpy.mockRestore();
+            singleQuerySpy.mockRestore();
+
+            // CSS-class fullscreen (YouTube's fake/inline flavor) + the
+            // fullscreenchange signal the redirect and browsers both emit.
+            player.classList.add('ytp-fullscreen');
+            document.dispatchEvent(new Event('fullscreenchange'));
+            expect(internals.subtitleFullscreenHost()).toBe(player);
+
+            player.classList.remove('ytp-fullscreen');
+            document.dispatchEvent(new Event('fullscreenchange'));
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+
+            // Real element fullscreen bypasses the cache entirely (the
+            // fullscreenElement branch), so a stale cache can never shadow it.
+            const fullscreenStub = stubFullscreenElement(player);
+            try {
+                expect(internals.subtitleFullscreenHost()).toBe(player);
+            } finally {
+                fullscreenStub.restore();
+            }
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller.destroy();
+        }
+    });
+
+    it('refreshes the cached fullscreen host from the fullscreen-affecting attribute observer', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        try {
+            document.body.insertAdjacentHTML('beforeend', '<div id="movie_player" class="html5-video-player"><video></video></div>');
+            const player = document.getElementById('movie_player')!;
+            const video = player.querySelector('video') as HTMLVideoElement;
+            controller.init();
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
+            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+
+            // No fullscreenchange this time: the body attribute observer
+            // (class/fullscreen/data-yomu-inline-fullscreen filter) is the
+            // invalidation signal for YouTube's class-driven fullscreen.
+            player.classList.add('ytp-fullscreen');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(internals.subtitleFullscreenHost()).toBe(player);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller.destroy();
+        }
+    });
+
+    it('re-reads native cue lists only when dirty or stale, not on every tick', () => {
+        const { settings, controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{
+                tickSubtitlePlayer: (settings: ReaderSettings) => void;
+                markNativeCueListsDirty: () => void;
+                lastForcedNativeCueRefreshAt: number;
+                refreshNativeCueLists: () => void;
+            }>(controller);
+            const refreshSpy = vi.spyOn(internals, 'refreshNativeCueLists');
+
+            internals.tickSubtitlePlayer(settings);
+            expect(refreshSpy).toHaveBeenCalledTimes(1);
+
+            // Steady-state ticks within the staleness bound skip the re-read
+            // (this was an every-500ms full readTextTrackCues normalization).
+            internals.tickSubtitlePlayer(settings);
+            internals.tickSubtitlePlayer(settings);
+            expect(refreshSpy).toHaveBeenCalledTimes(1);
+
+            // Track/selection signals mark dirty for a same-tick refresh.
+            internals.markNativeCueListsDirty();
+            internals.tickSubtitlePlayer(settings);
+            expect(refreshSpy).toHaveBeenCalledTimes(2);
+
+            // Silent cue-list appends fire no event: bounded forced re-read.
+            internals.lastForcedNativeCueRefreshAt = 0;
+            internals.tickSubtitlePlayer(settings);
+            expect(refreshSpy).toHaveBeenCalledTimes(3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('marks cue lists dirty from track add and cuechange so discovery latency does not regress', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{
+                addNativeTrack: (track: TextTrack) => void;
+                nativeCueListsDirty: boolean;
+            }>(controller);
+            internals.nativeCueListsDirty = false;
+            const listeners: Record<string, () => void> = {};
+            const track = {
+                label: 'Japanese',
+                language: 'ja',
+                mode: 'hidden',
+                cues: [],
+                addEventListener: (name: string, handler: () => void) => { listeners[name] = handler; },
+            } as unknown as TextTrack;
+
+            internals.addNativeTrack(track);
+            expect(internals.nativeCueListsDirty).toBe(true);
+
+            internals.nativeCueListsDirty = false;
+            listeners.cuechange?.();
+            expect(internals.nativeCueListsDirty).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('skips the m.youtube controls-inset query on pages that cannot have it', () => {
+        const { settings, controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{ tickSubtitlePlayer: (settings: ReaderSettings) => void }>(controller);
+            const querySpy = vi.spyOn(document, 'querySelector');
+            internals.tickSubtitlePlayer(settings);
+            expect(querySpy.mock.calls.filter(call => call[0] === '#player-control-overlay')).toHaveLength(0);
+            querySpy.mockRestore();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('still measures the m.youtube top control row on m.youtube', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { settings, controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{ tickSubtitlePlayer: (settings: ReaderSettings) => void }>(controller);
+            const querySpy = vi.spyOn(document, 'querySelector');
+            internals.tickSubtitlePlayer(settings);
+            expect(querySpy.mock.calls.filter(call => call[0] === '#player-control-overlay').length).toBeGreaterThan(0);
+            querySpy.mockRestore();
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller.destroy();
+        }
+    });
+
     it('realigns subtitles immediately when fullscreen starts while the video is playing', () => {
         withViewport(1280, 720, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
@@ -4769,6 +4946,13 @@ Watch the cat
 
     it('keeps the rail in lockstep with the mobile player chrome, blurring sticky tapped buttons', () => {
         let controller: SubtitlePlayerController | undefined;
+        // #player-control-overlay is m.youtube chrome; the controller only
+        // probes for it there (the per-tick query burned cycles elsewhere).
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
         try {
             document.body.innerHTML = '<div id="player-control-overlay" class="fadein"><video></video></div>';
             controller = createInstalledSubtitleController().controller;
@@ -4796,6 +4980,7 @@ Watch the cat
             internals.syncPlayerChromeIdleState();
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
         } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             controller?.destroy();
         }
     });

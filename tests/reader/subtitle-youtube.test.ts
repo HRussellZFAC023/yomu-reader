@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { activateYouTubeCaptionTrack, getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
+import { activateYouTubeCaptionTrack, getYouTubeCaptionTracks, isYouTubeFeedPreviewVideo, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
 
 const originalLocation = window.location;
 const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
@@ -16,6 +16,43 @@ afterEach(() => {
 });
 
 describe('YouTube subtitle captions', () => {
+    it('rejects feed hover-preview players as subtitle video owners', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        // The inline preview player is a full-size .html5-video-player, so the
+        // size/visibility fallback would otherwise accept it; the container is
+        // the deterministic fact that this is a hover preview, not the player.
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <ytd-video-preview>
+                    <div id="inline-preview-player" class="html5-video-player"></div>
+                </ytd-video-preview>
+            </ytd-rich-item-renderer>
+        `;
+        const video = document.createElement('video');
+        mockVideoRect(video, 960, 540);
+        document.getElementById('inline-preview-player')!.append(video);
+
+        expect(isYouTubeFeedPreviewVideo(video)).toBe(true);
+        expect(isYouTubeOwnedVideoElement(video)).toBe(false);
+    });
+
+    it('does not flag the real watch player as a feed preview', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player"></div>';
+        const video = document.createElement('video');
+        mockVideoRect(video, 960, 540);
+        document.getElementById('movie_player')!.append(video);
+
+        expect(isYouTubeFeedPreviewVideo(video)).toBe(false);
+        expect(isYouTubeOwnedVideoElement(video)).toBe(true);
+    });
+
     it('accepts current YouTube watch player wrappers as subtitle video owners', () => {
         Object.defineProperty(window, 'location', {
             configurable: true,
