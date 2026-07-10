@@ -297,7 +297,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         // CSS-driven so :hover / ruby-room growth can release it.
         const restRule = mirrorCss.match(/(^|\n)\.jpdb-reader-text-mirror\[data-yomu-clip-constrained="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
         expect(restRule).toContain('overflow: hidden !important');
-        const revealRule = mirrorCss.match(/(^|\n)[^{}]*data-yomu-clip-constrained[^{}]*:hover[^{}]*\{[^}]*\}/)?.[0] ?? '';
+        const revealRule = mirrorCss.match(/\.jpdb-reader-text-mirror\[data-yomu-clip-constrained="true"\]:hover[\s\S]*?\{[^}]*\}/)?.[0] ?? '';
         expect(revealRule).toContain('overflow: visible !important');
         expect(revealRule).toContain('data-yomu-ruby-room');
     });
@@ -357,10 +357,10 @@ describe('sol review: mirror fidelity edge cases', () => {
     });
 
     it('does not flatten native rt readings into mirrored base text', () => {
-        document.body.innerHTML = '<div id="msg"><ruby>東京<rt>とうきょう</rt></ruby>です</div>';
+        document.body.innerHTML = '<div id="msg">都会の<ruby>東京<rt>とうきょう</rt></ruby>です</div>';
         const host = reactHost('msg');
-        paint(host, '東京', target => [tokenAt(target.text, '東京', 'とうきょう', target.text.indexOf('東京'))]);
-        expect(renderedMirrorText(mirror(host))).toBe('東京です');
+        paint(host, '都会', target => [tokenAt(target.text, '都会', 'とかい', target.text.indexOf('都会'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('都会の東京です');
     });
 
     it('sweeps a registered orphan even when it was relocated into a shadow root', () => {
