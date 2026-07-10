@@ -22,6 +22,7 @@ export interface BunproSearchOptions {
     grammar?: boolean;
     vocab?: boolean;
     limit?: number;
+    includeReviews?: boolean;
 }
 
 export interface BunproReviewableReference {
@@ -34,6 +35,8 @@ export interface BunproReviewActionRequest {
     reviewables: BunproReviewableReference[];
     deckId?: number | null;
 }
+
+export type BunproReviewEndpoint = 'review' | 'ghost-review' | 'self-study-review';
 
 export class BunproApiError extends Error {
     constructor(message: string, readonly status?: number) {
@@ -166,9 +169,12 @@ export class BunproClient {
             body: {
                 query,
                 options: {
-                    include_reviews: true,
-                    include_bookmarks: true,
-                    include_notes: true,
+                    // Definition/mining lookups do not need the learner's
+                    // private notes or bookmarks. Review relationships are
+                    // opt-in for the rare caller that actually consumes them.
+                    include_reviews: options.includeReviews ?? false,
+                    include_bookmarks: false,
+                    include_notes: false,
                     only_bookmarks: false,
                 },
                 is_searching_grammar: options.grammar ?? true,
@@ -189,8 +195,11 @@ export class BunproClient {
         });
     }
 
-    updateReview(reviewId: string | number, body: Record<string, unknown>): Promise<unknown> {
-        return this.frontend(`/reviews/${encodeURIComponent(String(reviewId))}/update`, {
+    updateReview(reviewId: string | number, body: Record<string, unknown>, endpoint: BunproReviewEndpoint = 'review'): Promise<unknown> {
+        const collection = endpoint === 'ghost-review'
+            ? 'ghost_reviews'
+            : endpoint === 'self-study-review' ? 'self_study_reviews' : 'reviews';
+        return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
             method: 'POST',
             body,
         });

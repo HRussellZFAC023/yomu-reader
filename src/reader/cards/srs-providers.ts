@@ -29,6 +29,7 @@ export interface ApiSrsProviderAdapter extends ApiSrsProviderView {
     deckStateApiKeyRequiredKey: UiCopyKey;
     addedToastKey: UiCopyKey;
     supportsCard(card: JPDBCard): boolean;
+    supportsMiningCard?(card: JPDBCard): boolean;
     supportsDeckState(state: ApiSrsDeckState): boolean;
     selectedDeckId(deckId: string, settings: ReaderSettings): string;
     selectedDeckLabel(settings: ReaderSettings, data: ApiSrsProviderDeckData): string;
@@ -80,16 +81,19 @@ export function apiGradingProviderPreference(settings: ReaderSettings): ApiSrsPr
 // grammar/sentence cards are not words — re-parsing them into a jpdb/jiten
 // vocab card cannot work, so they stay Bunpro-only.
 export function apiSrsSwitchableProviderIds(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderId[] {
+    // A Bunpro queue item belongs to one active server review session and may
+    // change id/kind after a grade. Keep that obligation exclusive; duplicate
+    // JPDB/Jiten/Anki obligations appear as their own Study cards.
+    if (isBunproUsableCard(card, settings)) return ['bunpro'];
     const ids: ApiSrsProviderId[] = [];
     const wordLike = !card.bunproReviewableType || card.bunproReviewableType === 'vocabulary';
     if (wordLike && hasJpdbApiCredential(settings)) ids.push('jpdb');
     if (wordLike && hasJitenApiCredential(settings)) ids.push('jiten');
-    if (isBunproUsableCard(card, settings)) ids.push('bunpro');
     return ids;
 }
 
 function isBunproUsableCard(card: JPDBCard, settings: ReaderSettings): boolean {
-    return isBunproBackedCard(card)
+    return isBunproGradeableCard(card)
         && hasBunproFrontendCredential(settings)
         && !isBunproFrontendCredentialExpired(settings);
 }
@@ -170,7 +174,7 @@ export function apiSrsProviderViewForCard(
     // only (no grading UI renders without a key).
     if (jpdbBacked) return apiSrsProviderView('jpdb', settings);
     if (jitenBacked) return apiSrsProviderView('jiten', settings);
-    if (bunproBacked) return apiSrsProviderView('bunpro', settings);
+    if (bunproBacked) return { ...apiSrsProviderView('bunpro', settings), hasApiKey: false };
     return null;
 }
 
@@ -248,7 +252,8 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
         reviewApiKeyRequiredKey: 'addBunproApiKeyReview',
         deckStateApiKeyRequiredKey: 'bunproAddApiKeyRequired',
         addedToastKey: 'addedToBunpro',
-        supportsCard: isBunproBackedCard,
+        supportsCard: isBunproGradeableCard,
+        supportsMiningCard: isBunproMiningCard,
         supportsDeckState: () => false,
         selectedDeckId: () => 'bunpro',
         selectedDeckLabel: () => 'Bunpro',
@@ -268,6 +273,10 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
     };
 }
 
+export function isBunproMiningCard(card: JPDBCard): boolean {
+    return Boolean(card.spelling.trim()) && card.bunproReviewableType !== 'sentence';
+}
+
 // JPDB/Jiten refresh the card state after a review so the popover status dot
 // recolors; mirror that for Bunpro from the review response itself (Bunpro has
 // no cheap per-word state lookup to re-query).
@@ -276,6 +285,11 @@ function applyBunproReviewableToCard(card: JPDBCard, reviewable: YomuSrsReviewab
     if (reviewable.dueAt !== undefined) card.dueAt = reviewable.dueAt;
     if (reviewable.lastReviewAt !== undefined) card.lastReviewAt = reviewable.lastReviewAt;
     if (reviewable.srsLevel) card.bunproSrsLevel = reviewable.srsLevel;
+    if (reviewable.reviewSession) {
+        card.bunproReviewSessionId = reviewable.reviewSession.id;
+        card.bunproReviewInputMode = reviewable.reviewSession.inputMode;
+        card.bunproReviewEndpoint = reviewable.reviewSession.endpoint;
+    }
 }
 
 function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
@@ -361,6 +375,17 @@ function isBunproBackedCard(card: JPDBCard): boolean {
         || Boolean(card.bunproReviewId || card.bunproReviewableId);
 }
 
+export function isBunproGradeableCard(card: JPDBCard): boolean {
+    const sessionId = Number(card.bunproReviewSessionId);
+    return isBunproBackedCard(card)
+        && typeof card.bunproReviewId === 'string'
+        && /^[1-9]\d*$/u.test(card.bunproReviewId.trim())
+        && Number.isInteger(sessionId)
+        && sessionId > 0
+        && (card.bunproReviewInputMode === 'regular' || card.bunproReviewInputMode === 'fsrs')
+        && (card.bunproReviewEndpoint === 'review' || card.bunproReviewEndpoint === 'ghost-review' || card.bunproReviewEndpoint === 'self-study-review');
+}
+
 function bunproReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
     const expression = card.spelling.trim();
     const reading = card.reading.trim() || expression;
@@ -368,8 +393,13 @@ function bunproReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
     return {
         providerId: 'bunpro',
         providerCardId,
-        providerReviewId: card.bunproReviewId || providerCardId,
+        providerReviewId: card.bunproReviewId,
         providerReviewableId: stringifyPositiveNumber(card.bunproReviewableId),
+        reviewSession: card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+            id: card.bunproReviewSessionId,
+            inputMode: card.bunproReviewInputMode,
+            endpoint: card.bunproReviewEndpoint,
+        } : undefined,
         kind: bunproReviewableKind(card.bunproReviewableType),
         expression,
         reading,
@@ -396,7 +426,7 @@ function bunproMiningRequestFromCard(card: JPDBCard, sentence: string | undefine
 
 function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
     if (type === 'vocabulary' || type === 'grammar' || type === 'sentence') return type;
-    return 'unknown';
+    return 'vocabulary';
 }
 
 function yomuLocalReviewableFromCard(card: JPDBCard): YomuSrsReviewable {

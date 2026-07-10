@@ -89,8 +89,8 @@ function performDeckPickerCardAction(
     });
 }
 
-function selectedDeckSource(value: string | undefined): 'jpdb' | 'jiten' | 'anki' {
-    if (value === 'anki' || value === 'jiten') return value;
+function selectedDeckSource(value: string | undefined): 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki' {
+    if (value === 'anki' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local') return value;
     return 'jpdb';
 }
 

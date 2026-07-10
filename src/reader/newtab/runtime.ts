@@ -348,6 +348,10 @@ export class NewTabRuntime {
         jpdb: this.jpdb,
         jiten: this.jiten,
         anki: this.anki,
+        srsAdapters: {
+            bunpro: this.bunproSrs,
+            'yomu-local': this.yomuLocalSrs,
+        },
         dictionaries: this.dictionaries,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         resolveMiningContext: (card, sentence) => this.resolveMiningContext(card, sentence),
@@ -454,6 +458,10 @@ export class NewTabRuntime {
         this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
+            if (card.source === 'bunpro') {
+                this.dismissLookupPopover();
+                void this.newTab?.refreshBunproQueueAfterExternalGrade();
+            }
         });
     }
 
@@ -615,7 +623,7 @@ export class NewTabRuntime {
                 reuseActivePopover: options?.reuseActivePopover,
                 userGesture: options?.userGesture,
             }),
-            loadCardRenderData: card => this.cardRenderData.load(card).all,
+            loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
             hydrateBunproDefinitionInfo: card => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
             renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
@@ -1563,7 +1571,7 @@ export class NewTabRuntime {
         if (!this.newTab || button.disabled) return;
         button.disabled = true;
         try {
-            const result = await this.newTab.gradeFromLookup(grade, target);
+            const result = await this.newTab.gradeFromLookup(grade, target, card);
             if (!result.preserveLookup) this.dismissLookupPopover();
             else if (card && this.activeLookupPopover?.isConnected) await this.showLookupCard(card, sentence, anchor ?? button, {
                 navigation: 'preserve',

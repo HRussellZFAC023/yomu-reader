@@ -6,7 +6,7 @@ import { runLimited } from '../core/async-utils';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer, popoverUsesBunproGradeScale, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
@@ -144,6 +144,7 @@ import {
     ANKI_RECOLOR_SCAN_CHUNK_SIZE,
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+    BUNPRO_FSRS_REVIEW_SHORTCUTS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
     DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
@@ -384,6 +385,12 @@ const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2_500;
 
 function eventTargetsReaderRoot(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
+}
+
+function reviewShortcutTargetKind(value: string): ReviewShortcutContext['reviewTarget'] {
+    if (value === 'both' || value === 'anki') return value;
+    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local') return value;
+    return undefined;
 }
 
 // True when the gesture's POINT is over Yomu's overlay/popover. On touch, WebKit
@@ -1704,6 +1711,7 @@ export class ReaderApp {
             entries.length
             || (data?.jpdbVocabularyInfo && !isJpdbHost())
             || (data?.jitenVocabularyInfo && !isJitenHost())
+            || data?.bunproDefinitionInfo
             || this.settings.immersionKitEnabled,
         );
     }
@@ -3059,9 +3067,9 @@ export class ReaderApp {
     private reviewShortcutContext(event: KeyboardEvent): ReviewShortcutContext | null {
         const target = this.reviewShortcutTarget(event);
         if (!target) return null;
-        const ankiCardId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
-        if (!this.canReviewFromShortcut(ankiCardId)) return null;
-        return this.createReviewShortcutContext(target, ankiCardId);
+        const selection = this.reviewShortcutSelection();
+        if (!this.canReviewFromShortcut(selection.reviewTarget, selection.ankiCardId)) return null;
+        return this.createReviewShortcutContext(target, selection);
     }
 
     private reviewShortcutTarget(event: KeyboardEvent): ReviewShortcutTarget | null {
@@ -3071,11 +3079,14 @@ export class ReaderApp {
         return this.isReviewShortcutPopoverOpen() ? { grade, card } : null;
     }
 
-    private createReviewShortcutContext(target: ReviewShortcutTarget, ankiCardId: number | null): ReviewShortcutContext {
+    private createReviewShortcutContext(
+        target: ReviewShortcutTarget,
+        selection: Pick<ReviewShortcutContext, 'reviewTarget' | 'ankiCardId'>,
+    ): ReviewShortcutContext {
         return {
             grade: target.grade,
             card: target.card,
-            ankiCardId,
+            ...selection,
             sentence: this.lastCardSentence,
             anchor: this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
             trigger: this.activePopoverMode === 'hover' ? 'hover' : 'modal',
@@ -3086,12 +3097,31 @@ export class ReaderApp {
         return Boolean(this.activePopover?.classList.contains('jpdb-reader-popover'));
     }
 
-    private canReviewFromShortcut(ankiCardId: number | null): boolean {
+    private reviewShortcutSelection(): Pick<ReviewShortcutContext, 'reviewTarget' | 'ankiCardId'> {
+        const actions = this.activePopover?.querySelector<HTMLElement>('.jpdb-reader-actions');
+        const select = actions?.querySelector<HTMLSelectElement>('[data-review-target-select]');
+        const option = select?.options[select.selectedIndex] ?? null;
+        const visibleButton = actions?.querySelector<HTMLButtonElement>('[data-review-target-row]:not([hidden]) [data-action="grade"][data-grade]');
+        const value = option?.dataset.reviewTarget ?? visibleButton?.dataset.reviewTarget ?? '';
+        const reviewTarget = reviewShortcutTargetKind(value);
+        const explicitAnkiId = Number(option?.dataset.ankiCardId ?? visibleButton?.dataset.ankiCardId);
+        const fallbackAnkiId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
+        const ankiCardId = Number.isFinite(explicitAnkiId) && explicitAnkiId > 0
+            ? explicitAnkiId
+            : reviewTarget === 'anki' || reviewTarget === 'both' || !reviewTarget ? fallbackAnkiId : null;
+        return { reviewTarget, ankiCardId };
+    }
+
+    private canReviewFromShortcut(reviewTarget: ReviewShortcutContext['reviewTarget'], ankiCardId: number | null): boolean {
+        if (reviewTarget === 'anki') return Boolean(ankiCardId);
+        if (reviewTarget === 'both') return Boolean(ankiCardId) && isApiMiningEnabled(this.settings);
+        if (reviewTarget) return isApiMiningEnabled(this.settings);
         return Boolean(ankiCardId) || isApiMiningEnabled(this.settings);
     }
 
     private submitReviewShortcut(context: ReviewShortcutContext): Promise<void> {
         return this.cardActions.reviewGrade(context.grade, context.card, context.sentence, {
+            target: context.reviewTarget,
             ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId),
         }).then(() => this.dismissAfterReview()).catch(error => {
             log.warn('Shortcut review failed', { grade: context.grade, ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId, true) }, error);
@@ -3107,9 +3137,12 @@ export class ReaderApp {
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
         if (!this.settings.enableReviews) return null;
-        const shortcuts = this.settings.twoButtonReviews || popoverUsesBunproGradeScale(this.activePopover)
-            ? TWO_BUTTON_REVIEW_SHORTCUTS
-            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        const bunproMode = popoverBunproGradeMode(this.activePopover);
+        const shortcuts = bunproMode === 'fsrs'
+            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
+            : this.settings.twoButtonReviews || bunproMode === 'regular'
+                ? TWO_BUTTON_REVIEW_SHORTCUTS
+                : FIVE_BUTTON_REVIEW_SHORTCUTS;
         return matchedReviewShortcutGrade(event, this.settings.shortcuts, shortcuts);
     }
 
@@ -5674,7 +5707,9 @@ export class ReaderApp {
             renderState.fullRenderCompleted = true;
             if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
             this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
-            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+            const hydrationState = { data: fullData };
+            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+            this.renderHydratedCardBunproDefinition(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
         } finally {
             done();
         }
@@ -6170,7 +6205,7 @@ export class ReaderApp {
         card: JPDBCard,
         sentence: string | undefined,
         trigger: 'modal' | 'hover',
-        data: CardRenderData,
+        state: { data: CardRenderData },
         renderData: CardRenderDataLoad,
         requestId: number,
         isCurrentHoverCard: () => boolean,
@@ -6183,17 +6218,20 @@ export class ReaderApp {
             if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
             void hydrateAnkiLookup()
                 .then(ankiLookup => {
-                    const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
-                    if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(data.ankiLookup) && !resolvesPendingMiss) return;
+                    const current = state.data;
+                    const resolvesPendingMiss = current.ankiLookup.trusted === false && ankiLookup.trusted !== false;
+                    if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(current.ankiLookup) && !resolvesPendingMiss) return;
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
+                    state.data = { ...current, ankiLookup };
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
                 })
                 .catch(error => {
                     log.warn('Popup Anki detail failed', { term: card.spelling }, error);
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-                    const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
+                    const ankiLookup = ankiLookupWithUnavailableDetails(state.data.ankiLookup);
                     if (!ankiLookup.primary) return;
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
+                    state.data = { ...state.data, ankiLookup };
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
                 });
         };
         if (trigger === 'hover') {
@@ -6201,6 +6239,27 @@ export class ReaderApp {
             return;
         }
         hydrate();
+    }
+
+    private renderHydratedCardBunproDefinition(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        state: { data: CardRenderData },
+        renderData: CardRenderDataLoad,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+        anchor?: HTMLElement,
+    ): void {
+        if (state.data.bunproDefinitionInfo || !renderData.hydrateBunproDefinitionInfo) return;
+        void renderData.hydrateBunproDefinitionInfo()
+            .then(info => {
+                if (!info || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                state.data = { ...state.data, bunproDefinitionInfo: info };
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            })
+            .catch(error => log.debug('Popup Bunpro definition hydration failed', { term: card.spelling, error }));
     }
 
     private renderedWordUpdateRootsForCardRender(trigger: 'modal' | 'hover', anchor?: HTMLElement): ParentNode[] {

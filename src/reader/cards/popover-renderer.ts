@@ -13,7 +13,7 @@ import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
@@ -21,6 +21,7 @@ import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -62,6 +63,7 @@ interface PopoverReviewTarget {
     kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
     label: string;
     shortLabel: string;
+    gradeProfile: 'standard' | 'bunpro-regular' | 'bunpro-fsrs';
     ankiCardId?: number;
     plainLabel?: string;
 }
@@ -328,7 +330,7 @@ export class CardPopoverRenderer {
         const cycle = apiSrsSwitchableProviderIds(card, this.settings());
         if (cycle.length < 2) return null;
         const next = cycle[(cycle.indexOf(provider.id) + 1) % cycle.length];
-        return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: '', shortLabel: '' }, null) : null;
+        return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: '', shortLabel: '', gradeProfile: 'standard' }, null) : null;
     }
 
     private popoverReviewTargets(
@@ -340,6 +342,7 @@ export class CardPopoverRenderer {
         const ankiTargets = this.ankiReviewTargets(data, language);
         if (provider?.id === 'yomu-local' && ankiTargets.length) return ankiTargets;
         const apiTargets = this.apiReviewTargets(card, provider, language);
+        if (provider?.id === 'bunpro' && apiTargets.length) return apiTargets;
         if (apiTargets.length && ankiTargets.length) {
             const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
             if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -360,7 +363,7 @@ export class CardPopoverRenderer {
         // row tracks one API target. Switching providers happens from the gutter
         // toggle, not a second selector here.
         if (provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live') return [];
-        if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
+        if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language, card)];
         return [];
     }
 
@@ -372,13 +375,14 @@ export class CardPopoverRenderer {
         return fallback;
     }
 
-    private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage): PopoverReviewTarget {
+    private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage, card: JPDBCard): PopoverReviewTarget {
         if (provider.id === 'yomu-local') {
             return {
                 id: 'yomu-local',
                 kind: 'yomu-local',
                 label: uiText(language, 'gradeTargetYomuLocal'),
                 shortLabel: provider.label,
+                gradeProfile: 'standard',
             };
         }
         if (provider.id === 'bunpro') {
@@ -387,6 +391,7 @@ export class CardPopoverRenderer {
                 kind: 'bunpro',
                 label: uiText(language, 'gradeTargetBunpro'),
                 shortLabel: provider.label,
+                gradeProfile: card.bunproReviewInputMode === 'fsrs' ? 'bunpro-fsrs' : 'bunpro-regular',
             };
         }
         const isJiten = provider.id === 'jiten';
@@ -395,6 +400,7 @@ export class CardPopoverRenderer {
             kind: isJiten ? 'jiten' : 'jpdb',
             label: uiText(language, isJiten ? 'gradeTargetJiten' : 'gradeTargetJpdb'),
             shortLabel: provider.label,
+            gradeProfile: 'standard',
         };
     }
 
@@ -412,6 +418,7 @@ export class CardPopoverRenderer {
             label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
             shortLabel: uiText(language, 'gradeTargetBoth'),
             ankiCardId: ankiTarget.ankiCardId,
+            gradeProfile: 'standard',
         };
     }
 
@@ -433,6 +440,7 @@ export class CardPopoverRenderer {
             plainLabel: label,
             label: formatTargetLabel(uiText(language, 'gradeTargetAnki'), label),
             shortLabel: compactAnkiReviewTargetLabel(label, cardId),
+            gradeProfile: 'standard',
         }));
     }
 
@@ -446,15 +454,21 @@ export class CardPopoverRenderer {
         const selected = targets[0];
         if (!selected) return '';
         const standardGrades = reviewButtonGrades(settings);
-        const bunproGrades: Array<[string, string]> = [
+        const bunproRegularGrades: Array<[string, string]> = [
             ['fail', uiText(language, 'bunproGradeHardLabel')],
             ['pass', uiText(language, 'bunproGradeGoodLabel')],
         ];
-        const hasBunpro = targets.some(target => target.kind === 'bunpro');
-        const hasStandard = targets.some(target => target.kind !== 'bunpro');
+        const bunproFsrsGrades: Array<[string, string]> = [
+            ['nothing', uiText(language, 'bunproGradeAgainLabel')],
+            ['hard', uiText(language, 'bunproGradeHardLabel')],
+            ['okay', uiText(language, 'bunproGradeGoodLabel')],
+            ['easy', uiText(language, 'bunproGradeEasyLabel')],
+        ];
+        const profiles = new Set(targets.map(target => target.gradeProfile));
         const gradeRows = [
-            hasStandard ? renderTargetedGradeRow(standardGrades, selected, 'standard', selected.kind === 'bunpro') : '',
-            hasBunpro ? renderTargetedGradeRow(bunproGrades, selected, 'bunpro', selected.kind !== 'bunpro') : '',
+            profiles.has('standard') ? renderTargetedGradeRow(standardGrades, selected, 'standard', selected.gradeProfile !== 'standard') : '',
+            profiles.has('bunpro-regular') ? renderTargetedGradeRow(bunproRegularGrades, selected, 'bunpro-regular', selected.gradeProfile !== 'bunpro-regular') : '',
+            profiles.has('bunpro-fsrs') ? renderTargetedGradeRow(bunproFsrsGrades, selected, 'bunpro-fsrs', selected.gradeProfile !== 'bunpro-fsrs') : '',
         ].filter(Boolean).join('');
         if (!gradeRows) return '';
         const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : '';
@@ -509,13 +523,14 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
     const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? '';
     const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
     const target = option.dataset.reviewTarget ?? '';
+    const gradeProfile = option.dataset.reviewGradeProfile ?? 'standard';
     const ankiCardId = option.dataset.ankiCardId ?? '';
     const current = actions.querySelector<HTMLElement>('[data-review-target-current]');
     if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector<HTMLElement>('[data-review-target-label] [data-newtab-grade-target-text]');
     if (labelText) labelText.textContent = label;
     actions.querySelectorAll<HTMLElement>('[data-review-grade-profile]').forEach(row => {
-        row.hidden = row.dataset.reviewGradeProfile === 'bunpro' ? target !== 'bunpro' : target === 'bunpro';
+        row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
     });
     actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]').forEach(button => {
         button.dataset.reviewTarget = target;
@@ -534,14 +549,19 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
 }
 
 export function popoverUsesBunproGradeScale(root: ParentNode | null | undefined): boolean {
-    const row = root?.querySelector<HTMLElement>('[data-review-grade-profile="bunpro"]');
-    return Boolean(row && !row.hidden);
+    return popoverBunproGradeMode(root) !== null;
+}
+
+export function popoverBunproGradeMode(root: ParentNode | null | undefined): 'regular' | 'fsrs' | null {
+    const row = root?.querySelector<HTMLElement>('[data-review-grade-profile^="bunpro-"]:not([hidden])');
+    if (row?.dataset.reviewGradeProfile === 'bunpro-fsrs') return 'fsrs';
+    return row ? 'regular' : null;
 }
 
 function renderTargetedGradeRow(
     grades: Array<[string, string]>,
     selected: PopoverReviewTarget,
-    profile: 'standard' | 'bunpro',
+    profile: PopoverReviewTarget['gradeProfile'],
     hidden: boolean,
 ): string {
     const targetLabel = renderReviewTargetLabel(selected);
@@ -587,7 +607,7 @@ function renderReviewTargetGutter(
 function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
+            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;
 }
@@ -637,9 +657,9 @@ function renderApiMiningActions(
     data: CardRenderData & { loading: boolean },
     provider: ApiSrsProviderView | null,
 ): string {
-    if (!canRenderApiMiningActions(settings, provider)) return '';
     const state = miningActionState(cardStates, language);
-    const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
+    const addDeckSelect = renderAddDeckSelect(settings, card, data, language, provider);
+    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return '';
     return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
 }
 
@@ -657,6 +677,7 @@ function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsPro
 
 function renderAddDeckSelect(
     settings: ReaderSettings,
+    card: JPDBCard,
     data: CardRenderData & { loading: boolean },
     language: InterfaceLanguage,
     provider: ApiSrsProviderView | null,
@@ -664,6 +685,10 @@ function renderAddDeckSelect(
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
         includeJpdb: provider?.id === 'jpdb',
         includeJiten: provider?.id === 'jiten',
+        includeBunpro: isBunproMiningCard(card)
+            && settings.bunproMiningEnabled
+            && hasBunproFrontendCredential(settings)
+            && !isBunproFrontendCredentialExpired(settings),
         includeYomuLocal: settings.yomuLocalSrsEnabled,
         jitenDecks: data.jitenDecks ?? [],
     });
@@ -673,7 +698,8 @@ function renderAddDeckSelect(
 
 function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null, canToggleDeckState: boolean): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-    const directAdd = provider?.id === 'bunpro' || provider?.id === 'yomu-local';
+    const directAdd = (provider?.id === 'bunpro' || provider?.id === 'yomu-local')
+        && (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
     const directDeckSource = provider?.id === 'bunpro' ? 'bunpro' : provider?.id === 'yomu-local' ? 'yomu-local' : '';
     // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
     // as JPDB; its old Mining/Suspended/Forget row was removed.

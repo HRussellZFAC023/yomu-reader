@@ -664,8 +664,9 @@ describe('settings form localization', () => {
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Add each service credential here');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('open Bunpro settings while signed in');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Yomu import button');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('import it from Bunpro settings');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('treat it like a password');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('saved before it is verified');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Local Yomu SRS works without an account');
 
         jpdbInput.value = '  next-jpdb  ';
@@ -2104,8 +2105,9 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunproに必要なのはフロントエンドトークンだけです');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('ローカルよむSRSはアカウントなしで使えます');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro設定を開き');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('取り込みボタン');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro設定から取り込み');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('パスワードと同様に扱ってください');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('保存時点では未確認');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');

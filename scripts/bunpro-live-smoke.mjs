@@ -39,9 +39,9 @@ const [user, due, queue, baseStats, search, legacyQueue] = await Promise.all([
     frontendPost('/search/reviewables_v1_1', {
         query: '読む',
         options: {
-            include_reviews: true,
-            include_bookmarks: true,
-            include_notes: true,
+            include_reviews: false,
+            include_bookmarks: false,
+            include_notes: false,
             only_bookmarks: false,
         },
         is_searching_grammar: true,
@@ -66,6 +66,9 @@ const summary = {
 if (!summary.search.vocabCount && !summary.search.grammarCount) {
     throw new Error('Bunpro live smoke search returned no reviewables for 読む.');
 }
+if (!summary.search.sampleHasMeaning || !summary.search.sampleHasReading) {
+    throw new Error('Bunpro live smoke search omitted the meaning or reading needed by the definition source.');
+}
 
 console.log(JSON.stringify(summary, null, 2));
 
@@ -85,23 +88,47 @@ async function frontendPost(pathname, body) {
 }
 
 async function gradeOneQueueItem(queue, requestedGrade) {
-    if (requestedGrade !== 'pass' && requestedGrade !== 'fail') {
-        throw new Error('YOMU_BUNPRO_LIVE_GRADE must be pass (Good) or fail (Hard).');
-    }
     const entry = queue?.pending_attempt?.[0];
     const reviewId = entry?.data?.id ?? entry?.data?.attributes?.id;
     if (!reviewId) return { skipped: true, reason: 'no pending review' };
-    const correct = requestedGrade === 'pass';
-    const response = await frontendPost(`/reviews/${encodeURIComponent(String(reviewId))}/update`, {
-        grade: requestedGrade,
-        rating: correct ? 3 : 1,
-        correct,
-    });
+    const sessionId = Number(queue?.review_session_id);
+    if (!Number.isInteger(sessionId) || sessionId <= 0) throw new Error('Bunpro queue returned no active review_session_id.');
+    const attributes = entry?.data?.attributes ?? {};
+    const endpoint = attributes.user_study_question_id
+        ? 'self_study_reviews'
+        : Object.prototype.hasOwnProperty.call(attributes, 'ghost_count') ? 'reviews' : 'ghost_reviews';
+    const fsrs = endpoint === 'reviews' && attributes.is_fsrs === true;
+    const grade = requestedGrade === 'pass' ? 'good' : requestedGrade === 'fail' ? (fsrs ? 'again' : 'hard') : requestedGrade;
+    const input = liveGradeInput(grade, fsrs);
+    const body = {
+        review_session_id: sessionId,
+        correct: input.correct,
+        fsrs_input: input.fsrsInput,
+        loaded_review_ids: null,
+        loaded_ghost_review_ids: null,
+        loaded_self_study_review_ids: null,
+        ...(input.incorrectAnswer ? { incorrect_answer: input.incorrectAnswer } : {}),
+    };
+    const response = await frontendPost(`/${endpoint}/${encodeURIComponent(String(reviewId))}/update`, body);
     return {
         ok: true,
-        outcome: correct ? 'Good' : 'Hard',
+        outcome: grade,
+        inputMode: fsrs ? 'fsrs' : 'regular',
         responseKeys: objectKeys(response),
     };
+}
+
+function liveGradeInput(grade, fsrs) {
+    if (!fsrs) {
+        if (grade === 'hard') return { correct: false, fsrsInput: null, incorrectAnswer: '__FLASHCARD_REGULAR_HARD' };
+        if (grade === 'good') return { correct: true, fsrsInput: null };
+        throw new Error('Regular Bunpro live grading accepts hard/good (or fail/pass aliases).');
+    }
+    if (grade === 'again') return { correct: false, fsrsInput: 'again', incorrectAnswer: '__FLASHCARD_FSRS_AGAIN' };
+    if (grade === 'hard') return { correct: false, fsrsInput: 'hard', incorrectAnswer: '__FLASHCARD_FSRS_HARD' };
+    if (grade === 'good') return { correct: true, fsrsInput: 'good' };
+    if (grade === 'easy') return { correct: true, fsrsInput: 'easy' };
+    throw new Error('FSRS Bunpro live grading accepts again/hard/good/easy.');
 }
 
 async function legacyGet(pathname) {

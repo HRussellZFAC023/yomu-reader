@@ -77,9 +77,17 @@ export class NewTabGradeQueue {
     }
 
     private async read(): Promise<QueuedNewTabGrade[]> {
-        const queue = await gmStorageGet<QueuedNewTabGrade[] | null>(NEW_TAB_GRADE_QUEUE_KEY, null)
+        const stored = await gmStorageGet<QueuedNewTabGrade[] | null>(NEW_TAB_GRADE_QUEUE_KEY, null)
             .catch(() => null);
-        return Array.isArray(queue) ? queue.filter(isQueuedNewTabGrade).slice(-NEW_TAB_GRADE_QUEUE_LIMIT) : [];
+        if (!Array.isArray(stored)) return [];
+        const valid = stored.filter(isQueuedNewTabGrade).slice(-NEW_TAB_GRADE_QUEUE_LIMIT);
+        // Bunpro grades are valid only inside the live review session that
+        // issued the queue item. Builds before 1.6.117 could persist them for
+        // offline retry without that session, so purge those legacy entries
+        // instead of retrying a consumed/stale review id forever.
+        const queue = valid.filter(item => item.target !== 'bunpro-api');
+        if (queue.length !== valid.length) await this.write(queue).catch(() => undefined);
+        return queue;
     }
 
     private write(queue: QueuedNewTabGrade[]): Promise<void> {

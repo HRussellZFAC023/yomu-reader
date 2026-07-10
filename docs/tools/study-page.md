@@ -48,7 +48,7 @@ Every card walks through a short sequence and you grade it once at the end. Depe
 - **Pick the pitch** — よむ plays the word and you choose its shape from labelled contour buttons.
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, on your device.
 
-Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word without pitch data skips the listen and speak steps. Grades flow through your usual JPDB, Jiten, Bunpro, or Anki review path once you reach the final step. Jiten and JPDB keep the normal five choices; Bunpro follows Bunpro's own **Hard / Good** model instead of pretending it supports a five-point scale.
+Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word without pitch data skips the listen and speak steps. Grades flow through your usual JPDB, Jiten, Bunpro, or Anki review path once you reach the final step. Jiten and JPDB keep the normal five choices. Bunpro has no five-point scale: regular self-graded reveal cards use **Hard / Good**, and FSRS queue items use **Again / Hard / Good / Easy**.
 
 ## Pitch practice built in
 
@@ -66,11 +66,11 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 2. Open the [study page](/newtab/index.html) and import a dictionary in **Settings → Dictionaries**.
 3. Optionally connect Jiten, [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), or Anki, then set the page as your new-tab or Home Screen shortcut.
 
-When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an **Offline cache** status, and review grades that cannot reach Jiten, Bunpro, JPDB, or Anki are saved locally and retried when the provider reconnects.
+When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an **Offline cache** status, and Jiten, JPDB, Anki, and local-Yomu grades can be saved locally and retried when the provider reconnects. Bunpro grades require a live queue session and are intentionally unavailable offline because its session and ghost-review ids can change.
 
 ## Review settings
 
-Open **Settings → Study** to choose a review source and switch the general rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. Bunpro cards always use **Hard / Good**, matching Bunpro itself. On phones, two-button rows use the full available width so the actions stay centered and easy to hit.
+Open **Settings → Study** to choose a review source and switch the general rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. Bunpro ignores that general scale: regular reveal reviews use **Hard / Good**, and FSRS reviews use **Again / Hard / Good / Easy**. On phones, two-button rows use the full available width so the actions stay centered and easy to hit.
 
 ## Questions
 

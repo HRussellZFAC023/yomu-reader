@@ -166,8 +166,37 @@ try {
                 assert(controls.labels.join(',') === 'Hard,Good', 'Bunpro Study labels were not Hard/Good', controls);
             },
             assertReview: request => {
-                assert(request.body.grade === 'pass' && request.body.correct === true,
+                assert(request.body.review_session_id === 55 && request.body.correct === true && request.body.fsrs_input === null
+                    && !('grade' in request.body) && !('rating' in request.body),
                     'Bunpro Good review payload was incorrect', request.body);
+            },
+        },
+        {
+            name: 'bunpro-fsrs-four-point',
+            card: BUNPRO_CARD,
+            bunproFsrs: true,
+            settings: settings({
+                newTabSource: 'bunpro',
+                bunproFrontendApiToken: BUNPRO_TOKEN,
+                bunproMiningEnabled: true,
+                bunproDefinitionsEnabled: true,
+                newTabShortcutHintsEnabled: true,
+            }),
+            answer: '予習',
+            grade: 'okay',
+            gradeKey: '3',
+            expectedOutcome: 'Correct',
+            skipRecall: true,
+            reviewTarget: 'bunpro',
+            reviewPredicate: request => request.kind === 'bunpro-review',
+            assertGradeControls: controls => {
+                assert(controls.count === 4, 'Bunpro FSRS Study did not render four outcomes', controls);
+                assert(controls.labels.join(',') === 'Again,Hard,Good,Easy', 'Bunpro FSRS labels were not Again/Hard/Good/Easy', controls);
+            },
+            assertReview: request => {
+                assert(request.body.review_session_id === 55 && request.body.correct === true && request.body.fsrs_input === 'good'
+                    && !('grade' in request.body) && !('rating' in request.body),
+                    'Bunpro FSRS Good review payload was incorrect', request.body);
             },
         },
     ];
@@ -206,7 +235,7 @@ async function runRecallScenario(browser, baseUrl, scenario) {
             consoleErrors.push(message.text().slice(0, 240));
         }
     });
-    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => mockedRequest(request, requests));
+    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => mockedRequest(request, requests, scenario));
     await addGmStorageBridgeInitScript(page, {
         key: SETTINGS_KEY,
         value: scenario.settings,
@@ -228,7 +257,7 @@ async function runRecallScenario(browser, baseUrl, scenario) {
             revealAnswer: false,
         },
     });
-    await page.route('**/*', route => handleMockedRoute(route, requests));
+    await page.route('**/*', route => handleMockedRoute(route, requests, scenario));
     try {
         await page.goto(`${baseUrl}/newtab/index.html?smoke=recall-${encodeURIComponent(scenario.name)}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-recall-mode[data-newtab-bound="true"]', { timeout: 15_000 });
@@ -262,9 +291,9 @@ async function runRecallScenario(browser, baseUrl, scenario) {
             }
             assert(submitted, `${scenario.name} could not submit the recall input`, { requests });
         }
-        await page.waitForSelector(scenario.skipRecall
+        await waitForVisibleWithSnapshot(page, page.locator(scenario.skipRecall
             ? '[data-newtab-study][data-newtab-study-step="final-reveal"]'
-            : '[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 10_000 });
+            : '[data-study-step-kind="final-reveal"][aria-current="step"]').first(), `${scenario.name}-final-reveal`);
         if (scenario.skipRecall && !(await isRevealed(page))) {
             await page.locator('[data-newtab-action="reveal"]').first().click();
             await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-revealed', { timeout: 8_000 });
@@ -418,7 +447,7 @@ function staticRoute(requestUrl) {
     return STATIC_ROUTES.get(pathname);
 }
 
-async function handleMockedRoute(route, requests) {
+async function handleMockedRoute(route, requests, scenario) {
     const request = route.request();
     const url = new URL(request.url());
     if (request.method() === 'OPTIONS' && isMockedOrigin(url)) {
@@ -430,7 +459,7 @@ async function handleMockedRoute(route, requests) {
         url: request.url(),
         headers: Object.fromEntries(Object.entries(request.headers()).map(([key, value]) => [key.toLowerCase(), value])),
         data: request.postData() ?? '',
-    }, requests);
+    }, requests, scenario);
     if (!mocked) {
         await route.continue();
         return;
@@ -443,29 +472,30 @@ async function handleMockedRoute(route, requests) {
     });
 }
 
-function mockedRequest(request, requests) {
+function mockedRequest(request, requests, scenario) {
     const url = new URL(request.url);
     if (url.origin === JPDB_API_ORIGIN) return mockedJpdbRequest(url, request, requests);
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
-    if (url.origin === BUNPRO_API_ORIGIN) return mockedBunproRequest(url, request, requests);
+    if (url.origin === BUNPRO_API_ORIGIN) return mockedBunproRequest(url, request, requests, scenario);
     if (url.href === DEFAULT_ANKI_CONNECT_URL || url.origin === new URL(DEFAULT_ANKI_CONNECT_URL).origin) {
         return mockedAnkiRequest(request, requests);
     }
     return null;
 }
 
-function mockedBunproRequest(url, request, requests) {
+function mockedBunproRequest(url, request, requests, scenario = {}) {
     assertApiAuth(request, 'Bearer ', BUNPRO_TOKEN, 'Bunpro');
     const pathname = url.pathname.replace(/^\/api\/frontend\/?/, '');
     if (pathname === 'reviews/quiz_index') {
         requests.push({ kind: 'bunpro-queue' });
+        const reviewed = requests.some(item => item.kind === 'bunpro-review');
         return jsonHttpResponse({
             review_session_id: 55,
-            total_pending_attempt_count: 1,
+            total_pending_attempt_count: reviewed ? 0 : 1,
             total_pending_wrapup_count: 0,
             pending_wrapup: [],
-            pending_attempt: [{
-                data: { id: BUNPRO_CARD.bunproReviewId, type: 'review', attributes: { id: Number(BUNPRO_CARD.bunproReviewId), reviewable_id: BUNPRO_CARD.bunproReviewableId, reviewable_type: 'Vocab', next_review: new Date().toISOString() } },
+            pending_attempt: reviewed ? [] : [{
+                data: { id: BUNPRO_CARD.bunproReviewId, type: 'review', attributes: { id: Number(BUNPRO_CARD.bunproReviewId), reviewable_id: BUNPRO_CARD.bunproReviewableId, reviewable_type: 'Vocab', ghost_count: 0, is_fsrs: scenario.bunproFsrs === true, next_review: new Date().toISOString() } },
                 included: [{ id: String(BUNPRO_CARD.bunproReviewableId), type: 'vocab', attributes: { id: BUNPRO_CARD.bunproReviewableId, title: BUNPRO_CARD.spelling, kana: BUNPRO_CARD.reading, furigana: BUNPRO_CARD.reading, slug: BUNPRO_CARD.spelling, meaning: BUNPRO_CARD.meanings[0].glosses[0] } }],
             }],
         });
@@ -576,7 +606,7 @@ function settings(overrides = {}) {
         yomuLocalSrsEnabled: false,
         newTabParsingEnabled: false,
         newTabFrontSentenceEnabled: true,
-        newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'listen-pitch', 'speaking'],
+        newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'type-word', 'listen-pitch', 'speaking'],
         newTabStudyTourSeen: true,
         immersionKitEnabled: false,
         localDictionariesEnabled: false,

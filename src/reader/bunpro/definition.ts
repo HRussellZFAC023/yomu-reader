@@ -1,4 +1,5 @@
 import type { InterfaceLanguage, JPDBCard } from '../app/types';
+import { resolveUiLanguage } from '../app/i18n';
 import { BUNPRO_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { definitionSourceStateKey } from '../sources/definition-render';
@@ -18,23 +19,52 @@ export interface BunproDefinitionInfo {
     sourceUrl: string;
 }
 
-export async function lookupBunproDefinition(client: BunproClient, card: JPDBCard): Promise<BunproDefinitionInfo | null> {
-    const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-    return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading);
+interface BunproDefinitionSelection {
+    id?: number;
+    kind?: BunproDefinitionInfo['kind'];
 }
 
-export function normalizeBunproDefinitionSearch(raw: unknown, expression: string, reading = ''): BunproDefinitionInfo | null {
+export async function lookupBunproDefinition(client: BunproClient, card: JPDBCard): Promise<BunproDefinitionInfo | null> {
+    const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
+    return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+        id: card.bunproReviewableId,
+        kind: bunproDefinitionKind(card.bunproReviewableType),
+    });
+}
+
+export function normalizeBunproDefinitionSearch(
+    raw: unknown,
+    expression: string,
+    reading = '',
+    selection: BunproDefinitionSelection = {},
+): BunproDefinitionInfo | null {
     const candidates = [
         ...searchItems(raw, 'vocabs').map(item => definitionInfo(item, 'vocabulary')),
         ...searchItems(raw, 'grammar_points').map(item => definitionInfo(item, 'grammar')),
     ].filter((item): item is BunproDefinitionInfo => item !== null);
     if (!candidates.length) return null;
-    const exactExpression = candidates.filter(item => item.expression === expression);
-    if (reading) {
-        const exactReading = exactExpression.find(item => item.reading === reading);
-        if (exactReading) return exactReading;
+
+    const expectedKind = selection.kind;
+    const expectedId = numberValue(selection.id);
+    if (expectedId) {
+        return candidates.find(item => item.id === expectedId && (!expectedKind || item.kind === expectedKind)) ?? null;
     }
-    return exactExpression[0] ?? candidates[0] ?? null;
+
+    const eligible = expectedKind ? candidates.filter(item => item.kind === expectedKind) : candidates;
+    const normalizedExpression = normalizedLookupText(expression);
+    const exactExpression = eligible.filter(item => normalizedLookupText(item.expression) === normalizedExpression);
+    if (!exactExpression.length) return null;
+    if (reading) {
+        const normalizedReading = normalizedLookupText(reading);
+        const exactReading = exactExpression.filter(item => normalizedLookupText(item.reading) === normalizedReading);
+        if (exactReading.length === 1) return exactReading[0] ?? null;
+        if (exactReading.length > 1 && sameDefinitionIdentity(exactReading)) return exactReading[0] ?? null;
+        return null;
+    }
+    if (exactExpression.length === 1 || sameDefinitionIdentity(exactExpression)) return exactExpression[0] ?? null;
+    // A spelling can be both vocabulary and grammar. Without a known Bunpro
+    // id/type, showing neither is safer than silently displaying the wrong one.
+    return null;
 }
 
 export function renderBunproDefinitionSource(
@@ -50,8 +80,9 @@ export function renderBunproDefinitionSource(
         ...info.partOfSpeech.slice(0, 4).map(value => `<span class="jpdb-reader-dict-tag">${escapeHtml(value)}</span>`),
     ].filter(Boolean).join('');
     const accepted = info.acceptedAnswers.filter(answer => answer !== info.expression && answer !== info.reading).slice(0, 8);
-    const acceptedLabel = language === 'ja' ? '正解として認められる答え' : 'Accepted answers';
-    const nuanceLabel = language === 'ja' ? 'ニュアンス' : 'Nuance';
+    const japanese = resolveUiLanguage(language) === 'ja';
+    const acceptedLabel = japanese ? '正解として認められる答え' : 'Accepted answers';
+    const nuanceLabel = japanese ? 'ニュアンス' : 'Nuance';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
@@ -100,6 +131,20 @@ function searchItems(raw: unknown, key: 'vocabs' | 'grammar_points'): unknown[] 
 
 function repeatsLookupHeadword(card: JPDBCard, info: BunproDefinitionInfo): boolean {
     return info.expression === card.spelling && (!card.reading || info.reading === card.reading || info.reading === info.expression);
+}
+
+function bunproDefinitionKind(type: JPDBCard['bunproReviewableType']): BunproDefinitionInfo['kind'] | undefined {
+    if (type === 'vocabulary' || type === 'grammar') return type;
+    return undefined;
+}
+
+function normalizedLookupText(value: string): string {
+    return value.normalize('NFKC').trim();
+}
+
+function sameDefinitionIdentity(items: BunproDefinitionInfo[]): boolean {
+    const first = items[0];
+    return Boolean(first && items.every(item => item.id === first.id && item.kind === first.kind));
 }
 
 function textList(value: unknown): string[] {

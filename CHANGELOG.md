@@ -9,8 +9,10 @@
 
 ### Fixed
 
-- Bunpro cards now use Bunpro's real two-outcome **Hard / Good** review model in both the popup and Study page instead of displaying JPDB's five-point scale. Good sends a correct review and Hard sends an incorrect review; Jiten and JPDB keep their existing grading controls.
-- Bunpro live QA now exercises the actual quiz queue endpoint, verifies definition fields, and can opt in to grading one pending review. The old Bunpro API key is no longer presented as required: the frontend token is the only credential Yomu needs, while saved legacy keys remain preserved for backward compatibility.
+- Bunpro Study grading now follows the active quiz session instead of pretending Bunpro has JPDB's five-point scale: regular self-graded reveal cards use **Hard / Good**, while FSRS cards use **Again / Hard / Good / Easy**. Ordinary, ghost, and self-study reviews route to their correct Bunpro endpoints, and each Bunpro obligation stays separate from matching Jiten/JPDB/Anki cards.
+- Bunpro writes are now session-safe: Yomu sends the current review-session context, refuses unsessioned popup writes, refreshes after every Bunpro grade instead of reusing stale failed-review ids, and does not queue Bunpro grades offline. The frontend token is the only Bunpro credential Yomu uses; saved legacy keys remain preserved for backward compatibility.
+- Bunpro definition/mining matching is now exact and id/type-aware, so fuzzy search results or grammar/vocabulary collisions cannot display or add the wrong item. Offline cache warming no longer fans out private Bunpro searches, and definition searches no longer request private notes or bookmarks.
+- Bunpro live QA now exercises the actual quiz queue endpoint, verifies required definition fields, and can opt in to one session-aware grade.
 
 ## [1.6.116] - 2026-07-10
 

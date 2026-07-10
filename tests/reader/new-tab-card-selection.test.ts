@@ -67,6 +67,35 @@ describe('dedupeWords dual-provider merge (UT-60)', () => {
         // jpdb wins primary (ids stay jpdb's) but the Jiten identity survives
         expect(merged[0]).toMatchObject({ vid: 1234, sid: 5, source: 'jpdb', jitenWordId: 42, jitenReadingIndex: 2 });
     });
+
+    it('keeps a Bunpro session obligation separate from an identical JPDB card', async () => {
+        const { dedupeWords } = await import('../../src/reader/newtab/card-selection');
+        const jpdbCard = kanjiCard({
+            vid: 1234,
+            sid: 5,
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            reviewSource: 'jpdb-api',
+            cardState: ['due'] as CardState[],
+        });
+        const bunproCard = kanjiCard({
+            vid: -1,
+            sid: -1,
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: 'bp-review-1',
+            bunproReviewableId: 88,
+            bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '44',
+            bunproReviewInputMode: 'regular',
+            bunproReviewEndpoint: 'review',
+            cardState: ['due'] as CardState[],
+        });
+
+        expect(dedupeWords([jpdbCard, bunproCard])).toEqual([jpdbCard, bunproCard]);
+    });
 });
 
 describe('reviewTargetsForNewTabCard dual API targets (UT-60)', () => {

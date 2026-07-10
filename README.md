@@ -43,7 +43,7 @@
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
-- **Mine while reading:** create Anki cards, add/review words in Jiten, Bunpro, or JPDB, and keep the source sentence/context.
+- **Mine while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; grade Bunpro safely from its live Study queue.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
@@ -74,7 +74,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
-| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, offline cached reviews, and the hosted study page |
+| Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/Bunpro/JPDB actions, supported-provider offline review queues, and the hosted study page |
 | Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
 
 ## Hosted Tools
@@ -89,6 +89,8 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
+
+The imported Bunpro frontend token grants account read/write access for reviews. Treat it like a password. Bunpro support uses an authenticated private frontend endpoint rather than a documented public API, so it can change without notice; no Bunpro corpus is bundled.
 
 Yomu Gaming sends captured images only to the local OCR endpoint you configure. Clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services outside that endpoint are external unless you explicitly choose them.
 
@@ -188,5 +190,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
+| [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), and [JPDB](https://jpdb.io/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora. Bunpro uses a private, unsupported frontend endpoint that may change. |
 
 </details>

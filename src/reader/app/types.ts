@@ -185,6 +185,11 @@ export interface JPDBCard {
     bunproReviewableId?: number;
     bunproReviewableType?: 'grammar' | 'vocabulary' | 'sentence' | 'unknown';
     bunproSrsLevel?: string;
+    // Bunpro's private review endpoint is session-scoped. These values come
+    // only from /reviews/quiz_index and are required before Yomu may grade.
+    bunproReviewSessionId?: string;
+    bunproReviewInputMode?: 'regular' | 'fsrs';
+    bunproReviewEndpoint?: 'review' | 'ghost-review' | 'self-study-review';
     // Transient popover choice: which SRS this card's grade/deck buttons act
     // on, set by the ⇄ provider toggle. Wins over the global apiGradingProvider
     // while the card object lives (not persisted).

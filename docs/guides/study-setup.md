@@ -37,7 +37,7 @@ What it is *not* is an SRS. Yomitan shows you a word; it does not schedule that 
 
 ### Bunpro — contextual grammar and vocabulary study
 
-[Bunpro](https://bunpro.jp/) is a Japanese SRS best known for grammar, with vocabulary decks and contextual review sentences too. In よむ, the imported Bunpro frontend token supplies your review queue, word states, mining, and a Bunpro definition source with meanings, nuance, and accepted answers. Bunpro grades are deliberately **Hard / Good**, matching Bunpro's own review UI rather than JPDB's five choices.
+[Bunpro](https://bunpro.jp/) is a Japanese SRS best known for grammar, with vocabulary decks and contextual review sentences too. In よむ, the imported Bunpro frontend token supplies your review queue, word states, mining, and a Bunpro definition source with meanings, nuance, and accepted answers. Study uses self-graded reveal controls: **Hard / Good** for regular reviews and **Again / Hard / Good / Easy** for FSRS, never JPDB's five choices.
 
 ### Anki — a general-purpose SRS you fully control
 
@@ -50,7 +50,7 @@ What it is *not* is an SRS. Yomitan shows you a word; it does not schedule that 
 | Main job | Look words up | Dictionary-backed word study | Grammar and vocab in context | Review words (Japanese-tuned) | Review anything (you build it) |
 | Type | Popup dictionary | Japanese dictionary + study state | SRS + lessons + decks | SRS + decks + frequency | General SRS |
 | Setup effort | Import dictionaries once | Low — connect an API key | Low — import the frontend token | Low — prebuilt decks | Higher — your own note types |
-| Review scale in よむ | n/a | Five choices | Hard / Good | Five choices | Anki buttons |
+| Review scale in よむ | n/a | Five choices | Hard / Good (regular) or Again / Hard / Good / Easy (FSRS) | Five choices | Anki buttons |
 | Account needed | No | Yes | Yes | Yes | Optional (local works) |
 
 This table is about *fit*, not "better" — each is excellent at the job it was built for.
@@ -59,7 +59,7 @@ This table is about *fit*, not "better" — each is excellent at the job it was 
 
 - **You just want to read and understand.** Start with a dictionary. In よむ that means importing a Yomitan dictionary / JMdict so lookups work locally.
 - **You already use Jiten for study.** Connect **Jiten** so よむ can show its word state, definitions, audio, kanji data, and review actions in the popup.
-- **You study grammar or vocabulary in context.** Connect **Bunpro** for its queue, word states, definitions/nuance, mining, and Hard/Good grading.
+- **You study grammar or vocabulary in context.** Connect **Bunpro** for its queue, word states, definitions/nuance, mining, and live-session grading (Hard/Good normally; four FSRS outcomes when enabled).
 - **You want fast, low-effort reviews tuned for Japanese.** Reach for **JPDB**. The prebuilt decks and word states mean you can start reviewing almost immediately.
 - **You want full control and your own cards.** Use **Anki**. Sentence cards with audio and a source screenshot are easy to maintain once your note type is set.
 - **You want more than one target.** Plenty of learners use Jiten, Bunpro, or JPDB for quick daily reviews *and* Anki for hand-crafted sentence cards. They are not mutually exclusive.
@@ -78,7 +78,7 @@ From a single lookup popup, よむ lets you:
 - **Use Yomitan dictionaries locally.** Import your Yomitan dictionary ZIPs or JMdict; the dictionaries stay in your browser and power instant definitions, with no upload anywhere.
 - **Use Jiten as a study source.** Connect Jiten for word state, definitions, audio, kanji facts, and mining or grading actions from the popup.
 - **See and act on JPDB state.** The popup shows a word's JPDB state; add the word, mark it never-forget, blacklist it, or send a review grade.
-- **Use Bunpro definitions and reviews.** The popup can show Bunpro meanings, nuance, and accepted answers, while Study loads due Bunpro cards and grades them Hard or Good.
+- **Use Bunpro definitions and reviews.** The popup can show Bunpro meanings, nuance, and accepted answers; Study safely grades due cards inside their live Bunpro session with the regular or FSRS scale.
 - **Mine to Anki via AnkiConnect.** Turn a lookup, subtitle line, or OCR result into an Anki card with the word, reading, meaning, source sentence, audio, and an optional image.
 
 All in one popup, so you adopt the tools gradually: read with the dictionary first, add Jiten, Bunpro, or JPDB for structured reviews, and bring in Anki for cards you own.

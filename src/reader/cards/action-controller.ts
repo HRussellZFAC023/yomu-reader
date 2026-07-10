@@ -404,7 +404,8 @@ export class CardActionController {
     }
 
     private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
-        return this.apiProviders(settings).find(provider => provider.deckSource === source && provider.supportsCard(card)) ?? null;
+        return this.apiProviders(settings).find(provider => provider.deckSource === source
+            && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
     }
 
     private assertApiProviderActionAllowed(provider: ApiSrsProviderAdapter | null, message: string): asserts provider is ApiSrsProviderAdapter {
@@ -857,7 +858,8 @@ function selectedAnkiAudioMergeMode(button: HTMLButtonElement): AnkiAudioMergeMo
 }
 
 function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTargetSelection {
-    const option = button.closest('.jpdb-reader-actions')?.querySelector<HTMLSelectElement>('[data-review-target-select]')?.selectedOptions[0] ?? null;
+    const select = button.closest('.jpdb-reader-actions')?.querySelector<HTMLSelectElement>('[data-review-target-select]');
+    const option = select?.options[select.selectedIndex] ?? null;
     const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
     const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
     return { kind: target, ankiCardId };
@@ -876,6 +878,9 @@ function copyBunproIdentity(source: JPDBCard, target: JPDBCard): void {
     if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
     if (source.bunproReviewableType) target.bunproReviewableType = source.bunproReviewableType;
     if (source.bunproSrsLevel) target.bunproSrsLevel = source.bunproSrsLevel;
+    if (source.bunproReviewSessionId) target.bunproReviewSessionId = source.bunproReviewSessionId;
+    if (source.bunproReviewInputMode) target.bunproReviewInputMode = source.bunproReviewInputMode;
+    if (source.bunproReviewEndpoint) target.bunproReviewEndpoint = source.bunproReviewEndpoint;
 }
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {

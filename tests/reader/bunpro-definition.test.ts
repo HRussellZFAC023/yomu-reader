@@ -63,4 +63,29 @@ describe('Bunpro definition source', () => {
         expect(html).toContain('Accepted answers');
         expect(html).toContain('https://bunpro.jp/vocabs/');
     });
+
+    it('uses a known Bunpro id/type to disambiguate grammar from vocabulary', () => {
+        const raw = {
+            vocabs: { data: [{ id: 1, attributes: { id: 1, title: 'そう', kana: 'そう', meaning: 'appearance' } }] },
+            grammar_points: { data: [{ id: 2, attributes: { id: 2, title: 'そう', furigana: 'そう', meaning: 'hearsay' } }] },
+        };
+
+        expect(normalizeBunproDefinitionSearch(raw, 'そう', 'そう')).toBeNull();
+        expect(normalizeBunproDefinitionSearch(raw, 'そう', 'そう', { id: 2, kind: 'grammar' })).toMatchObject({
+            id: 2,
+            kind: 'grammar',
+            meaning: 'hearsay',
+        });
+    });
+
+    it('returns null instead of displaying the first fuzzy result', () => {
+        const raw = { vocabs: { data: [{ id: 42, attributes: { id: 42, title: '読む', kana: 'よむ', meaning: 'to read' } }] } };
+        expect(normalizeBunproDefinitionSearch(raw, '幻語', 'げんご')).toBeNull();
+    });
+
+    it('does not accept an exact-spelling homograph with the wrong reading', () => {
+        const raw = { vocabs: { data: [{ id: 42, attributes: { id: 42, title: '生', kana: 'せい', meaning: 'life' } }] } };
+        expect(normalizeBunproDefinitionSearch(raw, '生', 'なま')).toBeNull();
+        expect(normalizeBunproDefinitionSearch(raw, '生')).toMatchObject({ id: 42, reading: 'せい' });
+    });
 });

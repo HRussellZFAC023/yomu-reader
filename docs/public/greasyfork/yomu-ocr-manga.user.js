@@ -3610,7 +3610,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -4451,8 +4451,10 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeAgainLabel: "Again",
       bunproGradeHardLabel: "Hard",
       bunproGradeGoodLabel: "Good",
+      bunproGradeEasyLabel: "Easy",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -4955,8 +4957,10 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeAgainLabel	もう一度
 bunproGradeHardLabel	難しい
 bunproGradeGoodLabel	良い
+bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -5336,7 +5340,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定

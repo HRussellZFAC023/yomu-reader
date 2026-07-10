@@ -70,9 +70,9 @@ export function bunproStatusLineForSettings(settings: BunproCredentialSettings, 
         : '';
     return {
         message: expires
-            ? (resolveUiLanguage(language) === 'ja' ? `Bunproトークンあり。期限: ${expires}` : `Bunpro token set. Expires ${expires}.`)
-            : (resolveUiLanguage(language) === 'ja' ? 'Bunproトークンあり。' : 'Bunpro token set.'),
-        tone: 'success',
+            ? (resolveUiLanguage(language) === 'ja' ? `Bunproトークン保存済み（未確認）。期限: ${expires}` : `Bunpro token saved (not verified). Expires ${expires}.`)
+            : (resolveUiLanguage(language) === 'ja' ? 'Bunproトークン保存済み（未確認）。' : 'Bunpro token saved (not verified).'),
+        tone: 'pending',
     };
 }
 

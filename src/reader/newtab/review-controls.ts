@@ -121,7 +121,8 @@ export function renderNewTabGradeControlButtons(options: RenderNewTabGradeContro
 }
 
 export function selectedNewTabMainGradeTarget(root: HTMLElement): NewTabLookupReviewTargetSelection | undefined {
-    const option = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')?.selectedOptions[0] ?? null;
+    const select = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
+    const option = select?.options[select.selectedIndex] ?? null;
     if (!option) return undefined;
     if (option.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
     if (option.dataset.newtabReviewTarget === 'jiten') return { kind: 'jiten' };

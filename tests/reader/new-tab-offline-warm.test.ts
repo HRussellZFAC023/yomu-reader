@@ -74,7 +74,7 @@ describe('new tab offline warm cache', () => {
 
     it('keeps warming the rest of the queue when one card load never settles', async () => {
         const cards = Array.from({ length: 5 }, (_, index) => warmTestCard(index));
-        const load = vi.fn((card: JPDBCard) => card.vid === cards[1].vid
+        const load = vi.fn((card: JPDBCard, _options?: { includeBunproDefinition?: boolean }) => card.vid === cards[1].vid
             ? new Promise<never>(() => {})
             : Promise.resolve({} as never));
         const controller = warmController(load as never);
@@ -83,6 +83,7 @@ describe('new tab offline warm cache', () => {
         await vi.advanceTimersByTimeAsync(NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS + 1000);
 
         expect(load).toHaveBeenCalledTimes(5);
+        expect(load.mock.calls.every(([, options]) => options?.includeBunproDefinition === false)).toBe(true);
         expect(controller.offlineReadyKeys.size).toBe(4);
     });
 

@@ -5,6 +5,7 @@ import {
     apiSrsProviderAvailability,
     apiSrsProviderViewForCard,
     apiSrsSwitchableProviderIds,
+    isBunproGradeableCard,
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
@@ -32,6 +33,9 @@ const bunproCard: JPDBCard = {
     bunproReviewId: '123',
     bunproReviewableId: 456,
     bunproReviewableType: 'vocabulary',
+    bunproReviewSessionId: '44',
+    bunproReviewInputMode: 'regular',
+    bunproReviewEndpoint: 'review',
 };
 
 describe('apiGradingProviderPreference', () => {
@@ -62,7 +66,7 @@ describe('apiSrsSwitchableProviderIds', () => {
             bunproFrontendApiToken: 'bunpro-token',
             bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
         });
-        expect(apiSrsSwitchableProviderIds(bunproCard, withBunpro)).toEqual(['jpdb', 'jiten', 'bunpro']);
+        expect(apiSrsSwitchableProviderIds(bunproCard, withBunpro)).toEqual(['bunpro']);
         // Words without a Bunpro identity cannot be switched to Bunpro …
         expect(apiSrsSwitchableProviderIds(baseCard, withBunpro)).toEqual(['jpdb', 'jiten']);
         // … and an expired token drops Bunpro from the cycle.
@@ -79,6 +83,13 @@ describe('apiSrsSwitchableProviderIds', () => {
         // Grammar points are not words — no jpdb/jiten leg to switch to.
         const grammarCard: JPDBCard = { ...bunproCard, bunproReviewableType: 'grammar' };
         expect(apiSrsSwitchableProviderIds(grammarCard, withBunpro)).toEqual(['bunpro']);
+    });
+
+    it('rejects corrupt or non-numeric Bunpro review ids before rendering grade controls', () => {
+        expect(isBunproGradeableCard(bunproCard)).toBe(true);
+        expect(isBunproGradeableCard({ ...bunproCard, bunproReviewId: 'reviewable:123' })).toBe(false);
+        expect(isBunproGradeableCard({ ...bunproCard, bunproReviewId: '0' })).toBe(false);
+        expect(isBunproGradeableCard({ ...bunproCard, bunproReviewId: undefined })).toBe(false);
     });
 });
 
@@ -125,16 +136,17 @@ describe('apiSrsProviderViewForCard', () => {
     it('honors the per-card override set by the popover toggle', () => {
         const bothKeys = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key' });
         expect(apiSrsProviderViewForCard({ ...dualCard, apiGradingProviderOverride: 'jpdb' }, bothKeys, isJpdbBackedCard)?.id).toBe('jpdb');
-        // A Bunpro-backed card switched to another usable service stays switched…
+        // A Bunpro identity without a live session cannot hijack the ordinary
+        // JPDB/Jiten provider choice.
         const withBunpro = settings({
             ...bothKeys,
             bunproFrontendApiToken: 'bunpro-token',
             bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
         });
         const dualBunproCard: JPDBCard = { ...dualCard, bunproReviewId: '123' };
-        expect(apiSrsProviderViewForCard(dualBunproCard, withBunpro, isJpdbBackedCard)?.id).toBe('bunpro');
+        expect(apiSrsProviderViewForCard(dualBunproCard, withBunpro, isJpdbBackedCard)?.id).toBe('jiten');
         expect(apiSrsProviderViewForCard({ ...dualBunproCard, apiGradingProviderOverride: 'jiten' }, withBunpro, isJpdbBackedCard)?.id).toBe('jiten');
-        // …but an override the card cannot use falls back to normal resolution.
+        // An override the card cannot use falls back to normal resolution.
         expect(apiSrsProviderViewForCard({ ...dualCard, apiGradingProviderOverride: 'bunpro' }, bothKeys, isJpdbBackedCard)?.id).toBe('jiten');
     });
 

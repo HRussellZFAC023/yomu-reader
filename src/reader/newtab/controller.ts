@@ -28,7 +28,7 @@ import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { isJitenBackedCard } from '../cards/srs-providers';
-import type { CardRenderData } from '../cards/render-data';
+import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
@@ -77,7 +77,7 @@ import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
-import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
+import { BUNPRO_FSRS_REVIEW_SHORTCUTS, FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
@@ -223,6 +223,7 @@ import {
     passingNewTabGrade,
     queueableNewTabReviewTargets,
     reviewTargetsForNewTabCard,
+    usesBunproFsrsGradeScale,
     usesTwoButtonNewTabGradeScale,
     type NewTabGradeFailure,
     type NewTabReviewTarget,
@@ -445,7 +446,7 @@ export interface NewTabControllerDependencies {
     lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
-    loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
+    loadCardRenderData?: (card: JPDBCard, options?: CardRenderDataLoadOptions) => Promise<CardRenderData>;
     hydrateBunproDefinitionInfo?: (card: JPDBCard) => Promise<import('../bunpro/definition').BunproDefinitionInfo | null>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null) => string;
     renderStudyDefinitionSources?: (card: JPDBCard, data: CardRenderData, sentence: string | undefined) => string;
@@ -1119,6 +1120,35 @@ export class NewTabController {
         await this.loadWordsInto(root, true);
     }
 
+    async refreshBunproQueueAfterExternalGrade(): Promise<void> {
+        if (this.gradeSubmissionInFlight) return;
+        const isBunproReview = (card: JPDBCard): boolean => card.source === 'bunpro' || card.reviewSource === 'bunpro-api';
+        const configuredSourceCanLoadBunpro = this.state.source === 'bunpro'
+            || this.state.source === 'auto' && this.canUseBunproSource();
+        if (!configuredSourceCanLoadBunpro && !this.allWords.some(isBunproReview)) return;
+        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        if (!root) return;
+        this.gradeSubmissionInFlight = true;
+        // Another Study tab may have consumed any session id in this queue.
+        // Make every local Bunpro control inert synchronously, remove all stale
+        // obligations, then trust only a fresh live queue response.
+        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"], button[data-action="grade"][data-grade]')
+            .forEach(button => { button.disabled = true; });
+        this.lastUndoableReview = undefined;
+        this.invalidateSourceResultCache('bunpro');
+        this.allWords = this.allWords.filter(card => !isBunproReview(card));
+        this.visibleWords = this.visibleWords.filter(card => !isBunproReview(card));
+        this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
+        this.state.revealAnswer = false;
+        this.persistState();
+        this.markQueueRefreshed();
+        try {
+            await this.loadWordsInto(root, true, { useOfflineCache: false });
+        } finally {
+            this.gradeSubmissionInFlight = false;
+        }
+    }
+
     lookupGradeOptions(card: JPDBCard): Array<[JPDBGrade, string]> {
         return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings(), card) : [];
     }
@@ -1129,8 +1159,9 @@ export class NewTabController {
         return this.lookupReviewTargetsForCard(current, data);
     }
 
-    async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<{ preserveLookup: boolean }> {
-        const submitted = await this.gradeCurrentCard(grade, target);
+    async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection, expectedCard?: JPDBCard): Promise<{ preserveLookup: boolean }> {
+        if (expectedCard && !this.isCurrentLookupGradeCard(expectedCard)) return { preserveLookup: false };
+        const submitted = await this.gradeCurrentCard(grade, target, expectedCard);
         return { preserveLookup: !submitted };
     }
 
@@ -1139,7 +1170,7 @@ export class NewTabController {
         return Boolean(
             current
             && this.state.revealAnswer
-            && cardKey(current) === cardKey(card)
+            && this.sameGradeCardIdentity(current, card)
             && this.canReviewCard(current),
         );
     }
@@ -1715,9 +1746,12 @@ export class NewTabController {
 
     private handleGradeShortcutKeydown(root: HTMLElement, event: KeyboardEvent, settings: ReaderSettings): void {
         if (!this.state.revealAnswer) return;
-        const candidates = this.currentStudyUsesTwoButtonGradeScale(root, settings)
-            ? TWO_BUTTON_REVIEW_SHORTCUTS
-            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        const card = this.visibleWords[this.index];
+        const candidates = usesBunproFsrsGradeScale(card)
+            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
+            : this.currentStudyUsesTwoButtonGradeScale(root, settings)
+                ? TWO_BUTTON_REVIEW_SHORTCUTS
+                : FIVE_BUTTON_REVIEW_SHORTCUTS;
         const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
         if (!grade) return;
         const button = root.querySelector<HTMLButtonElement>(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
@@ -3749,6 +3783,9 @@ export class NewTabController {
             bunproReviewableId: card.providerId === 'bunpro' ? optionalPositiveNumber(card.providerReviewableId) : undefined,
             bunproReviewableType: card.providerId === 'bunpro' ? bunproReviewableType(card.kind) : undefined,
             bunproSrsLevel: card.providerId === 'bunpro' ? card.srsLevel : undefined,
+            bunproReviewSessionId: card.providerId === 'bunpro' ? card.reviewSession?.id : undefined,
+            bunproReviewInputMode: card.providerId === 'bunpro' ? card.reviewSession?.inputMode : undefined,
+            bunproReviewEndpoint: card.providerId === 'bunpro' ? card.reviewSession?.endpoint : undefined,
         });
     }
 
@@ -5465,7 +5502,7 @@ export class NewTabController {
                 this.markCardOfflineReady(card);
             } else if (typeof navigator === 'undefined' || navigator.onLine !== false) {
                 const warmed = await Promise.race([
-                    load(card).then(() => true, () => false),
+                    load(card, { includeBunproDefinition: false }).then(() => true, () => false),
                     new Promise<boolean>(resolve => setTimeout(() => resolve(false), NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS)),
                 ]);
                 if (warmed) this.markCardOfflineReady(card);
@@ -6760,8 +6797,13 @@ export class NewTabController {
         const key = cardKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         meaning.dataset.newtabStudyRevealDetailsRequest = requestId;
-        const data = await loadDetails(card).catch(() => null);
+        let data = await loadDetails(card).catch(() => null);
         if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId)) return;
+        if (!data.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+            const info = await this.dependencies.hydrateBunproDefinitionInfo(card).catch(() => null);
+            if (info) data = { ...data, bunproDefinitionInfo: info };
+            if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId)) return;
+        }
         let html = renderSources(card, data, card.sentence || card.spelling);
         if (!html.trim()) {
             const fallback = await this.lookupStudyRevealDefinitionCard(card, key);
@@ -8380,7 +8422,7 @@ export class NewTabController {
         this.renderDoodleAssessment(slots, assessment);
         // First-attempt pass/fail feeds the reveal summary.
         this.recordDoodleOutcome(card, kanji, assessment.passed);
-        this.autoSubmitDoodleAssessment(settings, assessment.passed);
+        this.autoSubmitDoodleAssessment(settings, assessment.passed, card);
     }
 
     private recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void {
@@ -8396,9 +8438,12 @@ export class NewTabController {
         this.doodleOutcomes.set(key, passed ? 'correct' : 'wrong');
     }
 
-    private autoSubmitDoodleAssessment(settings: ReaderSettings, passed: boolean): void {
+    private autoSubmitDoodleAssessment(settings: ReaderSettings, passed: boolean, expectedCard: JPDBCard): void {
         if (settings.enableReviews && settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
-            void this.gradeCurrentCard(passed ? 'pass' : 'fail');
+            const grade: JPDBGrade = usesBunproFsrsGradeScale(expectedCard)
+                ? passed ? 'okay' : 'nothing'
+                : passed ? 'pass' : 'fail';
+            void this.gradeCurrentCard(grade, undefined, expectedCard);
         }
     }
 
@@ -9896,7 +9941,8 @@ export class NewTabController {
     }
 
     private canReviewCard(card: JPDBCard): boolean {
-        if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;
+        if ((this.isOfflineSourceLabel(this.sourceLabel) || typeof navigator !== 'undefined' && navigator.onLine === false)
+            && !this.offlineGradeTargets(card).length) return false;
         return this.reviewSourceSummary(card).targets.length > 0;
     }
 
@@ -9910,6 +9956,19 @@ export class NewTabController {
 
     private offlineGradeTargets(card: JPDBCard): QueuedNewTabGradeTarget[] {
         return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
+    }
+
+    private offlineGradeTargetsForSelection(card: JPDBCard, selection?: NewTabLookupReviewTargetSelection): QueuedNewTabGradeTarget[] {
+        if (!selection) return this.offlineGradeTargets(card);
+        if (selection.kind === 'anki') {
+            const selectedCardId = Number(selection.ankiCardId);
+            return Number.isFinite(selectedCardId)
+                && selectedCardId > 0
+                && selectedCardId === this.ankiCardIdForReview(card)
+                && this.reviewTargetsForCard(card).includes('anki') ? ['anki'] : [];
+        }
+        const target = this.reviewTargetForLookupKind(card, selection.kind);
+        return target && target !== 'jpdb-live' && target !== 'bunpro-api' ? [target] : [];
     }
 
     private navigationControlButtons(revealLabel: string): HTMLElement[] {
@@ -10017,9 +10076,11 @@ export class NewTabController {
 
     private studyGradeShortcutHints(card: JPDBCard): Partial<Record<JPDBGrade, string>> {
         const settings = this.dependencies.getSettings();
-        const candidates = usesTwoButtonNewTabGradeScale(settings, card)
-            ? TWO_BUTTON_REVIEW_SHORTCUTS
-            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        const candidates = usesBunproFsrsGradeScale(card)
+            ? BUNPRO_FSRS_REVIEW_SHORTCUTS
+            : usesTwoButtonNewTabGradeScale(settings, card)
+                ? TWO_BUTTON_REVIEW_SHORTCUTS
+                : FIVE_BUTTON_REVIEW_SHORTCUTS;
         return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
     }
 
@@ -10142,7 +10203,43 @@ export class NewTabController {
         this.setStatus(root, this.text('jpdbKanjiUpdated'));
     }
 
-    private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<boolean> {
+    private gradeSubmissionInFlight = false;
+
+    private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection, expectedCard?: JPDBCard): Promise<boolean> {
+        const submittedCard = this.visibleWords[this.index];
+        if (!submittedCard || expectedCard && !this.sameGradeCardIdentity(submittedCard, expectedCard) || !this.canReviewCard(submittedCard)) return false;
+        const sessionScopedBunpro = submittedCard.source === 'bunpro' || submittedCard.reviewSource === 'bunpro-api';
+        if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        if (this.gradeSubmissionInFlight) return false;
+        this.gradeSubmissionInFlight = true;
+        const gradeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(
+            '[data-jpdb-reader-root].jpdb-reader-newtab [data-newtab-action="grade"], button[data-action="grade"][data-grade]',
+        ));
+        gradeButtons.forEach(button => { button.disabled = true; });
+        try {
+            return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        } finally {
+            this.gradeSubmissionInFlight = false;
+            if (submittedCard && this.visibleWords[this.index] === submittedCard) {
+                gradeButtons.filter(button => button.isConnected).forEach(button => { button.disabled = false; });
+            }
+        }
+    }
+
+    private sameGradeCardIdentity(current: JPDBCard, expected: JPDBCard): boolean {
+        if (cardKey(current) !== cardKey(expected)) return false;
+        const bunpro = current.source === 'bunpro'
+            || current.reviewSource === 'bunpro-api'
+            || expected.source === 'bunpro'
+            || expected.reviewSource === 'bunpro-api';
+        if (!bunpro) return true;
+        return current.bunproReviewId === expected.bunproReviewId
+            && current.bunproReviewSessionId === expected.bunproReviewSessionId
+            && current.bunproReviewInputMode === expected.bunproReviewInputMode
+            && current.bunproReviewEndpoint === expected.bunproReviewEndpoint;
+    }
+
+    private async gradeCurrentCardUnlocked(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<boolean> {
         const target = this.currentGradeTarget();
         if (!target) return false;
         if (!this.canReviewCard(target.card)) return false;
@@ -10151,7 +10248,8 @@ export class NewTabController {
         // straight away instead of attempting a doomed submit. The queue syncs on
         // reconnect (eventually consistent), so no review is ever lost.
         if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-            if (await this.gradeQueue.enqueue(target.card, grade, this.offlineGradeTargets(target.card))) {
+            const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+            if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
                 this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -10168,19 +10266,34 @@ export class NewTabController {
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
             if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-            // UT-57: every provider gets an undo affordance — Jiten reverses
-            // server-side, the rest re-queue locally.
-            this.lastUndoableReview = {
-                card: target.card,
-                at: Date.now(),
-                serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
-                counted: !isCorrection,
-            };
-            this.advanceAfterGrade(target.root, target.card, grade);
+            // Bunpro review ids belong to the current live session and become
+            // stale as soon as the grade lands. Never reinsert one through the
+            // local undo path; the fresh Bunpro queue is the only source of
+            // any wrap-up/ghost retry. Other providers retain UT-57 undo.
+            this.lastUndoableReview = target.card.reviewSource === 'bunpro-api' || target.card.source === 'bunpro'
+                ? undefined
+                : {
+                    card: target.card,
+                    at: Date.now(),
+                    serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
+                    counted: !isCorrection,
+                };
+            await this.advanceAfterGrade(target.root, target.card, grade);
             return true;
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
-            if (!selectedTarget && await this.gradeQueue.enqueue(target.card, grade, this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card))) {
+            if (target.card.source === 'bunpro' || target.card.reviewSource === 'bunpro-api') {
+                // A lost response is ambiguous: Bunpro may have accepted the
+                // grade and consumed this session review id. Retire the local
+                // card and wait for a fresh live queue before accepting input,
+                // rather than ever retrying the old id.
+                await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+                return true;
+            }
+            const queueTargets = selectedTarget
+                ? this.offlineGradeTargetsForSelection(target.card, selectedTarget)
+                : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+            if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
                 this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -10190,6 +10303,24 @@ export class NewTabController {
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
         }
         return false;
+    }
+
+    private async reloadAfterAmbiguousBunproGrade(root: HTMLElement, card: JPDBCard): Promise<void> {
+        const key = cardKey(card);
+        this.lastUndoableReview = undefined;
+        this.invalidateReviewSourceCache(card);
+        this.allWords = this.allWords.filter(item => cardKey(item) !== key);
+        this.visibleWords = this.visibleWords.filter(item => cardKey(item) !== key);
+        this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
+        this.state.revealAnswer = false;
+        this.persistState();
+        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]').forEach(button => { button.disabled = true; });
+        this.setStatus(root, this.text('couldNotSubmitGrade'));
+        // The provider outcome is unknown, so other Study tabs must retire
+        // their copies just as they would after a confirmed grade.
+        this.publishGradedCardState(card);
+        this.markQueueRefreshed();
+        await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
 
     private gradeSuccessStatus(grade: JPDBGrade, selectedTarget: NewTabLookupReviewTarget | null): string {
@@ -10298,6 +10429,11 @@ export class NewTabController {
             providerCardId,
             providerReviewId: source === 'bunpro' ? card.bunproReviewId || providerCardId : providerCardId,
             providerReviewableId: source === 'bunpro' ? stringifyPositiveNumber(card.bunproReviewableId) : undefined,
+            reviewSession: source === 'bunpro' && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+                id: card.bunproReviewSessionId,
+                inputMode: card.bunproReviewInputMode,
+                endpoint: card.bunproReviewEndpoint,
+            } : undefined,
             kind: source === 'bunpro' ? bunproReviewableKind(card.bunproReviewableType) : 'vocabulary',
             expression,
             reading,
@@ -10561,6 +10697,10 @@ export class NewTabController {
     }
 
     private async submitQueuedGrade(item: QueuedNewTabGrade): Promise<boolean> {
+        // Defensive migration guard for queues written before Bunpro grading
+        // became live-session-only. NewTabGradeQueue also removes these while
+        // reading, but never submit one if a caller bypasses that storage path.
+        if (item.target === 'bunpro-api') return false;
         if (item.target === 'anki') {
             await this.submitAnkiGrade(item.card, item.grade);
             return true;
@@ -10569,7 +10709,7 @@ export class NewTabController {
             await this.submitJitenApiGrade(item.card, item.grade);
             return true;
         }
-        if (item.target === 'bunpro-api' || item.target === 'yomu-local') {
+        if (item.target === 'yomu-local') {
             await this.submitSrsAdapterGrade(item.card, item.target, item.grade);
             return true;
         }
@@ -10577,7 +10717,7 @@ export class NewTabController {
         return true;
     }
 
-    private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade): void {
+    private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade): void | Promise<void> {
         const key = cardKey(card);
         const previousIndex = this.index;
         const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
@@ -10592,7 +10732,7 @@ export class NewTabController {
         // jpdb-style failed-card loop (community ask): a failed grade keeps
         // the card in this session's pool so it comes back around until
         // passed, instead of disappearing until the next batch fetch.
-        if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode) {
+        if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && card.reviewSource !== 'bunpro-api') {
             this.requeueFailedCard(root, key, previousIndex);
             return;
         }
@@ -10601,6 +10741,13 @@ export class NewTabController {
         this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
         this.state.revealAnswer = false;
         this.persistState();
+        if (card.reviewSource === 'bunpro-api') {
+            // Bunpro can immediately create a wrap-up/ghost retry (sometimes
+            // under the same id). The live queue must decide what comes next,
+            // even when this was the last visible card or stop-at-batch is on.
+            this.markQueueRefreshed();
+            return this.loadWordsInto(root, false, { useOfflineCache: false });
+        }
         const nextIndex = this.resolvePostGradeIndex(nextKey, previousIndex);
         if (nextIndex < 0) {
             this.clearReviewHistory();

@@ -107,6 +107,13 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jpdbReviewId,
         jitenWordId,
         jitenReadingIndex,
+        bunproReviewId,
+        bunproReviewableId,
+        bunproReviewableType,
+        bunproReviewSessionId,
+        bunproReviewInputMode,
+        bunproReviewEndpoint,
+        bunproSrsLevel,
         fallbackLookupTerms,
         sourceDeckName,
         lastReviewAt,
@@ -138,6 +145,13 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jpdbReviewId,
         jitenWordId,
         jitenReadingIndex,
+        bunproReviewId,
+        bunproReviewableId,
+        bunproReviewableType,
+        bunproReviewSessionId,
+        bunproReviewInputMode,
+        bunproReviewEndpoint,
+        bunproSrsLevel,
         fallbackLookupTerms,
         sourceDeckName,
         lastReviewAt,
@@ -7629,6 +7643,301 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('never restores a consumed Bunpro review through local undo or browser-back state', async () => {
+        const card = newTabTestCard({
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '7701',
+            bunproReviewableId: 8801,
+            bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '44',
+            bunproReviewInputMode: 'regular',
+            bunproReviewEndpoint: 'review',
+            cardState: ['due'],
+        });
+        const review = vi.fn(async () => ({}));
+        const { controller, root } = newTabVisibleWordFixture(() => ({
+            ...DEFAULT_SETTINGS,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            bunproMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }), {
+            card,
+            allWords: [card],
+            reviewCountMode: true,
+            sourceLabel: 'Bunpro',
+            source: 'bunpro',
+            controllerOverrides: {
+                srsAdapters: { bunpro: { hasCredential: () => true, review } as never },
+            },
+        });
+        const reload = vi.fn(async () => undefined);
+        const internals = controller as unknown as {
+            gradeCurrentCard(grade: 'pass'): Promise<boolean>;
+            undoLastReview(root: HTMLElement): Promise<void>;
+            canUndoLastReview(): boolean;
+            lastUndoableReview?: { card: JPDBCard };
+            loadWordsInto: typeof reload;
+            allWords: JPDBCard[];
+        };
+        internals.loadWordsInto = reload;
+
+        try {
+            expect((controller as unknown as { reviewTargetsForCard(card: JPDBCard): string[] }).reviewTargetsForCard(card)).toEqual(['bunpro-api']);
+            await expect(internals.gradeCurrentCard('pass')).resolves.toBe(true);
+            expect(review).toHaveBeenCalledOnce();
+            expect(internals.lastUndoableReview).toBeUndefined();
+            expect(internals.canUndoLastReview()).toBe(false);
+
+            await internals.undoLastReview(root);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            await Promise.resolve();
+
+            expect(review).toHaveBeenCalledOnce();
+            expect(internals.allWords).not.toContain(card);
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('retires an ambiguously submitted Bunpro review and reloads before it can be graded twice', async () => {
+        const card = newTabTestCard({
+            spelling: '文法',
+            reading: 'ぶんぽう',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '99001',
+            bunproReviewableId: 9901,
+            bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '45',
+            bunproReviewInputMode: 'regular',
+            bunproReviewEndpoint: 'review',
+            cardState: ['due'],
+        });
+        const response = deferred<boolean>();
+        const review = vi.fn(async () => {
+            await response.promise;
+            throw new Error('response lost after submit');
+        });
+        const { controller, root } = newTabVisibleWordFixture(() => ({
+            ...DEFAULT_SETTINGS,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            bunproMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }), {
+            card,
+            allWords: [card],
+            reviewCountMode: true,
+            sourceLabel: 'Bunpro',
+            source: 'bunpro',
+            controllerOverrides: {
+                srsAdapters: { bunpro: { hasCredential: () => true, review } as never },
+            },
+        });
+        const reload = vi.fn(async () => undefined);
+        const internals = controller as unknown as {
+            gradeCurrentCard(grade: 'pass'): Promise<boolean>;
+            loadWordsInto: typeof reload;
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+        };
+        internals.loadWordsInto = reload;
+
+        try {
+            expect((controller as unknown as { reviewTargetsForCard(card: JPDBCard): string[] }).reviewTargetsForCard(card)).toEqual(['bunpro-api']);
+            const firstGrade = internals.gradeCurrentCard('pass');
+            await expect(internals.gradeCurrentCard('pass')).resolves.toBe(false);
+            expect(review).toHaveBeenCalledOnce();
+            response.resolve(true);
+            await expect(firstGrade).resolves.toBe(true);
+            await expect(internals.gradeCurrentCard('pass')).resolves.toBe(false);
+
+            expect(review).toHaveBeenCalledOnce();
+            expect(reload).toHaveBeenCalledOnce();
+            expect(internals.allWords).toEqual([]);
+            expect(internals.visibleWords).toEqual([]);
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('retires a Bunpro obligation from another Study tab before accepting more input', async () => {
+        document.body.replaceChildren();
+        const card = newTabTestCard({
+            spelling: '同期',
+            reading: 'どうき',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '99002',
+            bunproReviewableId: 9902,
+            bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '46',
+            bunproReviewInputMode: 'regular',
+            bunproReviewEndpoint: 'review',
+            cardState: ['due'],
+        });
+        const review = vi.fn(async () => ({}));
+        const { controller, root } = newTabVisibleWordFixture(() => ({
+            ...DEFAULT_SETTINGS,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            bunproMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }), {
+            card,
+            allWords: [card],
+            reviewCountMode: true,
+            sourceLabel: 'Bunpro',
+            source: 'bunpro',
+            controllerOverrides: {
+                srsAdapters: { bunpro: { hasCredential: () => true, review } as never },
+            },
+        });
+        const reloadGate = deferred<boolean>();
+        const reload = vi.fn(async () => { await reloadGate.promise; });
+        const internals = controller as unknown as {
+            refreshBunproQueueAfterExternalGrade(): Promise<void>;
+            gradeCurrentCard(grade: 'pass'): Promise<boolean>;
+            loadWordsInto: typeof reload;
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            setStudyStepOverrideForCurrentCard(id: string): void;
+            renderWord(root: HTMLElement, card: JPDBCard): void;
+        };
+        internals.loadWordsInto = reload;
+        internals.setStudyStepOverrideForCurrentCard('final-reveal');
+        internals.renderWord(root, card);
+
+        try {
+            const refresh = internals.refreshBunproQueueAfterExternalGrade();
+            expect(root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]:disabled').length).toBeGreaterThan(0);
+            await expect(internals.gradeCurrentCard('pass')).resolves.toBe(false);
+            expect(review).not.toHaveBeenCalled();
+            expect(internals.allWords).toEqual([]);
+            expect(internals.visibleWords).toEqual([]);
+
+            reloadGate.resolve(true);
+            await refresh;
+            expect(reload).toHaveBeenCalledOnce();
+            expect(review).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('refuses stale Bunpro lookup and doodle callbacks after the queue changes cards', async () => {
+        const previous = newTabTestCard({
+            spelling: '同じ', reading: 'おなじ', source: 'bunpro', reviewSource: 'bunpro-api',
+            bunproReviewId: '1001', bunproReviewableId: 2001, bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '47', bunproReviewInputMode: 'regular', bunproReviewEndpoint: 'review', cardState: ['due'],
+        });
+        const current = newTabTestCard({
+            ...previous,
+            bunproReviewId: '1002',
+            bunproReviewableId: 2002,
+            bunproReviewSessionId: '48',
+        });
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            bunproMiningEnabled: true,
+            enableReviews: true,
+            newTabKanjiAutoSubmit: true,
+            immersionKitEnabled: false,
+        };
+        const review = vi.fn(async () => ({}));
+        const { controller, root } = newTabVisibleWordFixture(settings, {
+            card: current,
+            allWords: [current],
+            reviewCountMode: true,
+            sourceLabel: 'Bunpro',
+            source: 'bunpro',
+            controllerOverrides: { srsAdapters: { bunpro: { hasCredential: () => true, review } as never } },
+        });
+
+        try {
+            await expect(controller.gradeFromLookup('pass', { kind: 'bunpro' }, previous))
+                .resolves.toEqual({ preserveLookup: false });
+            (controller as unknown as {
+                autoSubmitDoodleAssessment(settings: typeof DEFAULT_SETTINGS, passed: boolean, expectedCard: JPDBCard): void;
+            }).autoSubmitDoodleAssessment(settings, true, previous);
+            await Promise.resolve();
+
+            expect(review).not.toHaveBeenCalled();
+            expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords).toEqual([current]);
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('supersedes an initial Bunpro load when an external grade arrives before cards render', async () => {
+        document.body.replaceChildren();
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproMiningEnabled: true,
+        }), {
+            srsAdapters: { bunpro: { hasCredential: () => true } as never },
+        });
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const reload = vi.fn(async () => undefined);
+        const internals = controller as unknown as {
+            state: { source: string; revealAnswer: boolean };
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            loadWordsInto: typeof reload;
+            refreshBunproQueueAfterExternalGrade(): Promise<void>;
+        };
+        Object.assign(internals, {
+            state: { ...((controller as unknown as { state: object }).state), source: 'bunpro', revealAnswer: false },
+            allWords: [],
+            visibleWords: [],
+            loadWordsInto: reload,
+        });
+
+        try {
+            await internals.refreshBunproQueueAfterExternalGrade();
+            expect(reload).toHaveBeenCalledWith(root, true, { useOfflineCache: false });
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('maps doodle auto-submit to Bunpro regular and FSRS outcomes', () => {
+        const controller = newTabBareController();
+        const gradeCurrentCard = vi.fn(async (_grade: JPDBGrade, _target?: unknown, _card?: JPDBCard) => true);
+        const internals = controller as unknown as {
+            state: { revealAnswer: boolean };
+            gradeCurrentCard: typeof gradeCurrentCard;
+            autoSubmitDoodleAssessment(settings: typeof DEFAULT_SETTINGS, passed: boolean, expectedCard: JPDBCard): void;
+        };
+        internals.state = { ...internals.state, revealAnswer: true };
+        internals.gradeCurrentCard = gradeCurrentCard;
+        const regular = newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewInputMode: 'regular' });
+        const fsrs = newTabTestCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewInputMode: 'fsrs' });
+        const settings = { ...DEFAULT_SETTINGS, enableReviews: true, newTabKanjiAutoSubmit: true };
+
+        internals.autoSubmitDoodleAssessment(settings, true, regular);
+        internals.autoSubmitDoodleAssessment(settings, false, regular);
+        internals.autoSubmitDoodleAssessment(settings, true, fsrs);
+        internals.autoSubmitDoodleAssessment(settings, false, fsrs);
+
+        expect(gradeCurrentCard.mock.calls.map(([grade]) => grade)).toEqual(['pass', 'fail', 'okay', 'nothing']);
+    });
+
     it('merges matching JPDB and Anki auto review cards into one dual-source prompt', async () => {
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
@@ -13392,7 +13701,7 @@ describe('new tab review helpers', () => {
             pass.click();
 
             await waitForExpect(() => {
-                expect(gradeFromLookup).toHaveBeenCalledWith('pass', { kind: 'anki', ankiCardId: 404 });
+                expect(gradeFromLookup).toHaveBeenCalledWith('pass', { kind: 'anki', ankiCardId: 404 }, card);
                 expect(document.querySelector('.jpdb-reader-popover')).toBeNull();
                 expect(internals.activeLookupPopover).toBeUndefined();
             });

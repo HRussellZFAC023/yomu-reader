@@ -4155,7 +4155,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -4996,8 +4996,10 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeAgainLabel: "Again",
       bunproGradeHardLabel: "Hard",
       bunproGradeGoodLabel: "Good",
+      bunproGradeEasyLabel: "Easy",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -5519,8 +5521,10 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeAgainLabel	もう一度
 bunproGradeHardLabel	難しい
 bunproGradeGoodLabel	良い
+bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -5900,7 +5904,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -8870,8 +8874,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const date = expiresAt ? new Date(expiresAt) : null;
     const expires = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(resolveUiLanguage(language) === "ja" ? "ja-JP" : "en-GB") : "";
     return {
-      message: expires ? resolveUiLanguage(language) === "ja" ? `Bunproトークンあり。期限: ${expires}` : `Bunpro token set. Expires ${expires}.` : resolveUiLanguage(language) === "ja" ? "Bunproトークンあり。" : "Bunpro token set.",
-      tone: "success"
+      message: expires ? resolveUiLanguage(language) === "ja" ? `Bunproトークン保存済み（未確認）。期限: ${expires}` : `Bunpro token saved (not verified). Expires ${expires}.` : resolveUiLanguage(language) === "ja" ? "Bunproトークン保存済み（未確認）。" : "Bunpro token saved (not verified).",
+      tone: "pending"
     };
   }
   function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language) {
@@ -9431,7 +9435,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}

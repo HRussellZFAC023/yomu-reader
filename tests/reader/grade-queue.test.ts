@@ -115,4 +115,33 @@ describe('NewTabGradeQueue.flush', () => {
         await queue.flush();
         expect(submit).not.toHaveBeenCalled();
     });
+
+    it('purges legacy Bunpro grades without submitting them and keeps other providers', async () => {
+        const bunpro = {
+            id: 'bunpro-api:legacy',
+            at: Date.now(),
+            target: 'bunpro-api',
+            card: card('文法'),
+            grade: 'pass',
+            attempts: 3,
+        } satisfies QueuedNewTabGrade;
+        const anki = {
+            id: 'anki:current',
+            at: Date.now(),
+            target: 'anki',
+            card: card('単語'),
+            grade: 'okay',
+            attempts: 0,
+        } satisfies QueuedNewTabGrade;
+        store.set(NEW_TAB_GRADE_QUEUE_KEY, [bunpro, anki]);
+        const { queue, submit } = makeQueue();
+
+        expect(await queue.pendingCount()).toBe(1);
+        expect(stored()).toEqual([anki]);
+        await queue.flush();
+
+        expect(submit).toHaveBeenCalledOnce();
+        expect(submit).toHaveBeenCalledWith(anki);
+        expect(stored()).toEqual([]);
+    });
 });

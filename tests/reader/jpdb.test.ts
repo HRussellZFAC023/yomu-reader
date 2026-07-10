@@ -367,7 +367,7 @@ type TestHydratedPopupAnkiInternals = {
         card: JPDBCard,
         sentence: string | undefined,
         trigger: 'modal' | 'hover',
-        data: CardRenderData,
+        state: { data: CardRenderData },
         renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
         requestId: number,
         isCurrentHoverCard: () => boolean,
@@ -2434,7 +2434,7 @@ async function expectHydratedPopupAnkiRender(options: {
         options.lookupCard,
         options.sentence,
         'modal',
-        options.data,
+        { data: options.data },
         options.renderData,
         1,
         () => true,
@@ -5398,9 +5398,34 @@ describe('reader helpers', () => {
             dictionaryLabel: name => name,
         });
         const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
-        expect(html).toContain('data-action="add"');
+        expect(html).toContain('data-action="deck-picker"');
+        expect(html).toContain('data-deck-source="bunpro"');
         expect(html).not.toContain('data-action="neverforget"');
         expect(html).not.toContain('data-action="blacklist"');
+    });
+
+    it('offers Bunpro mining for an ordinary popup word without offering an unsessioned grade', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                yomuLocalSrsEnabled: false,
+                bunproMiningEnabled: true,
+                bunproFrontendApiToken: 'bunpro-token',
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+
+        const html = renderModalCard(renderer, { ...card, source: 'local', cardState: ['not-in-deck'] }, '食べる。');
+        expect(html).toContain('data-deck-source="bunpro"');
+        expect(html).not.toContain('data-action="grade"');
     });
 
     it('allows locked JPDB review buttons while keeping Anki review available', () => {
@@ -6790,6 +6815,9 @@ describe('reader helpers', () => {
             bunproReviewId: '123',
             bunproReviewableId: 456,
             bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '44',
+            bunproReviewInputMode: 'fsrs',
+            bunproReviewEndpoint: 'review',
             cardState: ['due'],
         };
 
@@ -6799,9 +6827,34 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'bunpro')).toBe(true);
         expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Bunpro');
-        const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
-        expect(addButton?.dataset.deckSource).toBe('bunpro');
-        expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="deck-picker"]')).toBeNull();
+        expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]')).toBeNull();
+        expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="deck-picker"]')).not.toBeNull();
+        expect(document.querySelector<HTMLOptionElement>('[data-deck-source="bunpro"]')?.dataset.deckId).toBe('bunpro');
+    });
+
+    it('offers Bunpro mining for words and grammar but not sentence reviewables', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: '',
+            jitenApiKey: '',
+            yomuLocalSrsEnabled: false,
+            ankiEnabled: false,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproMiningEnabled: true,
+        });
+        const renderType = (bunproReviewableType: JPDBCard['bunproReviewableType']) => renderModalCard(renderer, {
+            ...card,
+            source: 'bunpro',
+            reviewSource: undefined,
+            bunproReviewableType,
+            cardState: ['not-in-deck'],
+        }, '日本語を勉強します。');
+
+        document.body.innerHTML = renderType('vocabulary');
+        expect(document.querySelector('[data-deck-source="bunpro"]')).not.toBeNull();
+        document.body.innerHTML = renderType('grammar');
+        expect(document.querySelector('[data-deck-source="bunpro"]')).not.toBeNull();
+        document.body.innerHTML = renderType('sentence');
+        expect(document.querySelector('[data-deck-source="bunpro"]')).toBeNull();
     });
 
     it('renders local Yomu SRS mining and review controls without external accounts', () => {
@@ -6962,6 +7015,9 @@ describe('reader helpers', () => {
             bunproReviewId: '123',
             bunproReviewableId: 456,
             bunproReviewableType: 'vocabulary',
+            bunproReviewSessionId: '44',
+            bunproReviewInputMode: 'fsrs',
+            bunproReviewEndpoint: 'review',
             meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
             cardState: ['due'],
         };
@@ -6991,6 +7047,54 @@ describe('reader helpers', () => {
             }),
         }));
         expect(toast).toHaveBeenCalledWith('Added to Bunpro.');
+    });
+
+    it('mines an ordinary popup word to Bunpro without fabricating a gradeable review', async () => {
+        const mine = vi.fn(async () => ({}));
+        const review = vi.fn(async () => ({}));
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                ankiEnabled: false,
+                yomuLocalSrsEnabled: false,
+                bunproFrontendApiToken: 'bunpro-token',
+                bunproMiningEnabled: true,
+            }),
+            srsAdapters: {
+                bunpro: {
+                    id: 'bunpro',
+                    label: 'Bunpro',
+                    capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
+                    hasCredential: () => true,
+                    verify: vi.fn(),
+                    stats: vi.fn(),
+                    queue: vi.fn(),
+                    review,
+                    mine,
+                } as never,
+            },
+            isJpdbBackedCard: () => false,
+        });
+        const pageCard: JPDBCard = {
+            ...card,
+            source: 'local',
+            meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
+            cardState: ['not-in-deck'],
+        };
+        const button = document.createElement('button');
+        button.dataset.action = 'add';
+        button.dataset.deckSource = 'bunpro';
+
+        await expect(controller.perform('add', button, pageCard, 'ご飯を食べる。')).resolves.toBe(true);
+        expect(mine).toHaveBeenCalledWith(expect.objectContaining({
+            expression: '食べる',
+            reading: 'たべる',
+            kind: 'vocabulary',
+        }));
+        expect(review).not.toHaveBeenCalled();
+        expect(pageCard.bunproReviewId).toBeUndefined();
     });
 
     it('mines and reviews page words through the local Yomu SRS adapter without accounts', async () => {
@@ -31575,7 +31679,7 @@ describe('reader helpers', () => {
                 card: JPDBCard,
                 sentence: string | undefined,
                 trigger: 'modal' | 'hover',
-                data: CardRenderData,
+                state: { data: CardRenderData },
                 renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
                 requestId: number,
                 isCurrentHoverCard: () => boolean,
@@ -31590,7 +31694,7 @@ describe('reader helpers', () => {
                 lookupCard,
                 '連続して読む。',
                 'hover',
-                data,
+                { data },
                 { hydrateAnkiLookup },
                 1,
                 () => currentHover,

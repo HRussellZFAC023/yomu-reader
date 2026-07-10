@@ -64,6 +64,10 @@ export interface CardRenderDataLoad {
     all: Promise<CardRenderData>;
 }
 
+export interface CardRenderDataLoadOptions {
+    includeBunproDefinition?: boolean;
+}
+
 export interface CardRenderDataLoaderDependencies {
     getSettings: () => ReaderSettings;
     dictionaries: YomitanDictionaryStore;
@@ -120,13 +124,13 @@ export class CardRenderDataLoader {
         this.ankiDecksCache = undefined;
     }
 
-    load(card: JPDBCard): CardRenderDataLoad {
-        const key = this.cacheKey(card);
+    load(card: JPDBCard, options: CardRenderDataLoadOptions = {}): CardRenderDataLoad {
+        const key = this.cacheKey(card, options);
         const now = Date.now();
         const cached = this.cache.get(key);
         if (cached && cached.expiresAt > now) return cached.load;
 
-        const load = this.fetch(card);
+        const load = this.fetch(card, options);
         void load.all.catch(() => {
             if (this.cache.get(key)?.load === load) this.cache.delete(key);
         });
@@ -135,7 +139,7 @@ export class CardRenderDataLoader {
         return load;
     }
 
-    private fetch(card: JPDBCard): CardRenderDataLoad {
+    private fetch(card: JPDBCard, options: CardRenderDataLoadOptions): CardRenderDataLoad {
         const localEntries = this.loadLocalTermEntries(card);
         const localMetaEntries = this.loadLocalMetaEntries(card).then(async localMeta => {
             if (localMeta.completed) {
@@ -156,7 +160,9 @@ export class CardRenderDataLoader {
         const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
         const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
         const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
-        const bunproDefinitionLookup = this.lookupBunproDefinitionInfo(card);
+        const bunproDefinitionLookup = options.includeBunproDefinition === false
+            ? Promise.resolve(null)
+            : this.lookupBunproDefinitionInfo(card);
         const bunproDefinitionInfo = this.withFallback(
             card,
             CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -546,7 +552,7 @@ export class CardRenderDataLoader {
         return promise;
     }
 
-    private cacheKey(card: JPDBCard): string {
+    private cacheKey(card: JPDBCard, options: CardRenderDataLoadOptions): string {
         const settings = this.settings();
         return JSON.stringify({
             card: cardKey(card),
@@ -562,6 +568,7 @@ export class CardRenderDataLoader {
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,
             jitenDefinitions: settings.jitenDefinitionsEnabled,
             bunproDefinitions: settings.bunproDefinitionsEnabled,
+            includeBunproDefinition: options.includeBunproDefinition !== false,
             apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
             hasApiKey: hasJpdbApiCredential(settings),
             hasJitenApiKey: hasJitenApiCredential(settings),

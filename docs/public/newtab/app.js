@@ -1395,7 +1395,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -2236,8 +2236,10 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeAgainLabel: "Again",
       bunproGradeHardLabel: "Hard",
       bunproGradeGoodLabel: "Good",
+      bunproGradeEasyLabel: "Easy",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -2759,8 +2761,10 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeAgainLabel	もう一度
 bunproGradeHardLabel	難しい
 bunproGradeGoodLabel	良い
+bunproGradeEasyLabel	簡単
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -3140,7 +3144,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -30781,7 +30785,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function selectedDeckSource$1(value) {
-    if (value === "anki" || value === "jiten") return value;
+    if (value === "anki" || value === "jiten" || value === "bunpro" || value === "yomu-local") return value;
     return "jpdb";
   }
   function closeDeckPicker(picker, wrapper, toggle, controller) {
@@ -42209,8 +42213,8 @@ ${spelling}`);
     const date = expiresAt ? new Date(expiresAt) : null;
     const expires = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(resolveUiLanguage(language) === "ja" ? "ja-JP" : "en-GB") : "";
     return {
-      message: expires ? resolveUiLanguage(language) === "ja" ? `Bunproトークンあり。期限: ${expires}` : `Bunpro token set. Expires ${expires}.` : resolveUiLanguage(language) === "ja" ? "Bunproトークンあり。" : "Bunpro token set.",
-      tone: "success"
+      message: expires ? resolveUiLanguage(language) === "ja" ? `Bunproトークン保存済み（未確認）。期限: ${expires}` : `Bunpro token saved (not verified). Expires ${expires}.` : resolveUiLanguage(language) === "ja" ? "Bunproトークン保存済み（未確認）。" : "Bunpro token saved (not verified).",
+      tone: "pending"
     };
   }
   function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language) {
@@ -42571,7 +42575,7 @@ ${spelling}`);
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
@@ -51214,6 +51218,7 @@ ${spelling}`);
     const options = [];
     if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
     if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
+    if (renderOptions.includeBunpro) addDeckChoiceOption(options, "bunpro", "bunpro", "Bunpro");
     if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", "Yomu");
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return "";
@@ -51268,15 +51273,15 @@ ${spelling}`);
     return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
   }
   function apiSrsSwitchableProviderIds(card, settings) {
+    if (isBunproUsableCard(card, settings)) return ["bunpro"];
     const ids = [];
     const wordLike = !card.bunproReviewableType || card.bunproReviewableType === "vocabulary";
     if (wordLike && hasJpdbApiCredential(settings)) ids.push("jpdb");
     if (wordLike && hasJitenApiCredential(settings)) ids.push("jiten");
-    if (isBunproUsableCard(card, settings)) ids.push("bunpro");
     return ids;
   }
   function isBunproUsableCard(card, settings) {
-    return isBunproBackedCard(card) && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+    return isBunproGradeableCard(card) && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
   }
   function apiSrsProviderView(id, settings) {
     if (id === "yomu-local") {
@@ -51318,7 +51323,7 @@ ${spelling}`);
     if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings);
     if (jpdbBacked) return apiSrsProviderView("jpdb", settings);
     if (jitenBacked) return apiSrsProviderView("jiten", settings);
-    if (bunproBacked) return apiSrsProviderView("bunpro", settings);
+    if (bunproBacked) return { ...apiSrsProviderView("bunpro", settings), hasApiKey: false };
     return null;
   }
   function isApiMiningEnabled(settings) {
@@ -51384,7 +51389,8 @@ ${spelling}`);
       reviewApiKeyRequiredKey: "addBunproApiKeyReview",
       deckStateApiKeyRequiredKey: "bunproAddApiKeyRequired",
       addedToastKey: "addedToBunpro",
-      supportsCard: isBunproBackedCard,
+      supportsCard: isBunproGradeableCard,
+      supportsMiningCard: isBunproMiningCard,
       supportsDeckState: () => false,
       selectedDeckId: () => "bunpro",
       selectedDeckLabel: () => "Bunpro",
@@ -51403,11 +51409,19 @@ ${spelling}`);
       setDeckState: async () => void 0
     };
   }
+  function isBunproMiningCard(card) {
+    return Boolean(card.spelling.trim()) && card.bunproReviewableType !== "sentence";
+  }
   function applyBunproReviewableToCard(card, reviewable) {
     if (reviewable.state.length) card.cardState = reviewable.state;
     if (reviewable.dueAt !== void 0) card.dueAt = reviewable.dueAt;
     if (reviewable.lastReviewAt !== void 0) card.lastReviewAt = reviewable.lastReviewAt;
     if (reviewable.srsLevel) card.bunproSrsLevel = reviewable.srsLevel;
+    if (reviewable.reviewSession) {
+      card.bunproReviewSessionId = reviewable.reviewSession.id;
+      card.bunproReviewInputMode = reviewable.reviewSession.inputMode;
+      card.bunproReviewEndpoint = reviewable.reviewSession.endpoint;
+    }
   }
   function createYomuLocalSrsProviderAdapter(adapter, settings) {
     return {
@@ -51480,6 +51494,10 @@ ${spelling}`);
   function isBunproBackedCard(card) {
     return card.source === "bunpro" || card.reviewSource === "bunpro-api" || Boolean(card.bunproReviewId || card.bunproReviewableId);
   }
+  function isBunproGradeableCard(card) {
+    const sessionId = Number(card.bunproReviewSessionId);
+    return isBunproBackedCard(card) && typeof card.bunproReviewId === "string" && /^[1-9]\d*$/u.test(card.bunproReviewId.trim()) && Number.isInteger(sessionId) && sessionId > 0 && (card.bunproReviewInputMode === "regular" || card.bunproReviewInputMode === "fsrs") && (card.bunproReviewEndpoint === "review" || card.bunproReviewEndpoint === "ghost-review" || card.bunproReviewEndpoint === "self-study-review");
+  }
   function bunproReviewableFromCard(card) {
     const expression = card.spelling.trim();
     const reading = card.reading.trim() || expression;
@@ -51487,8 +51505,13 @@ ${spelling}`);
     return {
       providerId: "bunpro",
       providerCardId,
-      providerReviewId: card.bunproReviewId || providerCardId,
+      providerReviewId: card.bunproReviewId,
       providerReviewableId: stringifyPositiveNumber$1(card.bunproReviewableId),
+      reviewSession: card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+        id: card.bunproReviewSessionId,
+        inputMode: card.bunproReviewInputMode,
+        endpoint: card.bunproReviewEndpoint
+      } : void 0,
       kind: bunproReviewableKind$1(card.bunproReviewableType),
       expression,
       reading,
@@ -51513,7 +51536,7 @@ ${spelling}`);
   }
   function bunproReviewableKind$1(type) {
     if (type === "vocabulary" || type === "grammar" || type === "sentence") return type;
-    return "unknown";
+    return "vocabulary";
   }
   function yomuLocalReviewableFromCard(card) {
     const expression = card.spelling.trim();
@@ -61736,7 +61759,7 @@ ${spelling}`);
       return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
     }
     apiProviderForDeckSource(source, card, settings) {
-      return this.apiProviders(settings).find((provider) => provider.deckSource === source && provider.supportsCard(card)) ?? null;
+      return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
     }
     assertApiProviderActionAllowed(provider, message) {
       const settings = this.options.getSettings();
@@ -62103,7 +62126,8 @@ ${spelling}`);
     return value === "theirs" || value === "ours" ? value : "both";
   }
   function selectedPopoverReviewTarget(button) {
-    const option = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]")?.selectedOptions[0] ?? null;
+    const select2 = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
+    const option = select2?.options[select2.selectedIndex] ?? null;
     const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
     const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
     return { kind: target, ankiCardId };
@@ -62118,6 +62142,9 @@ ${spelling}`);
     if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
     if (source.bunproReviewableType) target.bunproReviewableType = source.bunproReviewableType;
     if (source.bunproSrsLevel) target.bunproSrsLevel = source.bunproSrsLevel;
+    if (source.bunproReviewSessionId) target.bunproReviewSessionId = source.bunproReviewSessionId;
+    if (source.bunproReviewInputMode) target.bunproReviewInputMode = source.bunproReviewInputMode;
+    if (source.bunproReviewEndpoint) target.bunproReviewEndpoint = source.bunproReviewEndpoint;
   }
   function reviewTargetKind(value) {
     if (value === "both" || value === "anki") return value;
@@ -62499,12 +62526,13 @@ ${spelling}`);
       const cycle = apiSrsSwitchableProviderIds(card, this.settings());
       if (cycle.length < 2) return null;
       const next = cycle[(cycle.indexOf(provider.id) + 1) % cycle.length];
-      return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: "", shortLabel: "" }, null) : null;
+      return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: "", shortLabel: "", gradeProfile: "standard" }, null) : null;
     }
     popoverReviewTargets(card, data, provider, language) {
       const ankiTargets = this.ankiReviewTargets(data, language);
       if (provider?.id === "yomu-local" && ankiTargets.length) return ankiTargets;
       const apiTargets = this.apiReviewTargets(card, provider, language);
+      if (provider?.id === "bunpro" && apiTargets.length) return apiTargets;
       if (apiTargets.length && ankiTargets.length) {
         const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
         if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -62520,7 +62548,7 @@ ${spelling}`);
     }
     apiReviewTargets(card, provider, _language) {
       if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") return [];
-      if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
+      if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language, card)];
       return [];
     }
     providerForReviewTarget(target, fallback) {
@@ -62530,13 +62558,14 @@ ${spelling}`);
       if (target.kind === "yomu-local") return { id: "yomu-local", label: "Yomu", deckSource: "yomu-local", hasApiKey: true };
       return fallback;
     }
-    apiReviewTarget(provider, language) {
+    apiReviewTarget(provider, language, card) {
       if (provider.id === "yomu-local") {
         return {
           id: "yomu-local",
           kind: "yomu-local",
           label: uiText(language, "gradeTargetYomuLocal"),
-          shortLabel: provider.label
+          shortLabel: provider.label,
+          gradeProfile: "standard"
         };
       }
       if (provider.id === "bunpro") {
@@ -62544,7 +62573,8 @@ ${spelling}`);
           id: "bunpro",
           kind: "bunpro",
           label: uiText(language, "gradeTargetBunpro"),
-          shortLabel: provider.label
+          shortLabel: provider.label,
+          gradeProfile: card.bunproReviewInputMode === "fsrs" ? "bunpro-fsrs" : "bunpro-regular"
         };
       }
       const isJiten = provider.id === "jiten";
@@ -62552,7 +62582,8 @@ ${spelling}`);
         id: provider.id,
         kind: isJiten ? "jiten" : "jpdb",
         label: uiText(language, isJiten ? "gradeTargetJiten" : "gradeTargetJpdb"),
-        shortLabel: provider.label
+        shortLabel: provider.label,
+        gradeProfile: "standard"
       };
     }
     bothReviewTarget(provider, ankiTarget, language) {
@@ -62562,7 +62593,8 @@ ${spelling}`);
         kind: "both",
         label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
         shortLabel: uiText(language, "gradeTargetBoth"),
-        ankiCardId: ankiTarget.ankiCardId
+        ankiCardId: ankiTarget.ankiCardId,
+        gradeProfile: "standard"
       };
     }
     ankiReviewTargets(data, language) {
@@ -62580,7 +62612,8 @@ ${spelling}`);
         ankiCardId: cardId,
         plainLabel: label,
         label: formatTargetLabel(uiText(language, "gradeTargetAnki"), label),
-        shortLabel: compactAnkiReviewTargetLabel(label, cardId)
+        shortLabel: compactAnkiReviewTargetLabel(label, cardId),
+        gradeProfile: "standard"
       }));
     }
     renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
@@ -62588,15 +62621,21 @@ ${spelling}`);
       const selected = targets[0];
       if (!selected) return "";
       const standardGrades = reviewButtonGrades(settings);
-      const bunproGrades = [
+      const bunproRegularGrades = [
         ["fail", uiText(language, "bunproGradeHardLabel")],
         ["pass", uiText(language, "bunproGradeGoodLabel")]
       ];
-      const hasBunpro = targets.some((target) => target.kind === "bunpro");
-      const hasStandard = targets.some((target) => target.kind !== "bunpro");
+      const bunproFsrsGrades = [
+        ["nothing", uiText(language, "bunproGradeAgainLabel")],
+        ["hard", uiText(language, "bunproGradeHardLabel")],
+        ["okay", uiText(language, "bunproGradeGoodLabel")],
+        ["easy", uiText(language, "bunproGradeEasyLabel")]
+      ];
+      const profiles = new Set(targets.map((target) => target.gradeProfile));
       const gradeRows = [
-        hasStandard ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.kind === "bunpro") : "",
-        hasBunpro ? renderTargetedGradeRow(bunproGrades, selected, "bunpro", selected.kind !== "bunpro") : ""
+        profiles.has("standard") ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.gradeProfile !== "standard") : "",
+        profiles.has("bunpro-regular") ? renderTargetedGradeRow(bunproRegularGrades, selected, "bunpro-regular", selected.gradeProfile !== "bunpro-regular") : "",
+        profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected, "bunpro-fsrs", selected.gradeProfile !== "bunpro-fsrs") : ""
       ].filter(Boolean).join("");
       if (!gradeRows) return "";
       const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
@@ -62644,13 +62683,14 @@ ${spelling}`);
     const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? "";
     const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
     const target = option.dataset.reviewTarget ?? "";
+    const gradeProfile = option.dataset.reviewGradeProfile ?? "standard";
     const ankiCardId = option.dataset.ankiCardId ?? "";
     const current = actions.querySelector("[data-review-target-current]");
     if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector("[data-review-target-label] [data-newtab-grade-target-text]");
     if (labelText) labelText.textContent = label;
     actions.querySelectorAll("[data-review-grade-profile]").forEach((row) => {
-      row.hidden = row.dataset.reviewGradeProfile === "bunpro" ? target !== "bunpro" : target === "bunpro";
+      row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
     });
     actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button) => {
       button.dataset.reviewTarget = target;
@@ -62701,7 +62741,7 @@ ${spelling}`);
   function renderReviewTargetSelector(targets, language) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language, "gradeTargetSelector"))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+            ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -62732,9 +62772,9 @@ ${spelling}`);
     };
   }
   function renderApiMiningActions(settings, card, cardStates, language, data, provider) {
-    if (!canRenderApiMiningActions(settings, provider)) return "";
     const state2 = miningActionState(cardStates, language);
-    const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
+    const addDeckSelect = renderAddDeckSelect(settings, card, data, language, provider);
+    if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return "";
     return renderApiMiningActionDetails(language, state2, addDeckSelect, provider, canToggleApiDeckState(card, settings));
   }
   function canToggleApiDeckState(card, settings) {
@@ -62743,10 +62783,11 @@ ${spelling}`);
   function canRenderApiMiningActions(settings, provider) {
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
   }
-  function renderAddDeckSelect(settings, data, language, provider) {
+  function renderAddDeckSelect(settings, card, data, language, provider) {
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
       includeJpdb: provider?.id === "jpdb",
       includeJiten: provider?.id === "jiten",
+      includeBunpro: isBunproMiningCard(card) && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
       includeYomuLocal: settings.yomuLocalSrsEnabled,
       jitenDecks: data.jitenDecks ?? []
     });
@@ -62755,7 +62796,7 @@ ${spelling}`);
   }
   function renderApiMiningActionDetails(language, state2, addDeckSelect, provider, canToggleDeckState) {
     const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
-    const directAdd = provider?.id === "bunpro" || provider?.id === "yomu-local";
+    const directAdd = (provider?.id === "bunpro" || provider?.id === "yomu-local") && (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
     const directDeckSource = provider?.id === "bunpro" ? "bunpro" : provider?.id === "yomu-local" ? "yomu-local" : "";
     const deckStateButtons = canToggleDeckState ? `
                         <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
@@ -62911,20 +62952,35 @@ ${component.reading}`;
   }
   async function lookupBunproDefinition(client, card) {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-    return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading);
+    return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+      id: card.bunproReviewableId,
+      kind: bunproDefinitionKind(card.bunproReviewableType)
+    });
   }
-  function normalizeBunproDefinitionSearch(raw, expression, reading = "") {
+  function normalizeBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
     const candidates = [
       ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
       ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
     ].filter((item) => item !== null);
     if (!candidates.length) return null;
-    const exactExpression = candidates.filter((item) => item.expression === expression);
-    if (reading) {
-      const exactReading = exactExpression.find((item) => item.reading === reading);
-      if (exactReading) return exactReading;
+    const expectedKind = selection.kind;
+    const expectedId = numberValue$1(selection.id);
+    if (expectedId) {
+      return candidates.find((item) => item.id === expectedId && (!expectedKind || item.kind === expectedKind)) ?? null;
     }
-    return exactExpression[0] ?? candidates[0] ?? null;
+    const eligible = expectedKind ? candidates.filter((item) => item.kind === expectedKind) : candidates;
+    const normalizedExpression = normalizedLookupText$1(expression);
+    const exactExpression = eligible.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
+    if (!exactExpression.length) return null;
+    if (reading) {
+      const normalizedReading = normalizedLookupText$1(reading);
+      const exactReading = exactExpression.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
+      if (exactReading.length === 1) return exactReading[0] ?? null;
+      if (exactReading.length > 1 && sameDefinitionIdentity(exactReading)) return exactReading[0] ?? null;
+      return null;
+    }
+    if (exactExpression.length === 1 || sameDefinitionIdentity(exactExpression)) return exactExpression[0] ?? null;
+    return null;
   }
   function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
     if (!info) return "";
@@ -62933,8 +62989,9 @@ ${component.reading}`;
       ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`)
     ].filter(Boolean).join("");
     const accepted = info.acceptedAnswers.filter((answer) => answer !== info.expression && answer !== info.reading).slice(0, 8);
-    const acceptedLabel = language === "ja" ? "正解として認められる答え" : "Accepted answers";
-    const nuanceLabel = language === "ja" ? "ニュアンス" : "Nuance";
+    const japanese = resolveUiLanguage(language) === "ja";
+    const acceptedLabel = japanese ? "正解として認められる答え" : "Accepted answers";
+    const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
@@ -62978,6 +63035,17 @@ ${component.reading}`;
   }
   function repeatsLookupHeadword(card, info) {
     return info.expression === card.spelling && (!card.reading || info.reading === card.reading || info.reading === info.expression);
+  }
+  function bunproDefinitionKind(type) {
+    if (type === "vocabulary" || type === "grammar") return type;
+    return void 0;
+  }
+  function normalizedLookupText$1(value) {
+    return value.normalize("NFKC").trim();
+  }
+  function sameDefinitionIdentity(items) {
+    const first2 = items[0];
+    return Boolean(first2 && items.every((item) => item.id === first2.id && item.kind === first2.kind));
   }
   function textList(value) {
     if (Array.isArray(value)) return value.map(textValue).filter(Boolean);
@@ -63040,12 +63108,12 @@ ${component.reading}`;
       this.jitenDecksCache = void 0;
       this.ankiDecksCache = void 0;
     }
-    load(card) {
-      const key = this.cacheKey(card);
+    load(card, options = {}) {
+      const key = this.cacheKey(card, options);
       const now = Date.now();
       const cached = this.cache.get(key);
       if (cached && cached.expiresAt > now) return cached.load;
-      const load = this.fetch(card);
+      const load = this.fetch(card, options);
       void load.all.catch(() => {
         if (this.cache.get(key)?.load === load) this.cache.delete(key);
       });
@@ -63053,7 +63121,7 @@ ${component.reading}`;
       pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
       return load;
     }
-    fetch(card) {
+    fetch(card, options) {
       const localEntries = this.loadLocalTermEntries(card);
       const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
         if (localMeta.completed) {
@@ -63074,7 +63142,7 @@ ${component.reading}`;
       const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
       const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
       const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
-      const bunproDefinitionLookup = this.lookupBunproDefinitionInfo(card);
+      const bunproDefinitionLookup = options.includeBunproDefinition === false ? Promise.resolve(null) : this.lookupBunproDefinitionInfo(card);
       const bunproDefinitionInfo = this.withFallback(
         card,
         CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -63402,7 +63470,7 @@ ${component.reading}`;
       this.ankiDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
       return promise;
     }
-    cacheKey(card) {
+    cacheKey(card, options) {
       const settings = this.settings();
       return JSON.stringify({
         card: cardKey(card),
@@ -63418,6 +63486,7 @@ ${component.reading}`;
         jpdbDefinitions: settings.jpdbDefinitionsEnabled,
         jitenDefinitions: settings.jitenDefinitionsEnabled,
         bunproDefinitions: settings.bunproDefinitionsEnabled,
+        includeBunproDefinition: options.includeBunproDefinition !== false,
         apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -63702,6 +63771,12 @@ ${component.reading}`;
     ["gradeHard", "hard"],
     ["gradeOkay", "okay"],
     ["gradeEasy", "easy"]
+  ];
+  const BUNPRO_FSRS_REVIEW_SHORTCUTS = [
+    ["gradeNothing", "nothing"],
+    ["gradeSomething", "hard"],
+    ["gradeHard", "okay"],
+    ["gradeOkay", "easy"]
   ];
   function matchedReviewShortcutGrade(event, shortcuts, candidates) {
     return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
@@ -64151,13 +64226,17 @@ ${component.reading}`;
       // default. Callers can still force it on with an explicit option.
       includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
       includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
-      includeBunproSource: options.includeBunproSource ?? true,
+      includeBunproSource: options.includeBunproSource ?? !isBunproPageHost(),
       includeStudySources: options.includeStudySources ?? true,
       includeImmersionSource: options.includeImmersionSource ?? true,
       jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
       jitenVocabularyInfo: params.jitenVocabularyInfo ?? null,
       bunproDefinitionInfo: params.bunproDefinitionInfo ?? null
     };
+  }
+  function isBunproPageHost() {
+    if (typeof location === "undefined") return false;
+    return location.hostname === "bunpro.jp" || location.hostname.endsWith(".bunpro.jp");
   }
   function normalizedDefinitionSourceStackOptions(params) {
     const optionKeys = params.optionKeys ?? DEFAULT_OPTION_KEYS;
@@ -72184,6 +72263,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     const add = (target) => {
       if (!targets.includes(target)) targets.push(target);
     };
+    if (hasBunproReviewSession(card) && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)) {
+      return ["bunpro-api"];
+    }
     if (card.reviewSource !== "jpdb-live" && isJitenGradableCard(card) && settings.jpdbMiningEnabled && hasJitenApiCredential(settings)) {
       add("jiten-api");
     }
@@ -72192,16 +72274,13 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     } else if ((card.reviewSource === "jpdb-api" || isPositiveJpdbCard(card)) && settings.jpdbMiningEnabled && hasJpdbApiCredential(settings)) {
       add("jpdb-api");
     }
-    if (card.reviewSource === "bunpro-api" && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)) {
-      add("bunpro-api");
-    }
     if (card.reviewSource === "yomu-local" && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
     return targets;
   }
   function queueableNewTabReviewTargets(targets) {
-    return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "bunpro-api" || target === "yomu-local");
+    return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
   }
   function passingNewTabGrade(grade) {
     return grade === "pass" || grade === "easy" || grade === "okay";
@@ -72209,10 +72288,21 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function usesBunproGradeScale(card) {
     return card?.source === "bunpro" || card?.reviewSource === "bunpro-api";
   }
+  function usesBunproFsrsGradeScale(card) {
+    return usesBunproGradeScale(card) && card?.bunproReviewInputMode === "fsrs";
+  }
   function usesTwoButtonNewTabGradeScale(settings, card) {
-    return settings.twoButtonReviews || usesBunproGradeScale(card);
+    return settings.twoButtonReviews || usesBunproGradeScale(card) && !usesBunproFsrsGradeScale(card);
   }
   function newTabGradeOptions(settings, card) {
+    if (usesBunproFsrsGradeScale(card)) {
+      return [
+        ["nothing", uiText(settings.interfaceLanguage, "bunproGradeAgainLabel")],
+        ["hard", uiText(settings.interfaceLanguage, "bunproGradeHardLabel")],
+        ["okay", uiText(settings.interfaceLanguage, "bunproGradeGoodLabel")],
+        ["easy", uiText(settings.interfaceLanguage, "bunproGradeEasyLabel")]
+      ];
+    }
     if (usesBunproGradeScale(card)) {
       return [
         ["fail", uiText(settings.interfaceLanguage, "bunproGradeHardLabel")],
@@ -72226,6 +72316,10 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       ["okay", uiText(settings.interfaceLanguage, "gradeOkayLabel")],
       ["easy", uiText(settings.interfaceLanguage, "gradeEasyLabel")]
     ];
+  }
+  function hasBunproReviewSession(card) {
+    const sessionId = Number(card.bunproReviewSessionId);
+    return typeof card.bunproReviewId === "string" && /^[1-9]\d*$/u.test(card.bunproReviewId.trim()) && Number.isInteger(sessionId) && sessionId > 0 && (card.bunproReviewInputMode === "regular" || card.bunproReviewInputMode === "fsrs") && (card.bunproReviewEndpoint === "review" || card.bunproReviewEndpoint === "ghost-review" || card.bunproReviewEndpoint === "self-study-review");
   }
   function isFailedNewTabGrade(grade) {
     return grade === "nothing" || grade === "fail" || grade === "something";
@@ -72368,6 +72462,10 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     return 0;
   }
   function dedupeWordKey(card) {
+    if (card.reviewSource === "bunpro-api") {
+      return `bunpro
+${card.bunproReviewId ?? card.sourceCardKey ?? card.spelling}`;
+    }
     return card.reviewSource === "jpdb-live" ? `jpdb-live
 ${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
 ${newTabCardReading(card)}`;
@@ -74310,7 +74408,8 @@ ${options.version}`;
     ];
   }
   function selectedNewTabMainGradeTarget(root) {
-    const option = root.querySelector("[data-newtab-grade-target-select]")?.selectedOptions[0] ?? null;
+    const select2 = root.querySelector("[data-newtab-grade-target-select]");
+    const option = select2?.options[select2.selectedIndex] ?? null;
     if (!option) return void 0;
     if (option.dataset.newtabReviewTarget === "jpdb") return { kind: "jpdb" };
     if (option.dataset.newtabReviewTarget === "jiten") return { kind: "jiten" };
@@ -75933,8 +76032,12 @@ ${entry.url}`),
       return `${item.target}:${cardKey(item.card)}`;
     }
     async read() {
-      const queue = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
-      return Array.isArray(queue) ? queue.filter(isQueuedNewTabGrade).slice(-200) : [];
+      const stored = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
+      if (!Array.isArray(stored)) return [];
+      const valid = stored.filter(isQueuedNewTabGrade).slice(-200);
+      const queue = valid.filter((item) => item.target !== "bunpro-api");
+      if (queue.length !== valid.length) await this.write(queue).catch(() => void 0);
+      return queue;
     }
     write(queue) {
       return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
@@ -76701,6 +76804,31 @@ ${entry.url}`),
       this.navigationSupplementPromise = null;
       await this.loadWordsInto(root, true);
     }
+    async refreshBunproQueueAfterExternalGrade() {
+      if (this.gradeSubmissionInFlight) return;
+      const isBunproReview = (card) => card.source === "bunpro" || card.reviewSource === "bunpro-api";
+      const configuredSourceCanLoadBunpro = this.state.source === "bunpro" || this.state.source === "auto" && this.canUseBunproSource();
+      if (!configuredSourceCanLoadBunpro && !this.allWords.some(isBunproReview)) return;
+      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      if (!root) return;
+      this.gradeSubmissionInFlight = true;
+      root.querySelectorAll('[data-newtab-action="grade"], button[data-action="grade"][data-grade]').forEach((button) => {
+        button.disabled = true;
+      });
+      this.lastUndoableReview = void 0;
+      this.invalidateSourceResultCache("bunpro");
+      this.allWords = this.allWords.filter((card) => !isBunproReview(card));
+      this.visibleWords = this.visibleWords.filter((card) => !isBunproReview(card));
+      this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
+      this.state.revealAnswer = false;
+      this.persistState();
+      this.markQueueRefreshed();
+      try {
+        await this.loadWordsInto(root, true, { useOfflineCache: false });
+      } finally {
+        this.gradeSubmissionInFlight = false;
+      }
+    }
     lookupGradeOptions(card) {
       return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings(), card) : [];
     }
@@ -76709,14 +76837,15 @@ ${entry.url}`),
       const current = this.visibleWords[this.index] ?? card;
       return this.lookupReviewTargetsForCard(current, data);
     }
-    async gradeFromLookup(grade, target) {
-      const submitted = await this.gradeCurrentCard(grade, target);
+    async gradeFromLookup(grade, target, expectedCard) {
+      if (expectedCard && !this.isCurrentLookupGradeCard(expectedCard)) return { preserveLookup: false };
+      const submitted = await this.gradeCurrentCard(grade, target, expectedCard);
       return { preserveLookup: !submitted };
     }
     isCurrentLookupGradeCard(card) {
       const current = this.visibleWords[this.index];
       return Boolean(
-        current && this.state.revealAnswer && cardKey(current) === cardKey(card) && this.canReviewCard(current)
+        current && this.state.revealAnswer && this.sameGradeCardIdentity(current, card) && this.canReviewCard(current)
       );
     }
     language() {
@@ -77250,7 +77379,8 @@ ${entry.url}`),
     }
     handleGradeShortcutKeydown(root, event, settings) {
       if (!this.state.revealAnswer) return;
-      const candidates = this.currentStudyUsesTwoButtonGradeScale(root, settings) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      const card = this.visibleWords[this.index];
+      const candidates = usesBunproFsrsGradeScale(card) ? BUNPRO_FSRS_REVIEW_SHORTCUTS : this.currentStudyUsesTwoButtonGradeScale(root, settings) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
       if (!grade) return;
       const button = root.querySelector(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
@@ -78951,7 +79081,10 @@ ${entry.url}`),
         bunproReviewId: card.providerId === "bunpro" ? card.providerReviewId : void 0,
         bunproReviewableId: card.providerId === "bunpro" ? optionalPositiveNumber(card.providerReviewableId) : void 0,
         bunproReviewableType: card.providerId === "bunpro" ? bunproReviewableType(card.kind) : void 0,
-        bunproSrsLevel: card.providerId === "bunpro" ? card.srsLevel : void 0
+        bunproSrsLevel: card.providerId === "bunpro" ? card.srsLevel : void 0,
+        bunproReviewSessionId: card.providerId === "bunpro" ? card.reviewSession?.id : void 0,
+        bunproReviewInputMode: card.providerId === "bunpro" ? card.reviewSession?.inputMode : void 0,
+        bunproReviewEndpoint: card.providerId === "bunpro" ? card.reviewSession?.endpoint : void 0
       });
     }
     async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT) {
@@ -80427,7 +80560,7 @@ ${entry.url}`),
           this.markCardOfflineReady(card);
         } else if (typeof navigator === "undefined" || navigator.onLine !== false) {
           const warmed = await Promise.race([
-            load(card).then(() => true, () => false),
+            load(card, { includeBunproDefinition: false }).then(() => true, () => false),
             new Promise((resolve) => setTimeout(() => resolve(false), NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS))
           ]);
           if (warmed) this.markCardOfflineReady(card);
@@ -81539,8 +81672,13 @@ ${entry.url}`),
       const key = cardKey(card);
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       meaning.dataset.newtabStudyRevealDetailsRequest = requestId;
-      const data = await loadDetails(card).catch(() => null);
+      let data = await loadDetails(card).catch(() => null);
       if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId)) return;
+      if (!data.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+        const info = await this.dependencies.hydrateBunproDefinitionInfo(card).catch(() => null);
+        if (info) data = { ...data, bunproDefinitionInfo: info };
+        if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId)) return;
+      }
       let html = renderSources(card, data, card.sentence || card.spelling);
       if (!html.trim()) {
         const fallback = await this.lookupStudyRevealDefinitionCard(card, key);
@@ -82860,7 +82998,7 @@ ${entry.url}`),
       const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length, details.vg?.strokeShapes);
       this.renderDoodleAssessment(slots, assessment);
       this.recordDoodleOutcome(card, kanji, assessment.passed);
-      this.autoSubmitDoodleAssessment(settings, assessment.passed);
+      this.autoSubmitDoodleAssessment(settings, assessment.passed, card);
     }
     recordDoodleOutcome(card, kanji, passed) {
       const key = cardKey(card);
@@ -82870,9 +83008,10 @@ ${entry.url}`),
       if (this.doodleOutcomes.get(key) === "wrong") return;
       this.doodleOutcomes.set(key, passed ? "correct" : "wrong");
     }
-    autoSubmitDoodleAssessment(settings, passed) {
+    autoSubmitDoodleAssessment(settings, passed, expectedCard) {
       if (settings.enableReviews && settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
-        void this.gradeCurrentCard(passed ? "pass" : "fail");
+        const grade = usesBunproFsrsGradeScale(expectedCard) ? passed ? "okay" : "nothing" : passed ? "pass" : "fail";
+        void this.gradeCurrentCard(grade, void 0, expectedCard);
       }
     }
     captureDoodlePreview(slots, card) {
@@ -84220,7 +84359,7 @@ ${entry.url}`),
       return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind === "final-reveal";
     }
     canReviewCard(card) {
-      if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;
+      if ((this.isOfflineSourceLabel(this.sourceLabel) || typeof navigator !== "undefined" && navigator.onLine === false) && !this.offlineGradeTargets(card).length) return false;
       return this.reviewSourceSummary(card).targets.length > 0;
     }
     reviewTargetsForCard(card) {
@@ -84231,6 +84370,15 @@ ${entry.url}`),
     }
     offlineGradeTargets(card) {
       return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
+    }
+    offlineGradeTargetsForSelection(card, selection) {
+      if (!selection) return this.offlineGradeTargets(card);
+      if (selection.kind === "anki") {
+        const selectedCardId = Number(selection.ankiCardId);
+        return Number.isFinite(selectedCardId) && selectedCardId > 0 && selectedCardId === this.ankiCardIdForReview(card) && this.reviewTargetsForCard(card).includes("anki") ? ["anki"] : [];
+      }
+      const target = this.reviewTargetForLookupKind(card, selection.kind);
+      return target && target !== "jpdb-live" && target !== "bunpro-api" ? [target] : [];
     }
     navigationControlButtons(revealLabel) {
       const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
@@ -84336,7 +84484,7 @@ ${entry.url}`),
     }
     studyGradeShortcutHints(card) {
       const settings = this.dependencies.getSettings();
-      const candidates = usesTwoButtonNewTabGradeScale(settings, card) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      const candidates = usesBunproFsrsGradeScale(card) ? BUNPRO_FSRS_REVIEW_SHORTCUTS : usesTwoButtonNewTabGradeScale(settings, card) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
     }
     studyShortcutHint(names) {
@@ -84442,13 +84590,45 @@ ${entry.url}`),
       if (card && this.visibleWords[this.index] === card) this.renderWord(root, card);
       this.setStatus(root, this.text("jpdbKanjiUpdated"));
     }
-    async gradeCurrentCard(grade, selectedTarget) {
+    gradeSubmissionInFlight = false;
+    async gradeCurrentCard(grade, selectedTarget, expectedCard) {
+      const submittedCard = this.visibleWords[this.index];
+      if (!submittedCard || expectedCard && !this.sameGradeCardIdentity(submittedCard, expectedCard) || !this.canReviewCard(submittedCard)) return false;
+      const sessionScopedBunpro = submittedCard.source === "bunpro" || submittedCard.reviewSource === "bunpro-api";
+      if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+      if (this.gradeSubmissionInFlight) return false;
+      this.gradeSubmissionInFlight = true;
+      const gradeButtons = Array.from(document.querySelectorAll(
+        '[data-jpdb-reader-root].jpdb-reader-newtab [data-newtab-action="grade"], button[data-action="grade"][data-grade]'
+      ));
+      gradeButtons.forEach((button) => {
+        button.disabled = true;
+      });
+      try {
+        return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+      } finally {
+        this.gradeSubmissionInFlight = false;
+        if (submittedCard && this.visibleWords[this.index] === submittedCard) {
+          gradeButtons.filter((button) => button.isConnected).forEach((button) => {
+            button.disabled = false;
+          });
+        }
+      }
+    }
+    sameGradeCardIdentity(current, expected) {
+      if (cardKey(current) !== cardKey(expected)) return false;
+      const bunpro = current.source === "bunpro" || current.reviewSource === "bunpro-api" || expected.source === "bunpro" || expected.reviewSource === "bunpro-api";
+      if (!bunpro) return true;
+      return current.bunproReviewId === expected.bunproReviewId && current.bunproReviewSessionId === expected.bunproReviewSessionId && current.bunproReviewInputMode === expected.bunproReviewInputMode && current.bunproReviewEndpoint === expected.bunproReviewEndpoint;
+    }
+    async gradeCurrentCardUnlocked(grade, selectedTarget) {
       const target = this.currentGradeTarget();
       if (!target) return false;
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-        if (await this.gradeQueue.enqueue(target.card, grade, this.offlineGradeTargets(target.card))) {
+        const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
           this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -84465,17 +84645,22 @@ ${entry.url}`),
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
         if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-        this.lastUndoableReview = {
+        this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
           card: target.card,
           at: Date.now(),
           serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
           counted: !isCorrection
         };
-        this.advanceAfterGrade(target.root, target.card, grade);
+        await this.advanceAfterGrade(target.root, target.card, grade);
         return true;
       } catch (error) {
         log$2.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
-        if (!selectedTarget && await this.gradeQueue.enqueue(target.card, grade, this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card))) {
+        if (target.card.source === "bunpro" || target.card.reviewSource === "bunpro-api") {
+          await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+          return true;
+        }
+        const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
           this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -84485,6 +84670,23 @@ ${entry.url}`),
         this.setStatus(target.root, this.text("couldNotSubmitGrade"));
       }
       return false;
+    }
+    async reloadAfterAmbiguousBunproGrade(root, card) {
+      const key = cardKey(card);
+      this.lastUndoableReview = void 0;
+      this.invalidateReviewSourceCache(card);
+      this.allWords = this.allWords.filter((item) => cardKey(item) !== key);
+      this.visibleWords = this.visibleWords.filter((item) => cardKey(item) !== key);
+      this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
+      this.state.revealAnswer = false;
+      this.persistState();
+      root.querySelectorAll('[data-newtab-action="grade"]').forEach((button) => {
+        button.disabled = true;
+      });
+      this.setStatus(root, this.text("couldNotSubmitGrade"));
+      this.publishGradedCardState(card);
+      this.markQueueRefreshed();
+      await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
     gradeSuccessStatus(grade, selectedTarget) {
       const mark = passingNewTabGrade(grade) ? "✓" : "✕";
@@ -84581,6 +84783,11 @@ ${entry.url}`),
         providerCardId,
         providerReviewId: source === "bunpro" ? card.bunproReviewId || providerCardId : providerCardId,
         providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : void 0,
+        reviewSession: source === "bunpro" && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+          id: card.bunproReviewSessionId,
+          inputMode: card.bunproReviewInputMode,
+          endpoint: card.bunproReviewEndpoint
+        } : void 0,
         kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : "vocabulary",
         expression,
         reading,
@@ -84808,6 +85015,7 @@ ${entry.url}`),
       this.refreshSessionProgressSoon();
     }
     async submitQueuedGrade(item) {
+      if (item.target === "bunpro-api") return false;
       if (item.target === "anki") {
         await this.submitAnkiGrade(item.card, item.grade);
         return true;
@@ -84816,7 +85024,7 @@ ${entry.url}`),
         await this.submitJitenApiGrade(item.card, item.grade);
         return true;
       }
-      if (item.target === "bunpro-api" || item.target === "yomu-local") {
+      if (item.target === "yomu-local") {
         await this.submitSrsAdapterGrade(item.card, item.target, item.grade);
         return true;
       }
@@ -84831,7 +85039,7 @@ ${entry.url}`),
       if (this.isVocabularyStudyMode(this.state.mode) && grade && !isFailedNewTabGrade(grade)) {
         this.pitchSrs.ensureFromCard(card, Date.now());
       }
-      if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode) {
+      if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode && card.reviewSource !== "bunpro-api") {
         this.requeueFailedCard(root, key, previousIndex);
         return;
       }
@@ -84840,6 +85048,10 @@ ${entry.url}`),
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
       this.state.revealAnswer = false;
       this.persistState();
+      if (card.reviewSource === "bunpro-api") {
+        this.markQueueRefreshed();
+        return this.loadWordsInto(root, false, { useOfflineCache: false });
+      }
       const nextIndex = this.resolvePostGradeIndex(nextKey, previousIndex);
       if (nextIndex < 0) {
         this.clearReviewHistory();
@@ -86997,9 +87209,12 @@ ${entry.url}`),
         body: {
           query,
           options: {
-            include_reviews: true,
-            include_bookmarks: true,
-            include_notes: true,
+            // Definition/mining lookups do not need the learner's
+            // private notes or bookmarks. Review relationships are
+            // opt-in for the rare caller that actually consumes them.
+            include_reviews: options.includeReviews ?? false,
+            include_bookmarks: false,
+            include_notes: false,
             only_bookmarks: false
           },
           is_searching_grammar: options.grammar ?? true,
@@ -87018,8 +87233,9 @@ ${entry.url}`),
         }
       });
     }
-    updateReview(reviewId, body) {
-      return this.frontend(`/reviews/${encodeURIComponent(String(reviewId))}/update`, {
+    updateReview(reviewId, body, endpoint = "review") {
+      const collection = endpoint === "ghost-review" ? "ghost_reviews" : endpoint === "self-study-review" ? "self_study_reviews" : "reviews";
+      return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
         method: "POST",
         body
       });
@@ -87131,7 +87347,19 @@ ${entry.url}`),
     };
   }
   function normalizeBunproQueueResponse(raw, limit = 50) {
-    const cards = collectBunproReviewables(raw).map((card) => normalizeBunproReviewable(card)).filter((card) => card !== null).slice(0, Math.max(0, Math.floor(limit)));
+    const reviewSessionId = readString(raw, ["review_session_id", "reviewSessionId"]);
+    const cards = collectBunproReviewables(raw).map((card) => normalizeBunproReviewable(card)).filter((card) => card !== null).map((card) => {
+      if (!reviewSessionId) return card;
+      const endpoint = normalizeBunproReviewEndpoint(readString(card.raw, ["review_endpoint_kind", "reviewEndpointKind"]));
+      return {
+        ...card,
+        reviewSession: {
+          id: reviewSessionId,
+          inputMode: endpoint === "review" && readBoolean(card.raw, ["is_fsrs", "isFsrs"]) ? "fsrs" : "regular",
+          endpoint
+        }
+      };
+    }).slice(0, Math.max(0, Math.floor(limit)));
     return {
       providerId: "bunpro",
       fetchedAt: Date.now(),
@@ -87191,20 +87419,34 @@ ${entry.url}`),
   }
   async function reviewBunproCard(client, request) {
     const reviewId = request.card.providerReviewId || request.card.providerCardId;
-    const rating = bunproRatingForGrade(request.grade);
-    const raw = await client.updateReview(reviewId, {
-      grade: request.grade,
-      rating,
-      // Bunpro's own quiz grades with a boolean `correct`.
-      correct: rating >= 3,
-      sentence: request.sentence
-    });
-    return { card: normalizeBunproReviewable(raw) ?? request.card, raw };
+    const session = request.card.reviewSession;
+    if (!positiveIntegerString(reviewId)) {
+      throw new BunproApiError("Bunpro grading needs a valid numeric review id. Reload the Bunpro queue and try again.");
+    }
+    if (!session || !positiveIntegerString(session.id)) {
+      throw new BunproApiError("Bunpro grading needs an active review session. Reload the Bunpro queue and try again.");
+    }
+    if (session.inputMode === "fsrs" && session.endpoint !== "review") {
+      throw new BunproApiError("Bunpro FSRS grading is available only for ordinary review cards. Reload the queue and try again.");
+    }
+    const input2 = bunproReviewInput(session.inputMode, request.grade);
+    const body = {
+      review_session_id: Number(session.id),
+      correct: input2.correct,
+      fsrs_input: input2.fsrsInput,
+      loaded_review_ids: null,
+      loaded_ghost_review_ids: null,
+      loaded_self_study_review_ids: null
+    };
+    if (input2.incorrectAnswer) body.incorrect_answer = input2.incorrectAnswer;
+    const raw = await client.updateReview(reviewId, body, session.endpoint);
+    const normalized = normalizeBunproReviewable(raw);
+    return { card: normalized ? { ...normalized, reviewSession: session } : request.card, raw };
   }
   async function mineBunproCard(client, request) {
-    const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 1 });
+    const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 12 });
     const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
-    const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch, requestedKind), requestedKind);
+    const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
     if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
     if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
       throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
@@ -87221,11 +87463,17 @@ ${entry.url}`),
     });
     return { card: { ...reviewable, providerReviewableId }, raw };
   }
-  function bunproRatingForGrade(grade) {
-    if (grade === "nothing" || grade === "fail" || grade === "again") return 1;
-    if (grade === "something" || grade === "hard") return 2;
-    if (grade === "okay" || grade === "pass" || grade === "good") return 3;
-    return 4;
+  function bunproReviewInput(mode, grade) {
+    if (mode === "regular") {
+      if (grade === "fail") return { correct: false, fsrsInput: null, incorrectAnswer: "__FLASHCARD_REGULAR_HARD" };
+      if (grade === "pass") return { correct: true, fsrsInput: null };
+      throw new BunproApiError("This Bunpro review accepts only Hard or Good.");
+    }
+    if (grade === "nothing" || grade === "again") return { correct: false, fsrsInput: "again", incorrectAnswer: "__FLASHCARD_FSRS_AGAIN" };
+    if (grade === "hard") return { correct: false, fsrsInput: "hard", incorrectAnswer: "__FLASHCARD_FSRS_HARD" };
+    if (grade === "okay" || grade === "good") return { correct: true, fsrsInput: "good" };
+    if (grade === "easy") return { correct: true, fsrsInput: "easy" };
+    throw new BunproApiError("This Bunpro FSRS review accepts Again, Hard, Good, or Easy.");
   }
   function collectBunproReviewables(raw) {
     const quizEntries = collectBunproQuizIndexEntries(raw);
@@ -87260,6 +87508,7 @@ ${entry.url}`),
       japanese: readString(reviewable, ["title"]) || void 0,
       id: reviewId,
       review_id: reviewId,
+      review_endpoint_kind: bunproQuizReviewEndpoint(attributes),
       // `state` is the last key the shared normalizer's srs_stage/srs_level/
       // status/state chain reads, so nothing else may reintroduce those keys.
       state: "due",
@@ -87268,6 +87517,14 @@ ${entry.url}`),
       status: void 0,
       next_review_at: readString(attributes, ["next_review"]) || void 0
     };
+  }
+  function bunproQuizReviewEndpoint(attributes) {
+    if (readString(attributes, ["user_study_question_id", "userStudyQuestionId"])) return "self-study-review";
+    return Object.prototype.hasOwnProperty.call(attributes, "ghost_count") ? "review" : "ghost-review";
+  }
+  function normalizeBunproReviewEndpoint(value) {
+    if (value === "ghost-review" || value === "self-study-review") return value;
+    return "review";
   }
   function bunproQuizIndexReviewable(entry, reviewAttributes) {
     const type = readString(reviewAttributes, ["reviewable_type"]).toLowerCase();
@@ -87280,11 +87537,29 @@ ${entry.url}`),
     }
     return {};
   }
-  function firstBunproSearchHit(raw, preferredKind = "grammar") {
+  function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
     const record = isRecord(raw) ? raw : {};
-    const grammarHit = readArray(record.grammar_points, ["data"])[0];
-    const vocabHit = readArray(record.vocabs, ["data"])[0];
-    return preferredKind === "vocabulary" ? vocabHit ?? grammarHit : grammarHit ?? vocabHit ?? readArray(raw, ["data", "reviewables"])[0] ?? raw;
+    const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
+    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
+    if (!hits.length) return null;
+    if (reading) {
+      const readingMatches = hits.filter((hit) => normalizedLookupText(hit.reading) === normalizedLookupText(reading));
+      if (readingMatches.length === 1) return readingMatches[0] ?? null;
+      if (readingMatches.length > 1) return sameBunproReviewableIdentity(readingMatches) ? readingMatches[0] ?? null : null;
+      return null;
+    }
+    return hits.length === 1 || sameBunproReviewableIdentity(hits) ? hits[0] ?? null : null;
+  }
+  function normalizedLookupText(value) {
+    return value.normalize("NFKC").trim();
+  }
+  function sameBunproReviewableIdentity(cards) {
+    const first2 = cards[0];
+    return Boolean(first2 && cards.every((card) => card.providerCardId === first2.providerCardId));
+  }
+  function positiveIntegerString(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0;
   }
   function reviewableRecord(raw) {
     const unwrapped = unwrapBunproData(raw);
@@ -87364,6 +87639,19 @@ ${entry.url}`),
     if (isRecord(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
     const attributes = objectAt(record, "attributes");
     return attributes ? readFirstNumber(attributes, keys) : void 0;
+  }
+  function readBoolean(value, keys) {
+    const record = isRecord(value) ? value : null;
+    if (!record) return false;
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "boolean") return raw;
+      if (raw === 1 || raw === "1" || raw === "true") return true;
+    }
+    const data = record.data;
+    if (isRecord(data) && !Array.isArray(data)) return readBoolean(data, keys);
+    const attributes = objectAt(record, "attributes");
+    return attributes ? readBoolean(attributes, keys) : false;
   }
   function readString(value, keys) {
     const record = isRecord(value) ? value : null;
@@ -87815,6 +88103,10 @@ ${entry.url}`),
       jpdb: this.jpdb,
       jiten: this.jiten,
       anki: this.anki,
+      srsAdapters: {
+        bunpro: this.bunproSrs,
+        "yomu-local": this.yomuLocalSrs
+      },
       dictionaries: this.dictionaries,
       isJpdbBackedCard: (card) => this.parser.isJpdbBackedCard(card),
       resolveMiningContext: (card, sentence) => this.resolveMiningContext(card, sentence),
@@ -87920,6 +88212,10 @@ ${entry.url}`),
       this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
         if (this.isDestroyed) return;
         this.applyPublicVocabularyToRenderedWords(card, card);
+        if (card.source === "bunpro") {
+          this.dismissLookupPopover();
+          void this.newTab?.refreshBunproQueueAfterExternalGrade();
+        }
       });
     }
     installSettingsStorageSubscription() {
@@ -88071,7 +88367,7 @@ ${entry.url}`),
           reuseActivePopover: options?.reuseActivePopover,
           userGesture: options?.userGesture
         }),
-        loadCardRenderData: (card) => this.cardRenderData.load(card).all,
+        loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
         hydrateBunproDefinitionInfo: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
         renderSearchDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
         renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
@@ -88872,7 +89168,7 @@ ${entry.url}`),
       if (!this.newTab || button.disabled) return;
       button.disabled = true;
       try {
-        const result = await this.newTab.gradeFromLookup(grade, target);
+        const result = await this.newTab.gradeFromLookup(grade, target, card);
         if (!result.preserveLookup) this.dismissLookupPopover();
         else if (card && this.activeLookupPopover?.isConnected) await this.showLookupCard(card, sentence, anchor ?? button, {
           navigation: "preserve",

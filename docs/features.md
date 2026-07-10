@@ -131,7 +131,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## New Tab Study Page
 
-Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro reviews use its real Hard/Good outcomes; Jiten and JPDB retain the five-point scale.
+Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 

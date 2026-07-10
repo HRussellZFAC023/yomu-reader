@@ -32,9 +32,22 @@ export function createBunproSrsAdapter(client: BunproClient): YomuSrsAdapter {
 }
 
 export function normalizeBunproQueueResponse(raw: unknown, limit = 50): YomuSrsQueueSnapshot {
+    const reviewSessionId = readString(raw, ['review_session_id', 'reviewSessionId']);
     const cards = collectBunproReviewables(raw)
         .map(card => normalizeBunproReviewable(card))
         .filter((card): card is YomuSrsReviewable => card !== null)
+        .map(card => {
+            if (!reviewSessionId) return card;
+            const endpoint = normalizeBunproReviewEndpoint(readString(card.raw, ['review_endpoint_kind', 'reviewEndpointKind']));
+            return {
+                ...card,
+                reviewSession: {
+                    id: reviewSessionId,
+                    inputMode: endpoint === 'review' && readBoolean(card.raw, ['is_fsrs', 'isFsrs']) ? 'fsrs' as const : 'regular' as const,
+                    endpoint,
+                },
+            };
+        })
         .slice(0, Math.max(0, Math.floor(limit)));
     return {
         providerId: 'bunpro',
@@ -104,21 +117,35 @@ export function normalizeBunproReviewable(raw: unknown, fallbackKind: YomuSrsRev
 
 async function reviewBunproCard(client: BunproClient, request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
     const reviewId = request.card.providerReviewId || request.card.providerCardId;
-    const rating = bunproRatingForGrade(request.grade);
-    const raw = await client.updateReview(reviewId, {
-        grade: request.grade,
-        rating,
-        // Bunpro's own quiz grades with a boolean `correct`.
-        correct: rating >= 3,
-        sentence: request.sentence,
-    });
-    return { card: normalizeBunproReviewable(raw) ?? request.card, raw };
+    const session = request.card.reviewSession;
+    if (!positiveIntegerString(reviewId)) {
+        throw new BunproApiError('Bunpro grading needs a valid numeric review id. Reload the Bunpro queue and try again.');
+    }
+    if (!session || !positiveIntegerString(session.id)) {
+        throw new BunproApiError('Bunpro grading needs an active review session. Reload the Bunpro queue and try again.');
+    }
+    if (session.inputMode === 'fsrs' && session.endpoint !== 'review') {
+        throw new BunproApiError('Bunpro FSRS grading is available only for ordinary review cards. Reload the queue and try again.');
+    }
+    const input = bunproReviewInput(session.inputMode, request.grade);
+    const body: Record<string, unknown> = {
+        review_session_id: Number(session.id),
+        correct: input.correct,
+        fsrs_input: input.fsrsInput,
+        loaded_review_ids: null,
+        loaded_ghost_review_ids: null,
+        loaded_self_study_review_ids: null,
+    };
+    if (input.incorrectAnswer) body.incorrect_answer = input.incorrectAnswer;
+    const raw = await client.updateReview(reviewId, body, session.endpoint);
+    const normalized = normalizeBunproReviewable(raw);
+    return { card: normalized ? { ...normalized, reviewSession: session } : request.card, raw };
 }
 
 async function mineBunproCard(client: BunproClient, request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult> {
-    const rawSearch = await client.search(request.expression, { grammar: request.kind !== 'vocabulary', vocab: request.kind !== 'grammar', limit: 1 });
+    const rawSearch = await client.search(request.expression, { grammar: request.kind !== 'vocabulary', vocab: request.kind !== 'grammar', limit: 12 });
     const requestedKind = request.kind === 'grammar' ? 'grammar' : 'vocabulary';
-    const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch, requestedKind), requestedKind);
+    const reviewable = exactBunproSearchReviewable(rawSearch, request.expression, request.reading, requestedKind);
     if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
     if (reviewable.kind !== 'vocabulary' && reviewable.kind !== 'grammar') {
         throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
@@ -136,11 +163,23 @@ async function mineBunproCard(client: BunproClient, request: YomuSrsMiningReques
     return { card: { ...reviewable, providerReviewableId }, raw };
 }
 
-function bunproRatingForGrade(grade: YomuSrsReviewRequest['grade']): number {
-    if (grade === 'nothing' || grade === 'fail' || grade === 'again') return 1;
-    if (grade === 'something' || grade === 'hard') return 2;
-    if (grade === 'okay' || grade === 'pass' || grade === 'good') return 3;
-    return 4;
+interface BunproReviewInput {
+    correct: boolean;
+    fsrsInput: 'again' | 'hard' | 'good' | 'easy' | null;
+    incorrectAnswer?: string;
+}
+
+function bunproReviewInput(mode: 'regular' | 'fsrs', grade: YomuSrsReviewRequest['grade']): BunproReviewInput {
+    if (mode === 'regular') {
+        if (grade === 'fail') return { correct: false, fsrsInput: null, incorrectAnswer: '__FLASHCARD_REGULAR_HARD' };
+        if (grade === 'pass') return { correct: true, fsrsInput: null };
+        throw new BunproApiError('This Bunpro review accepts only Hard or Good.');
+    }
+    if (grade === 'nothing' || grade === 'again') return { correct: false, fsrsInput: 'again', incorrectAnswer: '__FLASHCARD_FSRS_AGAIN' };
+    if (grade === 'hard') return { correct: false, fsrsInput: 'hard', incorrectAnswer: '__FLASHCARD_FSRS_HARD' };
+    if (grade === 'okay' || grade === 'good') return { correct: true, fsrsInput: 'good' };
+    if (grade === 'easy') return { correct: true, fsrsInput: 'easy' };
+    throw new BunproApiError('This Bunpro FSRS review accepts Again, Hard, Good, or Easy.');
 }
 
 function collectBunproReviewables(raw: unknown): unknown[] {
@@ -184,6 +223,7 @@ function flattenBunproQuizIndexEntry(entry: unknown): Record<string, unknown> | 
         japanese: readString(reviewable, ['title']) || undefined,
         id: reviewId,
         review_id: reviewId,
+        review_endpoint_kind: bunproQuizReviewEndpoint(attributes),
         // `state` is the last key the shared normalizer's srs_stage/srs_level/
         // status/state chain reads, so nothing else may reintroduce those keys.
         state: 'due',
@@ -192,6 +232,16 @@ function flattenBunproQuizIndexEntry(entry: unknown): Record<string, unknown> | 
         status: undefined,
         next_review_at: readString(attributes, ['next_review']) || undefined,
     };
+}
+
+function bunproQuizReviewEndpoint(attributes: Record<string, unknown>): 'review' | 'ghost-review' | 'self-study-review' {
+    if (readString(attributes, ['user_study_question_id', 'userStudyQuestionId'])) return 'self-study-review';
+    return Object.prototype.hasOwnProperty.call(attributes, 'ghost_count') ? 'review' : 'ghost-review';
+}
+
+function normalizeBunproReviewEndpoint(value: string): 'review' | 'ghost-review' | 'self-study-review' {
+    if (value === 'ghost-review' || value === 'self-study-review') return value;
+    return 'review';
 }
 
 function bunproQuizIndexReviewable(entry: Record<string, unknown>, reviewAttributes: Record<string, unknown>): Record<string, unknown> {
@@ -206,15 +256,40 @@ function bunproQuizIndexReviewable(entry: Record<string, unknown>, reviewAttribu
     return {};
 }
 
-function firstBunproSearchHit(raw: unknown, preferredKind: Extract<YomuSrsReviewableKind, 'grammar' | 'vocabulary'> = 'grammar'): unknown {
+function exactBunproSearchReviewable(
+    raw: unknown,
+    expression: string,
+    reading: string | undefined,
+    preferredKind: Extract<YomuSrsReviewableKind, 'grammar' | 'vocabulary'>,
+): YomuSrsReviewable | null {
     const record = isRecord(raw) ? raw : {};
-    const grammarHit = readArray(record.grammar_points, ['data'])[0];
-    const vocabHit = readArray(record.vocabs, ['data'])[0];
-    return preferredKind === 'vocabulary'
-        ? vocabHit ?? grammarHit
-        : grammarHit ?? vocabHit
-        ?? readArray(raw, ['data', 'reviewables'])[0]
-        ?? raw;
+    const section = preferredKind === 'vocabulary' ? record.vocabs : record.grammar_points;
+    const hits = readArray(section, ['data'])
+        .map(hit => normalizeBunproReviewable(hit, preferredKind))
+        .filter((hit): hit is YomuSrsReviewable => hit !== null)
+        .filter(hit => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
+    if (!hits.length) return null;
+    if (reading) {
+        const readingMatches = hits.filter(hit => normalizedLookupText(hit.reading) === normalizedLookupText(reading));
+        if (readingMatches.length === 1) return readingMatches[0] ?? null;
+        if (readingMatches.length > 1) return sameBunproReviewableIdentity(readingMatches) ? readingMatches[0] ?? null : null;
+        return null;
+    }
+    return hits.length === 1 || sameBunproReviewableIdentity(hits) ? hits[0] ?? null : null;
+}
+
+function normalizedLookupText(value: string): string {
+    return value.normalize('NFKC').trim();
+}
+
+function sameBunproReviewableIdentity(cards: YomuSrsReviewable[]): boolean {
+    const first = cards[0];
+    return Boolean(first && cards.every(card => card.providerCardId === first.providerCardId));
+}
+
+function positiveIntegerString(value: string): boolean {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0;
 }
 
 function reviewableRecord(raw: unknown): Record<string, unknown> | null {
@@ -304,6 +379,20 @@ function readFirstNumber(value: unknown, keys: string[]): number | undefined {
     if (isRecord(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
     const attributes = objectAt(record, 'attributes');
     return attributes ? readFirstNumber(attributes, keys) : undefined;
+}
+
+function readBoolean(value: unknown, keys: string[]): boolean {
+    const record = isRecord(value) ? value : null;
+    if (!record) return false;
+    for (const key of keys) {
+        const raw = record[key];
+        if (typeof raw === 'boolean') return raw;
+        if (raw === 1 || raw === '1' || raw === 'true') return true;
+    }
+    const data = record.data;
+    if (isRecord(data) && !Array.isArray(data)) return readBoolean(data, keys);
+    const attributes = objectAt(record, 'attributes');
+    return attributes ? readBoolean(attributes, keys) : false;
 }
 
 function readString(value: unknown, keys: string[]): string {

@@ -32,6 +32,14 @@ const JITEN_WORD_ID = 2500800;
 const JITEN_READING_INDEX = 0;
 const REQUEST_BRIDGE_NAME = '__yomuDefinitionSourcesSmokeRequest';
 const POPOVER_PATH = '/definition-source-popover.html';
+const COMPANION_PATHS = [
+    'yomu-anki.user.js',
+    'yomu-kanji-study.user.js',
+    'yomu-ocr-manga.user.js',
+    'yomu-ui-copy.user.js',
+    'yomu-settings-surface.user.js',
+    'yomu-video.user.js',
+].map(fileName => path.join(DIST, 'greasyfork', fileName));
 
 const BUILT_ARTIFACTS = [
     SCRIPT_PATH,
@@ -40,6 +48,7 @@ const BUILT_ARTIFACTS = [
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
     path.join(NEWTAB_DIR, 'sw.js'),
+    ...COMPANION_PATHS,
 ];
 
 const STATIC_ROUTES = new Map([
@@ -68,6 +77,7 @@ const SCENARIOS = [
         label: 'Jiten key only, Jiten and JPDB enabled',
         settings: { jitenApiKey: JITEN_API_KEY },
         expect: { jpdb: true, jiten: true, bunpro: false },
+        popoverExpect: { jpdb: false, jiten: true, bunpro: false },
     },
     {
         id: 'jpdb-key-both-on',
@@ -84,7 +94,7 @@ const SCENARIOS = [
     {
         id: 'all-three-sources',
         label: 'Jiten, JPDB, and Bunpro definitions enabled',
-        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproFrontendApiToken: BUNPRO_TOKEN },
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproFrontendApiToken: BUNPRO_TOKEN, bunproMiningEnabled: true },
         expect: { jpdb: true, jiten: true, bunpro: true },
     },
     {
@@ -135,7 +145,10 @@ async function runScenario(browser, fixture, scenario) {
         id: scenario.id,
         label: scenario.label,
         settings: sourceStateSettings(settings),
-        expectedSources: scenario.expect,
+        expectedSources: {
+            popover: sourceExpectation(scenario, 'popover'),
+            search: sourceExpectation(scenario, 'search'),
+        },
         popover,
         search,
     };
@@ -146,6 +159,7 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
     try {
         await page.goto(`${fixture.origin}${POPOVER_PATH}?scenario=${scenario.id}`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ path: CSS_PATH });
+        for (const companionPath of COMPANION_PATHS) await page.addScriptTag({ path: companionPath });
         await page.addScriptTag({ path: SCRIPT_PATH });
         await page.waitForFunction(({ term }) => {
             return Array.from(document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word'))
@@ -154,16 +168,25 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
         await page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: TERM }).first().click();
         const popover = page.locator('.jpdb-reader-popover').last();
         await popover.waitFor({ state: 'visible', timeout: 15_000 });
-        await waitForSources(popover, scenario.expect);
+        try {
+            await waitForSources(popover, sourceExpectation(scenario, 'popover'));
+        } catch (error) {
+            const dom = await popover.evaluate(summarizeSourceDom).catch(() => null);
+            throw new Error(`${scenario.label} popover sources did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ dom, requests: summarizeRequests(requests) }, null, 2)}`);
+        }
         await openSourceCards(popover);
         const dom = await popover.evaluate(summarizeSourceDom);
         assertSurface(scenario, dom, requests, 'popover');
+        const bunproMining = scenario.id === 'all-three-sources'
+            ? await minePopoverToBunpro(popover, requests)
+            : null;
         const screenshot = artifactPath(scenario.id, 'popover.png');
         await page.screenshot({ path: screenshot, fullPage: true });
         const domPath = artifactPath(scenario.id, 'popover-dom.json');
         writeFileSync(domPath, JSON.stringify(dom, null, 2));
         return {
             dom,
+            bunproMining,
             requests: summarizeRequests(requests),
             screenshot,
             domPath,
@@ -171,6 +194,29 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
     } finally {
         await context.close();
     }
+}
+
+async function minePopoverToBunpro(popover, requests) {
+    // The full card-data promise has a four-second fallback and can replace
+    // the initial shell. Wait it out so the fixture exercises the stable UI,
+    // then expand the same mining drawer a learner would use.
+    await popover.page().waitForTimeout(4_500);
+    await popover.locator('[data-action="mining-collapse"]').first().click({ force: true });
+    const add = popover.locator('.jpdb-reader-mining-title[data-action="deck-picker"]').first();
+    await add.waitFor({ state: 'visible', timeout: 10_000 });
+    await add.click();
+    const picker = popover.locator('[data-add-deck-select]').first();
+    await picker.waitFor({ state: 'visible', timeout: 10_000 });
+    await picker.selectOption('bunpro:bunpro');
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline && !requests.some(request => request.path === '/api/frontend/reviews/update_via_action_type')) {
+        await popover.page().waitForTimeout(50);
+    }
+    const update = requests.find(request => request.path === '/api/frontend/reviews/update_via_action_type');
+    assert(update, 'Generic popup did not submit Bunpro mining action', summarizeRequests(requests));
+    assert(update.body?.action_type === 'add' && JSON.stringify(update.body?.reviewables) === JSON.stringify([['Vocab', 77]]),
+        'Generic popup Bunpro mining payload was incorrect', update.body);
+    return { body: update.body };
 }
 
 async function runSearchSurface(browser, fixture, scenario, settings) {
@@ -190,7 +236,7 @@ async function runSearchSurface(browser, fixture, scenario, settings) {
         const detail = page.locator('[data-newtab-search-detail]:not([hidden])').first();
         await detail.waitFor({ state: 'visible', timeout: 15_000 });
         try {
-            await waitForSources(detail, scenario.expect);
+            await waitForSources(detail, sourceExpectation(scenario, 'search'));
         } catch (error) {
             const dom = await detail.evaluate(summarizeSourceDom).catch(() => null);
             throw new Error(`${scenario.label} search sources did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ dom, requests: summarizeRequests(requests) }, null, 2)}`);
@@ -303,19 +349,22 @@ function summarizeSourceDom(node) {
 }
 
 function assertSurface(scenario, dom, requests, surface) {
-    assert(dom.hasJpdb === scenario.expect.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
-    assert(dom.hasJiten === scenario.expect.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
-    assert(dom.hasBunpro === scenario.expect.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
+    const expected = sourceExpectation(scenario, surface);
+    assert(dom.hasJpdb === expected.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
+    assert(dom.hasJiten === expected.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
+    assert(dom.hasBunpro === expected.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
 
-    if (scenario.expect.jpdb) {
+    if (expected.jpdb) {
         assert(dom.jpdbMeaning, `${scenario.label} ${surface}: JPDB source did not render meanings`, dom);
-        assert(dom.jpdbUsedIn, `${scenario.label} ${surface}: JPDB source did not render used-in words`, dom);
-        assert(dom.jpdbComposedOf, `${scenario.label} ${surface}: JPDB source did not render composed-of words`, dom);
-        assert(dom.jpdbExampleSentence, `${scenario.label} ${surface}: JPDB source did not render examples`, dom);
-        assert(dom.jpdbAudioButtonCount >= 2, `${scenario.label} ${surface}: JPDB source did not render TTS/audio buttons`, dom);
+        if (createSettings(scenario.settings).apiKey) {
+            assert(dom.jpdbUsedIn, `${scenario.label} ${surface}: credentialed JPDB source did not render used-in words`, dom);
+            assert(dom.jpdbComposedOf, `${scenario.label} ${surface}: credentialed JPDB source did not render composed-of words`, dom);
+            assert(dom.jpdbExampleSentence, `${scenario.label} ${surface}: credentialed JPDB source did not render examples`, dom);
+            assert(dom.jpdbAudioButtonCount >= 2, `${scenario.label} ${surface}: credentialed JPDB source did not render TTS/audio buttons`, dom);
+        }
     }
 
-    if (scenario.expect.jiten) {
+    if (expected.jiten) {
         assert(dom.jitenMeaning, `${scenario.label} ${surface}: Jiten source did not render meanings`, dom);
         assert(dom.jitenReading, `${scenario.label} ${surface}: Jiten source did not render reading`, dom);
         assert(dom.jitenUsedIn, `${scenario.label} ${surface}: Jiten source did not render used-in words`, dom);
@@ -325,7 +374,7 @@ function assertSurface(scenario, dom, requests, surface) {
         assert(!dom.hasJitenLocalFallbackCard, `${scenario.label} ${surface}: Jiten source rendered the old inner fallback card`, dom);
         assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
     }
-    if (scenario.expect.bunpro) {
+    if (expected.bunpro) {
         assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
         assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
         assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
@@ -335,6 +384,10 @@ function assertSurface(scenario, dom, requests, surface) {
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
     assertRequestAuthState(scenario, surface, surfaceRequests);
+}
+
+function sourceExpectation(scenario, surface) {
+    return surface === 'popover' && scenario.popoverExpect ? scenario.popoverExpect : scenario.expect;
 }
 
 function assertRequestAuthState(scenario, surface, requests) {
@@ -368,6 +421,11 @@ function assertRequestAuthState(scenario, surface, requests) {
     if (scenario.expect.bunpro) {
         assert(bunproRequests.some(request => request.path === '/api/frontend/search/reviewables_v1_1'), `${scenario.label} ${surface}: Bunpro search request was not recorded`, bunproRequests);
         assert(bunproRequests.every(request => request.authorizationScheme === 'Bearer'), `${scenario.label} ${surface}: Bunpro auth state was wrong`, bunproRequests);
+        const searches = bunproRequests.filter(request => request.path === '/api/frontend/search/reviewables_v1_1');
+        assert(searches.every(request => request.body?.options?.include_reviews === false
+            && request.body?.options?.include_bookmarks === false
+            && request.body?.options?.include_notes === false),
+        `${scenario.label} ${surface}: Bunpro search requested private review/bookmark/note data`, searches);
     } else {
         assert(bunproRequests.length === 0, `${scenario.label} ${surface}: Bunpro definition loaded without a token`, bunproRequests);
     }
@@ -417,9 +475,16 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
 }
 
-function mockBunproResponse(summary) {
-    if (summary.method !== 'POST' || summary.path !== '/api/frontend/search/reviewables_v1_1') return textResponse(404, 'unknown Bunpro endpoint');
-    return jsonHttpResponse(bunproSearchPayload());
+function mockBunproResponse(summary, request) {
+    if (summary.method === 'POST' && summary.path === '/api/frontend/search/reviewables_v1_1') {
+        summary.body = readJsonBody(request.data);
+        return jsonHttpResponse(bunproSearchPayload());
+    }
+    if (summary.method === 'PATCH' && summary.path === '/api/frontend/reviews/update_via_action_type') {
+        summary.body = readJsonBody(request.data);
+        return jsonHttpResponse({ ok: true });
+    }
+    return textResponse(404, 'unknown Bunpro endpoint');
 }
 
 function bunproSearchPayload() {
@@ -679,10 +744,12 @@ function createSettings(overrides = {}) {
         jpdbDefinitionsEnabled: true,
         jitenDefinitionsEnabled: true,
         bunproDefinitionsEnabled: true,
+        bunproMiningEnabled: false,
         jpdbMiningEnabled: false,
         localDictionariesEnabled: false,
         showPitchAccent: false,
         ankiEnabled: false,
+        yomuLocalSrsEnabled: false,
         ankiSectionEnabled: false,
         newTabAnkiEnabled: false,
         audioEnabled: false,

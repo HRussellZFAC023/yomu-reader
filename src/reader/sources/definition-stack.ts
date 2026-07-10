@@ -117,13 +117,18 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
         // default. Callers can still force it on with an explicit option.
         includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
         includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
-        includeBunproSource: options.includeBunproSource ?? true,
+        includeBunproSource: options.includeBunproSource ?? !isBunproPageHost(),
         includeStudySources: options.includeStudySources ?? true,
         includeImmersionSource: options.includeImmersionSource ?? true,
         jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
         jitenVocabularyInfo: params.jitenVocabularyInfo ?? null,
         bunproDefinitionInfo: params.bunproDefinitionInfo ?? null,
     };
+}
+
+function isBunproPageHost(): boolean {
+    if (typeof location === 'undefined') return false;
+    return location.hostname === 'bunpro.jp' || location.hostname.endsWith('.bunpro.jp');
 }
 
 function normalizedDefinitionSourceStackOptions(params: RenderDefinitionSourcesStackParams): {

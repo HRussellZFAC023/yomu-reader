@@ -4,11 +4,18 @@ export type YomuSrsProviderId = 'jpdb' | 'jiten' | 'anki' | 'bunpro' | 'yomu-loc
 export type YomuSrsReviewableKind = 'vocabulary' | 'grammar' | 'kanji' | 'sentence' | 'unknown';
 export type YomuSrsGrade = JPDBGrade | 'again' | 'good';
 
+export interface YomuSrsReviewSession {
+    id: string;
+    inputMode: 'regular' | 'fsrs';
+    endpoint: 'review' | 'ghost-review' | 'self-study-review';
+}
+
 export interface YomuSrsReviewable {
     providerId: YomuSrsProviderId;
     providerCardId: string;
     providerReviewId?: string;
     providerReviewableId?: string;
+    reviewSession?: YomuSrsReviewSession;
     kind: YomuSrsReviewableKind;
     expression: string;
     reading: string;

@@ -143,7 +143,9 @@ That's the whole loop. Everything below is optional.
 2. In よむ, open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
 3. Paste the key into the matching **API key** field and save.
 
-For Bunpro, open Bunpro's API settings while signed in and use the **Import into Yomu** button. Yomu needs only the imported **frontend token** for Bunpro definitions, queue, mining, and Hard/Good reviews; it does not use the older Bunpro API key for these features.
+For Bunpro, open Bunpro's API settings while signed in and use the **Import into Yomu** button. Yomu needs only the imported **frontend token** for definitions, queue, mining, and Study grading; it does not use the older Bunpro API key. The token grants review read/write access, so treat it like a password. Yomu uses Bunpro's private frontend endpoint, which is not a documented public API and may change.
+
+Bunpro grading is deliberately tied to a live Study queue session: regular reveal cards use **Hard / Good**, and FSRS cards use **Again / Hard / Good / Easy**. There is no Bunpro five-point scale, and Bunpro grades are not stored for later while offline because session and ghost-review ids can change.
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
 

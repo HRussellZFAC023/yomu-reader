@@ -208,6 +208,11 @@ function sourceDetailScore(card: JPDBCard): number {
 }
 
 function dedupeWordKey(card: JPDBCard): string {
+    // Bunpro reviews are session-scoped obligations with their own rating
+    // scale. Never collapse one into an identical JPDB/Jiten/Anki card.
+    if (card.reviewSource === 'bunpro-api') {
+        return `bunpro\n${card.bunproReviewId ?? card.sourceCardKey ?? card.spelling}`;
+    }
     return card.reviewSource === 'jpdb-live'
         ? `jpdb-live\n${card.jpdbReviewId ?? card.spelling}`
         : `${card.spelling}\n${newTabCardReading(card)}`;

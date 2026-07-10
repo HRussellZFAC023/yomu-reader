@@ -61,7 +61,7 @@ function controllerWithAdapters(settings: Partial<ReaderSettings>, adapters: Par
 }
 
 describe('new-tab queued SRS grades', () => {
-    it('flushes Bunpro and Yomu local queued grades through SRS adapters, not JPDB', async () => {
+    it('refuses legacy Bunpro queued grades while preserving Yomu local grades', async () => {
         const bunproReview = vi.fn(async () => ({}));
         const yomuReview = vi.fn(async () => ({}));
         const jpdbReview = vi.fn(async () => undefined);
@@ -75,10 +75,10 @@ describe('new-tab queued SRS grades', () => {
         };
 
         try {
-            await internals.submitQueuedGrade({ target: 'bunpro-api', card: srsCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewId: '10' }), grade: 'pass' });
-            await internals.submitQueuedGrade({ target: 'yomu-local', card: srsCard({ source: 'yomu-local', reviewSource: 'yomu-local', sourceCardKey: 'local:読む' }), grade: 'pass' });
+            await expect(internals.submitQueuedGrade({ target: 'bunpro-api', card: srsCard({ source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewId: '10' }), grade: 'pass' })).resolves.toBe(false);
+            await expect(internals.submitQueuedGrade({ target: 'yomu-local', card: srsCard({ source: 'yomu-local', reviewSource: 'yomu-local', sourceCardKey: 'local:読む' }), grade: 'pass' })).resolves.toBe(true);
 
-            expect(bunproReview).toHaveBeenCalledTimes(1);
+            expect(bunproReview).not.toHaveBeenCalled();
             expect(yomuReview).toHaveBeenCalledTimes(1);
             expect(jpdbReview).not.toHaveBeenCalled();
         } finally {

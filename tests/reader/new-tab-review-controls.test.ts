@@ -22,26 +22,37 @@ describe('new-tab review controls', () => {
         expect(usesTwoButtonNewTabGradeScale(DEFAULT_SETTINGS)).toBe(false);
     });
 
+    it('uses Bunpro FSRS Again/Hard/Good/Easy instead of a five-point scale', () => {
+        const card = { source: 'bunpro', reviewSource: 'bunpro-api', bunproReviewInputMode: 'fsrs' } as JPDBCard;
+        expect(newTabGradeOptions(DEFAULT_SETTINGS, card)).toEqual([
+            ['nothing', 'Again'],
+            ['hard', 'Hard'],
+            ['okay', 'Good'],
+            ['easy', 'Easy'],
+        ]);
+        expect(usesTwoButtonNewTabGradeScale(DEFAULT_SETTINGS, card)).toBe(false);
+    });
+
     it('switches a mixed popover between Bunpro two-button and JPDB five-button rows', () => {
         document.body.innerHTML = `<div class="jpdb-reader-actions">
             <select data-review-target-select>
-                <option data-review-target="jpdb" data-review-target-label="Grades JPDB" data-review-target-short-label="JPDB">JPDB</option>
-                <option data-review-target="bunpro" data-review-target-label="Grades Bunpro" data-review-target-short-label="Bunpro">Bunpro</option>
+                <option data-review-target="jpdb" data-review-grade-profile="standard" data-review-target-label="Grades JPDB" data-review-target-short-label="JPDB">JPDB</option>
+                <option data-review-target="bunpro" data-review-grade-profile="bunpro-regular" data-review-target-label="Grades Bunpro" data-review-target-short-label="Bunpro">Bunpro</option>
             </select>
             <span data-review-target-current></span>
             <span data-review-target-label><span data-newtab-grade-target-text></span></span>
             <div data-review-target-row data-review-grade-profile="standard"><button data-action="grade" data-grade="nothing"></button></div>
-            <div data-review-target-row data-review-grade-profile="bunpro" hidden><button data-action="grade" data-grade="pass"></button></div>
+            <div data-review-target-row data-review-grade-profile="bunpro-regular" hidden><button data-action="grade" data-grade="pass"></button></div>
         </div>`;
         const select = document.querySelector<HTMLSelectElement>('select')!;
         select.selectedIndex = 1;
         updatePopoverReviewTargetSelection(select);
 
         expect(document.querySelector<HTMLElement>('[data-review-grade-profile="standard"]')?.hidden).toBe(true);
-        expect(document.querySelector<HTMLElement>('[data-review-grade-profile="bunpro"]')?.hidden).toBe(false);
+        expect(document.querySelector<HTMLElement>('[data-review-grade-profile="bunpro-regular"]')?.hidden).toBe(false);
         expect(popoverUsesBunproGradeScale(document)).toBe(true);
         expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Bunpro');
-        expect(document.querySelector('[data-review-grade-profile="bunpro"] button')?.getAttribute('data-review-target')).toBe('bunpro');
+        expect(document.querySelector('[data-review-grade-profile="bunpro-regular"] button')?.getAttribute('data-review-target')).toBe('bunpro');
 
         select.selectedIndex = 0;
         updatePopoverReviewTargetSelection(select);

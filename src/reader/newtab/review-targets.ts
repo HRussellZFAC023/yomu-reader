@@ -75,6 +75,12 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     const add = (target: NewTabReviewTarget): void => {
         if (!targets.includes(target)) targets.push(target);
     };
+    if (hasBunproReviewSession(card)
+        && settings.bunproMiningEnabled
+        && hasBunproFrontendCredential(settings)
+        && !isBunproFrontendCredentialExpired(settings)) {
+        return ['bunpro-api'];
+    }
     // UT-60: not an else-branch — a card living in both SRS queues offers
     // both API targets, exactly like the jpdb+anki pairing already does.
     if (card.reviewSource !== 'jpdb-live'
@@ -89,12 +95,6 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         && settings.jpdbMiningEnabled
         && hasJpdbApiCredential(settings)) {
         add('jpdb-api');
-    }
-    if (card.reviewSource === 'bunpro-api'
-        && settings.bunproMiningEnabled
-        && hasBunproFrontendCredential(settings)
-        && !isBunproFrontendCredentialExpired(settings)) {
-        add('bunpro-api');
     }
     if (card.reviewSource === 'yomu-local' && settings.yomuLocalSrsEnabled) add('yomu-local');
     // Built-in starter/practice words grade into the local SRS: they're
@@ -111,7 +111,6 @@ export function queueableNewTabReviewTargets(targets: NewTabReviewTarget[]): Que
     return targets.filter((target): target is QueuedNewTabGradeTarget => target === 'anki'
         || target === 'jpdb-api'
         || target === 'jiten-api'
-        || target === 'bunpro-api'
         || target === 'yomu-local');
 }
 
@@ -123,11 +122,23 @@ export function usesBunproGradeScale(card?: JPDBCard): boolean {
     return card?.source === 'bunpro' || card?.reviewSource === 'bunpro-api';
 }
 
+export function usesBunproFsrsGradeScale(card?: JPDBCard): boolean {
+    return usesBunproGradeScale(card) && card?.bunproReviewInputMode === 'fsrs';
+}
+
 export function usesTwoButtonNewTabGradeScale(settings: ReaderSettings, card?: JPDBCard): boolean {
-    return settings.twoButtonReviews || usesBunproGradeScale(card);
+    return settings.twoButtonReviews || usesBunproGradeScale(card) && !usesBunproFsrsGradeScale(card);
 }
 
 export function newTabGradeOptions(settings: ReaderSettings, card?: JPDBCard): Array<[JPDBGrade, string]> {
+    if (usesBunproFsrsGradeScale(card)) {
+        return [
+            ['nothing', uiText(settings.interfaceLanguage, 'bunproGradeAgainLabel')],
+            ['hard', uiText(settings.interfaceLanguage, 'bunproGradeHardLabel')],
+            ['okay', uiText(settings.interfaceLanguage, 'bunproGradeGoodLabel')],
+            ['easy', uiText(settings.interfaceLanguage, 'bunproGradeEasyLabel')],
+        ];
+    }
     if (usesBunproGradeScale(card)) {
         return [
             ['fail', uiText(settings.interfaceLanguage, 'bunproGradeHardLabel')],
@@ -143,6 +154,16 @@ export function newTabGradeOptions(settings: ReaderSettings, card?: JPDBCard): A
             ['okay', uiText(settings.interfaceLanguage, 'gradeOkayLabel')],
             ['easy', uiText(settings.interfaceLanguage, 'gradeEasyLabel')],
         ];
+}
+
+function hasBunproReviewSession(card: JPDBCard): boolean {
+    const sessionId = Number(card.bunproReviewSessionId);
+    return typeof card.bunproReviewId === 'string'
+        && /^[1-9]\d*$/u.test(card.bunproReviewId.trim())
+        && Number.isInteger(sessionId)
+        && sessionId > 0
+        && (card.bunproReviewInputMode === 'regular' || card.bunproReviewInputMode === 'fsrs')
+        && (card.bunproReviewEndpoint === 'review' || card.bunproReviewEndpoint === 'ghost-review' || card.bunproReviewEndpoint === 'self-study-review');
 }
 
 

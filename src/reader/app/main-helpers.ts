@@ -92,6 +92,15 @@ export const FIVE_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]>
     ['gradeEasy', 'easy'],
 ];
 
+// Bunpro FSRS is a four-outcome surface. Reuse the learner's first four
+// positional grade shortcuts so the default keys remain 1/2/3/4.
+export const BUNPRO_FSRS_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
+    ['gradeNothing', 'nothing'],
+    ['gradeSomething', 'hard'],
+    ['gradeHard', 'okay'],
+    ['gradeOkay', 'easy'],
+];
+
 const JPDB_REVIEW_BLOCKING_STATES = new Set(['blacklisted', 'never-forget', 'locked']);
 
 export function matchedReviewShortcutGrade(
@@ -447,6 +456,7 @@ export interface ReviewShortcutContext {
     anchor?: HTMLElement;
     trigger: 'modal' | 'hover';
     ankiCardId: number | null;
+    reviewTarget?: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
 }
 
 export interface ReviewShortcutTarget {

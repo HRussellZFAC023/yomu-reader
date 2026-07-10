@@ -3,6 +3,7 @@ import { BunproApiError, BunproClient } from '../../src/reader/bunpro/bunpro';
 import type { ReaderHttpOptions } from '../../src/reader/network/http-options';
 import { createBunproSrsAdapter, normalizeBunproQueueResponse, normalizeBunproReviewable, normalizeBunproStatsResponse } from '../../src/reader/srs/bunpro';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter, yomuSrsImportBatch } from '../../src/reader/srs/local-yomu';
+import type { YomuSrsReviewable } from '../../src/reader/srs/types';
 
 describe('Bunpro SRS adapter', () => {
     it('normalizes frontend review records into provider-neutral reviewables', () => {
@@ -88,6 +89,7 @@ describe('Bunpro SRS adapter', () => {
                     attributes: {
                         id: 60714209,
                         streak: 3,
+                        ghost_count: 0,
                         next_review: '2026-07-02T06:00:00.000Z',
                         reviewable_id: 10,
                         reviewable_type: 'Vocab',
@@ -101,7 +103,7 @@ describe('Bunpro SRS adapter', () => {
                 data: {
                     id: '60714300',
                     type: 'review',
-                    attributes: { id: 60714300, streak: 1, next_review: '2026-07-02T06:00:00.000Z', reviewable_id: 100, reviewable_type: 'GrammarPoint' },
+                    attributes: { id: 60714300, streak: 1, ghost_count: 0, next_review: '2026-07-02T06:00:00.000Z', reviewable_id: 100, reviewable_type: 'GrammarPoint' },
                 },
                 included: [
                     { id: '100', type: 'grammar_point', attributes: { id: 100, title: 'にくい', furigana: 'にくい', slug: 'にくい', meaning: 'Difficult to, Hard to' } },
@@ -118,7 +120,8 @@ describe('Bunpro SRS adapter', () => {
             kind: 'vocabulary',
             expression: 'アパート',
             reading: 'アパート',
-            state: ['due'],
+            state: ['due'] as Array<'due'>,
+            reviewSession: { id: '1', inputMode: 'regular', endpoint: 'review' },
             sourceUrl: `https://bunpro.jp/vocabs/${encodeURIComponent('アパート')}`,
         });
         expect(queue.cards[0]?.dueAt).toBe(Date.parse('2026-07-02T06:00:00.000Z'));
@@ -133,7 +136,7 @@ describe('Bunpro SRS adapter', () => {
 
     it('routes queue and final grades through the Bunpro client boundary', async () => {
         const request = vi.fn<[string, ReaderHttpOptions?], Promise<unknown>>(async (url, _options) => {
-            if (url.endsWith('/reviews/quiz_index')) return { reviews: [{ id: 10, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' }] };
+            if (url.endsWith('/reviews/quiz_index')) return { review_session_id: 9, reviews: [{ id: 10, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' }] };
             if (url.endsWith('/reviews/10/update')) return { id: 10, word: '読む', reading: 'よむ' };
             return {};
         });
@@ -147,6 +150,114 @@ describe('Bunpro SRS adapter', () => {
             'https://api.bunpro.jp/api/frontend/reviews/quiz_index',
             'https://api.bunpro.jp/api/frontend/reviews/10/update',
         ]);
+        expect(JSON.parse(String(request.mock.calls[1]?.[1]?.data))).toEqual({
+            review_session_id: 9,
+            correct: true,
+            fsrs_input: null,
+            loaded_review_ids: null,
+            loaded_ghost_review_ids: null,
+            loaded_self_study_review_ids: null,
+        });
+    });
+
+    it('preserves ordinary, ghost, and self-study review endpoint kinds from the queue', () => {
+        const entry = (id: number, attributes: Record<string, unknown>) => ({
+            data: { id: String(id), type: 'review', attributes: { id, reviewable_id: id, reviewable_type: 'Vocab', ...attributes } },
+            included: [{ id: String(id), type: 'vocab', attributes: { id, title: `語${id}`, kana: `ご${id}`, meaning: 'word' } }],
+        });
+        const queue = normalizeBunproQueueResponse({
+            review_session_id: 44,
+            pending_attempt: [
+                entry(1, { ghost_count: 0 }),
+                entry(2, {}),
+                entry(3, { user_study_question_id: 99 }),
+            ],
+            pending_wrapup: [],
+        });
+
+        expect(queue.cards.map(card => card.reviewSession?.endpoint)).toEqual(['review', 'ghost-review', 'self-study-review']);
+    });
+
+    it('sends Bunpro FSRS inputs to the endpoint owned by the active session', async () => {
+        const request = vi.fn(async (_url: string, _options?: ReaderHttpOptions) => ({}));
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+        const baseCard: YomuSrsReviewable = {
+            providerId: 'bunpro' as const,
+            providerCardId: '17',
+            providerReviewId: '17',
+            providerReviewableId: '7',
+            kind: 'vocabulary' as const,
+            expression: '読む',
+            reading: 'よむ',
+            meanings: [],
+            state: ['due'],
+            reviewSession: { id: '44', inputMode: 'fsrs' as const, endpoint: 'review' as const },
+        };
+
+        await adapter.review({ card: baseCard, grade: 'hard' });
+
+        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
+        expect(url).toBe('https://api.bunpro.jp/api/frontend/reviews/17/update');
+        expect(JSON.parse(String(options.data))).toEqual({
+            review_session_id: 44,
+            correct: false,
+            fsrs_input: 'hard',
+            loaded_review_ids: null,
+            loaded_ghost_review_ids: null,
+            loaded_self_study_review_ids: null,
+            incorrect_answer: '__FLASHCARD_FSRS_HARD',
+        });
+    });
+
+    it('dispatches regular ghost and self-study grades to their own collections', async () => {
+        const request = vi.fn(async (_url: string, _options?: ReaderHttpOptions) => ({}));
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+        const card = (id: string, endpoint: 'ghost-review' | 'self-study-review'): YomuSrsReviewable => ({
+            providerId: 'bunpro',
+            providerCardId: id,
+            providerReviewId: id,
+            kind: 'vocabulary',
+            expression: `語${id}`,
+            reading: `ご${id}`,
+            meanings: [],
+            state: ['due'],
+            reviewSession: { id: '44', inputMode: 'regular', endpoint },
+        });
+
+        await adapter.review({ card: card('18', 'ghost-review'), grade: 'pass' });
+        await adapter.review({ card: card('19', 'self-study-review'), grade: 'fail' });
+
+        expect(request.mock.calls.map(([url]) => url)).toEqual([
+            'https://api.bunpro.jp/api/frontend/ghost_reviews/18/update',
+            'https://api.bunpro.jp/api/frontend/self_study_reviews/19/update',
+        ]);
+    });
+
+    it('refuses to grade outside an active Bunpro review session', async () => {
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: vi.fn() }));
+        const card = normalizeBunproReviewable({ id: 1, reviewable_id: 2, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' });
+        if (!card) throw new Error('Expected normalized Bunpro card.');
+        await expect(adapter.review({ card, grade: 'pass' })).rejects.toThrow(/active review session/i);
+    });
+
+    it('refuses malformed review ids even when the rest of the live session looks valid', async () => {
+        const request = vi.fn(async () => ({}));
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+        const corrupt: YomuSrsReviewable = {
+            providerId: 'bunpro',
+            providerCardId: 'reviewable:42',
+            providerReviewId: '../ghost_reviews/1',
+            providerReviewableId: '42',
+            kind: 'vocabulary',
+            expression: '読む',
+            reading: 'よむ',
+            meanings: [],
+            state: ['due'],
+            reviewSession: { id: '44', inputMode: 'regular', endpoint: 'review' },
+        };
+
+        await expect(adapter.review({ card: corrupt, grade: 'pass' })).rejects.toThrow(/numeric review id/i);
+        expect(request).not.toHaveBeenCalled();
     });
 
     it('adds mined vocabulary through the Bunpro reviewable action endpoint', async () => {
@@ -206,6 +317,19 @@ describe('Bunpro SRS adapter', () => {
         const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
 
         await expect(adapter.mine({ expression: '幻語', kind: 'vocabulary' })).rejects.toBeInstanceOf(BunproApiError);
+        expect(request.mock.calls.map(([url]) => String(url)).filter(url => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
+    });
+
+    it('rejects an exact-spelling Bunpro homograph when the requested reading differs', async () => {
+        const request = vi.fn(async (url: string) => {
+            if (url.endsWith('/search/reviewables_v1_1')) {
+                return { vocabs: { data: [{ id: 42, reviewable_type: 'Vocab', word: '生', reading: 'せい', meaning: 'life' }] } };
+            }
+            return { ok: true };
+        });
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+
+        await expect(adapter.mine({ expression: '生', reading: 'なま', kind: 'vocabulary' })).rejects.toThrow(/No Bunpro item found/u);
         expect(request.mock.calls.map(([url]) => String(url)).filter(url => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
     });
 });
