@@ -1280,6 +1280,10 @@ export class SubtitlePlayerController {
 
     destroy(): void {
         this.destroyed = true;
+        // A destroy mid-native-fullscreen would otherwise strand the mirror
+        // track showing and any restored host track modes ('showing') under
+        // the next controller, which assumes suppressed defaults.
+        this.hideNativeFullscreenCueTrack();
         this.resetShadowPracticeState();
         this.clearPlaybackPauseReassert();
         this.abortController?.abort();
@@ -4337,10 +4341,10 @@ export class SubtitlePlayerController {
     // cue stream at all, hand the system player the host's own captions back.
     private showNativeFullscreenCueTrack(video: HTMLVideoElement): void {
         const cues = this.nativeFullscreenMirrorCues();
-        if (!cues.length) {
+        if (!cues.length && this.restoreHostTracksForNativeFullscreen()) {
+            // The host's own captions cover the system player; park the mirror.
             const track = this.nativeFullscreenCueTrack;
             if (track && track.mode !== 'disabled') track.mode = 'disabled';
-            this.restoreHostTracksForNativeFullscreen();
             return;
         }
         this.reSuppressHostTracksAfterNativeFullscreen();
@@ -4350,6 +4354,12 @@ export class SubtitlePlayerController {
                 this.nativeFullscreenCueTrack = undefined;
                 this.nativeFullscreenCueVideo = video;
             }
+            // Create and show the track even with ZERO cues: on m.youtube the
+            // DOM-caption fallback synthesizes its first cue only after native
+            // fullscreen is up (and YouTube exposes no host TextTracks to
+            // restore), so the mirror must be armed at entry for the system
+            // player to register it; refreshNativeFullscreenCueMirror fills it
+            // as cues appear.
             const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, 'ja');
             this.nativeFullscreenCueTrack = track;
             for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
@@ -4381,16 +4391,20 @@ export class SubtitlePlayerController {
         this.showNativeFullscreenCueTrack(video);
     }
 
-    private restoreHostTracksForNativeFullscreen(): void {
-        if (this.nativeFullscreenHostTracksRestored) return;
+    // Returns true when host captions are (already) covering the system
+    // player; false when there is nothing restorable (e.g. YouTube, which
+    // exposes no host TextTracks) so the caller arms the mirror instead.
+    private restoreHostTracksForNativeFullscreen(): boolean {
+        if (this.nativeFullscreenHostTracksRestored) return true;
         const restorable = this.tracks.filter(option => option.track);
         const selected = restorable.filter(option => option.id === this.selectedTrackId || option.id === this.secondaryTrackId);
         const targets = selected.length ? selected : restorable.slice(0, 1);
-        if (!targets.length) return;
+        if (!targets.length) return false;
         this.nativeFullscreenHostTracksRestored = true;
         for (const option of targets) {
             if (option.track) option.track.mode = 'showing';
         }
+        return true;
     }
 
     private reSuppressHostTracksAfterNativeFullscreen(): void {

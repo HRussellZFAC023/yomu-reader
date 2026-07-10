@@ -572,22 +572,34 @@ describe('SubtitlePlayerController', () => {
                 observeVideoLayout: (video: HTMLVideoElement) => void;
                 applyDomCaptionFallback: (text: string, selected: undefined) => void;
             }>(controller);
-            // The m.youtube DOM-caption fallback keeps this.cues EMPTY and
-            // synthesizes one short cue at a time into currentCue — the mirror
-            // must follow that stream too (it used to mirror nothing).
+            // The reachable m.youtube state: NO host TextTracks (YouTube never
+            // populates this.tracks — addNativeTrack early-returns there),
+            // this.cues EMPTY, and no synthesized cue yet at fullscreen entry —
+            // the DOM-caption fallback synthesizes its first cue only after the
+            // system player is already up.
             internals.cues = [];
-            internals.currentCue = { start: 5, end: 9, text: 'こんにちは', transcriptEligible: true };
+            internals.currentCue = undefined;
             internals.observeVideoLayout(video);
 
             Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
             video.dispatchEvent(new Event('webkitbeginfullscreen'));
 
+            // The mirror must be ARMED at entry (created and showing, still
+            // empty) so the system player registers the track before the first
+            // cue exists.
+            expect(video.addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ja');
+            expect(track.mode).toBe('showing');
+            expect(addCue).not.toHaveBeenCalled();
+
+            // The fallback synthesizes the first caption mid-fullscreen: the
+            // mirror receives it.
+            internals.applyDomCaptionFallback('こんにちは', undefined);
+
             expect(addCue).toHaveBeenCalledTimes(1);
             expect((addCue.mock.calls[0]![0] as { text: string }).text).toBe('こんにちは');
             expect(track.mode).toBe('showing');
 
-            // The fallback synthesizes the NEXT caption while still fullscreen:
-            // the mirror follows.
+            // And follows the NEXT caption while still fullscreen.
             internals.applyDomCaptionFallback('次の字幕です。', undefined);
 
             expect(addCue.mock.calls.length).toBeGreaterThan(1);
@@ -640,6 +652,45 @@ describe('SubtitlePlayerController', () => {
 
             // Back out of the system player the DOM overlay renders again, so
             // the host track returns to Yomu's suppressed mode.
+            expect(hostTrack.mode).toBe('hidden');
+        } finally {
+            vi.unstubAllGlobals();
+            controller.destroy();
+        }
+    });
+
+    it('re-suppresses restored host tracks when the controller is destroyed mid-native-fullscreen', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        try {
+            const video = document.createElement('video');
+            mockElementRect(video, new DOMRect(20, 40, 960, 540));
+            attachVideo(controller, { video });
+            const hostTrack = { mode: 'hidden', label: 'Japanese', language: 'ja', cues: [], addEventListener: vi.fn() } as unknown as TextTrack;
+            const internals = controllerInternals<{
+                cues: unknown[];
+                currentCue?: unknown;
+                tracks: Array<{ id: string; label: string; kind: string; track?: TextTrack }>;
+                selectedTrackId: string;
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+            }>(controller);
+            internals.cues = [];
+            internals.currentCue = undefined;
+            internals.tracks = [{ id: 'native-0', label: 'Japanese', kind: 'native', track: hostTrack }];
+            internals.selectedTrackId = 'native-0';
+            internals.observeVideoLayout(video);
+
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
+            video.dispatchEvent(new Event('webkitbeginfullscreen'));
+            expect(hostTrack.mode).toBe('showing');
+
+            // A destroy (reinit) while still in native fullscreen must not
+            // strand the host captions visible under the next controller.
+            controller.destroy();
+
             expect(hostTrack.mode).toBe('hidden');
         } finally {
             vi.unstubAllGlobals();
