@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Regression smoke for mobile Google Search reader styling: passive result words
 // keep status highlight paint without drawing opaque background-color blocks, and
-// clipped result-local controls must keep their ruby base text visible.
+// clipped result-local controls must keep their original text and layout intact
+// under the interactive-passive (no in-flow ruby) decoration policy.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, devices, webkit } from 'playwright';
@@ -410,6 +411,7 @@ function snapshotGoogleSearchFixture() {
         passiveWordCount: document.querySelectorAll('.jpdb-reader-word.jpdb-reader-passive-word').length,
         chip: {
             text: chip?.textContent?.replace(/\s+/g, '').trim() ?? '',
+            decoration: chip?.getAttribute('data-yomu-decoration') ?? '',
             base: chipBase?.textContent?.trim() ?? '',
             ruby: chipRt?.textContent?.trim() ?? '',
             rubyRoom: chip?.getAttribute('data-yomu-ruby-room') ?? '',
@@ -446,27 +448,17 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
     assert(snapshot.wordCount >= 8, `${label}: Google fixture did not parse enough reader words`, snapshot);
     assert(snapshot.passiveWordCount >= 8, `${label}: Google fixture words were not passive`, snapshot);
     assert(snapshot.chip.text.includes('検索結果'), `${label}: Google chip text is missing`, snapshot.chip);
-    // The chip must ALWAYS carry a reading (in place, or via the text mirror
-    // on engines/rows where in-place ruby distorts) — a rubyless chip is a
-    // decoration regression, not an acceptable alternative branch.
-    assert(snapshot.chip.ruby === 'けんさくけっか', `${label}: Google chip ruby is missing`, snapshot.chip);
-    assert(snapshot.chip.base === '検索結果', `${label}: Google chip base text is missing`, snapshot.chip);
-    assert(snapshot.chip.baseVisible, `${label}: Google chip base text is still clipped`, snapshot.chip);
-    if (snapshot.chip.mirrorHasRuby) {
-        // Mirror architecture: the clipped label is hidden and un-clipped so
-        // the annotated mirror paints instead, and the CHIP grows to fit it.
-        assert(snapshot.chip.labelHiddenForMirror, `${label}: Google chip label still paints under its mirror (double text)`, snapshot.chip);
-        assert(snapshot.chip.labelOverflow === 'visible', `${label}: Google chip label still clips its mirror`, snapshot.chip);
-        // The room may land on the chip or on the label (environment/font
-        // metrics decide which box the sweep grows) — either is a correct
-        // layout as long as something grew to fit the annotated mirror.
-        assert(snapshot.chip.rubyRoom === 'true' || snapshot.chip.labelRubyRoom === 'true', `${label}: neither the Google chip nor its label reserved ruby room for the mirror`, snapshot.chip);
-        assert(snapshot.chip.height > 32, `${label}: Google chip kept its plain-text height`, snapshot.chip);
-    } else {
-        // In-place architecture: the label itself must grow to fit the ruby.
-        assert(snapshot.chip.labelRubyRoom === 'true', `${label}: Google chip label did not reserve ruby room`, snapshot.chip);
-        assert(snapshot.chip.labelHeight > 18, `${label}: Google chip label kept its plain-text height`, snapshot.chip);
-    }
+    // Role/button chrome is sealed as interactive-passive: Yomu may add state
+    // colour or a pitch underline, but must not replace the label with ruby,
+    // hide it beneath a mirror, or grow the control's line box.
+    assert(snapshot.chip.decoration === 'interactive-passive', `${label}: Google chip decoration policy changed`, snapshot.chip);
+    assert(snapshot.chip.ruby === '' && snapshot.chip.base === '', `${label}: Google chip gained layout-affecting ruby`, snapshot.chip);
+    assert(!snapshot.chip.mirrorHasRuby, `${label}: Google chip gained a ruby mirror`, snapshot.chip);
+    assert(!snapshot.chip.labelHiddenForMirror, `${label}: Google chip label was hidden for a mirror`, snapshot.chip);
+    assert(snapshot.chip.labelVisible, `${label}: Google chip label is clipped or invisible`, snapshot.chip);
+    assert(snapshot.chip.rubyRoom === '' && snapshot.chip.labelRubyRoom === '', `${label}: Google chip reserved ruby room`, snapshot.chip);
+    assert(snapshot.chip.height <= 38 && snapshot.chip.labelHeight <= 20, `${label}: Google chip grew beyond its plain-text layout`, snapshot.chip);
+    assert(snapshot.chip.labelOverflow === 'hidden' && snapshot.chip.overflowY === 'hidden', `${label}: Google chip clipping contract changed`, snapshot.chip);
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.snippetFirstWord, `${label}: no passive snippet word found`, snapshot);
     if (options.expectStatusHighlight) {
