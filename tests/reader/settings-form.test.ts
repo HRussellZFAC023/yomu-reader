@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { diagnoseAnkiConnectFailure } from '../../src/reader/anki/transport';
 import { uiText } from '../../src/reader/app/i18n';
 import { describe, expect, it } from 'vitest';
-import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
+import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
+import { INSTALL_GUIDE_URL } from '../../src/reader/app/userscript-update';
 import { CURRENT_YOMU_VERSION } from '../../src/reader/app/version';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
@@ -236,9 +237,12 @@ describe('settings help panel', () => {
             expect(form.querySelector<HTMLElement>('[data-yomu-current-version]')?.textContent).toBe(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
-            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).toBe(USERSCRIPT_INSTALL_URL);
-            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('Keep one Yomu script');
-            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');
+            // jsdom has no GM_info, so the update flow resolves to the install
+            // guide (a raw .user.js navigation would hit the browser's
+            // blocked-install banner in exactly this manager-less situation).
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).toBe(INSTALL_GUIDE_URL);
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.dataset.action).toBe('open-yomu-update');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('install guide');
             expect(form.querySelector<HTMLElement>('[data-diagnostics-title]')?.compareDocumentPosition(strip) ?? 0)
                 .toBe(Node.DOCUMENT_POSITION_PRECEDING);
 
@@ -247,7 +251,7 @@ describe('settings help panel', () => {
             expect(form.querySelector<HTMLElement>('[data-help-update-title]')?.textContent).toBe('バージョン');
             expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
-            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('インストールガイド');
         } finally {
             marker.remove();
         }
@@ -324,7 +328,7 @@ describe('recommended dictionary settings buttons', () => {
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('通常の定義文は追加しません');
         expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('ピッチアクセント専用');
         expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('頻度バッジ');
-        expect(settingsText(form, '[data-import-status]')).toContain('語句/ピッチ/頻度辞書');
+        expect(settingsText(form, '#jpdb-reader-settings-panel-backup [data-import-status]')).toContain('語句/ピッチ/頻度辞書');
     });
 
     it('does not treat Jitendex as the Jiten frequency dictionary', () => {
@@ -478,6 +482,7 @@ describe('settings form localization', () => {
         expect(buttons.every(button => button.getAttribute('role') === 'tab')).toBe(true);
         expect(buttons.map(button => button.dataset.panel)).toEqual([
             'appearance',
+            'backup',
             'api',
             'dictionaries',
             'media',
@@ -500,17 +505,52 @@ describe('settings form localization', () => {
 
     it('keeps local settings import and export separate from extension cloud sync', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
-        const settingsImport = sourcesPanel.querySelector<HTMLElement>('[data-action="import-yomitan-settings"]')!;
+        const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
+        const settingsImport = backupPanel.querySelector<HTMLElement>('[data-action="import-yomitan-settings"]')!;
 
-        expect(sourcesPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
-        expect(sourcesPanel.textContent).not.toContain('Google Drive settings sync');
-        expect(sourcesPanel.textContent).not.toContain('cloud backup');
+        expect(backupPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
+        expect(backupPanel.textContent).not.toContain('Google Drive settings sync');
+        expect(backupPanel.textContent).not.toContain('cloud backup');
         expect(settingsImport).not.toBeNull();
-        expect(sourcesPanel.querySelector('[data-action="export-reader-settings"]')).not.toBeNull();
+        expect(backupPanel.querySelector('[data-action="export-reader-settings"]')).not.toBeNull();
 
         localizeSettingsForm(form, 'ja');
-        expect(sourcesPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
+        expect(backupPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
+    });
+
+    it('gives backup and sync its own top-level section next to Appearance', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
+        const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
+
+        expect(backupPanel.dataset.settingsPanel).toBe('backup');
+        for (const action of ['import-yomitan-settings', 'export-reader-settings', 'import-yomitan-dictionary', 'export-yomitan-dictionary']) {
+            expect(backupPanel.querySelector(`[data-action="${action}"]`), action).not.toBeNull();
+            expect(sourcesPanel.querySelector(`[data-action="${action}"]`), action).toBeNull();
+        }
+        expect(backupPanel.querySelector('input[data-file="settings"]')).not.toBeNull();
+        expect(backupPanel.querySelector('input[data-file="dictionary"]')).not.toBeNull();
+        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.textContent).toContain('Import Yomitan');
+        // Sources keeps a hidden status line so dictionary row actions still
+        // surface feedback on the panel where they were clicked.
+        const sourcesStatus = sourcesPanel.querySelector<HTMLElement>('[data-import-status]');
+        expect(sourcesStatus?.hidden).toBe(true);
+        expect(sourcesStatus?.textContent).toBe('');
+        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).not.toBeNull();
+
+        const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]')).map(button => button.dataset.panel);
+        expect(tabs.indexOf('backup')).toBe(tabs.indexOf('appearance') + 1);
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.textContent).toBe('Backup & sync');
+
+        localizeSettingsForm(form, 'ja');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.textContent).toBe('バックアップと同期');
+        expect(backupPanel.querySelector('legend')?.textContent).toBe('バックアップと同期');
+    });
+
+    it('shows the running version in the settings footer', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const version = form.querySelector<HTMLElement>('.footer [data-yomu-settings-version]');
+        expect(version?.textContent).toBe(`Yomu ${CURRENT_YOMU_VERSION}`);
     });
 
     it('gives Study settings their own top-level section', () => {

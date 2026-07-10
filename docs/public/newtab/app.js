@@ -1369,6 +1369,9 @@
       reading: "Reading",
       dictionaries: "Dictionaries",
       sources: "Sources",
+      backupSync: "Backup & sync",
+      backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
+      backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
       media: "Media",
       mining: "Mining",
       shortcuts: "Shortcuts",
@@ -2148,7 +2151,10 @@
       updateStatusCurrent: "Current {current}. Latest {latest}. Up to date.",
       updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
       updateStatusUnknown: "Current {current}. Latest check failed; reinstall if needed.",
-      updateHelpNotes: "Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.",
+      updateStatusIncomparable: "Current {current}. Latest {latest}. Cannot compare versions; use Update if this install is old.",
+      updateHelpNotesManager: 'Keep one Yomu script enabled. Update opens your userscript manager’s install screen. If the browser shows a blocked-install banner instead, open your extensions page, open the manager’s details, and turn on "Allow user scripts" (or Developer mode), then retry.',
+      updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
+      updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
       updateUserscript: "Update",
       duplicateStatusSingle: "One Yomu runtime active ({kind}).",
       duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
@@ -3102,6 +3108,9 @@ hide	隠す
 appearance	外観
 reading	読解
 sources	ソース
+backupSync	バックアップと同期
+backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
+backupMovedHelp	バックアップ・同期・設定/辞書のインポートとエクスポートは「バックアップと同期」セクションにあります。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -3679,7 +3688,10 @@ updateStatusChecking	現在 {current}。確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。確認できません。必要なら再インストールしてください。
-updateHelpNotes	よむスクリプトは1つだけ有効にしてください。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてください。
+updateStatusIncomparable	現在 {current}。最新 {latest}。バージョンを比較できません。古い場合は「更新」を使ってください。
+updateHelpNotesManager	よむスクリプトは1つだけ有効にしてください。「更新」でユーザースクリプトマネージャーのインストール画面が開きます。ブラウザにインストールブロックの警告が出る場合は、拡張機能ページでマネージャーの詳細を開き、「ユーザースクリプトを許可」（または開発者モード）を有効にしてから再試行してください。
+updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
+updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
@@ -36734,7 +36746,7 @@ ${spelling}`);
       card.classList.toggle("jpdb-ocr-canvas-status", isReaderRasterFrame);
       this.configureReaderRasterStatusRetry(card, isReaderRasterFrame);
       const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = isReaderRasterFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
+      if (labelNode) labelNode.textContent = isReaderRasterFrame ? this.readerRasterStatusLabel(status) : "";
       if (isReaderRasterFrame) this.updateReaderRasterRetryLabel(card, status);
       this.positionImageStatusCard(image, card);
       if (status === "ready" && isReaderRasterFrame) this.releaseTerminalReaderRasterSiblings(image);
@@ -36832,6 +36844,15 @@ ${spelling}`);
         event.stopPropagation();
         this.retryReaderRasterStatusCard(card);
       });
+    }
+    // Empty/failed pills read as a dead end without a visible cue that a click
+    // re-runs OCR (title/aria alone were invisible on touch readers like
+    // BookWalker), so terminal non-ready statuses carry the retry hint inline.
+    readerRasterStatusLabel(status) {
+      const language = this.options.getSettings().interfaceLanguage;
+      const statusLabel = uiText(language, videoFrameStatusTextKey(status));
+      if (status !== "empty" && status !== "failed") return statusLabel;
+      return `${statusLabel} · ${uiText(language, "ocrRetryScan")}`;
     }
     updateReaderRasterRetryLabel(card, status) {
       const language = this.options.getSettings().interfaceLanguage;
@@ -39965,6 +39986,34 @@ ${spelling}`);
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
   }
+  const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
+  const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
+  function scriptHandlerName(info) {
+    if (!info || typeof info !== "object") return "";
+    const handler = info.scriptHandler;
+    return typeof handler === "string" ? handler.trim() : "";
+  }
+  function readGmInfo() {
+    const g = globalThis;
+    return g.GM_info ?? g.GM?.info;
+  }
+  function detectYomuUpdateFlow(info = readGmInfo()) {
+    if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
+    const handler = scriptHandlerName(info);
+    if (EXTERNAL_APP_HANDLERS.has(handler.toLowerCase())) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
+    return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+  }
+  function updateFlowNoteKey(kind) {
+    switch (kind) {
+      case "external-manager":
+        return "updateHelpNotesExternalManager";
+      case "no-manager":
+        return "updateHelpNotesNoManager";
+      case "manager":
+      default:
+        return "updateHelpNotesManager";
+    }
+  }
   function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
@@ -40150,6 +40199,7 @@ ${spelling}`);
       api: "jpdb-reader-settings-panel-api",
       newTab: "jpdb-reader-settings-panel-newtab",
       appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
+      backup: "jpdb-reader-settings-panel-backup",
       reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
       dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
       media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
@@ -42159,6 +42209,7 @@ ${spelling}`);
   const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
     { panel: "appearance", label: "Appearance", active: true },
+    { panel: "backup", label: "Backup & sync", labelKey: "backupSync" },
     { panel: "api", label: "API" },
     { panel: "dictionaries", label: "Sources", labelKey: "sources" },
     { panel: "media", label: "Media" },
@@ -42212,13 +42263,13 @@ ${spelling}`);
                         <div class="jpdb-reader-local-title" data-help-update-title>Version</div>
                         <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml$1(CURRENT_YOMU_VERSION)}</span></div>
                     </div>
-                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml$1(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
                 </div>
                 <div class="jpdb-reader-help-update-meta">
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml$1(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml$1(duplicateRuntimeStatusText("en"))}</div>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml$1(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
             <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
                 <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
@@ -42279,6 +42330,7 @@ ${spelling}`);
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
             ${renderDictionariesSettingsPanel(settings)}
+            ${renderBackupSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
@@ -42939,6 +42991,16 @@ ${spelling}`);
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
+                <div class="jpdb-reader-help" data-import-status hidden></div>
+                <div class="jpdb-reader-help" data-help-key="backupMovedHelp">Backup, sync, and settings/dictionary import-export live in the Backup &amp; sync section.</div>
+            </fieldset>
+    `;
+  }
+  function renderBackupSettingsPanel(settings) {
+    return `
+            <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
+                <legend>Backup &amp; sync</legend>
+                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.</div>
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ""}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
@@ -43018,6 +43080,7 @@ ${spelling}`);
     return `
             <div class="footer">
                 <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
+                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml$1(CURRENT_YOMU_VERSION)}</div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
@@ -43160,7 +43223,6 @@ ${spelling}`);
   const HELP_LINK_PANEL_TEXT_KEYS = [
     ["[data-help-update-title]", "versionAndUpdates"],
     ["[data-help-update-current]", "currentYomuVersion"],
-    ["[data-help-update-notes]", "updateHelpNotes"],
     ["[data-help-anki-title]", "ankiConnectSetupTitle"],
     ["[data-help-anki-copy]", "ankiConnectSetupCopy"],
     ["[data-help-anki-config-copy]", "ankiConnectSetupConfig"],
@@ -43530,8 +43592,9 @@ ${spelling}`);
     lookupLinks?.closest(".jpdb-reader-settings-subsection")?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text2("lookupPillsHelp"));
   }
   function localizeDictionaryImportHelp(form, text2) {
-    const importStatus = form.querySelector("[data-import-status]");
-    if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
+    form.querySelectorAll("[data-import-status]").forEach((importStatus) => {
+      if (/Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
+    });
   }
   function localizeSettingsActions(form, text2) {
     SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key]) => {
@@ -44143,6 +44206,11 @@ ${spelling}`);
     }
     const duplicateStatus = panel.querySelector("[data-yomu-duplicate-status]");
     if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+    const updateFlow = detectYomuUpdateFlow();
+    const updateNotes = panel.querySelector("[data-help-update-notes]");
+    if (updateNotes) updateNotes.textContent = uiText(language, updateFlowNoteKey(updateFlow.kind));
+    const updateLink = panel.querySelector('[data-help-link="update-userscript"]');
+    if (updateLink) updateLink.href = updateFlow.url;
   }
   function renderCurrentVersionElement() {
     const element = document.createElement("span");
@@ -44565,9 +44633,12 @@ ${spelling}`);
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
-  function settingsStatusSetter(status) {
+  function settingsStatusSetter(statuses) {
     return (message) => {
-      if (status) status.textContent = message;
+      for (const status of statuses) {
+        status.textContent = message;
+        status.hidden = false;
+      }
     };
   }
   function focusPreviewAudioSource(form, button, previewSettings) {
@@ -44895,16 +44966,16 @@ ${spelling}`);
       if (!authResult.ok) {
         const message = authResult.error || "Google authorization failed.";
         this.dependencies.toast(message);
-        this.open("dictionaries");
+        this.open("backup");
         return true;
       }
       try {
         await this.performCloudSettingsAction(pending.action, language, void 0);
-        if (pending.action === "sync-cloud-settings") this.open("dictionaries");
+        if (pending.action === "sync-cloud-settings") this.open("backup");
       } catch (error) {
         const message = errorMessage$1(error, uiText(language, "actionFailed"));
         this.dependencies.toast(message);
-        this.open("dictionaries");
+        this.open("backup");
       }
       return true;
     }
@@ -45622,7 +45693,12 @@ ${spelling}`);
         const latest = latestYomuVersionFromVersionJson(version);
         if (!latest) throw new Error("Hosted version response did not include a build id.");
         const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
-        const updateAvailable = comparison !== null && comparison < 0;
+        if (comparison === null) {
+          status.dataset.statusTone = "pending";
+          status.textContent = formatUiText(language, "updateStatusIncomparable", { current: CURRENT_YOMU_VERSION, latest });
+          return;
+        }
+        const updateAvailable = comparison < 0;
         status.dataset.statusTone = updateAvailable ? "pending" : "success";
         status.textContent = formatUiText(language, updateAvailable ? "updateStatusAvailable" : "updateStatusCurrent", {
           current: CURRENT_YOMU_VERSION,
@@ -45753,8 +45829,7 @@ ${spelling}`);
       });
     }
     async handleSettingsAction(form, action, control) {
-      const status = form.querySelector("[data-import-status]");
-      const setStatus = settingsStatusSetter(status);
+      const setStatus = settingsStatusSetter(Array.from(form.querySelectorAll("[data-import-status]")));
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
@@ -45911,7 +45986,7 @@ ${spelling}`);
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
       log$i.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
-      this.open("dictionaries");
+      this.open("backup");
     }
     async rememberPendingCloudSettingsAction(action) {
       await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
@@ -46223,6 +46298,10 @@ ${spelling}`);
       return error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
     }
     async handleSettingsSupportAction(action, control, setStatus) {
+      if (action === "open-yomu-update") {
+        openUrlInNewTab(detectYomuUpdateFlow().url);
+        return true;
+      }
       if (action === "copy-newtab-url") {
         await copyText(NEW_TAB_PAGE_URL);
         this.dependencies.toast(uiText(this.settings.interfaceLanguage, "newTabAddressCopied"));

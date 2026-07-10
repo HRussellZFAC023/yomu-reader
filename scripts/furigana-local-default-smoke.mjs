@@ -88,7 +88,7 @@ try {
     // so a single dispatch can be lost on slow CI runners.
     await page.waitForFunction(() => {
         if (document.querySelector('.jpdb-reader-settings')) return true;
-        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'dictionaries' } }));
+        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'backup' } }));
         return false;
     }, null, { timeout: 30_000, polling: 500 });
     const importButton = page.locator('[data-action="import-yomitan-dictionary"]');

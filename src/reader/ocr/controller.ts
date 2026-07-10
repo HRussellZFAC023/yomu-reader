@@ -1654,7 +1654,7 @@ export class ImageOcrController {
         card.classList.toggle('jpdb-ocr-canvas-status', isReaderRasterFrame);
         this.configureReaderRasterStatusRetry(card, isReaderRasterFrame);
         const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
-        if (labelNode) labelNode.textContent = isReaderRasterFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : '';
+        if (labelNode) labelNode.textContent = isReaderRasterFrame ? this.readerRasterStatusLabel(status) : '';
         if (isReaderRasterFrame) this.updateReaderRasterRetryLabel(card, status);
         this.positionImageStatusCard(image, card);
         // "ready" is terminal for incidental inline images: flash the dot, then
@@ -1762,6 +1762,16 @@ export class ImageOcrController {
             event.stopPropagation();
             this.retryReaderRasterStatusCard(card);
         });
+    }
+
+    // Empty/failed pills read as a dead end without a visible cue that a click
+    // re-runs OCR (title/aria alone were invisible on touch readers like
+    // BookWalker), so terminal non-ready statuses carry the retry hint inline.
+    private readerRasterStatusLabel(status: OcrVideoFrameStatus): string {
+        const language = this.options.getSettings().interfaceLanguage;
+        const statusLabel = uiText(language, videoFrameStatusTextKey(status));
+        if (status !== 'empty' && status !== 'failed') return statusLabel;
+        return `${statusLabel} · ${uiText(language, 'ocrRetryScan')}`;
     }
 
     private updateReaderRasterRetryLabel(card: HTMLElement, status: OcrVideoFrameStatus): void {

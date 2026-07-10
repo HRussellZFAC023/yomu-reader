@@ -1,7 +1,8 @@
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
-import { copyText } from '../ui/browser';
+import { copyText, openUrlInNewTab } from '../ui/browser';
+import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
 import { NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
@@ -166,9 +167,15 @@ const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
 const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_action';
 const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
 
-function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
+// Import/export lives in the Backup & sync panel while dictionary row actions
+// stay under Sources; both panels carry a [data-import-status] line so the
+// feedback is visible wherever the action was triggered.
+function settingsStatusSetter(statuses: HTMLElement[]): SettingsStatusSetter {
     return message => {
-        if (status) status.textContent = message;
+        for (const status of statuses) {
+            status.textContent = message;
+            status.hidden = false;
+        }
     };
 }
 
@@ -576,17 +583,17 @@ export class SettingsDialogController {
         if (!authResult.ok) {
             const message = authResult.error || 'Google authorization failed.';
             this.dependencies.toast(message);
-            this.open('dictionaries');
+            this.open('backup');
             return true;
         }
 
         try {
             await this.performCloudSettingsAction(pending.action, language, undefined);
-            if (pending.action === 'sync-cloud-settings') this.open('dictionaries');
+            if (pending.action === 'sync-cloud-settings') this.open('backup');
         } catch (error) {
             const message = errorMessage(error, uiText(language, 'actionFailed'));
             this.dependencies.toast(message);
-            this.open('dictionaries');
+            this.open('backup');
         }
         return true;
     }
@@ -1359,7 +1366,15 @@ export class SettingsDialogController {
             const latest = latestYomuVersionFromVersionJson(version);
             if (!latest) throw new Error('Hosted version response did not include a build id.');
             const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
-            const updateAvailable = comparison !== null && comparison < 0;
+            // Incomparable versions (a "dev" build, mangled metadata) must not
+            // claim "Up to date" — a real user on a dev-labeled runtime read
+            // exactly that while behind the published release.
+            if (comparison === null) {
+                status.dataset.statusTone = 'pending';
+                status.textContent = formatUiText(language, 'updateStatusIncomparable', { current: CURRENT_YOMU_VERSION, latest });
+                return;
+            }
+            const updateAvailable = comparison < 0;
             status.dataset.statusTone = updateAvailable ? 'pending' : 'success';
             status.textContent = formatUiText(language, updateAvailable ? 'updateStatusAvailable' : 'updateStatusCurrent', {
                 current: CURRENT_YOMU_VERSION,
@@ -1508,8 +1523,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
-        const status = form.querySelector<HTMLElement>('[data-import-status]');
-        const setStatus = settingsStatusSetter(status);
+        const setStatus = settingsStatusSetter(Array.from(form.querySelectorAll<HTMLElement>('[data-import-status]')));
 
         try {
             await this.runSettingsAction(form, action, control, setStatus);
@@ -1685,7 +1699,7 @@ export class SettingsDialogController {
         this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
         log.info('Cloud settings restored', { syncedAt: snapshot.syncedAt });
-        this.open('dictionaries');
+        this.open('backup');
     }
 
     private async rememberPendingCloudSettingsAction(action: CloudSettingsAction): Promise<void> {
@@ -2053,6 +2067,15 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsSupportAction(action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (action === 'open-yomu-update') {
+            // Route through openUrlInNewTab so a userscript-manager context
+            // opens the .user.js via GM_openInTab (a tab the manager owns);
+            // without a manager the flow resolves to the install guide, never
+            // a raw .user.js navigation the browser would block with its
+            // "cannot be added from this website" banner.
+            openUrlInNewTab(detectYomuUpdateFlow().url);
+            return true;
+        }
         if (action === 'copy-newtab-url') {
             await copyText(NEW_TAB_PAGE_URL);
             this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'newTabAddressCopied'));
