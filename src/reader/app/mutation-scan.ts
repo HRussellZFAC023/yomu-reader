@@ -5,9 +5,16 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled'],
+    // style/class carry the OTHER reveal mechanism (class E): menus/sheets that
+    // keep their DOM and toggle display/visibility (YouTube player settings,
+    // m.youtube bottom sheets) deliver no childList mutation on open. oldValue
+    // is required so a style flip can be shape-tested as hidden\u2192shown instead
+    // of scheduling on every animation frame's style churn.
+    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled', 'style', 'class'],
+    attributeOldValue: true,
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled']);
@@ -53,10 +60,40 @@ export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {
     if (mutation.type === 'characterData') return nodeTextMayContainJapanese(mutation.target);
     if (mutation.type === 'attributes') {
-        if (!TEXT_REVEAL_ATTRIBUTES.has(mutation.attributeName ?? '')) return false;
+        const attribute = mutation.attributeName ?? '';
+        if (attribute === 'style' || attribute === 'class') return styleOrClassMutationRevealsJapaneseText(mutation, attribute);
+        if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
         return nodeTextMayContainJapanese(mutation.target);
     }
     return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+}
+
+// Cheap reveal filter for the noisy style/class channel, checked BEFORE the
+// (bounded) Japanese-text walk. A style mutation is a reveal only when the old
+// inline style hid the element and the new one no longer does; a class flip is
+// a candidate only when the value actually changed and the element renders
+// now. Everything else (position/size/color churn, hover classes on hidden
+// trees, hide transitions) schedules nothing.
+function styleOrClassMutationRevealsJapaneseText(mutation: MutationRecord, attribute: 'style' | 'class'): boolean {
+    const element = mutation.target instanceof HTMLElement ? mutation.target : null;
+    if (!element) return false;
+    const current = element.getAttribute(attribute) ?? '';
+    if ((mutation.oldValue ?? '') === current) return false;
+    if (attribute === 'style') {
+        const wasHidden = HIDDEN_INLINE_STYLE_RE.test(mutation.oldValue ?? '');
+        if (!wasHidden || HIDDEN_INLINE_STYLE_RE.test(current)) return false;
+    }
+    if (!elementRendersNow(element)) return false;
+    return nodeTextMayContainJapanese(element);
+}
+
+function elementRendersNow(element: HTMLElement): boolean {
+    if (element.closest('[hidden]')) return false;
+    if (typeof element.checkVisibility === 'function') return element.checkVisibility();
+    const view = element.ownerDocument.defaultView;
+    if (!view) return false;
+    const style = view.getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden';
 }
 
 function nodeTextMayContainJapanese(node: Node): boolean {

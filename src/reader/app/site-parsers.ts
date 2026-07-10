@@ -1220,12 +1220,28 @@ export interface SiteScanOptions {
 }
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href, options: SiteScanOptions = {}): ScanTextTarget[] | null {
+    return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
+}
+
+// One monolithic collection pass produced ~300ms long tasks on dense pages
+// (heat profile, perf item 4). The collection is a generator that yields at
+// per-root boundaries; the sync entry points drain it in one go (identical
+// semantics — ordering and dedupe are byte-for-byte the same walk), while the
+// scanner drives it cooperatively with a frame deadline between chunks.
+function* siteScanTargetSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[] | null> {
     const profiles = getMatchingSiteParsers(href);
     if (!profiles.length) return null;
 
     const context = createSiteScanContext(profiles, limit, options);
-    for (const profile of profiles) collectProfileScanTargets(profile, context);
+    for (const profile of profiles) yield* profileScanTargetSteps(profile, context);
     return siteScanResult(profiles, context.targets);
+}
+
+function drainCollectionSteps<T>(steps: Generator<void, T>): T {
+    for (;;) {
+        const next = steps.next();
+        if (next.done) return next.value;
+    }
 }
 
 interface SiteScanContext {
@@ -1233,6 +1249,10 @@ interface SiteScanContext {
     targets: FragmentTextTarget[];
     seen: Set<Text>;
     skipMirroredHosts: boolean;
+    // Per-pass selector→elements cache: profiles share many root selectors
+    // (the YouTube chrome roots ride in two profiles), so each distinct
+    // selector hits the DOM once per collection pass.
+    rootQueryCache: Map<string, HTMLElement[]>;
 }
 
 function createSiteScanContext(profiles: SiteParserProfile[], limit: number, options: SiteScanOptions = {}): SiteScanContext {
@@ -1241,17 +1261,19 @@ function createSiteScanContext(profiles: SiteParserProfile[], limit: number, opt
         targets: [],
         seen: new Set(),
         skipMirroredHosts: Boolean(options.skipMirroredHosts),
+        rootQueryCache: new Map(),
     };
 }
 
-function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+function* profileScanTargetSteps(profile: SiteParserProfile, context: SiteScanContext): Generator<void> {
     if (profile.id === 'youtube-comments-parser') collectYouTubeSyntheticTextTargets(profile, context);
-    for (const root of queryParserRoots(profile)) {
+    for (const root of queryParserRoots(profile, context.rootQueryCache)) {
         if (!siteScanHasRoom(context)) break;
         collectRootScanTargets(profile, root, context);
+        yield;
     }
     if (profile.includePassiveInteractionRoots !== false) {
-        collectProfilePassiveInteractionTargets(profile, context);
+        yield* profilePassiveInteractionTargetSteps(profile, context);
     }
 }
 
@@ -1352,11 +1374,12 @@ function canvasFallbackText(canvas: HTMLCanvasElement): string {
         .trim();
 }
 
-function collectProfilePassiveInteractionTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+function* profilePassiveInteractionTargetSteps(profile: SiteParserProfile, context: SiteScanContext): Generator<void> {
     if (!siteScanHasRoom(context)) return;
     for (const root of queryProfilePassiveInteractionRoots(profile)) {
         if (!siteScanHasRoom(context)) break;
         collectRootScanTargets(profile, root, context, siteScanPassiveInteractionExcludeSelector(profile));
+        yield;
     }
 }
 
@@ -1528,24 +1551,45 @@ function siteScanResult(profiles: SiteParserProfile[], targets: FragmentTextTarg
 }
 
 export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options: SiteScanOptions = {}): ScanTextTarget[] {
+    return drainCollectionSteps(scanTargetCollectionSteps(limit, href, options));
+}
+
+// Chunked collection entry for the visible-page scan (perf item 4): the
+// scanner drives this generator and yields the main thread between chunks
+// once its frame budget is spent, so a dense page's collection never runs as
+// one ~300ms long task. The walk (and therefore ordering/dedupe) is exactly
+// the sync collectScanTargets walk — a fast collection completes without ever
+// touching the scheduler.
+export function collectScanTargetsInSteps(
+    limit = DEFAULT_SCAN_TARGET_LIMIT,
+    href = window.location.href,
+    options: SiteScanOptions = {},
+): Generator<void, ScanTextTarget[]> {
+    return scanTargetCollectionSteps(limit, href, options);
+}
+
+function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
     const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-    const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href, options);
+    const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, effectiveLimit, href, options);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
         if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) {
             return baseTargets;
         }
+        yield;
         const residualTargets = collectResidualVisibleJapaneseTargets(
             effectiveLimit - baseTargets.length,
             baseTargets,
             matchingProfiles,
+            options,
         );
         return residualTargets.length
             ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some(profile => profile.nonDestructive) })]
             : baseTargets;
     }
+    yield;
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
         // Profile roots are curated, not exhaustive: any visible Japanese they
@@ -1553,26 +1597,32 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
         // passive, mirror-friendly pass so no site leaves text bare.
         const profileTargets = [...baseTargets, ...profileUiChromeTargets];
         if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) return profileTargets;
+        yield;
         const residualTargets = collectResidualVisibleJapaneseTargets(
             effectiveLimit - profileTargets.length,
             profileTargets,
             matchingProfiles,
+            options,
         );
         return residualTargets.length
             ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some(profile => profile.nonDestructive) })]
             : profileTargets;
     }
+    yield;
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
+    yield;
     const uiChromeTargets = collectSafeUiChromeTargets(
         effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
     );
     const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
-    const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles);
+    yield;
+    const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
     if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
 
+    yield;
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
-    const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles);
+    const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
     if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
     const visibleTargets = collectVisibleTextTargets(effectiveLimit);
     return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
@@ -1630,10 +1680,11 @@ function withResidualVisibleJapaneseTargets(
     targets: ScanTextTarget[],
     effectiveLimit: number,
     profiles: SiteParserProfile[],
+    options: SiteScanOptions = {},
 ): ScanTextTarget[] {
     const remaining = effectiveLimit - targets.length;
     if (remaining <= 0) return targets;
-    const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles);
+    const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
     return residual.length ? [...targets, ...residual] : targets;
 }
 
@@ -1641,7 +1692,7 @@ function collectResidualVisibleJapaneseTargets(
     limit: number,
     existingTargets: ScanTextTarget[],
     profiles: SiteParserProfile[],
-    _href = window.location.href,
+    options: SiteScanOptions = {},
 ): FragmentTextTarget[] {
     if (limit <= 0 || !document.body) return [];
     const collection: GenericProseCollection = {
@@ -1665,6 +1716,13 @@ function collectResidualVisibleJapaneseTargets(
         minLength: 1,
     });
     for (const target of collected) {
+        // Class E coverage bookkeeping: silent scans skip residual hosts whose
+        // mirror already renders this exact text (same rule as the profile
+        // pass) — otherwise capped continuations re-spend budget on the same
+        // already-decorated head and never reach the residual tail.
+        if (options.skipMirroredHosts
+            && target.parent instanceof HTMLElement
+            && textMirrorAlreadyRenders(target.parent, target.text)) continue;
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
             parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID,
@@ -1693,11 +1751,12 @@ function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): 
     return entries.join(',');
 }
 
-function completeSiteScanTargets(profiles: SiteParserProfile[], limit: number, href: string, options: SiteScanOptions = {}): ScanTextTarget[] | null {
+function* completeSiteScanTargetSteps(profiles: SiteParserProfile[], limit: number, href: string, options: SiteScanOptions = {}): Generator<void, ScanTextTarget[] | null> {
     if (!profiles.length) return null;
-    const siteTargets = collectSiteScanTargets(limit, href, options) ?? [];
+    const siteTargets = (yield* siteScanTargetSteps(limit, href, options)) ?? [];
     if (siteTargets.length) return siteTargets;
     if (hasWholePageFallback(profiles)) {
+        yield;
         const broadTargets = collectWholePageScanTargets(limit);
         if (broadTargets.length) return broadTargets;
     }
@@ -2012,13 +2071,21 @@ function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {
         && Number(style.opacity || '1') > 0;
 }
 
-function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
+function queryParserRoots(profile: SiteParserProfile, rootQueryCache?: Map<string, HTMLElement[]>): HTMLElement[] {
     const roots: HTMLElement[] = [];
     for (const selector of profile.roots) {
-        roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
+        roots.push(...queryRootsBySelector(selector, rootQueryCache));
     }
     const unique = uniqueVisibleRoots(roots);
     return profile.id === 'mokuro-parser' ? nearestMokuroRoots(unique) : unique;
+}
+
+function queryRootsBySelector(selector: string, rootQueryCache?: Map<string, HTMLElement[]>): HTMLElement[] {
+    const cached = rootQueryCache?.get(selector);
+    if (cached) return cached;
+    const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    rootQueryCache?.set(selector, elements);
+    return elements;
 }
 
 function nearestMokuroRoots(roots: HTMLElement[]): HTMLElement[] {

@@ -233,6 +233,18 @@ export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
 // legitimate new-content scan is dropped.
 export const AUTO_SCAN_MIN_INTERVAL_MS = 900;
 
+// Max-wait for the trailing debounce (class E): a debounced deadline pushed
+// forward on every mutation postpones the scan indefinitely on busy pages
+// (live-chat replay, rotating teasers — any surface mutating at <320ms
+// intervals). Cap every push-out relative to the FIRST debounced request so a
+// busy page still scans about once a second; the AUTO_SCAN_MIN_INTERVAL_MS
+// leading-edge floor keeps the steady-state cadence bounded below that.
+export const AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS = 1_000;
+
+export function debouncedAutoScanDeadline(requestedDeadline: number, debounceStartedAt: number): number {
+    return Math.min(requestedDeadline, debounceStartedAt + AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS);
+}
+
 // Clamp a debounced scan's delay so it cannot begin sooner than
 // AUTO_SCAN_MIN_INTERVAL_MS after the previous scan started. Non-debounced
 // (forced puck/render-rejection) scans and non-frequent hosts pass through

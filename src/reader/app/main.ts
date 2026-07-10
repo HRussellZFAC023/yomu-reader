@@ -204,6 +204,7 @@ import {
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
     shouldAutoScanImageOcr,
+    debouncedAutoScanDeadline,
     throttledAutoScanDelay,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
@@ -381,6 +382,8 @@ const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 // Sustained mirror-churn (live chat, live counters) may force at most one
 // full rescan per this interval; the first stale still refreshes fast.
 const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2_500;
+// TTL for the cached hasVisibleAutoScanWork verdict (perf: mutation bursts).
+const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1_500;
 
 function eventTargetsReaderRoot(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
@@ -819,6 +822,13 @@ export class ReaderApp {
     // Whether the pending timer was set by a debounced request; only such
     // timers may be pushed out by later debounced requests.
     private autoScanDebounced = false;
+    // When the current debounce chain began — every push-out is capped at
+    // AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS past this, so busy pages still scan.
+    private autoScanDebounceStartedAt = 0;
+    // TTL-cached hasVisibleAutoScanWork verdict: the un-cached check runs a
+    // limit-1 profile-root sweep, which a YouTube mutation burst re-ran many
+    // times per second (~1.3% of core CPU in the heat profile).
+    private visibleAutoScanWorkVerdict?: { at: number; verdict: boolean };
     // When the most recent scheduled scan started, used to throttle the
     // steady-state mutation storm from YouTube's comment/sidebar re-renders
     // (5-10 childList mutations/sec) into a bounded scan cadence.
@@ -2126,6 +2136,7 @@ export class ReaderApp {
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
+                this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
                     force: isBookWalkerStorefrontPage(),
                     debounce: isYouTubeHostname(),
@@ -2201,19 +2212,23 @@ export class ReaderApp {
         // AUTO_SCAN_MIN_INTERVAL_MS since the last scan began; the trailing
         // settle scan still fires so no new-content scan is dropped.
         delay = throttledAutoScanDelay(delay, options, this.lastAutoScanStartedAt, Date.now());
-        const deadline = Date.now() + delay;
+        const now = Date.now();
+        const deadline = now + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
             this.autoScanForced = this.autoScanForced || forced;
             // A debounced request may only push out a timer that was itself
             // debounced. Postponing a hard-scheduled scan breaks its caller's
             // contract — e.g. the render-rejection rescan throttle (10s) used
             // to swallow the immediate forced rescan after a puck toggle.
-            if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < deadline) {
+            // Every push-out is additionally capped at the debounce chain's
+            // max-wait deadline so a busy page still scans (class E).
+            const cappedDeadline = debouncedAutoScanDeadline(deadline, this.autoScanDebounceStartedAt);
+            if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < cappedDeadline) {
                 window.clearTimeout(this.autoScanTimer);
-                this.autoScanDeadline = deadline;
+                this.autoScanDeadline = cappedDeadline;
                 this.autoScanTimer = window.setTimeout(() => {
                     this.runScheduledAutoScan();
-                }, delay);
+                }, cappedDeadline - now);
             }
             return;
         }
@@ -2221,6 +2236,7 @@ export class ReaderApp {
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = forced;
         this.autoScanDebounced = Boolean(options.debounce);
+        if (this.autoScanDebounced) this.autoScanDebounceStartedAt = now;
         this.autoScanDeadline = deadline;
         this.autoScanTimer = window.setTimeout(() => {
             this.runScheduledAutoScan();
@@ -2232,9 +2248,10 @@ export class ReaderApp {
         // scan. The explicit puck/shortcut scan bypasses this entirely via a
         // direct scanVisiblePage call, so on-demand scanning still works.
         if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
-        return !this.isDestroyed
-            && this.canParseJapanese()
-            && (force || this.hasVisibleAutoScanWork());
+        if (this.isDestroyed || !this.canParseJapanese()) return false;
+        // A pending timer means the work-check already passed (or the run was
+        // forced) — merging into it needs no fresh profile-root sweep.
+        return force || this.autoScanTimer !== undefined || this.hasVisibleAutoScanWorkCached();
     }
 
     private runScheduledAutoScan(): void {
@@ -2250,6 +2267,22 @@ export class ReaderApp {
 
     private hasVisibleAutoScanWork(): boolean {
         return hasVisibleSiteScanTargets() || (allowsGenericVisibleAutoScan() && this.pageHasJapaneseText);
+    }
+
+    private hasVisibleAutoScanWorkCached(): boolean {
+        const now = Date.now();
+        if (this.visibleAutoScanWorkVerdict && now - this.visibleAutoScanWorkVerdict.at < VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS) {
+            return this.visibleAutoScanWorkVerdict.verdict;
+        }
+        const verdict = this.hasVisibleAutoScanWork();
+        this.visibleAutoScanWorkVerdict = { at: now, verdict };
+        return verdict;
+    }
+
+    // The observer just verified the mutation carries Japanese text — trust
+    // that verdict for the TTL window instead of re-running the sweep.
+    private noteVisibleAutoScanWorkObserved(): void {
+        this.visibleAutoScanWorkVerdict = { at: Date.now(), verdict: true };
     }
 
     private scheduleAsbPlayerScan(delay: number): void {

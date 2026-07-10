@@ -2843,7 +2843,12 @@ describe('abortable visible-work scheduling (P1)', () => {
 
         try {
             const first = scanner.scanVisiblePage({ silent: true });
-            await Promise.resolve();
+            // Collection is cooperatively chunked (perf item 4), so the first
+            // parse can start a few scheduler turns in. Wait for batch 1 to
+            // actually be parsing before landing the newer request — this test
+            // pins the abort-BETWEEN-BATCHES contract, not collection timing
+            // (an abort during collection is strictly earlier and cheaper).
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1), { timeout: 5000 });
             // A newer request lands while batch 1 of the old scan is parsing.
             const second = scanner.scanVisiblePage({ silent: true });
             resolveFirst?.([]);
