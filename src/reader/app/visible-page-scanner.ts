@@ -51,6 +51,10 @@ const ASB_SCAN_DRAIN_DELAY_MS = 80;
 const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 // Frame budget for cooperative target collection (perf item 4).
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
+// 24 chunked slices (~290ms of budgeted work) cover the heat profile's worst
+// monolithic pass; anything beyond finishes synchronously so a loaded event
+// loop can never starve collection (each setTimeout(0) turn is unbounded).
+const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = 'data-yomu-furigana-mode';
 const CLAMPED_ROW_READINGS_ATTRIBUTE = 'data-yomu-clamped-readings';
 interface VisibleScanParseOptions {
@@ -319,7 +323,12 @@ export class VisiblePageScanner {
             if (next.done) return next.value;
             if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) {
                 return (async () => {
-                    for (;;) {
+                    // Yields are CAPPED: on a busy machine each setTimeout(0)
+                    // turn can take arbitrarily long (CI fork oversubscription
+                    // starved a 170-tile collection past its test timeout), so
+                    // after the cap the tail finishes synchronously — chunking
+                    // bounds long tasks, it must never starve the scan itself.
+                    for (let yields = 0; yields < MAX_VISIBLE_SCAN_COLLECTION_YIELDS; yields += 1) {
                         await waitForVisibleScanTurn();
                         if (this.isStaleScan(generation)) return undefined;
                         sliceStartedAt = Date.now();
@@ -328,6 +337,10 @@ export class VisiblePageScanner {
                             if (chunk.done) return chunk.value;
                             if (Date.now() - sliceStartedAt >= VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS) break;
                         }
+                    }
+                    for (;;) {
+                        const chunk = steps.next();
+                        if (chunk.done) return chunk.value;
                     }
                 })();
             }
