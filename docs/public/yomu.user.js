@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.116
+// @version 1.6.117
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.116#sha256=4dgWBwnMgUgKSiu2lOk/I5NnLcJSYPAtPIr8qdyOEu4=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.116#sha256=u11cF8Se9Hqn7VrjYbKZMhkeWdsIpaBRJLN8b/4bwXI=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.116#sha256=0yDwxZ5dj5rKbU9TmmjpCQ+QwOtJrjAhvm/rgfzm9Fg=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.116#sha256=kC/bh4Uxn8PP/ylxAUgMzR/rvzkUBKoxBBtpzHvOflY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.116#sha256=fgiCj6FLfMHjkS6qMlqMiVz0RT2uVc2pdOm4MJE8yoM=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.116#sha256=9O1O+qBs7rObcmkYmiwNrz13Ui6vUEDwsMD9av/wH3M=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.116#sha256=kW1o0j9lcPHebTCIZrNztecBipvH8cmpIhK3kHf3XUE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.117#sha256=4dgWBwnMgUgKSiu2lOk/I5NnLcJSYPAtPIr8qdyOEu4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.117#sha256=u11cF8Se9Hqn7VrjYbKZMhkeWdsIpaBRJLN8b/4bwXI=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.117#sha256=0yDwxZ5dj5rKbU9TmmjpCQ+QwOtJrjAhvm/rgfzm9Fg=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.117#sha256=kC/bh4Uxn8PP/ylxAUgMzR/rvzkUBKoxBBtpzHvOflY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.117#sha256=fgiCj6FLfMHjkS6qMlqMiVz0RT2uVc2pdOm4MJE8yoM=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.117#sha256=9O1O+qBs7rObcmkYmiwNrz13Ui6vUEDwsMD9av/wH3M=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.117#sha256=9c3T69jDCOZBwp3KtLP1SHLXzOeBO8ctTmYBqR64zFk=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -5552,6 +5552,9 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
   for (const plan of tokenPlans) {
   const { token, tokenWithSentence } = plan;
   appendPlainTextBeforeToken(fragment, text2, offset, token.start, true);
+  if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
+    fragment.append(document.createElement("wbr"));
+  }
   fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
     allowRuby: !target.hasNativeRuby && !suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -5568,29 +5571,147 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
 }
 function nonDestructiveHostRenderPlan(host, target, tokens) {
   const fragments = nonDestructiveTargetFragments(target);
-  const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
-  if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
-  return { text: target.text, tokens };
-  }
+  const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
+  if (!fragments.length || !hostText) return { text: target.text, tokens };
+  if (hostText === target.text) return { text: hostText, tokens, whitespaceJoints };
   const indexed = indexTextFragments(fragments);
   const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
-  return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+  return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
 }
-function collapsedTextKey(text2) {
-  return text2.replace(/\s+/gu, "");
-}
-const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
+const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
 function hostOriginalTextWithNodeOffsets(host) {
   const nodeOffsets = new Map();
+  const whitespaceJoints = [];
+  const styles = new MirrorPlanStyleProbe(host);
   let hostText = "";
+  let previousNode = null;
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-  acceptNode: (node) => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+  acceptNode: (node) => {
+    const parent = node.parentElement;
+    if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+    if (styles.isComputedHidden(parent)) return NodeFilter.FILTER_REJECT;
+    if (!node.data.trim() && styles.dropsWhitespaceOnlyChild(parent)) return NodeFilter.FILTER_REJECT;
+    return NodeFilter.FILTER_ACCEPT;
+  }
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+  if (previousNode && !styles.rendersInterNodeWhitespace(previousNode, node)) {
+    whitespaceJoints.push(hostText.length);
+  }
+  previousNode = node;
   nodeOffsets.set(node, hostText.length);
   hostText += node.data;
   }
-  return { hostText, nodeOffsets };
+  return { hostText, nodeOffsets, whitespaceJoints };
+}
+function isItemizedContainerDisplay(display) {
+  return display === "flex" || display === "grid" || display === "inline-flex" || display === "inline-grid" || display === "table" || display === "inline-table" || display === "table-row" || display === "table-row-group" || display === "table-header-group" || display === "table-footer-group";
+}
+function preservesWhitespace(whiteSpace) {
+  return whiteSpace === "pre" || whiteSpace === "pre-wrap" || whiteSpace === "pre-line" || whiteSpace === "break-spaces";
+}
+class MirrorPlanStyleProbe {
+  constructor(host) {
+  this.host = host;
+  }
+  styleCache = new Map();
+  hiddenCache = new Map();
+  flattenedCache = new Map();
+  styleOf(element2) {
+  let style = this.styleCache.get(element2);
+  if (!style) {
+    style = safeComputedStyle(element2);
+    this.styleCache.set(element2, style);
+  }
+  return style;
+  }
+  displayOf(element2) {
+  const display = this.styleOf(element2).display;
+  if (display) return display;
+  return BLOCK_TAGS.has(element2.tagName) ? "block" : "inline";
+  }
+  isComputedHidden(element2) {
+  if (element2 === this.host) return false;
+  if (this.isDisplayNoneHidden(element2)) return true;
+  if (this.hostVisibilityInjected) return false;
+  const visibility = this.styleOf(element2).visibility;
+  return visibility === "hidden" || visibility === "collapse";
+  }
+  get hostVisibilityInjected() {
+  return this.host.style.getPropertyValue("visibility") === "hidden";
+  }
+  isDisplayNoneHidden(element2) {
+  if (element2 === this.host) return false;
+  const cached = this.hiddenCache.get(element2);
+  if (cached !== void 0) return cached;
+  const hidden = this.styleOf(element2).display === "none" || (element2.parentElement ? this.isDisplayNoneHidden(element2.parentElement) : false);
+  this.hiddenCache.set(element2, hidden);
+  return hidden;
+  }
+  dropsWhitespaceOnlyChild(parent) {
+  const container = this.throughContents(parent);
+  return container !== null && isItemizedContainerDisplay(this.displayOf(container));
+  }
+  throughContents(element2) {
+  let current = element2;
+  while (current && this.displayOf(current) === "contents") current = current.parentElement;
+  return current;
+  }
+  rendersInterNodeWhitespace(previous, current) {
+  const lca = this.commonAncestorElement(previous, current);
+  if (!lca) return true;
+  const container = this.throughContents(lca);
+  if (!container) return true;
+  const previousItem = this.flattenedItemChild(container, previous);
+  const currentItem = this.flattenedItemChild(container, current);
+  if (isItemizedContainerDisplay(this.displayOf(container))) {
+    if (!(previousItem instanceof Text && currentItem instanceof Text)) return false;
+    return this.flattenedContiguousText(container, previousItem, currentItem);
+  }
+  if (preservesWhitespace(this.styleOf(container).whiteSpace)) return true;
+  return this.participatesInline(previousItem) && this.participatesInline(currentItem);
+  }
+  participatesInline(node) {
+  if (!(node instanceof HTMLElement)) return true;
+  const display = this.displayOf(node);
+  return display === "inline" || display.startsWith("inline-") || display.startsWith("ruby");
+  }
+  flattenedItemChild(container, node) {
+  let item = node;
+  for (let element2 = node.parentElement; element2 && element2 !== container; element2 = element2.parentElement) {
+    if (this.displayOf(element2) !== "contents") item = element2;
+  }
+  return item;
+  }
+  flattenedContiguousText(container, first, second) {
+  const flattened = this.flattenedChildren(container);
+  const start = flattened.indexOf(first);
+  const end = flattened.indexOf(second);
+  if (start < 0 || end <= start) return false;
+  return flattened.slice(start + 1, end).every((node) => node.nodeType === Node.TEXT_NODE);
+  }
+  flattenedChildren(container) {
+  const cached = this.flattenedCache.get(container);
+  if (cached) return cached;
+  const flattened = [];
+  const visit = (element2) => {
+    for (const child of Array.from(element2.childNodes)) {
+      if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit(child);
+      else flattened.push(child);
+    }
+  };
+  visit(container);
+  this.flattenedCache.set(container, flattened);
+  return flattened;
+  }
+  commonAncestorElement(a, b) {
+  const ancestors = new Set();
+  for (let element2 = a.parentElement; element2; element2 = element2.parentElement) ancestors.add(element2);
+  for (let element2 = b.parentElement; element2; element2 = element2.parentElement) {
+    if (ancestors.has(element2)) return element2;
+  }
+  return null;
+  }
 }
 function nonDestructiveTargetFragments(target) {
   if (isFragmentTextTarget$1(target)) return target.fragments;
@@ -5644,12 +5765,14 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
   const text2 = plan.text;
   const safeTokens = plan.tokens;
-  const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
+  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+  const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
+  const clipRow = closestRubyFragileConstrainedRow(host);
   const existing = currentTextMirror(host);
-  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
+  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey && existing.classList.contains("jpdb-reader-clip-hover-mirror") === Boolean(clipRow)) {
   const state2 = textMirrorHosts.get(host);
   if (state2) reassertTextMirrorHostStyles(host, state2);
   return;
@@ -5661,9 +5784,9 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.jpdbReaderTextMirror = "true";
   mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
+  mirror.dataset.whitespaceJoints = whitespaceJointsKey;
   mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-  const clipRow = closestRubyFragileConstrainedRow(host);
   if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
   const mirrorRubyLayout = hasRenderedRuby && !clipRow;
   const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
@@ -5694,7 +5817,11 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   }
   hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
+  registerTextMirrorOwner(mirror, host);
+  state.mirror = new WeakRef(mirror);
   tightenMirrorRubyOverhang(mirror);
+  withdrawUnfitTextMirrorOverflow(host, state, mirror);
+  syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   } catch (error) {
   removeTextMirror(host);
@@ -5708,25 +5835,30 @@ function constrainMirrorToClampBox(mirror, clipRow) {
   mirror.style.setProperty("overflow", "hidden");
   }
 }
-function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
-  if (!/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
-  const { normalized, offsets } = collapseWhitespaceWithOffsets(text2);
+function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
+  if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
+  const { normalized, offsets } = collapseWhitespaceWithOffsets(text2, whitespaceJoints);
   if (normalized === text2) return { text: text2, tokens };
   return {
   text: normalized,
   tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
   };
 }
-function collapseWhitespaceWithOffsets(text2) {
+function collapseWhitespaceWithOffsets(text2, whitespaceJoints = []) {
   const offsets = new Array(text2.length + 1);
+  const joints = new Set(whitespaceJoints);
   let normalized = "";
   let index = 0;
   while (index < text2.length) {
   if (/\s/u.test(text2[index] ?? "")) {
     const start = index;
-    while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
+    let touchesJoint = joints.has(start);
+    while (index < text2.length && /\s/u.test(text2[index] ?? "")) {
+      index += 1;
+      if (joints.has(index)) touchesJoint = true;
+    }
     const mapped = normalized.length;
-    if (normalized.length > 0 && index < text2.length && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
+    if (normalized.length > 0 && index < text2.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
       normalized += " ";
     }
     for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
@@ -5740,7 +5872,7 @@ function collapseWhitespaceWithOffsets(text2) {
   return { normalized, offsets };
 }
 function isCjkChar(char) {
-  return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? "");
+  return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-ﾟ\u{20000}-\u{3FFFF}]/u.test(char ?? "");
 }
 function lastFullChar(text2) {
   if (!text2) return void 0;
@@ -5768,7 +5900,13 @@ function remapTokenOffsets(token, offsets, sentence) {
   })
   };
 }
+const textMirrorOwners = new WeakMap();
+function registerTextMirrorOwner(mirror, host) {
+  textMirrorOwners.set(mirror, host);
+}
 function textMirrorBelongsToHost(mirror, host) {
+  const owner = textMirrorOwners.get(mirror);
+  if (owner && textMirrorHosts.has(owner)) return owner === host;
   let ancestor = mirror.parentElement;
   while (ancestor && ancestor !== host) {
   if (textMirrorHosts.has(ancestor)) return false;
@@ -5780,13 +5918,14 @@ function ownedTextMirrors(host) {
   return Array.from(host.querySelectorAll(READER_TEXT_MIRROR_SELECTOR)).filter((mirror) => textMirrorBelongsToHost(mirror, host));
 }
 function currentTextMirror(host) {
-  const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR));
+  const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && textMirrorBelongsToHost(child, host));
   if (direct) return direct;
   return ownedTextMirrors(host)[0] ?? null;
 }
 function textMirrorAlreadyRenders(host, text2) {
   const mirror = currentTextMirror(host);
   if (!mirror) return false;
+  if (mirror.classList.contains("jpdb-reader-clip-hover-mirror") !== Boolean(closestRubyFragileConstrainedRow(host))) return false;
   const source = mirror.dataset.sourceText ?? "";
   return normalizedMirrorHostText(source) === normalizedMirrorHostText(text2);
 }
@@ -6068,6 +6207,37 @@ function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false) 
   if (state.positioned) host.style.setProperty("position", "relative", "important");
   if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   return state;
+}
+function withdrawUnfitTextMirrorOverflow(host, state, mirror) {
+  if (!state.overflowAdjusted) return;
+  if (mirror.dataset.yomuClipConstrained === "true") return;
+  if (!mirrorBaseTextOverflowsBox(mirror)) return;
+  restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
+  state.overflowAdjusted = false;
+}
+function mirrorBaseTextOverflowsBox(mirror) {
+  const restores = [];
+  const neutralize = (element2, property, value, priority2) => {
+  const saved = { value: element2.style.getPropertyValue(property), priority: element2.style.getPropertyPriority(property) };
+  restores.push(() => {
+    if (saved.value) element2.style.setProperty(property, saved.value, saved.priority);
+    else element2.style.removeProperty(property);
+  });
+  if (value) element2.style.setProperty(property, value, priority2);
+  else element2.style.removeProperty(property);
+  };
+  for (const rt of mirror.querySelectorAll("rt")) {
+  neutralize(rt, "display", "none", "important");
+  }
+  for (const ruby of mirror.querySelectorAll("ruby")) {
+  if (ruby.style.getPropertyValue("margin-left")) neutralize(ruby, "margin-left", "", "");
+  if (ruby.style.getPropertyValue("margin-right")) neutralize(ruby, "margin-right", "", "");
+  }
+  try {
+  return mirror.scrollWidth > mirror.clientWidth + 1;
+  } finally {
+  restores.forEach((restore) => restore());
+  }
 }
 function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
@@ -6362,16 +6532,32 @@ function removeTextMirror(host) {
   state?.lifecycle?.abort();
   clearTimeout(state?.staleRemovalTimer);
   if (state) state.staleRemovalTimer = void 0;
-  ownedTextMirrors(host).forEach((mirror) => mirror.remove());
+  const owned = ownedTextMirrors(host);
+  owned.forEach((mirror) => mirror.remove());
+  const tracked = state?.mirror?.deref();
+  if (tracked?.isConnected) tracked.remove();
   if (state) restoreTextMirrorHost(host, state);
   delete host.dataset.yomuClipHoverHost;
   textMirrorHosts.delete(host);
 }
+function syncTextMirrorVisibilityToPage(host, mirror) {
+  if (mirror.classList.contains("jpdb-reader-clip-hover-mirror")) return;
+  mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
+}
+function pageConcealsTextMirrorHost(host) {
+  for (let element2 = host.parentElement; element2; element2 = element2.parentElement) {
+  const style = safeComputedStyle(element2);
+  if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
+  }
+  return false;
+}
 function reassertTextMirrorHostStyles(host, state) {
-  if (!currentTextMirror(host)) {
+  const mirror = currentTextMirror(host);
+  if (!mirror) {
   removeTextMirror(host);
   return;
   }
+  syncTextMirrorVisibilityToPage(host, mirror);
   if (state.clipHoverOnly) ;
   else if (state.concealTextOnly) {
   reassertConcealedTextMirrorHostText(host, state);
@@ -6402,6 +6588,8 @@ function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   else host.style.removeProperty(property);
 }
 function registeredTextMirrorHostFor(mirror) {
+  const owner = textMirrorOwners.get(mirror);
+  if (owner && textMirrorHosts.has(owner)) return owner;
   let ancestor = mirror.parentElement;
   while (ancestor) {
   if (textMirrorHosts.has(ancestor)) return ancestor;
@@ -34078,8 +34266,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.116"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.116"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.117"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.117"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34193,7 +34381,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.116"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.117"}`;
   } catch {
   return null;
   }

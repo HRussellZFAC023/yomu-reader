@@ -7284,13 +7284,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   visibility: visible;
 }
 
-/* A clip-constrained MIRROR must also clip itself at rest: the host keeps
-   Yomu's forced overflow:visible so the hover/ruby-room ruby reveal can paint
-   outside the row, but without this the mirror's own base line — wider than
-   the ellipsized host — escapes horizontally across neighbouring cards (the
-   native row would have truncated it). !important beats the mirror's inline
-   overflow:visible; hover/focus and a ruby-room-grown row release the clip so
-   the reveal is never cut. */
+/* A clip-constrained MIRROR must also clip itself at rest. The paint-invariant
+   arrangement (1.6.117) leaves the HOST's overflow untouched, but the mirror
+   is absolutely positioned: when the clamp lives on an ANCESTOR row rather
+   than the host itself, the mirror's own base line — wider than the
+   ellipsized host — could escape horizontally across neighbouring cards
+   before any ancestor clip catches it. !important beats the mirror's inline
+   overflow:visible; hover/focus and a ruby-room-grown row release the
+   self-clip so the mirror itself never cuts its reveal. */
 .jpdb-reader-text-mirror[data-yomu-clip-constrained="true"] {
   overflow: hidden !important;
 }
