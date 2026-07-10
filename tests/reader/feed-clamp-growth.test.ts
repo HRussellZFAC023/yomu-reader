@@ -69,7 +69,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
                 <h3 class="ytLockupMetadataViewModelHeadingReset">
                     <a class="ytLockupMetadataViewModelTitle" href="/watch?v=x"
                        style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:44px;line-height:22px">
-                        <span class="ytAttributedStringHost">${TITLE}</span>
+                        <span class="ytAttributedStringHost" style="line-height:22px">${TITLE}</span>
                     </a>
                 </h3>
             </yt-lockup-view-model>
@@ -90,6 +90,10 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror.style.maxHeight).toBe('44px');
         expect(mirror.style.overflow).toBe('hidden');
         expect(mirror.dataset.yomuClipConstrained).toBe('true');
+        // The mirror keeps the HOST's line metrics: with the ruby-friendly
+        // ~1.78em line-height only ONE tall line fit the 44px cap — the live
+        // watch page showed one-line titles and invisible base text.
+        expect(mirror.style.lineHeight).toBe('22px');
 
         // The full unclamped mirror is taller than the box — ruby-room must
         // refuse to grow the clamped title anyway.
@@ -158,5 +162,96 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror.querySelector('rt')).toBeNull();
         // No one-line-taller mirror poking below the pill.
         expect(mirror.style.maxHeight).toBe('36px');
+    });
+});
+
+// Watch-metadata blocker (live 1.6.115 + first fix-build): #owner/#top-row/H1
+// were grown to 111/153/78px by rest-hidden readings, and the clip-constrained
+// mirror's ruby line-height under the clamp cap hid the subscriber count and
+// over-clamped the title.
+describe('watch metadata rows never grow and keep their base text painting', () => {
+    function stubYouTube(): void {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=x',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+        });
+    }
+
+    it('keeps the #owner flex row at its baseline height (channel name + subscriber count)', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                <div id="top-row" style="display:flex">
+                    <div id="owner" style="display:flex">
+                        <a id="channel-name" href="/@ch" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:20px;line-height:20px">
+                            <span id="channel-host" style="line-height:20px">日本語チャンネル</span>
+                        </a>
+                        <span id="owner-sub-count" style="display:block;height:18px;line-height:18px;overflow:hidden">チャンネル登録者数 1.72万人</span>
+                    </div>
+                </div>
+            </ytd-watch-metadata>
+        `;
+        const owner = document.querySelector<HTMLElement>('#owner')!;
+        const topRow = document.querySelector<HTMLElement>('#top-row')!;
+        const anchor = document.querySelector<HTMLElement>('#channel-name')!;
+        const host = document.querySelector<HTMLElement>('#channel-host')!;
+        mockOverflow(anchor, 20, 20);
+        mockRect(anchor, { width: 158, height: 20 });
+        mockOverflow(owner, 42, 42);
+        mockRect(owner, { width: 504, height: 42 });
+        mockOverflow(topRow, 42, 42);
+        const target: ScanTextTarget = { node: host.firstChild as Text, parent: host, text: '日本語チャンネル', nonDestructive: true };
+
+        applyTokensToScanTarget(target, [token('日本語', 0, '日本語チャンネル', 'にほんご')], FURI);
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        // Rest-hidden reading in an ellipsis row: host line metrics preserved
+        // (the base text must paint inside the 20px row).
+        expect(mirror.dataset.yomuClipConstrained).toBe('true');
+        expect(mirror.style.lineHeight).toBe('20px');
+        expect(mirror.style.maxHeight).toBe('20px');
+
+        // The channel-name mirror is taller in scroll terms — the rest-hidden
+        // reading must not grow #owner / #top-row / the anchor.
+        mockOverflow(mirror, 42, 20);
+        makeRoomForRubyInCroppedRows(document);
+        makeRoomForRubyInCroppedRows(document);
+        for (const box of [owner, topRow, anchor]) {
+            expect(box.style.minHeight).toBe('');
+            expect(box.style.getPropertyValue('min-height')).toBe('');
+            expect(box.dataset.yomuRubyRoom).toBeUndefined();
+        }
+    });
+
+    it('keeps a clamp-2 watch H1 unwritten with a host-metric mirror', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                <h1 id="watch-title" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:56px;line-height:28px">
+                    <span id="title-host" style="line-height:28px">新卒エンジニアが一時間で天気予報アプリを作って学んだこと</span>
+                </h1>
+            </ytd-watch-metadata>
+        `;
+        const h1 = document.querySelector<HTMLElement>('#watch-title')!;
+        const host = document.querySelector<HTMLElement>('#title-host')!;
+        mockOverflow(h1, 56, 56);
+        mockRect(h1, { width: 694, height: 56 });
+        const text = '新卒エンジニアが一時間で天気予報アプリを作って学んだこと';
+        const target: ScanTextTarget = { node: host.firstChild as Text, parent: host, text, nonDestructive: true };
+
+        applyTokensToScanTarget(target, [token('新卒', 0, text, 'しんそつ')], FURI);
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.getPropertyValue('-webkit-line-clamp')).toBe('2');
+        expect(mirror.style.lineHeight).toBe('28px');
+        expect(mirror.style.maxHeight).toBe('56px');
+
+        mockOverflow(mirror, 100, 56);
+        makeRoomForRubyInCroppedRows(document);
+        expect(h1.style.minHeight).toBe('');
+        expect(h1.dataset.yomuRubyRoom).toBeUndefined();
     });
 });

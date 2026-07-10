@@ -1720,9 +1720,16 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
-    const state = styleTextMirrorHost(host, hasRenderedRuby);
+    // A clip-constrained mirror must lay out EXACTLY like its host: the
+    // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
+    // room for only one tall line — hiding base glyphs (invisible subscriber
+    // count) and over-clamping 2-line titles to one. Readings are rest-hidden
+    // there anyway, so the mirror keeps the host's own line metrics and the
+    // host's overflow stays closed.
+    const mirrorRubyLayout = hasRenderedRuby && !clipRow;
+    const state = styleTextMirrorHost(host, mirrorRubyLayout);
     try {
-        styleTextMirror(mirror, host, hasRenderedRuby);
+        styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
         // clamp on the mirror so it cannot paint past the clip row's box.
         if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
@@ -4534,6 +4541,11 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
         // grows any box — that is the class-A chrome-growth kill.
         const decoration = decorationStateForWord(word);
         if (decoration === 'interactive-passive' || decoration === 'skip') continue;
+        // A reading inside a clip-constrained scope (stamped mirror or row) is
+        // hidden at rest — it never needs room, so it must not grow ANY
+        // ancestor (the 1.6.115 watch-metadata #owner/#top-row/H1 blow-ups
+        // were grown by rest-hidden readings' inflated mirror metrics).
+        if (word.closest('[data-yomu-clip-constrained="true"]')) continue;
         // A box may only ever grow for the mirror that renders THIS word —
         // never for an unrelated (taller) descendant mirror in document order.
         const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
