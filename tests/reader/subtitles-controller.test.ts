@@ -709,37 +709,49 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('does not shrink Japanese subtitle sizing to fit native secondary text', () => {
+    it('includes the native secondary line in the fit measurement instead of hiding it', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
         try {
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
             mockElementRect(root, new DOMRect(0, 0, 1280, 720));
-            lines.innerHTML = '<div class="jpdb-subtitle-primary">今日は読む。</div><button class="jpdb-subtitle-secondary">A very long native subtitle block.</button>';
+            lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">今日は読む。</div></div><button class="jpdb-subtitle-secondary">A very long native subtitle block.</button>';
             const secondary = lines.querySelector<HTMLElement>('.jpdb-subtitle-secondary')!;
+            const secondaryDisplaysDuringMeasurement: string[] = [];
             Object.defineProperties(lines, {
                 clientHeight: { configurable: true, value: 100 },
                 clientWidth: { configurable: true, value: 800 },
-                scrollHeight: { configurable: true, get: () => secondary.style.display === 'none' ? 90 : 280 },
+                scrollHeight: {
+                    configurable: true,
+                    get: () => {
+                        secondaryDisplaysDuringMeasurement.push(secondary.style.display);
+                        // Fits with the secondary hidden, overflows with it shown:
+                        // the fit MUST see the overflow (M1 — the primary used to
+                        // be measured alone and grew into the native line).
+                        return secondary.style.display === 'none' ? 90 : 280;
+                    },
+                },
                 scrollWidth: { configurable: true, value: 800 },
             });
 
             controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
 
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('28px');
+            expect(secondaryDisplaysDuringMeasurement.length).toBeGreaterThan(0);
+            expect(secondaryDisplaysDuringMeasurement).not.toContain('none');
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('14px');
             expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('17px');
         } finally {
             controller.destroy();
         }
     });
 
-    it('keeps long Japanese subtitle fitting above a stable shrink floor', () => {
+    it('shrinks overflowing subtitles down to the legibility floor instead of stopping at 90% of target', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
         try {
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
             mockElementRect(root, new DOMRect(0, 0, 1280, 720));
-            lines.innerHTML = '<div class="jpdb-subtitle-primary">とても長い字幕が何行にも渡って表示される場面です。</div>';
+            lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">とても長い字幕が何行にも渡って表示される場面です。</div></div>';
             Object.defineProperties(lines, {
                 clientHeight: { configurable: true, value: 100 },
                 clientWidth: { configurable: true, value: 800 },
@@ -749,10 +761,85 @@ describe('SubtitlePlayerController', () => {
 
             controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
 
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('25px');
+            // The old floor was max(14, round(target*0.9)) = 25px, which could
+            // never fit tall wrapped cues under the cap — the residue was
+            // clipped off the bottom (eating the native line first).
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('14px');
         } finally {
             controller.destroy();
         }
+    });
+
+    it('converges shrinking when the height cap no longer tracks the font size', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
+        try {
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+            mockElementRect(root, new DOMRect(0, 0, 1280, 720));
+            lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">長い字幕。</div></div>';
+            // Content height tracks the applied font size (px cap fixed at 100):
+            // shrinking the font must actually reduce overflow until it fits.
+            const contentHeight = () => Math.round(Number.parseInt(root.style.getPropertyValue('--subtitle-font-size') || '28', 10) * 5);
+            Object.defineProperties(lines, {
+                clientHeight: { configurable: true, value: 100 },
+                clientWidth: { configurable: true, value: 800 },
+                scrollHeight: { configurable: true, get: () => Math.max(100, contentHeight()) },
+                scrollWidth: { configurable: true, value: 800 },
+            });
+
+            controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
+
+            const fitted = Number.parseInt(root.style.getPropertyValue('--subtitle-font-size'), 10);
+            expect(fitted).toBeLessThan(28);
+            expect(fitted * 5).toBeLessThanOrEqual(100 + 1);
+            expect(fitted).toBeGreaterThanOrEqual(14);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('renders the primary cue in its own row so the native secondary keeps a reserved bottom slot', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleSecondaryVisible: true });
+        try {
+            const internals = controllerInternals<{
+                render: () => void;
+                cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
+                currentCue: { start: number; end: number; text: string; transcriptEligible: boolean };
+                secondaryCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+            }>(controller);
+            const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.secondaryCue = { start: 0, end: 2, text: 'I will read today.', transcriptEligible: true };
+            internals.render();
+
+            const lines = document.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+            const row = lines.querySelector<HTMLElement>(':scope > .jpdb-subtitle-primary-row')!;
+            expect(row).not.toBeNull();
+            expect(row.querySelector('.jpdb-subtitle-primary')?.textContent).toContain('今日は読む。');
+            const secondary = lines.querySelector<HTMLElement>(':scope > .jpdb-subtitle-secondary')!;
+            expect(secondary).not.toBeNull();
+            // DOM order: the secondary occupies the LAST (bottom) grid row.
+            expect(row.nextElementSibling).toBe(secondary);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('never clips subtitle cue text: overflow extends up instead of eating the bottom native line', () => {
+        // M1 layout contract, pinned in CSS (jsdom does no layout):
+        // - the height cap is px/%-based, never em-based (an em cap shrank with
+        //   the font so shrink-to-fit could not converge),
+        // - the lines box is an end-aligned grid whose residual overflow goes
+        //   UP into the video, and nothing under .jpdb-subtitle-text clips.
+        expect(SUBTITLES_YOUTUBE_CSS).toContain('max-height: min(45%, calc(100% - 24px), 320px);');
+        expect(SUBTITLES_YOUTUBE_CSS).not.toContain('max-height: min(5.4em');
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit;');
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*display: grid;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*align-content: end;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*overflow: visible;/);
+        expect(normalizedCss).not.toMatch(/\.jpdb-subtitle-lines \{[^}]*overflow: hidden/);
     });
 
     it('keeps the pause-opened transcript closed while subtitle style controls are open', () => {
@@ -4686,9 +4773,9 @@ Watch the cat
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: visible;');
+            .toContain('max-height: min(45%, calc(100% - 24px), 320px);\n  overflow: visible;');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-lines {\n  min-height: 1.36em;\n  max-height: inherit;\n  overflow: hidden;');
+            .toContain('.jpdb-subtitle-lines {\n  min-height: 1.36em;\n  max-height: inherit;');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
@@ -4870,8 +4957,8 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
-        expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; overflow: hidden; pointer-events: none; }');
+        expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px), 320px); overflow: visible; pointer-events: none;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; display: grid; align-content: end; overflow: visible; pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
         expect(normalizedCss).toContain('opacity: .76; pointer-events: auto;');
         expect(normalizedCss).toContain('box-shadow: none;');

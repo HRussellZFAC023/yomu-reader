@@ -817,6 +817,14 @@ function flashSubtitleCopyFeedback(target: HTMLElement): void {
     window.setTimeout(() => button.classList.remove('jpdb-subtitle-copy-flash'), 1200);
 }
 
+// The row wrapper keeps .jpdb-subtitle-primary display:inline (per-line
+// background pills via box-decoration-break) while giving the grid-layout
+// .jpdb-subtitle-lines a block row that is independent of the native
+// secondary line's reserved bottom row.
+function subtitlePrimaryRowHtml(primaryHtml: string): string {
+    return `<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">${primaryHtml}</div></div>`;
+}
+
 function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
     for (let attempt = 0; attempt < 10; attempt++) {
         if (!subtitleElementOverflows(element)) return fitted;
@@ -2456,7 +2464,7 @@ export class SubtitlePlayerController {
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
         const primary = this.renderPrimarySubtitle(text, settings);
-        const changed = this.applySubtitleHtml(`<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
+        const changed = this.applySubtitleHtml(`${subtitlePrimaryRowHtml(primary.html)}${this.renderSecondarySubtitle(settings)}`);
         this.applyRenderedPrimarySubtitle(primary, text);
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
@@ -2587,7 +2595,7 @@ export class SubtitlePlayerController {
             // Keep the applied-html cache aligned with the live DOM so the
             // next composed render() is a no-op and the freshly applied state
             // colors survive instead of being rebuilt away.
-            this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
+            this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
             this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
             this.fitSubtitleTextToVideo();
             return primary as HTMLElement;
@@ -3317,23 +3325,22 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
         const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
         if (!primary) return;
-        const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.9));
-        fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
+        // The floor is the legibility minimum, NOT a fraction of the target:
+        // a 90% floor left tall wrapped cues overflowing the height cap, and
+        // the old em-based cap shrank with the font so the loop could never
+        // converge — the residue was clipped off the native secondary line.
+        fitted = this.fitPrimarySubtitleFontSize(fitted, subtitleMinimumFontSize(this.root));
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
     }
 
     private fitPrimarySubtitleFontSize(fitted: number, minimum: number): number {
         if (!this.root || !this.subtitleEl) return fitted;
-        const secondaryLines = Array.from(this.subtitleEl.querySelectorAll<HTMLElement>('.jpdb-subtitle-secondary'));
-        const previousDisplay = secondaryLines.map(element => element.style.display);
-        for (const element of secondaryLines) element.style.display = 'none';
-        try {
-            return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
-                this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
-            });
-        } finally {
-            secondaryLines.forEach((element, index) => { element.style.display = previousDisplay[index] ?? ''; });
-        }
+        // Measure WITH the native secondary line: it shares the height budget,
+        // and fitting without it let the primary grow into the secondary's
+        // space (the fullscreen "native subtitle cut off" bug).
+        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
+            this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
+        });
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
