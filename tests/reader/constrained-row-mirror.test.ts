@@ -68,12 +68,16 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
         expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
     });
 
-    it('keeps in-place ruby everywhere on a healthy engine', () => {
+    it('protects clipped rows on every engine (class Q): the probe verdict is irrelevant', () => {
+        // rt paints into the half-leading on healthy engines too, so a bare
+        // clipped row gets its reading via the out-of-flow mirror regardless
+        // of the old rubyDistortsConstrainedRows() verdict.
         setRubyDistortsConstrainedRowsForTest(false);
         document.body.innerHTML = `<div id="host" style="${CLIP_STYLE}">${TEXT}</div>`;
         const host = document.getElementById('host')!;
         paint(host);
-        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(host.querySelector('.jpdb-reader-word rt')?.textContent).toBe('にほんご');
+        const mirror = host.querySelector('.jpdb-reader-text-mirror');
+        expect(mirror).toBeTruthy();
+        expect(mirror?.querySelector('rt')?.textContent).toBe('にほんご');
     });
 });

@@ -220,8 +220,12 @@ describe('generic reader layout overflow guards', () => {
         const words = Array.from(link.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
-        expect(link.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        // Class Q: the clamped 36px title row is clip-constrained, so the
+        // reading renders in the out-of-flow mirror instead of in-flow ruby
+        // (in-flow rt would paint into the clip and be shaved mid-glyph).
+        expect(link.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
         expect(link.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
+        expect(link.querySelector('rt')?.closest('.jpdb-reader-text-mirror')).not.toBeNull();
     });
 
     it('suppresses ruby on compact tabindex and onclick controls without named button roles', () => {

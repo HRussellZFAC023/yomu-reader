@@ -156,8 +156,10 @@ describe('control label annotation allowance', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const word = document.querySelector('.jpdb-reader-word');
         expect(word).toBeTruthy();
-        // click-transparent but still fully annotated with ruby
-        expect(document.querySelector('rt')?.textContent).toBe('どうが');
+        // Interactive controls are passive-only decorations (class B): colour
+        // and pitch underline at rest, NO in-flow ruby — the reading stays
+        // available through the hover/long-press word popover.
+        expect(document.querySelector('rt')).toBeNull();
         expect((word as HTMLElement).dataset.jpdbReaderPassive).toBe('true');
         document.body.innerHTML = '';
     });

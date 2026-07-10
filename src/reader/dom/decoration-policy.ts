@@ -719,15 +719,33 @@ const INTERACTIVE_LINK_CONTEXT_SELECTOR = `header,nav,footer,${roleSelectors('ba
 // the mobile watch metadata/description chip rows are owner-curated CONTENT
 // chips (質問する / 文字起こしを表示) that keep readings.
 const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = 'ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button';
-const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = 'ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer';
+// Owner-curated CONTENT chips: controls whose Japanese label is reading
+// material (質問する / 文字起こしを表示, live-chat notice actions, the hosted
+// docs' own menu) keep inline readings. Site-unique naming is allowed here;
+// the behaviour decision stays in this policy.
+const CONTENT_CHIP_ROOT_SELECTOR = [
+    'ytm-slim-video-metadata-section-renderer',
+    'ytm-expandable-video-description-body-renderer',
+    'ytm-structured-description-content-renderer',
+    // The watch info row (view count / likes) is metadata content despite its
+    // role=button wrapper.
+    'ytd-watch-info-text',
+    'yt-live-chat-viewer-engagement-message-renderer',
+    'yt-live-chat-restricted-participation-renderer',
+    'yt-live-chat-banner-renderer',
+    'yt-live-chat-ticker-renderer',
+    '.yomu-hosted-overflow-group',
+].join(',');
 // BookWalker viewer metadata (book title / description in the reader chrome)
 // is reading material; the header context would otherwise classify it as
 // compact chrome. Replaces the old profile-level ruby kill-switch.
-const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 
 export function interactivePassiveControl(element: Element): HTMLElement | null {
     const control = element.closest<HTMLElement>(INTERACTIVE_CONTROL_SELECTOR);
-    if (control) return control;
+    // Conversation content wrapped in a clickable shell (Discord's
+    // role=button messageContent) is CONTENT — pitch underlines and ruby stay.
+    if (control && !isConversationTextClass(control)) return control;
     const link = element.closest<HTMLElement>(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
@@ -742,7 +760,7 @@ export function classifyDecoration(element: Element): DecorationState {
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return 'interactive-passive';
-        if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
+        if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
         return 'interactive-passive';
     }
     if (element.closest(NAMED_CONTENT_ROOT_SELECTOR)) return 'content-ruby';

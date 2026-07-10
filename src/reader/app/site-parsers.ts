@@ -1,4 +1,5 @@
 import {
+    classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
     collectVisibleTextTargets,
@@ -1421,22 +1422,21 @@ function targetSpansMultipleYouTubeWatchMetadataTextHosts(target: FragmentTextTa
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-    const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
     const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
         && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
     const baseTarget = {
         ...target,
         parserId: profile.id,
-        suppressRuby: targetSuppressRuby || suppressRuby || undefined,
+        // Sealed DecorationPolicy decision: profile targets built without the
+        // generic collectors (synthetic aria-label rows, canvas fallbacks)
+        // classify here so every target carries exactly one verdict.
+        decoration: target.decoration ?? classifyDecoration(target.parent),
+        suppressRuby: target.suppressRuby || suppressRuby || undefined,
         passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: profile.nonDestructive || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
-}
-
-function profileKeepsProfileRootRuby(profile: SiteParserProfile): boolean {
-    return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
 
 function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {

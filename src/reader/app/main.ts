@@ -39,6 +39,7 @@ import {
     readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
     readerWordSurfaceText,
+    releaseRubyRoomGrowth,
     removeNonDestructiveScanMirrors,
     setInnerHtml,
     unwrapReaderWords,
@@ -2010,6 +2011,7 @@ export class ReaderApp {
 
     private clearAllAnnotations(): void {
         removeNonDestructiveScanMirrors(document);
+        releaseRubyRoomGrowth(document);
         document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
             if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
                 const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
