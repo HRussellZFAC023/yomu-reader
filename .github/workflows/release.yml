@@ -16,6 +16,11 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Unlike PR CI, this job runs every regular shard on one small runner.
+    # Keep two workers active so timer-driven scanner tests are not starved by
+    # four simultaneous jsdom/Vitest processes during release preflight.
+    env:
+      YOMU_CI_REGULAR_CONCURRENCY: 2
     steps:
       - name: Checkout Yomu
         uses: actions/checkout@v6
