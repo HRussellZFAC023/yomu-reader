@@ -1,4 +1,5 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
+import { ocrRuntimeActive } from './mode';
 import { normalizeOcrRenderedText } from './rendered-text';
 import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
 import {
@@ -518,7 +519,7 @@ export class ImageOcrController {
     refresh(options: { userRequested?: boolean } = {}): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled) {
+        if (!ocrRuntimeActive(settings)) {
             this.releaseAllVideoFrames();
             this.clear();
             return;
@@ -561,7 +562,7 @@ export class ImageOcrController {
     reassessAutoScan(): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled) return;
+        if (!ocrRuntimeActive(settings)) return;
         if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
             this.clearAutoScannedOverlays();
             this.schedulePosition();
@@ -573,7 +574,7 @@ export class ImageOcrController {
     refreshForModeChange(): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled) {
+        if (!ocrRuntimeActive(settings)) {
             this.releaseAllVideoFrames();
             this.clear();
             return;
@@ -594,7 +595,7 @@ export class ImageOcrController {
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled) return;
+        if (!ocrRuntimeActive(settings)) return;
         const summary = summarizeRenderableMediaMutations(mutations);
         if (!summary.touched) return;
         this.schedulePosition();
@@ -603,7 +604,7 @@ export class ImageOcrController {
     }
 
     private handleOcrViewportShift(refreshDelay: number): void {
-        if (!this.options.getSettings().ocrEnabled) return;
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
         this.schedulePosition();
         if (this.hasReaderRasterSurfaces()) {
             this.scheduleReaderRasterRefresh(refreshDelay);
@@ -891,6 +892,10 @@ export class ImageOcrController {
 
     private async scanImage(image: HTMLImageElement): Promise<void> {
         if (this.destroyed) return;
+        // A pause landing during the batching idle must not resurrect the job:
+        // clear() already dropped its state, and ensureState below would
+        // otherwise re-create it and paint an overlay on a paused page.
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
         const existingState = this.states.get(image);
         if (!image.isConnected) {
             if (existingState) this.releaseImageState(image, existingState);
@@ -1458,7 +1463,7 @@ export class ImageOcrController {
         if (this.destroyed) return;
         if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
         // The automatic pause path stays heuristic-gated; an explicit rail-button
         // request is an unambiguous ask, so it skips the auto-only filters.
         if (!manual) {
@@ -1625,7 +1630,7 @@ export class ImageOcrController {
 
     private updateImageStatusCard(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
         if (this.videoFrameVideos.has(image)) return; // already shown over its video
-        if (!this.options.getSettings().ocrEnabled) return;
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
         const existing = this.imageStatuses.get(image);
         const isCanvasFrame = this.canvasFrameSources.has(image);
         const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
@@ -1833,7 +1838,7 @@ export class ImageOcrController {
     }
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
-        if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
         const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
             && settings.ocrAutoScanImages
             && !userRequested;
@@ -2001,6 +2006,9 @@ export class ImageOcrController {
             contentKey ??= `surface:${key}`;
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
             if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
+            // A pause can land while the mirror/screenshot capture was awaiting;
+            // appending now would paint an overlay on a paused page.
+            if (!ocrRuntimeActive(this.options.getSettings())) return;
             const finishContentToken = canvasStablePageContentToken(canvas);
             if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
                 this.scheduleReaderRasterRefresh(40);
@@ -2503,7 +2511,7 @@ export class ImageOcrController {
     }
 
     private refreshBackgroundImageReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
-        if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
         if (!settings.ocrAutoScanImages && !userRequested) return;
         if (this.options.shouldAutoScan?.() === false && !userRequested) {
             this.releaseAllBackgroundFrames();
@@ -2868,7 +2876,7 @@ export class ImageOcrController {
         if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0 && this.backgroundFrames.size === 0) return;
         this.releaseAllVideoFrames();
         this.clear();
-        if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
+        if (ocrRuntimeActive(this.options.getSettings())) this.scheduleRefresh(0);
     }
 
     private pruneDisconnectedStates(): void {
@@ -3896,13 +3904,13 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
 }
 
 function ocrImageFromPointerEvent(event: Event, settings: ReaderSettings): HTMLImageElement | null {
-    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
 }
 
 function ocrReaderSurfaceFromPointerEvent(event: Event, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
-    if (!settings.ocrEnabled || settings.ocrProvider === 'off' || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off' || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     // A tap whose POINT lands on existing OCR text must look it up, not re-scan.
     // Re-scanning releases the frame mid-tap, so the overlay vanishes before the
     // gesture ends — losing the lookup AND letting the tap fall through to the host

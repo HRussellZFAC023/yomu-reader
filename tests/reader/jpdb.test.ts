@@ -10774,6 +10774,30 @@ describe('reader helpers', () => {
         }
     });
 
+    it('shows the OCR puck action as off while annotations are paused', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        const settings = { ...DEFAULT_SETTINGS, showFloatingButton: true };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    powerState: () => 'paused',
+                    isPaused: () => true,
+                    ocrMode: () => 'auto',
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const ocrButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="ocr"]');
+            expect(ocrButton?.classList.contains('is-off')).toBe(true);
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('cycles OCR mode from the puck without closing the radial menu', () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);

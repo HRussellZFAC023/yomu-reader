@@ -198,7 +198,9 @@ export class FloatingButtonController {
                 id: 'ocr',
                 label: ocrModeLabel(language, ocrMode),
                 icon: ocrMode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
-                tone: ocrMode === 'off' ? 'off' : 'on',
+                // The master pause silences OCR, so show it off rather than
+                // claiming "OCR on" while nothing scans.
+                tone: ocrMode === 'off' || powerState === 'paused' ? 'off' : 'on',
                 keepOpen: true,
                 run: () => actions.toggleOcrMode(),
             },

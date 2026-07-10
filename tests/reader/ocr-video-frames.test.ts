@@ -58,6 +58,17 @@ describe('paused-video OCR frames', () => {
         return video;
     }
 
+    it('does not snapshot paused videos while annotations are paused', () => {
+        createController({ annotationsPaused: true });
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+
+        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+    });
+
     it('pins a snapshot image over a paused video and clears it on play', () => {
         createController();
         const video = pausedVideo();

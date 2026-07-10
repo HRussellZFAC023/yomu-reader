@@ -2642,6 +2642,9 @@
   function renderKanjiNavigationText(value, options) {
     return escapeHtml(value);
   }
+  function ocrRuntimeActive(settings) {
+    return settings.ocrEnabled && !settings.annotationsPaused;
+  }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
@@ -7935,7 +7938,7 @@ ${candidate.depth}`;
     refresh(options = {}) {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
+      if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
         return;
@@ -7973,7 +7976,7 @@ ${candidate.depth}`;
     reassessAutoScan() {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
+      if (!ocrRuntimeActive(settings)) return;
       if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
         this.clearAutoScannedOverlays();
         this.schedulePosition();
@@ -7984,7 +7987,7 @@ ${candidate.depth}`;
     refreshForModeChange() {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
+      if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
         return;
@@ -8003,7 +8006,7 @@ ${candidate.depth}`;
     }
     handleRenderableMediaMutations(mutations) {
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
+      if (!ocrRuntimeActive(settings)) return;
       const summary = summarizeRenderableMediaMutations(mutations);
       if (!summary.touched) return;
       this.schedulePosition();
@@ -8011,7 +8014,7 @@ ${candidate.depth}`;
       this.scheduleRefresh(summary.addedImage ? 0 : 40);
     }
     handleOcrViewportShift(refreshDelay) {
-      if (!this.options.getSettings().ocrEnabled) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       this.schedulePosition();
       if (this.hasReaderRasterSurfaces()) {
         this.scheduleReaderRasterRefresh(refreshDelay);
@@ -8253,6 +8256,7 @@ ${candidate.depth}`;
     }
     async scanImage(image) {
       if (this.destroyed) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       const existingState = this.states.get(image);
       if (!image.isConnected) {
         if (existingState) this.releaseImageState(image, existingState);
@@ -8699,7 +8703,7 @@ ${candidate.depth}`;
       if (this.destroyed) return;
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!manual) {
         if (!settings.ocrVideoPauseFrames) return;
         if (isFreshMiningPause(target)) return;
@@ -8834,7 +8838,7 @@ ${candidate.depth}`;
     }
     updateImageStatusCard(image, status) {
       if (this.videoFrameVideos.has(image)) return;
-      if (!this.options.getSettings().ocrEnabled) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       const existing = this.imageStatuses.get(image);
       const isCanvasFrame = this.canvasFrameSources.has(image);
       const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
@@ -9010,7 +9014,7 @@ ${candidate.depth}`;
       }, 1200);
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
       const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
       if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
@@ -9133,6 +9137,7 @@ ${candidate.depth}`;
         contentKey ??= `surface:${key}`;
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
         if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
         const finishContentToken = canvasStablePageContentToken(canvas);
         if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
           this.scheduleReaderRasterRefresh(40);
@@ -9552,7 +9557,7 @@ ${candidate.depth}`;
       return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
     }
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
       if (this.options.shouldAutoScan?.() === false && !userRequested) {
         this.releaseAllBackgroundFrames();
@@ -9867,7 +9872,7 @@ ${candidate.depth}`;
       if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0 && this.backgroundFrames.size === 0) return;
       this.releaseAllVideoFrames();
       this.clear();
-      if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
+      if (ocrRuntimeActive(this.options.getSettings())) this.scheduleRefresh(0);
     }
     pruneDisconnectedStates() {
       for (const [image, state2] of this.states) {
@@ -10700,12 +10705,12 @@ ${spelling}`);
     return isVisibleOcrImage(image);
   }
   function ocrImageFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
   }
   function ocrReaderSurfaceFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
   }

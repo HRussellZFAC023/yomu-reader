@@ -1916,6 +1916,9 @@ export class ReaderApp {
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
         }
+        // The pause gates OCR too (ocrRuntimeActive): clear its overlays on
+        // pause, re-scan per the user's OCR mode on resume.
+        this.ocr.refreshForModeChange();
     }
 
     private scanPageNow(): void {

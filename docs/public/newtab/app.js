@@ -32768,6 +32768,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     recorderBootstrap(pageWindow(), opts);
     if (recorderAlreadyInstalled()) markRecorderMethod("current");
   }
+  function ocrInteractionModeFromSettings(settings) {
+    if (!settings.ocrEnabled) return "off";
+    return settings.ocrAutoScanImages ? "auto" : "manual";
+  }
+  function ocrRuntimeActive(settings) {
+    return settings.ocrEnabled && !settings.annotationsPaused;
+  }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
@@ -35963,7 +35970,7 @@ ${spelling}`);
     refresh(options = {}) {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
+      if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
         return;
@@ -36001,7 +36008,7 @@ ${spelling}`);
     reassessAutoScan() {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
+      if (!ocrRuntimeActive(settings)) return;
       if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
         this.clearAutoScannedOverlays();
         this.schedulePosition();
@@ -36012,7 +36019,7 @@ ${spelling}`);
     refreshForModeChange() {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
+      if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
         return;
@@ -36031,7 +36038,7 @@ ${spelling}`);
     }
     handleRenderableMediaMutations(mutations) {
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
+      if (!ocrRuntimeActive(settings)) return;
       const summary = summarizeRenderableMediaMutations(mutations);
       if (!summary.touched) return;
       this.schedulePosition();
@@ -36039,7 +36046,7 @@ ${spelling}`);
       this.scheduleRefresh(summary.addedImage ? 0 : 40);
     }
     handleOcrViewportShift(refreshDelay) {
-      if (!this.options.getSettings().ocrEnabled) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       this.schedulePosition();
       if (this.hasReaderRasterSurfaces()) {
         this.scheduleReaderRasterRefresh(refreshDelay);
@@ -36281,6 +36288,7 @@ ${spelling}`);
     }
     async scanImage(image) {
       if (this.destroyed) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       const existingState = this.states.get(image);
       if (!image.isConnected) {
         if (existingState) this.releaseImageState(image, existingState);
@@ -36727,7 +36735,7 @@ ${spelling}`);
       if (this.destroyed) return;
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!manual) {
         if (!settings.ocrVideoPauseFrames) return;
         if (isFreshMiningPause(target)) return;
@@ -36862,7 +36870,7 @@ ${spelling}`);
     }
     updateImageStatusCard(image, status) {
       if (this.videoFrameVideos.has(image)) return;
-      if (!this.options.getSettings().ocrEnabled) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
       const existing = this.imageStatuses.get(image);
       const isCanvasFrame = this.canvasFrameSources.has(image);
       const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
@@ -37038,7 +37046,7 @@ ${spelling}`);
       }, 1200);
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
       const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
       if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
@@ -37161,6 +37169,7 @@ ${spelling}`);
         contentKey ??= `surface:${key}`;
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
         if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
         const finishContentToken = canvasStablePageContentToken(canvas);
         if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
           this.scheduleReaderRasterRefresh(40);
@@ -37580,7 +37589,7 @@ ${spelling}`);
       return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
     }
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
       if (this.options.shouldAutoScan?.() === false && !userRequested) {
         this.releaseAllBackgroundFrames();
@@ -37895,7 +37904,7 @@ ${spelling}`);
       if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0 && this.backgroundFrames.size === 0) return;
       this.releaseAllVideoFrames();
       this.clear();
-      if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
+      if (ocrRuntimeActive(this.options.getSettings())) this.scheduleRefresh(0);
     }
     pruneDisconnectedStates() {
       for (const [image, state2] of this.states) {
@@ -38728,12 +38737,12 @@ ${spelling}`);
     return isVisibleOcrImage(image);
   }
   function ocrImageFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
   }
   function ocrReaderSurfaceFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
   }
@@ -40179,7 +40188,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.115".trim() ? "1.6.115".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.116".trim() ? "1.6.116".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40503,10 +40512,6 @@ ${spelling}`);
     if (!value.trim()) return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
-  }
-  function ocrInteractionModeFromSettings(settings) {
-    if (!settings.ocrEnabled) return "off";
-    return settings.ocrAutoScanImages ? "auto" : "manual";
   }
   const log$k = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";

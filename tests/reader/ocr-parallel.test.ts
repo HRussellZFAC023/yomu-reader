@@ -172,4 +172,41 @@ describe('OCR concurrency pool', () => {
             document.body.replaceChildren();
         }
     });
+
+    // The puck's master pause must also stop OCR jobs that were already queued:
+    // a scan waiting out its batching idle would otherwise resurrect its cleared
+    // state and paint an overlay on a paused page.
+    it('drops queued scans when annotations are paused mid-idle', async () => {
+        stubInstantIntersectionObserver();
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            ocrEnabled: true,
+            ocrAutoScanImages: true,
+            ocrShowTextOverlay: false,
+            ocrMinImageArea: 1,
+            ocrMaxImagesPerPage: 30,
+            ocrPrefetchMargin: 0,
+        };
+        const parseJapanese = vi.fn(async (text: string) => [token(text)]);
+        const controller = new ImageOcrController({
+            getSettings: () => settings,
+            parseJapanese,
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+        document.body.replaceChildren(makeImage('/paused.png'));
+
+        try {
+            controller.init();
+            // Pause lands while the queued scan is still awaiting its idle slot.
+            settings.annotationsPaused = true;
+            await new Promise(resolve => setTimeout(resolve, 50));
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-overlay, .jpdb-reader-word')).toBeNull();
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
 });
