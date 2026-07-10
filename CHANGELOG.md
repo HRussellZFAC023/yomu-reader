@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.123] - 2026-07-10
+
+### Fixed
+
+- Intermittently missing annotations are fixed: the scanner now detects content revealed by observers, continues where its per-frame budget stopped, and caps how long it waits before scanning, so text no longer slips through unannotated.
+- Readings on clamped content rows (Google search snippets and similar) show at rest again, and a new setting lets you choose whether readings on clamped rows are always shown or shown on hover.
+- Pitch accents now appear on the initial parse everywhere, not just after later lookups: enrichment is paced instead of dropped.
+- Turning annotations off now applies instantly instead of waiting for the next scan.
+- Live-stream chat no longer flickers or churns through re-renders: annotated messages replay from cache, and scrolling no longer shifts content.
+- Live-chat replay on regular videos (VOD) is now annotated like live chat.
+- The comments sort menu no longer grows when annotated.
+- YouTube uses noticeably less CPU and generates less heat: fullscreen checks are cached, subtitle timing work is on a diet, OCR machinery is fully inert on non-reader pages, and hover-preview players are excluded from scanning.
+- Homepage: pills, navigation and cards are aligned again, the page no longer jumps while scrolling, and changing the interface language updates the page correctly.
+
 ## [1.6.122] - 2026-07-10
 
 ### Fixed
