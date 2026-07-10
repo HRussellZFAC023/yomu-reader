@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectFragmentTextTargetsIn, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -44,6 +46,8 @@ function renderedMirrorText(m: HTMLElement): string {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
     return text;
 }
+
+const mirrorCss = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\r\n/g, '\n');
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -207,11 +211,20 @@ describe('sol review: mirror fidelity edge cases', () => {
         expect(renderedMirrorText(mirror(host))).toBe('ラベルJP 日本語です');
     });
 
-    it('renders whitespace-only flex children under preserving white-space modes', () => {
+    it('drops whitespace-only anonymous flex items even under preserving white-space modes', () => {
+        // css-flexbox-1 §4: a child text sequence containing ONLY white space
+        // is not rendered, regardless of the white-space property.
         document.body.innerHTML = '<div id="msg" style="display: flex; white-space: pre">日本語<span>アニメ</span> <span>です</span></div>';
         const host = reactHost('msg');
         paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
-        expect(renderedMirrorText(mirror(host))).toBe('日本語アニメ です');
+        expect(renderedMirrorText(mirror(host))).toBe('日本語アニメです');
+    });
+
+    it('preserves pre-wrap whitespace runs verbatim instead of collapsing them', () => {
+        document.body.innerHTML = '<div id="msg" style="white-space: pre-wrap">日本語\n  guide</div>';
+        const host = reactHost('msg');
+        paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('日本語\n  guide');
     });
 
     it('resolves display:contents wrappers to their promoted flex items (no space)', () => {
@@ -264,7 +277,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         mirror(host).querySelectorAll<HTMLElement>('rt').forEach(rt => expect(rt.style.display).not.toBe('none'));
     });
 
-    it('never withdraws the unclip on a clip-constrained row (its ruby reveal depends on it)', () => {
+    it('clip-constrained rows: host stays unclipped for the reveal, but the MIRROR self-clips at rest', () => {
         vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (this: Element) {
             return (this instanceof HTMLElement && this.classList.contains('jpdb-reader-text-mirror')) ? 500 : 100;
         });
@@ -275,8 +288,79 @@ describe('sol review: mirror fidelity edge cases', () => {
             const base = target.text.indexOf('言語');
             return [tokenAt(target.text, '言語', 'げんご', base), tokenAt(target.text, '学習', 'がくしゅう', base + 2)];
         });
+        // The host unclip must survive (hover/ruby-room ruby reveal paints
+        // outside the row) …
         expect(mirror(host).dataset.yomuClipConstrained).toBe('true');
         expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        // … while the MIRROR clips itself to the host box at rest, so a 500px
+        // base line cannot escape a 100px ellipsized title horizontally.
+        // CSS-driven so :hover / ruby-room growth can release it.
+        const restRule = mirrorCss.match(/(^|\n)\.jpdb-reader-text-mirror\[data-yomu-clip-constrained="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(restRule).toContain('overflow: hidden !important');
+        const revealRule = mirrorCss.match(/(^|\n)[^{}]*data-yomu-clip-constrained[^{}]*:hover[^{}]*\{[^}]*\}/)?.[0] ?? '';
+        expect(revealRule).toContain('overflow: visible !important');
+        expect(revealRule).toContain('data-yomu-ruby-room');
+    });
+
+    it('threads whitespace joints through multi-node fragment targets (production Discord path)', () => {
+        // The real Discord shape: one FragmentTextTarget spanning the direct
+        // text run AND the mention span, whose text equals the host text — the
+        // plan must not lose the joints on that equality fast path.
+        document.body.innerHTML = '<div id="msg" style="display: flex">ポーラン先生\n  <span>@Canna さん</span></div>';
+        const host = reactHost('msg');
+        const target = collectFragmentTextTargetsIn(host, 400, false).find(t => t.text.includes('ポーラン'))!;
+        expect(target).toBeTruthy();
+        expect(target.fragments.length >= 2, 'multi-node production fragment target').toBe(true);
+        const base = target.text.indexOf('ポーラン');
+        applyTokensToScanTarget(
+            { ...target, nonDestructive: true },
+            [tokenAt(target.text, 'ポーラン', 'ぽーらん', base)],
+            { ...DEFAULT_SETTINGS, furiganaMode: 'all' },
+        );
+        // Flex-item boundary whitespace never renders; the intra-node latin
+        // space inside the mention span does.
+        expect(renderedMirrorText(mirror(host))).toBe('ポーラン先生@Canna さん');
+    });
+
+    it('keeps an explicitly visibility:visible descendant under a hidden ancestor (CSS 2.2)', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex">日本語\n<span style="visibility: hidden">駄目<em style="visibility: visible">見える</em></span></div>';
+        const host = reactHost('msg');
+        paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('日本語見える');
+    });
+
+    it('hides the mirror when the page conceals the host after annotation (menu close)', () => {
+        document.body.innerHTML = '<div id="menu"><div id="msg">日本語です</div></div>';
+        const host = reactHost('msg');
+        const menu = document.getElementById('menu')!;
+        const paintMsg = () => paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        paintMsg();
+        expect(mirror(host).style.getPropertyValue('visibility')).toBe('visible');
+        // The dropdown closes via ancestor visibility — the mirror's forced
+        // visibility:visible would otherwise float the label over the page.
+        menu.style.visibility = 'hidden';
+        paintMsg();
+        expect(mirror(host).style.getPropertyValue('visibility')).toBe('hidden');
+        menu.style.visibility = '';
+        paintMsg();
+        expect(mirror(host).style.getPropertyValue('visibility')).toBe('visible');
+    });
+
+    it('flattens nested display:contents into one contiguous anonymous flex item (space renders)', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex">日本<div style="display: contents"><div style="display: contents">ポーラン</div> gold</div></div>';
+        const host = reactHost('msg');
+        paint(host, '日本', target => [tokenAt(target.text, '日本', 'にほん', target.text.indexOf('日本'))]);
+        // Box construction elides both contents wrappers: ポーラン and " gold"
+        // are contiguous text runs forming ONE anonymous item, so the space
+        // between them renders.
+        expect(renderedMirrorText(mirror(host))).toBe('日本ポーラン gold');
+    });
+
+    it('does not flatten native rt readings into mirrored base text', () => {
+        document.body.innerHTML = '<div id="msg"><ruby>東京<rt>とうきょう</rt></ruby>です</div>';
+        const host = reactHost('msg');
+        paint(host, '東京', target => [tokenAt(target.text, '東京', 'とうきょう', target.text.indexOf('東京'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('東京です');
     });
 
     it('sweeps a registered orphan even when it was relocated into a shadow root', () => {
