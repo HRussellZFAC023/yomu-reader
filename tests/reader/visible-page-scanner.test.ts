@@ -1072,7 +1072,9 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    // Heavy fixture (170 feed rows): same slow-runner allowance as the
+    // comment-scan test (1.6.122) so busy build machines don't flake.
+    }, 40000);
 
     it('enhances YouTube filter chips as passive controls without stealing clicks', async () => {
         const restoreRects = mockVisibleElementRects();
