@@ -40,6 +40,10 @@ jobs:
           if git diff --cached --quiet; then
             echo "bundled userscript and docs assets are already current."
           else
-            git commit -m "build userscript and docs assets [skip ci]"
+            # GITHUB_TOKEN pushes do not recursively start push workflows, so a
+            # skip directive is unnecessary here. More importantly, release
+            # tooling may push this commit together with the release commit; if
+            # this is the push HEAD, [skip ci] suppresses Deploy Docs as well.
+            git commit -m "build userscript and docs assets"
             git push
           fi
