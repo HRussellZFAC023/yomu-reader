@@ -1546,6 +1546,15 @@ function renderTokenizedScanText(
     for (const plan of tokenPlans) {
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
+        // Mirrored words are atomic nowrap inline boxes; Japanese prose has no
+        // inter-word spaces, so back-to-back tokens would give the line ZERO
+        // soft-wrap opportunities and a long mirrored line overflows its host
+        // sideways. <wbr> restores the wrap point the host's raw text had
+        // between those characters without entering textContent (copy, mining,
+        // and re-scan comparisons all stay byte-identical to the source).
+        if (target.mirrorRender && offset === token.start && fragment.lastElementChild) {
+            fragment.append(document.createElement('wbr'));
+        }
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
             allowRuby: !target.hasNativeRuby && !suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -1576,9 +1585,9 @@ function nonDestructiveHostRenderPlan(
     host: HTMLElement,
     target: ScanTextTarget,
     tokens: JPDBToken[],
-): { text: string; tokens: JPDBToken[] } {
+): { text: string; tokens: JPDBToken[]; whitespaceJoints?: number[] } {
     const fragments = nonDestructiveTargetFragments(target);
-    const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+    const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
     if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
         return { text: target.text, tokens };
     }
@@ -1586,7 +1595,7 @@ function nonDestructiveHostRenderPlan(
     const remapped = tokens
         .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText))
         .filter((token): token is JPDBToken => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
 }
 
 function collapsedTextKey(text: string): string {
@@ -1602,19 +1611,96 @@ const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,sty
 // The host's source text in document order, skipping any reader-owned subtree (a
 // prior mirror / annotated word / reader root) and never-painted nodes so the
 // mirror renders — and re-scans compare against — the page's visible text.
-function hostOriginalTextWithNodeOffsets(host: HTMLElement): { hostText: string; nodeOffsets: Map<Text, number> } {
+// Never-painted covers computed-hidden text (display:none / visibility:hidden
+// ancestors) and interelement whitespace-only nodes directly inside flex/grid/
+// table containers, which browsers drop at layout: mirroring either paints
+// text the page never shows (duplicate/garbled rows, class R).
+//
+// whitespaceJoints marks hostText offsets where two adjacent text nodes do NOT
+// share an inline formatting context (different flex/grid/table items or block
+// containers). Whitespace at such a joint never renders on the page, so the
+// collapse pass must not synthesize a space there.
+function hostOriginalTextWithNodeOffsets(host: HTMLElement): {
+    hostText: string;
+    nodeOffsets: Map<Text, number>;
+    whitespaceJoints: number[];
+} {
     const nodeOffsets = new Map<Text, number>();
+    const whitespaceJoints: number[] = [];
+    const styleCache = new Map<HTMLElement, CSSStyleDeclaration>();
+    const styleOf = (element: HTMLElement): CSSStyleDeclaration => {
+        let style = styleCache.get(element);
+        if (!style) {
+            style = safeComputedStyle(element);
+            styleCache.set(element, style);
+        }
+        return style;
+    };
     let hostText = '';
+    let previousContext: Node | null = null;
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-        acceptNode: node => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)
-            ? NodeFilter.FILTER_REJECT
-            : NodeFilter.FILTER_ACCEPT,
+        acceptNode: node => {
+            const parent = node.parentElement;
+            if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            const style = styleOf(parent);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') {
+                return NodeFilter.FILTER_REJECT;
+            }
+            if (!(node as Text).data.trim() && isItemizedContainerDisplay(style.display)) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+        },
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const context = inlineFormattingContextKey(node as Text, host, styleOf);
+        if (previousContext !== null && context !== previousContext) whitespaceJoints.push(hostText.length);
+        previousContext = context;
         nodeOffsets.set(node as Text, hostText.length);
         hostText += (node as Text).data;
     }
-    return { hostText, nodeOffsets };
+    return { hostText, nodeOffsets, whitespaceJoints };
+}
+
+// Containers whose child boxes are laid out as items/cells: whitespace-only
+// text directly inside them is dropped by layout and never renders.
+function isItemizedContainerDisplay(display: string): boolean {
+    return display === 'flex' || display === 'grid' || display === 'inline-flex' || display === 'inline-grid'
+        || display === 'table' || display === 'inline-table' || display === 'table-row'
+        || display === 'table-row-group' || display === 'table-header-group' || display === 'table-footer-group';
+}
+
+function isInlineLevelDisplay(display: string): boolean {
+    return display === 'inline' || display === 'contents' || display.startsWith('ruby');
+}
+
+// Identity of the inline formatting context a text node's glyphs render in.
+// Two text nodes render an inter-node space only when they share this context:
+// climbing past inline wrappers, the first non-inline ancestor is the context —
+// unless that ancestor lays its children out as items (flex/grid/table), in
+// which case each child on the path is its own item and IS the context.
+// Contiguous direct text-node runs under an item container share one anonymous
+// item, so such a node resolves to the head of its text-node run.
+function inlineFormattingContextKey(
+    node: Text,
+    host: HTMLElement,
+    styleOf: (element: HTMLElement) => CSSStyleDeclaration,
+): Node {
+    let child: Node = node;
+    let ancestor = node.parentElement;
+    while (ancestor) {
+        const display = styleOf(ancestor).display;
+        if (!isInlineLevelDisplay(display)) {
+            if (!isItemizedContainerDisplay(display)) return ancestor;
+            let head: Node = child;
+            while (head instanceof Text && head.previousSibling instanceof Text) head = head.previousSibling;
+            return head;
+        }
+        if (ancestor === host) return ancestor;
+        child = ancestor;
+        ancestor = ancestor.parentElement;
+    }
+    return child;
 }
 
 function nonDestructiveTargetFragments(target: ScanTextTarget): TextFragment[] {
@@ -1687,7 +1773,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
     const text = plan.text;
     const safeTokens = plan.tokens;
-    const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
+    const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -1738,7 +1824,9 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         }
         hideTextMirrorHost(host, state, mirror);
         host.append(mirror);
+        registerTextMirrorOwner(mirror, host);
         tightenMirrorRubyOverhang(mirror);
+        withdrawUnfitTextMirrorOverflow(host, state, mirror);
         observeTextMirrorHost(host);
     } catch (error) {
         removeTextMirror(host);
@@ -1746,9 +1834,9 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     }
 }
 
-function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken[]): { text: string; tokens: JPDBToken[] } {
-    if (!/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
-    const { normalized, offsets } = collapseWhitespaceWithOffsets(text);
+function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken[], whitespaceJoints?: number[]): { text: string; tokens: JPDBToken[] } {
+    if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
+    const { normalized, offsets } = collapseWhitespaceWithOffsets(text, whitespaceJoints);
     if (normalized === text) return { text, tokens };
     return {
         text: normalized,
@@ -1756,20 +1844,28 @@ function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken
     };
 }
 
-function collapseWhitespaceWithOffsets(text: string): { normalized: string; offsets: number[] } {
+function collapseWhitespaceWithOffsets(text: string, whitespaceJoints: number[] = []): { normalized: string; offsets: number[] } {
     const offsets = new Array<number>(text.length + 1);
+    const joints = new Set(whitespaceJoints);
     let normalized = '';
     let index = 0;
     while (index < text.length) {
         if (/\s/u.test(text[index] ?? '')) {
             const start = index;
-            while (index < text.length && /\s/u.test(text[index] ?? '')) index += 1;
+            let touchesJoint = joints.has(start);
+            while (index < text.length && /\s/u.test(text[index] ?? '')) {
+                index += 1;
+                if (joints.has(index)) touchesJoint = true;
+            }
             const mapped = normalized.length;
             // A line break between CJK characters carries no space semantics:
             // YouTube's yt-formatted-string wraps 視聴 across a newline, and
             // turning that into "視 聴" splits the word both visually and for
-            // the tokenizer. Latin boundaries keep their single space.
-            if (normalized.length > 0 && index < text.length
+            // the tokenizer. Latin boundaries keep their single space. A run
+            // that touches an inline-formatting-context joint never renders on
+            // the page at all (separate flex/grid/table items), so it must not
+            // become a literal space either.
+            if (normalized.length > 0 && index < text.length && !touchesJoint
                 && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text.codePointAt(index) ?? 0)))) {
                 normalized += ' ';
             }
@@ -1785,9 +1881,10 @@ function collapseWhitespaceWithOffsets(text: string): { normalized: string; offs
 }
 
 // Ideographic space through katakana, CJK ideographs, compat ideographs, and
-// fullwidth forms — the scripts whose soft line breaks carry no space.
+// fullwidth forms, and halfwidth katakana/punctuation (U+FF61–FF9F) — the
+// scripts whose soft line breaks carry no space.
 function isCjkChar(char: string | undefined): boolean {
-    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? '');
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-ﾟ\u{20000}-\u{3FFFF}]/u.test(char ?? '');
 }
 
 // The last full character (code point, not UTF-16 unit) of a string, so
@@ -1829,6 +1926,17 @@ function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string
 // subtree instead, but only claim a mirror that this host OWNS: a mirror
 // belongs to `host` when `host` is the CLOSEST registered mirror-host ancestor
 // of it, so a nested scan host's own mirror is never stolen or torn down here.
+// Creation-time mirror→host registration. Subtree queries (ownedTextMirrors)
+// cannot see a mirror a framework relocated OUTSIDE its host's subtree (e.g.
+// to a host sibling); such an orphan would survive every host-scoped sweep and
+// keep painting duplicated text. The WeakMap pins nothing (mirror keys are
+// removed with their DOM nodes) and lets teardown match orphans to their host.
+const textMirrorOwners = new WeakMap<HTMLElement, HTMLElement>();
+
+function registerTextMirrorOwner(mirror: HTMLElement, host: HTMLElement): void {
+    textMirrorOwners.set(mirror, host);
+}
+
 function textMirrorBelongsToHost(mirror: HTMLElement, host: HTMLElement): boolean {
     let ancestor = mirror.parentElement;
     while (ancestor && ancestor !== host) {
@@ -2211,6 +2319,19 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
     return state;
+}
+
+// A ruby mirror needs the host unclipped so readings can paint above the row —
+// but only while the mirror's own line boxes FIT the host. When the rendered
+// mirror is wider than its box (a long all-CJK line the host cannot contain),
+// forcing overflow:visible would let the runaway line escape its container and
+// side-scroll the page (class O). Withdraw the unclip and let the host's own
+// overflow clip the mirror exactly as it clips the page's native text.
+function withdrawUnfitTextMirrorOverflow(host: HTMLElement, state: TextMirrorHostState, mirror: HTMLElement): void {
+    if (!state.overflowAdjusted) return;
+    if (mirror.scrollWidth <= mirror.clientWidth + 1) return;
+    restoreStyleProperty(host, 'overflow', 'visible', state.overflow, state.overflowPriority);
+    state.overflowAdjusted = false;
 }
 
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
@@ -2666,9 +2787,23 @@ function removeTextMirror(host: HTMLElement): void {
     // then stacks a fresh mirror on top. Ownership scoping (host is the closest
     // registered mirror-host ancestor) leaves a nested scan host's own mirror
     // untouched.
-    ownedTextMirrors(host).forEach(mirror => mirror.remove());
+    const owned = ownedTextMirrors(host);
+    owned.forEach(mirror => mirror.remove());
+    // No mirror left in the subtree but the host had state: the framework may
+    // have relocated the mirror OUTSIDE the host entirely (host sibling) —
+    // sweep the host's root for mirrors registered to this host so they cannot
+    // survive as duplicated text.
+    if (state && !owned.length) removeRelocatedTextMirrors(host);
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
+}
+
+function removeRelocatedTextMirrors(host: HTMLElement): void {
+    const root = host.getRootNode();
+    if (!(root instanceof Document || root instanceof ShadowRoot || root instanceof Element || root instanceof DocumentFragment)) return;
+    root.querySelectorAll<HTMLElement>(READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+        if (textMirrorOwners.get(mirror) === host) mirror.remove();
+    });
 }
 
 // A YouTube re-render of a live host (e.g. the caption/translation strip) can
@@ -2726,6 +2861,11 @@ function restoreStyleProperty(host: HTMLElement, property: string, injectedValue
 // its styles unrestored (a leak). Fall back to the parent only for true orphan
 // nodes whose host is already gone.
 function registeredTextMirrorHostFor(mirror: HTMLElement): HTMLElement | null {
+    // Creation-time registration wins: it stays correct even after a framework
+    // relocates the mirror outside its host's subtree, where the ancestor walk
+    // below would misattribute teardown to an unrelated wrapper.
+    const owner = textMirrorOwners.get(mirror);
+    if (owner && textMirrorHosts.has(owner)) return owner;
     let ancestor = mirror.parentElement;
     while (ancestor) {
         if (textMirrorHosts.has(ancestor)) return ancestor;
