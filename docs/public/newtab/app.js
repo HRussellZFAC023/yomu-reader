@@ -9203,6 +9203,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const plan of tokenPlans) {
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment2, text2, offset, token.start, true);
+      if (target.mirrorRender && offset === token.start && fragment2.lastElementChild) {
+        fragment2.append(document.createElement("wbr"));
+      }
       fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
         allowRuby: !target.hasNativeRuby && !suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -9219,13 +9222,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function nonDestructiveHostRenderPlan(host, target, tokens) {
     const fragments = nonDestructiveTargetFragments(target);
-    const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+    const { hostText, nodeOffsets, whitespaceJoints } = hostOriginalTextWithNodeOffsets(host);
     if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
       return { text: target.text, tokens };
     }
     const indexed = indexTextFragments(fragments);
     const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints };
   }
   function collapsedTextKey(text2) {
     return text2.replace(/\s+/gu, "");
@@ -9233,15 +9236,63 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
   function hostOriginalTextWithNodeOffsets(host) {
     const nodeOffsets = /* @__PURE__ */ new Map();
+    const whitespaceJoints = [];
+    const styleCache = /* @__PURE__ */ new Map();
+    const styleOf = (element) => {
+      let style = styleCache.get(element);
+      if (!style) {
+        style = safeComputedStyle(element);
+        styleCache.set(element, style);
+      }
+      return style;
+    };
     let hostText = "";
+    let previousContext = null;
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+        const style = styleOf(parent);
+        if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (!node.data.trim() && isItemizedContainerDisplay(style.display)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const context = inlineFormattingContextKey(node, host, styleOf);
+      if (previousContext !== null && context !== previousContext) whitespaceJoints.push(hostText.length);
+      previousContext = context;
       nodeOffsets.set(node, hostText.length);
       hostText += node.data;
     }
-    return { hostText, nodeOffsets };
+    return { hostText, nodeOffsets, whitespaceJoints };
+  }
+  function isItemizedContainerDisplay(display) {
+    return display === "flex" || display === "grid" || display === "inline-flex" || display === "inline-grid" || display === "table" || display === "inline-table" || display === "table-row" || display === "table-row-group" || display === "table-header-group" || display === "table-footer-group";
+  }
+  function isInlineLevelDisplay(display) {
+    return display === "inline" || display === "contents" || display.startsWith("ruby");
+  }
+  function inlineFormattingContextKey(node, host, styleOf) {
+    let child = node;
+    let ancestor = node.parentElement;
+    while (ancestor) {
+      const display = styleOf(ancestor).display;
+      if (!isInlineLevelDisplay(display)) {
+        if (!isItemizedContainerDisplay(display)) return ancestor;
+        let head = child;
+        while (head instanceof Text && head.previousSibling instanceof Text) head = head.previousSibling;
+        return head;
+      }
+      if (ancestor === host) return ancestor;
+      child = ancestor;
+      ancestor = ancestor.parentElement;
+    }
+    return child;
   }
   function nonDestructiveTargetFragments(target) {
     if (isFragmentTextTarget(target)) return target.fragments;
@@ -9295,7 +9346,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
     const text2 = plan.text;
     const safeTokens = plan.tokens;
-    const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
+    const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -9337,32 +9388,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       hideTextMirrorHost(host, state2, mirror);
       host.append(mirror);
+      registerTextMirrorOwner(mirror, host);
       tightenMirrorRubyOverhang(mirror);
+      withdrawUnfitTextMirrorOverflow(host, state2, mirror);
       observeTextMirrorHost(host);
     } catch (error) {
       removeTextMirror(host);
       throw error;
     }
   }
-  function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
-    if (!/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
-    const { normalized, offsets } = collapseWhitespaceWithOffsets(text2);
+  function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
+    if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
+    const { normalized, offsets } = collapseWhitespaceWithOffsets(text2, whitespaceJoints);
     if (normalized === text2) return { text: text2, tokens };
     return {
       text: normalized,
       tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
     };
   }
-  function collapseWhitespaceWithOffsets(text2) {
+  function collapseWhitespaceWithOffsets(text2, whitespaceJoints = []) {
     const offsets = new Array(text2.length + 1);
+    const joints = new Set(whitespaceJoints);
     let normalized = "";
     let index = 0;
     while (index < text2.length) {
       if (/\s/u.test(text2[index] ?? "")) {
         const start = index;
-        while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
+        let touchesJoint = joints.has(start);
+        while (index < text2.length && /\s/u.test(text2[index] ?? "")) {
+          index += 1;
+          if (joints.has(index)) touchesJoint = true;
+        }
         const mapped = normalized.length;
-        if (normalized.length > 0 && index < text2.length && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
+        if (normalized.length > 0 && index < text2.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
           normalized += " ";
         }
         for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
@@ -9376,7 +9434,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { normalized, offsets };
   }
   function isCjkChar(char) {
-    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? "");
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-ﾟ\u{20000}-\u{3FFFF}]/u.test(char ?? "");
   }
   function lastFullChar(text2) {
     if (!text2) return void 0;
@@ -9403,6 +9461,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         };
       })
     };
+  }
+  const textMirrorOwners = /* @__PURE__ */ new WeakMap();
+  function registerTextMirrorOwner(mirror, host) {
+    textMirrorOwners.set(mirror, host);
   }
   function textMirrorBelongsToHost(mirror, host) {
     let ancestor = mirror.parentElement;
@@ -9698,6 +9760,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
   }
+  function withdrawUnfitTextMirrorOverflow(host, state2, mirror) {
+    if (!state2.overflowAdjusted) return;
+    if (mirror.scrollWidth <= mirror.clientWidth + 1) return;
+    restoreStyleProperty$1(host, "overflow", "visible", state2.overflow, state2.overflowPriority);
+    state2.overflowAdjusted = false;
+  }
   function hideTextMirrorHost(host, state2, mirror) {
     textMirrorHosts.set(host, state2);
     if (state2.concealTextOnly) {
@@ -9968,9 +10036,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     state2?.lifecycle?.abort();
     clearTimeout(state2?.staleRemovalTimer);
     if (state2) state2.staleRemovalTimer = void 0;
-    ownedTextMirrors(host).forEach((mirror) => mirror.remove());
+    const owned = ownedTextMirrors(host);
+    owned.forEach((mirror) => mirror.remove());
+    if (state2 && !owned.length) removeRelocatedTextMirrors(host);
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
+  }
+  function removeRelocatedTextMirrors(host) {
+    const root = host.getRootNode();
+    if (!(root instanceof Document || root instanceof ShadowRoot || root instanceof Element || root instanceof DocumentFragment)) return;
+    root.querySelectorAll(READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
+      if (textMirrorOwners.get(mirror) === host) mirror.remove();
+    });
   }
   function reassertTextMirrorHostStyles(host, state2) {
     if (!currentTextMirror(host)) {
