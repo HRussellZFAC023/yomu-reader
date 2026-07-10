@@ -30,9 +30,11 @@ const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const REQUEST_BRIDGE_NAME = '__yomuNewtabRecallSmokeRequest';
 const JITEN_API_ORIGIN = 'https://api.jiten.moe';
+const BUNPRO_API_ORIGIN = 'https://api.bunpro.jp';
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_KEY = 'mock-jpdb-recall-key';
 const JITEN_API_KEY = 'ak_mock-jiten-recall-key';
+const BUNPRO_TOKEN = 'mock-bunpro-recall-token';
 const ANKI_CARD_ID = 4404;
 const ANKI_NOTE_ID = 9904;
 
@@ -89,6 +91,21 @@ const ANKI_CARD = card({
     ankiDeckNames: ['Mining'],
     ankiModelName: 'Imported Japanese',
 });
+const BUNPRO_CARD = card({
+    vid: -7701,
+    sid: -7701,
+    rid: 7701,
+    spelling: '予習',
+    reading: 'よしゅう',
+    meanings: [{ glosses: ['preparation for a lesson'], partOfSpeech: ['n', 'vs'] }],
+    partOfSpeech: ['n', 'vs'],
+    sentence: '授業の前に予習する。',
+    source: 'bunpro',
+    reviewSource: 'bunpro-api',
+    bunproReviewId: '7701',
+    bunproReviewableId: 8801,
+    bunproReviewableType: 'vocabulary',
+});
 const JITEN_FIXTURES = new Map([
     [JITEN_CARD.spelling, {
         wordId: JITEN_CARD.jitenWordId,
@@ -111,8 +128,8 @@ const fixture = await startLoopbackServer(serveNewTabRequest, 'Could not bind Re
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {
-    const results = [
-        await runRecallScenario(browser, fixture.baseUrl, {
+    const scenarios = [
+        {
             name: 'jpdb-correct-spelling',
             card: JPDB_CARD,
             settings: settings({ apiKey: JPDB_API_KEY, jpdbMiningEnabled: true }),
@@ -125,8 +142,40 @@ try {
                     'JPDB Recall review payload was incorrect',
                     request.body);
             },
-        }),
+        },
+        {
+            name: 'bunpro-hard-good',
+            card: BUNPRO_CARD,
+            settings: settings({
+                newTabSource: 'bunpro',
+                bunproFrontendApiToken: BUNPRO_TOKEN,
+                bunproMiningEnabled: true,
+                bunproDefinitionsEnabled: true,
+                dictionaryLookupLinks: [{ id: 'bunpro', label: 'Bunpro', urlTemplate: 'https://bunpro.jp/search?query={query}', enabled: true }],
+                newTabShortcutHintsEnabled: true,
+            }),
+            answer: '予習',
+            grade: 'pass',
+            gradeKey: '2',
+            expectedOutcome: 'Correct',
+            skipRecall: true,
+            reviewTarget: 'bunpro',
+            reviewPredicate: request => request.kind === 'bunpro-review',
+            assertGradeControls: controls => {
+                assert(controls.count === 2, 'Bunpro Study rendered more than Hard/Good', controls);
+                assert(controls.labels.join(',') === 'Hard,Good', 'Bunpro Study labels were not Hard/Good', controls);
+            },
+            assertReview: request => {
+                assert(request.body.grade === 'pass' && request.body.correct === true,
+                    'Bunpro Good review payload was incorrect', request.body);
+            },
+        },
     ];
+    const requestedScenario = process.env.YOMU_RECALL_SCENARIO?.trim() ?? '';
+    const results = [];
+    for (const scenario of scenarios.filter(item => !requestedScenario || item.name === requestedScenario)) {
+        results.push(await runRecallScenario(browser, fixture.baseUrl, scenario));
+    }
     const report = {
         ok: true,
         url: `${fixture.baseUrl}/newtab/index.html`,
@@ -140,7 +189,7 @@ try {
 }
 
 async function runRecallScenario(browser, baseUrl, scenario) {
-    const uiSource = scenario.card.source === 'anki' ? 'anki' : 'jpdb';
+    const uiSource = scenario.card.source === 'anki' ? 'anki' : scenario.card.source === 'bunpro' ? 'bunpro' : 'jpdb';
     const context = await browser.newContext({
         bypassCSP: true,
         serviceWorkers: 'block',
@@ -168,7 +217,7 @@ async function runRecallScenario(browser, baseUrl, scenario) {
         uiKey: NEW_TAB_UI_KEY,
         cache: {
             at: Date.now(),
-            sourceLabel: scenario.card.source === 'anki' ? 'Anki' : scenario.card.source === 'jiten' ? 'Jiten' : 'JPDB',
+            sourceLabel: scenario.card.source === 'anki' ? 'Anki' : scenario.card.source === 'jiten' ? 'Jiten' : scenario.card.source === 'bunpro' ? 'Bunpro' : 'JPDB',
             cards: [scenario.card],
         },
         uiState: {
@@ -183,53 +232,108 @@ async function runRecallScenario(browser, baseUrl, scenario) {
     try {
         await page.goto(`${baseUrl}/newtab/index.html?smoke=recall-${encodeURIComponent(scenario.name)}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-recall-mode[data-newtab-bound="true"]', { timeout: 15_000 });
-        const recallStep = page.locator('[data-study-step-kind="recall-cloze"]').first();
-        await waitForVisibleWithSnapshot(page, recallStep, `${scenario.name}-recall-step`);
-        if (await recallStep.getAttribute('aria-current') !== 'step') await recallStep.click();
-        let input = page.locator('[data-newtab-recall-input]').first();
-        await input.waitFor({ state: 'visible', timeout: 15_000 });
-        await waitForVisibleWithSnapshot(page, page.locator('.jpdb-reader-newtab-recall-gap').first(), `${scenario.name}-recall-gap`);
-        assert(!(await isRevealed(page)), `${scenario.name} started revealed`);
+        if (!scenario.skipRecall) {
+            const recallStep = page.locator('[data-study-step-kind="recall-cloze"]').first();
+            await waitForVisibleWithSnapshot(page, recallStep, `${scenario.name}-recall-step`);
+            if (await recallStep.getAttribute('aria-current') !== 'step') await recallStep.click();
+            const input = page.locator('[data-newtab-recall-input]').first();
+            await input.waitFor({ state: 'visible', timeout: 15_000 });
+            await waitForVisibleWithSnapshot(page, page.locator('.jpdb-reader-newtab-recall-gap').first(), `${scenario.name}-recall-gap`);
+            assert(!(await isRevealed(page)), `${scenario.name} started revealed`);
 
-        if (scenario.precheckEmpty) {
-            await page.locator('[data-newtab-recall-form] [data-newtab-action="recall-submit"]').click();
-            await expectText(page, '[data-newtab-recall-result]', 'Enter an answer');
-            assert(!(await isRevealed(page)), `${scenario.name} empty answer revealed the card`);
-        }
+            if (scenario.precheckEmpty) {
+                await page.locator('[data-newtab-recall-form] [data-newtab-action="recall-submit"]').click();
+                await expectText(page, '[data-newtab-recall-result]', 'Enter an answer');
+                assert(!(await isRevealed(page)), `${scenario.name} empty answer revealed the card`);
+            }
 
-        const submitted = await page.evaluate(answer => {
-            const input = document.querySelector('[data-newtab-recall-input]');
-            const button = document.querySelector('[data-newtab-recall-form] [data-newtab-action="recall-submit"]');
-            if (!input || !button) return false;
-            input.value = answer;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            button.click();
-            return true;
-        }, scenario.answer);
-        if (!submitted) {
-            await snapshotPage(page, `${scenario.name}-recall-submit-missing`);
-            writeFileSync(path.join(ARTIFACT_DIR, `${scenario.name}-recall-submit-missing.requests.json`), `${JSON.stringify(requests, null, 2)}\n`);
+            const submitted = await page.evaluate(answer => {
+                const input = document.querySelector('[data-newtab-recall-input]');
+                const button = document.querySelector('[data-newtab-recall-form] [data-newtab-action="recall-submit"]');
+                if (!input || !button) return false;
+                input.value = answer;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                button.click();
+                return true;
+            }, scenario.answer);
+            if (!submitted) {
+                await snapshotPage(page, `${scenario.name}-recall-submit-missing`);
+                writeFileSync(path.join(ARTIFACT_DIR, `${scenario.name}-recall-submit-missing.requests.json`), `${JSON.stringify(requests, null, 2)}\n`);
+            }
+            assert(submitted, `${scenario.name} could not submit the recall input`, { requests });
         }
-        assert(submitted, `${scenario.name} could not submit the recall input`, { requests });
-        await page.waitForSelector('[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 10_000 });
+        await page.waitForSelector(scenario.skipRecall
+            ? '[data-newtab-study][data-newtab-study-step="final-reveal"]'
+            : '[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 10_000 });
+        if (scenario.skipRecall && !(await isRevealed(page))) {
+            await page.locator('[data-newtab-action="reveal"]').first().click();
+            await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-revealed', { timeout: 8_000 });
+        }
         assert(await isRevealed(page), `${scenario.name} did not reveal after a non-empty answer`);
         const prompt = await textContent(page, '[data-newtab-prompt]');
         const outcome = scenario.expectedOutcome;
-        const expectedGradeTarget = scenario.card.source === 'anki' ? 'Grades Anki' : scenario.card.source === 'jiten' ? 'Grades Jiten' : 'Grades JPDB';
+        const expectedGradeTarget = scenario.card.source === 'anki' ? 'Grades Anki' : scenario.card.source === 'jiten' ? 'Grades Jiten' : scenario.card.source === 'bunpro' ? 'Grades Bunpro' : 'Grades JPDB';
         await ensureGradeTarget(page, expectedGradeTarget);
+        const gradeControls = await page.evaluate(() => ({
+            count: document.querySelectorAll('[data-newtab-action="grade"]').length,
+            labels: [...document.querySelectorAll('[data-newtab-action="grade"] .jpdb-reader-newtab-grade-label')].map(node => node.textContent?.trim() ?? ''),
+        }));
+        scenario.assertGradeControls?.(gradeControls);
+        let bunproSurface;
+        if (scenario.card.source === 'bunpro') {
+            await page.waitForSelector('[data-source="bunpro"]', { state: 'attached', timeout: 10_000 });
+            await page.waitForSelector('[data-source="bunpro"] a.jpdb-reader-action-pill[href^="https://bunpro.jp/vocabs/"]', { state: 'attached', timeout: 10_000 });
+            bunproSurface = await page.evaluate(() => {
+                const source = document.querySelector('[data-source="bunpro"]');
+                const pill = document.querySelector('[data-source="bunpro"] a.jpdb-reader-action-pill[href^="https://bunpro.jp/vocabs/"]');
+                return {
+                    definition: source?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                    lookupHref: pill?.getAttribute('href') ?? '',
+                };
+            });
+            assert(bunproSurface.definition.includes('preparation for a lesson'), 'Bunpro Study reveal omitted its definition source', bunproSurface);
+            assert(bunproSurface.lookupHref.includes('bunpro.jp'), 'Bunpro Study reveal omitted its source link', bunproSurface);
+        }
         await page.screenshot({ path: path.join(ARTIFACT_DIR, `${scenario.name}.png`), fullPage: false });
-        const reviewTarget = scenario.reviewTarget ?? (scenario.card.source === 'anki' ? 'anki' : scenario.card.source === 'jiten' ? 'jiten' : 'jpdb');
-        const gradeButton = page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"][data-newtab-review-target="${reviewTarget}"]`).first();
-        if (await gradeButton.count()) await gradeButton.click();
-        else await page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"]`).click();
+        const reviewTarget = scenario.reviewTarget ?? (scenario.card.source === 'anki' ? 'anki' : scenario.card.source === 'jiten' ? 'jiten' : scenario.card.source === 'bunpro' ? 'bunpro' : 'jpdb');
+        let shortcutDebug;
+        if (scenario.gradeKey) {
+            await page.evaluate(() => {
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            });
+            await page.keyboard.press(scenario.gradeKey);
+            shortcutDebug = await page.evaluate(() => {
+                const root = document.querySelector('[data-jpdb-reader-root]');
+                const study = document.querySelector('[data-newtab-study]');
+                return {
+                    rootClass: root?.className ?? '',
+                    studyStep: study?.getAttribute('data-newtab-study-step') ?? '',
+                    grades: [...document.querySelectorAll('[data-newtab-action="grade"]')].map(button => ({
+                        grade: button.getAttribute('data-grade') ?? '',
+                        disabled: button.hasAttribute('disabled'),
+                        target: button.getAttribute('data-newtab-review-target') ?? '',
+                        hint: button.querySelector('kbd')?.textContent ?? '',
+                    })),
+                    activeElement: document.activeElement?.tagName ?? '',
+                };
+            });
+        } else {
+            const gradeButton = page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"][data-newtab-review-target="${reviewTarget}"]`).first();
+            if (await gradeButton.count()) await gradeButton.click();
+            else await page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"]`).click();
+        }
         const review = await waitForRequest(requests, scenario.reviewPredicate, 8_000);
-        assert(review, `${scenario.name} did not submit a provider review`, { requests });
+        assert(review, `${scenario.name} did not submit a provider review`, { requests, shortcutDebug });
         scenario.assertReview(review);
         assert(consoleErrors.length === 0, `${scenario.name} logged browser errors`, { consoleErrors });
         return {
             name: scenario.name,
             prompt,
             outcome,
+            gradeControls,
+            gradeInput: scenario.gradeKey ? `keyboard:${scenario.gradeKey}` : 'button',
+            shortcutDebug,
+            bunproSurface,
             review,
             requests: summarizeRequests(requests),
         };
@@ -343,10 +447,41 @@ function mockedRequest(request, requests) {
     const url = new URL(request.url);
     if (url.origin === JPDB_API_ORIGIN) return mockedJpdbRequest(url, request, requests);
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
+    if (url.origin === BUNPRO_API_ORIGIN) return mockedBunproRequest(url, request, requests);
     if (url.href === DEFAULT_ANKI_CONNECT_URL || url.origin === new URL(DEFAULT_ANKI_CONNECT_URL).origin) {
         return mockedAnkiRequest(request, requests);
     }
     return null;
+}
+
+function mockedBunproRequest(url, request, requests) {
+    assertApiAuth(request, 'Bearer ', BUNPRO_TOKEN, 'Bunpro');
+    const pathname = url.pathname.replace(/^\/api\/frontend\/?/, '');
+    if (pathname === 'reviews/quiz_index') {
+        requests.push({ kind: 'bunpro-queue' });
+        return jsonHttpResponse({
+            review_session_id: 55,
+            total_pending_attempt_count: 1,
+            total_pending_wrapup_count: 0,
+            pending_wrapup: [],
+            pending_attempt: [{
+                data: { id: BUNPRO_CARD.bunproReviewId, type: 'review', attributes: { id: Number(BUNPRO_CARD.bunproReviewId), reviewable_id: BUNPRO_CARD.bunproReviewableId, reviewable_type: 'Vocab', next_review: new Date().toISOString() } },
+                included: [{ id: String(BUNPRO_CARD.bunproReviewableId), type: 'vocab', attributes: { id: BUNPRO_CARD.bunproReviewableId, title: BUNPRO_CARD.spelling, kana: BUNPRO_CARD.reading, furigana: BUNPRO_CARD.reading, slug: BUNPRO_CARD.spelling, meaning: BUNPRO_CARD.meanings[0].glosses[0] } }],
+            }],
+        });
+    }
+    if (/^reviews\/\d+\/update$/u.test(pathname)) {
+        const body = readRequestJson(request.data);
+        requests.push({ kind: 'bunpro-review', body });
+        return jsonHttpResponse({});
+    }
+    if (pathname === 'search/reviewables_v1_1') {
+        requests.push({ kind: 'bunpro-search' });
+        return jsonHttpResponse({ grammar_points: { data: [] }, vocabs: { data: [{ id: String(BUNPRO_CARD.bunproReviewableId), attributes: { id: BUNPRO_CARD.bunproReviewableId, title: BUNPRO_CARD.spelling, kana: BUNPRO_CARD.reading, slug: BUNPRO_CARD.spelling, meaning: BUNPRO_CARD.meanings[0].glosses[0] } }] } });
+    }
+    if (pathname === 'user/due') return jsonHttpResponse({ total_due_grammar: 0, total_due_vocab: 1 });
+    if (pathname === 'user_stats/base_stats') return jsonHttpResponse({ facts: {} });
+    throw new Error(`Unexpected Bunpro Recall request: ${request.method} ${url.href}`);
 }
 
 function mockedJpdbRequest(url, request, requests) {
@@ -427,6 +562,9 @@ function settings(overrides = {}) {
         interfaceLanguage: 'en',
         apiKey: '',
         jitenApiKey: '',
+        bunproFrontendApiToken: '',
+        bunproFrontendApiTokenExpiresAt: '',
+        bunproMiningEnabled: false,
         jpdbMiningEnabled: false,
         enableReviews: true,
         newTabSource: 'jpdb',
@@ -539,6 +677,7 @@ function firstGloss(targetCard) {
 function isMockedOrigin(url) {
     return url.origin === JPDB_API_ORIGIN
         || url.origin === JITEN_API_ORIGIN
+        || url.origin === BUNPRO_API_ORIGIN
         || url.origin === new URL(DEFAULT_ANKI_CONNECT_URL).origin;
 }
 

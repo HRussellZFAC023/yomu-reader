@@ -11,6 +11,7 @@ type RowOrderLabels = { drag: string; up: string; down: string };
 const SOURCE_ROW_COPY_KEYS_BY_ID: Record<string, SourceRowCopyKeys> = {
     __jpdb__: { helpKey: 'sourceHelpJpdb' },
     __jiten__: { helpKey: 'sourceHelpJiten' },
+    __bunpro__: { helpKey: 'sourceHelpBunpro' },
     __anki__: { nameKey: 'sourceNameAnki', helpKey: 'sourceHelpAnki' },
     __study_translation__: { nameKey: 'sourceNameTranslation', helpKey: 'sourceHelpTranslation' },
     __study_grammar__: { nameKey: 'sourceNameGrammar', helpKey: 'sourceHelpGrammar' },

@@ -50,6 +50,7 @@ const settings = {
         { id: 'yomu-search', label: 'Yomu', urlTemplate: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}', enabled: true },
         { id: 'jiten', label: 'Jiten', urlTemplate: 'https://jiten.moe/parse?text={query}', enabled: true },
         { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: true },
+        { id: 'bunpro', label: 'Bunpro', urlTemplate: 'https://bunpro.jp/search?query={query}', enabled: true },
         { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
         { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
     ],
@@ -106,15 +107,18 @@ try {
     for (const [label, urlPrefix] of expectedPillTargets(LOOKUP_WORD)) {
         opened.push(await clickActionPillAndAssertOpen(page, word, LOOKUP_WORD, label, urlPrefix));
     }
-    await word.hover();
-    await waitForPopoverHeading(page, LOOKUP_WORD);
-    await page.locator('.jpdb-reader-popover .jpdb-reader-copy-pill').first().click();
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
-        .some(toast => /Copied word/i.test(toast.textContent ?? '')), null, { timeout: 5_000 });
-    const toastText = await page.evaluate(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
-        .map(toast => toast.textContent?.trim() ?? '')
-        .find(text => /Copied word/i.test(text)) ?? '');
-    assert(/Copied word/i.test(toastText), 'Copy pill did not show visible feedback', { toastText });
+    let toastText = '';
+    if (!process.env.YOMU_PILLS_LINKS_ONLY) {
+        await word.hover();
+        await waitForPopoverHeading(page, LOOKUP_WORD);
+        await page.locator('.jpdb-reader-popover .jpdb-reader-copy-pill').first().click();
+        await page.waitForFunction(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
+            .some(toast => /Copied word/i.test(toast.textContent ?? '')), null, { timeout: 5_000 });
+        toastText = await page.evaluate(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
+            .map(toast => toast.textContent?.trim() ?? '')
+            .find(text => /Copied word/i.test(text)) ?? '');
+        assert(/Copied word/i.test(toastText), 'Copy pill did not show visible feedback', { toastText });
+    }
 
     const report = { ok: true, word: LOOKUP_WORD, opened, toastText, requests };
     writeFileSync(path.join(ARTIFACTS, 'popover-action-pills-smoke.json'), JSON.stringify(report, null, 2));
@@ -144,6 +148,7 @@ function expectedPillTargets(query) {
     return [
         ['Jiten', `https://jiten.moe/parse?text=${encoded}`],
         ['JPDB', 'https://jpdb.io/vocabulary/'],
+        ['Bunpro', `https://bunpro.jp/search?query=${encoded}`],
         ['Jisho', `https://jisho.org/search/${encoded}`],
         ['Yomu', `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=${encoded}`],
     ];

@@ -9,7 +9,7 @@ description: Everything よむ does — popup dictionary lookup and mining, Yomi
 
 ## Popup Lookup And Mining
 
-Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten, Bunpro, and JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
 To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.
 
@@ -131,7 +131,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## New Tab Study Page
 
-Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki when AnkiConnect is reachable, then Jiten, then JPDB, then the local dictionary words already in your browser — so it works even with no account.
+Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro reviews use its real Hard/Good outcomes; Jiten and JPDB retain the five-point scale.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 

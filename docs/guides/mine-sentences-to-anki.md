@@ -29,7 +29,7 @@ You need three free pieces:
 - **Anki** — the spaced-repetition app, free on desktop.
 - **AnkiConnect** — a free Anki add-on that lets Yomu push cards into your deck automatically.
 
-Prefer [Jiten or JPDB](/tools/study-page)? Yomu mines there instead — same lookup-to-card flow, different destination. Pick whichever you review in daily.
+Prefer [Jiten, Bunpro, or JPDB](/tools/study-page)? Yomu mines there instead — same lookup-to-card flow, different destination. Pick whichever you review in daily.
 
 ## Workflow on YouTube
 
@@ -88,5 +88,5 @@ Yes — Yomu on your phone sends cards over the local network to a desktop copy 
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
   <a class="yomu-cta-button" href="/tools/japanese-subtitle-reader">Subtitle reader</a>
   <a class="yomu-cta-button" href="/guides/comprehensible-input-youtube">Comprehensible input on YouTube</a>
-  <a class="yomu-cta-button" href="/guides/study-setup">Yomitan + Jiten + JPDB + Anki</a>
+  <a class="yomu-cta-button" href="/guides/study-setup">Yomitan + Jiten + Bunpro + JPDB + Anki</a>
 </div>

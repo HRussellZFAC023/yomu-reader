@@ -16,6 +16,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
+import type { BunproDefinitionInfo } from '../bunpro/definition';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { pillStyle } from '../dictionaries/display';
@@ -70,7 +71,7 @@ export interface CardPopoverRendererDependencies {
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     renderWordHistory: (language: InterfaceLanguage, trigger: 'modal' | 'hover') => string;
     renderWordPills: (card: JPDBCard, jpdbUrl: string, metaEntries?: YomitanMetaEntry[], overrideQuery?: string, trigger?: 'modal' | 'hover', ankiLookup?: CardRenderData['ankiLookup'], jitenVocabularyInfo?: JitenVocabularyInfo | null) => string;
-    renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, extraSections?: Record<string, string>) => string;
+    renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: BunproDefinitionInfo | null, extraSections?: Record<string, string>) => string;
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
     renderReviewButtonsFallback?: (card: JPDBCard, data: CardRenderData & { loading: boolean }) => string;
@@ -88,7 +89,7 @@ export class CardPopoverRenderer {
         const view = this.renderView(card, data);
         const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
         const expressionComponents = this.renderExpressionComponents(data, view);
-        const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
+        const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
             [ANKI_SOURCE_ID]: ankiSourceSection,
         });
         const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes('jpdb-reader-anki-existing')
@@ -442,23 +443,26 @@ export class CardPopoverRenderer {
         switchProviderTarget: ApiSrsProviderView | null,
     ): string {
         const settings = this.settings();
-        const grades = reviewButtonGrades(settings);
         const selected = targets[0];
-        if (!selected || !grades.length) return '';
+        if (!selected) return '';
+        const standardGrades = reviewButtonGrades(settings);
+        const bunproGrades: Array<[string, string]> = [
+            ['fail', uiText(language, 'bunproGradeHardLabel')],
+            ['pass', uiText(language, 'bunproGradeGoodLabel')],
+        ];
+        const hasBunpro = targets.some(target => target.kind === 'bunpro');
+        const hasStandard = targets.some(target => target.kind !== 'bunpro');
+        const gradeRows = [
+            hasStandard ? renderTargetedGradeRow(standardGrades, selected, 'standard', selected.kind === 'bunpro') : '',
+            hasBunpro ? renderTargetedGradeRow(bunproGrades, selected, 'bunpro', selected.kind !== 'bunpro') : '',
+        ].filter(Boolean).join('');
+        if (!gradeRows) return '';
         const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : '';
         const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
-        const targetLabel = renderReviewTargetLabel(selected);
-        const targetAttrs = reviewTargetButtonAttrs(selected);
         return `
             ${targetGutter}
             ${selector}
-            <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-review-target-row>
-                ${targetLabel}
-                ${grades.map(([grade, label]) => {
-                    const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
-                    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(label)}</button>`;
-                }).join('')}
-            </div>
+            ${gradeRows}
         `;
     }
 
@@ -498,7 +502,7 @@ export class CardPopoverRenderer {
 }
 
 export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): void {
-    const option = select.selectedOptions[0] ?? null;
+    const option = select.options[select.selectedIndex] ?? null;
     if (!option) return;
     const actions = select.closest<HTMLElement>('.jpdb-reader-actions');
     if (!actions) return;
@@ -510,6 +514,9 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
     if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector<HTMLElement>('[data-review-target-label] [data-newtab-grade-target-text]');
     if (labelText) labelText.textContent = label;
+    actions.querySelectorAll<HTMLElement>('[data-review-grade-profile]').forEach(row => {
+        row.hidden = row.dataset.reviewGradeProfile === 'bunpro' ? target !== 'bunpro' : target === 'bunpro';
+    });
     actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]').forEach(button => {
         button.dataset.reviewTarget = target;
         button.dataset.newtabReviewTarget = target;
@@ -524,6 +531,28 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
             button.removeAttribute('aria-label');
         }
     });
+}
+
+export function popoverUsesBunproGradeScale(root: ParentNode | null | undefined): boolean {
+    const row = root?.querySelector<HTMLElement>('[data-review-grade-profile="bunpro"]');
+    return Boolean(row && !row.hidden);
+}
+
+function renderTargetedGradeRow(
+    grades: Array<[string, string]>,
+    selected: PopoverReviewTarget,
+    profile: 'standard' | 'bunpro',
+    hidden: boolean,
+): string {
+    const targetLabel = renderReviewTargetLabel(selected);
+    const targetAttrs = reviewTargetButtonAttrs(selected);
+    return `<div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-review-target-row data-review-grade-profile="${profile}"${hidden ? ' hidden' : ''}>
+        ${targetLabel}
+        ${grades.map(([grade, label]) => {
+            const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
+            return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(label)}</button>`;
+        }).join('')}
+    </div>`;
 }
 
 export function togglePopoverReviewTargetSelection(button: HTMLButtonElement): void {

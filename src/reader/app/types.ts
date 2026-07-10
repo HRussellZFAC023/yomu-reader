@@ -282,6 +282,9 @@ export interface ReaderSettings {
     jitenDefinitionsEnabled: boolean;
     jitenDefinitionsAlias: string;
     jitenDefinitionsPriority: number;
+    bunproDefinitionsEnabled: boolean;
+    bunproDefinitionsAlias: string;
+    bunproDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;

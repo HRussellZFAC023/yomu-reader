@@ -275,6 +275,7 @@ export class NewTabRuntime {
         anki: this.anki,
         jpdb: this.jpdb,
         jiten: this.jiten,
+        bunpro: this.bunpro,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
     });
     private lookupPopoverRenderer = new CardPopoverRenderer({
@@ -292,7 +293,7 @@ export class NewTabRuntime {
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
-        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
         renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data),
@@ -615,7 +616,8 @@ export class NewTabRuntime {
                 userGesture: options?.userGesture,
             }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
-            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, { includeStudySources: false }),
+            hydrateBunproDefinitionInfo: card => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
+            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
             renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
@@ -636,7 +638,7 @@ export class NewTabRuntime {
             }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
             lookupStudyCard: (term, reading) => this.lookupCard(term, reading ?? ''),
-            renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
+            renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
                 includeStudySources: false,
                 includeImmersionSource: false,
             }),
@@ -1914,6 +1916,7 @@ export class NewTabRuntime {
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
         jitenVocabularyInfo: JitenVocabularyInfo | null = null,
+        bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null = null,
         extraSectionsOrOptions: Record<string, string> | Pick<DefinitionSourceStackOptions, 'includeStudySources' | 'includeImmersionSource'> = {},
     ): string {
         return renderDefinitionSourcesStack({
@@ -1926,6 +1929,7 @@ export class NewTabRuntime {
             sentence,
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
+            bunproDefinitionInfo,
             extraSectionsOrOptions,
             optionKeys: ['includeStudySources', 'includeImmersionSource'],
             renderTranslationSource: renderSentence => this.studySources.renderTranslationSource(renderSentence),

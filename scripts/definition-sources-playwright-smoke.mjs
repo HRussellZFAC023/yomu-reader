@@ -24,6 +24,8 @@ const READING = 'ふくしゅう';
 const GLOSS = 'review; revision';
 const JITEN_API_KEY = 'ak_jiten-definition-source-smoke';
 const JPDB_API_KEY = 'jpdb-definition-source-smoke';
+const BUNPRO_TOKEN = 'bunpro-definition-source-smoke';
+const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const JPDB_VID = 1500800;
 const JPDB_SID = 3100;
 const JITEN_WORD_ID = 2500800;
@@ -59,37 +61,43 @@ const SCENARIOS = [
         id: 'keyless-both-on',
         label: 'No API keys, Jiten and JPDB enabled',
         settings: {},
-        expect: { jpdb: true, jiten: true },
+        expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'jiten-key-both-on',
         label: 'Jiten key only, Jiten and JPDB enabled',
         settings: { jitenApiKey: JITEN_API_KEY },
-        expect: { jpdb: true, jiten: true },
+        expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'jpdb-key-both-on',
         label: 'JPDB key only, Jiten and JPDB enabled',
         settings: { apiKey: JPDB_API_KEY },
-        expect: { jpdb: true, jiten: true },
+        expect: { jpdb: true, jiten: true, bunpro: false },
     },
     {
         id: 'both-keys-both-on',
         label: 'Jiten and JPDB keys, Jiten and JPDB enabled',
         settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY },
-        expect: { jpdb: true, jiten: true },
+        expect: { jpdb: true, jiten: true, bunpro: false },
+    },
+    {
+        id: 'all-three-sources',
+        label: 'Jiten, JPDB, and Bunpro definitions enabled',
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproFrontendApiToken: BUNPRO_TOKEN },
+        expect: { jpdb: true, jiten: true, bunpro: true },
     },
     {
         id: 'both-keys-jiten-off',
         label: 'Both keys, Jiten dictionary source disabled',
         settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jitenDefinitionsEnabled: false },
-        expect: { jpdb: true, jiten: false },
+        expect: { jpdb: true, jiten: false, bunpro: false },
     },
     {
         id: 'both-keys-jpdb-off',
         label: 'Both keys, JPDB dictionary source disabled',
         settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, jpdbDefinitionsEnabled: false },
-        expect: { jpdb: false, jiten: true },
+        expect: { jpdb: false, jiten: true, bunpro: false },
     },
 ];
 
@@ -101,7 +109,8 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true 
 
 try {
     const reports = [];
-    for (const scenario of SCENARIOS) {
+    const requestedScenario = process.env.YOMU_DEFINITION_SOURCE_SCENARIO?.trim() ?? '';
+    for (const scenario of SCENARIOS.filter(item => !requestedScenario || item.id === requestedScenario)) {
         reports.push(await runScenario(browser, server, scenario));
     }
     const report = {
@@ -119,10 +128,9 @@ try {
 
 async function runScenario(browser, fixture, scenario) {
     const settings = createSettings(scenario.settings);
-    const [popover, search] = [
-        await runPopoverSurface(browser, fixture, scenario, settings),
-        await runSearchSurface(browser, fixture, scenario, settings),
-    ];
+    const requestedSurface = process.env.YOMU_DEFINITION_SOURCE_SURFACE?.trim() ?? '';
+    const popover = requestedSurface === 'search' ? null : await runPopoverSurface(browser, fixture, scenario, settings);
+    const search = requestedSurface === 'popover' ? null : await runSearchSurface(browser, fixture, scenario, settings);
     return {
         id: scenario.id,
         label: scenario.label,
@@ -169,8 +177,11 @@ async function runSearchSurface(browser, fixture, scenario, settings) {
     const { context, page, requests } = await installPage(browser, scenario, settings, 'search', { width: 1100, height: 940 });
     try {
         await page.goto(`${fixture.origin}/newtab/index.html?scenario=${scenario.id}`, { waitUntil: 'domcontentloaded' });
-        await page.locator('[data-newtab-action="mode"][data-mode="search"]').first().click({ timeout: 30_000 });
-        await page.locator('[data-newtab-search-input]').fill(TERM);
+        const searchInput = page.locator('[data-newtab-search-input]');
+        if (!(await searchInput.isVisible())) {
+            await page.locator('[data-newtab-action="mode"][data-mode="search"]').first().click({ timeout: 30_000 });
+        }
+        await searchInput.fill(TERM);
         await page.locator('[data-newtab-search]').evaluate(form => form.requestSubmit());
         await page.waitForSelector('[data-newtab-search-results]', { timeout: 30_000 });
         const wordButton = page.locator('[data-newtab-action="search-result-word"]', { hasText: TERM }).first();
@@ -178,7 +189,12 @@ async function runSearchSurface(browser, fixture, scenario, settings) {
         await wordButton.click();
         const detail = page.locator('[data-newtab-search-detail]:not([hidden])').first();
         await detail.waitFor({ state: 'visible', timeout: 15_000 });
-        await waitForSources(detail, scenario.expect);
+        try {
+            await waitForSources(detail, scenario.expect);
+        } catch (error) {
+            const dom = await detail.evaluate(summarizeSourceDom).catch(() => null);
+            throw new Error(`${scenario.label} search sources did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ dom, requests: summarizeRequests(requests) }, null, 2)}`);
+        }
         await openSourceCards(detail);
         const dom = await detail.evaluate(summarizeSourceDom);
         assertSurface(scenario, dom, requests, 'search');
@@ -211,13 +227,25 @@ async function installPage(browser, scenario, settings, surface, viewport) {
         value: settings,
         requestBridgeName: REQUEST_BRIDGE_NAME,
     });
-    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*jpdb\.io|[^/]*workers\.dev|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
+    if (surface === 'search') {
+        await page.addInitScript(({ key }) => {
+            localStorage.setItem(key, JSON.stringify({
+                mode: 'search',
+                sort: 'frequency',
+                filter: 'all',
+                source: 'dictionary',
+                revealAnswer: false,
+            }));
+        }, { key: NEW_TAB_UI_KEY });
+    }
+    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*api\.bunpro\.jp|[^/]*jpdb\.io|[^/]*workers\.dev|audio\.example\.test)\//, route => handleSmokeRoute(route, scenario, requests, surface));
     return { context, page, requests };
 }
 
 async function waitForSources(root, expected) {
     if (expected.jpdb) await root.locator('[data-source="jpdb"]').waitFor({ state: 'attached', timeout: 20_000 });
     if (expected.jiten) await root.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 20_000 });
+    if (expected.bunpro) await root.locator('[data-source="bunpro"]').waitFor({ state: 'attached', timeout: 20_000 });
     await root.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 20_000 }).catch(() => undefined);
     await root.page().waitForTimeout(350);
 }
@@ -239,16 +267,25 @@ function summarizeSourceDom(node) {
         .filter(Boolean);
     const jpdb = node.querySelector('[data-source="jpdb"]');
     const jiten = node.querySelector('[data-source="jiten"]');
+    const bunpro = node.querySelector('[data-source="bunpro"]');
     const jpdbText = clean(jpdb?.textContent ?? '');
     const jitenText = clean(jiten?.textContent ?? '');
+    const bunproText = clean(bunpro?.textContent ?? '');
     return {
         detailText: clean(node.textContent ?? ''),
         sourceIds,
         sourceTitles,
         hasJpdb: Boolean(jpdb),
         hasJiten: Boolean(jiten),
+        hasBunpro: Boolean(bunpro),
         jpdbText,
         jitenText,
+        bunproText,
+        bunproMeaning: bunproText.includes('review; revision'),
+        bunproReading: clean(node.textContent ?? '').includes('ふくしゅう'),
+        bunproNuance: bunproText.includes('Study again to strengthen memory'),
+        bunproAcceptedAnswer: bunproText.includes('to review'),
+        hasOpenInBunproButton: Boolean(bunpro?.querySelector('a[href*="bunpro.jp/vocabs/"]')),
         jpdbMeaning: jpdbText.includes('review; revision'),
         jpdbUsedIn: jpdbText.includes('復習会'),
         jpdbComposedOf: jpdbText.includes('again; restore') && jpdbText.includes('learn'),
@@ -268,6 +305,7 @@ function summarizeSourceDom(node) {
 function assertSurface(scenario, dom, requests, surface) {
     assert(dom.hasJpdb === scenario.expect.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
     assert(dom.hasJiten === scenario.expect.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
+    assert(dom.hasBunpro === scenario.expect.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
 
     if (scenario.expect.jpdb) {
         assert(dom.jpdbMeaning, `${scenario.label} ${surface}: JPDB source did not render meanings`, dom);
@@ -286,6 +324,13 @@ function assertSurface(scenario, dom, requests, surface) {
         assert(dom.jitenAudioButtonCount >= 3, `${scenario.label} ${surface}: Jiten source did not render TTS/audio buttons`, dom);
         assert(!dom.hasJitenLocalFallbackCard, `${scenario.label} ${surface}: Jiten source rendered the old inner fallback card`, dom);
         assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
+    }
+    if (scenario.expect.bunpro) {
+        assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
+        assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
+        assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
+        assert(dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro source did not render accepted answers`, dom);
+        assert(dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source did not link to Bunpro`, dom);
     }
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
@@ -319,6 +364,13 @@ function assertRequestAuthState(scenario, surface, requests) {
         assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but examples still loaded`, jitenDefinitionRequests);
     }
     assert(jitenDefinitionRequests.every(request => request.hasAuthorization === Boolean(settings.jitenApiKey)), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
+    const bunproRequests = requests.filter(request => request.host === 'api.bunpro.jp');
+    if (scenario.expect.bunpro) {
+        assert(bunproRequests.some(request => request.path === '/api/frontend/search/reviewables_v1_1'), `${scenario.label} ${surface}: Bunpro search request was not recorded`, bunproRequests);
+        assert(bunproRequests.every(request => request.authorizationScheme === 'Bearer'), `${scenario.label} ${surface}: Bunpro auth state was wrong`, bunproRequests);
+    } else {
+        assert(bunproRequests.length === 0, `${scenario.label} ${surface}: Bunpro definition loaded without a token`, bunproRequests);
+    }
 }
 
 function summarizeRequests(requests) {
@@ -359,9 +411,38 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
     const summary = requestSummary(request, transport, surface);
     requests.push(summary);
     if (summary.host === 'api.jiten.moe') return mockJitenResponse(summary, request);
+    if (summary.host === 'api.bunpro.jp') return mockBunproResponse(summary, request);
     if (summary.host === 'jpdb.io') return mockJpdbResponse(summary, request);
     if (summary.host === 'audio.example.test') return { status: 204, responseText: '', contentType: 'text/plain; charset=utf-8' };
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
+}
+
+function mockBunproResponse(summary) {
+    if (summary.method !== 'POST' || summary.path !== '/api/frontend/search/reviewables_v1_1') return textResponse(404, 'unknown Bunpro endpoint');
+    return jsonHttpResponse(bunproSearchPayload());
+}
+
+function bunproSearchPayload() {
+    return {
+        grammar_points: { data: [] },
+        vocabs: { data: [{
+            id: '77',
+            type: 'vocab',
+            attributes: {
+                id: 77,
+                title: TERM,
+                kana: READING,
+                furigana: READING,
+                slug: TERM,
+                meaning: GLOSS,
+                nuance: 'Study again to strengthen memory',
+                nuance_translation: '記憶を強くするためにもう一度勉強する',
+                accepted_answers: ['to review'],
+                jmdict_pos: ['noun', 'suru verb'],
+                jlpt_level: 'n3',
+            },
+        }] },
+    };
 }
 
 function mockJpdbResponse(summary, request) {
@@ -593,8 +674,11 @@ function createSettings(overrides = {}) {
         interfaceLanguage: 'ja',
         apiKey: '',
         jitenApiKey: '',
+        bunproFrontendApiToken: '',
+        bunproFrontendApiTokenExpiresAt: '',
         jpdbDefinitionsEnabled: true,
         jitenDefinitionsEnabled: true,
+        bunproDefinitionsEnabled: true,
         jpdbMiningEnabled: false,
         localDictionariesEnabled: false,
         showPitchAccent: false,
@@ -619,8 +703,10 @@ function sourceStateSettings(settings) {
     return {
         apiKey: settings.apiKey,
         jitenApiKey: settings.jitenApiKey,
+        bunproFrontendApiToken: settings.bunproFrontendApiToken ? '[set]' : '',
         jpdbDefinitionsEnabled: settings.jpdbDefinitionsEnabled,
         jitenDefinitionsEnabled: settings.jitenDefinitionsEnabled,
+        bunproDefinitionsEnabled: settings.bunproDefinitionsEnabled,
         localDictionariesEnabled: settings.localDictionariesEnabled,
         newTabSource: settings.newTabSource,
         interfaceLanguage: settings.interfaceLanguage,
@@ -658,6 +744,7 @@ function normalizeKana(value) {
 function isMockedExternalUrl(url) {
     return url.host === 'api.jiten.moe'
         || url.host === 'jpdb.io'
+        || url.host === 'api.bunpro.jp'
         || url.host.endsWith('workers.dev')
         || url.host === 'audio.example.test';
 }

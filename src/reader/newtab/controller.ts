@@ -223,6 +223,7 @@ import {
     passingNewTabGrade,
     queueableNewTabReviewTargets,
     reviewTargetsForNewTabCard,
+    usesTwoButtonNewTabGradeScale,
     type NewTabGradeFailure,
     type NewTabReviewTarget,
     type QueuedNewTabGradeTarget,
@@ -445,7 +446,8 @@ export interface NewTabControllerDependencies {
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
-    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
+    hydrateBunproDefinitionInfo?: (card: JPDBCard) => Promise<import('../bunpro/definition').BunproDefinitionInfo | null>;
+    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null) => string;
     renderStudyDefinitionSources?: (card: JPDBCard, data: CardRenderData, sentence: string | undefined) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
     renderStudyWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
@@ -1118,7 +1120,7 @@ export class NewTabController {
     }
 
     lookupGradeOptions(card: JPDBCard): Array<[JPDBGrade, string]> {
-        return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings()) : [];
+        return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings(), card) : [];
     }
 
     lookupReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
@@ -1713,16 +1715,25 @@ export class NewTabController {
 
     private handleGradeShortcutKeydown(root: HTMLElement, event: KeyboardEvent, settings: ReaderSettings): void {
         if (!this.state.revealAnswer) return;
-        const candidates = settings.twoButtonReviews
+        const candidates = this.currentStudyUsesTwoButtonGradeScale(root, settings)
             ? TWO_BUTTON_REVIEW_SHORTCUTS
             : FIVE_BUTTON_REVIEW_SHORTCUTS;
         const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
         if (!grade) return;
-        const button = root.querySelector<HTMLButtonElement>(`[data-newtab-study] [data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
+        const button = root.querySelector<HTMLButtonElement>(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
         if (!button) return;
         event.preventDefault();
         this.dismissKeyHints(root);
         button.click();
+    }
+
+    private currentStudyUsesTwoButtonGradeScale(root: HTMLElement, settings: ReaderSettings): boolean {
+        if (usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index])) return true;
+        // The rendered controls are the authoritative interaction surface. A
+        // live queue refresh can replace the backing array while the revealed
+        // card is still on screen; keep keyboard/swipe input aligned with the
+        // visible Hard/Good row until that render is replaced.
+        return Boolean(root.querySelector('[data-newtab-study] [data-newtab-action="grade"][data-grade="pass"]'));
     }
 
     private canRevealFromEnterTarget(root: HTMLElement, target: HTMLElement | null): boolean {
@@ -2026,7 +2037,7 @@ export class NewTabController {
         // same drag walks the study steps instead of grading.
         if (this.canSwipeCurrentStudyCard()) {
             const settings = this.dependencies.getSettings();
-            const grade = newTabSwipeGrade(action, { twoButtonReviews: settings.twoButtonReviews });
+            const grade = newTabSwipeGrade(action, { twoButtonReviews: this.currentStudyUsesTwoButtonGradeScale(root, settings) });
             void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
             return;
         }
@@ -9239,6 +9250,15 @@ export class NewTabController {
                 wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails),
             };
             renderCurrentDetail();
+            if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+                void this.dependencies.hydrateBunproDefinitionInfo(card).then(info => {
+                    if (!info) return;
+                    renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
+                    renderCurrentDetail();
+                }).catch(error => {
+                    log.debug('Search Bunpro definition hydration failed', { term: card.spelling, error });
+                });
+            }
         }).catch(error => {
             log.warn('New tab search detail failed', { term: card.spelling }, error);
             if (existing.isConnected) replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searchLocalDictionariesFailed')));
@@ -9916,13 +9936,13 @@ export class NewTabController {
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
         const targetOptions = this.mainGradeTargetOptions(card);
         const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
-        const grades = newTabGradeOptions(this.dependencies.getSettings());
+        const grades = newTabGradeOptions(this.dependencies.getSettings(), card);
         const buttons = renderNewTabGradeControlButtons({
             apiShortLabel: this.apiGradeTargetShortLabel(card),
             bothLabel: this.text('gradeTargetBoth'),
             grades,
             intervals: card.reviewGradeIntervals,
-            keyHints: this.studyGradeShortcutHints(),
+            keyHints: this.studyGradeShortcutHints(card),
             showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
             selectorLabel: this.text('gradeTargetSelector'),
             selectedOption: targetOptions[0],
@@ -9995,9 +10015,9 @@ export class NewTabController {
             }));
     }
 
-    private studyGradeShortcutHints(): Partial<Record<JPDBGrade, string>> {
+    private studyGradeShortcutHints(card: JPDBCard): Partial<Record<JPDBGrade, string>> {
         const settings = this.dependencies.getSettings();
-        const candidates = settings.twoButtonReviews
+        const candidates = usesTwoButtonNewTabGradeScale(settings, card)
             ? TWO_BUTTON_REVIEW_SHORTCUTS
             : FIVE_BUTTON_REVIEW_SHORTCUTS;
         return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
@@ -11363,6 +11383,7 @@ function searchWordDetailFromRenderedData(data: CardRenderData): NewTabSearchWor
         ankiLookup: data.ankiLookup,
         jpdbVocabularyInfo: data.jpdbVocabularyInfo,
         jitenVocabularyInfo: data.jitenVocabularyInfo ?? null,
+        bunproDefinitionInfo: data.bunproDefinitionInfo ?? null,
     };
 }
 

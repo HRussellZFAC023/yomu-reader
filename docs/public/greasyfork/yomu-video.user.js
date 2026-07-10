@@ -1226,7 +1226,7 @@
     id: "bunpro",
     label: "Bunpro",
     urlTemplate: "https://bunpro.jp/search?query={query}",
-    enabled: false
+    enabled: true
   };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
@@ -1500,6 +1500,9 @@
     jitenDefinitionsEnabled: true,
     jitenDefinitionsAlias: "",
     jitenDefinitionsPriority: 0,
+    bunproDefinitionsEnabled: true,
+    bunproDefinitionsAlias: "",
+    bunproDefinitionsPriority: 2,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -3830,7 +3833,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -4671,6 +4674,8 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeHardLabel: "Hard",
+      bunproGradeGoodLabel: "Good",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -4874,6 +4879,7 @@
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
+      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and accepted answers.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -5191,6 +5197,8 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeHardLabel	難しい
+bunproGradeGoodLabel	良い
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -5570,7 +5578,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -6182,6 +6190,7 @@ importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います�
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
+sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、正解として認められる答えです。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。

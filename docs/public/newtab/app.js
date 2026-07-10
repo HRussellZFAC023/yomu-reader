@@ -84,6 +84,7 @@
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+  const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
   const ANKI_SOURCE_ID = "__anki__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
@@ -1394,7 +1395,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -2235,6 +2236,8 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeHardLabel: "Hard",
+      bunproGradeGoodLabel: "Good",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -2438,6 +2441,7 @@
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
+      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and accepted answers.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -2755,6 +2759,8 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeHardLabel	難しい
+bunproGradeGoodLabel	良い
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -3134,7 +3140,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -3746,6 +3752,7 @@ importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います�
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
+sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、正解として認められる答えです。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -6664,7 +6671,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hasOwn(value, key) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
   }
-  function objectRecord$2(value) {
+  function objectRecord$3(value) {
     return value && typeof value === "object" ? value : null;
   }
   function trimmedText(value) {
@@ -6723,7 +6730,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     id: "bunpro",
     label: "Bunpro",
     urlTemplate: "https://bunpro.jp/search?query={query}",
-    enabled: false
+    enabled: true
   };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
@@ -6843,7 +6850,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
   }
   function normalizeDictionaryPreference(item, index) {
-    const record = objectRecord$2(item);
+    const record = objectRecord$3(item);
     if (!record) return null;
     const name = stringValue$3(record.name);
     if (!name.trim()) return null;
@@ -6861,7 +6868,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -7237,15 +7244,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
     "jpdbDefinitionsEnabled",
-    "jitenDefinitionsEnabled"
+    "jitenDefinitionsEnabled",
+    "bunproDefinitionsEnabled"
   ];
   const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
-    jitenDefinitionsPriority: { min: 0, max: 999 }
+    jitenDefinitionsPriority: { min: 0, max: 999 },
+    bunproDefinitionsPriority: { min: 0, max: 999 }
   };
   const SOURCE_ALIAS_SETTING_KEYS = [
     "jpdbDefinitionsAlias",
     "jitenDefinitionsAlias",
+    "bunproDefinitionsAlias",
     "jpdbKanjiAlias",
     "kanjiImmersionKitAlias",
     "uchisenAlias",
@@ -7379,6 +7389,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     jitenDefinitionsEnabled: true,
     jitenDefinitionsAlias: "",
     jitenDefinitionsPriority: 0,
+    bunproDefinitionsEnabled: true,
+    bunproDefinitionsAlias: "",
+    bunproDefinitionsPriority: 2,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -7802,11 +7815,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeDefinitionSourcePrioritySettings(value) {
     const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-    return isLegacyDefaultDefinitionSourceOrder(value) ? {
+    const ordered = isLegacyDefaultDefinitionSourceOrder(value) ? {
       ...normalized,
       jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
       jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
     } : normalized;
+    if (!hasOwn(value, "bunproDefinitionsPriority")) {
+      ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
+    }
+    return ordered;
   }
   function normalizeSourceAliasSettings(value) {
     const aliases = {};
@@ -15490,19 +15507,19 @@ ${glossaryKey}`;
   function metaFrequencyDisplayValue(value) {
     const primitive = primitiveMetaValue(value);
     if (primitive !== null) return primitive;
-    const record = objectRecord$1(value);
+    const record = objectRecord$2(value);
     return record ? scalarMetaValue(nestedMetaValue(record)) : null;
   }
   function scalarMetaValue(value) {
     const primitive = primitiveMetaValue(value);
     if (primitive !== null) return primitive;
-    const record = objectRecord$1(value);
+    const record = objectRecord$2(value);
     return record ? scalarMetaValue(nestedMetaValue(record)) : null;
   }
   function primitiveMetaValue(value) {
     return typeof value === "number" || typeof value === "string" ? String(value) : null;
   }
-  function objectRecord$1(value) {
+  function objectRecord$2(value) {
     return value && typeof value === "object" ? value : null;
   }
   function nestedMetaValue(record) {
@@ -20605,6 +20622,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         help: uiText(language, "sourceHelpJpdb")
       },
       {
+        id: BUNPRO_DEFINITION_SOURCE_ID,
+        name: "Bunpro",
+        alias: settings.bunproDefinitionsAlias,
+        enabled: settings.bunproDefinitionsEnabled,
+        priority: settings.bunproDefinitionsPriority,
+        prefix: "bunproDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpBunpro")
+      },
+      {
         id: STUDY_TRANSLATION_SOURCE_ID,
         name: uiText(language, "sourceNameTranslation"),
         alias: settings.studyTranslationAlias,
@@ -20771,6 +20798,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
         name: "JPDB"
+      },
+      {
+        id: BUNPRO_DEFINITION_SOURCE_ID,
+        enabled: settings.bunproDefinitionsEnabled,
+        priority: settings.bunproDefinitionsPriority,
+        name: "Bunpro"
       },
       {
         id: ANKI_SOURCE_ID,
@@ -21792,10 +21825,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return stringValue$2(jisho?.meaning) || stringValue$2(kanjiAlive?.meaning);
   }
   function kanjiMapGrade(kanjiAlive, jisho) {
-    return normalizeGrade(stringValue$2(jisho?.taughtIn) || numberValue$1(kanjiAlive?.grade)) ?? "";
+    return normalizeGrade(stringValue$2(jisho?.taughtIn) || numberValue$2(kanjiAlive?.grade)) ?? "";
   }
   function kanjiMapStrokeCount(kanjiAlive, jisho) {
-    return numberValue$1(jisho?.strokeCount) ?? numberValue$1(kanjiAlive?.kstroke);
+    return numberValue$2(jisho?.strokeCount) ?? numberValue$2(kanjiAlive?.kstroke);
   }
   function readKanjiMapReadings(kanjiAlive, jisho) {
     return {
@@ -22140,7 +22173,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
   }
-  function numberValue$1(value) {
+  function numberValue$2(value) {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     const match = String(value ?? "").match(/\d+/);
     return match ? Number(match[0]) : void 0;
@@ -22473,14 +22506,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const readings2 = /* @__PURE__ */ new Set();
     for (const entry of entries2) {
       if (entry.mode !== "pitch") continue;
-      const record = objectRecord(entry.data);
+      const record = objectRecord$1(entry.data);
       const reading = typeof record?.reading === "string" ? kanaNormalized(record.reading) : "";
       if (reading) readings2.add(reading);
     }
     return [...readings2];
   }
   function readPitchCandidates(value, reading, ignoreReadingMismatch) {
-    const record = objectRecord(value);
+    const record = objectRecord$1(value);
     if (!record) {
       const candidate = pitchCandidateFromValue(value);
       return candidate == null ? [] : [candidate];
@@ -22524,7 +22557,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function validPitchPosition(value) {
     return Number.isInteger(value) && value >= 0 ? value : null;
   }
-  function objectRecord(value) {
+  function objectRecord$1(value) {
     return value && typeof value === "object" ? value : null;
   }
   const MAX_PITCH_VARIANTS = 3;
@@ -31563,14 +31596,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     `;
   }
   function renderLocalTermHead(group, reference) {
-    if (repeatsLookupHeadword(group, reference)) return "";
+    if (repeatsLookupHeadword$1(group, reference)) return "";
     return `<div class="jpdb-reader-local-head">
         <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
         ${renderLocalTermReading(group)}
         ${renderLocalTermFrequency(group)}
     </div>`;
   }
-  function repeatsLookupHeadword(group, reference) {
+  function repeatsLookupHeadword$1(group, reference) {
     if (!matchesLookupExpression(group, reference)) return false;
     return matchesLookupReading(group, reference);
   }
@@ -40188,7 +40221,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.116".trim() ? "1.6.116".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.117".trim() ? "1.6.117".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40620,7 +40653,8 @@ ${spelling}`);
     const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode === "auto" ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
     const apiDefinitionRowsPresent = {
       jpdb: hasSourceRow(has, "jpdbDefinitions"),
-      jiten: hasSourceRow(has, "jitenDefinitions")
+      jiten: hasSourceRow(has, "jitenDefinitions"),
+      bunpro: hasSourceRow(has, "bunproDefinitions")
     };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
@@ -40628,6 +40662,10 @@ ${spelling}`);
     const settings = {
       ...current,
       ...apiCredentials,
+      // The deprecated key is no longer shown because Bunpro's full Yomu
+      // integration uses only the frontend token. Preserve an older saved
+      // value so opening Settings does not silently destroy user data.
+      bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
       ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
       ...readKanjiAddonFormSettings(reader, current),
@@ -40682,6 +40720,9 @@ ${spelling}`);
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
       jitenDefinitionsAlias: readSourceAlias(reader, "jitenDefinitions", current.jitenDefinitionsAlias),
       jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
+      bunproDefinitionsEnabled: rowsPresent.bunpro ? has("bunproDefinitions.enabled") : current.bunproDefinitionsEnabled,
+      bunproDefinitionsAlias: readSourceAlias(reader, "bunproDefinitions", current.bunproDefinitionsAlias),
+      bunproDefinitionsPriority: clamped("bunproDefinitions.priority", 0, 999, current.bunproDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
       jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
@@ -41136,6 +41177,7 @@ ${spelling}`);
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
     __jiten__: { helpKey: "sourceHelpJiten" },
+    __bunpro__: { helpKey: "sourceHelpBunpro" },
     __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
     __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
     __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
@@ -42526,11 +42568,10 @@ ${spelling}`);
                     <div class="grid">
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
-                        ${input("apiCredentialBunproLegacy", `Bunpro API key <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproApiKey, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
@@ -62267,7 +62308,7 @@ ${spelling}`);
       const view = this.renderView(card, data);
       const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
       const expressionComponents = this.renderExpressionComponents(data, view);
-      const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
+      const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
         [ANKI_SOURCE_ID]: ankiSourceSection
       });
       const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes("jpdb-reader-anki-existing") ? ankiSourceSection : "";
@@ -62544,23 +62585,26 @@ ${spelling}`);
     }
     renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
       const settings = this.settings();
-      const grades = reviewButtonGrades(settings);
       const selected = targets[0];
-      if (!selected || !grades.length) return "";
+      if (!selected) return "";
+      const standardGrades = reviewButtonGrades(settings);
+      const bunproGrades = [
+        ["fail", uiText(language, "bunproGradeHardLabel")],
+        ["pass", uiText(language, "bunproGradeGoodLabel")]
+      ];
+      const hasBunpro = targets.some((target) => target.kind === "bunpro");
+      const hasStandard = targets.some((target) => target.kind !== "bunpro");
+      const gradeRows = [
+        hasStandard ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.kind === "bunpro") : "",
+        hasBunpro ? renderTargetedGradeRow(bunproGrades, selected, "bunpro", selected.kind !== "bunpro") : ""
+      ].filter(Boolean).join("");
+      if (!gradeRows) return "";
       const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
       const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
-      const targetLabel = renderReviewTargetLabel(selected);
-      const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
             ${targetGutter}
             ${selector}
-            <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row>
-                ${targetLabel}
-                ${grades.map(([grade, label]) => {
-        const title = selected.label ? ` title="${escapeHtml$1(selected.label)}" aria-label="${escapeHtml$1(`${label}: ${selected.label}`)}"` : "";
-        return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$1(label)}</button>`;
-      }).join("")}
-            </div>
+            ${gradeRows}
         `;
     }
     renderMetaItems(card, provider, state2, data) {
@@ -62593,7 +62637,7 @@ ${spelling}`);
     }
   }
   function updatePopoverReviewTargetSelection(select2) {
-    const option = select2.selectedOptions[0] ?? null;
+    const option = select2.options[select2.selectedIndex] ?? null;
     if (!option) return;
     const actions = select2.closest(".jpdb-reader-actions");
     if (!actions) return;
@@ -62605,6 +62649,9 @@ ${spelling}`);
     if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector("[data-review-target-label] [data-newtab-grade-target-text]");
     if (labelText) labelText.textContent = label;
+    actions.querySelectorAll("[data-review-grade-profile]").forEach((row) => {
+      row.hidden = row.dataset.reviewGradeProfile === "bunpro" ? target !== "bunpro" : target === "bunpro";
+    });
     actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button) => {
       button.dataset.reviewTarget = target;
       button.dataset.newtabReviewTarget = target;
@@ -62619,6 +62666,17 @@ ${spelling}`);
         button.removeAttribute("aria-label");
       }
     });
+  }
+  function renderTargetedGradeRow(grades, selected, profile, hidden) {
+    const targetLabel = renderReviewTargetLabel(selected);
+    const targetAttrs = reviewTargetButtonAttrs(selected);
+    return `<div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row data-review-grade-profile="${profile}"${hidden ? " hidden" : ""}>
+        ${targetLabel}
+        ${grades.map(([grade, label]) => {
+      const title = selected.label ? ` title="${escapeHtml$1(selected.label)}" aria-label="${escapeHtml$1(`${label}: ${selected.label}`)}"` : "";
+      return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$1(label)}</button>`;
+    }).join("")}
+    </div>`;
   }
   function togglePopoverReviewTargetSelection(button) {
     const select2 = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
@@ -62851,12 +62909,98 @@ ${component.reading}`;
       Audio: card.ankiAudioFilenames?.map((filename) => `[sound:${filename}]`).join(" ") ?? ""
     };
   }
+  async function lookupBunproDefinition(client, card) {
+    const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
+    return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading);
+  }
+  function normalizeBunproDefinitionSearch(raw, expression, reading = "") {
+    const candidates = [
+      ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
+      ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
+    ].filter((item) => item !== null);
+    if (!candidates.length) return null;
+    const exactExpression = candidates.filter((item) => item.expression === expression);
+    if (reading) {
+      const exactReading = exactExpression.find((item) => item.reading === reading);
+      if (exactReading) return exactReading;
+    }
+    return exactExpression[0] ?? candidates[0] ?? null;
+  }
+  function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
+    if (!info) return "";
+    const details = [
+      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel.toUpperCase())}</span>` : "",
+      ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`)
+    ].filter(Boolean).join("");
+    const accepted = info.acceptedAnswers.filter((answer) => answer !== info.expression && answer !== info.reading).slice(0, 8);
+    const acceptedLabel = language === "ja" ? "正解として認められる答え" : "Accepted answers";
+    const nuanceLabel = language === "ja" ? "ニュアンス" : "Nuance";
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+            <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+                ${repeatsLookupHeadword(card, info) ? "" : `<div class="jpdb-reader-local-head"><span class="jpdb-reader-local-expression">${escapeHtml$1(info.expression)}</span>${info.reading && info.reading !== info.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(info.reading)}</span>` : ""}</div>`}
+                ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
+                ${info.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(info.meaning)}</span></div></div>` : ""}
+                ${info.nuance ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong><div>${escapeHtml$1(info.nuance)}</div>${info.nuanceTranslation ? `<div>${escapeHtml$1(info.nuanceTranslation)}</div>` : ""}</div>` : ""}
+                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(acceptedLabel)}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
+                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="${escapeHtml$1(info.sourceUrl)}" target="_blank" rel="noopener">Bunpro ↗</a>
+            </article>
+        </details>
+    `;
+  }
+  function definitionInfo(value, kind) {
+    const record = objectRecord(value);
+    const attributes = objectRecord(record?.attributes) ?? record;
+    if (!attributes) return null;
+    const id = numberValue$1(attributes.id ?? record?.id);
+    const expression = textValue(attributes.title ?? attributes.grammar_point ?? attributes.word);
+    if (!id || !expression) return null;
+    const reading = textValue(attributes.kana ?? attributes.furigana ?? attributes.reading) || expression;
+    const slug = textValue(attributes.slug) || expression;
+    return {
+      id,
+      kind,
+      expression,
+      reading,
+      meaning: textValue(attributes.meaning),
+      nuance: textValue(attributes.nuance),
+      nuanceTranslation: textValue(attributes.nuance_translation),
+      acceptedAnswers: textList(attributes.accepted_answers),
+      partOfSpeech: textList(attributes.jmdict_pos),
+      jlptLevel: textValue(attributes.jlpt_level),
+      sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`
+    };
+  }
+  function searchItems(raw, key) {
+    const section = objectRecord(objectRecord(raw)?.[key]);
+    return Array.isArray(section?.data) ? section.data : [];
+  }
+  function repeatsLookupHeadword(card, info) {
+    return info.expression === card.spelling && (!card.reading || info.reading === card.reading || info.reading === info.expression);
+  }
+  function textList(value) {
+    if (Array.isArray(value)) return value.map(textValue).filter(Boolean);
+    const text2 = textValue(value);
+    return text2 ? text2.split(/[;,]\s*/u).map((item) => item.trim()).filter(Boolean) : [];
+  }
+  function textValue(value) {
+    return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
+  }
+  function numberValue$1(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? number : 0;
+  }
+  function objectRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
   const log$d = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
   const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4e3;
   const CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS = 4e3;
+  const CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS = 4e3;
   const CARD_RENDER_ANKI_TIMEOUT_MS = 4e3;
   const CARD_RENDER_DECK_TIMEOUT_MS = 1500;
   const CARD_RENDER_DECK_POOL_TIMEOUT_MS = 4e3;
@@ -62866,7 +63010,7 @@ ${component.reading}`;
   const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
   const CARD_RENDER_META_LOOKUP_LIMIT = 12;
   const EXPRESSION_CONNECTIVE_KANA = /* @__PURE__ */ new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
-  function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null) {
+  function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null) {
     return {
       localEntries,
       kanjiEntries: [],
@@ -62877,6 +63021,7 @@ ${component.reading}`;
       ankiDecks: [],
       jpdbVocabularyInfo,
       jitenVocabularyInfo,
+      bunproDefinitionInfo,
       expressionComponents: [],
       loading: true
     };
@@ -62929,6 +63074,14 @@ ${component.reading}`;
       const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
       const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
       const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+      const bunproDefinitionLookup = this.lookupBunproDefinitionInfo(card);
+      const bunproDefinitionInfo = this.withFallback(
+        card,
+        CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
+        "Bunpro definition",
+        bunproDefinitionLookup,
+        null
+      );
       const expressionComponents = this.withFallback(
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
@@ -62946,10 +63099,22 @@ ${component.reading}`;
       void pitchAccent.catch(() => void 0);
       void jpdbDeckMembership.catch(() => void 0);
       void jitenVocabularyInfo.catch(() => void 0);
+      void bunproDefinitionInfo.catch(() => void 0);
       void expressionComponents.catch(() => void 0);
       void componentPitches.catch(() => void 0);
-      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, expressionComponents, componentPitches);
-      return { localEntries, localMetaEntries, pitchAccent, ankiLookup: fastAnkiLookup, hydrateAnkiLookup, jpdbVocabularyInfo, jitenVocabularyInfo, all };
+      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches);
+      return {
+        localEntries,
+        localMetaEntries,
+        pitchAccent,
+        ankiLookup: fastAnkiLookup,
+        hydrateAnkiLookup,
+        jpdbVocabularyInfo,
+        jitenVocabularyInfo,
+        bunproDefinitionInfo,
+        hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
+        all
+      };
     }
     withFallback(card, timeoutMs, detail, promise, fallback) {
       return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
@@ -63019,6 +63184,14 @@ ${component.reading}`;
         return null;
       }), null);
     }
+    lookupBunproDefinitionInfo(card) {
+      const settings = this.settings();
+      if (!settings.bunproDefinitionsEnabled || !this.dependencies.bunpro || !hasBunproFrontendCredential(settings) || isBunproFrontendCredentialExpired(settings)) return Promise.resolve(null);
+      return lookupBunproDefinition(this.dependencies.bunpro, card).catch((error) => {
+        log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+        return null;
+      });
+    }
     loadFastAnkiLookup(card) {
       if (!shouldLookupAnkiStatus(this.settings())) return Promise.resolve(emptyAnkiLookupResult());
       const fallback = sourceCardAnkiLookupOrEmpty(card);
@@ -63085,7 +63258,7 @@ ${component.reading}`;
         return false;
       }), false);
     }
-    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, expressionComponents, componentPitches) {
+    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches) {
       const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
       const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
       return Promise.all([
@@ -63099,12 +63272,13 @@ ${component.reading}`;
         jpdbDeckMembership,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        bunproDefinitionInfo,
         expressionComponents.catch(() => []),
         componentPitches.catch(() => []),
         ankiFieldTargetPlan
-      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
+      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
+        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
     async loadExpressionComponents(card, localEntries) {
@@ -63243,9 +63417,11 @@ ${component.reading}`;
         ankiMobileHandoff: settings.ankiMobileHandoff,
         jpdbDefinitions: settings.jpdbDefinitionsEnabled,
         jitenDefinitions: settings.jitenDefinitionsEnabled,
+        bunproDefinitions: settings.bunproDefinitionsEnabled,
         apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
+        hasBunproToken: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
         dictionaries: settings.dictionaryPreferences.map((preference) => ({
           name: preference.name,
           enabled: preference.enabled,
@@ -63932,10 +64108,11 @@ ${component.reading}`;
   function definitionSourceStateKey(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeStudySources", "includeImmersionSource"];
+  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeBunproSource", "includeStudySources", "includeImmersionSource"];
   const CORE_DEFINITION_SOURCE_RENDERERS = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
+    [BUNPRO_DEFINITION_SOURCE_ID]: renderBunproDefinitionSourceSection,
     [ANKI_SOURCE_ID]: renderAnkiDefinitionSourceSection,
     [STUDY_TRANSLATION_SOURCE_ID]: renderTranslationDefinitionSourceSection,
     [STUDY_GRAMMAR_SOURCE_ID]: renderGrammarDefinitionSourceSection,
@@ -63974,10 +64151,12 @@ ${component.reading}`;
       // default. Callers can still force it on with an explicit option.
       includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
       includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
+      includeBunproSource: options.includeBunproSource ?? true,
       includeStudySources: options.includeStudySources ?? true,
       includeImmersionSource: options.includeImmersionSource ?? true,
       jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
-      jitenVocabularyInfo: params.jitenVocabularyInfo ?? null
+      jitenVocabularyInfo: params.jitenVocabularyInfo ?? null,
+      bunproDefinitionInfo: params.bunproDefinitionInfo ?? null
     };
   }
   function normalizedDefinitionSourceStackOptions(params) {
@@ -64032,6 +64211,16 @@ ${component.reading}`;
       context.jitenVocabularyInfo,
       params.jpdbLanguage ?? params.settings.interfaceLanguage,
       definitionSourceLabel(params.settings, JITEN_DEFINITION_SOURCE_ID, "Jiten")
+    );
+  }
+  function renderBunproDefinitionSourceSection(context, params) {
+    if (!context.includeBunproSource) return "";
+    return renderBunproDefinitionSource(
+      context.card,
+      params.sourceAttributes,
+      context.bunproDefinitionInfo,
+      params.jpdbLanguage ?? params.settings.interfaceLanguage,
+      definitionSourceLabel(params.settings, BUNPRO_DEFINITION_SOURCE_ID, "Bunpro")
     );
   }
   function renderAnkiDefinitionSourceSection(context) {
@@ -72017,7 +72206,19 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function passingNewTabGrade(grade) {
     return grade === "pass" || grade === "easy" || grade === "okay";
   }
-  function newTabGradeOptions(settings) {
+  function usesBunproGradeScale(card) {
+    return card?.source === "bunpro" || card?.reviewSource === "bunpro-api";
+  }
+  function usesTwoButtonNewTabGradeScale(settings, card) {
+    return settings.twoButtonReviews || usesBunproGradeScale(card);
+  }
+  function newTabGradeOptions(settings, card) {
+    if (usesBunproGradeScale(card)) {
+      return [
+        ["fail", uiText(settings.interfaceLanguage, "bunproGradeHardLabel")],
+        ["pass", uiText(settings.interfaceLanguage, "bunproGradeGoodLabel")]
+      ];
+    }
     return settings.twoButtonReviews ? [["fail", uiText(settings.interfaceLanguage, "gradeFailLabel")], ["pass", uiText(settings.interfaceLanguage, "gradePassLabel")]] : [
       ["nothing", uiText(settings.interfaceLanguage, "gradeNothingLabel")],
       ["something", uiText(settings.interfaceLanguage, "gradeSomethingLabel")],
@@ -72421,7 +72622,7 @@ ${newTabCardReading(card)}`;
   }
   function searchWordDefinitionsHtml(card, detail, context) {
     if (detail.loading) return "";
-    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null) ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
+    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null, detail.bunproDefinitionInfo ?? null) ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
   }
   function searchWordLoadingHtml(detail, context) {
     if (!detail.loading) return "";
@@ -76501,7 +76702,7 @@ ${entry.url}`),
       await this.loadWordsInto(root, true);
     }
     lookupGradeOptions(card) {
-      return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings()) : [];
+      return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings(), card) : [];
     }
     lookupReviewTargets(card, data) {
       if (!this.isCurrentLookupGradeCard(card)) return [];
@@ -77049,14 +77250,18 @@ ${entry.url}`),
     }
     handleGradeShortcutKeydown(root, event, settings) {
       if (!this.state.revealAnswer) return;
-      const candidates = settings.twoButtonReviews ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      const candidates = this.currentStudyUsesTwoButtonGradeScale(root, settings) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
       if (!grade) return;
-      const button = root.querySelector(`[data-newtab-study] [data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
+      const button = root.querySelector(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
       if (!button) return;
       event.preventDefault();
       this.dismissKeyHints(root);
       button.click();
+    }
+    currentStudyUsesTwoButtonGradeScale(root, settings) {
+      if (usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index])) return true;
+      return Boolean(root.querySelector('[data-newtab-study] [data-newtab-action="grade"][data-grade="pass"]'));
     }
     canRevealFromEnterTarget(root, target) {
       if (!target) return true;
@@ -77326,7 +77531,7 @@ ${entry.url}`),
     handleNewTabSwipe(root, action, direction) {
       if (this.canSwipeCurrentStudyCard()) {
         const settings = this.dependencies.getSettings();
-        const grade = newTabSwipeGrade(action, { twoButtonReviews: settings.twoButtonReviews });
+        const grade = newTabSwipeGrade(action, { twoButtonReviews: this.currentStudyUsesTwoButtonGradeScale(root, settings) });
         void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
         return;
       }
@@ -83410,6 +83615,15 @@ ${entry.url}`),
           wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails)
         };
         renderCurrentDetail();
+        if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+          void this.dependencies.hydrateBunproDefinitionInfo(card).then((info) => {
+            if (!info) return;
+            renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
+            renderCurrentDetail();
+          }).catch((error) => {
+            log$2.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+          });
+        }
       }).catch((error) => {
         log$2.warn("New tab search detail failed", { term: card.spelling }, error);
         if (existing.isConnected) replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.text("searchLocalDictionariesFailed")));
@@ -84048,13 +84262,13 @@ ${entry.url}`),
     gradeControlButtons(card) {
       const targetOptions = this.mainGradeTargetOptions(card);
       const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
-      const grades = newTabGradeOptions(this.dependencies.getSettings());
+      const grades = newTabGradeOptions(this.dependencies.getSettings(), card);
       const buttons = renderNewTabGradeControlButtons({
         apiShortLabel: this.apiGradeTargetShortLabel(card),
         bothLabel: this.text("gradeTargetBoth"),
         grades,
         intervals: card.reviewGradeIntervals,
-        keyHints: this.studyGradeShortcutHints(),
+        keyHints: this.studyGradeShortcutHints(card),
         showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
         selectorLabel: this.text("gradeTargetSelector"),
         selectedOption: targetOptions[0],
@@ -84120,9 +84334,9 @@ ${entry.url}`),
         })
       );
     }
-    studyGradeShortcutHints() {
+    studyGradeShortcutHints(card) {
       const settings = this.dependencies.getSettings();
-      const candidates = settings.twoButtonReviews ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      const candidates = usesTwoButtonNewTabGradeScale(settings, card) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
     }
     studyShortcutHint(names) {
@@ -85294,7 +85508,8 @@ ${entry.url}`),
       metaEntries: data.metaEntries,
       ankiLookup: data.ankiLookup,
       jpdbVocabularyInfo: data.jpdbVocabularyInfo,
-      jitenVocabularyInfo: data.jitenVocabularyInfo ?? null
+      jitenVocabularyInfo: data.jitenVocabularyInfo ?? null,
+      bunproDefinitionInfo: data.bunproDefinitionInfo ?? null
     };
   }
   function ankiAudioFilenamesFromFields(fields) {
@@ -87529,6 +87744,7 @@ ${entry.url}`),
       anki: this.anki,
       jpdb: this.jpdb,
       jiten: this.jiten,
+      bunpro: this.bunpro,
       isJpdbBackedCard: (card) => this.parser.isJpdbBackedCard(card)
     });
     lookupPopoverRenderer = new CardPopoverRenderer({
@@ -87546,7 +87762,7 @@ ${entry.url}`),
         isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)
       }),
-      renderDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections),
+      renderDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
       dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
       dictionaryLabel: (name) => this.dictionaryLabel(name),
       renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data)
@@ -87856,7 +88072,8 @@ ${entry.url}`),
           userGesture: options?.userGesture
         }),
         loadCardRenderData: (card) => this.cardRenderData.load(card).all,
-        renderSearchDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, { includeStudySources: false }),
+        hydrateBunproDefinitionInfo: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
+        renderSearchDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
         renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
           card,
           jpdbUrl: jpdbVocabularyUrl$1(card),
@@ -87877,7 +88094,7 @@ ${entry.url}`),
         }),
         installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
         lookupStudyCard: (term, reading) => this.lookupCard(term, reading ?? ""),
-        renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
+        renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
           includeStudySources: false,
           includeImmersionSource: false
         }),
@@ -88959,7 +89176,7 @@ ${entry.url}`),
     syncLookupPopoverFixedHeight() {
       syncFixedPopoverHeight(this.activeLookupPopover, this.shouldUseFixedLookupHeight());
     }
-    renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo = null, jitenVocabularyInfo = null, extraSectionsOrOptions = {}) {
+    renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, extraSectionsOrOptions = {}) {
       return renderDefinitionSourcesStack({
         card,
         entries: entries2,
@@ -88970,6 +89187,7 @@ ${entry.url}`),
         sentence,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        bunproDefinitionInfo,
         extraSectionsOrOptions,
         optionKeys: ["includeStudySources", "includeImmersionSource"],
         renderTranslationSource: (renderSentence2) => this.studySources.renderTranslationSource(renderSentence2),

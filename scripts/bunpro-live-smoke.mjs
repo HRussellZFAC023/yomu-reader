@@ -12,6 +12,7 @@ loadLocalEnv(ROOT);
 const frontendToken = process.env.YOMU_BUNPRO_FRONTEND_API_TOKEN?.trim() ?? '';
 const frontendTokenExpiresAt = process.env.YOMU_BUNPRO_FRONTEND_API_TOKEN_EXPIRES_AT?.trim() ?? '';
 const legacyApiKey = process.env.YOMU_BUNPRO_API_KEY?.trim() ?? '';
+const liveGrade = process.env.YOMU_BUNPRO_LIVE_GRADE?.trim().toLowerCase() ?? '';
 
 if (!frontendToken) {
     console.error('Bunpro live smoke needs YOMU_BUNPRO_FRONTEND_API_TOKEN in the environment or local .env.');
@@ -33,7 +34,7 @@ if (frontendTokenExpiresAt) {
 const [user, due, queue, baseStats, search, legacyQueue] = await Promise.all([
     frontendGet('/user'),
     frontendGet('/user/due'),
-    frontendGet('/user/queue'),
+    frontendGet('/reviews/quiz_index'),
     frontendGet('/user_stats/base_stats'),
     frontendPost('/search/reviewables_v1_1', {
         query: '読む',
@@ -49,6 +50,8 @@ const [user, due, queue, baseStats, search, legacyQueue] = await Promise.all([
     legacyApiKey ? legacyGet('/study_queue').catch(error => ({ error: publicError(error) })) : Promise.resolve({ skipped: true }),
 ]);
 
+const grade = liveGrade ? await gradeOneQueueItem(queue, liveGrade) : { skipped: true };
+
 const summary = {
     ok: true,
     user: summarizeUser(user),
@@ -56,6 +59,7 @@ const summary = {
     queue: summarizeCollection(queue),
     baseStats: summarizeObject(baseStats),
     search: summarizeSearch(search),
+    grade,
     legacyQueue: summarizeLegacyQueue(legacyQueue),
 };
 
@@ -78,6 +82,26 @@ async function frontendPost(pathname, body) {
         headers: frontendHeaders(),
         body: JSON.stringify(body),
     }, pathname);
+}
+
+async function gradeOneQueueItem(queue, requestedGrade) {
+    if (requestedGrade !== 'pass' && requestedGrade !== 'fail') {
+        throw new Error('YOMU_BUNPRO_LIVE_GRADE must be pass (Good) or fail (Hard).');
+    }
+    const entry = queue?.pending_attempt?.[0];
+    const reviewId = entry?.data?.id ?? entry?.data?.attributes?.id;
+    if (!reviewId) return { skipped: true, reason: 'no pending review' };
+    const correct = requestedGrade === 'pass';
+    const response = await frontendPost(`/reviews/${encodeURIComponent(String(reviewId))}/update`, {
+        grade: requestedGrade,
+        rating: correct ? 3 : 1,
+        correct,
+    });
+    return {
+        ok: true,
+        outcome: correct ? 'Good' : 'Hard',
+        responseKeys: objectKeys(response),
+    };
 }
 
 async function legacyGet(pathname) {
@@ -122,7 +146,7 @@ function summarizeDue(value) {
 }
 
 function summarizeCollection(value) {
-    const items = collectionItems(value);
+    const items = [...(value?.pending_attempt ?? []), ...(value?.pending_wrapup ?? [])];
     return {
         keys: objectKeys(value),
         count: items.length,
@@ -138,10 +162,15 @@ function summarizeObject(value) {
 }
 
 function summarizeSearch(value) {
+    const vocab = collectionItems(value?.vocabs);
+    const sample = vocab[0]?.attributes ?? vocab[0] ?? {};
     return {
         keys: objectKeys(value),
         vocabCount: collectionItems(value?.vocabs).length,
         grammarCount: collectionItems(value?.grammar_points).length,
+        sampleHasMeaning: Boolean(sample.meaning),
+        sampleHasReading: Boolean(sample.kana || sample.furigana || sample.reading),
+        sampleHasNuance: Boolean(sample.nuance || sample.nuance_translation),
     };
 }
 

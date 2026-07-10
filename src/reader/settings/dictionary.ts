@@ -57,7 +57,7 @@ const BUNPRO_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'bunpro',
     label: 'Bunpro',
     urlTemplate: 'https://bunpro.jp/search?query={query}',
-    enabled: false,
+    enabled: true,
 };
 
 const WEBLIO_LOOKUP_LINK: DictionaryLookupLink = {
@@ -219,7 +219,7 @@ export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): 
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
         priority: index,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' : link.enabled,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'bunpro' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' : link.enabled,
     }));
 }
 

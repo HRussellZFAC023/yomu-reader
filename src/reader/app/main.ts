@@ -6,7 +6,7 @@ import { runLimited } from '../core/async-utils';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, popoverUsesBunproGradeScale, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
@@ -651,6 +651,7 @@ export class ReaderApp {
         anki: this.anki,
         jpdb: this.jpdb,
         jiten: this.jiten,
+        bunpro: this.bunpro,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
     });
     private navigation = new PopupNavigationController(() => Boolean(
@@ -675,7 +676,7 @@ export class ReaderApp {
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
-        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
     });
@@ -1679,6 +1680,7 @@ export class ReaderApp {
             target.examples[0]?.sentence,
             data?.jpdbVocabularyInfo ?? null,
             data?.jitenVocabularyInfo ?? null,
+            data?.bunproDefinitionInfo ?? null,
         );
         if (!this.updateJpdbPageAddonHtml(root, html)) return;
         this.installJpdbPageAddonHandlers(root, card);
@@ -3105,7 +3107,7 @@ export class ReaderApp {
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
         if (!this.settings.enableReviews) return null;
-        const shortcuts = this.settings.twoButtonReviews
+        const shortcuts = this.settings.twoButtonReviews || popoverUsesBunproGradeScale(this.activePopover)
             ? TWO_BUTTON_REVIEW_SHORTCUTS
             : FIVE_BUTTON_REVIEW_SHORTCUTS;
         return matchedReviewShortcutGrade(event, this.settings.shortcuts, shortcuts);
@@ -6910,6 +6912,7 @@ export class ReaderApp {
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
         jitenVocabularyInfo: JitenVocabularyInfo | null = null,
+        bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null = null,
         extraSectionsOrOptions: Record<string, string> | DefinitionSourceStackOptions = {},
     ): string {
         return renderDefinitionSourcesStack({
@@ -6922,6 +6925,7 @@ export class ReaderApp {
             sentence,
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
+            bunproDefinitionInfo,
             extraSectionsOrOptions,
             jpdbLanguage: this.settings.interfaceLanguage,
             renderTranslationSource: renderSentence => this.studySources.renderTranslationSource(renderSentence),

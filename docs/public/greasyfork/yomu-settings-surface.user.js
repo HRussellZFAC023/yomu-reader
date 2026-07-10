@@ -83,6 +83,7 @@
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+  const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
   const ANKI_SOURCE_ID = "__anki__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
@@ -1750,7 +1751,7 @@
     id: "bunpro",
     label: "Bunpro",
     urlTemplate: "https://bunpro.jp/search?query={query}",
-    enabled: false
+    enabled: true
   };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
@@ -1888,7 +1889,7 @@
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -2237,15 +2238,18 @@
   ];
   const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
     "jpdbDefinitionsEnabled",
-    "jitenDefinitionsEnabled"
+    "jitenDefinitionsEnabled",
+    "bunproDefinitionsEnabled"
   ];
   const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
-    jitenDefinitionsPriority: { min: 0, max: 999 }
+    jitenDefinitionsPriority: { min: 0, max: 999 },
+    bunproDefinitionsPriority: { min: 0, max: 999 }
   };
   const SOURCE_ALIAS_SETTING_KEYS = [
     "jpdbDefinitionsAlias",
     "jitenDefinitionsAlias",
+    "bunproDefinitionsAlias",
     "jpdbKanjiAlias",
     "kanjiImmersionKitAlias",
     "uchisenAlias",
@@ -2379,6 +2383,9 @@
     jitenDefinitionsEnabled: true,
     jitenDefinitionsAlias: "",
     jitenDefinitionsPriority: 0,
+    bunproDefinitionsEnabled: true,
+    bunproDefinitionsAlias: "",
+    bunproDefinitionsPriority: 2,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -2802,11 +2809,15 @@
   }
   function normalizeDefinitionSourcePrioritySettings(value) {
     const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-    return isLegacyDefaultDefinitionSourceOrder(value) ? {
+    const ordered = isLegacyDefaultDefinitionSourceOrder(value) ? {
       ...normalized,
       jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
       jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
     } : normalized;
+    if (!hasOwn(value, "bunproDefinitionsPriority")) {
+      ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
+    }
+    return ordered;
   }
   function normalizeSourceAliasSettings(value) {
     const aliases = {};
@@ -4144,7 +4155,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -4985,6 +4996,8 @@
       gradeNothingLabel: "Nothing",
       gradeSomethingLabel: "Something",
       gradeHardLabel: "Hard",
+      bunproGradeHardLabel: "Hard",
+      bunproGradeGoodLabel: "Good",
       gradeOkayLabel: "Okay",
       gradeEasyLabel: "Easy",
       gradeFailLabel: "Fail",
@@ -5188,6 +5201,7 @@
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
+      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and accepted answers.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -5505,6 +5519,8 @@ ankiLapsePlural	回失敗
 gradeNothingLabel	全然
 gradeSomethingLabel	少し
 gradeHardLabel	難しい
+bunproGradeHardLabel	難しい
+bunproGradeGoodLabel	良い
 gradeOkayLabel	OK
 gradeEasyLabel	簡単
 gradeFailLabel	失敗
@@ -5884,7 +5900,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。ログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -6496,6 +6512,7 @@ importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います�
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
+sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、正解として認められる答えです。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -7284,7 +7301,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode === "auto" ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
     const apiDefinitionRowsPresent = {
       jpdb: hasSourceRow(has, "jpdbDefinitions"),
-      jiten: hasSourceRow(has, "jitenDefinitions")
+      jiten: hasSourceRow(has, "jitenDefinitions"),
+      bunpro: hasSourceRow(has, "bunproDefinitions")
     };
     const dictionaryPreferences = readDictionaryPreferences$1(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
@@ -7292,6 +7310,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const settings = {
       ...current,
       ...apiCredentials,
+      // The deprecated key is no longer shown because Bunpro's full Yomu
+      // integration uses only the frontend token. Preserve an older saved
+      // value so opening Settings does not silently destroy user data.
+      bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
       ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
       ...readKanjiAddonFormSettings(reader, current),
@@ -7346,6 +7368,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
       jitenDefinitionsAlias: readSourceAlias(reader, "jitenDefinitions", current.jitenDefinitionsAlias),
       jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
+      bunproDefinitionsEnabled: rowsPresent.bunpro ? has("bunproDefinitions.enabled") : current.bunproDefinitionsEnabled,
+      bunproDefinitionsAlias: readSourceAlias(reader, "bunproDefinitions", current.bunproDefinitionsAlias),
+      bunproDefinitionsPriority: clamped("bunproDefinitions.priority", 0, 999, current.bunproDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
       jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
@@ -7800,6 +7825,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
     __jiten__: { helpKey: "sourceHelpJiten" },
+    __bunpro__: { helpKey: "sourceHelpBunpro" },
     __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
     __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
     __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
@@ -9010,6 +9036,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         help: uiText(language, "sourceHelpJpdb")
       },
       {
+        id: BUNPRO_DEFINITION_SOURCE_ID,
+        name: "Bunpro",
+        alias: settings.bunproDefinitionsAlias,
+        enabled: settings.bunproDefinitionsEnabled,
+        priority: settings.bunproDefinitionsPriority,
+        prefix: "bunproDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpBunpro")
+      },
+      {
         id: STUDY_TRANSLATION_SOURCE_ID,
         name: uiText(language, "sourceNameTranslation"),
         alias: settings.studyTranslationAlias,
@@ -9392,11 +9428,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     <div class="grid">
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
-                        ${input("apiCredentialBunproLegacy", `Bunpro API key <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproApiKey, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}

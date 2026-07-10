@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.117] - 2026-07-10
+
+### Added
+
+- Bunpro is now a first-class dictionary source beside Jiten and JPDB in the popup and Study search/reveal surfaces. With a Bunpro frontend token, Yomu shows Bunpro vocabulary or grammar meanings, nuance, accepted answers, JLPT/part-of-speech tags, and a direct source link. The source can be enabled, renamed, and reordered with the other dictionaries.
+- Fresh installs now show a Bunpro lookup pill beside Jiten and JPDB, with the same per-pill ordering and enable/disable controls.
+
+### Fixed
+
+- Bunpro cards now use Bunpro's real two-outcome **Hard / Good** review model in both the popup and Study page instead of displaying JPDB's five-point scale. Good sends a correct review and Hard sends an incorrect review; Jiten and JPDB keep their existing grading controls.
+- Bunpro live QA now exercises the actual quiz queue endpoint, verifies definition fields, and can opt in to grading one pending review. The old Bunpro API key is no longer presented as required: the frontend token is the only credential Yomu needs, while saved legacy keys remain preserved for backward compatibility.
+
 ## [1.6.116] - 2026-07-10
 
 ### Fixed

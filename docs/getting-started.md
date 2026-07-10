@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, JPDB, Anki, OCR, and audio setup included.
+description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, Bunpro, JPDB, Anki, OCR, and audio setup included.
 ---
 
 # Getting Started
@@ -13,7 +13,7 @@ A **userscript** is a small add-on that runs inside your browser. Install a free
 - **Lookup** — opening よむ's popup on a word.
 - **Mining** — saving a word, with its sentence, for later review.
 
-Jiten, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
+Jiten, Bunpro, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
 
 ## Step 1: Install a userscript manager
 
@@ -114,7 +114,7 @@ Grab the latest packages from the [GitHub releases page](https://github.com/HRus
 The first time よむ runs, it shows a **welcome panel**. The top half is quick setup — language, theme and accent colour, the immersion toggles (page scanning, image OCR, video subtitles), and the hover/scan shortcut fields — all pre-set to sensible defaults you can scroll straight past. Under the setup sit the two choices:
 
 - **Use without API key** — the highlighted first button: start reading right now, no account needed. **Pick this one to begin.**
-- **Add API key** — connect Jiten or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
+- **Add API source** — connect Jiten, Bunpro, or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
 
 A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
 
@@ -137,11 +137,13 @@ That's the whole loop. Everything below is optional.
 
 ## Add an API source (optional)
 
-[Jiten](https://jiten.moe/) and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
+[Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
 
 1. Open your Jiten or JPDB settings and copy your API key.
 2. In よむ, open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
 3. Paste the key into the matching **API key** field and save.
+
+For Bunpro, open Bunpro's API settings while signed in and use the **Import into Yomu** button. Yomu needs only the imported **frontend token** for Bunpro definitions, queue, mining, and Hard/Good reviews; it does not use the older Bunpro API key for these features.
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
 

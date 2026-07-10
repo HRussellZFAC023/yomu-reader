@@ -1,4 +1,4 @@
-import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from './definition-render';
 import { escapeHtml } from '../dom';
 import { uiText } from '../app/i18n';
@@ -11,6 +11,7 @@ import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
+import { renderBunproDefinitionSource, type BunproDefinitionInfo } from '../bunpro/definition';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
@@ -20,6 +21,7 @@ type CoreDefinitionSourceRenderer = (context: DefinitionSourceStackContext, para
 export interface DefinitionSourceStackOptions {
     includeJpdbSource?: boolean;
     includeJitenSource?: boolean;
+    includeBunproSource?: boolean;
     includeStudySources?: boolean;
     includeImmersionSource?: boolean;
 }
@@ -34,10 +36,12 @@ interface DefinitionSourceStackContext {
     extraSections: Record<string, string>;
     includeJpdbSource: boolean;
     includeJitenSource: boolean;
+    includeBunproSource: boolean;
     includeStudySources: boolean;
     includeImmersionSource: boolean;
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
     jitenVocabularyInfo: JitenVocabularyInfo | null;
+    bunproDefinitionInfo: BunproDefinitionInfo | null;
 }
 
 export interface RenderDefinitionSourcesStackParams {
@@ -50,6 +54,7 @@ export interface RenderDefinitionSourcesStackParams {
     sentence?: string;
     jpdbVocabularyInfo?: JpdbVocabularyInfo | null;
     jitenVocabularyInfo?: JitenVocabularyInfo | null;
+    bunproDefinitionInfo?: BunproDefinitionInfo | null;
     extraSectionsOrOptions?: Record<string, string> | DefinitionSourceStackOptions;
     optionKeys?: DefinitionSourceStackOptionKey[];
     jpdbLanguage?: InterfaceLanguage;
@@ -64,10 +69,11 @@ interface DefinitionSourceSectionRender {
     renderedDictionaries: boolean;
 }
 
-const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeJitenSource', 'includeStudySources', 'includeImmersionSource'];
+const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeJitenSource', 'includeBunproSource', 'includeStudySources', 'includeImmersionSource'];
 const CORE_DEFINITION_SOURCE_RENDERERS: Record<string, CoreDefinitionSourceRenderer> = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
+    [BUNPRO_DEFINITION_SOURCE_ID]: renderBunproDefinitionSourceSection,
     [ANKI_SOURCE_ID]: renderAnkiDefinitionSourceSection,
     [STUDY_TRANSLATION_SOURCE_ID]: renderTranslationDefinitionSourceSection,
     [STUDY_GRAMMAR_SOURCE_ID]: renderGrammarDefinitionSourceSection,
@@ -111,10 +117,12 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
         // default. Callers can still force it on with an explicit option.
         includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
         includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
+        includeBunproSource: options.includeBunproSource ?? true,
         includeStudySources: options.includeStudySources ?? true,
         includeImmersionSource: options.includeImmersionSource ?? true,
         jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
         jitenVocabularyInfo: params.jitenVocabularyInfo ?? null,
+        bunproDefinitionInfo: params.bunproDefinitionInfo ?? null,
     };
 }
 
@@ -191,6 +199,17 @@ function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContex
         context.jitenVocabularyInfo,
         params.jpdbLanguage ?? params.settings.interfaceLanguage,
         definitionSourceLabel(params.settings, JITEN_DEFINITION_SOURCE_ID, 'Jiten'),
+    );
+}
+
+function renderBunproDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
+    if (!context.includeBunproSource) return '';
+    return renderBunproDefinitionSource(
+        context.card,
+        params.sourceAttributes,
+        context.bunproDefinitionInfo,
+        params.jpdbLanguage ?? params.settings.interfaceLanguage,
+        definitionSourceLabel(params.settings, BUNPRO_DEFINITION_SOURCE_ID, 'Bunpro'),
     );
 }
 

@@ -137,6 +137,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const apiDefinitionRowsPresent = {
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
+        bunpro: hasSourceRow(has, 'bunproDefinitions'),
     };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
@@ -144,6 +145,10 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const settings: ReaderSettings = {
         ...current,
         ...apiCredentials,
+        // The deprecated key is no longer shown because Bunpro's full Yomu
+        // integration uses only the frontend token. Preserve an older saved
+        // value so opening Settings does not silently destroy user data.
+        bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
         interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
         ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
         ...readKanjiAddonFormSettings(reader, current),
@@ -195,7 +200,7 @@ function hasSourceRow(has: (key: string) => boolean, prefix: string): boolean {
 function readApiDefinitionFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
-    rowsPresent: { jpdb: boolean; jiten: boolean },
+    rowsPresent: { jpdb: boolean; jiten: boolean; bunpro: boolean },
 ): Partial<ReaderSettings> {
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
@@ -206,6 +211,9 @@ function readApiDefinitionFormSettings(
         jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,
         jitenDefinitionsAlias: readSourceAlias(reader, 'jitenDefinitions', current.jitenDefinitionsAlias),
         jitenDefinitionsPriority: clamped('jitenDefinitions.priority', 0, 999, current.jitenDefinitionsPriority),
+        bunproDefinitionsEnabled: rowsPresent.bunpro ? has('bunproDefinitions.enabled') : current.bunproDefinitionsEnabled,
+        bunproDefinitionsAlias: readSourceAlias(reader, 'bunproDefinitions', current.bunproDefinitionsAlias),
+        bunproDefinitionsPriority: clamped('bunproDefinitions.priority', 0, 999, current.bunproDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
         jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageKanjiEnhancementsEnabled'),

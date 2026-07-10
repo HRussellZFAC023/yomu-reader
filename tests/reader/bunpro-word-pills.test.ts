@@ -37,8 +37,14 @@ function renderPills(settings: ReaderSettings): string {
 }
 
 describe('Bunpro lookup pill', () => {
-    it('stays hidden by default', () => {
+    it('can be disabled explicitly', () => {
         expect(renderPills(settingsWithBunproPill(false))).not.toContain('>Bunpro ');
+    });
+
+    it('is enabled for fresh installs alongside Jiten and JPDB', () => {
+        const defaults = defaultDictionaryLookupLinks('local');
+        expect(defaults.find(link => link.id === 'bunpro')?.enabled).toBe(true);
+        expect(renderPills({ ...DEFAULT_SETTINGS, dictionaryLookupLinks: defaults })).toContain('>Bunpro ');
     });
 
     it('renders as an enabled lookup pill with Bunpro URL and color token', () => {

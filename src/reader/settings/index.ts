@@ -141,14 +141,17 @@ const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
 const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
     'jpdbDefinitionsEnabled',
     'jitenDefinitionsEnabled',
+    'bunproDefinitionsEnabled',
 ] as const;
 const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
     jitenDefinitionsPriority: { min: 0, max: 999 },
+    bunproDefinitionsPriority: { min: 0, max: 999 },
 } as const;
 const SOURCE_ALIAS_SETTING_KEYS = [
     'jpdbDefinitionsAlias',
     'jitenDefinitionsAlias',
+    'bunproDefinitionsAlias',
     'jpdbKanjiAlias',
     'kanjiImmersionKitAlias',
     'uchisenAlias',
@@ -286,6 +289,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     jitenDefinitionsEnabled: true,
     jitenDefinitionsAlias: '',
     jitenDefinitionsPriority: 0,
+    bunproDefinitionsEnabled: true,
+    bunproDefinitionsAlias: '',
+    bunproDefinitionsPriority: 2,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -758,15 +764,19 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
     };
 }
 
-function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority'> {
+function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority' | 'bunproDefinitionsPriority'> {
     const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-    return isLegacyDefaultDefinitionSourceOrder(value)
+    const ordered = isLegacyDefaultDefinitionSourceOrder(value)
         ? {
             ...normalized,
             jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
             jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority,
         }
         : normalized;
+    if (!hasOwn(value, 'bunproDefinitionsPriority')) {
+        ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
+    }
+    return ordered;
 }
 
 function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]> {

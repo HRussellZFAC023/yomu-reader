@@ -1,4 +1,4 @@
-import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { hasJitenApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -57,6 +57,16 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: 'jpdbDefinitions',
             readonly: true,
             help: uiText(language, 'sourceHelpJpdb'),
+        },
+        {
+            id: BUNPRO_DEFINITION_SOURCE_ID,
+            name: 'Bunpro',
+            alias: settings.bunproDefinitionsAlias,
+            enabled: settings.bunproDefinitionsEnabled,
+            priority: settings.bunproDefinitionsPriority,
+            prefix: 'bunproDefinitions',
+            readonly: true,
+            help: uiText(language, 'sourceHelpBunpro'),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -232,6 +242,12 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
             name: 'JPDB',
+        },
+        {
+            id: BUNPRO_DEFINITION_SOURCE_ID,
+            enabled: settings.bunproDefinitionsEnabled,
+            priority: settings.bunproDefinitionsPriority,
+            name: 'Bunpro',
         },
         {
             id: ANKI_SOURCE_ID,

@@ -10587,7 +10587,7 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
-    it('expands search cards with runtime popup sources and keeps inline actions in search mode', async () => {
+    it('expands search cards with runtime popup sources, hydrates late Bunpro data, and keeps inline actions in search mode', async () => {
         const catCard = newTabTestCard({
             vid: 1600,
             sid: 1,
@@ -10611,6 +10611,20 @@ describe('new tab review helpers', () => {
         const renderData = deferred<never>();
         const loadCardRenderData = vi.fn(async () => renderData.promise);
         const searchAnkiLookup = { state: 'not-in-deck' as const, notes: [], primary: null };
+        const bunproDefinitionInfo = {
+            id: 1600,
+            kind: 'vocabulary' as const,
+            expression: '猫',
+            reading: 'ねこ',
+            meaning: 'cat',
+            nuance: '',
+            nuanceTranslation: '',
+            acceptedAnswers: [],
+            partOfSpeech: ['noun'],
+            jlptLevel: 'n5',
+            sourceUrl: 'https://bunpro.jp/vocabs/%E7%8C%AB',
+        };
+        const hydrateBunproDefinitionInfo = vi.fn(async () => bunproDefinitionInfo);
         const cardRenderData = {
             localEntries: [{ expression: '猫', reading: 'ねこ', glossary: ['cat from local dictionary'], score: 20, dictionary: 'Local' }],
             kanjiEntries: [{ character: '猫', onyomi: [], kunyomi: ['ねこ'], tags: [], meanings: ['cat kanji'], dictionary: 'Kanji Local' }],
@@ -10619,6 +10633,7 @@ describe('new tab review helpers', () => {
             jpdbDecks: [],
             ankiDecks: [],
             jpdbVocabularyInfo: { meanings: ['cat'], compounds: [], usedInVocabulary: [], examples: [] },
+            bunproDefinitionInfo: null,
         } as never;
         const renderSearchDefinitionSources = vi.fn(() => `
             <div class="jpdb-reader-definition-stack">
@@ -10690,6 +10705,7 @@ describe('new tab review helpers', () => {
                 lookupKanji: vi.fn(async () => [{ character: '猫', onyomi: [], kunyomi: ['ねこ'], tags: [], meanings: ['cat kanji'], dictionary: 'Kanji Local' }]),
             } as never,
             loadCardRenderData,
+            hydrateBunproDefinitionInfo,
             renderSearchDefinitionSources,
             renderSearchWordPills,
             installSearchDetailSources,
@@ -10751,8 +10767,16 @@ describe('new tab review helpers', () => {
             expect(kanjiSource?.querySelector<HTMLElement>('[data-search-word-kanji="猫"] .jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('cat radical');
             expect(wordDetail()?.querySelector('.jpdb-reader-definition-stack > details.jpdb-reader-newtab-search-inline-kanji')).toBe(kanjiSource);
             expect(loadCardRenderData).toHaveBeenCalledWith(catCard);
+            expect(hydrateBunproDefinitionInfo).toHaveBeenCalledWith(catCard);
             expect(jpdbKanjiLookup).toHaveBeenCalledWith('猫');
-            expect(renderSearchDefinitionSources).toHaveBeenCalledWith(catCard, expect.any(Array), '猫', expect.any(Object), null);
+            expect(renderSearchDefinitionSources).toHaveBeenCalledWith(
+                catCard,
+                expect.any(Array),
+                '猫',
+                expect.any(Object),
+                null,
+                expect.objectContaining({ expression: '猫', sourceUrl: 'https://bunpro.jp/vocabs/%E7%8C%AB' }),
+            );
             expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array), searchAnkiLookup);
             expect(installSearchDetailSources).toHaveBeenCalledWith(wordDetail(), catCard, '猫', expect.any(Object));
 
@@ -11709,6 +11733,57 @@ describe('new tab review helpers', () => {
             (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state.revealAnswer = false;
             expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(false);
             expect(clicks).toHaveLength(2);
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('grades Bunpro cards with 1 Hard / 2 Good when controls sit beside the Study surface', () => {
+        const controller = newTabPromptController();
+        const card = newTabTestCard({
+            spelling: '予習',
+            reading: 'よしゅう',
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '7701',
+            bunproReviewableId: 8801,
+            bunproReviewableType: 'vocabulary',
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        const study = document.createElement('div');
+        study.dataset.newtabStudy = 'true';
+        const controls = document.createElement('div');
+        controls.dataset.newtabControls = 'true';
+        const clicks: string[] = [];
+        for (const grade of ['fail', 'pass']) {
+            const button = document.createElement('button');
+            button.dataset.newtabAction = 'grade';
+            button.dataset.grade = grade;
+            button.addEventListener('click', () => clicks.push(grade));
+            controls.append(button);
+        }
+        root.append(study, controls);
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            state: { mode: string; revealAnswer: boolean };
+        }, {
+            allWords: [card],
+            visibleWords: [card],
+            index: 0,
+            state: { mode: 'word', revealAnswer: true },
+        });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        document.body.append(root);
+
+        try {
+            expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(true);
+            expect(dispatchNewTabKeyboard(root, '1').defaultPrevented).toBe(true);
+            expect(dispatchNewTabKeyboard(root, '3').defaultPrevented).toBe(false);
+            expect(clicks).toEqual(['pass', 'fail']);
         } finally {
             root.remove();
         }

@@ -663,7 +663,7 @@ describe('settings form localization', () => {
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Paste separate API keys here');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Add each service credential here');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('open Bunpro settings while signed in');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Yomu import button');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Local Yomu SRS works without an account');
@@ -2102,7 +2102,7 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: よむ・アカウント後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('APIキーを別々に貼ります');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunproに必要なのはフロントエンドトークンだけです');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('ローカルよむSRSはアカウントなしで使えます');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro設定を開き');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('取り込みボタン');

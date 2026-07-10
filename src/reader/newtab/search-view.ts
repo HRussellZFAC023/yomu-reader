@@ -174,6 +174,7 @@ export interface NewTabSearchWordDetailData {
     ankiLookup?: CardRenderData['ankiLookup'];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
     jitenVocabularyInfo?: JitenVocabularyInfo | null;
+    bunproDefinitionInfo?: import('../bunpro/definition').BunproDefinitionInfo | null;
     loading?: boolean;
 }
 
@@ -183,7 +184,7 @@ export interface NewTabSearchDetailViewContext {
     sourceAttributes: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
     kanjiSourceTitle: (sourceId: string) => string;
-    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
+    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
 }
 
@@ -198,7 +199,7 @@ export function searchWordDetailHtml(card: JPDBCard, detail: NewTabSearchWordDet
 
 function searchWordDefinitionsHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
     if (detail.loading) return '';
-    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null)
+    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null, detail.bunproDefinitionInfo ?? null)
         ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
 }
 

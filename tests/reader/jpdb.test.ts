@@ -12587,7 +12587,7 @@ describe('reader helpers', () => {
             ['jpdb', true],
             ['jpdb-frequency', true],
             ['yomu-search', true],
-            ['bunpro', false],
+            ['bunpro', true],
             ['jisho', false],
             ['weblio', false],
             ['kotobank', false],
@@ -12603,7 +12603,7 @@ describe('reader helpers', () => {
             ['jpdb', true],
             ['jpdb-frequency', true],
             ['yomu-search', true],
-            ['bunpro', false],
+            ['bunpro', true],
             ['jisho', false],
             ['weblio', false],
             ['kotobank', false],
@@ -12673,7 +12673,7 @@ describe('reader helpers', () => {
                 ['jpdb', true],
                 ['jpdb-frequency', true],
                 ['yomu-search', true],
-                ['bunpro', false],
+                ['bunpro', true],
                 ['jisho', false],
                 ['weblio', false],
                 ['kotobank', false],
@@ -27555,6 +27555,7 @@ describe('reader helpers', () => {
                 '時間です。',
                 jpdbVocabularyInfo,
                 jitenVocabularyInfo,
+                null,
             );
             expect(document.querySelector('.yomu-jpdb-word-addon .full-word-info')?.textContent).toBe('full-info');
         } finally {

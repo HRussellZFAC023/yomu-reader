@@ -119,7 +119,21 @@ export function passingNewTabGrade(grade: JPDBGrade): boolean {
     return grade === 'pass' || grade === 'easy' || grade === 'okay';
 }
 
-export function newTabGradeOptions(settings: ReaderSettings): Array<[JPDBGrade, string]> {
+export function usesBunproGradeScale(card?: JPDBCard): boolean {
+    return card?.source === 'bunpro' || card?.reviewSource === 'bunpro-api';
+}
+
+export function usesTwoButtonNewTabGradeScale(settings: ReaderSettings, card?: JPDBCard): boolean {
+    return settings.twoButtonReviews || usesBunproGradeScale(card);
+}
+
+export function newTabGradeOptions(settings: ReaderSettings, card?: JPDBCard): Array<[JPDBGrade, string]> {
+    if (usesBunproGradeScale(card)) {
+        return [
+            ['fail', uiText(settings.interfaceLanguage, 'bunproGradeHardLabel')],
+            ['pass', uiText(settings.interfaceLanguage, 'bunproGradeGoodLabel')],
+        ];
+    }
     return settings.twoButtonReviews
         ? [['fail', uiText(settings.interfaceLanguage, 'gradeFailLabel')], ['pass', uiText(settings.interfaceLanguage, 'gradePassLabel')]]
         : [
