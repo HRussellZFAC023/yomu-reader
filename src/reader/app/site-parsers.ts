@@ -822,7 +822,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includePassiveInteractionRoots: false,
         scanLimit: 80,
         matches: url => (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com'))
-            && url.pathname === '/live_chat',
+            && (url.pathname === '/live_chat' || url.pathname === '/live_chat_replay'),
     },
     {
         id: 'youtube-comments-parser',

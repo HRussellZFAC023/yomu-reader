@@ -2187,7 +2187,7 @@ export class ReaderApp {
 
     private shouldScanEmbeddedFrame(): boolean {
         return /(^|\.)youtube\.com$/i.test(location.hostname)
-            && location.pathname === '/live_chat';
+            && (location.pathname === '/live_chat' || location.pathname === '/live_chat_replay');
     }
 
     private pauseAutoScanObserver<T>(callback: () => T): T {
