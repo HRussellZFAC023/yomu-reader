@@ -1901,9 +1901,16 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // the page renders. Fingerprint the joints so that flip re-renders instead
     // of keeping a stale mirror the observers cannot repair.
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(',');
+    // Clip-constrained is a LAYOUT MODE, not text: a framework can clamp or
+    // unclamp a row with identical text (feed virtualization re-styles), which
+    // must flip the mirror between the hover-only overlay and the standard
+    // host-hidden arrangement. The mode is part of idempotency, like the
+    // whitespace joints above.
+    const clipRow = closestRubyFragileConstrainedRow(host);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature
-        && (existing.dataset.whitespaceJoints ?? '') === whitespaceJointsKey) {
+        && (existing.dataset.whitespaceJoints ?? '') === whitespaceJointsKey
+        && existing.classList.contains('jpdb-reader-clip-hover-mirror') === Boolean(clipRow)) {
         const state = textMirrorHosts.get(host);
         if (state) reassertTextMirrorHostStyles(host, state);
         return;
@@ -1929,7 +1936,6 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // (hover reveals them), and constrain the mirror to the host's clamp box:
     // an unconstrained mirror renders the FULL unclamped text below the tile
     // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
-    const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
@@ -2105,6 +2111,13 @@ function registerTextMirrorOwner(mirror: HTMLElement, host: HTMLElement): void {
 }
 
 function textMirrorBelongsToHost(mirror: HTMLElement, host: HTMLElement): boolean {
+    // Creation-time registration wins while the registered owner is still a
+    // live mirror host: a mirror a framework relocated INTO another registered
+    // host's subtree must not be claimed by that host — its sweep would remove
+    // the mirror and clear only its OWN clip-hover stamp, leaving the true
+    // owner stamped (hover blanks the host glyphs) with no mirror to reveal.
+    const owner = textMirrorOwners.get(mirror);
+    if (owner && textMirrorHosts.has(owner)) return owner === host;
     let ancestor = mirror.parentElement;
     while (ancestor && ancestor !== host) {
         if (textMirrorHosts.has(ancestor)) return false;
@@ -2120,7 +2133,8 @@ function ownedTextMirrors(host: HTMLElement): HTMLElement[] {
 
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
     const direct = Array.from(host.children)
-        .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR));
+        .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)
+            && textMirrorBelongsToHost(child, host));
     if (direct) return direct;
     return ownedTextMirrors(host)[0] ?? null;
 }
@@ -2134,6 +2148,10 @@ function currentTextMirror(host: HTMLElement): HTMLElement | null {
 export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boolean {
     const mirror = currentTextMirror(host);
     if (!mirror) return false;
+    // A clamp/unclamp re-style with identical text must not be skipped: the
+    // mirror has to flip between the hover-only overlay and the standard
+    // host-hidden arrangement (same mode check as the apply idempotency).
+    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror') !== Boolean(closestRubyFragileConstrainedRow(host))) return false;
     const source = mirror.dataset.sourceText ?? '';
     return normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
 }
