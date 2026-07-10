@@ -1901,10 +1901,26 @@ function shiftTokenOffsets(token: JPDBToken, delta: number): JPDBToken {
     };
 }
 
-function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
-    const host = nonDestructiveScanHost(target);
-    if (!host.isConnected) return;
+interface NonDestructiveMirrorRenderContext {
+    text: string;
+    safeTokens: JPDBToken[];
+    renderPlan: { text: string; tokens: JPDBToken[] };
+    renderSettings: ReaderSettings;
+    signature: string;
+    whitespaceJointsKey: string;
+    clipRow: HTMLElement | null;
+    hasRenderedRuby: boolean;
+    clipHoverOnly: boolean;
+    suppressRuby: boolean;
+    hostText: string;
+}
 
+function nonDestructiveMirrorRenderContext(
+    host: HTMLElement,
+    target: ScanTextTarget,
+    tokens: JPDBToken[],
+    settings: ReaderSettings,
+): NonDestructiveMirrorRenderContext {
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text = plan.text;
     const safeTokens = plan.tokens;
@@ -1928,31 +1944,58 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // must flip the mirror between the hover-only overlay and the standard
     // host-hidden arrangement. The mode is part of idempotency, like the
     // whitespace joints above.
-    const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
+    const { clipRow, hasRenderedRuby, clipHoverOnly } = textMirrorClipMode(host, suppressRuby, safeTokens);
     // A clipped mirror only needs the rest-hidden hover channel when it
     // actually contains ruby. Interactive/passive controls deliberately
     // suppress ruby; keeping those mirrors hidden also hid every underline and
     // lookup word on touch devices, which is the Reddit/iPad "no annotations"
     // failure. Their plain-line-metric mirror can paint safely at rest.
-    const clipHoverOnly = Boolean(clipRow && hasRenderedRuby);
-    const existing = currentTextMirror(host);
-    if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature
-        && (existing.dataset.whitespaceJoints ?? '') === whitespaceJointsKey
-        && existing.classList.contains('jpdb-reader-clip-hover-mirror') === clipHoverOnly) {
-        const state = textMirrorHosts.get(host);
-        if (state) reassertTextMirrorHostStyles(host, state);
-        return;
-    }
-    removeTextMirror(host);
-    if (!safeTokens.length) return;
+    return {
+        text,
+        safeTokens,
+        renderPlan,
+        renderSettings,
+        signature,
+        whitespaceJointsKey,
+        clipRow,
+        hasRenderedRuby,
+        clipHoverOnly,
+        suppressRuby,
+        hostText: plan.hostText,
+    };
+}
 
+function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const host = nonDestructiveScanHost(target);
+    if (!host.isConnected) return;
+    const context = nonDestructiveMirrorRenderContext(host, target, tokens, settings);
+    if (reuseCurrentTextMirror(host, context)) return;
+    removeTextMirror(host);
+    if (!context.safeTokens.length) return;
+    mountNonDestructiveTextMirror(host, target, settings, context);
+}
+
+function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirrorRenderContext): boolean {
+    const existing = currentTextMirror(host);
+    const matches = [
+        existing?.dataset.sourceText === context.text,
+        existing?.dataset.renderSignature === context.signature,
+        (existing?.dataset.whitespaceJoints ?? '') === context.whitespaceJointsKey,
+        existing?.classList.contains('jpdb-reader-clip-hover-mirror') === context.clipHoverOnly,
+    ].every(Boolean);
+    if (!matches) return false;
+    const state = textMirrorHosts.get(host);
+    if (state) reassertTextMirrorHostStyles(host, state);
+    return true;
+}
+
+function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderContext): HTMLElement {
     const mirror = document.createElement('span');
     mirror.className = 'jpdb-reader-text-mirror';
     mirror.dataset.jpdbReaderTextMirror = 'true';
-    mirror.dataset.sourceText = text;
-    mirror.dataset.renderSignature = signature;
-    mirror.dataset.whitespaceJoints = whitespaceJointsKey;
+    mirror.dataset.sourceText = context.text;
+    mirror.dataset.renderSignature = context.signature;
+    mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
     // The mirror is a full duplicate of the host text. Hide it from the a11y
     // tree so screen readers (and copy that respects it) skip the duplicate;
     // paired with user-select:none in CSS this keeps Cmd+A/copy grabbing only
@@ -1964,36 +2007,31 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // (hover reveals them), and constrain the mirror to the host's clamp box:
     // an unconstrained mirror renders the FULL unclamped text below the tile
     // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
-    if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
+    if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
+    return mirror;
+}
+
+function mountNonDestructiveTextMirror(
+    host: HTMLElement,
+    target: ScanTextTarget,
+    settings: ReaderSettings,
+    context: NonDestructiveMirrorRenderContext,
+): void {
+    const mirror = createNonDestructiveTextMirror(context);
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
     // room for only one tall line — hiding base glyphs (invisible subscriber
     // count) and over-clamping 2-line titles to one. Readings are rest-hidden
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
-    const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state = styleTextMirrorHost(host, mirrorRubyLayout, clipHoverOnly, Boolean(clipRow));
+    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+    const state = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
         // clamp on the mirror so it cannot paint past the clip row's box.
-        if (clipRow) {
-            constrainMirrorToClampBox(mirror, clipRow);
-        }
-        // Mirrors with real readings are hover-only at rest; ruby-suppressed
-        // control mirrors stay visible so word state and lookup remain usable
-        // on touch screens without changing the host's line geometry.
-        if (clipHoverOnly) {
-            mirror.classList.add('jpdb-reader-clip-hover-mirror');
-            mirror.style.setProperty('visibility', 'hidden');
-            const hostColor = safeComputedStyle(host).color;
-            if (hostColor) {
-                mirror.style.setProperty('color', hostColor);
-                mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
-            }
-            host.dataset.yomuClipHoverHost = 'true';
-        }
-        mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
+        styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
+        mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             mirrorRender: true,
@@ -2001,8 +2039,8 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
             // re-derivation's furigana-mode=all branch would discard the
             // computed suppression and paint ruby into a control's mirror.
             decoration: target.decoration,
-            suppressRuby,
-            passiveInteraction: target.passiveInteraction || suppressRuby,
+            suppressRuby: context.suppressRuby,
+            passiveInteraction: target.passiveInteraction || context.suppressRuby,
         }));
         if (!mirror.textContent?.trim()) {
             removeTextMirror(host);
@@ -2016,11 +2054,43 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         withdrawUnfitTextMirrorOverflow(host, state, mirror);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
-        rememberNonDestructiveRenderForReplay(host, target, text, safeTokens, plan.hostText, settings);
+        rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
     } catch (error) {
         removeTextMirror(host);
         throw error;
     }
+}
+
+function styleConstrainedTextMirror(
+    mirror: HTMLElement,
+    host: HTMLElement,
+    clipRow: HTMLElement | null,
+    clipHoverOnly: boolean,
+): void {
+    if (!clipRow) return;
+    constrainMirrorToClampBox(mirror, clipRow);
+    // Mirrors with real readings are hover-only at rest; ruby-suppressed
+    // control mirrors stay visible so word state and lookup remain usable on
+    // touch screens without changing the host's line geometry.
+    if (!clipHoverOnly) return;
+    mirror.classList.add('jpdb-reader-clip-hover-mirror');
+    mirror.style.setProperty('visibility', 'hidden');
+    const hostColor = safeComputedStyle(host).color;
+    if (hostColor) {
+        mirror.style.setProperty('color', hostColor);
+        mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
+    }
+    host.dataset.yomuClipHoverHost = 'true';
+}
+
+function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JPDBToken[]): {
+    clipRow: HTMLElement | null;
+    hasRenderedRuby: boolean;
+    clipHoverOnly: boolean;
+} {
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    const hasRenderedRuby = !suppressRuby && tokens.some(token => token.rubies.length > 0);
+    return { clipRow, hasRenderedRuby, clipHoverOnly: Boolean(clipRow && hasRenderedRuby) };
 }
 
 // Reproduce the clip row's truncation inside the mirror: same line count for
@@ -2257,41 +2327,74 @@ function currentControlTextMirror(host: HTMLElement): HTMLElement | null {
     return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
 }
 
-function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+interface CanvasFallbackRenderContext {
+    canvas: HTMLCanvasElement;
+    host: HTMLElement;
+    text: string;
+    safeTokens: JPDBToken[];
+    nativeCanvas: boolean;
+    suppressRuby: boolean;
+    renderSettings: ReaderSettings;
+    signature: string;
+}
+
+function canvasFallbackRenderContext(
+    target: ScanTextTarget,
+    tokens: JPDBToken[],
+    settings: ReaderSettings,
+): CanvasFallbackRenderContext | null {
     const canvas = target.parent;
-    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return null;
     const host = canvas.parentElement;
-    if (!host) return;
+    if (!host) return null;
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text);
-    const n = canvas.parentElement?.classList.contains('lesson-canvas-clipper') ?? false;
-    const noRuby = n || Boolean(target.suppressRuby);
+    const nativeCanvas = canvas.parentElement?.classList.contains('lesson-canvas-clipper') ?? false;
+    const suppressRuby = [nativeCanvas, Boolean(target.suppressRuby)].includes(true);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
-    const existing = currentCanvasFallbackTextLayer(canvas);
-    if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
-    removeCanvasFallbackTextLayer(canvas);
-    if (!safeTokens.length) return;
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+    return { canvas, host, text, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
+}
 
+function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const context = canvasFallbackRenderContext(target, tokens, settings);
+    if (!context) return;
+    if (canvasFallbackTextLayerMatches(context)) return;
+    removeCanvasFallbackTextLayer(context.canvas);
+    if (!context.safeTokens.length) return;
+    mountCanvasFallbackTextLayer(target, context);
+}
+
+function canvasFallbackTextLayerMatches(context: CanvasFallbackRenderContext): boolean {
+    const existing = currentCanvasFallbackTextLayer(context.canvas);
+    return [
+        existing?.dataset.sourceText === context.text,
+        existing?.dataset.renderSignature === context.signature,
+    ].every(Boolean);
+}
+
+function mountCanvasFallbackTextLayer(target: ScanTextTarget, context: CanvasFallbackRenderContext): void {
     const layer = document.createElement('div');
-    layer.className = n ? 'jpdb-reader-canvas-text-layer jpdb-reader-native-canvas' : 'jpdb-reader-canvas-text-layer';
-    layer.dataset.sourceText = text;
-    layer.dataset.renderSignature = signature;
-    const hasRuby = safeTokens.some(token => token.rubies.length > 0) && !noRuby;
-    styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
-    layer.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
-        parent: canvas,
+    layer.className = context.nativeCanvas
+        ? 'jpdb-reader-canvas-text-layer jpdb-reader-native-canvas'
+        : 'jpdb-reader-canvas-text-layer';
+    layer.dataset.sourceText = context.text;
+    layer.dataset.renderSignature = context.signature;
+    const hasRuby = context.safeTokens.some(token => token.rubies.length > 0) && !context.suppressRuby;
+    styleCanvasFallbackTextLayer(layer, context.canvas, hasRuby, context.nativeCanvas);
+    layer.append(renderTokenizedScanText(context.text, context.safeTokens, context.renderSettings, {
+        parent: context.canvas,
         hasNativeRuby: targetHasNativeRuby(target),
         mirrorRender: true,
         decoration: target.decoration,
-        suppressRuby: noRuby,
-        passiveInteraction: n || target.passiveInteraction,
+        suppressRuby: context.suppressRuby,
+        passiveInteraction: context.nativeCanvas || target.passiveInteraction,
     }));
     if (!layer.textContent?.trim()) return;
-    const state = mountCanvasTextLayer(canvas, host, layer, n);
-    canvasFallbackTextLayers.set(canvas, state);
-    host.append(layer);
+    const state = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
+    canvasFallbackTextLayers.set(context.canvas, state);
+    context.host.append(layer);
 }
 
 function currentCanvasFallbackTextLayer(canvas: HTMLCanvasElement): HTMLElement | null {
@@ -5096,61 +5199,109 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     return adjustedBoxes.size;
 }
 
+interface RubyRoomDecision {
+    roomHeight: number;
+    topDeficit: number;
+}
+
+type RubyRoomDecisionMap = Map<HTMLElement, RubyRoomDecision>;
+
 function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<HTMLElement>): number {
     // Two phases: measure everything first, then write. Interleaving the
     // per-box writes (min-height/height) with the next word's layout reads
     // forces a synchronous reflow per annotated word — on a YouTube feed
     // that is hundreds of reflows per sweep.
-    const decisions = new Map<HTMLElement, { roomHeight: number; topDeficit: number }>();
+    const decisions: RubyRoomDecisionMap = new Map();
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
-    for (const word of words) {
-        if (!word.querySelector('rt')) continue;
-        // Ruby-room growth only serves prose/content decorations: a word whose
-        // sealed DecorationPolicy stamp is interactive-passive (or skip) never
-        // grows any box — that is the class-A chrome-growth kill.
-        const decoration = decorationStateForWord(word);
-        if (decoration === 'interactive-passive' || decoration === 'skip') continue;
-        // A reading inside a clip-constrained scope (stamped mirror or row) is
-        // hidden at rest — it never needs room, so it must not grow ANY
-        // ancestor (the 1.6.115 watch-metadata #owner/#top-row/H1 blow-ups
-        // were grown by rest-hidden readings' inflated mirror metrics).
-        if (word.closest('[data-yomu-clip-constrained]')) continue;
-        // A box may only ever grow for the mirror that renders THIS word —
-        // never for an unrelated (taller) descendant mirror in document order.
-        const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
-        const cropBoxes = cropCapableBoxes(word.parentElement, mirror);
-        // If ANY box in the ancestor chain is a clamp/fixed-short row, the
-        // whole word is paint-invariant. Growing a different ancestor still
-        // creates the same giant blank card even if the clamp box itself is
-        // skipped, which was the Google/iPad gap left by the per-box guard.
-        if (cropBoxes.some(isClipConstrainedRow)) continue;
-        for (const box of cropBoxes) {
-            if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
-            // Curated YouTube/Google rows grow on any crop signal (their crop
-            // is always ruby-caused). Every OTHER site's clamped/ellipsis/
-            // clipped row grows only when the RUBY itself overflows the box —
-            // plain scroll overflow there usually means an intentionally
-            // collapsed read-more region, which must stay collapsed.
-            const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
-            if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
-            for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
-                // The clip-constrained fact DOMINATES growth eligibility,
-                // curated selectors and prose classification included: a
-                // clamped/fixed-short row shows no at-rest ruby, so growing it
-                // only blows the tile up to its unclamped mirror height.
-                if (isClipConstrainedRow(roomBox)) continue;
-                const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
-                if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-                // Repeat passes only correct HEIGHT under-growth (content can
-                // rewrap once the box grows); top padding is exact on first
-                // application and must not accumulate across passes.
-                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
-                if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
-                if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
-                decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
-            }
-        }
+    for (const word of words) collectRubyRoomDecisions(word, adjustedBoxes, decisions);
+    return applyRubyRoomDecisions(decisions, adjustedBoxes);
+}
+
+function collectRubyRoomDecisions(
+    word: HTMLElement,
+    adjustedBoxes: Set<HTMLElement>,
+    decisions: RubyRoomDecisionMap,
+): void {
+    const candidate = rubyRoomWordCandidate(word);
+    if (!candidate) return;
+    for (const box of candidate.cropBoxes) {
+        const crop = rubyRoomCropPlan(box, candidate.mirror);
+        if (!crop) continue;
+        collectRubyRoomBoxDecisions(box, crop.curated, candidate.mirror, adjustedBoxes, decisions);
     }
+}
+
+function rubyRoomWordCandidate(word: HTMLElement): {
+    mirror: HTMLElement | null;
+    cropBoxes: HTMLElement[];
+} | null {
+    if (!word.querySelector('rt')) return null;
+    // Ruby-room growth only serves prose/content decorations. Compact chrome
+    // and hidden-at-rest readings never grow an ancestor box.
+    if (['interactive-passive', 'skip'].includes(decorationStateForWord(word) ?? '')) return null;
+    if (word.closest('[data-yomu-clip-constrained]')) return null;
+    // A box may only grow for the mirror that renders this word, never for an
+    // unrelated taller descendant mirror elsewhere in document order.
+    const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
+    return { mirror, cropBoxes: rubyRoomEligibleCropBoxes(word, mirror) };
+}
+
+function rubyRoomCropPlan(box: HTMLElement, mirror: HTMLElement | null): { curated: boolean } | null {
+    const excluded = [
+        box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR),
+        box.closest('[aria-hidden="true"],[hidden]'),
+    ].some(Boolean);
+    if (excluded) return null;
+    // Curated YouTube/Google rows grow on any crop signal. Generic collapsed
+    // regions grow only when ruby itself overflows, so read-more UI stays shut.
+    const curated = [isGoogleSearchRubyRoomTextBox(box), isYouTubeRubyRoomTextBox(box)].some(Boolean);
+    const cropsRuby = curated ? boxActuallyCrops(box, mirror) : genericRubyNeedsRoom(box, mirror);
+    return cropsRuby ? { curated } : null;
+}
+
+function collectRubyRoomBoxDecisions(
+    box: HTMLElement,
+    curated: boolean,
+    mirror: HTMLElement | null,
+    adjustedBoxes: Set<HTMLElement>,
+    decisions: RubyRoomDecisionMap,
+): void {
+    for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+        const decision = rubyRoomDecisionForBox(roomBox, curated, mirror, adjustedBoxes);
+        if (!decision) continue;
+        recordBestRubyRoomDecision(decisions, roomBox, decision);
+    }
+}
+
+function rubyRoomDecisionForBox(
+    roomBox: HTMLElement,
+    curated: boolean,
+    mirror: HTMLElement | null,
+    adjustedBoxes: Set<HTMLElement>,
+): RubyRoomDecision | null {
+    // Clip constraints dominate curated selectors and prose classification:
+    // their at-rest readings are hidden, so growth can only inflate the card.
+    if (isClipConstrainedRow(roomBox)) return null;
+    const measuredHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
+    if (measuredHeight > RUBY_ROOM_MAX_PX) return null;
+    // Repeat passes correct height under-growth only. Top padding is exact on
+    // the first application and must never accumulate across passes.
+    const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
+    const roomHeight = measuredHeight + topDeficit;
+    const previousHeightIsEnough = previousRubyRoomHeight(roomBox) >= roomHeight && topDeficit === 0;
+    return previousHeightIsEnough ? null : { roomHeight, topDeficit };
+}
+
+function recordBestRubyRoomDecision(
+    decisions: RubyRoomDecisionMap,
+    roomBox: HTMLElement,
+    decision: RubyRoomDecision,
+): void {
+    if ((decisions.get(roomBox)?.roomHeight ?? 0) >= decision.roomHeight) return;
+    decisions.set(roomBox, decision);
+}
+
+function applyRubyRoomDecisions(decisions: RubyRoomDecisionMap, adjustedBoxes: Set<HTMLElement>): number {
     let adjusted = 0;
     for (const [box, { roomHeight, topDeficit }] of decisions) {
         recordRubyRoomGrowth(box);
@@ -5162,6 +5313,14 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
         adjusted += 1;
     }
     return adjusted;
+}
+
+function rubyRoomEligibleCropBoxes(word: HTMLElement, mirror: HTMLElement | null): HTMLElement[] {
+    const cropBoxes = cropCapableBoxes(word.parentElement, mirror);
+    // If ANY box in the ancestor chain is a clamp/fixed-short row, the whole
+    // word is paint-invariant. Growing a different ancestor still creates the
+    // same giant blank card even when the clamp box itself is skipped.
+    return cropBoxes.some(isClipConstrainedRow) ? [] : cropBoxes;
 }
 
 // Growth writes are OWNED and revertible: the box's pre-growth inline values

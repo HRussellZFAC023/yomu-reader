@@ -42,6 +42,28 @@ const DEFAULT_ANKI_SMOKE_SETTINGS = Object.freeze({
     enableLogging: false,
 });
 
+const DEFAULT_READER_SMOKE_SETTINGS = Object.freeze({
+    onboardingSeen: true,
+    interfaceLanguage: 'en',
+    apiKey: 'mock-jpdb-key',
+    jitenApiKey: '',
+    jpdbDefinitionsEnabled: false,
+    localDictionariesEnabled: false,
+    ankiEnabled: false,
+    audioEnabled: false,
+    autoPlayAudio: false,
+    lookupOnClick: true,
+    lookupOnHover: false,
+    popupActivationMode: 'click',
+    showFloatingButton: false,
+    showFurigana: true,
+    furiganaMode: 'all',
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'off',
+    enableLogging: false,
+});
+
 export function assert(condition, message, details = {}) {
     if (!condition) {
         const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
@@ -67,6 +89,10 @@ export function createAnkiSmokeSettings(overrides = {}) {
     return { ...DEFAULT_ANKI_SMOKE_SETTINGS, ...overrides };
 }
 
+export function createReaderSmokeSettings(overrides = {}) {
+    return { ...DEFAULT_READER_SMOKE_SETTINGS, ...overrides };
+}
+
 export function assertBuiltArtifacts(filePaths, root, hint = 'Run npm run build first.') {
     for (const filePath of filePaths) {
         assert(existsSync(filePath), `Missing built artifact: ${path.relative(root, filePath)}. ${hint}`);
@@ -87,6 +113,21 @@ export async function startLoopbackServer(handler, bindErrorMessage = 'Could not
         baseUrl: origin,
         close: () => closeServer(server),
     };
+}
+
+export function startHtmlFixtureServer(pagePath, html, bindErrorMessage) {
+    return startLoopbackServer((request, response) => serveHtmlFixture(request, response, pagePath, html), bindErrorMessage);
+}
+
+function serveHtmlFixture(request, response, pagePath, html) {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (url.pathname !== pagePath) {
+        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+        response.end('Not found');
+        return;
+    }
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(html);
 }
 
 async function listenOnLoopback(server, bindErrorMessage = 'Could not bind fixture server') {
@@ -204,6 +245,33 @@ export function jsonHttpResponse(value) {
         bytes: [...Buffer.from(responseText)],
         contentType: 'application/json; charset=utf-8',
     };
+}
+
+export function mockJpdbApiRequest(request, requestLog, vocabulary, options = {}) {
+    const url = new URL(request.url);
+    if (!jpdbApiUrl(url)) return unmatchedJpdbRequest(request, requestLog, options);
+    const endpoint = url.pathname.slice('/api/v1/'.length);
+    const body = readJsonBody(request.data);
+    requestLog.push({ kind: 'jpdb', endpoint, text: body.text });
+    return jpdbEndpointResponse(endpoint, body, vocabulary);
+}
+
+function jpdbApiUrl(url) {
+    return [url.origin === 'https://jpdb.io', url.pathname.startsWith('/api/v1/')].every(Boolean);
+}
+
+function unmatchedJpdbRequest(request, requestLog, options) {
+    if (options.logUnexpected) requestLog.push({ kind: 'unexpected', url: request.url });
+    return options.unmatchedResponse ?? null;
+}
+
+function jpdbEndpointResponse(endpoint, body, vocabulary) {
+    if (endpoint === 'parse') return jsonHttpResponse(mockJpdbParseFromVocabulary(body, vocabulary));
+    const fixed = new Map([
+        ['deck/list-vocabulary', { vocabulary: [] }],
+        ['list-user-decks', { decks: [] }],
+    ]);
+    return jsonHttpResponse(fixed.get(endpoint) ?? {});
 }
 
 export function readJsonBody(data) {
@@ -480,6 +548,21 @@ async function countIndexedDbEntries(page, dbName, entryStore) {
 
 export async function addGmStorageBridgeInitScript(page, options) {
     await page.addInitScript(initGmBridge, { ...options, storageEnabled: true });
+}
+
+export async function installUserscriptFixtureBridge(page, {
+    requestBridgeName,
+    requestHandler,
+    settings,
+    css,
+}) {
+    await page.exposeFunction(requestBridgeName, requestHandler);
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: settings,
+        css,
+        requestBridgeName,
+    });
 }
 
 export async function addGmXmlHttpRequestBridgeInitScript(page, options) {

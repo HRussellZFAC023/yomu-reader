@@ -15,21 +15,18 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
 import {
-    addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
+    createReaderSmokeSettings,
     createSmokePaths,
-    jsonHttpResponse,
+    installUserscriptFixtureBridge,
     launchOptionalBrowser,
-    mockJpdbParseFromVocabulary,
-    readJsonBody,
-    startLoopbackServer,
+    mockJpdbApiRequest,
+    startHtmlFixtureServer,
     closeServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
-const JPDB_API_ORIGIN = 'https://jpdb.io';
-const JPDB_API_PREFIX = '/api/v1/';
 const REQUEST_BRIDGE = '__yomuRedditChromeRequest';
 const PAGE_PATH = '/reddit-ipad-annotation-regression.html';
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
@@ -51,26 +48,7 @@ const VOCABULARY = [
     ['…', '日本語', 'にほんご', 'invalid punctuation token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
 ];
 
-const settings = {
-    onboardingSeen: true,
-    interfaceLanguage: 'en',
-    apiKey: 'mock-jpdb-key',
-    jitenApiKey: '',
-    jpdbDefinitionsEnabled: false,
-    localDictionariesEnabled: false,
-    ankiEnabled: false,
-    audioEnabled: false,
-    lookupOnClick: true,
-    lookupOnHover: false,
-    popupActivationMode: 'click',
-    showFloatingButton: false,
-    showFurigana: true,
-    furiganaMode: 'all',
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'off',
-    enableLogging: false,
-};
+const settings = createReaderSmokeSettings();
 
 const PAGE = `<!doctype html>
 <html lang="ja">
@@ -163,16 +141,7 @@ customElements.define('reddit-sort-control', RedditSortControl);
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
 
-const server = await startLoopbackServer((request, response) => {
-    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-    if (url.pathname !== PAGE_PATH) {
-        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end('Not found');
-        return;
-    }
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(PAGE);
-}, 'Could not bind Reddit iPad regression server');
+const server = await startHtmlFixtureServer(PAGE_PATH, PAGE, 'Could not bind Reddit iPad regression server');
 
 const summaries = [];
 const failures = [];
@@ -215,36 +184,24 @@ async function runEngine(engineName, browser) {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error)));
     try {
-        await page.exposeFunction(REQUEST_BRIDGE, request => mockedYomuRequest(request, requests));
-        await addGmStorageBridgeInitScript(page, {
-            key: YOMU_SETTINGS_KEY,
-            value: settings,
-            css: readFileSync(CSS_PATH, 'utf8'),
+        await installUserscriptFixtureBridge(page, {
             requestBridgeName: REQUEST_BRIDGE,
+            requestHandler: request => mockedYomuRequest(request, requests),
+            settings,
+            css: readFileSync(CSS_PATH, 'utf8'),
         });
         await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotRedditLayout);
         await page.addStyleTag({ path: CSS_PATH });
         await page.addScriptTag({ path: SCRIPT_PATH });
 
-        await page.waitForFunction(() => {
-            const deep = (root, selector) => {
-                const found = root.querySelector(selector);
-                if (found) return found;
-                for (const element of root.querySelectorAll('*')) {
-                    if (element.shadowRoot) {
-                        const nested = deep(element.shadowRoot, selector);
-                        if (nested) return nested;
-                    }
-                }
-                return null;
-            };
-            return document.querySelectorAll('#create-post .jpdb-reader-word').length >= 2
-                && document.querySelectorAll('#card-metadata .jpdb-reader-word').length >= 2
-                && document.querySelector('#share .jpdb-reader-word')
-                && deep(document, '#join .jpdb-reader-word')
-                && deep(document, '#sort .jpdb-reader-word');
-        }, null, { timeout: 20_000 });
+        await Promise.all([
+            page.locator('#create-post .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
+            page.locator('#card-metadata .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
+            page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+        ]);
         await page.waitForTimeout(400);
 
         await page.locator('#create-post').click();
@@ -257,7 +214,7 @@ async function runEngine(engineName, browser) {
             sort.click();
         });
 
-        const snapshot = await page.evaluate(snapshotRedditRegression);
+        const snapshot = await snapshotRedditRegression(page);
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         assertRedditRegression(engineName, baseline, snapshot, pageErrors);
@@ -268,18 +225,10 @@ async function runEngine(engineName, browser) {
 }
 
 function mockedYomuRequest(request, requestLog) {
-    const url = new URL(request.url);
-    if (url.origin !== JPDB_API_ORIGIN || !url.pathname.startsWith(JPDB_API_PREFIX)) {
-        requestLog.push({ kind: 'unexpected', url: request.url });
-        return { status: 404, responseText: '' };
-    }
-    const endpoint = url.pathname.slice(JPDB_API_PREFIX.length);
-    const body = readJsonBody(request.data);
-    requestLog.push({ kind: 'jpdb', endpoint, text: body.text });
-    if (endpoint === 'parse') return jsonHttpResponse(mockJpdbParseFromVocabulary(body, VOCABULARY));
-    if (endpoint === 'deck/list-vocabulary') return jsonHttpResponse({ vocabulary: [] });
-    if (endpoint === 'list-user-decks') return jsonHttpResponse({ decks: [] });
-    return jsonHttpResponse({});
+    return mockJpdbApiRequest(request, requestLog, VOCABULARY, {
+        logUnexpected: true,
+        unmatchedResponse: { status: 404, responseText: '' },
+    });
 }
 
 function snapshotRedditLayout() {
@@ -293,73 +242,69 @@ function snapshotRedditLayout() {
     };
 }
 
-function snapshotRedditRegression() {
-    function findDeep(selector, root = document) {
-        const found = root.querySelector(selector);
-        if (found) return found;
-        for (const element of root.querySelectorAll('*')) {
-            if (element.shadowRoot) {
-                const nested = findDeep(selector, element.shadowRoot);
-                if (nested) return nested;
-            }
-        }
-        return null;
-    }
+async function snapshotRedditRegression(page) {
+    const specs = {
+        create: ['#create-post', '投稿を作成'],
+        join: ['#join', '参加'],
+        sort: ['#sort', '賛成票数順'],
+        flair: ['#flair', '告知'],
+        metadata: ['#card-metadata', '賛成票・コメント'],
+        time: ['#post-meta', '時間前'],
+        share: ['#share', '共有'],
+    };
+    const labelEntries = await Promise.all(Object.entries(specs).map(async ([name, [selector, expected]]) => [
+        name,
+        await page.locator(selector).evaluate(snapshotRedditElement, expected),
+    ]));
+    const [subreddit, punctuation, summary] = await Promise.all([
+        page.locator('#subreddit').evaluate(snapshotRedditElement, null),
+        page.locator('#punctuation').evaluate(snapshotRedditElement, null),
+        page.evaluate(snapshotRedditPageSummary),
+    ]);
+    return {
+        labels: Object.fromEntries(labelEntries),
+        rejected: {
+            subredditWords: subreddit.wordCount,
+            punctuationWords: punctuation.wordCount,
+            subredditText: subreddit.visibleText,
+            punctuationText: punctuation.visibleText,
+        },
+        ...summary,
+    };
+}
 
-    function visibleChannelText(element) {
-        const mirrors = [...element.querySelectorAll(':scope > .jpdb-reader-text-mirror')]
-            .filter(mirror => getComputedStyle(mirror).visibility !== 'hidden');
-        if (mirrors.length) return mirrors.map(mirror => mirror.textContent ?? '').join('').replace(/\s+/g, ' ').trim();
-        if (getComputedStyle(element).visibility === 'hidden') return '';
-        const clone = element.cloneNode(true);
-        clone.querySelectorAll('.jpdb-reader-text-mirror,rt,rp').forEach(node => node.remove());
-        return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
-    }
+function snapshotRedditElement(element, expected) {
+    const rect = element.getBoundingClientRect();
+    const words = [...element.querySelectorAll('.jpdb-reader-word')];
+    const mirrors = [...element.querySelectorAll(':scope > .jpdb-reader-text-mirror')]
+        .filter(mirror => getComputedStyle(mirror).visibility !== 'hidden');
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll('.jpdb-reader-text-mirror,rt,rp').forEach(node => node.remove());
+    const visibleText = String(mirrors.length ? mirrors.map(mirror => mirror.textContent).join('') : clone.textContent)
+        .replace(/\s+/g, ' ')
+        .trim();
+    const visibleWords = words.map(word => {
+        const wordRect = word.getBoundingClientRect();
+        const style = getComputedStyle(word);
+        return [style.visibility !== 'hidden', style.opacity !== '0', wordRect.width > 0, wordRect.height > 0].every(Boolean);
+    }).every(Boolean);
+    return {
+        expected,
+        visibleText,
+        height: rect.height,
+        wordCount: words.length,
+        expressions: words.map(word => word.getAttribute('data-expression')),
+        rubyCount: element.querySelectorAll('rt,.jpdb-reader-furi').length,
+        rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length
+            + Number(element.hasAttribute('data-yomu-ruby-room')),
+        visibleWords,
+    };
+}
 
-    function label(selector, expected) {
-        const element = findDeep(selector);
-        const rect = element.getBoundingClientRect();
-        const words = [...element.querySelectorAll('.jpdb-reader-word')];
-        const wordStates = words.map(word => {
-            const wordRect = word.getBoundingClientRect();
-            const style = getComputedStyle(word);
-            return {
-                width: wordRect.width,
-                height: wordRect.height,
-                visibility: style.visibility,
-                opacity: style.opacity,
-            };
-        });
-        return {
-            expected,
-            visibleText: visibleChannelText(element),
-            height: rect.height,
-            wordCount: words.length,
-            expressions: words.map(word => word.getAttribute('data-expression') ?? ''),
-            rubyCount: element.querySelectorAll('rt,.jpdb-reader-furi').length,
-            rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length + (element.hasAttribute('data-yomu-ruby-room') ? 1 : 0),
-            visibleWords: wordStates.every(word => word.visibility !== 'hidden' && word.opacity !== '0' && word.width > 0 && word.height > 0),
-        };
-    }
-
+function snapshotRedditPageSummary() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
     return {
-        labels: {
-            create: label('#create-post', '投稿を作成'),
-            join: label('#join', '参加'),
-            sort: label('#sort', '賛成票数順'),
-            flair: label('#flair', '告知'),
-            metadata: label('#card-metadata', '賛成票・コメント'),
-            time: label('#post-meta', '時間前'),
-            share: label('#share', '共有'),
-        },
-        rejected: {
-            subredditWords: document.querySelectorAll('#subreddit .jpdb-reader-word').length,
-            punctuationWords: document.querySelectorAll('#punctuation .jpdb-reader-word').length,
-            subredditText: visibleChannelText(document.querySelector('#subreddit')),
-            punctuationText: visibleChannelText(document.querySelector('#punctuation')),
-        },
         layout: {
             createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
             shareHeight: document.querySelector('#share').getBoundingClientRect().height,

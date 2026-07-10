@@ -860,10 +860,7 @@ export function interactivePassiveControl(element: Element): HTMLElement | null 
 }
 
 function isCompactTemporalMetadata(element: HTMLElement): boolean {
-    const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    if (!HAS_JAPANESE.test(text) || compactLength(text) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-    const height = element.getBoundingClientRect().height;
-    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+    return isCompactMetadataElement(element);
 }
 
 // A clickable card may contain both a real reading title and one or more short
@@ -877,13 +874,28 @@ const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
 
 function isCompactLinkedCardMetadata(link: HTMLElement, element: Element): boolean {
     const textElement = element instanceof HTMLElement ? element : element.parentElement;
-    if (!textElement || textElement.closest('h1,h2,h3,h4,h5,h6')) return false;
+    return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
+}
+
+function isLinkedCardMetadataElement(link: HTMLElement, textElement: HTMLElement): boolean {
+    if (textElement.closest('h1,h2,h3,h4,h5,h6')) return false;
     const heading = safeQuerySelector(link, 'h1,h2,h3,h4,h5,h6');
-    if (!heading || heading.contains(textElement) || isLikelyProseElement(textElement)) return false;
-    const text = textElement.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    if (!HAS_JAPANESE.test(text) || compactLength(text) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
-    const height = textElement.getBoundingClientRect().height;
-    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+    if (!heading) return false;
+    return [
+        !heading.contains(textElement),
+        !isLikelyProseElement(textElement),
+        isCompactMetadataElement(textElement),
+    ].every(Boolean);
+}
+
+function isCompactMetadataElement(element: HTMLElement): boolean {
+    const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const height = element.getBoundingClientRect().height;
+    return [
+        HAS_JAPANESE.test(text),
+        compactLength(text) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+        height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX,
+    ].every(Boolean);
 }
 
 function isMediaTextContentControl(control: HTMLElement): boolean {

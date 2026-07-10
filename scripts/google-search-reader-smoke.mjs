@@ -10,12 +10,12 @@ import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
+    createReaderSmokeSettings,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
     launchOptionalBrowser,
-    mockJpdbParseFromVocabulary,
-    readJsonBody,
+    mockJpdbApiRequest,
     routeMockedHttpRequests,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
@@ -60,26 +60,10 @@ const VOCABULARY = [
     ['...', '日本語', 'にほんご', 'invalid punctuation token', 'n', 100, ['known'], ['LHHH']],
 ];
 
-const settings = {
-    onboardingSeen: true,
-    interfaceLanguage: 'en',
+const settings = createReaderSmokeSettings({
     apiKey: 'mock-jpdb-token',
-    jitenApiKey: '',
-    ankiEnabled: false,
-    audioEnabled: false,
-    jpdbDefinitionsEnabled: false,
-    localDictionariesEnabled: false,
     preferJapaneseSiteLanguage: false,
-    showFloatingButton: false,
-    showFurigana: true,
-    furiganaMode: 'all',
-    lookupOnClick: true,
-    lookupOnHover: false,
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'off',
-    enableLogging: false,
-};
+});
 
 const keylessPitchSettings = {
     ...settings,
@@ -186,38 +170,8 @@ try {
 
 async function runKeylessGooglePitchCase(engineName, browserType) {
     const browser = await launchSmokeBrowser(browserType, engineName, { headless: true });
-    const requests = [];
-    const consoleErrors = [];
+    const { page, requests, consoleErrors } = await createGoogleSmokePage(browser, keylessPitchSettings, KEYLESS_GOOGLE_FIXTURE);
     try {
-        const context = await browser.newContext({
-            ...devices['iPad Pro 11'],
-            bypassCSP: true,
-            colorScheme: 'dark',
-            locale: 'ja-JP',
-        });
-        const page = await context.newPage();
-        page.on('pageerror', error => consoleErrors.push(String(error)));
-        page.on('console', message => {
-            if (message.type() === 'error') consoleErrors.push(message.text());
-        });
-        await routeMockedHttpRequests(page, {
-            requests,
-            mockHttpRequest: mockedYomuApiRequest,
-            isMockedApiOrigin,
-        });
-        await page.route('https://www.google.com/search**', route => route.fulfill({
-            status: 200,
-            contentType: 'text/html; charset=utf-8',
-            body: KEYLESS_GOOGLE_FIXTURE,
-        }));
-        await page.exposeFunction(REQUEST_BRIDGE, request => mockedYomuBridgeRequest(request, requests));
-        await addGmStorageBridgeInitScript(page, {
-            key: YOMU_SETTINGS_KEY,
-            value: keylessPitchSettings,
-            css: readFileSync(CSS_PATH, 'utf8'),
-            requestBridgeName: REQUEST_BRIDGE,
-        });
-
         await page.goto(KEYLESS_GOOGLE_URL, { waitUntil: 'domcontentloaded' });
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
@@ -263,38 +217,8 @@ async function runOptionalGoogleSearchCase(engineName, browserType) {
 }
 
 async function runGoogleSearchCaseWithBrowser(engineName, browser) {
-    const requests = [];
-    const consoleErrors = [];
+    const { page, requests, consoleErrors } = await createGoogleSmokePage(browser, settings, GOOGLE_FIXTURE);
     try {
-        const context = await browser.newContext({
-            ...devices['iPad Pro 11'],
-            bypassCSP: true,
-            colorScheme: 'dark',
-            locale: 'ja-JP',
-        });
-        const page = await context.newPage();
-        page.on('pageerror', error => consoleErrors.push(String(error)));
-        page.on('console', message => {
-            if (message.type() === 'error') consoleErrors.push(message.text());
-        });
-        await routeMockedHttpRequests(page, {
-            requests,
-            mockHttpRequest: mockedYomuApiRequest,
-            isMockedApiOrigin,
-        });
-        await page.route('https://www.google.com/search**', route => route.fulfill({
-            status: 200,
-            contentType: 'text/html; charset=utf-8',
-            body: GOOGLE_FIXTURE,
-        }));
-        await page.exposeFunction(REQUEST_BRIDGE, request => mockedYomuBridgeRequest(request, requests));
-        await addGmStorageBridgeInitScript(page, {
-            key: YOMU_SETTINGS_KEY,
-            value: settings,
-            css: readFileSync(CSS_PATH, 'utf8'),
-            requestBridgeName: REQUEST_BRIDGE,
-        });
-
         await page.goto(GOOGLE_URL, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotGoogleLayout);
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
@@ -357,6 +281,44 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
     }
 }
 
+async function createGoogleSmokePage(browser, settingsValue, fixture) {
+    const requests = [];
+    const consoleErrors = [];
+    const context = await browser.newContext({
+        ...devices['iPad Pro 11'],
+        bypassCSP: true,
+        colorScheme: 'dark',
+        locale: 'ja-JP',
+    });
+    const page = await context.newPage();
+    captureGoogleConsoleErrors(page, consoleErrors);
+    await routeMockedHttpRequests(page, {
+        requests,
+        mockHttpRequest: mockedYomuApiRequest,
+        isMockedApiOrigin,
+    });
+    await page.route('https://www.google.com/search**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: fixture,
+    }));
+    await page.exposeFunction(REQUEST_BRIDGE, request => mockedYomuBridgeRequest(request, requests));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: settingsValue,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: REQUEST_BRIDGE,
+    });
+    return { page, requests, consoleErrors };
+}
+
+function captureGoogleConsoleErrors(page, consoleErrors) {
+    page.on('pageerror', error => consoleErrors.push(String(error)));
+    page.on('console', message => {
+        if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+}
+
 function mockedYomuBridgeRequest(request, requestLog) {
     const response = mockedYomuApiRequest(request, requestLog);
     if (response) return response;
@@ -369,16 +331,7 @@ function mockedYomuApiRequest(request, requestLog) {
     if (url.origin === JITEN_API_ORIGIN && url.pathname.startsWith(JITEN_API_PREFIX)) {
         return mockedJitenPublicRequest(url, requestLog);
     }
-    if (url.origin !== JPDB_API_ORIGIN || !url.pathname.startsWith(JPDB_API_PREFIX)) {
-        return null;
-    }
-    const endpoint = url.pathname.slice(JPDB_API_PREFIX.length);
-    const body = readJsonBody(request.data);
-    requestLog.push({ kind: 'jpdb', endpoint, text: body.text });
-    if (endpoint === 'parse') return jsonHttpResponse(mockJpdbParseFromVocabulary(body, VOCABULARY));
-    if (endpoint === 'deck/list-vocabulary') return jsonHttpResponse({ vocabulary: [] });
-    if (endpoint === 'list-user-decks') return jsonHttpResponse({ decks: [] });
-    return jsonHttpResponse({});
+    return mockJpdbApiRequest(request, requestLog, VOCABULARY);
 }
 
 function isMockedApiOrigin(url) {
@@ -483,8 +436,7 @@ function snapshotGoogleClippedRow(element) {
 function snapshotGoogleSearchSummary() {
     const chip = document.querySelector('#chip');
     const label = document.querySelector('#chip-label');
-    const snippetFirstWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]')
-        ?? document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word');
+    const snippetFirstWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]');
     const snippetStyle = getComputedStyle(snippetFirstWord);
     const chipRect = chip.getBoundingClientRect();
     const labelRect = label.getBoundingClientRect();
@@ -503,17 +455,17 @@ function snapshotGoogleSearchSummary() {
         rejectedPunctuationWords: document.querySelectorAll('.jpdb-reader-word[data-expression="日本語"]').length,
         chip: {
             text: chip.textContent.replace(/\s+/g, '').trim(),
-            decoration: chip.getAttribute('data-yomu-decoration') ?? '',
+            decoration: chip.getAttribute('data-yomu-decoration'),
             rubyBaseCount: chip.querySelectorAll('.jpdb-reader-ruby-base').length,
             rubyCount: chip.querySelectorAll('rt').length,
-            rubyRoom: chip.getAttribute('data-yomu-ruby-room') ?? '',
-            labelRubyRoom: label.getAttribute('data-yomu-ruby-room') ?? '',
+            rubyRoom: chip.getAttribute('data-yomu-ruby-room'),
+            labelRubyRoom: label.getAttribute('data-yomu-ruby-room'),
             mirrorHasRuby: Boolean(chip.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')),
             labelHiddenForMirror: getComputedStyle(label).visibility === 'hidden',
             labelOverflow: getComputedStyle(label).overflow,
             height: chipRect.height,
             labelHeight: labelRect.height,
-            labelVisible: labelRect.bottom <= chipRect.bottom + 1 && labelRect.top >= chipRect.top - 1,
+            labelVisible: [labelRect.bottom <= chipRect.bottom + 1, labelRect.top >= chipRect.top - 1].every(Boolean),
             overflowY: getComputedStyle(chip).overflowY,
             styleHeight: chip.style.height,
             labelStyleHeight: label.style.height,
@@ -542,17 +494,19 @@ function snapshotGoogleSearchSummary() {
 }
 
 function googleBaseMetricIsVisible(base, row) {
-    return base.visibility !== 'hidden'
-        && base.display !== 'none'
-        && base.opacity !== '0'
-        && base.width > 0
-        && base.height > 0
-        && base.bottom <= row.bottom + 1
-        && base.top >= row.top - 1;
+    return [
+        base.visibility !== 'hidden',
+        base.display !== 'none',
+        base.opacity !== '0',
+        base.width > 0,
+        base.height > 0,
+        base.bottom <= row.bottom + 1,
+        base.top >= row.top - 1,
+    ].every(Boolean);
 }
 
 function googleRubyMetricIsHidden(ruby) {
-    return ruby.display === 'none' || ruby.visibility === 'hidden' || ruby.opacity === '0';
+    return [ruby.display === 'none', ruby.visibility === 'hidden', ruby.opacity === '0'].includes(true);
 }
 
 function summarizeGoogleClippedRow(row) {
@@ -568,21 +522,32 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
     assert(snapshot.url.startsWith('https://www.google.com/search'), `${label}: smoke did not run on Google Search URL`, snapshot);
     assert(snapshot.wordCount >= 8, `${label}: Google fixture did not parse enough reader words`, snapshot);
     assert(snapshot.passiveWordCount >= 8, `${label}: Google fixture words were not passive`, snapshot);
-    assert(snapshot.chip.text.includes('検索結果'), `${label}: Google chip text is missing`, snapshot.chip);
+    assertGoogleChip(snapshot.chip, label);
+    assertGoogleClippedRows(snapshot, label);
+    assertGoogleLayout(snapshot, label, options.baseline);
+    assertGoogleHighlight(snapshot.snippetFirstWord, label, options.expectStatusHighlight);
+}
+
+function assertGoogleChip(chip, label) {
+    assert(chip.text.includes('検索結果'), `${label}: Google chip text is missing`, chip);
     // Role/button chrome is sealed as interactive-passive: Yomu may add state
     // colour or a pitch underline, but must not replace the label with ruby,
     // hide it beneath a mirror, or grow the control's line box.
-    assert(snapshot.chip.decoration === 'interactive-passive', `${label}: Google chip decoration policy changed`, snapshot.chip);
-    assert(snapshot.chip.rubyCount === 0 && snapshot.chip.rubyBaseCount === 0, `${label}: Google chip gained layout-affecting ruby`, snapshot.chip);
-    assert(!snapshot.chip.mirrorHasRuby, `${label}: Google chip gained a ruby mirror`, snapshot.chip);
-    assert(!snapshot.chip.labelHiddenForMirror, `${label}: Google chip label was hidden for a mirror`, snapshot.chip);
-    assert(snapshot.chip.labelVisible, `${label}: Google chip label is clipped or invisible`, snapshot.chip);
-    assert(snapshot.chip.rubyRoom === '' && snapshot.chip.labelRubyRoom === '', `${label}: Google chip reserved ruby room`, snapshot.chip);
-    assert(snapshot.chip.height <= 38 && snapshot.chip.labelHeight <= 20, `${label}: Google chip grew beyond its plain-text layout`, snapshot.chip);
-    assert(snapshot.chip.labelOverflow === 'hidden' && snapshot.chip.overflowY === 'hidden', `${label}: Google chip clipping contract changed`, snapshot.chip);
-    assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
-    assert(snapshot.layout.rubyRoomCount === 0, `${label}: Google result cards received ruby-room growth`, snapshot.layout);
-    assert(snapshot.rejectedPunctuationWords === 0, `${label}: punctuation-only parser output became a floating annotation`, snapshot);
+    assert(chip.decoration === 'interactive-passive', `${label}: Google chip decoration policy changed`, chip);
+    assert(chip.rubyCount === 0, `${label}: Google chip gained layout-affecting ruby`, chip);
+    assert(chip.rubyBaseCount === 0, `${label}: Google chip gained a ruby base`, chip);
+    assert(!chip.mirrorHasRuby, `${label}: Google chip gained a ruby mirror`, chip);
+    assert(!chip.labelHiddenForMirror, `${label}: Google chip label was hidden for a mirror`, chip);
+    assert(chip.labelVisible, `${label}: Google chip label is clipped or invisible`, chip);
+    assert(chip.rubyRoom == null, `${label}: Google chip reserved ruby room`, chip);
+    assert(chip.labelRubyRoom == null, `${label}: Google chip label reserved ruby room`, chip);
+    assert(chip.height <= 38, `${label}: Google chip grew beyond its plain-text layout`, chip);
+    assert(chip.labelHeight <= 20, `${label}: Google chip label grew beyond its plain-text layout`, chip);
+    assert(chip.labelOverflow === 'hidden', `${label}: Google chip label clipping contract changed`, chip);
+    assert(chip.overflowY === 'hidden', `${label}: Google chip overflow contract changed`, chip);
+}
+
+function assertGoogleClippedRows(snapshot, label) {
     const expectedRows = {
         primarySnippet: ['SEO Checkerを使用', '開発者'],
         weblioHeading: ['英語', '意味', '読み方', 'Weblio英和辞書'],
@@ -593,36 +558,34 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
         assert(row.visibleBases, `${label}: ${name} lost or clipped its base text`, row);
         assert(row.visibleRubyCount === 0, `${label}: ${name} paints readings outside its clamp at rest`, row);
         assert(row.rubyRoomCount === 0, `${label}: ${name} reserved ruby room`, row);
-        assert(row.clipStamp === 'true' || row.rubyCount === 0, `${label}: ${name} is not protected by the clip invariant`, row);
+        assert([row.clipStamp === 'true', row.rubyCount === 0].includes(true), `${label}: ${name} is not protected by the clip invariant`, row);
         for (const fragment of expectedRows[name]) {
             assert(row.text.includes(fragment), `${label}: ${name} lost text "${fragment}"`, row);
         }
     }
-    const baseline = options.baseline;
-    if (baseline) {
-        assert(Math.abs(snapshot.layout.primarySnippetHeight - baseline.primarySnippetHeight) <= 2, `${label}: primary snippet height changed`, { baseline, layout: snapshot.layout });
-        assert(Math.abs(snapshot.layout.weblioHeadingHeight - baseline.weblioHeadingHeight) <= 2, `${label}: Weblio heading height changed`, { baseline, layout: snapshot.layout });
-        assert(Math.abs(snapshot.layout.weblioSnippetHeight - baseline.weblioSnippetHeight) <= 2, `${label}: Weblio snippet height changed`, { baseline, layout: snapshot.layout });
-        assert(snapshot.layout.primaryHeight <= baseline.primaryHeight + 64, `${label}: primary result expanded into a large gap`, { baseline, layout: snapshot.layout });
-        assert(snapshot.layout.weblioHeight <= baseline.weblioHeight + 64, `${label}: Weblio result expanded into a large gap`, { baseline, layout: snapshot.layout });
-        assert(snapshot.layout.askGap <= baseline.askGap + 2, `${label}: a large empty gap appeared before the following card`, { baseline, layout: snapshot.layout });
-    }
-    assert(snapshot.snippetFirstWord, `${label}: no passive snippet word found`, snapshot);
-    if (options.expectStatusHighlight) {
-        assert(!isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word lost its status highlight source`, snapshot.snippetFirstWord);
-    } else {
-        assert(isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word should keep idle status highlight transparent`, snapshot.snippetFirstWord);
-    }
-    assert(isTransparentCssColor(snapshot.snippetFirstWord.accessibleHighlight), `${label}: passive snippet word still has accessible highlight paint`, snapshot.snippetFirstWord);
-    assert(snapshot.snippetFirstWord.backgroundColor === 'rgba(0, 0, 0, 0)', `${label}: passive snippet word has a filled background color`, snapshot.snippetFirstWord);
-    if (options.expectStatusHighlight) {
-        assert(snapshot.snippetFirstWord.backgroundImage.includes('linear-gradient'), `${label}: passive snippet word lost its gradient highlight backing`, snapshot.snippetFirstWord);
-    } else {
-        assert(snapshot.snippetFirstWord.backgroundImage === 'none', `${label}: passive snippet word painted a gradient while idle`, snapshot.snippetFirstWord);
-    }
+}
+
+function assertGoogleLayout(snapshot, label, baseline) {
+    assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
+    assert(snapshot.layout.rubyRoomCount === 0, `${label}: Google result cards received ruby-room growth`, snapshot.layout);
+    assert(snapshot.rejectedPunctuationWords === 0, `${label}: punctuation-only parser output became a floating annotation`, snapshot);
+    assert(Math.abs(snapshot.layout.primarySnippetHeight - baseline.primarySnippetHeight) <= 2, `${label}: primary snippet height changed`, { baseline, layout: snapshot.layout });
+    assert(Math.abs(snapshot.layout.weblioHeadingHeight - baseline.weblioHeadingHeight) <= 2, `${label}: Weblio heading height changed`, { baseline, layout: snapshot.layout });
+    assert(Math.abs(snapshot.layout.weblioSnippetHeight - baseline.weblioSnippetHeight) <= 2, `${label}: Weblio snippet height changed`, { baseline, layout: snapshot.layout });
+    assert(snapshot.layout.primaryHeight <= baseline.primaryHeight + 64, `${label}: primary result expanded into a large gap`, { baseline, layout: snapshot.layout });
+    assert(snapshot.layout.weblioHeight <= baseline.weblioHeight + 64, `${label}: Weblio result expanded into a large gap`, { baseline, layout: snapshot.layout });
+    assert(snapshot.layout.askGap <= baseline.askGap + 2, `${label}: a large empty gap appeared before the following card`, { baseline, layout: snapshot.layout });
+}
+
+function assertGoogleHighlight(word, label, expectStatusHighlight) {
+    assert(word, `${label}: no passive snippet word found`, word);
+    assert(isTransparentCssColor(word.highlightSource) !== expectStatusHighlight, `${label}: passive snippet highlight source has the wrong state`, word);
+    assert(isTransparentCssColor(word.accessibleHighlight), `${label}: passive snippet word still has accessible highlight paint`, word);
+    assert(word.backgroundColor === 'rgba(0, 0, 0, 0)', `${label}: passive snippet word has a filled background color`, word);
+    assert(word.backgroundImage.includes('linear-gradient') === expectStatusHighlight, `${label}: passive snippet gradient state is wrong`, word);
 }
 
 function isTransparentCssColor(value) {
     const normalized = value.trim().toLowerCase();
-    return normalized === '' || normalized === 'transparent' || normalized === '#0000' || normalized === 'rgba(0, 0, 0, 0)';
+    return new Set(['', 'transparent', '#0000', 'rgba(0, 0, 0, 0)']).has(normalized);
 }

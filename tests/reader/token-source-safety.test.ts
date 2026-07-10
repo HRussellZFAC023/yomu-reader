@@ -46,6 +46,12 @@ function rendered(text: string, tokens: JPDBToken[]): HTMLElement {
     return host;
 }
 
+function expectPlainSource(host: HTMLElement, text: string): void {
+    expect(host.textContent).toBe(text);
+    expect(host.querySelector('.jpdb-reader-word')).toBeNull();
+    expect(host.querySelector('ruby,rt')).toBeNull();
+}
+
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
     document.body.innerHTML = '';
@@ -56,17 +62,13 @@ describe('token source-range safety', () => {
         const text = 'r/singularity';
         const host = rendered(text, [token(text, 0, text.length)]);
 
-        expect(host.textContent).toBe(text);
-        expect(host.querySelector('.jpdb-reader-word')).toBeNull();
-        expect(host.querySelector('ruby,rt')).toBeNull();
+        expectPlainSource(host, text);
     });
 
     it('never turns punctuation-only ranges into floating readings', () => {
         for (const text of ['...', '…', '！？', '・', 'ー', 'ｰ']) {
             const host = rendered(text, [token(text, 0, text.length)]);
-            expect(host.textContent).toBe(text);
-            expect(host.querySelector('.jpdb-reader-word')).toBeNull();
-            expect(host.querySelector('ruby,rt')).toBeNull();
+            expectPlainSource(host, text);
         }
     });
 
