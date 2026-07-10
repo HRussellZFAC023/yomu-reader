@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.120] - 2026-07-10
+## [1.6.121] - 2026-07-10
 
 ### Added
 
@@ -13,6 +13,7 @@
 - Bunpro writes are now session-safe: Yomu sends the current review-session context, refuses unsessioned popup writes, refreshes after every Bunpro grade instead of reusing stale failed-review ids, and does not queue Bunpro grades offline. The frontend token is the only Bunpro credential Yomu uses; saved legacy keys remain preserved for backward compatibility.
 - Bunpro definition/mining matching is now exact and id/type-aware, so fuzzy search results or grammar/vocabulary collisions cannot display or add the wrong item. Offline cache warming no longer fans out private Bunpro searches, and definition searches no longer request private notes or bookmarks.
 - Bunpro live QA now exercises the actual quiz queue endpoint, verifies required definition fields, and can opt in to one session-aware grade.
+- Release preflight now runs the same browser-smoke set as GitHub before a tag is published. Its YouTube ruby proof follows the current paint-invariant contract for clipped rows: native text stays visible without layout growth, the complete annotated mirror stays hidden at rest, and real hover interaction reveals the mirror and readings without changing row height.
 
 ## [1.6.118] - 2026-07-10
 

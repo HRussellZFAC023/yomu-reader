@@ -154,7 +154,7 @@ const pages = [
                     <div class="thumb"></div>
                     <div>
                       <a id="video-title" class="title" href="/watch?v=search4" data-proof-target data-proof-text="毎日配信のニュース">毎日配信のニュース</a>
-                      <div class="metadata-snippet-text clamped-snippet" data-proof-target data-proof-text="最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。" data-proof-expect-ruby-room="true">最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。</div>
+                      <div class="metadata-snippet-text clamped-snippet" data-proof-target data-proof-text="最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。" data-proof-expect-clip-invariant="true">最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。</div>
                     </div>
                   </ytd-video-renderer>
                   <ytd-channel-renderer class="row">
@@ -183,7 +183,7 @@ const pages = [
               </ytd-playlist-header-renderer>
               <ytd-playlist-video-renderer class="playlist-row">
                 <div class="mini-thumb"></div>
-                <a id="video-title" class="title clamped" href="/watch?v=pl1" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-ruby-room="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
+                <a id="video-title" class="title clamped" href="/watch?v=pl1" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-clip-invariant="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
               </ytd-playlist-video-renderer>
               <ytd-playlist-video-renderer class="playlist-row">
                 <div class="mini-thumb"></div>
@@ -213,7 +213,7 @@ const pages = [
                     <div class="ytContentMetadataViewModelMetadataRow"><span data-proof-target data-proof-text="チャンネル登録者数 10万人">チャンネル登録者数 10万人</span></div>
                   </yt-content-metadata-view-model>
                   <yt-description-preview-view-model class="channel-description">
-                    <div class="channel-description-text" data-proof-target data-proof-text="東京の散歩と日本語の勉強について毎日配信します さらに表示" data-proof-expect-ruby-room="true">東京の散歩と日本語の勉強について毎日配信します さらに表示</div>
+                    <div class="channel-description-text" data-proof-target data-proof-text="東京の散歩と日本語の勉強について毎日配信します さらに表示" data-proof-expect-clip-invariant="true">東京の散歩と日本語の勉強について毎日配信します さらに表示</div>
                   </yt-description-preview-view-model>
                 </yt-page-header-view-model>
                 <yt-tab-group-shape class="tab-strip" role="tablist">
@@ -237,7 +237,7 @@ const pages = [
                   <div id="title" class="shelf-title" data-proof-target data-proof-text="動画">動画</div>
                   <ytd-grid-video-renderer class="card">
                     <div class="thumb"></div>
-                    <a id="video-title" class="title clamped" href="/watch?v=ch2" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-ruby-room="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
+                    <a id="video-title" class="title clamped" href="/watch?v=ch2" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-clip-invariant="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
                     <div id="metadata-line" class="grid-meta" data-proof-target data-proof-text="10万回視聴">10万回視聴</div>
                   </ytd-grid-video-renderer>
                 </ytd-shelf-renderer>
@@ -258,7 +258,7 @@ const pages = [
                     <div class="ytp-caption-window-container" data-proof-native-caption><span class="ytp-caption-segment">字幕だけの表示です。</span></div>
                   </div>
                   <ytd-watch-metadata>
-                    <h1 class="style-scope ytd-watch-metadata watch-title-clamped" data-proof-target data-proof-text="${longWatchTitle}" data-proof-expect-ruby-room="true">
+                    <h1 class="style-scope ytd-watch-metadata watch-title-clamped" data-proof-target data-proof-text="${longWatchTitle}" data-proof-expect-clip-invariant="true">
                       <yt-formatted-string force-default-style="" class="style-scope ytd-watch-metadata" title="${longWatchTitle}">${longWatchTitle}</yt-formatted-string>
                     </h1>
                     <div id="description-inline-expander" data-proof-target data-proof-text="復習用の説明で日本語を勉強します">復習用の説明で日本語を勉強します</div>
@@ -293,7 +293,7 @@ const pages = [
                   <ytd-playlist-panel-renderer class="queue-panel">
                     <ytd-playlist-panel-video-renderer class="queue-row">
                       <div class="mini-thumb"></div>
-                      <a id="video-title" class="queue-title" href="/watch?v=q1" data-proof-target data-proof-text="東京散歩と春コーデの最新情報を毎日配信します" data-proof-expect-ruby-room="true">東京散歩と春コーデの最新情報を毎日配信します</a>
+                      <a id="video-title" class="queue-title" href="/watch?v=q1" data-proof-target data-proof-text="東京散歩と春コーデの最新情報を毎日配信します" data-proof-expect-clip-invariant="true">東京散歩と春コーデの最新情報を毎日配信します</a>
                     </ytd-playlist-panel-video-renderer>
                     <ytd-playlist-panel-video-renderer class="queue-row">
                       <div class="mini-thumb"></div>
@@ -405,6 +405,10 @@ try {
         await page.addStyleTag({ content: proofCss() });
         await page.addScriptTag({ path: bundlePath });
         const result = await runProofAcrossScroll(page);
+        const clipHover = await auditClipHoverMirrors(page);
+        result.clipHover = clipHover;
+        result.failures.push(...clipHover.failures);
+        result.pass = result.failures.length === 0;
         const screenshotPath = join(outputRoot, `${spec.name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });
         report.pages.push({
@@ -579,6 +583,97 @@ async function runProofAcrossScroll(page) {
     return result;
 }
 
+async function auditClipHoverMirrors(page) {
+    const mirrors = page.locator('.jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror');
+    const count = await mirrors.count();
+    const entries = [];
+    const failures = [];
+
+    for (let index = 0; index < count; index++) {
+        const mirror = mirrors.nth(index);
+        const host = mirror.locator('xpath=..');
+        const label = await mirror.evaluate((element, position) => element.closest('[data-proof-target]')?.getAttribute('data-proof-text')
+            || element.getAttribute('data-source-text')
+            || element.textContent?.replace(/\s+/g, ' ').trim()
+            || `clip mirror ${position}`, index + 1);
+        const beforeHeight = await host.evaluate(element => element.getBoundingClientRect().height);
+
+        await host.hover({ force: true });
+        await page.waitForTimeout(20);
+        const mirrorVisibleOnHostHover = await mirror.evaluate(isPaintedElement);
+        const hostGlyphsTransparent = await host.evaluate(element => {
+            const style = getComputedStyle(element);
+            return isTransparentPaint(style.color) && isTransparentPaint(style.webkitTextFillColor);
+
+            function isTransparentPaint(value) {
+                return value === 'transparent' || /^rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(value);
+            }
+        });
+
+        const rubyWords = mirror.locator('.jpdb-reader-word:has(rt)');
+        const rubyWordCount = await rubyWords.count();
+        let visibleReadingCount = 0;
+        if (rubyWordCount > 0) {
+            await rubyWords.first().hover({ force: true });
+            await page.waitForTimeout(20);
+            visibleReadingCount = await mirror.evaluate(element => Array.from(element.querySelectorAll('rt')).filter(reading => {
+                if (!(reading instanceof HTMLElement)) return false;
+                const style = getComputedStyle(reading);
+                if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) <= 0.01) return false;
+                const rect = reading.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            }).length);
+        }
+        const hoverHeight = await host.evaluate(element => element.getBoundingClientRect().height);
+
+        await page.mouse.move(0, 0);
+        await page.waitForTimeout(20);
+        const mirrorHiddenAfterHover = await mirror.evaluate(element => getComputedStyle(element).visibility === 'hidden');
+        const hostGlyphsPaintedAfterHover = await host.evaluate(element => {
+            const style = getComputedStyle(element);
+            return !isTransparentPaint(style.color) && !isTransparentPaint(style.webkitTextFillColor);
+
+            function isTransparentPaint(value) {
+                return value === 'transparent' || /^rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(value);
+            }
+        });
+        const afterHeight = await host.evaluate(element => element.getBoundingClientRect().height);
+        const entry = {
+            label,
+            mirrorVisibleOnHostHover,
+            hostGlyphsTransparent,
+            rubyWordCount,
+            visibleReadingCount,
+            mirrorHiddenAfterHover,
+            hostGlyphsPaintedAfterHover,
+            beforeHeight,
+            hoverHeight,
+            afterHeight,
+        };
+        entries.push(entry);
+
+        if (!mirrorVisibleOnHostHover) failures.push(`${label}: clip hover mirror did not reveal on host hover`);
+        if (!hostGlyphsTransparent) failures.push(`${label}: native host glyphs did not clear while the hover mirror was visible`);
+        if (rubyWordCount > 0 && visibleReadingCount === 0) failures.push(`${label}: hover mirror readings did not reveal on word hover`);
+        if (!mirrorHiddenAfterHover) failures.push(`${label}: clip hover mirror stayed visible after pointer exit`);
+        if (!hostGlyphsPaintedAfterHover) failures.push(`${label}: native host glyphs stayed transparent after pointer exit`);
+        if (Math.abs(hoverHeight - beforeHeight) > 1 || Math.abs(afterHeight - beforeHeight) > 1) {
+            failures.push(`${label}: hover changed the native host height ${JSON.stringify({ beforeHeight, hoverHeight, afterHeight })}`);
+        }
+    }
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    return { count, entries, failures };
+}
+
+function isPaintedElement(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    const style = getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) <= 0.01) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+}
+
 async function buildProofRunner() {
     await build({
         stdin: {
@@ -699,6 +794,9 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
 function markProofTargetScanFlags(target) {
     const root = target.parent?.closest?.('[data-proof-target]');
     if (!root) return;
+    if (!root.dataset.proofInitialHeight) {
+        root.dataset.proofInitialHeight = String(root.getBoundingClientRect().height);
+    }
     root.dataset.proofScanSuppressRuby = target.suppressRuby === true ? 'true' : 'false';
     root.dataset.proofScanPassiveInteraction = target.passiveInteraction === true ? 'true' : 'false';
     root.dataset.proofScanLayoutSensitive = target.layoutSensitive === true ? 'true' : 'false';
@@ -755,14 +853,33 @@ function visibleProofTargets() {
 function auditProofTarget(element, vocabulary) {
     const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
     const expectedSurfaces = tokensForText(label, vocabulary).map(token => token.card.spelling);
-    const words = renderedWordDetails(proofTargetWordRoot(element));
+    const words = renderedWordDetails(element);
     const failures = [];
     const missingSurfaces = missingExpectedSurfaces(expectedSurfaces, words.map(word => word.surface));
     const clipped = isBoxClipped(element);
     const rubyOutOfBounds = outOfBoundsRubyCount(element);
     const uncoveredKanji = uncoveredKanjiForText(label, words.map(word => word.surface));
-    const expectedRubyRoom = element.getAttribute('data-proof-expect-ruby-room') === 'true';
+    const expectedClipInvariant = element.getAttribute('data-proof-expect-clip-invariant') === 'true';
+    const clipMirror = clipHoverMirror(element);
+    const clipConstrained = Boolean(
+        clipMirror
+        || element.matches('[data-yomu-clip-constrained="true"]')
+        || element.closest('[data-yomu-clip-constrained="true"]')
+        || element.querySelector('[data-yomu-clip-constrained="true"]'),
+    );
+    const rubyRoomOwner = element.matches('[data-yomu-ruby-room="true"]')
+        ? element
+        : element.querySelector('[data-yomu-ruby-room="true"]');
     const rubyRoomHeight = Number(element.dataset.yomuRubyRoomHeight || 0);
+    const initialHeight = Number(element.dataset.proofInitialHeight || 0);
+    const currentHeight = element.getBoundingClientRect().height;
+    const clipMirrorHiddenAtRest = !clipMirror || getComputedStyle(clipMirror).visibility === 'hidden';
+    const nativeHostVisibleAtRest = !clipMirror || Boolean(clipMirror.parentElement && isVisibleElement(clipMirror.parentElement));
+    const nativeHostGlyphsPaintedAtRest = !clipMirror || (() => {
+        const hostStyle = getComputedStyle(clipMirror.parentElement);
+        return !isTransparentColor(hostStyle.color) && !isTransparentColor(hostStyle.webkitTextFillColor);
+    })();
+    const clipMirrorMaxHeight = Number.parseFloat(clipMirror?.style.maxHeight || '0') || 0;
     const scanSuppressRuby = element.dataset.proofScanSuppressRuby === 'true';
     const renderedSuppressRuby = words.some(word => word.requiresRuby && !word.hasRuby)
         && words.filter(word => word.requiresRuby && !word.hasRuby).every(word => word.rubySuppressed);
@@ -775,7 +892,7 @@ function auditProofTarget(element, vocabulary) {
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
-    if (clipped && !rubySuppressed) {
+    if (clipped && !rubySuppressed && !clipConstrained) {
         // Environment-sensitive (font metrics decide wrap); carry the numbers
         // so a CI-only failure is diagnosable from the log alone.
         failures.push('target still has scroll clipping after ruby room sweep '
@@ -790,10 +907,25 @@ function auditProofTarget(element, vocabulary) {
             }));
     }
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
-    if (expectedRubyRoom && !rubySuppressed && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
-    if (expectedRubyRoom && !rubySuppressed && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');
+    if (clipConstrained && rubyRoomOwner) failures.push('clip-constrained target received forbidden ruby-room growth');
+    if (expectedClipInvariant && !clipConstrained) failures.push('expected clipped target to use the clip-constrained render path');
+    if (expectedClipInvariant && !clipMirror) failures.push('expected clipped target to retain an annotated hover mirror');
+    if (clipMirror && !clipMirrorHiddenAtRest) failures.push('clip-constrained hover mirror is visible at rest');
+    if (clipMirror && !nativeHostVisibleAtRest) failures.push('clip-constrained native host text is hidden at rest');
+    if (clipMirror && !nativeHostGlyphsPaintedAtRest) failures.push('clip-constrained native host glyphs are transparent at rest');
+    if (clipMirror && initialHeight > 0 && currentHeight > initialHeight + 1) {
+        failures.push('clip-constrained target grew beyond its native height '
+            + JSON.stringify({ initialHeight, currentHeight, clipMirrorMaxHeight }));
+    }
+    if (clipMirror && clipMirror.dataset.yomuClipConstrained !== 'true') {
+        failures.push('clip-constrained hover mirror is missing its constrained-row stamp');
+    }
+    if (clipMirror && clipMirrorMaxHeight > currentHeight + 1) {
+        failures.push('clip-constrained hover mirror exceeds the native clamp box '
+            + JSON.stringify({ currentHeight, clipMirrorMaxHeight }));
+    }
     if (element.getAttribute('data-proof-expect-at-rest-decoration') === 'true') {
-        const wordElements = Array.from(proofTargetWordRoot(element).querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement);
+        const wordElements = Array.from(element.querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement);
         const bare = wordElements.filter(wordElement => !hasAtRestDecoration(wordElement));
         if (!wordElements.length || bare.length) failures.push('chrome word missing at-rest underline decoration (carve-out regressed)');
     }
@@ -810,6 +942,14 @@ function auditProofTarget(element, vocabulary) {
         rubyOutOfBounds,
         rubyRoom: element.dataset.yomuRubyRoom || '',
         rubyRoomHeight,
+        expectedClipInvariant,
+        clipConstrained,
+        clipMirrorHiddenAtRest,
+        nativeHostVisibleAtRest,
+        nativeHostGlyphsPaintedAtRest,
+        clipMirrorMaxHeight,
+        initialHeight,
+        currentHeight,
         scanSuppressRuby,
         renderedSuppressRuby,
         rubySuppressed,
@@ -839,36 +979,51 @@ function isTransparentColor(value) {
     return !value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)';
 }
 
-function proofTargetWordRoot(element) {
-    return visibleTextMirror(element) ?? element;
-}
-
 function visibleTextMirror(element) {
     return Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isVisibleElement) ?? null;
 }
 
 function renderedWordDetails(root) {
-    return Array.from(root.querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement).map(word => ({
+    return Array.from(root.querySelectorAll('.jpdb-reader-word')).filter(isAuditableReaderWord).map(word => ({
         surface: readerWordSurfaceText(word).trim(),
         text: compactText(word.textContent || ''),
         requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
         hasRuby: Boolean(word.querySelector('rt')),
         rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
+        atRestVisible: isVisibleElement(word),
+        inClipHoverMirror: Boolean(word.closest('.jpdb-reader-clip-hover-mirror')),
         passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
         // A word may lack in-place rt ONLY when its target's scan plan says
         // suppression fired, or a visible text mirror carries the reading for
         // its host. "passive word without rt" alone is NOT suppression — that
         // circular reading made the furigana check vacuous for passive words.
         rubySuppressed: closestProofTargetSuppressesRuby(word)
+            || decorationSuppressesReaderWordRuby(word)
             || (!word.querySelector('rt') && hostMirrorCarriesReading(word)),
+        decoration: word.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') || '',
         source: word.dataset.cardSource || '',
         pitchClass: word.dataset.pitchClass || '',
         className: word.className,
     }));
 }
 
+function isAuditableReaderWord(word) {
+    if (isVisibleElement(word)) return true;
+    const mirror = word.closest('.jpdb-reader-clip-hover-mirror');
+    return Boolean(mirror?.parentElement && isVisibleElement(mirror.parentElement));
+}
+
+function clipHoverMirror(element) {
+    return Array.from(element.querySelectorAll('.jpdb-reader-clip-hover-mirror'))
+        .find(mirror => mirror instanceof HTMLElement) ?? null;
+}
+
 function closestProofTargetSuppressesRuby(word) {
     return word.closest('[data-proof-target]')?.dataset.proofScanSuppressRuby === 'true';
+}
+
+function decorationSuppressesReaderWordRuby(word) {
+    return word.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') === 'interactive-passive';
 }
 
 // True when the word's host is decorated by a visible text mirror whose rt
@@ -957,7 +1112,7 @@ function outOfBoundsRubyCount(element) {
     if (!isPotentialCropBox(element)) return 0;
     const rect = element.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return 0;
-    return Array.from(element.querySelectorAll('rt')).filter(rt => {
+    return Array.from(element.querySelectorAll('rt')).filter(isVisibleElement).filter(rt => {
         const rubyRect = rt.getBoundingClientRect();
         if (rubyRect.width <= 0 || rubyRect.height <= 0) return true;
         return rubyRect.top < rect.top - 4

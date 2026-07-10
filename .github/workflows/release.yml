@@ -43,25 +43,7 @@ jobs:
       - name: Ensure Electron runtime
         run: npm run prepare:electron
       - run: npm run check
-      - run: npm run smoke:p0
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:offline-study
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:furigana-local-default
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:youtube-controls-wake
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:youtube-title-recycler
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:study-flow-stability
-        env:
-          YOMU_PLAYWRIGHT_CHANNEL: chrome
-      - run: npm run smoke:youtube-ruby-proof
+      - run: npm run smoke:release
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
       - run: xvfb-run -a npm run smoke:gaming

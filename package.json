@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.120",
+  "version": "1.6.121",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -57,6 +57,7 @@
     "package:gaming": "npm run smoke:gaming && node scripts/package-gaming-electron.mjs --target=dir",
     "qa": "npm run check && npm run smoke:p0 && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
     "qa:live": "node scripts/jpdb-live-smoke.mjs",
+    "release:preflight": "npm run check && npm run smoke:release && npm run smoke:gaming",
     "release:gaming": "npm run prepare:electron && npm run build:gaming && node scripts/package-gaming-electron.mjs",
     "release:gaming:linux": "npm run prepare:electron && npm run build:gaming && node scripts/package-gaming-electron.mjs --platform=linux --arch=x64 --target=AppImage",
     "seo:indexnow": "node scripts/submit-indexnow.mjs",
@@ -118,6 +119,7 @@
     "smoke:underline-baseline": "node scripts/underline-baseline-smoke.mjs",
     "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
+    "smoke:release": "npm run smoke:p0 && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability && npm run smoke:youtube-ruby-proof",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:settings-layout": "node scripts/settings-layout-smoke.mjs",
     "smoke:subtitle-live-sites": "node scripts/subtitle-live-video-site-smoke.mjs",
