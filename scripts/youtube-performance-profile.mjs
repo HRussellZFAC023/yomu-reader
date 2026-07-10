@@ -18,7 +18,9 @@ const artifactDir = resolve(process.env.YOMU_PROFILE_ARTIFACT_DIR ?? '.');
 const userscriptPath = resolve(process.env.YOMU_PROFILE_USERSCRIPT ?? join(artifactDir, 'dist/yomu.user.js'));
 const cssPath = resolve(process.env.YOMU_PROFILE_CSS ?? join(artifactDir, 'dist/yomu.css'));
 const companionDir = resolve(process.env.YOMU_PROFILE_COMPANION_DIR ?? join(artifactDir, 'dist/greasyfork'));
-const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
+// yomu-ocr-manga carries the OCR controller + raster detectors; without it the
+// profile never executes the code whose heat it is meant to measure.
+const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-ocr-manga.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
     .map(name => join(companionDir, name))
     .filter(existsSync);
 const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));

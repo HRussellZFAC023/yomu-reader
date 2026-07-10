@@ -21,6 +21,7 @@ import {
     isManualCanvasReaderSurface,
     isReaderRasterPage,
     mutationsMayAddReaderRasterCandidate,
+    mutationsMayRemoveReaderRasterCandidate,
     pageHasReaderRasterCandidates,
     positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
@@ -483,7 +484,11 @@ export class ImageOcrController {
             window.addEventListener(eventName, this.handleSpaNavigation);
         }
         this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
-        this.mutationObserver.observe(body, {
+        // Observe the root element, not <body>: an SPA that replaces <body>
+        // wholesale (or mounts media directly under <html>) delivers no records
+        // to a body-scoped observer, which would leave a stale raster-free memo
+        // trusted by every scroll/resize/refresh until navigation.
+        this.mutationObserver.observe(document.documentElement, {
             childList: true,
             subtree: true,
             attributes: true,
@@ -609,15 +614,25 @@ export class ImageOcrController {
     }
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
-        // Memo invalidation runs before every gate (including master pause): a
-        // reader surface added while OCR is inactive must still flip the memo
-        // so it is found after resume. Only consulted while the memo says
-        // "free", so raster-reader pages never pay the candidate matcher.
-        if (this.readerRasterFreeMemo?.free && mutationsMayAddReaderRasterCandidate(mutations)) {
+        const settings = this.options.getSettings();
+        if (!ocrRuntimeActive(settings)) {
+            // Master pause stays computationally inert: drop the memo with one
+            // field write instead of matching every paused batch. The resume
+            // path (refreshForModeChange -> refresh) re-censuses once, so a
+            // reader surface added while paused is still found.
+            this.readerRasterFreeMemo = undefined;
+            return;
+        }
+        // A "free" memo dies when a candidate may have been ADDED; a "not free"
+        // memo dies when one may have been REMOVED (or a canvas resized), so a
+        // transient splash/chart canvas cannot permanently disable the O(1)
+        // path — the next check re-censuses (layout-free, one-shot).
+        const memo = this.readerRasterFreeMemo;
+        if (memo && (memo.free
+            ? mutationsMayAddReaderRasterCandidate(mutations)
+            : mutationsMayRemoveReaderRasterCandidate(mutations))) {
             this.readerRasterFreeMemo = undefined;
         }
-        const settings = this.options.getSettings();
-        if (!ocrRuntimeActive(settings)) return;
         const summary = summarizeRenderableMediaMutations(mutations);
         if (!summary.touched) return;
         this.schedulePosition();

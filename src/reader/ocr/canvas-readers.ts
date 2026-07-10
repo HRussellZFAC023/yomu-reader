@@ -416,25 +416,55 @@ export function pageHasReaderRasterCandidates(hostname: string = location.hostna
  * placeholder growing to page shape mutates only width/height).
  */
 export function mutationsMayAddReaderRasterCandidate(mutations: MutationRecord[]): boolean {
+    return mutationsTouchReaderRasterCandidates(mutations, 'addedNodes');
+}
+
+/**
+ * Mirror of the add matcher for pages memoized as NOT raster-free: a removed
+ * candidate subtree (or a canvas resize, which can shrink a page-shaped canvas
+ * back to decoration) may make the page raster-free again, so the memo is
+ * dropped and the next check re-censuses instead of sweeping forever.
+ */
+export function mutationsMayRemoveReaderRasterCandidate(mutations: MutationRecord[]): boolean {
+    return mutationsTouchReaderRasterCandidates(mutations, 'removedNodes');
+}
+
+function mutationsTouchReaderRasterCandidates(
+    mutations: MutationRecord[],
+    nodeList: 'addedNodes' | 'removedNodes',
+): boolean {
     for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
             const attribute = mutation.attributeName;
             if (!attribute || !READER_RASTER_CANDIDATE_ATTRIBUTES.has(attribute)) continue;
             if (attribute === 'width' || attribute === 'height') {
-                if (mutation.target instanceof HTMLCanvasElement) return true;
+                if (isCanvasNode(mutation.target)) return true;
                 continue;
             }
             return true;
         }
         if (mutation.type !== 'childList') continue;
-        for (const node of mutation.addedNodes) {
-            if (node instanceof HTMLCanvasElement) return true;
-            if (!(node instanceof Element)) continue;
-            if (node.matches(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
-            if (node.querySelector(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
+        for (const node of mutation[nodeList]) {
+            if (nodeIsOrContainsReaderRasterCandidate(node)) return true;
         }
     }
     return false;
+}
+
+// Realm-neutral checks: a canvas created in a same-origin iframe and adopted
+// into this document is NOT `instanceof` this realm's HTMLCanvasElement, but
+// the document-wide census selector still finds it — the matcher must agree or
+// a stale free verdict survives the adoption.
+function isCanvasNode(node: Node): boolean {
+    return node.nodeType === Node.ELEMENT_NODE && (node as Element).localName === 'canvas';
+}
+
+function nodeIsOrContainsReaderRasterCandidate(node: Node): boolean {
+    if (node.nodeType !== Node.ELEMENT_NODE) return false;
+    const element = node as Element;
+    if (element.localName === 'canvas') return true;
+    if (element.matches(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
+    return Boolean(element.querySelector(READER_RASTER_CANDIDATE_NODE_SELECTOR));
 }
 
 export function canvasReaderPageCounter(): string {

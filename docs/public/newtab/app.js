@@ -12892,6 +12892,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -33149,11 +33150,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
   }
   function isLikelyBackgroundImagePage(element, hostname) {
-    if (!backgroundImageReaderUrl(element)) return false;
-    const rect = element.getBoundingClientRect();
-    if (!hasRenderedPageShape(rect)) return false;
     const knownHost = isKnownBackgroundImageReaderHost(hostname);
     if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
+    if (!backgroundImageReaderUrl(element)) return false;
+    if (!hasRenderedPageShape(element.getBoundingClientRect())) return false;
     return knownHost || isViewportProminent(element);
   }
   function backgroundImagePages(hostname = location.hostname) {
@@ -33173,6 +33173,58 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isReaderRasterPage(hostname = location.hostname) {
     return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
+  }
+  const READER_RASTER_SIGNAL_SELECTOR = "[data-page-index], [data-mokuro-reader], [data-yomu-canvas-ocr]";
+  const READER_RASTER_CANDIDATE_NODE_SELECTOR = `canvas, ${PAGE_COUNTER_SELECTOR}, ${READER_RASTER_SIGNAL_SELECTOR}`;
+  const READER_RASTER_CANDIDATE_ATTRIBUTES = /* @__PURE__ */ new Set([
+    "width",
+    "height",
+    "data-page-index",
+    "data-mokuro-reader",
+    "data-yomu-canvas-ocr"
+  ]);
+  function pageHasReaderRasterCandidates(hostname = location.hostname) {
+    if (isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname)) return true;
+    if (document.querySelector(READER_RASTER_SIGNAL_SELECTOR)) return true;
+    if (document.querySelector(PAGE_COUNTER_SELECTOR)) return true;
+    for (const canvas of document.querySelectorAll("canvas")) {
+      if (hasPageShape(canvas)) return true;
+    }
+    return false;
+  }
+  function mutationsMayAddReaderRasterCandidate(mutations) {
+    return mutationsTouchReaderRasterCandidates(mutations, "addedNodes");
+  }
+  function mutationsMayRemoveReaderRasterCandidate(mutations) {
+    return mutationsTouchReaderRasterCandidates(mutations, "removedNodes");
+  }
+  function mutationsTouchReaderRasterCandidates(mutations, nodeList) {
+    for (const mutation of mutations) {
+      if (mutation.type === "attributes") {
+        const attribute = mutation.attributeName;
+        if (!attribute || !READER_RASTER_CANDIDATE_ATTRIBUTES.has(attribute)) continue;
+        if (attribute === "width" || attribute === "height") {
+          if (isCanvasNode(mutation.target)) return true;
+          continue;
+        }
+        return true;
+      }
+      if (mutation.type !== "childList") continue;
+      for (const node of mutation[nodeList]) {
+        if (nodeIsOrContainsReaderRasterCandidate(node)) return true;
+      }
+    }
+    return false;
+  }
+  function isCanvasNode(node) {
+    return node.nodeType === Node.ELEMENT_NODE && node.localName === "canvas";
+  }
+  function nodeIsOrContainsReaderRasterCandidate(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) return false;
+    const element = node;
+    if (element.localName === "canvas") return true;
+    if (element.matches(READER_RASTER_CANDIDATE_NODE_SELECTOR)) return true;
+    return Boolean(element.querySelector(READER_RASTER_CANDIDATE_NODE_SELECTOR));
   }
   function canvasReaderPageCounter() {
     return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
@@ -35835,6 +35887,12 @@ ${spelling}`);
     backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
     canvasReaderSamePageSignatureSkips = 0;
+    // Memoized "this page is provably raster-reader-free" verdict. On a page
+    // with zero raster candidates (e.g. a video site full of background-image
+    // thumbnails) every viewport shift and mutation re-arm must be O(1) — no
+    // selector sweep, no forced layout. Invalidated per navigation (href key)
+    // and by mutations that could introduce a candidate.
+    readerRasterFreeMemo;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
     pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
@@ -35888,6 +35946,7 @@ ${spelling}`);
     handleSpaNavigation = () => this.teardownForNavigation();
     init() {
       this.destroyed = false;
+      this.readerRasterFreeMemo = void 0;
       const body = document.body;
       if (!body) {
         document.addEventListener("DOMContentLoaded", () => {
@@ -35919,11 +35978,15 @@ ${spelling}`);
         window.addEventListener(eventName, this.handleSpaNavigation);
       }
       this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
-      this.mutationObserver.observe(body, {
+      this.mutationObserver.observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "data-yomu-canvas-ocr"]
+        // width/height catch a canvas backing store growing to page shape
+        // (a resize mutates only those attributes); the data-* reader
+        // signals catch surfaces marked up after insertion. All feed the
+        // raster-free memo invalidation in handleRenderableMediaMutations.
+        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "width", "height", "data-yomu-canvas-ocr", "data-page-index", "data-mokuro-reader"]
       });
       this.startReaderRasterPollingIfNeeded();
     }
@@ -36038,7 +36101,14 @@ ${spelling}`);
     }
     handleRenderableMediaMutations(mutations) {
       const settings = this.options.getSettings();
-      if (!ocrRuntimeActive(settings)) return;
+      if (!ocrRuntimeActive(settings)) {
+        this.readerRasterFreeMemo = void 0;
+        return;
+      }
+      const memo = this.readerRasterFreeMemo;
+      if (memo && (memo.free ? mutationsMayAddReaderRasterCandidate(mutations) : mutationsMayRemoveReaderRasterCandidate(mutations))) {
+        this.readerRasterFreeMemo = void 0;
+      }
       const summary = summarizeRenderableMediaMutations(mutations);
       if (!summary.touched) return;
       this.schedulePosition();
@@ -36055,7 +36125,21 @@ ${spelling}`);
       this.scheduleRefresh(refreshDelay);
     }
     hasReaderRasterSurfaces() {
-      return this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0 || collectCanvasReaderSurfaces().length > 0 || collectBackgroundImageReaderSurfaces().length > 0;
+      if (this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0) return true;
+      if (this.isProvenRasterFreePage()) return false;
+      return collectCanvasReaderSurfaces().length > 0 || collectBackgroundImageReaderSurfaces().length > 0;
+    }
+    // A "free" verdict is provable from layout-free facts alone and stays valid
+    // until a mutation could add a candidate (observer invalidates) or the SPA
+    // navigates (href key). A "not free" verdict just means the full sweeps must
+    // run, exactly as before the memo existed — canvas paint can change their
+    // answer without any DOM mutation, so it is never trusted beyond that.
+    isProvenRasterFreePage() {
+      const memo = this.readerRasterFreeMemo;
+      if (memo && memo.href === location.href) return memo.free;
+      const free = !pageHasReaderRasterCandidates();
+      this.readerRasterFreeMemo = { href: location.href, free };
+      return free;
     }
     hasVisibleInlineOcrFallback(settings) {
       if (!this.canScanInlineImages(false)) return false;
@@ -36086,6 +36170,7 @@ ${spelling}`);
       return this.options.shouldScanInlineImages?.(userRequested) !== false;
     }
     async scanVisible() {
+      this.readerRasterFreeMemo = void 0;
       const settings = this.options.getSettings();
       const retriedReaderFrames = this.retryVisibleReaderRasterFrames(settings);
       this.refresh({ userRequested: true });
@@ -37038,7 +37123,8 @@ ${spelling}`);
     }
     // --- Reader raster frames (canvas readers + CSS background-image readers) ---
     startReaderRasterPollingIfNeeded() {
-      if (this.readerRasterPoll || !isReaderRasterPage()) return;
+      if (this.readerRasterPoll) return;
+      if (this.isProvenRasterFreePage() || !isReaderRasterPage()) return;
       this.readerRasterPoll = window.setInterval(() => {
         const settings = this.options.getSettings();
         this.refreshCanvasReaderSurfaces(settings);
@@ -37047,6 +37133,10 @@ ${spelling}`);
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
+      if (this.isProvenRasterFreePage()) {
+        this.releaseAllCanvasFrames();
+        return;
+      }
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
       const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
       if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
@@ -37595,7 +37685,7 @@ ${spelling}`);
         this.releaseAllBackgroundFrames();
         return;
       }
-      if (!isReaderRasterPage()) {
+      if (this.isProvenRasterFreePage() || !isReaderRasterPage()) {
         this.releaseAllBackgroundFrames();
         return;
       }
