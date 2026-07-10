@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.113#sha256=3V2oAJLHRXLhwzyDqK242jtkdLsCKHqTswmVl1oD4+o=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.113#sha256=xNVaX11YdhllkRle6yR2R/NURvDNjYaTKklc4TaFDbc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.113#sha256=LiJneUrYDOqNyuwiUwwikan4hQE+uQ6kbTm0YJWoOEE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.113#sha256=Jj1alTtLyAIxX6FWkx6GfHQ50mT/EPKtkLfU372HleY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.113#sha256=OO8TeJGUx0HvBItiQqxWhJzZq0Xh+nygbxqKL2AGsd0=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.113#sha256=Eog/ir537zTZpWhoIXDwYTFelE4rj2XqNbXh47sTGYY=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.113#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.113#sha256=FPFf2SyAdCqCTmlpy4jkYNlXOz/S/yYpPFvsg9U4wnY=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.113#sha256=IX6PinDvRkxRDc9oAiV8hWPiX8UxKGkw54z5WoHPkWQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.113#sha256=3NXCqVAtJHdzB2JUXiuDcqPY7AowYr7nmi9NqFlKEW8=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.113#sha256=KQdsGY14KVkXjPhXsT4tWOJPeiAnRSdGGm4yjVTq/MQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -370,9 +370,17 @@ function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
   return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
 }
+const MIRROR_BARE_DESCENDANT_LIMIT = 16;
 function hostIsVisuallyBareForMirror(host) {
   if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
-  return elementHasNoOwnPaint(host);
+  if (!elementHasNoOwnPaint(host)) return false;
+  const descendants = host.querySelectorAll("*");
+  if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
+  for (const descendant of Array.from(descendants)) {
+  if (descendant.closest(".jpdb-reader-text-mirror")) continue;
+  if (!elementHasNoOwnPaint(descendant)) return false;
+  }
+  return true;
 }
 function elementHasNoOwnPaint(element2) {
   const style = safeComputedStyle(element2);
@@ -718,32 +726,38 @@ function isEditableComposingContext(element2) {
   if (element2.closest(EDITABLE_SKIP_SELECTOR)) return true;
   return isComboboxOwnedPopup(element2);
 }
+const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
+let comboboxOwnedIdMemo = new WeakMap();
+const COMBOBOX_OWNED_ID_TTL_MS = 250;
+function comboboxOwnedIds(root) {
+  const now = Date.now();
+  const memo = comboboxOwnedIdMemo.get(root);
+  if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+  const ids = new Set();
+  if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
+  for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
+    for (const attribute of ["aria-owns", "aria-controls"]) {
+      for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
+        if (token) ids.add(token);
+      }
+    }
+  }
+  }
+  comboboxOwnedIdMemo.set(root, { at: now, ids });
+  return ids;
+}
 function isComboboxOwnedPopup(element2) {
+  const ids = comboboxOwnedIds(element2.getRootNode());
+  if (!ids.size) return false;
   let current = element2;
   for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-  const id = current.id;
-  if (!id) continue;
-  const escaped = cssEscapeIdent(id);
-  if (!escaped) continue;
-  try {
-    if (document.querySelector(
-      `[role="combobox"][aria-owns~="${escaped}"],[role="combobox"][aria-controls~="${escaped}"],input[aria-owns~="${escaped}"],input[aria-controls~="${escaped}"]`
-    )) return true;
-  } catch {
-  }
+  if (current.id && ids.has(current.id)) return true;
   }
   return false;
 }
-function cssEscapeIdent(value) {
-  try {
-  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
-  } catch {
-  }
-  return /^[A-Za-z][\w-]*$/.test(value) ? value : "";
-}
-const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[aria-expanded],[aria-controls],[slot="more-button"],.more-button,#more,#less`;
+const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
-const INTERACTIVE_LINK_CONTEXT_SELECTOR = `header,nav,footer,${roleSelectors("banner,navigation,contentinfo,menu,menubar,toolbar,tablist")}`;
+const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
 const CONTENT_CHIP_ROOT_SELECTOR = [
   "ytm-slim-video-metadata-section-renderer",
@@ -759,11 +773,16 @@ const CONTENT_CHIP_ROOT_SELECTOR = [
 const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 function interactivePassiveControl(element2) {
   const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
-  if (control && !isConversationTextClass(control)) return control;
+  if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
   const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
   if (!link) return null;
   if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
   return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+function isMediaTextContentControl(control) {
+  if (!safeElementMatches$1(control, 'a[href],[role="link"],[role="button"]')) return false;
+  if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
+  return linkHasControlMedia(control) && compactLength(control.textContent ?? "") > 2;
 }
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
@@ -5346,8 +5365,17 @@ function isFragmentTextTarget$1(target) {
   return "fragments" in target;
 }
 function isCurrentScanTarget(target) {
+  if (scanTargetDecorationIsStale(target)) return false;
   if (isFragmentTextTarget$1(target)) return isCurrentFragmentScanTarget(target);
   return target.parent.isConnected && target.node.isConnected && target.node.parentElement === target.parent && (target.node.textContent ?? "").trim() === target.text;
+}
+function scanTargetDecorationIsStale(target) {
+  if (!target.decoration || !target.parent.isConnected) return false;
+  const current = isFragmentTextTarget$1(target) ? fragmentTargetDecoration(target.parent, target.fragments) : classifyDecoration(target.parent);
+  if (isFragmentTextTarget$1(target) && target.decorationProfileOverride) {
+  return current === "skip" && target.decoration !== "skip";
+  }
+  return current !== target.decoration;
 }
 function isCurrentFragmentScanTarget(target) {
   if (!target.parent.isConnected) return false;
@@ -5497,6 +5525,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
   const fragment = renderTokenizedScanText(target.text, tokens, settings, {
   parent: target.parent,
   hasNativeRuby: target.hasNativeRuby,
+  decoration: target.decoration,
   suppressRuby: target.suppressRuby,
   proseWrap: target.proseWrap,
   passiveInteraction: target.passiveInteraction
@@ -5505,7 +5534,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
 }
 function renderTokenizedScanText(text2, tokens, settings, target) {
   const fragment = document.createDocumentFragment();
-  const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
+  const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
   const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
   const renderSettings = furiganaSettingsForTarget(settings, target.parent);
   let offset = 0;
@@ -5610,7 +5639,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const text2 = plan.text;
   const safeTokens = plan.tokens;
   const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
-  const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
+  const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
   const existing = currentTextMirror(host);
@@ -5950,8 +5979,9 @@ function furiganaSettingsForTarget(settings, parent) {
   if (settings.showFurigana && settings.furiganaMode === "all") return settings;
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
-function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
+function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true, decoration) {
   if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (decoration === "interactive-passive" && interactivePassiveControl(parent)) return true;
   if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
   if (targetForcesAllFurigana(parent)) return false;
   return Boolean(suppressRuby);
@@ -6368,6 +6398,7 @@ function removeNonDestructiveScanMirrors(root = document) {
   hosts.forEach(removeTextMirror);
   controlHosts.forEach(removeControlTextMirror);
   canvasHosts.forEach(removeCanvasFallbackTextLayer);
+  releaseRubyRoomGrowth(root);
   return hosts.size + controlHosts.size + canvasHosts.size;
 }
 function queryAllPiercingShadow(root, selector, depth = 0) {
@@ -6559,7 +6590,7 @@ function applyTokensToFragmentTarget(target, tokens, settings) {
   const safeTokens = nonOverlappingTokens(tokens, target.text.length);
   if (!safeTokens.length) return;
   const sentence = target.text.replace(/\s+/g, " ").trim();
-  const renderTarget = targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+  const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
   applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
   markRenderedScanTarget(target);
 }
@@ -7659,7 +7690,7 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
     for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
       const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-      const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
+      const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
       if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
       if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
       decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
@@ -7672,15 +7703,15 @@ function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   box.dataset.yomuRubyRoom = "true";
   box.dataset.yomuRubyRoomHeight = String(roomHeight);
   makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
+  recordRubyRoomGrowthWrite(box);
   adjustedBoxes.add(box);
   adjusted += 1;
   }
   return adjusted;
 }
 const rubyRoomGrowthRecords = new WeakMap();
-function recordRubyRoomGrowth(box) {
-  if (rubyRoomGrowthRecords.has(box)) return;
-  rubyRoomGrowthRecords.set(box, {
+function rubyRoomStyleSnapshot(box) {
+  return {
   minHeight: box.style.getPropertyValue("min-height"),
   minHeightPriority: box.style.getPropertyPriority("min-height"),
   height: box.style.getPropertyValue("height"),
@@ -7689,7 +7720,15 @@ function recordRubyRoomGrowth(box) {
   maxHeightPriority: box.style.getPropertyPriority("max-height"),
   paddingTop: box.style.getPropertyValue("padding-top"),
   paddingTopPriority: box.style.getPropertyPriority("padding-top")
-  });
+  };
+}
+function recordRubyRoomGrowth(box) {
+  if (rubyRoomGrowthRecords.has(box)) return;
+  rubyRoomGrowthRecords.set(box, { before: rubyRoomStyleSnapshot(box) });
+}
+function recordRubyRoomGrowthWrite(box) {
+  const record = rubyRoomGrowthRecords.get(box);
+  if (record) record.written = rubyRoomStyleSnapshot(box);
 }
 function releaseRubyRoomGrowth(root = document) {
   const boxes = [];
@@ -7697,10 +7736,10 @@ function releaseRubyRoomGrowth(root = document) {
   boxes.push(...Array.from(root.querySelectorAll("[data-yomu-ruby-room]")));
   for (const box of boxes) {
   const record = rubyRoomGrowthRecords.get(box);
-  restoreRubyRoomProperty(box, "min-height", record?.minHeight, record?.minHeightPriority);
-  restoreRubyRoomProperty(box, "height", record?.height, record?.heightPriority);
-  restoreRubyRoomProperty(box, "max-height", record?.maxHeight, record?.maxHeightPriority);
-  restoreRubyRoomProperty(box, "padding-top", record?.paddingTop, record?.paddingTopPriority);
+  restoreRubyRoomProperty(box, "min-height", record, (r) => [r.minHeight, r.minHeightPriority]);
+  restoreRubyRoomProperty(box, "height", record, (r) => [r.height, r.heightPriority]);
+  restoreRubyRoomProperty(box, "max-height", record, (r) => [r.maxHeight, r.maxHeightPriority]);
+  restoreRubyRoomProperty(box, "padding-top", record, (r) => [r.paddingTop, r.paddingTopPriority]);
   delete box.dataset.yomuRubyRoom;
   delete box.dataset.yomuRubyRoomHeight;
   delete box.dataset.yomuRubyRoomPadTop;
@@ -7708,15 +7747,22 @@ function releaseRubyRoomGrowth(root = document) {
   }
   return boxes.length;
 }
-function restoreRubyRoomProperty(box, property, value, priority2) {
+function restoreRubyRoomProperty(box, property, record, pick) {
+  if (record?.written) {
+  const [writtenValue, writtenPriority] = pick(record.written);
+  const currentValue = box.style.getPropertyValue(property);
+  const currentPriority = box.style.getPropertyPriority(property);
+  if (currentValue !== writtenValue || currentPriority !== writtenPriority) return;
+  }
+  const [value, priority2] = record ? pick(record.before) : ["", ""];
   if (value) box.style.setProperty(property, value, priority2);
   else box.style.removeProperty(property);
 }
 const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
 const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
-function rubyTopClearanceDeficit(box) {
-  const raw = rubyTopOverflowRaw(box);
-  if (raw <= 0 && !rubyTouchesBoxTop(box)) return 0;
+function rubyTopClearanceDeficit(box, mirror) {
+  const raw = rubyTopOverflowRaw(box, mirror);
+  if (raw <= 0 && !rubyTouchesBoxTop(box, mirror)) return 0;
   if (raw <= -RUBY_ROOM_TOP_CLEARANCE_PX) return 0;
   const applied = previousRubyRoomTopPad(box);
   const deficit = Math.ceil(raw + RUBY_ROOM_TOP_CLEARANCE_PX);
@@ -7727,13 +7773,13 @@ function previousRubyRoomTopPad(box) {
   return Number.isFinite(value) ? value : 0;
 }
 function rubyCropsBox(box, mirror) {
-  return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box, mirror) > 1;
+  return rubyBottomOverflow(box, mirror) > 1 || rubyTouchesBoxTop(box, mirror) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
-function rubyTouchesBoxTop(box) {
+function rubyTouchesBoxTop(box, mirror) {
   const style = safeComputedStyle(box);
   const lineHeight = cssPixels(style.lineHeight) || (cssPixels(style.fontSize) || 16) * 1.4;
   if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
-  return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
+  return rubyTopOverflowRaw(box, mirror) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 function genericRubyNeedsRoom(box, mirror) {
   return rubyCropsBox(box, mirror) || rubyLayoutOverflowsShortRow(box, mirror) || rubyOverflowsCompactClippedRow(box, mirror);
@@ -7772,7 +7818,7 @@ function genericRubyRoomHeight(box, mirror) {
   const shortRowHeight = rubyLayoutOverflowsShortRow(box, mirror) ? box.scrollHeight : 0;
   const compactRowHeight = rubyOverflowsCompactClippedRow(box, mirror) ? compactClippedRubyOverflow(box, mirror) : 0;
   return Math.ceil(Math.max(
-  box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+  box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
   owned ? owned.scrollHeight : 0,
   shortRowHeight,
   compactRowHeight
@@ -7862,14 +7908,14 @@ function isShortRubyRowDisplay(style) {
   return style.display.includes("flex") || style.display.includes("grid") || style.display === "block" || style.display === "flow-root" || style.display === "list-item" || style.display === "table" || style.display === "table-row" || style.display === "table-cell" || style.display === "inline-block";
 }
 function boxActuallyCrops(box, mirror) {
-  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box, mirror) > 1;
+  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box, mirror) > 1 || rubyTouchesBoxTop(box, mirror) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 function rubyRoomHeight(box, mirror) {
   const owned = ownedRubyMirrorFor(box, mirror);
   const mirrorHeight = owned ? owned.scrollHeight : 0;
   const measuredHeight = Math.max(
   box.scrollHeight,
-  box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+  box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
   mirrorHeight
   );
   const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX && mirrorHeight > box.clientHeight + RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX;
@@ -7880,13 +7926,14 @@ function rubyMirrorBlockOverflow(box, mirror) {
   if (!owned) return 0;
   return Math.max(0, owned.scrollHeight - box.clientHeight);
 }
-function rubyTopOverflow(box) {
-  return Math.max(0, rubyTopOverflowRaw(box));
+function rubyTopOverflow(box, mirror) {
+  return Math.max(0, rubyTopOverflowRaw(box, mirror));
 }
-function rubyTopOverflowRaw(box) {
+function rubyTopOverflowRaw(box, mirror) {
   const boxRect = box.getBoundingClientRect();
   let overflow = Number.NEGATIVE_INFINITY;
   for (const ruby of box.querySelectorAll("ruby")) {
+  if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
   const base = ruby.querySelector(".jpdb-reader-ruby-base") ?? ruby;
   if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
   const rt = ruby.querySelector("rt");
@@ -7895,10 +7942,15 @@ function rubyTopOverflowRaw(box) {
   }
   return overflow;
 }
-function rubyBottomOverflow(box) {
+function rubyBelongsToBoxMeasurement(ruby, mirror) {
+  const owner = ruby.closest(".jpdb-reader-text-mirror");
+  return !owner || owner === mirror;
+}
+function rubyBottomOverflow(box, mirror) {
   const boxRect = box.getBoundingClientRect();
   let overflow = 0;
   for (const ruby of box.querySelectorAll("ruby")) {
+  if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
   const base = ruby.querySelector(".jpdb-reader-ruby-base") ?? ruby;
   const baseRect = base.getBoundingClientRect();
   if (!baseVisibleInBox(baseRect, boxRect)) continue;
@@ -27783,7 +27835,7 @@ function siteScanTargetWithProfileOptions(profile, target) {
   const baseTarget = {
   ...target,
   parserId: profile.id,
-  decoration: target.decoration ?? classifyDecoration(target.parent),
+  ...profileDecoration(profile, target),
   suppressRuby: target.suppressRuby || suppressRuby || void 0,
   passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
   singlePassScan: profile.singlePassScan || void 0,
@@ -27793,6 +27845,13 @@ function siteScanTargetWithProfileOptions(profile, target) {
 }
 function isYouTubeSiteParserProfile(profile) {
   return profile.id.startsWith("youtube-");
+}
+function profileDecoration(profile, target) {
+  const sealed = target.decoration ?? classifyDecoration(target.parent);
+  if (sealed === "interactive-passive" && profile.id === YOMU_HOSTED_DOCS_PARSER_ID) {
+  return { decoration: "content-ruby", decorationProfileOverride: true };
+  }
+  return { decoration: sealed, decorationProfileOverride: target.decorationProfileOverride };
 }
 function shouldSuppressSiteScanRuby(profile, target) {
   if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
@@ -29514,12 +29573,12 @@ const AUTO_SCAN_OBSERVER_OPTIONS = {
   subtree: true,
   characterData: true,
   attributes: true,
-  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded"]
+  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
-const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded"]);
+const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]);
 const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
@@ -35651,6 +35710,7 @@ class ReaderApp {
   clearHostedPageReaderWords() {
   if (!isYomuHostedAppUrl(location.href)) return;
   const count = unwrapReaderWords(document);
+  releaseRubyRoomGrowth(document);
   if (count > 0) refreshReaderWordContrast(document);
   }
   scheduleLanguageChangeScan() {

@@ -5924,9 +5924,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return false;
   }
+  const MIRROR_BARE_DESCENDANT_LIMIT = 16;
   function hostIsVisuallyBareForMirror(host) {
     if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
-    return elementHasNoOwnPaint(host);
+    if (!elementHasNoOwnPaint(host)) return false;
+    const descendants = host.querySelectorAll("*");
+    if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
+    for (const descendant of Array.from(descendants)) {
+      if (descendant.closest(".jpdb-reader-text-mirror")) continue;
+      if (!elementHasNoOwnPaint(descendant)) return false;
+    }
+    return true;
   }
   function elementHasNoOwnPaint(element) {
     const style = safeComputedStyle(element);
@@ -6268,32 +6276,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (element.closest(EDITABLE_SKIP_SELECTOR)) return true;
     return isComboboxOwnedPopup(element);
   }
+  const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
+  let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
+  const COMBOBOX_OWNED_ID_TTL_MS = 250;
+  function comboboxOwnedIds(root) {
+    const now = Date.now();
+    const memo = comboboxOwnedIdMemo.get(root);
+    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+    const ids = /* @__PURE__ */ new Set();
+    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
+      for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
+        for (const attribute of ["aria-owns", "aria-controls"]) {
+          for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
+            if (token) ids.add(token);
+          }
+        }
+      }
+    }
+    comboboxOwnedIdMemo.set(root, { at: now, ids });
+    return ids;
+  }
   function isComboboxOwnedPopup(element) {
+    const ids = comboboxOwnedIds(element.getRootNode());
+    if (!ids.size) return false;
     let current = element;
     for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      const id = current.id;
-      if (!id) continue;
-      const escaped = cssEscapeIdent(id);
-      if (!escaped) continue;
-      try {
-        if (document.querySelector(
-          `[role="combobox"][aria-owns~="${escaped}"],[role="combobox"][aria-controls~="${escaped}"],input[aria-owns~="${escaped}"],input[aria-controls~="${escaped}"]`
-        )) return true;
-      } catch {
-      }
+      if (current.id && ids.has(current.id)) return true;
     }
     return false;
   }
-  function cssEscapeIdent(value) {
-    try {
-      if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
-    } catch {
-    }
-    return /^[A-Za-z][\w-]*$/.test(value) ? value : "";
-  }
-  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[aria-expanded],[aria-controls],[slot="more-button"],.more-button,#more,#less`;
+  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
   const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
-  const INTERACTIVE_LINK_CONTEXT_SELECTOR = `header,nav,footer,${roleSelectors("banner,navigation,contentinfo,menu,menubar,toolbar,tablist")}`;
+  const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
   const CONTENT_CHIP_ROOT_SELECTOR = [
     "ytm-slim-video-metadata-section-renderer",
@@ -6311,11 +6325,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
   function interactivePassiveControl(element) {
     const control = element.closest(INTERACTIVE_CONTROL_SELECTOR);
-    if (control && !isConversationTextClass(control)) return control;
+    if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
     const link = element.closest(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+  }
+  function isMediaTextContentControl(control) {
+    if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
+    if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
+    return linkHasControlMedia(control) && compactLength(control.textContent ?? "") > 2;
   }
   function classifyDecoration(element) {
     if (element.closest(READER_ROOT_SELECTOR)) return "content-ruby";
@@ -8985,8 +9004,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return "fragments" in target;
   }
   function isCurrentScanTarget(target) {
+    if (scanTargetDecorationIsStale(target)) return false;
     if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
     return target.parent.isConnected && target.node.isConnected && target.node.parentElement === target.parent && (target.node.textContent ?? "").trim() === target.text;
+  }
+  function scanTargetDecorationIsStale(target) {
+    if (!target.decoration || !target.parent.isConnected) return false;
+    const current = isFragmentTextTarget(target) ? fragmentTargetDecoration(target.parent, target.fragments) : classifyDecoration(target.parent);
+    if (isFragmentTextTarget(target) && target.decorationProfileOverride) {
+      return current === "skip" && target.decoration !== "skip";
+    }
+    return current !== target.decoration;
   }
   function isCurrentFragmentScanTarget(target) {
     if (!target.parent.isConnected) return false;
@@ -9136,6 +9164,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const fragment2 = renderTokenizedScanText(target.text, tokens, settings, {
       parent: target.parent,
       hasNativeRuby: target.hasNativeRuby,
+      decoration: target.decoration,
       suppressRuby: target.suppressRuby,
       proseWrap: target.proseWrap,
       passiveInteraction: target.passiveInteraction
@@ -9144,7 +9173,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
     const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
@@ -9249,7 +9278,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const text2 = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
@@ -9583,8 +9612,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (settings.showFurigana && settings.furiganaMode === "all") return settings;
     return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
-  function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
+  function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true, decoration) {
     if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (decoration === "interactive-passive" && interactivePassiveControl(parent)) return true;
     if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
@@ -9984,7 +10014,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
-    const renderTarget = targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+    const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
   }
