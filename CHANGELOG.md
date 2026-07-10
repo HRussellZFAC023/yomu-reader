@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.115] - 2026-07-10
+
+### Fixed
+
+- Interactive controls — buttons, tabs, menu items and other clickable chrome — never receive layout-affecting furigana anymore, so oversized "giant" buttons no longer appear on sites where readings used to inflate a control's height.
+- Search boxes and editable fields are now skipped deterministically by the decoration policy, so typing surfaces are never annotated or disturbed.
+- Rows that clip their text now hide furigana at rest and reveal it on hover, so tight single-line labels stay intact instead of showing cropped readings.
+- The extra room Yomu reserves for readings (ruby room) is now owned by Yomu and fully reverted when decoration is removed, so pages return to their original layout when Yomu turns off.
+- The video player's native subtitle line is no longer clipped in fullscreen: Yomu reserves a slot for it instead of letting its own subtitle overlay push it out of view.
+- A player stuck in inline fullscreen (after an interrupted fullscreen transition) now recovers automatically instead of leaving the page in a broken layout.
+- On iPhone, entering the native fullscreen video player keeps Yomu subtitles visible instead of dropping them.
+
+### Added
+
+- Settings now have a Backup & sync section for exporting, importing and syncing your Yomu data.
+- Settings now show the installed version and a working update check with install steps matched to how you run Yomu, fixing the "Apps, extensions, and user scripts cannot be added" dead-end some users hit when trying to update.
+- When a video-frame scan finds no text, the OCR pill now says "No text found · Scan again" so you can retry immediately instead of wondering whether anything happened.
+
 ## [1.6.114] - 2026-07-10
 
 ### Changed
