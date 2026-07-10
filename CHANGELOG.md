@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.117] - 2026-07-10
+
+### Fixed
+
+- Feed, watch-page and Shorts rows no longer blow up into giant tiles: rows that clamp their text never grow for hidden readings and never hide the page's own text — at rest an annotated row paints exactly as it would without Yomu.
+- Vanished text on annotated rows — video titles collapsing to empty tiles, the subscriber count turning invisible — is fixed: the original text always keeps painting.
+- Cramped rows that clip their text now keep readings hidden at rest and reveal them on hover, instead of painting cropped readings outside the row.
+- Mirrored text no longer invents spaces the page never showed, so Discord messages and similar layouts stop splitting Japanese words with stray gaps.
+- Long unbroken annotated lines can wrap again instead of forcing the page to scroll sideways.
+- Style updates now actually reach existing installs: the stylesheet ships as a versioned, integrity-pinned resource, so each release reliably delivers its matching styles instead of serving a stale cached sheet.
+- Text hidden inside closed menus and dropdowns no longer paints into mirrored annotations.
+- A page's own furigana (native ruby) is no longer flattened into the surrounding text when mirrored, so readings stay readings instead of merging into the sentence.
+
+### Added
+
+- Hardened the release pipeline so the live site and stylesheet deploy can no longer be silently skipped by a release push.
+
 ## [1.6.116] - 2026-07-10
 
 ### Fixed
