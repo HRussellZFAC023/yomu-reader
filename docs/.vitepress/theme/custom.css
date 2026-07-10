@@ -368,13 +368,71 @@ html[lang="ja"] .VPHomeHero .tagline {
   white-space: nowrap;
 }
 
-.VPHomeHero .actions .VPButton:has(.jpdb-reader-word.jpdb-reader-has-furi) {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-block: 6px 5px;
-  line-height: 1.2;
+/* Japanese interface: every pill in the row reserves the furigana band via a
+   fixed height, whether or not its label ends up with readings, so the demo
+   annotation never changes pill geometry and the row stays uniform.
+   (A :has(.jpdb-reader-has-furi) rule previously grew only annotated pills,
+   which left 学習/見る/読む taller than ゲーム/インストール.) */
+html[lang="ja"] .VPHomeHero .actions .VPButton {
+  align-items: flex-end;
+  height: 46px;
+  min-height: 46px;
+  padding-bottom: 9px;
   overflow: visible;
+}
+
+/* Chrome labels in mixed furigana/plain groups (hero pills, install steps,
+   nav tabs, next-step card titles) must share one baseline whether or not the
+   demo annotated them. Construction: the label container is a flex box with a
+   fixed height (or a min-height strut) large enough for the ruby band and
+   align-items: flex-end, so every label glyph box is glued to the same bottom
+   edge; readings render in the reserved space above. The runtime reserves
+   ruby room generically via line-height 2.15 on annotated words — reset that
+   inside these groups so the ruby need stays within the reserved band. Prose
+   ruby elsewhere stays in-flow — that is the reading demo. */
+html[lang="ja"]
+  :is(
+    .VPHomeHero .actions .VPButton,
+    .yomu-install-steps a,
+    .VPNavBarMenu .VPNavBarMenuLink,
+    .VPNavBarMenu .VPNavBarMenuGroup .button,
+    .yomu-next-grid .yomu-link-card strong
+  )
+  .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: inherit !important;
+}
+
+html[lang="ja"] .yomu-install-steps a .yomu-install-step-label {
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 30px;
+}
+
+/* Nav row: keep the 64px navbar hitbox (VitePress line-height: 64px would
+   otherwise make annotated links ~85px tall), compact label line box, labels
+   glued to a shared bottom edge, readings in the space above. The More/その他
+   flyout trigger (.VPNavBarMenuGroup .button) gets the same treatment so the
+   whole row shares one baseline. */
+html[lang="ja"] .VPNavBarMenu .VPNavBarMenuLink,
+html[lang="ja"] .VPNavBarMenu .VPNavBarMenuGroup .button {
+  display: flex;
+  align-items: flex-end;
+  height: var(--vp-nav-height);
+  padding-bottom: 23px;
+  line-height: 17px;
+}
+
+html[lang="ja"] .yomu-next-grid .yomu-link-card strong {
+  display: flex;
+  align-items: flex-end;
+  /* Tallest observed title ruby need (reading + pitch overline) is ~3.35em;
+     em-sized so text-only enlargement and fallback-font metrics scale the
+     reserved band with the glyphs. A fixed height (not min-height) keeps
+     every title's glyph box identical: WebKit adds ruby-annotation overflow
+     on top of min-height when sizing a flex container. Scoped to the
+     homepage next-step grid — other .yomu-link-card pages have long plain
+     titles that must wrap freely. */
+  height: 3.7em;
 }
 
 .VPHomeHero .image {
@@ -597,6 +655,11 @@ html[lang="ja"] .VPHomeHero .tagline {
     min-height: 38px;
     padding-inline: 12px;
     font-size: 13px;
+  }
+
+  html[lang="ja"] .VPHomeHero .actions .VPButton {
+    height: 44px;
+    min-height: 44px;
   }
 }
 
@@ -1000,6 +1063,12 @@ html[lang="ja"] .VPHomeHero .tagline {
   font-weight: 700;
   line-height: 1.2;
   text-decoration: none !important;
+}
+
+/* Japanese interface: reserve headroom for the overlay readings above the
+   step labels so annotation never changes step height. */
+html[lang="ja"] .yomu-install-steps a {
+  min-height: 46px;
 }
 
 .yomu-install-step-link {
