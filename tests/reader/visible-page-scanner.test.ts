@@ -1121,7 +1121,10 @@ describe('VisiblePageScanner', () => {
             expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['すべて', '動画']));
             expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
             const video = words.find(word => word.dataset.expression === '動画');
-            expect(video?.querySelector('rt')?.textContent).toBe('どうが');
+            // Filter chips are interactive-passive controls: colour + pitch
+            // underline only — no furigana in any channel, even under
+            // furigana-mode=all (live-YT release gate, 2026-07-10).
+            expect(video?.querySelector('rt')).toBeFalsy();
             expect(video?.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
@@ -1241,7 +1244,9 @@ describe('VisiblePageScanner', () => {
             expect(create).not.toBeNull();
             expect(create.classList.contains('jpdb-reader-passive-word')).toBe(true);
             expect(create.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(create.querySelector('rt')?.textContent).toBe('さくせい');
+            // The topbar create button is a control: no furigana in any
+            // channel under any furigana mode (live-YT release gate).
+            expect(create.querySelector('rt')).toBeFalsy();
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);

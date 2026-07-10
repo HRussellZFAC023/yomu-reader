@@ -1,4 +1,5 @@
 import {
+    classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
     collectVisibleTextTargets,
@@ -1421,13 +1422,18 @@ function targetSpansMultipleYouTubeWatchMetadataTextHosts(target: FragmentTextTa
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-    const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
     const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
         && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
     const baseTarget = {
         ...target,
         parserId: profile.id,
-        suppressRuby: targetSuppressRuby || suppressRuby || undefined,
+        // Sealed DecorationPolicy decision: profile targets built without the
+        // generic collectors (synthetic aria-label rows, canvas fallbacks)
+        // classify here so every target carries exactly one verdict. Yomu's
+        // OWN hosted pages are reading material end to end — their controls
+        // keep inline readings (owner-surface naming; behavior is the policy's).
+        ...profileDecoration(profile, target),
+        suppressRuby: target.suppressRuby || suppressRuby || undefined,
         passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: profile.nonDestructive || undefined,
@@ -1435,12 +1441,19 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
 
-function profileKeepsProfileRootRuby(profile: SiteParserProfile): boolean {
-    return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
-}
-
 function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
     return profile.id.startsWith('youtube-');
+}
+
+function profileDecoration(
+    profile: SiteParserProfile,
+    target: FragmentTextTarget,
+): Pick<FragmentTextTarget, 'decoration' | 'decorationProfileOverride'> {
+    const sealed = target.decoration ?? classifyDecoration(target.parent);
+    if (sealed === 'interactive-passive' && profile.id === YOMU_HOSTED_DOCS_PARSER_ID) {
+        return { decoration: 'content-ruby', decorationProfileOverride: true };
+    }
+    return { decoration: sealed, decorationProfileOverride: target.decorationProfileOverride };
 }
 
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {

@@ -1,7 +1,57 @@
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
-import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import {
+    COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR,
+    PASSIVE_INTERACTION_BOUNDARY_SELECTOR,
+    PASSIVE_INTERACTION_SELECTOR,
+    COMPACT_PASSIVE_INTERACTION_SELECTOR,
+    COMPACT_PASSIVE_CHROME_SELECTOR,
+    UI_CLASS_RE,
+    applyPassiveChromeMarks,
+    boxStyleIsClipCapable,
+    classifyDecoration,
+    closestRubyFragileConstrainedRow,
+    decorationStateForWord,
+    decorationSuppressesRuby,
+    interactivePassiveControl,
+    stampDecorationState,
+    CONSTRAINED_ROW_VERDICT_TTL_MS,
+    isCompactPassiveChromeElement,
+    compactInteractiveChromeElement,
+    compactPassiveChromeElement,
+    compactLength,
+    compactScanRubySuppression,
+    cssPixels,
+    hasClippedTextConstraint,
+    hasDefiniteCssSize,
+    hasInlineControlShape,
+    hasLineClamp,
+    hasUiBox,
+    hostIsVisuallyBareForMirror,
+    isCompactInteractiveChromeText,
+    isCompactPassiveInteractionElement,
+    isConversationTextClass,
+    isEllipsisTextRow,
+    isInsideRubyFragileConstrainedRow,
+    isLikelyProseElement,
+    isLikelyProseLink,
+    isNavigationChromeContext,
+    isPassiveInteractionElement,
+    isPositionedTextOverlay,
+    isReadableProseContext,
+    isExplicitControlLink,
+    linkHasControlMedia,
+    linkHasControlShape,
+    safeComputedStyle,
+    safeElementMatches,
+    selectorPairs,
+} from './decoration-policy';
+
+export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
+export type { DecorationState } from './decoration-policy';
+import type { DecorationState } from './decoration-policy';
+export { classifyDecoration, DECORATION_STATE_ATTRIBUTE, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
@@ -51,8 +101,6 @@ const EASY_FURIGANA_KANJI = new Set(
 // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
-const selectorPairs = (names: string, attributes = ['class', 'id']): string => names.split(',').flatMap(name => attributes.map(attribute => `[${attribute}*="${name}" i]`)).join(',');
-const roleSelectors = (names: string): string => names.split(',').map(name => `[role="${name}"]`).join(',');
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
@@ -112,34 +160,8 @@ const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROM
 // host text and self-perpetuated into a duplicated, flashing caption strip.
 const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],${EDITABLE_TEXT_SURFACE_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]`;
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
-const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
-const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
-const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
-const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors('button,link,menuitem,option,tab,checkbox,radio,switch')},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs('audio,button,control,play,sound,speaker,toggle', ['class'])}`;
-const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs('author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username', ['class'])}`;
-const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
-const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
-const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
-const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
-const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar')}`;
-const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
-const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
-const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
-const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
-const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
-const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
-const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
-const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs('alert,banner,notice,notification,snackbar,toast', ['class'])},${selectorPairs('assistant,prompt,question', ['class', 'id'])}`;
-const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
 const FORM_CONTROL_TEXT_TARGET_SELECTOR = 'select,input,textarea';
@@ -152,6 +174,10 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
     hasNativeRuby?: boolean;
+    // Sealed DecorationPolicy verdict, classified ONCE at collect; every
+    // downstream consumer (render allowRuby, CSS stamping, ruby-room) reads
+    // this instead of re-classifying.
+    decoration?: DecorationState;
     suppressRuby?: boolean;
     proseWrap?: boolean;
     layoutSensitive?: boolean;
@@ -184,6 +210,12 @@ export interface FragmentTextTarget {
     parent: HTMLElement;
     fragments: TextFragment[];
     parserId?: string;
+    decoration?: DecorationState;
+    // Set when a site profile deliberately overrode the classifier's verdict
+    // (owner-surface naming, e.g. hosted docs controls upgraded to content).
+    // The staleness re-check cannot reproduce the override, so it only guards
+    // the skip transition for such targets.
+    decorationProfileOverride?: boolean;
     suppressRuby?: boolean;
     proseWrap?: boolean;
     layoutSensitive?: boolean;
@@ -568,7 +600,9 @@ function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boole
 function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
-    const suppressRuby = shouldSuppressCompactScanRuby(parent);
+    const decoration = classifyDecoration(parent);
+    if (decoration === 'skip') return null;
+    const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
     const text = nodeTextContent(node).trim();
     return {
@@ -576,6 +610,7 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         text,
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
+        decoration,
         suppressRuby,
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
@@ -765,12 +800,15 @@ function fragmentTextTargetFrom(
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
-    const suppressRuby = fragmentTargetSuppressesCompactScanRuby(parent, trimmedFragments);
+    const decoration = fragmentTargetDecoration(parent, trimmedFragments);
+    if (decoration === 'skip') return null;
+    const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every(fragment => fragment.passiveInteraction);
     return {
         text,
         parent,
         fragments: trimmedFragments,
+        decoration,
         suppressRuby,
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
@@ -796,12 +834,20 @@ function shadowDomTargetMetadata(parent: HTMLElement): Partial<FragmentTextTarge
     };
 }
 
-function fragmentTargetSuppressesCompactScanRuby(parent: HTMLElement, fragments: TextFragment[]): boolean {
-    if (shouldSuppressCompactScanRuby(parent)) return true;
-    return fragments.some(fragment => {
+// The target-level decision is the parent's classification, upgraded to
+// interactive-passive when ANY fragment sits inside an interactive control
+// (a mixed run spanning a chip and its label must not ruby half of itself).
+function fragmentTargetDecoration(parent: HTMLElement, fragments: TextFragment[]): DecorationState {
+    const parentDecoration = classifyDecoration(parent);
+    if (parentDecoration === 'skip' || parentDecoration === 'interactive-passive') return parentDecoration;
+    const seen = new Set<HTMLElement>([parent]);
+    for (const fragment of fragments) {
         const element = fragment.node.parentElement;
-        return Boolean(element && shouldSuppressCompactScanRuby(element));
-    });
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        if (classifyDecoration(element) === 'interactive-passive') return 'interactive-passive';
+    }
+    return parentDecoration;
 }
 
 function isCollectableFragmentText(
@@ -1128,40 +1174,6 @@ function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
     return Boolean(walker.nextNode());
 }
 
-export function isPassiveInteractionElement(element: Element): boolean {
-    if (element.closest(READER_ROOT_SELECTOR)) return false;
-    if (element instanceof HTMLElement && isReadableProseContext(element) && !readableContextPassiveChromeElement(element)) return false;
-    if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
-    const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
-    const compactChrome = element.closest<HTMLElement>(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
-}
-
-function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
-    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!text || text.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-    return element.childElementCount <= 4;
-}
-
-function isCompactPassiveChromeElement(element: HTMLElement): boolean {
-    if (isLikelyProseElement(element)) return false;
-    return isCompactPassiveInteractionElement(element);
-}
-
-function readableContextPassiveChromeElement(element: HTMLElement): HTMLElement | null {
-    const interaction = element.closest<HTMLElement>(PASSIVE_INTERACTION_SELECTOR);
-    if (interaction) {
-        if (isConversationTextClass(interaction)) return null;
-        if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
-        if (isCompactPassiveInteractionElement(interaction)) return interaction;
-    }
-    const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
-    const compactChrome = element.closest<HTMLElement>(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
-}
-
 function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {
     if (isPassiveInteractionElement(element)) return true;
     return Boolean(options.readerRootPassiveInteractions
@@ -1193,51 +1205,6 @@ function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
     if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
     // Unmeasured (0) stays constrained; only a measured tall box is exempt.
     return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
-}
-
-// A clipped single-line ellipsis row (m.youtube titles, channel bylines) is
-// sized for exactly one plain text line: ruby makes the line taller, the clip
-// swallows the base text, and the row shows only furigana. Height is no
-// exemption here — the row grows with whatever the line box becomes.
-function isEllipsisTextRow(style: CSSStyleDeclaration): boolean {
-    if (!clipsOverflow(style) || !style.textOverflow.includes('ellipsis')) return false;
-    return style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' || style.display === '-webkit-box';
-}
-
-function hasLineClamp(style: CSSStyleDeclaration): boolean {
-    const clamp = style.getPropertyValue('-webkit-line-clamp').trim();
-    return Boolean(clamp && clamp !== 'none' && clamp !== '0');
-}
-
-function hasClippedTextConstraint(style: CSSStyleDeclaration): boolean {
-    if (!clipsOverflow(style)) return false;
-    return hasDefiniteCssSize(style.height)
-        || hasDefiniteCssSize(style.maxHeight)
-        || style.display === '-webkit-box';
-}
-
-function isPositionedTextOverlay(style: CSSStyleDeclaration): boolean {
-    return (style.position === 'absolute' || style.position === 'fixed')
-        && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight))
-        && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
-}
-
-function clipsOverflow(style: CSSStyleDeclaration): boolean {
-    return style.overflow === 'hidden'
-        || style.overflow === 'clip'
-        || style.overflowY === 'hidden'
-        || style.overflowY === 'clip';
-}
-
-function hasDefiniteCssSize(value: string): boolean {
-    const normalized = value.trim().toLowerCase();
-    return Boolean(normalized
-        && normalized !== 'auto'
-        && normalized !== 'none'
-        && normalized !== 'normal'
-        && normalized !== 'initial'
-        && normalized !== 'inherit'
-        && normalized !== 'unset');
 }
 
 function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
@@ -1294,11 +1261,28 @@ function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTar
 }
 
 export function isCurrentScanTarget(target: ScanTextTarget): boolean {
+    if (scanTargetDecorationIsStale(target)) return false;
     if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
     return target.parent.isConnected
         && target.node.isConnected
         && target.node.parentElement === target.parent
         && (target.node.textContent ?? '').trim() === target.text;
+}
+
+// A sealed verdict can go stale between collection and the asynchronous
+// apply: a framework may keep the text node but turn its container into a
+// textbox/contenteditable (or vice versa). Re-run the deterministic
+// classification and drop the target for rescan when the facts changed —
+// applying a stale content verdict inside an editor is never acceptable.
+function scanTargetDecorationIsStale(target: ScanTextTarget): boolean {
+    if (!target.decoration || !target.parent.isConnected) return false;
+    const current = isFragmentTextTarget(target)
+        ? fragmentTargetDecoration(target.parent, target.fragments)
+        : classifyDecoration(target.parent);
+    if (isFragmentTextTarget(target) && target.decorationProfileOverride) {
+        return current === 'skip' && target.decoration !== 'skip';
+    }
+    return current !== target.decoration;
 }
 
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
@@ -1397,6 +1381,21 @@ function scanHostIsLiveFrameworkRegion(host: HTMLElement): boolean {
     return hostInConversationContext(host);
 }
 
+// The sealed decision is stamped ONCE, at apply time, on the render host (and
+// on the classified control ancestor so CSS scoping covers the whole chip).
+// The legacy passive-chrome marks (dataset + aria-label side effects that used
+// to fire inside the collect-time predicate) are applied here too — apply is
+// the only writer; classification itself stays side-effect free.
+function stampTargetDecoration(target: ScanTextTarget, host: HTMLElement): void {
+    const decoration = target.decoration;
+    if (!decoration) return;
+    stampDecorationState(host, decoration);
+    if (decoration !== 'interactive-passive') return;
+    const control = interactivePassiveControl(target.parent);
+    if (control) stampDecorationState(control, decoration);
+    applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
+}
+
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (target.controlTextMirror) {
         applyTokensToControlTextMirrorTarget(target, tokens, settings);
@@ -1414,10 +1413,12 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // as it crashed the chat apps. The mirror overlays a copy and mutates nothing
     // the component owns. This dominates every other render heuristic below.
     if (target.insideShadowDOM) {
+        stampTargetDecoration(target, nonDestructiveScanHost(target));
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
     const nonDestructiveHost = nonDestructiveScanHost(target);
+    stampTargetDecoration(target, nonDestructiveHost);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
@@ -1427,8 +1428,12 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // in-place ruby on engines where it collapses or grows the clip window —
     // the absolutely-positioned mirror sizes its own line above the host, so
     // those rows keep full furigana instead of a suppressed reading.
+    // Interactive-passive targets render no reading at all, so there is
+    // nothing for the clip to shave — they stay in place (mirroring them
+    // would hide the host text for zero gain).
     const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion
-        && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost)
+        && !target.suppressRuby
+        && isInsideRubyFragileConstrainedRow(nonDestructiveHost)
         // Only visually-bare hosts may be mirror-hidden: a styled host (pill
         // background, border, chevron SVG, ::before separator) would lose its
         // box paint with visibility:hidden — the bloomee bug class. Styled
@@ -1514,6 +1519,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
     const fragment = renderTokenizedScanText(target.text, tokens, settings, {
         parent: target.parent,
         hasNativeRuby: target.hasNativeRuby,
+        decoration: target.decoration,
         suppressRuby: target.suppressRuby,
         proseWrap: target.proseWrap,
         passiveInteraction: target.passiveInteraction,
@@ -1525,10 +1531,10 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; decoration?: DecorationState; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
     const passiveInteraction = target.passiveInteraction || (suppressRuby && !target.suppressRubyDoesNotImplyPassive);
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
@@ -1682,7 +1688,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const text = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
@@ -1705,6 +1711,13 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     // the clean original host text instead of doubled/garbled clipboard.
     mirror.setAttribute('aria-hidden', 'true');
     const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
+    // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
+    // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
+    // clipped row bounds. Mark the mirror so CSS hides its readings at rest
+    // (hover reveals them; a ruby-room-grown row shows them again).
+    if (hasRenderedRuby && isInsideRubyFragileConstrainedRow(host)) {
+        mirror.dataset.yomuClipConstrained = 'true';
+    }
     const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
@@ -1712,6 +1725,10 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             mirrorRender: true,
+            // Carry the SEALED decision into the inner render: without it the
+            // re-derivation's furigana-mode=all branch would discard the
+            // computed suppression and paint ruby into a control's mirror.
+            decoration: target.decoration,
             suppressRuby,
             passiveInteraction: target.passiveInteraction || suppressRuby,
         }));
@@ -1892,6 +1909,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
         parent: host,
             hasNativeRuby: false,
+            decoration: target.decoration,
             mirrorRender: true,
             suppressRuby,
             passiveInteraction: target.passiveInteraction,
@@ -1937,6 +1955,7 @@ function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBT
         parent: canvas,
         hasNativeRuby: targetHasNativeRuby(target),
         mirrorRender: true,
+        decoration: target.decoration,
         suppressRuby: noRuby,
         passiveInteraction: n || target.passiveInteraction,
     }));
@@ -2096,426 +2115,45 @@ function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement
     return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
-function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean, inPlace = true): boolean {
+function scanTargetSuppressesRuby(
+    parent: HTMLElement,
+    suppressRuby?: boolean,
+    inPlace = true,
+    decoration?: DecorationState,
+): boolean {
     // Yomu-owned surfaces (lookup panel, drawer) may always force readings.
     if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
-    // Constrained rows only reject IN-PLACE ruby (it collapses or grows the
-    // clip window on distorting engines); the absolutely-positioned mirror
-    // sizes its own line, so mirrored renders keep the reading. This is an
-    // ENGINE-BUG guard: even the page-wide furigana-mode=all attribute must
-    // not force in-place ruby into a row the engine will distort.
-    if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
+    // The SEALED interactive-passive decision dominates the page-wide
+    // furigana-mode=all attribute for EXPLICIT CONTROLS: a button/menuitem
+    // must never regain in-flow ruby just because the user forces readings.
+    // Cascade-derived compact-chrome suppression (notification rows, chrome-
+    // shaped links) keeps the old precedence — forcing readings re-enables
+    // them, as the owner-pinned scanner behaviors require.
+    if (decoration === 'interactive-passive' && interactivePassiveControl(parent)) return true;
+    // Constrained rows reject IN-PLACE ruby on every engine (class Q): the rt
+    // paints into the half-leading and the ancestor clip shaves it. The
+    // absolutely-positioned mirror sizes its own line, so mirrored renders
+    // keep the reading. Even furigana-mode=all must not force in-flow ruby
+    // into a clipped row.
+    if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (targetForcesAllFurigana(parent)) return false;
-    return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
+    return Boolean(suppressRuby);
 }
 
 function targetForcesAllFurigana(parent: HTMLElement): boolean {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 
-// WebKit collapses a -webkit-line-clamp box to a sliver of one line as soon
-// as a <ruby> lands inside it (engine bug; Chromium keeps the clamped lines):
-// m.youtube community-post bodies showed a half-clipped first line. Probe the
-// engine once and keep readings out of clamped boxes where it is broken —
-// colour and pitch underlines still render there.
-// WebKit also grows the line box when a ruby annotation lands in it (Chromium
-// paints the reading without moving the line): in a fixed-height or ellipsis
-// row the grown line shifts the base text out of the clip window, so only the
-// furigana stays visible (Shorts titles, shelf headings on iPhone). Probe both
-// distortions once and keep readings out of constrained rows where either
-// bites — colour and pitch underlines still render there.
-let rubyDistortsConstrainedRowsCache: boolean | null = null;
-
-/** Test hook: force the constrained-row engine verdict (jsdom cannot measure
- * layout, so the probe always reads healthy there). */
+// Class Q (2026-07-10): constrained-row protection is engine-UNCONDITIONAL —
+// rt paints into the half-leading and ancestor overflow clips shave it
+// mid-glyph on every engine, so the clip-constrained-row fact (see
+// decoration-policy) decides protection directly. The old
+// rubyDistortsConstrainedRows() engine probe is gone; this hook is retained as
+// a no-op so guard tests can prove protection no longer depends on any engine
+// verdict.
 export function setRubyDistortsConstrainedRowsForTest(value: boolean | null): void {
-    rubyDistortsConstrainedRowsCache = value;
+    void value;
 }
-function rubyDistortsConstrainedRows(): boolean {
-    if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
-    if (!document.body) return false;
-    const host = document.createElement('div');
-    host.style.cssText = 'position:absolute;left:-9999px;top:0;';
-    // The probe ruby carries the real word/furi classes so the measurement
-    // reflects Yomu-styled annotations (our rt CSS keeps Chromium's line box
-    // from growing; bare native ruby would flag healthy engines too).
-    const styledRuby = '<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span>';
-    const clampStyle = 'width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;';
-    const growStyle = 'font-size:20px;line-height:24px;white-space:nowrap;';
-    // Every measurement compares against an identical no-ruby baseline, so
-    // environments with mocked or unmeasurable layout (jsdom tests) read as
-    // healthy instead of tripping fixed thresholds.
-    host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div>`
-        + `<div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div>`
-        + `<div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div>`
-        + `<div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
-    document.body.appendChild(host);
-    const measure = (key: string) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
-    // The verdict is only meaningful once our stylesheet styles the probe rt.
-    // Measured before the reader CSS is attached — early boot, iframes,
-    // CSP-delayed styles — a HEALTHY engine grows the line under UA-styled
-    // ruby and the poisoned verdict would route every clipped row on the page
-    // through the mirror forever. Font-size can't discriminate (the UA default
-    // rt is already ~50%); .jpdb-reader-furi's user-select:none is a signal no
-    // UA stylesheet sets. Without it, skip caching and report only the
-    // CSS-independent clamp verdict; the next caller re-probes. jsdom (no
-    // real layout) measures 0 everywhere and caches false as before.
-    const probeRt = host.querySelector('rt.jpdb-reader-furi');
-    const probeRtStyle = probeRt ? safeComputedStyle(probeRt as HTMLElement) : null;
-    const rtFontSize = probeRtStyle ? Number.parseFloat(probeRtStyle.fontSize || '0') : 0;
-    const readerCssApplied = probeRtStyle?.userSelect === 'none'
-        || probeRtStyle?.webkitUserSelect === 'none';
-    // A collapsing WebKit clamp measures ~0.66em against 2 baseline lines.
-    const collapses = measure('clamp-base') > 0 && measure('clamp') < measure('clamp-base') * 0.6;
-    // A line-growing engine renders the fixed 24px line visibly taller.
-    const grows = measure('grow-base') > 0 && measure('grow') > measure('grow-base') + 6;
-    host.remove();
-    if (!readerCssApplied && rtFontSize > 0) return collapses;
-    rubyDistortsConstrainedRowsCache = collapses || grows;
-    return rubyDistortsConstrainedRowsCache;
-}
-
-// Deliberately no display-heading exemption here: on a distorting engine a
-// clipped heading loses its base text just like any other constrained row.
-// Verdicts are memoized per element for a short window: on the engines where
-// the probe fires, this runs for every scan target between DOM writes, and an
-// unmemoized ancestor walk (getComputedStyle × 5 + a rect read) forces one
-// synchronous reflow per target — seconds of jank per pass on an iPhone.
-const constrainedRowVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
-const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
-
-function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
-    const now = Date.now();
-    const memo = constrainedRowVerdicts.get(element);
-    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-    let value = false;
-    let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < 5; depth += 1) {
-        const style = safeComputedStyle(current);
-        if (hasLineClamp(style)
-            || isEllipsisTextRow(style)
-            || (clipsOverflow(style) && (() => {
-                const height = current!.getBoundingClientRect().height;
-                return height > 0 && height <= 96;
-            })())) {
-            value = true;
-            break;
-        }
-        current = current.parentElement;
-    }
-    constrainedRowVerdicts.set(element, { at: now, value });
-    return value;
-}
-
-// The mirror replaces the HOST's rendering (visibility:hidden), so routing a
-// constrained row through it is only safe when the host paints nothing of its
-// own: a pill chip's background/border, a nav row's chevron SVG, or a ::before
-// separator would all vanish with the host. Styled hosts keep in-place
-// rendering (ruby suppression handles the clip) instead of losing their box.
-function hostIsVisuallyBareForMirror(host: HTMLElement): boolean {
-    if (host.querySelector('svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr')) return false;
-    return elementHasNoOwnPaint(host);
-}
-
-function elementHasNoOwnPaint(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    if (style.backgroundImage !== 'none' && style.backgroundImage !== '') return false;
-    const background = style.backgroundColor;
-    if (background && background !== 'transparent' && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
-    if ((style.backgroundClip || '').includes('text') || (style.webkitBackgroundClip || '').includes('text')) return false;
-    if (style.boxShadow && style.boxShadow !== 'none') return false;
-    if (borderPaints(style)) return false;
-    for (const pseudo of ['::before', '::after'] as const) {
-        const content = safePseudoContent(element, pseudo);
-        if (content && content !== 'none' && content !== 'normal' && content !== '""' && content !== "''") return false;
-    }
-    return true;
-}
-
-function borderPaints(style: CSSStyleDeclaration): boolean {
-    return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
-        .some(property => Number.parseFloat(style[property as 'borderTopWidth'] || '0') > 0);
-}
-
-function safePseudoContent(element: HTMLElement, pseudo: '::before' | '::after'): string {
-    try {
-        return getComputedStyle(element, pseudo).content;
-    } catch {
-        return '';
-    }
-}
-
-function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
-    if (parent.closest(READER_ROOT_SELECTOR)) return false;
-    if (shouldSuppressCompactMediaRuby(parent)) {
-        markCompactMediaPassiveChrome(parent);
-        return true;
-    }
-    const notice = compactConstrainedNotificationElement(parent);
-    if (notice) markPassiveChromeElement(notice, true);
-    if (isYouTubeHost()) return Boolean(notice);
-    const chrome = compactInteractiveChromeElement(parent)
-        ?? compactPassiveInteractionRubyElement(parent)
-        ?? compactPassiveChromeElement(parent);
-    if (chrome) markPassiveChromeElement(chrome, true);
-    return Boolean(chrome || notice);
-}
-
-function markCompactMediaPassiveChrome(parent: HTMLElement): void {
-    const mediaLink = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]');
-    const host = mediaLink
-        ?? closestCompactMediaContext(parent)
-        ?? closestMediaCarousel(parent)?.element
-        ?? parent;
-    markPassiveChromeElement(host, Boolean(mediaLink && isNavigationChromeContext(mediaLink)));
-}
-
-function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
-    element.dataset.jpdbReaderPassiveChrome = 'true';
-    if (atomic) element.dataset.jpdbReaderPassiveAtomic = 'true';
-    if (element.getAttribute('role') === 'button' && !hasExplicitAccessibleName(element)) {
-        element.setAttribute('aria-label', passiveChromeAccessibleLabel(element));
-    }
-}
-
-function hasExplicitAccessibleName(element: HTMLElement): boolean {
-    return Boolean(
-        element.getAttribute('aria-label')?.trim()
-        || element.getAttribute('aria-labelledby')?.trim()
-        || element.getAttribute('title')?.trim(),
-    );
-}
-
-function passiveChromeAccessibleLabel(element: HTMLElement): string {
-    return element.textContent?.replace(/\s+/g, ' ').trim() || 'Open item';
-}
-
-function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
-    const chrome = parent.closest<HTMLElement>(COMPACT_INTERACTIVE_CHROME_SELECTOR);
-    if (!chrome) return null;
-    const text = compactInteractiveChromeText(chrome);
-    if (!isCompactInteractiveChromeText(text)) return null;
-    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-        return isCompactInteractiveChromeLink(chrome, parent, text) ? chrome : null;
-    }
-    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
-}
-
-function compactInteractiveChromeText(element: HTMLElement): string {
-    return element.textContent?.replace(/\s+/g, '').trim() ?? '';
-}
-
-function compactPassiveChromeElement(parent: HTMLElement): HTMLElement | null {
-    if (isReadableProseContext(parent)) return null;
-    if (!isCompactInteractiveChromeContext(parent)) return null;
-    const text = compactInteractiveChromeText(parent);
-    if (!isCompactInteractiveChromeText(text)) return null;
-    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
-}
-
-function compactPassiveInteractionRubyElement(parent: HTMLElement): HTMLElement | null {
-    if (isReadableProseContext(parent)) return null;
-    const interaction = parent.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (!interaction) return null;
-    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
-    if (isLikelyProseElement(interaction)) return null;
-    if (!isCompactPassiveInteractionElement(interaction)) return null;
-    const style = safeComputedStyle(interaction);
-    if (isVerticalWritingMode(style.writingMode)) return interaction;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
-    if (isCompactInteractiveChromeContext(interaction)) return interaction;
-    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
-}
-
-function isCompactInteractiveChromeText(text: string): boolean {
-    const length = compactLength(text);
-    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text);
-}
-
-function isCompactInteractiveChromeLink(link: HTMLElement, parent: HTMLElement, text: string): boolean {
-    if (isLikelyProseLink(link, parent)) return false;
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(link)
-        || isExplicitControlLink(link)
-        || linkHasControlShape(link, text);
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
-}
-
-function isCompactInteractiveChromeControl(control: HTMLElement, parent: HTMLElement): boolean {
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
-    if (safeElementMatches(control, '[role="button"]') && control.tagName !== 'BUTTON' && !isCompactInteractiveChromeContext(control)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(control)
-        || hasCompactInteractiveChromeGeometry(control)
-        || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
-}
-
-function isCompactInteractiveChromeContext(element: HTMLElement): boolean {
-    return Boolean(element.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
-}
-
-function hasCompactInteractiveChromeGeometry(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH
-        && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
-    if (isVerticalWritingMode(style.writingMode)
-        && rect.width > 0
-        && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH
-        && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
-    return hasInlineControlShape(style.display) && style.whiteSpace === 'nowrap';
-}
-
-function hasCompactInteractiveChromeRubyRisk(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    if (isVerticalWritingMode(style.writingMode)) return true;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-    if (isCompactInteractiveChromeContext(element)) return true;
-    if (safeElementMatches(element, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR)
-        && hasCompactInteractiveChromeGeometry(element)) return true;
-    if (!hasCompactInteractiveChromeGeometry(element)) return false;
-    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
-    return clipsOverflow(style) && style.whiteSpace === 'nowrap';
-}
-
-function compactConstrainedNotificationElement(parent: HTMLElement): HTMLElement | null {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
-
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-        if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
-        if (isConstrainedNotificationContainer(current, parent)) return current;
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function isConstrainedNotificationContainer(container: HTMLElement, textElement: HTMLElement): boolean {
-    if (!isNotificationLikeContainer(container)) return false;
-    if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
-    return hasNotificationActionPeer(container, textElement);
-}
-
-function isNotificationLikeContainer(container: HTMLElement): boolean {
-    return safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR);
-}
-
-function hasConstrainedNotificationGeometry(container: HTMLElement, textElement: HTMLElement): boolean {
-    const rect = container.getBoundingClientRect();
-    const textRect = textElement.getBoundingClientRect();
-    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
-        && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
-        && !notificationContainerLooksLikePageSection(container);
-}
-
-function notificationContainerLooksLikePageSection(container: HTMLElement): boolean {
-    const rect = container.getBoundingClientRect();
-    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
-    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
-}
-
-function hasNotificationActionPeer(container: HTMLElement, textElement: HTMLElement): boolean {
-    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
-    if (Array.from(container.querySelectorAll<HTMLElement>(selector)).some(action => !action.contains(textElement))) return true;
-    if (container === textElement) return false;
-    const row = container.parentElement;
-    if (!row) return false;
-    return Array.from(row.querySelectorAll<HTMLElement>(selector)).some(action => !container.contains(action));
-}
-
-// Media-card/carousel titles are CONTENT, not chrome: they keep furigana and
-// pitch decorations at rest (clipped rows grow via makeRoomForRubyInCroppedRows).
-// Only YouTube's feedback chrome rows still suppress ruby here — everything
-// else routes through the interactive-chrome checks below.
-function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
-    return isYouTubeFeedbackChromeLinkText(parent);
-}
-
-export function isYouTubeHost(): boolean {
-    const hostname = location.hostname.toLowerCase();
-    return hostname === 'youtube.com'
-        || hostname.endsWith('.youtube.com')
-        || hostname === 'youtu.be';
-}
-
-function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {
-    if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-    return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
-}
-
-
-
-
-
-function closestMediaCarousel(parent: HTMLElement): { element: HTMLElement; explicit: boolean } | null {
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-        const match = mediaCarouselMatch(current);
-        if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === 'explicit' };
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function mediaCarouselMatch(element: HTMLElement): 'explicit' | 'implicit' | null {
-    const className = elementClassName(element);
-    if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className)
-        || element.hasAttribute('data-carousel')
-        || element.hasAttribute('data-slider')) return 'explicit';
-    return MEDIA_CAROUSEL_CLASS_RE.test(className) ? 'implicit' : null;
-}
-
-function mediaCarouselClipsHorizontally(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    if (style.overflowX === 'hidden' || style.overflowX === 'clip') return true;
-    if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && element.clientWidth > 0) return true;
-    return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
-}
-
-function isNavigationChromeContext(element: HTMLElement): boolean {
-    return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-}
-
-
-
-
-function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT; depth++) {
-        if (isReadableProseContext(current)) return null;
-        if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function isVerticalWritingMode(writingMode: string): boolean {
-    return writingMode.startsWith('vertical-') || writingMode.startsWith('sideways-');
-}
-
-function hasMediaPeer(container: HTMLElement, textElement: HTMLElement): boolean {
-    return Array.from(container.querySelectorAll('img, picture, video, canvas')).some(media => {
-        if (!(media instanceof HTMLElement)) return false;
-        if (media.closest(READER_ROOT_SELECTOR)) return false;
-        return media !== textElement && !textElement.contains(media);
-    });
-}
-
-function isCompactMediaContext(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
-    if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
-    const display = style.display;
-    const structured = display.includes('grid') || display.includes('flex') || display === 'block';
-    const compact = rect.width === 0 || rect.width <= 560;
-    return structured && compact;
-}
-
-
-
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
     if (!isFragmentTextTarget(target)) return target.parent;
@@ -3124,6 +2762,12 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     hosts.forEach(removeTextMirror);
     controlHosts.forEach(removeControlTextMirror);
     canvasHosts.forEach(removeCanvasFallbackTextLayer);
+    // Bulk mirror teardown is a real clear (destroy, language refresh,
+    // annotations off): boxes grown for those mirrors must shrink back too.
+    // Per-refresh removeTextMirror deliberately does NOT release — a mirror is
+    // removed and immediately re-appended on every re-apply, and releasing
+    // there would oscillate row heights (the CI rewrap-convergence contract).
+    releaseRubyRoomGrowth(root);
     return hosts.size + controlHosts.size + canvasHosts.size;
 }
 
@@ -3394,9 +3038,25 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
-    const renderTarget = targetForcesAllFurigana(target.parent)
-        ? { ...target, suppressRuby: false }
-        : target;
+    // furigana-mode=all may force readings back onto CONTENT whose collector
+    // suppressed them, but never onto a sealed explicit-control target.
+    // NOTE (deferred): unlike the single-node path, fragment renders do not
+    // yet consult the clip-constrained-row fact in place — closing that here
+    // flips several owner-pinned compact-content behaviors (breadcrumbs,
+    // footer links, media-card titles keep in-flow furigana today) and needs
+    // an owner call on mirror-vs-suppress for non-bare fragile content.
+    const renderTarget = target.decoration === 'interactive-passive' && interactivePassiveControl(target.parent)
+        ? { ...target, suppressRuby: true }
+        : (targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target);
+    // Class Q for the in-place fragment channel: readings stay in the DOM
+    // (owner-pinned compact-content behaviors keep their annotations) but the
+    // clip row is stamped so CSS hides rt at rest — in-place ruby in a
+    // clipped/clamped row otherwise paints outside the row bounds on live
+    // pages (tenki/bookwalker/amazon sweep regressions).
+    if (!renderTarget.suppressRuby) {
+        const clipRow = closestRubyFragileConstrainedRow(target.parent);
+        if (clipRow) clipRow.dataset.yomuClipConstrained = 'true';
+    }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
 }
@@ -4741,46 +4401,6 @@ function isReadableArticleHeading(element: HTMLElement, compactLength: number): 
     return compactLength >= 4 && Boolean(element.closest('article, main, [role="main"]'));
 }
 
-function hasUiBox(style: CSSStyleDeclaration): boolean {
-    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
-}
-
-function hasInlineControlShape(display: string): boolean {
-    return display === 'inline-flex' || display === 'inline-grid' || display === 'inline-block' || display === 'flex';
-}
-
-function isLikelyProseElement(element: HTMLElement): boolean {
-    if (PROSE_TAGS.includes(`,${element.tagName},`)) return true;
-    return isLikelyProseClass(element) || isConversationTextClass(element);
-}
-
-function isReadableProseContext(element: HTMLElement): boolean {
-    let current: HTMLElement | null = element;
-    while (current && current !== document.body && current !== document.documentElement) {
-        if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-        if (isConversationTextClass(current)) return true;
-        current = current.parentElement;
-    }
-    return false;
-}
-
-function isLikelyProseClass(element: HTMLElement): boolean {
-    return PROSE_CLASS_RE.test(elementClassName(element));
-}
-
-function isConversationTextClass(element: HTMLElement): boolean {
-    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element));
-}
-
-function elementClassName(element: HTMLElement): string {
-    return String(element.className || '');
-}
-
-function cssPixels(value: string): number {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function ancestorClassLooksLikeUi(element: HTMLElement): boolean {
     let current: HTMLElement | null = element;
     while (current) {
@@ -4806,80 +4426,6 @@ function isInsideMediaTextLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link || isLikelyProseLink(link, element)) return false;
     return linkHasControlMedia(link) && compactLength(text) > 2;
-}
-
-function isLikelyProseLink(link: HTMLElement, element: HTMLElement): boolean {
-    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element));
-}
-
-function isExplicitControlLink(link: HTMLElement): boolean {
-    return UI_CLASS_RE.test(link.className || '') || link.hasAttribute('onclick') || link.hasAttribute('data-audio');
-}
-
-function linkHasControlMedia(link: HTMLElement): boolean {
-    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
-}
-
-function linkHasControlShape(link: HTMLElement, text: string): boolean {
-    const style = safeComputedStyle(link);
-    const rect = link.getBoundingClientRect();
-    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text) && hasControlLinkWidth(rect);
-}
-
-function safeElementMatches(element: HTMLElement, selector: string): boolean {
-    try {
-        return element.matches(selector);
-    } catch {
-        return false;
-    }
-}
-
-function safeQuerySelector(root: HTMLElement, selector: string): Element | null {
-    try {
-        return root.querySelector(selector);
-    } catch {
-        return null;
-    }
-}
-
-function safeComputedStyle(element: HTMLElement): CSSStyleDeclaration {
-    try {
-        return getComputedStyle(element);
-    } catch {
-        return element.style;
-    }
-}
-
-function hasShortControlLinkText(link: HTMLElement, text: string): boolean {
-    return compactLength(text) <= 16 && compactLength(link.textContent ?? '') <= 40;
-}
-
-function compactLength(value: string): number {
-    return Array.from(value.replace(/\s+/g, '')).length;
-}
-
-function hasControlLinkWidth(rect: DOMRect): boolean {
-    return rect.width > 0 && rect.width < 360;
-}
-
-function hasControlLinkStyle(style: CSSStyleDeclaration): boolean {
-    return hasControlLinkDisplay(style.display)
-        || Number.parseFloat(style.borderRadius) > 0
-        || hasVisibleControlLinkBox(style);
-}
-
-function hasControlLinkDisplay(display: string): boolean {
-    return display.includes('flex') || display.includes('grid') || display === 'inline-block';
-}
-
-function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
-    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack)
-        || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth)
-        || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
-}
-
-function hasVisibleBorderSide(style: string, width: string): boolean {
-    return Boolean(style && style !== 'none' && style !== 'hidden' && cssPixels(width) > 0);
 }
 
 // Late-clamp reconciliation: any site's clamped/ellipsis/clipped text row that
@@ -4958,7 +4504,15 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        for (const box of cropCapableBoxes(word.parentElement)) {
+        // Ruby-room growth only serves prose/content decorations: a word whose
+        // sealed DecorationPolicy stamp is interactive-passive (or skip) never
+        // grows any box — that is the class-A chrome-growth kill.
+        const decoration = decorationStateForWord(word);
+        if (decoration === 'interactive-passive' || decoration === 'skip') continue;
+        // A box may only ever grow for the mirror that renders THIS word —
+        // never for an unrelated (taller) descendant mirror in document order.
+        const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror');
+        for (const box of cropCapableBoxes(word.parentElement, mirror)) {
             if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
             // Curated YouTube/Google rows grow on any crop signal (their crop
             // is always ruby-caused). Every OTHER site's clamped/ellipsis/
@@ -4966,14 +4520,14 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
             // plain scroll overflow there usually means an intentionally
             // collapsed read-more region, which must stay collapsed.
             const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
-            if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
-            for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
-                const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
+            if (curated ? !boxActuallyCrops(box, mirror) : !genericRubyNeedsRoom(box, mirror)) continue;
+            for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated, mirror)) {
+                const roomHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
                 if (roomHeight > RUBY_ROOM_MAX_PX) continue;
                 // Repeat passes only correct HEIGHT under-growth (content can
                 // rewrap once the box grows); top padding is exact on first
                 // application and must not accumulate across passes.
-                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
+                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
                 if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
                 if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
                 decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
@@ -4982,13 +4536,102 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
     }
     let adjusted = 0;
     for (const [box, { roomHeight, topDeficit }] of decisions) {
+        recordRubyRoomGrowth(box);
         box.dataset.yomuRubyRoom = 'true';
         box.dataset.yomuRubyRoomHeight = String(roomHeight);
         makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
+        recordRubyRoomGrowthWrite(box);
         adjustedBoxes.add(box);
         adjusted += 1;
     }
     return adjusted;
+}
+
+// Growth writes are OWNED and revertible: the box's pre-growth inline values
+// are recorded once (first growth wins — later passes only re-ratchet the
+// same box) and restored by releaseRubyRoomGrowth. Growth stays monotonic
+// within a page session (the CI rewrap-convergence contract); release happens
+// only on the explicit clear path (annotations off / teardown).
+interface RubyRoomStyleSnapshot {
+    minHeight: string;
+    minHeightPriority: string;
+    height: string;
+    heightPriority: string;
+    maxHeight: string;
+    maxHeightPriority: string;
+    paddingTop: string;
+    paddingTopPriority: string;
+}
+
+interface RubyRoomGrowthRecord {
+    // The box's inline values before the FIRST growth write.
+    before: RubyRoomStyleSnapshot;
+    // The inline values as of OUR last write. Release restores a property only
+    // while its current inline value still equals what we wrote — a framework
+    // that re-styled the box since then keeps its own value.
+    written?: RubyRoomStyleSnapshot;
+}
+
+const rubyRoomGrowthRecords = new WeakMap<HTMLElement, RubyRoomGrowthRecord>();
+
+function rubyRoomStyleSnapshot(box: HTMLElement): RubyRoomStyleSnapshot {
+    return {
+        minHeight: box.style.getPropertyValue('min-height'),
+        minHeightPriority: box.style.getPropertyPriority('min-height'),
+        height: box.style.getPropertyValue('height'),
+        heightPriority: box.style.getPropertyPriority('height'),
+        maxHeight: box.style.getPropertyValue('max-height'),
+        maxHeightPriority: box.style.getPropertyPriority('max-height'),
+        paddingTop: box.style.getPropertyValue('padding-top'),
+        paddingTopPriority: box.style.getPropertyPriority('padding-top'),
+    };
+}
+
+function recordRubyRoomGrowth(box: HTMLElement): void {
+    if (rubyRoomGrowthRecords.has(box)) return;
+    rubyRoomGrowthRecords.set(box, { before: rubyRoomStyleSnapshot(box) });
+}
+
+function recordRubyRoomGrowthWrite(box: HTMLElement): void {
+    const record = rubyRoomGrowthRecords.get(box);
+    if (record) record.written = rubyRoomStyleSnapshot(box);
+}
+
+export function releaseRubyRoomGrowth(root: ParentNode = document): number {
+    const boxes: HTMLElement[] = [];
+    if (root instanceof HTMLElement && root.matches('[data-yomu-ruby-room]')) boxes.push(root);
+    boxes.push(...Array.from(root.querySelectorAll<HTMLElement>('[data-yomu-ruby-room]')));
+    for (const box of boxes) {
+        const record = rubyRoomGrowthRecords.get(box);
+        restoreRubyRoomProperty(box, 'min-height', record, r => [r.minHeight, r.minHeightPriority]);
+        restoreRubyRoomProperty(box, 'height', record, r => [r.height, r.heightPriority]);
+        restoreRubyRoomProperty(box, 'max-height', record, r => [r.maxHeight, r.maxHeightPriority]);
+        restoreRubyRoomProperty(box, 'padding-top', record, r => [r.paddingTop, r.paddingTopPriority]);
+        delete box.dataset.yomuRubyRoom;
+        delete box.dataset.yomuRubyRoomHeight;
+        delete box.dataset.yomuRubyRoomPadTop;
+        rubyRoomGrowthRecords.delete(box);
+    }
+    return boxes.length;
+}
+
+function restoreRubyRoomProperty(
+    box: HTMLElement,
+    property: string,
+    record: RubyRoomGrowthRecord | undefined,
+    pick: (snapshot: RubyRoomStyleSnapshot) => [string, string],
+): void {
+    if (record?.written) {
+        const [writtenValue, writtenPriority] = pick(record.written);
+        const currentValue = box.style.getPropertyValue(property);
+        const currentPriority = box.style.getPropertyPriority(property);
+        // The framework re-styled this property since our write: its value is
+        // newer than both our write and our pre-write snapshot — keep it.
+        if (currentValue !== writtenValue || currentPriority !== writtenPriority) return;
+    }
+    const [value, priority] = record ? pick(record.before) : ['', ''];
+    if (value) box.style.setProperty(property, value, priority);
+    else box.style.removeProperty(property);
 }
 
 // Growing a row reveals a reading cropped at the BOTTOM, but a reading pinned
@@ -5000,12 +4643,12 @@ function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<H
 const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
 const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
 
-function rubyTopClearanceDeficit(box: HTMLElement): number {
-    const raw = rubyTopOverflowRaw(box);
+function rubyTopClearanceDeficit(box: HTMLElement, mirror: HTMLElement | null): number {
+    const raw = rubyTopOverflowRaw(box, mirror);
     // A reading genuinely above the box top always needs the push-down; a
     // merely flush reading only counts on single-line rows (rubyTouchesBoxTop)
     // where the flush edge is the clip edge.
-    if (raw <= 0 && !rubyTouchesBoxTop(box)) return 0;
+    if (raw <= 0 && !rubyTouchesBoxTop(box, mirror)) return 0;
     if (raw <= -RUBY_ROOM_TOP_CLEARANCE_PX) return 0;
     const applied = previousRubyRoomTopPad(box);
     const deficit = Math.ceil(raw + RUBY_ROOM_TOP_CLEARANCE_PX);
@@ -5017,8 +4660,8 @@ function previousRubyRoomTopPad(box: HTMLElement): number {
     return Number.isFinite(value) ? value : 0;
 }
 
-function rubyCropsBox(box: HTMLElement): boolean {
-    return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
+function rubyCropsBox(box: HTMLElement, mirror: HTMLElement | null): boolean {
+    return rubyBottomOverflow(box, mirror) > 1 || rubyTouchesBoxTop(box, mirror) || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 
 // A reading pinned within a hair of the box's top edge is already shaved by
@@ -5026,15 +4669,15 @@ function rubyCropsBox(box: HTMLElement): boolean {
 // "flush with the top" as cropped so the row gains clearance. Only single-line
 // rows (chips, tabs, action labels) qualify: a multi-line clamp box crops at
 // its BOTTOM, and its first-line annotation legitimately starts at the top.
-function rubyTouchesBoxTop(box: HTMLElement): boolean {
+function rubyTouchesBoxTop(box: HTMLElement, mirror: HTMLElement | null): boolean {
     const style = safeComputedStyle(box);
     const lineHeight = cssPixels(style.lineHeight) || (cssPixels(style.fontSize) || 16) * 1.4;
     if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
-    return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
+    return rubyTopOverflowRaw(box, mirror) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 
-function genericRubyNeedsRoom(box: HTMLElement): boolean {
-    return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box) || rubyOverflowsCompactClippedRow(box);
+function genericRubyNeedsRoom(box: HTMLElement, mirror: HTMLElement | null): boolean {
+    return rubyCropsBox(box, mirror) || rubyLayoutOverflowsShortRow(box, mirror) || rubyOverflowsCompactClippedRow(box, mirror);
 }
 
 // GENERIC compact-row detector (replaces per-site YouTube/Google selector lists
@@ -5051,7 +4694,7 @@ function genericRubyNeedsRoom(box: HTMLElement): boolean {
 // (clientHeight well past the short-row cap) and hides MANY lines (overflow far
 // past the bounded cap — e.g. a 104px→400px description expander). A prose
 // context (article/main) is excluded outright so body paragraphs never grow.
-function rubyOverflowsCompactClippedRow(box: HTMLElement): boolean {
+function rubyOverflowsCompactClippedRow(box: HTMLElement, mirror: HTMLElement | null): boolean {
     const clientHeight = box.clientHeight;
     if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
     if (isReadableProseContext(box)) return false;
@@ -5061,9 +4704,28 @@ function rubyOverflowsCompactClippedRow(box: HTMLElement): boolean {
     // real display row that also gets room. The visible display ancestor is
     // caught on its own.
     if (isVisuallyHiddenBox(box)) return false;
-    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
-    const overflow = compactClippedRubyOverflow(box) - clientHeight;
+    if (!boxHasRubySignal(box, mirror)) return false;
+    const overflow = compactClippedRubyOverflow(box, mirror) - clientHeight;
     return overflow > 2 && overflow <= RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX;
+}
+
+// The ruby that justifies growing THIS box: an in-flow annotated word, or the
+// triggering word's OWN mirror (never an unrelated descendant mirror).
+function ownedRubyMirrorFor(box: HTMLElement, mirror: HTMLElement | null): HTMLElement | null {
+    return mirror && box.contains(mirror) ? mirror : null;
+}
+
+function ownedRubyMirrorWithRuby(box: HTMLElement, mirror: HTMLElement | null): HTMLElement | null {
+    const owned = ownedRubyMirrorFor(box, mirror);
+    return owned?.dataset.jpdbReaderHasRuby === 'true' ? owned : null;
+}
+
+function boxHasRubySignal(box: HTMLElement, mirror: HTMLElement | null): boolean {
+    if (ownedRubyMirrorWithRuby(box, mirror)) return true;
+    const word = box.querySelector('.jpdb-reader-word rt');
+    // In-flow ruby only: a word inside SOME mirror counts solely via the owned
+    // mirror above, so an unrelated mirror's rt cannot qualify this box.
+    return Boolean(word && !word.closest('.jpdb-reader-text-mirror'));
 }
 
 function isVisuallyHiddenBox(box: HTMLElement): boolean {
@@ -5074,21 +4736,21 @@ function isVisuallyHiddenBox(box: HTMLElement): boolean {
 // Whichever paint path the row uses: destructive in-flow ruby raises the box's
 // own scrollHeight; a non-destructive mirror is absolutely positioned (out of
 // flow) so the true furigana'd height is the mirror's scrollHeight instead.
-function compactClippedRubyOverflow(box: HTMLElement): number {
-    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-    return Math.max(box.scrollHeight, mirror ? mirror.scrollHeight : 0);
+function compactClippedRubyOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
+    const owned = ownedRubyMirrorWithRuby(box, mirror);
+    return Math.max(box.scrollHeight, owned ? owned.scrollHeight : 0);
 }
 
 // Generic rows must never inherit scrollHeight (a collapsed region's full
 // content height); the room is the visible height plus exactly the ruby
 // overflow the box is cropping.
-function genericRubyRoomHeight(box: HTMLElement): number {
-    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-    const shortRowHeight = rubyLayoutOverflowsShortRow(box) ? box.scrollHeight : 0;
-    const compactRowHeight = rubyOverflowsCompactClippedRow(box) ? compactClippedRubyOverflow(box) : 0;
+function genericRubyRoomHeight(box: HTMLElement, mirror: HTMLElement | null): number {
+    const owned = ownedRubyMirrorWithRuby(box, mirror);
+    const shortRowHeight = rubyLayoutOverflowsShortRow(box, mirror) ? box.scrollHeight : 0;
+    const compactRowHeight = rubyOverflowsCompactClippedRow(box, mirror) ? compactClippedRubyOverflow(box, mirror) : 0;
     return Math.ceil(Math.max(
-        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
-        mirror ? mirror.scrollHeight : 0,
+        box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
+        owned ? owned.scrollHeight : 0,
         shortRowHeight,
         compactRowHeight,
     ));
@@ -5104,19 +4766,19 @@ function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
             || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
 }
 
-function rubyRoomBoxesForCroppedBox(box: HTMLElement, curated: boolean): HTMLElement[] {
+function rubyRoomBoxesForCroppedBox(box: HTMLElement, curated: boolean, mirror: HTMLElement | null): HTMLElement[] {
     if (!curated) return [box];
     const boxes = [box];
-    const googleControl = googleSearchRubyRoomControl(box);
+    const googleControl = googleSearchRubyRoomControl(box, mirror);
     if (googleControl && googleControl !== box) boxes.push(googleControl);
     return boxes;
 }
 
-function googleSearchRubyRoomControl(box: HTMLElement): HTMLElement | null {
+function googleSearchRubyRoomControl(box: HTMLElement, mirror: HTMLElement | null): HTMLElement | null {
     if (!/(^|\.)google\./i.test(location.hostname) || location.pathname !== '/search') return null;
     const control = box.closest<HTMLElement>(RUBY_ROOM_GOOGLE_CONTROL_SELECTOR);
     if (!control || !safeElementMatches(control, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)) return null;
-    if (!control.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return null;
+    if (!ownedRubyMirrorWithRuby(control, mirror)) return null;
     return control;
 }
 
@@ -5154,15 +4816,15 @@ function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, room
     }
 }
 
-function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
+function cropCapableBoxes(element: HTMLElement | null, mirror: HTMLElement | null): HTMLElement[] {
     const boxes: HTMLElement[] = [];
     let fallback: HTMLElement | undefined;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (current.dataset.jpdbReaderRoot) break;
-        if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current)) {
+        if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current, mirror)) {
             boxes.push(current);
-        } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector('.jpdb-reader-text-mirror')) {
+        } else if (!fallback && isYouTubeRubyRoomTextBox(current) && ownedRubyMirrorFor(current, mirror)) {
             fallback = current;
         }
         current = current.parentElement;
@@ -5170,43 +4832,25 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
     return boxes.length || !fallback ? boxes : [fallback];
 }
 
-// The style-only half of the crop-capable verdict (clamp/ellipsis/clipped) is a
-// getComputedStyle read per ANCESTOR per annotated word — on a YouTube feed the
-// same shared ancestors (list container, section, watch-flexy) are re-classified
-// hundreds of times per sweep. A short-TTL memo (same pattern as
-// shortRowVerdicts) collapses those repeats to one read while still expiring
-// fast enough to catch a host that flips its own clamp/overflow styling.
-const clipCapableStyleVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
-
-function boxStyleIsClipCapable(box: HTMLElement): boolean {
-    const now = Date.now();
-    const memo = clipCapableStyleVerdicts.get(box);
-    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-    const style = safeComputedStyle(box);
-    const value = hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style);
-    clipCapableStyleVerdicts.set(box, { at: now, value });
-    return value;
-}
-
 const shortRowVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
 
-function rubyLayoutOverflowsShortRow(box: HTMLElement): boolean {
+function rubyLayoutOverflowsShortRow(box: HTMLElement, mirror: HTMLElement | null): boolean {
     const now = Date.now();
     const memo = shortRowVerdicts.get(box);
     if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
-    const value = rubyLayoutOverflowsShortRowUncached(box);
+    const value = rubyLayoutOverflowsShortRowUncached(box, mirror);
     shortRowVerdicts.set(box, { at: now, value });
     return value;
 }
 
-function rubyLayoutOverflowsShortRowUncached(box: HTMLElement): boolean {
+function rubyLayoutOverflowsShortRowUncached(box: HTMLElement, mirror: HTMLElement | null): boolean {
     if (safeElementMatches(box, '.jpdb-reader-word,ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base')) return false;
     const clientHeight = box.clientHeight;
     if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
-    // Descendant ruby check LAST and only for plausibly-short boxes — a
-    // subtree query per ancestor (at high levels: most of the document) was
-    // the hot path of the clamp sweep on large pages.
-    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+    // Ruby-signal check LAST and only for plausibly-short boxes — a subtree
+    // query per ancestor (at high levels: most of the document) was the hot
+    // path of the clamp sweep on large pages.
+    if (!boxHasRubySignal(box, mirror)) return false;
     const overflow = box.scrollHeight - clientHeight;
     if (overflow <= 2 || overflow > RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX) return false;
     const style = safeComputedStyle(box);
@@ -5226,24 +4870,25 @@ function isShortRubyRowDisplay(style: CSSStyleDeclaration): boolean {
         || style.display === 'inline-block';
 }
 
-function boxActuallyCrops(box: HTMLElement): boolean {
+function boxActuallyCrops(box: HTMLElement, mirror: HTMLElement | null): boolean {
     return box.scrollHeight > box.clientHeight + 1
-        || rubyBottomOverflow(box) > 1
-        || rubyTouchesBoxTop(box)
-        || rubyMirrorBlockOverflow(box) > 1;
+        || rubyBottomOverflow(box, mirror) > 1
+        || rubyTouchesBoxTop(box, mirror)
+        || rubyMirrorBlockOverflow(box, mirror) > 1;
 }
 
-function rubyRoomHeight(box: HTMLElement): number {
+function rubyRoomHeight(box: HTMLElement, mirror: HTMLElement | null): number {
     // Furigana is painted by the absolutely-positioned text mirror, which is
     // out of flow and so never raises box.scrollHeight. Its scrollHeight is the
     // true rendered height of the furigana'd, wrapped text, so use it as a floor
     // — otherwise a two-line furigana'd title reserves only its base-line height
-    // and the top furigana row / wrapped line is cropped.
-    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
-    const mirrorHeight = mirror ? mirror.scrollHeight : 0;
+    // and the top furigana row / wrapped line is cropped. Only the triggering
+    // word's OWN mirror may set that floor.
+    const owned = ownedRubyMirrorFor(box, mirror);
+    const mirrorHeight = owned ? owned.scrollHeight : 0;
     const measuredHeight = Math.max(
         box.scrollHeight,
-        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+        box.clientHeight + rubyBottomOverflow(box, mirror) + rubyTopOverflow(box, mirror),
         mirrorHeight,
     );
     const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX
@@ -5251,27 +4896,28 @@ function rubyRoomHeight(box: HTMLElement): number {
     return Math.ceil(measuredHeight + (wrappedMirror ? RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX : 0));
 }
 
-function rubyMirrorBlockOverflow(box: HTMLElement): number {
-    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-    if (!mirror) return 0;
-    return Math.max(0, mirror.scrollHeight - box.clientHeight);
+function rubyMirrorBlockOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
+    const owned = ownedRubyMirrorWithRuby(box, mirror);
+    if (!owned) return 0;
+    return Math.max(0, owned.scrollHeight - box.clientHeight);
 }
 
 // Furigana paints ABOVE the base line without growing the line box, so a
 // fixed-height overflow-hidden row (a chip label) clips the reading at the
 // box TOP while scrollHeight and bottom overflow both read clean. Measure the
 // rt annotations directly.
-function rubyTopOverflow(box: HTMLElement): number {
-    return Math.max(0, rubyTopOverflowRaw(box));
+function rubyTopOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
+    return Math.max(0, rubyTopOverflowRaw(box, mirror));
 }
 
 // Raw signed clearance: positive = the reading pokes above the box top,
 // negative = how much breathing room it has. -Infinity when the box has no
 // visible annotated word at all.
-function rubyTopOverflowRaw(box: HTMLElement): number {
+function rubyTopOverflowRaw(box: HTMLElement, mirror: HTMLElement | null): number {
     const boxRect = box.getBoundingClientRect();
     let overflow = Number.NEGATIVE_INFINITY;
     for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
         const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
         if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
         const rt = ruby.querySelector<HTMLElement>('rt');
@@ -5281,10 +4927,19 @@ function rubyTopOverflowRaw(box: HTMLElement): number {
     return overflow;
 }
 
-function rubyBottomOverflow(box: HTMLElement): number {
+// Geometry measurements may only consult in-flow rubies or rubies inside the
+// triggering word's OWN mirror — another host's mirror inside a shared clipped
+// ancestor must never supply the growth deficit (RC3 cross-attribution).
+function rubyBelongsToBoxMeasurement(ruby: HTMLElement, mirror: HTMLElement | null): boolean {
+    const owner = ruby.closest<HTMLElement>('.jpdb-reader-text-mirror');
+    return !owner || owner === mirror;
+}
+
+function rubyBottomOverflow(box: HTMLElement, mirror: HTMLElement | null): number {
     const boxRect = box.getBoundingClientRect();
     let overflow = 0;
     for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        if (!rubyBelongsToBoxMeasurement(ruby, mirror)) continue;
         const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
         const baseRect = base.getBoundingClientRect();
         if (!baseVisibleInBox(baseRect, boxRect)) continue;

@@ -33638,7 +33638,10 @@ describe('reader helpers', () => {
         expect(document.querySelector('.volume-card__title rt')?.textContent).toBe('おわり');
     });
 
-    it('keeps single-line ellipsis rows lookupable with furigana', () => {
+    it('keeps single-line ellipsis rows lookupable with furigana via the mirror', () => {
+        // Class Q: a clipped single-line row never takes in-flow ruby (the rt
+        // would paint into the clip); the reading renders in the out-of-flow
+        // text mirror instead, on every engine.
         document.body.innerHTML = `
             <main>
                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -33649,7 +33652,7 @@ describe('reader helpers', () => {
         const [target] = collectTextTargetsIn(document.body, 10, false);
         expect(target.layoutSensitive).toBe(true);
 
-        applyTokensToTextNode(target, [{
+        applyTokensToScanTarget(target, [{
             card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ' },
             start: 0,
             end: 2,
@@ -33660,7 +33663,7 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
-        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
+        expect(document.querySelector('.jpdb-reader-text-mirror rt')?.textContent).toBe('しんそつ');
     });
 
     it('keeps furigana on wrapping prose where text-overflow is declared but inert', () => {
