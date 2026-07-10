@@ -187,3 +187,108 @@ describe('class R: mirror must not invent spaces', () => {
         expect(host.querySelectorAll('.jpdb-reader-text-mirror').length).toBe(1);
     });
 });
+
+// Adversarial (gpt-5.6-sol) review regressions over the slice-2 fixes.
+describe('sol review: mirror fidelity edge cases', () => {
+    function reactHost(id: string): HTMLElement {
+        const host = document.getElementById(id)!;
+        (host as HTMLElement & Record<string, unknown>).__reactFiber$test = {};
+        return host;
+    }
+
+    it('keeps a REAL space beside an atomic inline-level box (inline-flex badge)', () => {
+        // The inline-flex box participates in the surrounding inline formatting
+        // context: whitespace adjacent to it renders on the page and must
+        // survive in the mirror. Only whitespace BETWEEN items inside the box
+        // is layout-dropped.
+        document.body.innerHTML = '<div id="msg">ラベル<span style="display: inline-flex">JP</span>\n日本語です</div>';
+        const host = reactHost('msg');
+        paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('ラベルJP 日本語です');
+    });
+
+    it('renders whitespace-only flex children under preserving white-space modes', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex; white-space: pre">日本語<span>アニメ</span> <span>です</span></div>';
+        const host = reactHost('msg');
+        paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('日本語アニメ です');
+    });
+
+    it('resolves display:contents wrappers to their promoted flex items (no space)', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex"><div style="display: contents">ポーラン\n<span>@Canna</span></div></div>';
+        const host = reactHost('msg');
+        paint(host, 'ポーラン', target => [tokenAt(target.text, 'ポーラン', 'ぽーらん', target.text.indexOf('ポーラン'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('ポーラン@Canna');
+    });
+
+    it('skips text hidden by an ANCESTOR display:none, not just the direct parent', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex">日本語\n<span style="display: none"><em>隠れた</em></span></div>';
+        const host = reactHost('msg');
+        paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        expect(renderedMirrorText(mirror(host))).toBe('日本語');
+    });
+
+    it('re-renders the mirror when a layout flip (flex→block) changes whitespace semantics', () => {
+        document.body.innerHTML = '<div id="msg" style="display: flex">ポーラン\n  <span>@Canna</span></div>';
+        const host = reactHost('msg');
+        const paintMsg = () => paint(host, 'ポーラン', target => [tokenAt(target.text, 'ポーラン', 'ぽーらん', target.text.indexOf('ポーラン'))]);
+        paintMsg();
+        expect(renderedMirrorText(mirror(host))).toBe('ポーラン@Canna');
+        // Same text, same tokens — but the page now renders a space. The
+        // sourceText+signature idempotency alone would keep the stale mirror.
+        host.style.display = 'block';
+        paintMsg();
+        expect(renderedMirrorText(mirror(host))).toBe('ポーラン @Canna');
+    });
+
+    it('keeps the unclip when only the RUBY (not the base text) is wider than the host', () => {
+        // A narrow label (順 with じゅん) has fitting base text but a wider
+        // reading: the overflow gate must measure the base text WITHOUT rt, or
+        // it re-clips the annotation it exists to reveal.
+        vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (this: Element) {
+            if (!(this instanceof HTMLElement) || !this.classList.contains('jpdb-reader-text-mirror')) return 100;
+            const rubyHidden = Array.from(this.querySelectorAll<HTMLElement>('rt'))
+                .every(rt => rt.style.display === 'none');
+            return rubyHidden ? 100 : 500;
+        });
+        vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(() => 100);
+        document.body.innerHTML = '<span id="t" class="ytAttributedStringHost" style="overflow: hidden">言語学習支援</span>';
+        const host = document.getElementById('t')!;
+        paint(host, '言語', target => {
+            const base = target.text.indexOf('言語');
+            return [tokenAt(target.text, '言語', 'げんご', base), tokenAt(target.text, '学習', 'がくしゅう', base + 2)];
+        });
+        mirror(host);
+        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        // The measurement pass must leave the readings visible afterwards.
+        mirror(host).querySelectorAll<HTMLElement>('rt').forEach(rt => expect(rt.style.display).not.toBe('none'));
+    });
+
+    it('never withdraws the unclip on a clip-constrained row (its ruby reveal depends on it)', () => {
+        vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (this: Element) {
+            return (this instanceof HTMLElement && this.classList.contains('jpdb-reader-text-mirror')) ? 500 : 100;
+        });
+        vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(() => 100);
+        document.body.innerHTML = '<span id="t" class="ytAttributedStringHost" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">言語学習支援</span>';
+        const host = document.getElementById('t')!;
+        paint(host, '言語', target => {
+            const base = target.text.indexOf('言語');
+            return [tokenAt(target.text, '言語', 'げんご', base), tokenAt(target.text, '学習', 'がくしゅう', base + 2)];
+        });
+        expect(mirror(host).dataset.yomuClipConstrained).toBe('true');
+        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+    });
+
+    it('sweeps a registered orphan even when it was relocated into a shadow root', () => {
+        document.body.innerHTML = '<div id="row"><div id="msg">日本語</div><div id="sibling"></div></div>';
+        const host = document.getElementById('msg')!;
+        const shadow = document.getElementById('sibling')!.attachShadow({ mode: 'open' });
+        const paintMsg = () => paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
+        paintMsg();
+        shadow.append(mirror(host));
+        paintMsg();
+        const total = document.querySelectorAll('.jpdb-reader-text-mirror').length
+            + shadow.querySelectorAll('.jpdb-reader-text-mirror').length;
+        expect(total).toBe(1);
+    });
+});
