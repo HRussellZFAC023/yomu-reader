@@ -5,7 +5,6 @@
 ### Fixed
 
 - Pausing Yomu from the puck now silences image, canvas and video-frame reading (OCR) too, matching what "paused" promises: no overlays appear and existing ones are cleared while paused, including scans that were already queued or captures still in flight when the pause landed. Everything resumes per your OCR mode when you unpause, and the puck's radial OCR button now shows as off while Yomu is paused instead of claiming OCR is on.
-- Release asset commits no longer carry a CI skip directive that could suppress the docs deployment when they are pushed together with a release commit, preventing stale hosted CSS and userscript assets after a release.
 
 ## [1.6.115] - 2026-07-10
 
