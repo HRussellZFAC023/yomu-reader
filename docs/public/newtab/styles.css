@@ -7257,6 +7257,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: none;
 }
 
+/* Clip-constrained HOVER-ONLY mirror (paint-invariant design, third live
+   gate): at rest the host text paints naturally and the mirror stays hidden
+   (inline visibility on the element). Hovering the stamped host reveals the
+   annotated mirror over it and blanks the host glyphs so the two texts never
+   double-paint; the mirror carries its own inline colour. */
+[data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
+  visibility: visible !important;
+}
+[data-yomu-clip-hover-host="true"]:hover {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
 /* Class Q (2026-07-10 site sweep): clip-constrained rows (fixed-height nav
    rows, line-clamped titles) show NO at-rest furigana in any channel — both
    the out-of-flow mirror's rt and in-place rt paint outside the clipped row

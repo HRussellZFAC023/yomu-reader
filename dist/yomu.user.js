@@ -5471,9 +5471,8 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && !target.suppressRuby && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
   const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
@@ -5667,10 +5666,20 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const clipRow = closestRubyFragileConstrainedRow(host);
   if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
   const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-  const state = styleTextMirrorHost(host, mirrorRubyLayout);
+  const state = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
-  if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
+  if (clipRow) {
+    constrainMirrorToClampBox(mirror, clipRow);
+    mirror.classList.add("jpdb-reader-clip-hover-mirror");
+    mirror.style.setProperty("visibility", "hidden");
+    const hostColor = safeComputedStyle(host).color;
+    if (hostColor) {
+      mirror.style.setProperty("color", hostColor);
+      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+    }
+    host.dataset.yomuClipHoverHost = "true";
+  }
   mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
@@ -5693,14 +5702,6 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   }
 }
 function constrainMirrorToClampBox(mirror, clipRow) {
-  const style = safeComputedStyle(clipRow);
-  const clamp = style.getPropertyValue("-webkit-line-clamp").trim();
-  if (clamp && clamp !== "none" && clamp !== "0") {
-  mirror.style.setProperty("display", "-webkit-box");
-  mirror.style.setProperty("-webkit-box-orient", "vertical");
-  mirror.style.setProperty("-webkit-line-clamp", clamp);
-  mirror.style.setProperty("overflow", "hidden");
-  }
   const height = clipRow.clientHeight;
   if (height > 0) {
   mirror.style.setProperty("max-height", `${height}px`);
@@ -6042,7 +6043,7 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function styleTextMirrorHost(host, allowOverflow = true) {
+function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false) {
   const computed = safeComputedStyle(host);
   const state = {
   observer: new MutationObserver(() => void 0),
@@ -6051,15 +6052,16 @@ function styleTextMirrorHost(host, allowOverflow = true) {
   visibilityPriority: host.style.getPropertyPriority("visibility"),
   overflow: host.style.getPropertyValue("overflow"),
   overflowPriority: host.style.getPropertyPriority("overflow"),
-  overflowAdjusted: allowOverflow,
+  overflowAdjusted: allowOverflow && !clipHoverOnly,
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
   positioned: computed.position === "static",
   display: host.style.getPropertyValue("display"),
   displayPriority: host.style.getPropertyPriority("display"),
-  displayAdjusted: computed.display === "inline",
+  displayAdjusted: computed.display === "inline" && !clipHoverOnly,
   concealTextOnly: !hostIsVisuallyBareForMirror(host),
-  concealedText: []
+  concealedText: [],
+  clipHoverOnly
   };
   textMirrorHosts.set(host, state);
   if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -6069,6 +6071,7 @@ function styleTextMirrorHost(host, allowOverflow = true) {
 }
 function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
+  if (state.clipHoverOnly) return;
   if (state.concealTextOnly) {
   if (mirror) {
     const hostColor = safeComputedStyle(host).color;
@@ -6361,6 +6364,7 @@ function removeTextMirror(host) {
   if (state) state.staleRemovalTimer = void 0;
   ownedTextMirrors(host).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
+  delete host.dataset.yomuClipHoverHost;
   textMirrorHosts.delete(host);
 }
 function reassertTextMirrorHostStyles(host, state) {
@@ -6368,7 +6372,8 @@ function reassertTextMirrorHostStyles(host, state) {
   removeTextMirror(host);
   return;
   }
-  if (state.concealTextOnly) {
+  if (state.clipHoverOnly) ;
+  else if (state.concealTextOnly) {
   reassertConcealedTextMirrorHostText(host, state);
   } else if (host.style.getPropertyValue("visibility") !== "hidden") {
   host.style.setProperty("visibility", "hidden", "important");

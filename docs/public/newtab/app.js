@@ -9121,9 +9121,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && !target.suppressRuby && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -9317,10 +9316,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
     const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state2 = styleTextMirrorHost(host, mirrorRubyLayout);
+    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
     try {
       styleTextMirror(mirror, host, mirrorRubyLayout);
-      if (clipRow) constrainMirrorToClampBox(mirror, clipRow);
+      if (clipRow) {
+        constrainMirrorToClampBox(mirror, clipRow);
+        mirror.classList.add("jpdb-reader-clip-hover-mirror");
+        mirror.style.setProperty("visibility", "hidden");
+        const hostColor = safeComputedStyle(host).color;
+        if (hostColor) {
+          mirror.style.setProperty("color", hostColor);
+          mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+        }
+        host.dataset.yomuClipHoverHost = "true";
+      }
       mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
@@ -9346,14 +9355,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function constrainMirrorToClampBox(mirror, clipRow) {
-    const style = safeComputedStyle(clipRow);
-    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
-    if (clamp2 && clamp2 !== "none" && clamp2 !== "0") {
-      mirror.style.setProperty("display", "-webkit-box");
-      mirror.style.setProperty("-webkit-box-orient", "vertical");
-      mirror.style.setProperty("-webkit-line-clamp", clamp2);
-      mirror.style.setProperty("overflow", "hidden");
-    }
     const height = clipRow.clientHeight;
     if (height > 0) {
       mirror.style.setProperty("max-height", `${height}px`);
@@ -9689,7 +9690,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host, allowOverflow = true) {
+  function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false) {
     const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
@@ -9698,15 +9699,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       visibilityPriority: host.style.getPropertyPriority("visibility"),
       overflow: host.style.getPropertyValue("overflow"),
       overflowPriority: host.style.getPropertyPriority("overflow"),
-      overflowAdjusted: allowOverflow,
+      overflowAdjusted: allowOverflow && !clipHoverOnly,
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
       positioned: computed.position === "static",
       display: host.style.getPropertyValue("display"),
       displayPriority: host.style.getPropertyPriority("display"),
-      displayAdjusted: computed.display === "inline",
+      // Paint invariance for clip-constrained hosts: no display coercion —
+      // the host must lay out exactly as without the userscript.
+      displayAdjusted: computed.display === "inline" && !clipHoverOnly,
       concealTextOnly: !hostIsVisuallyBareForMirror(host),
-      concealedText: []
+      concealedText: [],
+      clipHoverOnly
     };
     textMirrorHosts.set(host, state2);
     if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -9716,6 +9720,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hideTextMirrorHost(host, state2, mirror) {
     textMirrorHosts.set(host, state2);
+    if (state2.clipHoverOnly) return;
     if (state2.concealTextOnly) {
       if (mirror) {
         const hostColor = safeComputedStyle(host).color;
@@ -9986,6 +9991,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (state2) state2.staleRemovalTimer = void 0;
     ownedTextMirrors(host).forEach((mirror) => mirror.remove());
     if (state2) restoreTextMirrorHost(host, state2);
+    delete host.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host);
   }
   function reassertTextMirrorHostStyles(host, state2) {
@@ -9993,7 +9999,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       removeTextMirror(host);
       return;
     }
-    if (state2.concealTextOnly) {
+    if (state2.clipHoverOnly) ;
+    else if (state2.concealTextOnly) {
       reassertConcealedTextMirrorHostText(host, state2);
     } else if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
