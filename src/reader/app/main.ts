@@ -5892,7 +5892,7 @@ export class ReaderApp {
     }
 
     private prioritizeQueuedPitchEnrichment(card: JPDBCard, options: { immediate?: boolean } = {}): void {
-        if (!this.settings.showPitchAccent || card.pitchAccent.length) return;
+        if (!this.settings.showPitchAccent || cardHasContextPitch(card)) return;
         const key = cardKey(card);
         const queuedToken = this.takeQueuedPitchEnrichmentToken(key);
         if (!queuedToken && !options.immediate) return;
@@ -7492,17 +7492,27 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
-        // An installed local pitch dictionary (e.g. Kanjium) is the default
-        // pitch source: background/deferred enrichment stays fully offline
-        // instead of trickling public jpdb.io lookups. Urgent (popover) flows
-        // keep the bounded public fallback for words the local bank misses.
-        if (options.publicLookup !== false && options.urgent !== true && await this.hasLocalPitchDictionary()) {
+        // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
+        // pitch source: the at-rest pass stays offline. But local-FIRST, not
+        // local-ONLY (class F): words the local bank misses are fed into the
+        // paced deferred public lane below instead of being abandoned at
+        // jpdb-pitch-unknown until clicked. Urgent (popover) flows keep the
+        // bounded public fallback; an EXPLICIT publicLookup choice by the
+        // caller (the deferred drain's true, a surface's deliberate false) is
+        // never overridden.
+        let deferLocalMissesToPublicLane = false;
+        if (options.publicLookup === undefined && options.urgent !== true && await this.hasLocalPitchDictionary()) {
             options = { ...options, publicLookup: false };
+            deferLocalMissesToPublicLane = true;
         }
         const seen = new Set<string>();
         const tokensNeedingLookup = tokens.filter(token => !this.applyCachedPublicVocabularyToToken(token));
         const uniqueTokens = tokensNeedingLookup.filter(token => {
-            if (token.card.pitchAccent.length) return false;
+            // Classifiability, not mere pattern presence: a card whose stored
+            // patterns fit a DIFFERENT reading (dictionary form vs the
+            // conjugated/contextual one) renders jpdb-pitch-unknown forever if
+            // pitchAccent.length excludes it from every enrichment pass.
+            if (cardHasContextPitch(token.card)) return false;
             if (isLowValuePitchEnrichmentToken(token)) return false;
             if (options.substantivePublicLookupOnly && token.card.source === 'fallback' && !isSubstantivePublicPitchLookupToken(token)) return false;
             if (!token.card.spelling.trim()) return false;
@@ -7514,6 +7524,20 @@ export class ReaderApp {
 
         if (options.publicLookup === false) {
             await this.enrichLocalOnlyPitchTokens(uniqueTokens, options);
+            // Local-first: whatever the local bank could not classify goes to
+            // the paced deferred public jpdb.io lane — on EVERY surface (the
+            // Google evidence showed the silent drop is not YouTube-specific).
+            // Volume stays bounded by design: per-URL enqueue cap + dedupe,
+            // idle-gated 4-token chunks, shared concurrency 4, the pitch
+            // client's TTL/persistent caches, and its failure backoff. Tokens
+            // arrive in enrichment-priority order, so visible words drain
+            // first. Callers that explicitly demanded no public lookups are
+            // respected (deferLocalMissesToPublicLane is only set when the
+            // local dictionary forced the offline pass).
+            if (deferLocalMissesToPublicLane) {
+                const misses = uniqueTokens.filter(token => !cardHasContextPitch(token.card));
+                if (misses.length) this.scheduleDeferredPublicPitchEnrichment(misses);
+            }
             return;
         }
 
@@ -7707,7 +7731,11 @@ export class ReaderApp {
             }
             const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
             batch.forEach(token => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
-            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
+            // publicLookup: true — the lane EXISTS to do the paced public
+            // retry; without the explicit flag the local-dictionary override
+            // would force this call offline again and the lane became a no-op
+            // for exactly the users whose local bank missed (class F).
+            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length, publicLookup: true });
         }
     }
 
