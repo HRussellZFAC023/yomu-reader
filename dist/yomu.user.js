@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.118#sha256=GGIhFwzYAtfSaUhs0OHeXB6mXinvUMdkGfNfqYk4esM=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.118#sha256=/m5/c3kYNkVKAa7PrtQL6FJwADSGNWWkYWG14RrithY=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.118#sha256=tOjOWu0gGVDoEQeXl1pedx2u30qfC1yLS/z7dmAm2oc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=HU+I+KZl7LjUInJlFgi2jGqA7kDipqCfSozIWiSdEfo=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.118#sha256=Rf6JWIAbWGADso53YW/T+7/zoNGjaWp5Xvbuj/euey8=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.118#sha256=CpK0YGYSDZNBx2cN2Gasuahr+t9yEFCI2YTPvbCW0cs=
 // @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.118#sha256=Ooy/xY/9qGSdfseJgyKlmFBvQv5sVVyOaJc9NYRqRp0=
 // @connect api.jiten.moe
@@ -381,8 +381,10 @@ function contentClipRowShowsRestReadings(decoration, clipRow) {
   if (decoration !== "content-ruby" && decoration !== "prose-full") return false;
   const facts = constrainedRowStyleFacts(clipRow);
   if (facts.clippedShortRow) return false;
+  if (!facts.clamped && !facts.ellipsisRow) return false;
   const style = safeComputedStyle(clipRow);
-  return !hasDefiniteCssSize(style.height) && !hasDefiniteCssSize(style.maxHeight);
+  if (hasDefiniteCssSize(style.maxHeight)) return false;
+  return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
 }
 const MIRROR_BARE_DESCENDANT_LIMIT = 16;
 function hostIsVisuallyBareForMirror(host) {
@@ -796,7 +798,15 @@ function interactivePassiveControl(element2) {
 function isMediaTextContentControl(control) {
   if (!safeElementMatches$1(control, 'a[href],[role="link"],[role="button"]')) return false;
   if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-  return Boolean(safeQuerySelector(control, "img,picture,video,canvas")) && compactLength(control.textContent ?? "") > 2;
+  const media = safeQuerySelector(control, "img,picture,video,canvas");
+  if (!media || !(media instanceof HTMLElement)) return false;
+  return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? "") > 2;
+}
+const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+function mediaElementIsThumbnailSized(media) {
+  const rect = media.getBoundingClientRect();
+  if (rect.width <= 0 && rect.height <= 0) return true;
+  return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
@@ -6541,6 +6551,10 @@ function replayNonDestructiveRenderFromCache(host) {
   if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
   if (entry.hadNativeRuby || !host.isConnected) return false;
   if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+  if (entry.decoration) {
+  const current = classifyDecoration(host);
+  if (entry.decorationProfileOverride ? current === "skip" : current !== entry.decoration) return false;
+  }
   const target = {
   text: entry.planText,
   parent: host,
@@ -27980,6 +27994,10 @@ function mokuroDisplayOcrEnabled() {
   return true;
   }
 }
+function effectiveSiteScanCollectionLimit(limit, href = window.location.href) {
+  const profiles = getMatchingSiteParsers(href);
+  return profiles.length ? effectiveScanTargetLimit(profiles, limit) : limit;
+}
 function collectSiteScanTargets(limit = 40, href = window.location.href, options = {}) {
   return drainCollectionSteps(siteScanTargetSteps(limit, href, options));
 }
@@ -28059,7 +28077,7 @@ function normalizedAttributeText(element2, attribute) {
 }
 function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
   if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
+  const collected = collectFragmentTextTargetsIn(root, mirrorSkipAwareCandidateLimit(context), profile.visibleOnly ?? true, excludeSelector, {
   allowUiText: true,
   minLength: profile.minLength,
   includeUiChrome: true,
@@ -28213,6 +28231,11 @@ function plainScanTarget(target) {
 }
 function siteScanRemaining(context) {
   return context.effectiveLimit - context.targets.length;
+}
+function mirrorSkipAwareCandidateLimit(context) {
+  const remaining = siteScanRemaining(context);
+  if (!context.skipMirroredHosts) return remaining;
+  return remaining * 2 + 24;
 }
 function siteScanHasRoom(context) {
   return siteScanRemaining(context) > 0;
@@ -29962,7 +29985,11 @@ function mutationMayContainJapaneseText(mutation) {
   if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
   return nodeTextMayContainJapanese(mutation.target);
   }
-  return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+  return Array.from(mutation.addedNodes).some((node) => !nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node));
+}
+function nodeIsReaderOwned(node) {
+  const element2 = mutationNodeElement(node);
+  return Boolean(element2?.closest(`${READER_ROOT_SELECTOR$1},.jpdb-reader-text-mirror`));
 }
 function styleOrClassMutationRevealsJapaneseText(mutation, attribute) {
   const element2 = mutation.target instanceof HTMLElement ? mutation.target : null;
@@ -34717,7 +34744,8 @@ class VisiblePageScanner {
   }
   const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
   if (this.isStaleScan(generation)) return;
-  if (parsedAnyTokens && targets.length >= targetCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+  const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
+  if (parsedAnyTokens && targets.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
     this.queueContinuationScan(silent);
     return;
   }
@@ -36629,6 +36657,12 @@ class ReaderApp {
   applyAnnotationsPausedState() {
   if (this.settings.annotationsPaused) {
     this.cancelPendingHoverLookup();
+    window.clearTimeout(this.autoScanTimer);
+    this.autoScanTimer = void 0;
+    this.autoScanDeadline = 0;
+    this.autoScanForced = false;
+    this.autoScanDebounced = false;
+    this.pageScanner.interruptVisiblePageScan?.();
     this.clearAllAnnotations();
   } else if (!this.settings.manualScanEnabled) {
     this.scheduleAutoScan(0, { force: true });
@@ -36885,6 +36919,13 @@ class ReaderApp {
   return force || this.autoScanTimer !== void 0 || this.hasVisibleAutoScanWorkCached();
   }
   runScheduledAutoScan() {
+  if (this.isDestroyed || this.settings.annotationsPaused || this.settings.manualScanEnabled) {
+    this.autoScanTimer = void 0;
+    this.autoScanDeadline = 0;
+    this.autoScanForced = false;
+    this.autoScanDebounced = false;
+    return;
+  }
   const forced = this.autoScanForced;
   this.autoScanTimer = void 0;
   this.autoScanDeadline = 0;
@@ -41183,9 +41224,6 @@ class ReaderApp {
   this.pitchEnrichmentQueuedOptions.clear();
   this.deferredPublicPitchQueue = [];
   this.deferredPublicPitchQueuedKeys.clear();
-  this.deferredPublicPitchEnqueuedForUrl = 0;
-  this.backgroundPublicPitchLookupBudgetHref = location.href;
-  this.backgroundPublicPitchLookupBudgetUsed = 0;
   }
   hasLocalPitchDictionary() {
   if (!this.settings.localDictionariesEnabled) return Promise.resolve(false);
@@ -41592,9 +41630,10 @@ class ReaderApp {
   }
   this.settingsDialog ??= new Controller({
     getSettings: () => this.settings,
-    setSettings: (settings) => {
+    setSettings: (settings, options) => {
       const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
       this.settings = settings;
+      if (options?.transient) return;
       this.applyPreferredJapaneseSiteLanguage();
       if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
       if (pauseChanged) this.applyAnnotationsPausedState();

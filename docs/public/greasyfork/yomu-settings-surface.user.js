@@ -16011,6 +16011,17 @@ ${glossaryKey}`;
     set settings(settings) {
       this.dependencies.setSettings(settings);
     }
+    // Temporary form-derived swaps must not fire host-side transitions (the
+    // dialog's annotations-off instant clear would otherwise trigger from a
+    // mere Anki probe while OFF is selected but unsaved — sol review P1).
+    swapSettingsTransiently(settings) {
+      const previous = this.dependencies.getSettings();
+      this.dependencies.setSettings(settings, { transient: true });
+      return previous;
+    }
+    restoreTransientSettings(previous) {
+      this.dependencies.setSettings(previous, { transient: true });
+    }
     createSettingsForm(panel) {
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
@@ -16588,8 +16599,7 @@ ${glossaryKey}`;
       this.ankiLibraryScanId++;
       this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
       if (!formSettings.ankiEnabled) return;
-      const previous = this.settings;
-      this.settings = formSettings;
+      const previous = this.swapSettingsTransiently(formSettings);
       try {
         const connected = await this.dependencies.anki.isConnected();
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -16606,7 +16616,7 @@ ${glossaryKey}`;
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiConnectionProbe(form, requestId) {
@@ -16624,10 +16634,9 @@ ${glossaryKey}`;
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const scanLibrary = this.dependencies.anki.scanLibrary;
       if (typeof scanLibrary !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending", void 0, "scanning");
@@ -16648,7 +16657,7 @@ ${glossaryKey}`;
         log.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     shouldApplyAnkiLibraryScan(form, requestId) {
@@ -16658,10 +16667,9 @@ ${glossaryKey}`;
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
       const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
       if (typeof warmStatusIndex !== "function") return;
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       if (!this.settings.ankiEnabled) {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         return;
       }
       try {
@@ -16670,7 +16678,7 @@ ${glossaryKey}`;
       } catch (error) {
         log.warn("Automatic Anki status index warmup failed", error);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
       }
     }
     setAnkiStatusLine(form, line) {
@@ -16911,10 +16919,9 @@ ${glossaryKey}`;
     async handleSettingsAudioAction(form, action, control) {
       if (action !== "preview-audio") return false;
       const button = settingsActionButton(control);
-      const previous = this.settings;
       const previewSettings = readFormSettings(new FormData(form), this.settings);
       focusPreviewAudioSource(form, button, previewSettings);
-      this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
+      const previous = this.swapSettingsTransiently({ ...previewSettings, audioEnabled: true, audioViaBlob: true });
       button?.setAttribute("disabled", "true");
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       try {
@@ -16929,7 +16936,7 @@ ${glossaryKey}`;
         log.warn("Audio settings preview failed", error);
         this.dependencies.toast(errorMessage(error, uiText(language, "audioPreviewFailed")));
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;
@@ -17070,8 +17077,7 @@ ${glossaryKey}`;
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       const button = settingsActionButton(control);
       const setAnkiStatus = ankiStatusSetter(form.querySelector("[data-anki-status]"));
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
       button?.setAttribute("disabled", "true");
       setAnkiStatus(uiText(language, ankiConnectionPendingKey(connectionAction)), "pending");
       try {
@@ -17084,7 +17090,7 @@ ${glossaryKey}`;
       } catch (error) {
         this.handleAnkiConnectionActionError(error, setAnkiStatus, language);
       } finally {
-        this.settings = previous;
+        this.restoreTransientSettings(previous);
         button?.removeAttribute("disabled");
       }
       return true;
