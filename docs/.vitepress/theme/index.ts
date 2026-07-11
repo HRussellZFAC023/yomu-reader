@@ -219,6 +219,7 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The Japanese homepage hero pills now centre their labels: plain pills such as インストール and ゲーム no longer sit bottom-heavy inside the capsule, while furigana readings stay tucked inside the pill above the label.': '日本語ホームページのヒーローピルがラベルを中央に配置するようになりました。「インストール」や「ゲーム」のような読み仮名のないピルでラベルがカプセルの下に沈むことはなくなり、ふりがなはラベルの上でピルの内側に収まったままになります。',
     'Collapsing a dictionary section while hovering a word no longer closes the lookup popup: it stays open when the popup resizes under the pointer, and still dismisses once you move the pointer away.': '単語にカーソルを合わせている間に辞書セクションを折りたたんでも、ルックアップのポップアップが閉じなくなりました。ポップアップがポインターの下でサイズ変更されても開いたままになり、ポインターを離せばこれまで通り閉じます。',
     'Feed, watch-page and Shorts rows no longer blow up into giant tiles: rows that clamp their text never grow for hidden readings and never hide the page\'s own text — at rest an annotated row paints exactly as it would without Yomu.': 'フィード・視聴ページ・ショートの行が巨大なタイルに膨れ上がることはもうありません。テキストを切り詰める行は、隠れた読みのために高さが増えることも、ページ本来のテキストを隠すこともなくなりました。通常時、注釈付きの行はYomuがない場合とまったく同じに描画されます。',
     'Vanished text on annotated rows — video titles collapsing to empty tiles, the subscriber count turning invisible — is fixed: the original text always keeps painting.': '注釈付きの行でテキストが消える問題（動画タイトルが空のタイルになる、チャンネル登録者数が見えなくなる）を修正しました。元のテキストは常に描画され続けます。',

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.126] - 2026-07-11
+
+### Fixed
+
+- The Japanese homepage hero pills now centre their labels: plain pills such as インストール and ゲーム no longer sit bottom-heavy inside the capsule, while furigana readings stay tucked inside the pill above the label.
+
 ## [1.6.125] - 2026-07-10
 
 ### Fixed

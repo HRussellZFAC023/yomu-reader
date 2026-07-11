@@ -372,12 +372,15 @@ html[lang="ja"] .VPHomeHero .tagline {
    fixed height, whether or not its label ends up with readings, so the demo
    annotation never changes pill geometry and the row stays uniform.
    (A :has(.jpdb-reader-has-furi) rule previously grew only annotated pills,
-   which left 学習/見る/読む taller than ゲーム/インストール.) */
+   which left 学習/見る/読む taller than ゲーム/インストール.)
+   padding-bottom must optically centre the 17px label box in the 46px pill
+   (≈14px below vs ≈15px above); 9px left every label glued to the bottom
+   edge, which read as sagging text in plain pills. */
 html[lang="ja"] .VPHomeHero .actions .VPButton {
   align-items: flex-end;
   height: 46px;
   min-height: 46px;
-  padding-bottom: 9px;
+  padding-bottom: 14px;
   overflow: visible;
 }
 
