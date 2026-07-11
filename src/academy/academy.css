@@ -44,6 +44,13 @@
     overflow-x: hidden;
 }
 
+/* Never rely on UA button colour: under a dark color-scheme (system dark
+ * mode / the reader runtime) ButtonText renders white on our paper
+ * surfaces. :where() keeps this below every single-class override. */
+:where(.academy-shell) button {
+    color: var(--ac-body-ink);
+}
+
 .academy-nav {
     display: flex;
     justify-content: center;
