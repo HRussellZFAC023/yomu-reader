@@ -1,0 +1,57 @@
+{
+  "group": "protagonist",
+  "assets": [
+    {
+      "id": "protagonist__a__bust",
+      "type": "bust",
+      "out": "protagonist/protagonist-a__bust.webp",
+      "seed": 7797,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of the player-character protagonist option A: a warm approachable adult learner of ambiguous gender, short dark hair, a soft neutral jacket, a notebook, gentle hopeful eyes. Front three-quarter view, warm blue-hour classroom blur, dialogue-safe lower crop. A relatable adult evening-class learner, not a hero.",
+      "usage": "onboarding protagonist portrait choice",
+      "runtime_home": "src/academy/app.ts onboarding portrait select"
+    },
+    {
+      "id": "protagonist__b__bust",
+      "type": "bust",
+      "out": "protagonist/protagonist-b__bust.webp",
+      "seed": 7798,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of the player-character protagonist option B: a quietly determined adult woman learner, medium brown hair, a simple cardigan, a curious warm expression. Front three-quarter view, warm blue-hour classroom blur, dialogue-safe lower crop. A relatable adult evening-class learner, not a hero.",
+      "usage": "onboarding protagonist portrait choice",
+      "runtime_home": "src/academy/app.ts onboarding portrait select"
+    },
+    {
+      "id": "protagonist__c__bust",
+      "type": "bust",
+      "out": "protagonist/protagonist-c__bust.webp",
+      "seed": 7799,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of the player-character protagonist option C: a friendly adult man learner, short hair, a plain hoodie, an open eager expression. Front three-quarter view, warm blue-hour classroom blur, dialogue-safe lower crop. A relatable adult evening-class learner, not a hero.",
+      "usage": "onboarding protagonist portrait choice",
+      "runtime_home": "src/academy/app.ts onboarding portrait select"
+    },
+    {
+      "id": "protagonist__d__bust",
+      "type": "bust",
+      "out": "protagonist/protagonist-d__bust.webp",
+      "seed": 7800,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of the player-character protagonist option D: an androgynous casual adult learner, cropped hair, a relaxed layered outfit, an easy calm expression. Front three-quarter view, warm blue-hour classroom blur, dialogue-safe lower crop. A relatable adult evening-class learner, not a hero.",
+      "usage": "onboarding protagonist portrait choice",
+      "runtime_home": "src/academy/app.ts onboarding portrait select"
+    }
+  ]
+}

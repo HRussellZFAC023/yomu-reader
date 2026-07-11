@@ -1,0 +1,247 @@
+{
+  "group": "events",
+  "assets": [
+    {
+      "id": "prologue-notebook__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/prologue-notebook/prologue-notebook-wide.webp",
+      "seed": 8696,
+      "subject": "A quiet close story CG: an unfinished Japanese-study notebook open on a lamplit classroom desk beside a moss-green thermos, a red bookmark thread, evening blue-hour window behind. No people. The emotional 'the story begins here' beat. Wide 16:9 CG.",
+      "usage": "prologue-notebook story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "prologue-notebook__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/prologue-notebook/prologue-notebook-mobile.webp",
+      "seed": 8697,
+      "subject": "A quiet close story CG: an unfinished Japanese-study notebook open on a lamplit classroom desk beside a moss-green thermos, a red bookmark thread, evening blue-hour window behind. No people. The emotional 'the story begins here' beat. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "prologue-notebook story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "name-circle__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/name-circle/name-circle-wide.webp",
+      "seed": 2247,
+      "subject": "A warm story CG of an adult evening Japanese class doing self-introductions in a blue-hour classroom, a diverse group of adult learners in a loose circle, one speaking, warm amber light; readable silhouettes, no readable text on any board. Wide 16:9 CG.",
+      "usage": "name-circle story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "name-circle__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/name-circle/name-circle-mobile.webp",
+      "seed": 2248,
+      "subject": "A warm story CG of an adult evening Japanese class doing self-introductions in a blue-hour classroom, a diverse group of adult learners in a loose circle, one speaking, warm amber light; readable silhouettes, no readable text on any board. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "name-circle story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "konbini-midnight__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/konbini-midnight/konbini-midnight-wide.webp",
+      "seed": 8229,
+      "subject": "A tender story CG: a warm midnight convenience-store interior seen from a customer's side, a kind tired adult woman clerk at the till, cool fluorescent light warmed by the moment; quiet, human. Wide 16:9 CG.",
+      "usage": "konbini-midnight story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "konbini-midnight__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/konbini-midnight/konbini-midnight-mobile.webp",
+      "seed": 8230,
+      "subject": "A tender story CG: a warm midnight convenience-store interior seen from a customer's side, a kind tired adult woman clerk at the till, cool fluorescent light warmed by the moment; quiet, human. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "konbini-midnight story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "ramen-night__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/ramen-night/ramen-night-wide.webp",
+      "seed": 3073,
+      "subject": "A cosy story CG: an adult friend group around a small steamy ramen counter at night in the rain outside, warm amber counter light, bowls and steam; no branded noren, no readable menu. Wide 16:9 CG.",
+      "usage": "ramen-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "ramen-night__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/ramen-night/ramen-night-mobile.webp",
+      "seed": 3074,
+      "subject": "A cosy story CG: an adult friend group around a small steamy ramen counter at night in the rain outside, warm amber counter light, bowls and steam; no branded noren, no readable menu. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "ramen-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "okonomiyaki-night__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/okonomiyaki-night/okonomiyaki-night-wide.webp",
+      "seed": 2284,
+      "subject": "A warm story CG: adults gathered around a hot okonomiyaki griddle table, cheerful, steam and warm light, a rainy window behind. Wide 16:9 CG.",
+      "usage": "okonomiyaki-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "okonomiyaki-night__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/okonomiyaki-night/okonomiyaki-night-mobile.webp",
+      "seed": 2285,
+      "subject": "A warm story CG: adults gathered around a hot okonomiyaki griddle table, cheerful, steam and warm light, a rainy window behind. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "okonomiyaki-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "pub-night__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/pub-night/pub-night-wide.webp",
+      "seed": 6156,
+      "subject": "A warm story CG: an evening pub booth of adult classmates raising simple unlabelled glasses, welcoming, empty seats showing room for one more; no readable labels. Wide 16:9 CG.",
+      "usage": "pub-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "pub-night__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/pub-night/pub-night-mobile.webp",
+      "seed": 6157,
+      "subject": "A warm story CG: an evening pub booth of adult classmates raising simple unlabelled glasses, welcoming, empty seats showing room for one more; no readable labels. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "pub-night story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "library-two-hander__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/library-two-hander/library-two-hander-wide.webp",
+      "seed": 1333,
+      "subject": "A gentle emotional story CG: two adult classmates at a quiet library table sharing a quiet honest moment over an open notebook, soft window light, restrained and tender, not melodramatic. Wide 16:9 CG.",
+      "usage": "library-two-hander story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "library-two-hander__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/library-two-hander/library-two-hander-mobile.webp",
+      "seed": 1334,
+      "subject": "A gentle emotional story CG: two adult classmates at a quiet library table sharing a quiet honest moment over an open notebook, soft window light, restrained and tender, not melodramatic. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "library-two-hander story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "kanji-garden-lesson__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/kanji-garden-lesson/kanji-garden-lesson-wide.webp",
+      "seed": 2327,
+      "subject": "A calm story CG: an adult teacher and a learner in a small campus garden, kanji-as-picture teaching using stones, a bridge, and reflections; petals and blue-hour calm. Wide 16:9 CG.",
+      "usage": "kanji-garden-lesson story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "kanji-garden-lesson__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/kanji-garden-lesson/kanji-garden-lesson-mobile.webp",
+      "seed": 2328,
+      "subject": "A calm story CG: an adult teacher and a learner in a small campus garden, kanji-as-picture teaching using stones, a bridge, and reflections; petals and blue-hour calm. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "kanji-garden-lesson story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "surprise-party__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/surprise-party/surprise-party-wide.webp",
+      "seed": 2233,
+      "subject": "A warm special-event story CG: adult classmates setting up a small surprise celebration in a cafe with gentle string lights and a colour-coded plan on the table (no readable text), affectionate and busy. Wide 16:9 CG.",
+      "usage": "surprise-party story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "surprise-party__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/surprise-party/surprise-party-mobile.webp",
+      "seed": 2234,
+      "subject": "A warm special-event story CG: adult classmates setting up a small surprise celebration in a cafe with gentle string lights and a colour-coded plan on the table (no readable text), affectionate and busy. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "surprise-party story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "airport-farewell__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/airport-farewell/airport-farewell-wide.webp",
+      "seed": 5061,
+      "subject": "A restrained bittersweet story CG: adult friends at an original airport departure glass at dawn, one leaving, quiet warmth, a blank last notebook page motif; understated, one nod says a lot. Wide 16:9 CG.",
+      "usage": "airport-farewell story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "airport-farewell__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/airport-farewell/airport-farewell-mobile.webp",
+      "seed": 5062,
+      "subject": "A restrained bittersweet story CG: adult friends at an original airport departure glass at dawn, one leaving, quiet warmth, a blank last notebook page motif; understated, one nod says a lot. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "airport-farewell story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "class-group__wide",
+      "type": "event",
+      "w": 1600,
+      "h": 900,
+      "out": "events/class-group/class-group-wide.webp",
+      "seed": 8059,
+      "subject": "A warm ensemble story CG of the whole adult evening class together outside the campus at blue hour with cherry blossom and a stone lantern, everyone with a readable silhouette; the class-gift group portrait. Wide 16:9 CG.",
+      "usage": "class-group story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    },
+    {
+      "id": "class-group__mobile",
+      "type": "event",
+      "w": 900,
+      "h": 1125,
+      "out": "events/class-group/class-group-mobile.webp",
+      "seed": 8060,
+      "subject": "A warm ensemble story CG of the whole adult evening class together outside the campus at blue hour with cherry blossom and a stone lantern, everyone with a readable silhouette; the class-gift group portrait. Portrait 4:5 mobile CG keeping the focal beat.",
+      "usage": "class-group story event",
+      "runtime_home": "src/academy/app.ts key-scenes"
+    }
+  ]
+}

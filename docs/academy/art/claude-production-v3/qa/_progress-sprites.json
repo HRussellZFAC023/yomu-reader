@@ -1,0 +1,28 @@
+{
+  "glob": "characters/**/*.png",
+  "count": 2,
+  "flagged": [],
+  "near_duplicates": [],
+  "entries": [
+    {
+      "file": "characters/henry/henry__sprite__neutral__halfbody.png",
+      "size": [
+        1028,
+        1600
+      ],
+      "mode": "RGBA",
+      "coverage": 0.5636,
+      "edge_magenta_fringe": 0.0
+    },
+    {
+      "file": "characters/rie/rie__sprite__neutral__halfbody.png",
+      "size": [
+        1016,
+        1600
+      ],
+      "mode": "RGBA",
+      "coverage": 0.5239,
+      "edge_magenta_fringe": 0.0
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yomu-academy",
+  "main": "./workers/yomu-academy/src/index.ts",
+  "compatibility_date": "2026-07-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/academy",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yomu-academy",
+      "database_id": "34866a17-0594-4544-a527-9c79c30b4fb7",
+      "migrations_dir": "./workers/yomu-academy/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARCHIVE",
+      "bucket_name": "yomu-academy-archive"
+    }
+  ],
+  "vars": {
+    "ACADEMY_BASE_PATH": "/academy",
+    "SESSION_DAYS": "30"
+  },
+  "secrets": {
+    "required": [
+      "INVITE_CODE_SECRET",
+      "ADMIN_TOKEN",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "STRIPE_PRICE_ID"
+    ]
+  },
+  "routes": [
+    {
+      "pattern": "yomureader.com/academy",
+      "zone_name": "yomureader.com"
+    },
+    {
+      "pattern": "yomureader.com/academy/*",
+      "zone_name": "yomureader.com"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

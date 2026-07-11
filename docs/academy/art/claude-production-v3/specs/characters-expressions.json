@@ -1,0 +1,1916 @@
+{
+  "group": "characters:expressions",
+  "assets": [
+    {
+      "id": "rie__bust__laughing",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__laughing.webp",
+      "seed": 4295,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__surprised",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__surprised.webp",
+      "seed": 4255,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__concerned",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__concerned.webp",
+      "seed": 4302,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__determined",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__determined.webp",
+      "seed": 4262,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__embarrassed.webp",
+      "seed": 4221,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__speaking",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__speaking.webp",
+      "seed": 4279,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "rie__bust__listening",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__listening.webp",
+      "seed": 4252,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__laughing",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__laughing.webp",
+      "seed": 5080,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__surprised",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__surprised.webp",
+      "seed": 5040,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__concerned",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__concerned.webp",
+      "seed": 5087,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__determined",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__determined.webp",
+      "seed": 5047,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__embarrassed.webp",
+      "seed": 5006,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__speaking",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__speaking.webp",
+      "seed": 5064,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "henry__bust__listening",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__listening.webp",
+      "seed": 5037,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__laughing",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__laughing.webp",
+      "seed": 8910,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__surprised",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__surprised.webp",
+      "seed": 8870,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__concerned",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__concerned.webp",
+      "seed": 8917,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__determined",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__determined.webp",
+      "seed": 8877,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__embarrassed.webp",
+      "seed": 8836,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__speaking",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__speaking.webp",
+      "seed": 8894,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "aakash__bust__listening",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__listening.webp",
+      "seed": 8867,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__laughing",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__laughing.webp",
+      "seed": 2032,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__surprised",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__surprised.webp",
+      "seed": 1992,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__concerned",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__concerned.webp",
+      "seed": 2039,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__determined",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__determined.webp",
+      "seed": 1999,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__embarrassed.webp",
+      "seed": 1958,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__speaking",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__speaking.webp",
+      "seed": 2016,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "alex__bust__listening",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__listening.webp",
+      "seed": 1989,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__laughing",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__laughing.webp",
+      "seed": 7407,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__surprised",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__surprised.webp",
+      "seed": 7367,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__concerned",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__concerned.webp",
+      "seed": 7414,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__determined",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__determined.webp",
+      "seed": 7374,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__embarrassed.webp",
+      "seed": 7333,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__speaking",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__speaking.webp",
+      "seed": 7391,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tom__bust__listening",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__listening.webp",
+      "seed": 7364,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__laughing",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__laughing.webp",
+      "seed": 5078,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__surprised",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__surprised.webp",
+      "seed": 5038,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__concerned",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__concerned.webp",
+      "seed": 5085,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__determined",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__determined.webp",
+      "seed": 5045,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__embarrassed.webp",
+      "seed": 5004,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__speaking",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__speaking.webp",
+      "seed": 5062,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sam__bust__listening",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__listening.webp",
+      "seed": 5035,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__laughing",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__laughing.webp",
+      "seed": 5079,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__surprised",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__surprised.webp",
+      "seed": 5039,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__concerned",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__concerned.webp",
+      "seed": 5086,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__determined",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__determined.webp",
+      "seed": 5046,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__embarrassed.webp",
+      "seed": 5005,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__speaking",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__speaking.webp",
+      "seed": 5063,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "francis__bust__listening",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__listening.webp",
+      "seed": 5036,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__laughing",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__laughing.webp",
+      "seed": 5081,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__surprised",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__surprised.webp",
+      "seed": 5041,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__concerned",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__concerned.webp",
+      "seed": 5088,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__determined",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__determined.webp",
+      "seed": 5048,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__embarrassed.webp",
+      "seed": 5007,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__speaking",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__speaking.webp",
+      "seed": 5065,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "shin__bust__listening",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__listening.webp",
+      "seed": 5038,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__laughing",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__laughing.webp",
+      "seed": 5082,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__surprised",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__surprised.webp",
+      "seed": 5042,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__concerned",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__concerned.webp",
+      "seed": 5089,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__determined",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__determined.webp",
+      "seed": 5049,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__embarrassed.webp",
+      "seed": 5008,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__speaking",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__speaking.webp",
+      "seed": 5066,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jodi__bust__listening",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__listening.webp",
+      "seed": 5039,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__laughing",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__laughing.webp",
+      "seed": 5083,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__surprised",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__surprised.webp",
+      "seed": 5043,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__concerned",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__concerned.webp",
+      "seed": 5090,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__determined",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__determined.webp",
+      "seed": 5050,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__embarrassed.webp",
+      "seed": 5009,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__speaking",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__speaking.webp",
+      "seed": 5067,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "christian__bust__listening",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__listening.webp",
+      "seed": 5040,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__laughing",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__laughing.webp",
+      "seed": 5084,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__surprised",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__surprised.webp",
+      "seed": 5044,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__concerned",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__concerned.webp",
+      "seed": 5091,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__determined",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__determined.webp",
+      "seed": 5051,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__embarrassed.webp",
+      "seed": 5010,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__speaking",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__speaking.webp",
+      "seed": 5068,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "jenny__bust__listening",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__listening.webp",
+      "seed": 5041,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__laughing",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__laughing.webp",
+      "seed": 5085,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__surprised",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__surprised.webp",
+      "seed": 5045,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__concerned",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__concerned.webp",
+      "seed": 5092,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__determined",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__determined.webp",
+      "seed": 5052,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__embarrassed.webp",
+      "seed": 5011,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__speaking",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__speaking.webp",
+      "seed": 5069,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "robert__bust__listening",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__listening.webp",
+      "seed": 5042,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__laughing",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__laughing.webp",
+      "seed": 5086,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__surprised",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__surprised.webp",
+      "seed": 5046,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__concerned",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__concerned.webp",
+      "seed": 5093,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__determined",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__determined.webp",
+      "seed": 5053,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__embarrassed.webp",
+      "seed": 5012,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__speaking",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__speaking.webp",
+      "seed": 5070,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "mika__bust__listening",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__listening.webp",
+      "seed": 5043,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__laughing",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__laughing.webp",
+      "seed": 5087,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__surprised",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__surprised.webp",
+      "seed": 5047,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__concerned",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__concerned.webp",
+      "seed": 5094,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__determined",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__determined.webp",
+      "seed": 5054,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__embarrassed.webp",
+      "seed": 5013,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__speaking",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__speaking.webp",
+      "seed": 5071,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "sophie__bust__listening",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__listening.webp",
+      "seed": 5044,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__laughing",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__laughing.webp",
+      "seed": 5088,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__surprised",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__surprised.webp",
+      "seed": 5048,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__concerned",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__concerned.webp",
+      "seed": 5095,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__determined",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__determined.webp",
+      "seed": 5055,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__embarrassed.webp",
+      "seed": 5014,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__speaking",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__speaking.webp",
+      "seed": 5072,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "xingyu__bust__listening",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__listening.webp",
+      "seed": 5045,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__laughing",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__laughing.webp",
+      "seed": 5089,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__surprised",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__surprised.webp",
+      "seed": 5049,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__concerned",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__concerned.webp",
+      "seed": 5096,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__determined",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__determined.webp",
+      "seed": 5056,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__embarrassed.webp",
+      "seed": 5015,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__speaking",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__speaking.webp",
+      "seed": 5073,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "angel__bust__listening",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__listening.webp",
+      "seed": 5046,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__laughing",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__laughing.webp",
+      "seed": 5090,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__surprised",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__surprised.webp",
+      "seed": 5050,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__concerned",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__concerned.webp",
+      "seed": 5097,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__determined",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__determined.webp",
+      "seed": 5057,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__embarrassed.webp",
+      "seed": 5016,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__speaking",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__speaking.webp",
+      "seed": 5074,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "stasi__bust__listening",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__listening.webp",
+      "seed": 5047,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__laughing",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__laughing.webp",
+      "seed": 5091,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__surprised",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__surprised.webp",
+      "seed": 5051,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__concerned",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__concerned.webp",
+      "seed": 5098,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__determined",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__determined.webp",
+      "seed": 5058,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__embarrassed.webp",
+      "seed": 5017,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__speaking",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__speaking.webp",
+      "seed": 5075,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "ruparna__bust__listening",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__listening.webp",
+      "seed": 5048,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__laughing",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__laughing.webp",
+      "seed": 5092,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__surprised",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__surprised.webp",
+      "seed": 5052,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__concerned",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__concerned.webp",
+      "seed": 5099,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__determined",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__determined.webp",
+      "seed": 5059,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__embarrassed.webp",
+      "seed": 5018,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__speaking",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__speaking.webp",
+      "seed": 5076,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "pho__bust__listening",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__listening.webp",
+      "seed": 5049,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__laughing",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__laughing.webp",
+      "seed": 6078,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__surprised",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__surprised.webp",
+      "seed": 6038,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__concerned",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__concerned.webp",
+      "seed": 6085,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__determined",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__determined.webp",
+      "seed": 6045,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__embarrassed.webp",
+      "seed": 6004,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__speaking",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__speaking.webp",
+      "seed": 6062,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "miller__bust__listening",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__listening.webp",
+      "seed": 6035,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__laughing",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__laughing.webp",
+      "seed": 6079,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__surprised",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__surprised.webp",
+      "seed": 6039,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__concerned",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__concerned.webp",
+      "seed": 6086,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__determined",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__determined.webp",
+      "seed": 6046,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__embarrassed.webp",
+      "seed": 6005,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__speaking",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__speaking.webp",
+      "seed": 6063,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    },
+    {
+      "id": "tawapon__bust__listening",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__listening.webp",
+      "seed": 6036,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue expression variant",
+      "runtime_home": "src/academy/vn.ts expression swap"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "group": "smoke",
+  "assets": [
+    {
+      "id": "rie__bust__neutral",
+      "type": "bust",
+      "out": "_raw/smoke/rie__bust__neutral.webp",
+      "seed": 4218,
+      "deliver": [1024, 1536],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Dark hair in a soft loose bun with a few escaped strands, warm tired-radiant maternal smile, alive eyes looking gently toward the viewer, small pearl earring. She wears a cream cardigan over a dark navy blouse with a plain school lanyard. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop."
+    },
+    {
+      "id": "rie__sprite__neutral__halfbody",
+      "type": "sprite",
+      "out": "_raw/smoke/rie__sprite__neutral__halfbody.png",
+      "seed": 4218,
+      "gen_w": 768,
+      "gen_h": 1152,
+      "deliver_h": 2048,
+      "subject": "Half-body VN character sprite of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Dark hair in a soft loose bun, warm tired-radiant smile, cream cardigan over a dark navy blouse with a plain lanyard, holding a moss-green thermos in one hand and a small stack of marked worksheets in the other. Front three-quarter view, head to mid-thigh, centered, standing relaxed, hands and props cleanly drawn."
+    },
+    {
+      "id": "classroom__blue-hour__wide",
+      "type": "plate",
+      "out": "_raw/smoke/classroom__blue-hour__wide.webp",
+      "w": 1600,
+      "h": 900,
+      "seed": 3201,
+      "subject": "Empty evening lamplit Japanese-class classroom at blue hour. A chalkboard with faint chalk smudges on the left, a teacher's desk mid-ground with a moss-green thermos and a nearly finished worksheet, warm desk-lamp practical light, a tall window on the right showing deep indigo twilight sky and distant warm city lights, rows of empty chairs. Calm dialogue-safe lower-right foreground."
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "group": "characters:rie-expanded",
+  "assets": [
+    {
+      "id": "rie__bust__neutral",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__neutral.webp",
+      "seed": 4293,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__happy",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__happy.webp",
+      "seed": 4291,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__laughing",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__laughing.webp",
+      "seed": 4295,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: laughing warmly, eyes crinkled, head tilted slightly back, shoulders relaxed. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__thinking",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__thinking.webp",
+      "seed": 4270,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__surprised",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__surprised.webp",
+      "seed": 4255,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: pleasantly surprised, eyes widened, brows up, mouth slightly open. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__concerned",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__concerned.webp",
+      "seed": 4302,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__determined",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__determined.webp",
+      "seed": 4262,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: quietly determined, focused steady eyes, a firm mouth, a slight forward lean. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__embarrassed",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__embarrassed.webp",
+      "seed": 4221,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: embarrassed, a shy flushed half-smile, eyes glancing away, shoulders drawn in. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__speaking",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__speaking.webp",
+      "seed": 4279,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: mid-sentence speaking, mouth open in warm speech, expressive engaged eyes, one hand gesturing. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__listening",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__listening.webp",
+      "seed": 4252,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: listening attentively, a warm receptive half-smile, eyes on the speaker, head tilted to listen. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "Rie dialogue portrait (hero)",
+      "runtime_home": "onboarding + VN (replaces rie-sensei.webp)"
+    },
+    {
+      "id": "rie__bust__work-konbini",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__work-konbini.webp",
+      "seed": 4641,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s, behind a late-night convenience-store counter, a warm tired smile, soft fluorescent light kept cool. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Warm tired-radiant expression, same face and hair as her classroom look. Front three-quarter view, dialogue-safe lower crop.",
+      "usage": "Rie second-job running-gag scene",
+      "runtime_home": "VN work-scene beats"
+    },
+    {
+      "id": "rie__bust__work-ramen",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__work-ramen.webp",
+      "seed": 4622,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s, behind a small ramen counter with a simple apron and rising steam, warm and delighted. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Warm tired-radiant expression, same face and hair as her classroom look. Front three-quarter view, dialogue-safe lower crop.",
+      "usage": "Rie second-job running-gag scene",
+      "runtime_home": "VN work-scene beats"
+    },
+    {
+      "id": "rie__bust__work-station",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__work-station.webp",
+      "seed": 4655,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s, at a quiet station kiosk in a light staff jacket, blue-hour platform light behind. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Warm tired-radiant expression, same face and hair as her classroom look. Front three-quarter view, dialogue-safe lower crop.",
+      "usage": "Rie second-job running-gag scene",
+      "runtime_home": "VN work-scene beats"
+    },
+    {
+      "id": "rie__sprite__happy__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/rie/rie__sprite__happy__halfbody.png",
+      "seed": 4926,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard (solid opaque fabric, not sheer). Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "Rie stage sprite expression",
+      "runtime_home": "VN stage"
+    },
+    {
+      "id": "rie__sprite__thinking__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/rie/rie__sprite__thinking__halfbody.png",
+      "seed": 4940,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard (solid opaque fabric, not sheer). Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "Rie stage sprite expression",
+      "runtime_home": "VN stage"
+    },
+    {
+      "id": "rie__sprite__concerned__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/rie/rie__sprite__concerned__halfbody.png",
+      "seed": 4954,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard (solid opaque fabric, not sheer). Expression: gently concerned, brows drawn together softly, a caring worried mouth, leaning in. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "Rie stage sprite expression",
+      "runtime_home": "VN stage"
+    }
+  ]
+}

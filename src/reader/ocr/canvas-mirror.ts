@@ -1103,7 +1103,7 @@ function createTrustedMirrorScript(code: string): unknown {
 // engine's draws — so BookWalker OCR was dead there). The content-world reader
 // then pulls the records over the shared-DOM bridge (pullPageMirrorRecords).
 // Idempotent via the shared-DOM marker so retries never re-append <script> nodes.
-export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
+export function installCanvasMirrorRecorder(hostname: string = typeof location === 'undefined' ? '' : location.hostname): void {
     if (!isBookwalkerViewerHost(hostname)) return;
     if (recorderAlreadyInstalled()) return;
     if (recorderReloadLoopDetected()) return;

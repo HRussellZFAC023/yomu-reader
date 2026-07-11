@@ -1,0 +1,45 @@
+== Tier-A run start (interval=4.0s) ==
+
+### characters-core ###
+== generate characters:core: 84 assets, 2 workers ==
+  ✓ rie__bust__happy -> [1024, 1536] 
+  ✓ rie__bust__thinking -> [1024, 1536] 
+  ✓ henry__bust__neutral -> [1024, 1536] 
+  ✓ henry__bust__thinking -> [1024, 1536] 
+  ✓ henry__sprite__neutral__halfbody -> [1028, 1600] 
+  ✓ rie__sprite__neutral__halfbody -> [1016, 1600] 
+  ✓ aakash__bust__happy -> [1024, 1536] 
+  ✓ aakash__bust__thinking -> [1024, 1536] 
+  ✗ aakash__bust__neutral FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ aakash__sprite__neutral__halfbody -> [891, 1600] 
+  ✓ alex__bust__happy -> [1024, 1536] 
+  ✓ alex__bust__thinking -> [1024, 1536] 
+  ✗ alex__bust__neutral FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ tom__bust__neutral -> [1024, 1536] 
+  ✓ tom__bust__happy -> [1024, 1536] 
+  ✓ tom__bust__thinking -> [1024, 1536] 
+  ✓ alex__sprite__neutral__halfbody -> [902, 1600] 
+  ✓ tom__sprite__neutral__halfbody -> [984, 1600] 
+  ✓ sam__bust__happy -> [1024, 1536] 
+  ✓ sam__bust__thinking -> [1024, 1536] 
+  ✗ sam__bust__neutral FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ sam__sprite__neutral__halfbody -> [880, 1600] 
+  ✓ francis__bust__happy -> [1024, 1536] 
+  ✓ francis__bust__thinking -> [1024, 1536] 
+  ✓ francis__sprite__neutral__halfbody -> [839, 1600] 
+  ✗ francis__bust__neutral FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ shin__bust__neutral -> [1024, 1536] 
+  ✓ shin__bust__thinking -> [1024, 1536] 
+  ✓ shin__sprite__neutral__halfbody -> [956, 1600] 
+  ✗ shin__bust__happy FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ jodi__bust__neutral -> [1024, 1536] 
+  ✓ jodi__bust__thinking -> [1024, 1536] 
+  ✓ jodi__sprite__neutral__halfbody -> [755, 1600] 
+  ✗ jodi__bust__happy FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests
+  ✓ christian__bust__neutral -> [1024, 1536] 
+  ✓ christian__bust__thinking -> [1024, 1536] 
+  ✓ christian__sprite__neutral__halfbody -> [1047, 1600] 
+  ✓ christian__bust__happy -> [1024, 1536] 
+  ✓ jenny__bust__happy -> [1024, 1536] 
+  ✓ jenny__bust__thinking -> [1024, 1536] 
+  ✗ jenny__bust__neutral FAILED: fetch failed after 6 tries: HTTP Error 429: Too Many Requests

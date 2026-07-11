@@ -1,0 +1,145 @@
+{
+  "schema": "yomu-academy.coverage-audit.v1",
+  "summary": {
+    "planWeeks": 73,
+    "filesPresent": 26,
+    "missingWeeks": 47,
+    "badJson": 0,
+    "sourceMembersTotal": 220,
+    "sourceMembersCovered": 218,
+    "sourceMembersGap": 1,
+    "sourceMembersUnaccounted": 1,
+    "coveragePercent": 99.1
+  },
+  "byTerm": {
+    "orientation": {
+      "weeks": 1,
+      "present": 1,
+      "members": 0,
+      "covered": 0,
+      "gaps": 0,
+      "unaccounted": 0
+    },
+    "l1": {
+      "weeks": 18,
+      "present": 18,
+      "members": 148,
+      "covered": 147,
+      "gaps": 1,
+      "unaccounted": 0
+    },
+    "l1plus": {
+      "weeks": 17,
+      "present": 6,
+      "members": 64,
+      "covered": 63,
+      "gaps": 0,
+      "unaccounted": 1
+    },
+    "l2plus": {
+      "weeks": 12,
+      "present": 0,
+      "members": 0,
+      "covered": 0,
+      "gaps": 0,
+      "unaccounted": 0
+    },
+    "l3-2": {
+      "weeks": 14,
+      "present": 1,
+      "members": 8,
+      "covered": 8,
+      "gaps": 0,
+      "unaccounted": 0
+    },
+    "l3plus": {
+      "weeks": 11,
+      "present": 0,
+      "members": 0,
+      "covered": 0,
+      "gaps": 0,
+      "unaccounted": 0
+    }
+  },
+  "missingWeeks": [
+    "l1plus-l06",
+    "l1plus-l07",
+    "l1plus-l08",
+    "l1plus-l09",
+    "l1plus-l10",
+    "l1plus-summer-homework",
+    "l1plus-katakana-1",
+    "l1plus-katakana-2",
+    "l1plus-katakana-3",
+    "l1plus-katakana-4",
+    "l1plus-katakana-5",
+    "l2plus-kickoff",
+    "l2plus-l01",
+    "l2plus-l02",
+    "l2plus-l03",
+    "l2plus-l04",
+    "l2plus-l05",
+    "l2plus-l06",
+    "l2plus-l07",
+    "l2plus-l08",
+    "l2plus-l09",
+    "l2plus-l10",
+    "l2plus-kanji-4",
+    "l3-2-kickoff",
+    "l3-2-selfstudy-ch27",
+    "l3-2-l01",
+    "l3-2-l02",
+    "l3-2-l03",
+    "l3-2-l05",
+    "l3-2-l06",
+    "l3-2-l07",
+    "l3-2-prestudy-volitional",
+    "l3-2-l08",
+    "l3-2-l09",
+    "l3-2-l10",
+    "l3-2-kanji-6",
+    "l3plus-kickoff",
+    "l3plus-l01",
+    "l3plus-l02",
+    "l3plus-l03",
+    "l3plus-l04",
+    "l3plus-l05",
+    "l3plus-l06",
+    "l3plus-l07",
+    "l3plus-l08",
+    "l3plus-l09",
+    "l3plus-kanji-7"
+  ],
+  "badJson": [],
+  "gapsForHumanReview": [
+    {
+      "weekId": "orientation",
+      "worksheet": null,
+      "kind": "provenance-gap",
+      "note": "Orientation framing is authored rather than harvested; a human should confirm the welcome tone before publication."
+    },
+    {
+      "weekId": "l1-l07",
+      "worksheet": "Hiragana writing practice modified syllables",
+      "kind": "gap",
+      "howCovered": "Modified-syllable hiragana handwriting (dakuten / handakuten / yōon) is a script-strand skill, not a places-and-prices function. It belongs to the dedicated Level 1 hiragana handwriting weeks; covering it here would force off-theme material or guess the sheet's specific syllable set."
+    },
+    {
+      "weekId": "l1-l07",
+      "worksheet": null,
+      "kind": "provenance-gap",
+      "note": "'Hiragana writing practice modified syllables' homework — modified-kana handwriting (dakuten / handakuten / yōon) is deferred to the Level 1 hiragana handwriting weeks; there is no faithful home for it inside a chapter-3 places-and-prices lesson."
+    },
+    {
+      "weekId": "l1plus-l05",
+      "worksheet": "New HW Chapter 9 10 reading よっつ の きせつ",
+      "kind": "unaccounted"
+    }
+  ],
+  "curriculumGaps": [
+    "Minna no Nihongo chapters 24 (〜てあげる/くれる/もらう) and 26 (〜んです) are not represented in any harvested spine worksheet. Likely a missing \"Level 3-1\" term between Level 2+ and Level 3-2. Human review needed before claiming full N4 coverage.",
+    "Kanji strand sets 1, 2, 3 and 5 are not in the harvest (only Kanji 4/6/7 folders exist). Their exact character lists are unknown; the hiragana (Level 1) and katakana (Level 1+) strands cover early script. Flag for human review.",
+    "Per-week (Lesson-N to Chapter-N) boundaries are ledger-anchored for every term (chapter numbers come from real worksheet titles). Where a lesson folder yields multiple chapters, authors should treat the lower chapter as the new teaching focus and the higher as preview/spill; confirm against Moodle per-week folders if exact boundaries matter.",
+    "Level 1+ Lesson 3 references Chapter 9 (わかります) earlier than a strict pace predicts; treat its chapter anchors as authoritative over any assumed even pace."
+  ]
+}

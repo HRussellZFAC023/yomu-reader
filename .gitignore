@@ -31,3 +31,8 @@ docs/.vitepress/dist/
 /docs/research/
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
+
+# Academy asset/content corpus: lives on disk + R2, never in git (rights + size)
+/public/academy/
+/references-academy/
+/docs/public/academy/

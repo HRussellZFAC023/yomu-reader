@@ -32,6 +32,14 @@
     ]
   },
   "scripts": {
+    "academy:archive": "node scripts/upload-academy-archive.mjs",
+    "academy:catalog": "node scripts/build-academy-catalog.mjs",
+    "academy:migrate": "wrangler d1 migrations apply yomu-academy --remote --config wrangler.academy.jsonc",
+    "academy:types": "wrangler types --config wrangler.academy.jsonc workers/yomu-academy/worker-configuration.d.ts",
+    "build:academy": "vite build --config config/vite/academy.config.ts && node scripts/sync-academy.cjs",
+    "deploy:academy": "npm run build:academy && wrangler deploy --config wrangler.academy.jsonc",
+    "dev:academy": "npm run build:academy && wrangler dev --config wrangler.academy.jsonc --local --port 8787",
+    "test:academy": "vitest run tests/academy",
     "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
     "build": "npm run build:userscript",
     "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",

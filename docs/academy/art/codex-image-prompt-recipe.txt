@@ -1,0 +1,50 @@
+
+########## exec-c8b9e0f2-65b8-4821-8ade-1eb74ad31241 ##########
+Use case: stylized-concept
+Asset type: full-bleed responsive home scene for a Japanese-learning campus-life visual novel web app
+Input images: Use only the three group photographs among the attached recent images as visual references for the adult class ensemble. Completely ignore the two phone contact-list screenshots and do not reproduce any text, names, phone numbers, avatars, or UI from them.
+Primary request: Reimagine the friendly adult classmates from the group photos as an ensemble arriving for evening Japanese class at a fantastical UCL-inspired academy in Bloomsbury. Preserve broad likenesses, hair, glasses, skin tones, and warm group chemistry while rendering an original scene.
+Scene/backdrop: a recognisable neoclassical London university quad with portico and columns, subtly fused with a Japanese school courtyard; classroom windows glowing at blue hour, a library wing, language lab, small cafe entrance, distant London rooftops, cherry petals drifting through the quad.
+Style/medium: beautiful high-detail 32-bit pixel art with hand-painted Japanese animation warmth, crisp readable silhouettes, sophisticated visual-novel background, original art direction rather than copying any existing game or studio.
+Composition/framing: cinematic 16:9 wide establishing shot, ensemble grouped toward lower-right near the academy doors, strong open navigable space across the courtyard for HTML location hotspots, visible paths to classroom/library/cafe, no UI baked into image.
+Lighting/mood: inviting blue-hour light, warm amber windows, green and coral accents, a sense of mystery and beginning a new chapter.
+Constraints: adults only; natural friendly expressions; no text, no logos, no watermark, no copyrighted characters, no school uniforms, no alcohol, no distorted hands or duplicate people.
+
+########## exec-76d267a1-01fb-4224-a61a-3514006abc38 ##########
+Use case: illustration-story
+Asset type: recurring visual-novel character portrait for Yomu Academy
+Primary request: Create Rie-sensei, a charming slightly older Japanese evening-language teacher, smiling with a knowing, gently mischievous expression, holding a thermos of tea and a stack of marked worksheets with a red hana-maru flower stamp. She is energetic but visibly busy, with practical smart-casual clothes and a lanyard with no readable text.
+Scene/backdrop: softly lit evening classroom with chalkboard shapes and a tiny cup-noodle pot plant joke in the background, kept subtle.
+Style/medium: original high-detail 32-bit pixel art with warm hand-painted Japanese animation sensibility, sophisticated visual-novel portrait, crisp silhouette and expressive face, not copying any existing game, character, artist, or studio.
+Composition/framing: 4:5 vertical waist-up portrait, subject on the left two-thirds with some clean negative space to the right for responsive cropping.
+Lighting/mood: warm classroom amber against deep teal shadows; approachable, clever, and memorable.
+Constraints: adult; no text, no logo, no watermark, no copyrighted character, no exaggerated caricature, natural hands.
+
+########## exec-47673506-16a5-4045-9dfa-13c590ddf674 ##########
+Use case: illustration-story
+Asset type: wide 16:9 key scene for an interactive Japanese lesson
+Primary request: Create an original, richly observed visual-novel scene for Yomu Academy Lesson 9, showing two adult Japanese-language students making a Sunday plan together in a London evening classroom. Their open notebook contains small visual clues rather than readable text: meet at the station at ten, bring vegetable dishes for a riverside meal, and move to a cafe if rain starts.
+Input images: Image 1 is the established Yomu Academy environment/style anchor; Image 2 is the character-rendering and texture anchor. Match their detailed hand-crafted pixel-art finish, warm human expressions, cinematic composition, and mature proportions. Do not copy their exact scene or characters.
+Scene/backdrop: UCL-inspired classroom at blue hour, rain beginning outside tall Bloomsbury windows, station clock and riverside postcard pinned to a noticeboard, thermos and marked worksheet on a desk.
+Subject: two diverse adult classmates discussing a shared plan naturally, one pointing to the notebook and one listening; friendly, focused, not romantic.
+Style/medium: premium high-resolution pixel art / painterly visual-novel background, realistic anatomy and subtle facial acting, dense environmental storytelling, sophisticated Japanese game art direction.
+Composition/framing: exact wide landscape composition with meaningful clear space in the lower-left for lesson copy; characters occupy the right half; foreground desk leads into scene; no UI mockup and no frame.
+Lighting/mood: indigo London dusk, warm classroom lamps, soft rain reflections, intimate and hopeful.
+Color palette: deep ink blue, warm amber, restrained mint and vermilion details; not monochrome and not purple-dominated.
+Constraints: no text, no logos, no speech bubbles, no watermark, no chibi, no flat vector shapes, no glossy 3D, no generic stock-anime pose, no copyrighted game characters or UI. Preserve crisp pixel clusters while retaining detailed faces and materials.
+
+########## exec-ecc50561-7602-42aa-bd70-7699ea67805d ##########
+Use case: illustration-story
+Asset type: wide 3:2 narrative grammar scene for Yomu Academy Lesson 9
+Primary request: Create the next original scene in the same visual world: two adult classmates have reached a London station on Sunday morning as rain begins, and one suggests changing the riverside plan to a warm cafe. The image should naturally teach the Japanese conditional なら through visual cause-and-response, without showing any written language.
+Input images: Image 1 is the exact Lesson 9 character, lighting, pixel texture, and maturity anchor; Image 2 is the wider Academy world anchor. Maintain continuity for the two classmates without reproducing any real person's identity.
+Scene/backdrop: Bloomsbury station entrance, wet pavement, small independent cafe glowing across the street, folded riverside picnic map, vegetable dish bag, umbrella opening.
+Subject: the same two classmates from Image 1, full or three-quarter figures; one notices the rain and gestures toward the cafe, the other understands and agrees.
+Style/medium: premium detailed pixel-art visual novel still with painterly depth, realistic anatomy, subtle facial acting, tactile rain, expressive but restrained.
+Composition/framing: landscape; characters on the left and centre, cafe and rain-choice story clearly readable on the right; leave a calm strip along bottom for optional captions; no UI frame.
+Lighting/mood: cool overcast daylight with warm cafe amber, gentle humour, collaborative problem solving.
+Color palette: wet blue-grey, vermilion umbrella accent, cafe amber, green food-bag detail.
+Constraints: no readable text, no logos, no speech bubbles, no watermark, no chibi, no flat vector art, no 3D render, no copyrighted characters or UI, no romance framing.
+
+########## exec-886a2fdf-6452-497c-8072-1af65575bae4 ##########
+Create a polished 16:9 raster background for a Japanese-language visual novel game set at University College London in Bloomsbury. Evening in early spring. The viewer stands just outside a pair of tall old university doors as they swing open into a warm Japanese classroom; golden light spills onto the stone threshold, loose cherry blossom petals spiral through the doorway, handwritten Japanese worksheets and a teacup are visible inside, and a friendly female Japanese teacher in her late 40s is seen in the middle distance turning to welcome the viewer. Cinematic hand-painted animated-film realism, intricate architectural detail, believable London university setting, rich navy, vermilion, warm gold and fresh green palette, expressive atmosphere, sophisticated visual-novel key art, human and magical without fantasy objects. No text, no logo, no UI, no frame, no gradient background, no empty abstract decoration. Compose with clear negative space in the lower-left for dialogue UI and keep the teacher away from that area.

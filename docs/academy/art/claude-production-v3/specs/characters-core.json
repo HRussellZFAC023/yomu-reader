@@ -1,0 +1,1076 @@
+{
+  "group": "characters:core",
+  "assets": [
+    {
+      "id": "rie__bust__neutral",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__neutral.webp",
+      "seed": 4293,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "rie__bust__happy",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__happy.webp",
+      "seed": 4291,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "rie__bust__thinking",
+      "type": "bust",
+      "out": "characters/rie/rie__bust__thinking.webp",
+      "seed": 4270,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard. Holding a moss-green thermos and a small stack of marked worksheets. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "rie__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/rie/rie__sprite__neutral__halfbody.png",
+      "seed": 4218,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Rie, a warm dignified adult Japanese woman teacher in her late 30s. Detailed expressive face, dark hair in a soft loose bun with a few escaped strands, small stud earrings, warm tired-radiant presence. Wearing a solid opaque cream cardigan over a dark navy blouse with a plain school lanyard (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "henry__bust__neutral",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__neutral.webp",
+      "seed": 5078,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "henry__bust__happy",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__happy.webp",
+      "seed": 5076,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "henry__bust__thinking",
+      "type": "bust",
+      "out": "characters/henry/henry__bust__thinking.webp",
+      "seed": 5055,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder. Holding a laptop covered in abstract stickers. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "henry__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/henry/henry__sprite__neutral__halfbody.png",
+      "seed": 5003,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Henry, a friendly adult White man in his late 20s. Messy short brown hair, friendly slightly sleepless eyes, faint stubble. Wearing an indigo hoodie over a sky-blue tee, a backpack strap on one shoulder (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "aakash__bust__neutral",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__neutral.webp",
+      "seed": 8908,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "aakash__bust__happy",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__happy.webp",
+      "seed": 8906,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "aakash__bust__thinking",
+      "type": "bust",
+      "out": "characters/aakash/aakash__bust__thinking.webp",
+      "seed": 8885,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent. Holding a classic car key fob and a retro cassette tape. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "aakash__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/aakash/aakash__sprite__neutral__halfbody.png",
+      "seed": 8833,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Aakash, a stylish adult South-Asian man in his late 20s. A neat black undercut, a tidy short beard, warm confident city-pop cool. Wearing an olive-green beanie and a charcoal denim jacket over a plum hoodie, a lilac accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "alex__bust__neutral",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__neutral.webp",
+      "seed": 2030,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "alex__bust__happy",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__happy.webp",
+      "seed": 2028,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "alex__bust__thinking",
+      "type": "bust",
+      "out": "characters/alex/alex__bust__thinking.webp",
+      "seed": 2007,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch. Holding a folded paper route map. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "alex__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/alex/alex__sprite__neutral__halfbody.png",
+      "seed": 1955,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Alex, a calm ordinary adult White man in his late 20s. Short brown hair, a calm steady quiet expression. Wearing a slate-grey mountaineering fleece with a sky accent and a hiking watch (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "tom__bust__neutral",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__neutral.webp",
+      "seed": 7405,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tom__bust__happy",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__happy.webp",
+      "seed": 7403,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tom__bust__thinking",
+      "type": "bust",
+      "out": "characters/tom/tom__bust__thinking.webp",
+      "seed": 7382,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining. Holding a handheld game console. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tom__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/tom/tom__sprite__neutral__halfbody.png",
+      "seed": 7330,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Tom, a cheerful blond adult White man in his mid-20s. Short tousled blond hair, a slightly fuller face, a joyful open expression. Wearing a forest-green hoodie with a mint lining (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "sam__bust__neutral",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__neutral.webp",
+      "seed": 5076,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sam__bust__happy",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__happy.webp",
+      "seed": 5074,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sam__bust__thinking",
+      "type": "bust",
+      "out": "characters/sam/sam__bust__thinking.webp",
+      "seed": 5053,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband. Holding a tennis racquet handle. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sam__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/sam/sam__sprite__neutral__halfbody.png",
+      "seed": 5001,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Sam, a sporty adult White man in his mid-20s. Short chestnut athletic hair, broad shoulders, a relaxed easy grin. Wearing a forest-and-sage track jacket over a casual tee, a wristband (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "francis__bust__neutral",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__neutral.webp",
+      "seed": 5077,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "francis__bust__happy",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__happy.webp",
+      "seed": 5075,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "francis__bust__thinking",
+      "type": "bust",
+      "out": "characters/francis/francis__bust__thinking.webp",
+      "seed": 5054,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf. Holding a warm tea cup. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "francis__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/francis/francis__sprite__neutral__halfbody.png",
+      "seed": 5002,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Francis, a gentle adult White man in his late 20s. Soft wavy sand-brown hair, no glasses, a tender warm look. Wearing a plum cardigan over a layered tee with a soft lilac scarf (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "shin__bust__neutral",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__neutral.webp",
+      "seed": 5079,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "shin__bust__happy",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__happy.webp",
+      "seed": 5077,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "shin__bust__thinking",
+      "type": "bust",
+      "out": "characters/shin/shin__bust__thinking.webp",
+      "seed": 5056,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent. Holding a notebook of kanji radicals. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "shin__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/shin/shin__sprite__neutral__halfbody.png",
+      "seed": 5004,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Shin, a clever warm adult East-Asian man in his late 20s. Short neat black hair, round glasses, a warm clever smile. Wearing a tidy navy overshirt with a sky-blue accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "jodi__bust__neutral",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__neutral.webp",
+      "seed": 5080,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jodi__bust__happy",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__happy.webp",
+      "seed": 5078,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jodi__bust__thinking",
+      "type": "bust",
+      "out": "characters/jodi/jodi__bust__thinking.webp",
+      "seed": 5057,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf. Holding an old notebook with a red bookmark thread. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jodi__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/jodi/jodi__sprite__neutral__halfbody.png",
+      "seed": 5005,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Jodi, a warm older adult White woman in her late 50s. Soft silver-streaked bobbed hair, a kind wistful expression. Wearing a plum coat with a rose scarf (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "christian__bust__neutral",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__neutral.webp",
+      "seed": 5081,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "christian__bust__happy",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__happy.webp",
+      "seed": 5079,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "christian__bust__thinking",
+      "type": "bust",
+      "out": "characters/christian/christian__bust__thinking.webp",
+      "seed": 5058,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder. Holding a small portable desk fan. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "christian__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "magenta",
+      "out": "characters/christian/christian__sprite__neutral__halfbody.png",
+      "seed": 5006,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Christian, an earnest fit adult Black man in his late 20s. Hair tied back in a neat ponytail, an earnest warm expression. Wearing a slate athletic top with a sage towel over one shoulder (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "jenny__bust__neutral",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__neutral.webp",
+      "seed": 5082,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jenny__bust__happy",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__happy.webp",
+      "seed": 5080,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jenny__bust__thinking",
+      "type": "bust",
+      "out": "characters/jenny/jenny__bust__thinking.webp",
+      "seed": 5059,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan. Holding knitting needles and a ball of yarn. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "jenny__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/jenny/jenny__sprite__neutral__halfbody.png",
+      "seed": 5007,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Jenny, a warm cozy adult White woman in her late 20s. Long rich auburn hair, a mint headband, a gentle caring smile. Wearing a cozy rose knit cardigan (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "robert__bust__neutral",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__neutral.webp",
+      "seed": 5083,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "robert__bust__happy",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__happy.webp",
+      "seed": 5081,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "robert__bust__thinking",
+      "type": "bust",
+      "out": "characters/robert/robert__bust__thinking.webp",
+      "seed": 5060,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf. Holding a blank reservation notebook. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "robert__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/robert/robert__sprite__neutral__halfbody.png",
+      "seed": 5008,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Robert, a genial adult White man in his 30s. Neat side-parted brown hair, square glasses, a good-humoured welcoming look. Wearing a navy blazer over a neat collared shirt with a sand-coloured scarf (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "mika__bust__neutral",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__neutral.webp",
+      "seed": 5084,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "mika__bust__happy",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__happy.webp",
+      "seed": 5082,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "mika__bust__thinking",
+      "type": "bust",
+      "out": "characters/mika/mika__bust__thinking.webp",
+      "seed": 5061,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse. Holding colour-coded language study tabs. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "mika__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/mika/mika__sprite__neutral__halfbody.png",
+      "seed": 5009,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Mika, a quiet gentle adult blond White/European man in his mid-20s. Short soft blond hair, thin glasses, a shy thoughtful expression. Wearing a sky-blue cardigan over a soft white blouse (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "sophie__bust__neutral",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__neutral.webp",
+      "seed": 5085,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sophie__bust__happy",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__happy.webp",
+      "seed": 5083,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sophie__bust__thinking",
+      "type": "bust",
+      "out": "characters/sophie/sophie__bust__thinking.webp",
+      "seed": 5062,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent. Holding a colour-tabbed notebook and a capped pen. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "sophie__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/sophie/sophie__sprite__neutral__halfbody.png",
+      "seed": 5010,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Sophie, a bright adult East-Asian woman of Chinese/Hong-Kong heritage in her mid-20s. Long dark hair, no glasses, a tidy quietly-confident expression, a small star sticker. Wearing an indigo cardigan with a precise collar and a mint accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "xingyu__bust__neutral",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__neutral.webp",
+      "seed": 5086,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "xingyu__bust__happy",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__happy.webp",
+      "seed": 5084,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "xingyu__bust__thinking",
+      "type": "bust",
+      "out": "characters/xingyu/xingyu__bust__thinking.webp",
+      "seed": 5063,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent. Holding a blank lyric notebook. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "xingyu__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/xingyu/xingyu__sprite__neutral__halfbody.png",
+      "seed": 5011,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Xingyu, a cheerful adult East-Asian woman in her mid-20s. A short undercut, round glasses, a huge warm grin, bouncing energy, earbuds in. Wearing a teal cardigan with a lilac accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "angel__bust__neutral",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__neutral.webp",
+      "seed": 5087,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "angel__bust__happy",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__happy.webp",
+      "seed": 5085,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "angel__bust__thinking",
+      "type": "bust",
+      "out": "characters/angel/angel__bust__thinking.webp",
+      "seed": 5064,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable. Holding a slim laptop and a colour-coded planner. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "angel__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/angel/angel__sprite__neutral__halfbody.png",
+      "seed": 5012,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Angel, an organised warm adult East/Southeast-Asian woman in her late 20s. Long straight dark hair with a neat centre parting, a big genuine smile. Wearing a navy top, sharp and tidy but approachable (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "stasi__bust__neutral",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__neutral.webp",
+      "seed": 5088,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "stasi__bust__happy",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__happy.webp",
+      "seed": 5086,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "stasi__bust__thinking",
+      "type": "bust",
+      "out": "characters/stasi/stasi__bust__thinking.webp",
+      "seed": 5065,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket. Holding a sketch pad and pencil. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "stasi__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/stasi/stasi__sprite__neutral__halfbody.png",
+      "seed": 5013,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Stasi, a bright creative adult woman in her mid-20s. Vibrant red/auburn wavy shoulder-length hair, round glasses, a warm open smile. Wearing a cosy knitted scarf over a jacket (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "ruparna__bust__neutral",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__neutral.webp",
+      "seed": 5089,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "ruparna__bust__happy",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__happy.webp",
+      "seed": 5087,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "ruparna__bust__thinking",
+      "type": "bust",
+      "out": "characters/ruparna/ruparna__bust__thinking.webp",
+      "seed": 5066,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent. Holding a novel held close. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "ruparna__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/ruparna/ruparna__sprite__neutral__halfbody.png",
+      "seed": 5014,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Ruparna, a gentle bookish adult South-Asian woman in her late 20s. Long dark hair, a gentle thoughtful observant expression. Wearing a cozy charcoal knit sweater with a lilac accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "pho__bust__neutral",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__neutral.webp",
+      "seed": 5090,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "pho__bust__happy",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__happy.webp",
+      "seed": 5088,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "pho__bust__thinking",
+      "type": "bust",
+      "out": "characters/pho/pho__bust__thinking.webp",
+      "seed": 5067,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent. Holding a bubble-tea cup. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "pho__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/pho/pho__sprite__neutral__halfbody.png",
+      "seed": 5015,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Pho, a carefree young Southeast-Asian woman in her early 20s. Long black hair, a relaxed carefree easy grin. Wearing a warm mustard casual tee with a sand accent (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "miller__bust__neutral",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__neutral.webp",
+      "seed": 6076,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "miller__bust__happy",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__happy.webp",
+      "seed": 6074,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "miller__bust__thinking",
+      "type": "bust",
+      "out": "characters/miller/miller__bust__thinking.webp",
+      "seed": 6053,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie. Holding a briefcase. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "miller__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/miller/miller__sprite__neutral__halfbody.png",
+      "seed": 6001,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Miller, a crisp too-perfect adult businessman (an original 'textbook' archetype, NOT any real coursebook illustration). Neat side-parted blond hair, an uncannily polite neutral expression. Wearing a clean navy suit with a sand tie (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    },
+    {
+      "id": "tawapon__bust__neutral",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__neutral.webp",
+      "seed": 6077,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tawapon__bust__happy",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__happy.webp",
+      "seed": 6075,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: an open genuine happy smile, warm bright eyes, lifted cheeks. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tawapon__bust__thinking",
+      "type": "bust",
+      "out": "characters/tawapon/tawapon__bust__thinking.webp",
+      "seed": 6054,
+      "deliver": [
+        1024,
+        1536
+      ],
+      "subject": "Waist-up dialogue bust of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap. Holding a textbook and a neat notebook. Expression: thinking, eyes drifting aside and down, one brow active, a considering mouth. Front three-quarter view, eyes in the upper third, calm dialogue-safe lower crop.",
+      "usage": "VN dialogue portrait / roster card / study-link panel",
+      "runtime_home": "src/academy/vn.ts portrait (raster path) + roster; replaces avatarSvg bust"
+    },
+    {
+      "id": "tawapon__sprite__neutral__halfbody",
+      "type": "sprite",
+      "key": "green",
+      "out": "characters/tawapon/tawapon__sprite__neutral__halfbody.png",
+      "seed": 6002,
+      "best_of": 2,
+      "deliver_h": 1600,
+      "subject": "Half-body VN character sprite of Tawapon, a diligent cheerful adult international student (an original 'textbook' archetype, NOT any real coursebook illustration). Short black hair, a bright encouraging model-student expression. Wearing a forest-and-mint sweater vest over a neat shirt, a satchel strap (solid opaque fabric, not sheer). Expression: a relaxed neutral class presence, faint warm smile, alive eyes toward the viewer. Relaxed natural posture, empty hands, standing. Front three-quarter view, head to mid-thigh, centered.",
+      "usage": "VN stage speaker sprite (left/right)",
+      "runtime_home": "src/academy/app.ts campus speaker + VN stage (replaces production/*/halfbody)"
+    }
+  ]
+}

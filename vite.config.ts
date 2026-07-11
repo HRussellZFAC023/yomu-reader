@@ -193,7 +193,7 @@ function readerBuildConfig(mode: string) {
 function readerTestConfig() {
     return {
         environment: 'jsdom',
-        include: ['tests/reader/**/*.test.ts'],
+        include: ['tests/reader/**/*.test.ts', 'tests/academy/**/*.test.ts'],
         exclude: generatedShardExcludePatterns(),
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,

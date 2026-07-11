@@ -1,0 +1,793 @@
+/*
+ * Yomu Academy — core stylesheet (rebuild).
+ * Two visual modes only: scene (full-bleed plate + sprites + dialogue) and
+ * study (paper workspace). Tokens per docs/academy/design/VISUAL-BIBLE.md.
+ * One scroll owner per screen. Ruby room is always reserved so furigana
+ * injection never shifts layout.
+ */
+
+:root {
+    --ac-deep-ink: #14223c;
+    --ac-paper: #fbfcf9;
+    --ac-study-ground: #edf1ee;
+    --ac-body-ink: #18231e;
+    --ac-muted-ink: #56635b;
+    --ac-green: #2f7654;
+    --ac-blue: #426f91;
+    --ac-rose: #925268;
+    --ac-gold-light: #80652f;
+    --ac-gold-scene: #e5b86e;
+    --ac-radius: 6px;
+    --ac-font-latin: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ac-font-ja: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+}
+
+/* ------------------------------------------------------------- shell */
+
+.academy-shell {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--ac-deep-ink);
+    color: var(--ac-body-ink);
+    font-family: var(--ac-font-latin);
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.academy-screen {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.academy-nav {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--ac-deep-ink) 92%, black);
+    border-top: 1px solid color-mix(in srgb, var(--ac-gold-scene) 25%, transparent);
+}
+
+.academy-shell.is-immersive .academy-nav {
+    display: none;
+}
+
+.academy-nav-item {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-radius: var(--ac-radius);
+    color: color-mix(in srgb, var(--ac-paper) 72%, transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 64px;
+    min-height: 48px;
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.academy-nav-item .academy-nav-kana {
+    font-family: var(--ac-font-ja);
+    font-size: 15px;
+}
+
+.academy-nav-item.is-active {
+    color: var(--ac-gold-scene);
+}
+
+.academy-nav-item:focus-visible {
+    outline: 3px solid var(--ac-gold-scene);
+    outline-offset: 1px;
+}
+
+/* -------------------------------------------------- japanese defaults */
+
+.academy-shell [lang='ja'] {
+    font-family: var(--ac-font-ja);
+}
+
+/* Reserve ruby room: rt space always exists so annotation never reflows. */
+.academy-shell ruby > rt {
+    white-space: nowrap;
+}
+
+.academy-hide-furigana rt {
+    visibility: hidden;
+}
+
+/* ------------------------------------------------------------- stage */
+
+.academy-stage {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.academy-stage-plate {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 380ms ease;
+}
+
+.academy-stage-plate.is-front {
+    opacity: 1;
+}
+
+.academy-stage-sprites,
+.academy-area-sprites {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.academy-sprite {
+    position: absolute;
+    bottom: 0;
+    height: min(72%, 640px);
+    max-width: 46vw;
+    object-fit: contain;
+    object-position: bottom;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 200ms ease, transform 200ms ease, filter 200ms ease;
+}
+
+.academy-sprite.is-on {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.academy-sprite[data-side='left'] { left: 4%; }
+.academy-sprite[data-side='center'] { left: 50%; transform: translate(-50%, 8px); }
+.academy-sprite[data-side='center'].is-on { transform: translate(-50%, 0); }
+.academy-sprite[data-side='right'] { right: 4%; }
+
+.academy-stage[data-sprite-count='2'] .academy-sprite:not(.is-speaking) {
+    filter: brightness(0.82) saturate(0.9);
+}
+
+.academy-reduced-motion .academy-stage-plate,
+.academy-reduced-motion .academy-sprite {
+    transition: none;
+}
+
+/* ---------------------------------------------------------- dialogue */
+
+.academy-dialogue {
+    position: relative;
+    z-index: 2;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    justify-content: center;
+}
+
+.academy-dialogue-surface {
+    background: color-mix(in srgb, var(--ac-paper) 96%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ac-deep-ink) 14%, transparent);
+    border-left: 3px solid var(--ac-green);
+    border-radius: var(--ac-radius);
+    max-width: 920px;
+    width: 100%;
+    padding: 14px 18px 10px;
+    cursor: pointer;
+}
+
+.academy-dialogue-speaker {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ac-rose);
+}
+
+.academy-dialogue-ja {
+    margin: 2px 0;
+    font-size: 22px;
+    line-height: 1.7;
+    color: var(--ac-body-ink);
+}
+
+.academy-dialogue-en {
+    margin: 4px 0 0;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ac-muted-ink);
+}
+
+.academy-dialogue-en:not(.is-revealed) {
+    display: none;
+}
+
+.academy-show-translations .academy-dialogue-en {
+    display: block;
+}
+
+.academy-dialogue-note {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--ac-blue);
+}
+
+.academy-line-reveal {
+    appearance: none;
+    border: 1px solid color-mix(in srgb, var(--ac-blue) 40%, transparent);
+    background: none;
+    border-radius: var(--ac-radius);
+    color: var(--ac-blue);
+    font-size: 13px;
+    padding: 2px 8px;
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.academy-show-translations .academy-line-reveal {
+    display: none;
+}
+
+.academy-dialogue-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.academy-dialogue-tool,
+.academy-dialogue-advance {
+    appearance: none;
+    border: 0;
+    background: none;
+    border-radius: var(--ac-radius);
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 15px;
+    color: var(--ac-muted-ink);
+    cursor: pointer;
+}
+
+.academy-dialogue-advance {
+    background: var(--ac-green);
+    color: var(--ac-paper);
+    font-size: 18px;
+    padding: 0 18px;
+}
+
+.academy-dialogue-tool:focus-visible,
+.academy-dialogue-advance:focus-visible,
+.academy-line-reveal:focus-visible {
+    outline: 3px solid var(--ac-green);
+    outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------ choice */
+
+.academy-choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.academy-choice-option {
+    appearance: none;
+    text-align: left;
+    background: var(--ac-paper);
+    border: 1px solid color-mix(in srgb, var(--ac-deep-ink) 18%, transparent);
+    border-radius: var(--ac-radius);
+    padding: 10px 14px;
+    min-height: 44px;
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+}
+
+.academy-choice-option:hover,
+.academy-choice-option:focus-visible {
+    border-color: var(--ac-green);
+    outline: none;
+}
+
+.academy-choice-option:focus-visible {
+    outline: 3px solid var(--ac-green);
+    outline-offset: 1px;
+}
+
+.academy-choice-ja {
+    font-size: 19px;
+    line-height: 1.65;
+}
+
+.academy-choice-en {
+    font-size: 15px;
+    color: var(--ac-muted-ink);
+}
+
+/* ----------------------------------------------------------- backlog */
+
+.academy-backlog {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: color-mix(in srgb, var(--ac-deep-ink) 88%, transparent);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.academy-backlog-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    max-width: 920px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.academy-backlog-row {
+    background: color-mix(in srgb, var(--ac-paper) 94%, transparent);
+    border-radius: var(--ac-radius);
+    padding: 10px 14px;
+}
+
+.academy-backlog-close {
+    align-self: center;
+    margin-top: 12px;
+    appearance: none;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: var(--ac-paper);
+    color: var(--ac-body-ink);
+    min-height: 44px;
+    padding: 0 24px;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* --------------------------------------------------------------- map */
+
+.academy-map {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.academy-map-backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+}
+
+.academy-map-backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ac-deep-ink) 55%, transparent), transparent 40%, color-mix(in srgb, var(--ac-deep-ink) 35%, transparent));
+}
+
+.academy-map-heading {
+    position: relative;
+    z-index: 2;
+    padding: 18px 20px 0;
+    color: var(--ac-paper);
+}
+
+.academy-map-heading h1 {
+    margin: 0;
+    font-size: 26px;
+}
+
+.academy-map-heading p {
+    margin: 2px 0 0;
+    font-size: 15px;
+    color: color-mix(in srgb, var(--ac-paper) 82%, transparent);
+}
+
+.academy-map-markers {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}
+
+.academy-map-marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    appearance: none;
+    border: 1px solid color-mix(in srgb, var(--ac-gold-scene) 55%, transparent);
+    background: color-mix(in srgb, var(--ac-deep-ink) 78%, transparent);
+    color: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    padding: 8px 12px;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.academy-map-marker-kana {
+    font-size: 15px;
+    color: var(--ac-gold-scene);
+}
+
+.academy-map-marker:hover:not(:disabled),
+.academy-map-marker:focus-visible {
+    border-color: var(--ac-gold-scene);
+    background: color-mix(in srgb, var(--ac-deep-ink) 92%, transparent);
+    outline: none;
+}
+
+.academy-map-marker:focus-visible {
+    outline: 3px solid var(--ac-gold-scene);
+    outline-offset: 1px;
+}
+
+.academy-map-marker:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.academy-map-marker-hint {
+    font-size: 12px;
+    color: color-mix(in srgb, var(--ac-paper) 65%, transparent);
+}
+
+/* -------------------------------------------------------------- area */
+
+.academy-area {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.academy-area-backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+}
+
+.academy-area-panel {
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--ac-deep-ink) 82%, transparent) 30%);
+    padding: 48px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    color: var(--ac-paper);
+}
+
+.academy-area-panel h1 {
+    margin: 4px 0 0;
+    font-size: 24px;
+}
+
+.academy-area-kana {
+    margin: 0;
+    color: var(--ac-gold-scene);
+    font-size: 16px;
+}
+
+.academy-area-back {
+    appearance: none;
+    border: 0;
+    background: none;
+    color: color-mix(in srgb, var(--ac-paper) 85%, transparent);
+    font: inherit;
+    font-size: 15px;
+    min-height: 44px;
+    padding: 0;
+    cursor: pointer;
+}
+
+/* On light study surfaces the back control must read as ink, not paper. */
+.academy-study .academy-area-back {
+    color: var(--ac-blue);
+}
+
+.academy-area-back:focus-visible {
+    outline: 3px solid var(--ac-green);
+    outline-offset: 1px;
+}
+
+.academy-area-activities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.academy-area-activity {
+    appearance: none;
+    border: 1px solid color-mix(in srgb, var(--ac-paper) 30%, transparent);
+    background: color-mix(in srgb, var(--ac-deep-ink) 55%, transparent);
+    color: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    min-height: 52px;
+    padding: 8px 16px;
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.academy-area-activity-kana {
+    color: var(--ac-gold-scene);
+    font-size: 15px;
+}
+
+.academy-area-activity:hover,
+.academy-area-activity:focus-visible {
+    border-color: var(--ac-gold-scene);
+    outline: none;
+}
+
+.academy-area-activity:focus-visible {
+    outline: 3px solid var(--ac-gold-scene);
+    outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------- study */
+
+.academy-study {
+    min-height: 100%;
+    background: var(--ac-study-ground);
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    max-width: 960px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.academy-study h1 {
+    margin: 0 0 4px;
+    font-size: 28px;
+    color: var(--ac-body-ink);
+}
+
+.academy-study h2 {
+    margin: 22px 0 8px;
+    font-size: 20px;
+}
+
+.academy-study-support {
+    margin: 0 0 14px;
+    color: var(--ac-muted-ink);
+    font-size: 15px;
+}
+
+.academy-syllabus-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.academy-syllabus-row {
+    appearance: none;
+    text-align: left;
+    font: inherit;
+    background: var(--ac-paper);
+    border: 1px solid color-mix(in srgb, var(--ac-deep-ink) 10%, transparent);
+    border-radius: var(--ac-radius);
+    padding: 10px 14px;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    cursor: pointer;
+}
+
+.academy-syllabus-row:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.academy-syllabus-row.is-current {
+    border-left: 3px solid var(--ac-green);
+}
+
+.academy-syllabus-row:not(:disabled):hover,
+.academy-syllabus-row:focus-visible {
+    border-color: var(--ac-green);
+    outline: none;
+}
+
+.academy-syllabus-row:focus-visible {
+    outline: 3px solid var(--ac-green);
+    outline-offset: 1px;
+}
+
+.academy-syllabus-title {
+    font-weight: 600;
+}
+
+.academy-syllabus-ja {
+    font-size: 15px;
+}
+
+.academy-syllabus-meta {
+    font-size: 13px;
+    color: var(--ac-muted-ink);
+}
+
+/* study screens share text rules; lesson bits */
+
+.academy-lesson-ja-title {
+    font-size: 20px;
+    margin: 0 0 6px;
+}
+
+.academy-lesson-intro {
+    font-size: 17px;
+}
+
+.academy-grammar-point {
+    background: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    padding: 14px 16px;
+    margin: 10px 0;
+}
+
+.academy-grammar-point h2 {
+    margin: 0 0 6px;
+    font-size: 18px;
+}
+
+.academy-grammar-example {
+    font-size: 19px;
+    line-height: 1.7;
+    margin: 8px 0 0;
+}
+
+.academy-grammar-example-en {
+    font-size: 15px;
+    color: var(--ac-muted-ink);
+    margin: 0 0 4px;
+}
+
+.academy-component-list {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.academy-component-list li {
+    margin: 4px 0;
+}
+
+/* cast */
+
+.academy-cast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.academy-cast-member {
+    background: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    padding: 12px;
+    text-align: center;
+}
+
+.academy-cast-member img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    object-position: top;
+    border-radius: var(--ac-radius);
+    background: var(--ac-study-ground);
+}
+
+.academy-cast-member h2 {
+    margin: 8px 0 0;
+    font-size: 17px;
+}
+
+.academy-cast-kana {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ac-muted-ink);
+}
+
+.academy-cast-role {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--ac-muted-ink);
+}
+
+.academy-cast-bond {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--ac-rose);
+}
+
+.academy-cast-guests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.academy-cast-guest {
+    background: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+/* settings */
+
+.academy-settings-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--ac-paper);
+    border-radius: var(--ac-radius);
+    padding: 12px 14px;
+    margin: 8px 0;
+    min-height: 44px;
+    cursor: pointer;
+}
+
+.academy-settings-row input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--ac-green);
+}
+
+.academy-settings-action {
+    appearance: none;
+    font: inherit;
+    border: 1px solid var(--ac-green);
+    color: var(--ac-green);
+    background: none;
+    border-radius: var(--ac-radius);
+    min-height: 44px;
+    padding: 0 18px;
+    margin-top: 14px;
+    cursor: pointer;
+}
+
+.academy-settings-action:focus-visible {
+    outline: 3px solid var(--ac-green);
+    outline-offset: 1px;
+}
+
+/* ------------------------------------------------------- small sizes */
+
+@media (max-width: 760px) {
+    .academy-dialogue-ja { font-size: 19px; }
+    .academy-study h1 { font-size: 24px; }
+    .academy-sprite { max-width: 70vw; height: min(58%, 480px); }
+    .academy-map-marker { font-size: 13px; padding: 6px 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-stage-plate,
+    .academy-sprite {
+        transition: none;
+    }
+}
