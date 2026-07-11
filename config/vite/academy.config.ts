@@ -8,7 +8,7 @@ export default defineConfig({
     publicDir: false,
     build: {
         outDir: 'dist/academy',
-        emptyOutDir: true,
+        emptyOutDir: false,
         target: 'es2022',
         minify: false,
         cssMinify: false,
