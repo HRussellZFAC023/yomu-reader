@@ -558,6 +558,17 @@ const BOOKWALKER_TEXT_METADATA_ROOTS = [
     '.m-bookDetailDescription',
 ];
 const BOOKWALKER_READER_SETTINGS_SELECTOR = '.settings-popover,[class*="setting" i],[id*="setting" i],[aria-label*="設定"],[role="dialog"],[role="menu"]';
+const MIGAKU_MARKETING_HOSTS = new Set(['migaku.com', 'www.migaku.com']);
+const MIGAKU_MARKETING_EXCLUDE = [
+    COMMON_EXCLUDE,
+    // The homepage replaces these Vue transition spans every few seconds and
+    // briefly stacks the entering/leaving copies. Annotating either copy gives
+    // the host transition a third paint layer and leaves stale text behind.
+    '.WelcomeText__title',
+    // Migaku's learning demos already own these token/ruby surfaces. Nesting a
+    // second reader inside them makes both extensions compete for the same text.
+    '.migaku-surface',
+].join(',');
 const YOMUYOMU_HOSTS = new Set(['yomuyomu.app', 'www.yomuyomu.app']);
 const YOMUYOMU_READER_ROOTS = [
     '#du-reading-screen canvas[lang*="ja" i]',
@@ -647,6 +658,16 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includePassiveInteractionRoots: false,
         providesTextLayer: true,
         matches: url => isBookWalkerStorefrontUrl(url),
+    },
+    {
+        id: 'migaku-marketing-parser',
+        roots: ['main'],
+        exclude: MIGAKU_MARKETING_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        heading: true,
+        suppressResidualVisibleScan: true,
+        matches: url => MIGAKU_MARKETING_HOSTS.has(url.hostname.toLowerCase()),
     },
     {
         id: 'yomuyomu-reader-parser',
