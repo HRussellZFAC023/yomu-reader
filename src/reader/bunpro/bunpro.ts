@@ -158,9 +158,12 @@ export class BunproClient {
         return this.frontend('/user_stats/review_activity');
     }
 
-    // fallow-ignore-next-line unused-class-member
     getVocab(slugOrId: string | number): Promise<unknown> {
         return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+    }
+
+    getGrammarPoint(id: string | number): Promise<unknown> {
+        return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
     }
 
     async search(query: string, options: BunproSearchOptions = {}): Promise<unknown> {

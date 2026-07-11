@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeBunproDefinitionSearch, renderBunproDefinitionSource } from '../../src/reader/bunpro/definition';
+import { lookupBunproDefinition, normalizeBunproDefinitionSearch, normalizeBunproExampleSentences, renderBunproDefinitionSource } from '../../src/reader/bunpro/definition';
 import type { JPDBCard } from '../../src/reader/app/types';
+import type { BunproClient } from '../../src/reader/bunpro/bunpro';
 
 const card: JPDBCard = {
     vid: 1,
@@ -87,5 +88,115 @@ describe('Bunpro definition source', () => {
         const raw = { vocabs: { data: [{ id: 42, attributes: { id: 42, title: '生', kana: 'せい', meaning: 'life' } }] } };
         expect(normalizeBunproDefinitionSearch(raw, '生', 'なま')).toBeNull();
         expect(normalizeBunproDefinitionSearch(raw, '生')).toMatchObject({ id: 42, reading: 'せい' });
+    });
+});
+
+describe('Bunpro example sentences', () => {
+    const vocabDetail = {
+        data: { id: '963', type: 'vocab' },
+        included: [{
+            id: '163746',
+            type: 'study_question',
+            attributes: {
+                id: 163746,
+                content: "<span class='vocab-popout' data-vocab-id='78'>クラス</span>メイトは楽譜（がくふ）を<span class='gp-popout vocab-popout' data-vocab-id='963'><strong>読（よ）む</strong></span>ことができる。",
+                answer: '',
+                question_type: 'readonly',
+                sentence_order: 5,
+                male_audio_url: 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/male.mp3',
+                female_audio_url: 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3',
+                translation: 'My classmate can <strong>read</strong> music.',
+            },
+        }, {
+            id: 'x',
+            type: 'vocab',
+            attributes: { id: 963 },
+        }],
+    };
+
+    it('normalizes vocab study questions into ordered example sentences', () => {
+        const examples = normalizeBunproExampleSentences(vocabDetail);
+        expect(examples).toHaveLength(1);
+        expect(examples[0]).toMatchObject({
+            text: 'クラスメイトは楽譜を読むことができる。',
+            translation: 'My classmate can read music.',
+            audioUrl: 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3',
+        });
+        expect(examples[0]?.parts).toEqual([
+            { text: 'クラスメイトは楽譜（がくふ）を', target: false },
+            { text: '読（よ）む', target: true },
+            { text: 'ことができる。', target: false },
+        ]);
+    });
+
+    it('fills grammar cloze blanks with the kanji answer as the target segment', () => {
+        const examples = normalizeBunproExampleSentences({
+            included: [{
+                type: 'study_question',
+                attributes: {
+                    id: 9209,
+                    content: '____焼（や）かれるところだった。',
+                    answer: 'いきながら',
+                    kanji_answer: '生（い）きながら',
+                    question_type: 'cloze',
+                    sentence_order: 0,
+                    male_audio_url: null,
+                    female_audio_url: 'https://dk3kgylsgq3k1.cloudfront.net/audio/grammar/n1/a.mp3',
+                    translation: 'I was nearly burned alive.',
+                },
+            }],
+        });
+        expect(examples).toHaveLength(1);
+        expect(examples[0]).toMatchObject({
+            text: '生きながら焼かれるところだった。',
+            audioUrl: 'https://dk3kgylsgq3k1.cloudfront.net/audio/grammar/n1/a.mp3',
+        });
+        expect(examples[0]?.parts[0]).toEqual({ text: '生（い）きながら', target: true });
+    });
+
+    it('sorts by sentence order, drops non-Japanese rows, and caps the list', () => {
+        const rows = Array.from({ length: 14 }, (_, index) => ({
+            type: 'study_question',
+            attributes: { content: `文${index}です。`, sentence_order: 13 - index, translation: '', female_audio_url: '' },
+        }));
+        const examples = normalizeBunproExampleSentences({ included: [
+            ...rows,
+            { type: 'study_question', attributes: { content: 'English only.', sentence_order: -1 } },
+        ] });
+        expect(examples).toHaveLength(10);
+        expect(examples[0]?.text).toBe('文13です。');
+    });
+
+    it('renders examples with hot-linked audio buttons like Jiten/JPDB sources', () => {
+        const info = normalizeBunproDefinitionSearch({
+            vocabs: { data: [{ id: 42, attributes: { id: 42, title: '読む', kana: 'よむ', slug: '読む', meaning: 'to read' } }] },
+        }, '読む', 'よむ');
+        if (!info) throw new Error('expected info');
+        info.examples = normalizeBunproExampleSentences(vocabDetail);
+        const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'en');
+
+        expect(html).toContain('jpdb-reader-bunpro-examples-group');
+        expect(html).toContain('Example sentences');
+        expect(html).toContain('data-action="bunpro-audio"');
+        expect(html).toContain('data-audio-url="https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3"');
+        expect(html).toContain('data-study-sentence="クラスメイトは楽譜を読むことができる。"');
+        expect(html).toContain('<rt class="jpdb-reader-furi">がくふ</rt>');
+        expect(html).toContain('My classmate can read music.');
+        expect(html).toContain('jpdb-reader-example-target');
+    });
+
+    it('fetches reviewable detail for examples and survives a failed detail fetch', async () => {
+        const client = {
+            search: async () => ({ vocabs: { data: [{ id: 42, attributes: { id: 42, title: '読む', kana: 'よむ', slug: '読む', meaning: 'to read' } }] } }),
+            getVocab: async () => vocabDetail,
+            getGrammarPoint: async () => { throw new Error('unused'); },
+        } as unknown as BunproClient;
+        const info = await lookupBunproDefinition(client, card);
+        expect(info?.examples).toHaveLength(1);
+
+        const failing = { ...client, getVocab: async () => { throw new Error('boom'); } } as unknown as BunproClient;
+        const degraded = await lookupBunproDefinition(failing, card);
+        expect(degraded?.meaning).toBe('to read');
+        expect(degraded?.examples).toEqual([]);
     });
 });

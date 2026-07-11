@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.139
+// @version 1.6.140
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.139#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.139#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.139#sha256=0PDcjjzd7IX4n1Rf4Y7bA9Xf/LOcZ/6hWA0/4UZ8fvU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.139#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.139#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.139#sha256=PWJf5cX+hgMrOgh3psr2RgT03DrjTW8tCbMs/Ud34X0=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.139#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.140#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.140#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.140#sha256=0PDcjjzd7IX4n1Rf4Y7bA9Xf/LOcZ/6hWA0/4UZ8fvU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.140#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.140#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.140#sha256=PWJf5cX+hgMrOgh3psr2RgT03DrjTW8tCbMs/Ud34X0=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.140#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -12726,6 +12726,7 @@ class CardActionController {
     "study-read-sentence": () => this.performStudyReadSentence(button2, sentence),
     "jpdb-example-audio": () => this.performJpdbExampleAudio(button2),
     "jiten-audio": () => this.performJitenAudio(button2, sentence),
+    "bunpro-audio": () => this.performBunproAudio(button2, sentence),
     "anki-media-audio": () => this.performAnkiMediaAudio(button2)
   };
   return handlers[action];
@@ -12774,6 +12775,19 @@ class CardActionController {
         if (played !== false) return false;
       } catch {
       }
+    }
+  }
+  await this.options.playSentenceAudio(fallbackSentence);
+  return false;
+  }
+  async performBunproAudio(button2, sentence) {
+  const fallbackSentence = button2.dataset.studySentence?.trim() || sentence;
+  const audioUrl = button2.dataset.audioUrl?.trim() ?? "";
+  if (audioUrl && this.options.playMediaUrl) {
+    try {
+      const played = await this.options.playMediaUrl(audioUrl);
+      if (played !== false) return false;
+    } catch {
     }
   }
   await this.options.playSentenceAudio(fallbackSentence);
@@ -16402,12 +16416,65 @@ function ankiFieldsFromSourceCard(card) {
 function cardKey(card) {
   return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
 }
+const BUNPRO_EXAMPLE_LIMIT = 10;
 async function lookupBunproDefinition(client, card) {
   const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-  return normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+  const info = normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
   id: card.bunproReviewableId,
   kind: bunproDefinitionKind(card.bunproReviewableType)
   });
+  if (!info) return null;
+  const detail = await bunproReviewableDetail(client, info).catch(() => null);
+  if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
+  return info;
+}
+function bunproReviewableDetail(client, info) {
+  return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
+}
+function normalizeBunproExampleSentences(raw) {
+  const included = objectRecord(raw)?.included;
+  if (!Array.isArray(included)) return [];
+  return included.map(bunproExampleSentence).filter((item) => item !== null).sort((a, b) => a.order - b.order).slice(0, BUNPRO_EXAMPLE_LIMIT).map(({ order: _order, ...example }) => example);
+}
+function bunproExampleSentence(value) {
+  const record = objectRecord(value);
+  if (textValue(record?.type) !== "study_question") return null;
+  const attributes = objectRecord(record?.attributes);
+  if (!attributes) return null;
+  const answer = textValue(attributes.kanji_answer) || textValue(attributes.answer);
+  const content = fillBunproClozeContent(textValue(attributes.content), answer);
+  const parts = bunproSentenceParts(content);
+  const text2 = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
+  if (!text2 || !/[぀-ヿ㐀-鿿]/u.test(text2)) return null;
+  return {
+  parts,
+  text: text2,
+  translation: stripBunproMarkup(textValue(attributes.translation)),
+  audioUrl: bunproHttpsUrl(textValue(attributes.female_audio_url)) || bunproHttpsUrl(textValue(attributes.male_audio_url)),
+  order: Number(attributes.sentence_order) || 0
+  };
+}
+function fillBunproClozeContent(content, answer) {
+  if (!answer || !/_{2,}/u.test(content)) return content;
+  return content.replace(/_{2,}/u, `<strong>${answer}</strong>`);
+}
+function bunproSentenceParts(content) {
+  const parts = [];
+  content.split(/<strong[^>]*>([\s\S]*?)<\/strong>/gi).forEach((segment, index) => {
+  const text2 = stripBunproMarkup(segment ?? "");
+  if (!text2) return;
+  parts.push({ text: text2, target: index % 2 === 1 });
+  });
+  return parts;
+}
+function stripBunproMarkup(value) {
+  return decodeBasicEntities(value.replace(/<[^>]*>/g, ""));
+}
+function decodeBasicEntities(value) {
+  return value.replace(/&nbsp;/g, " ").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+function bunproHttpsUrl(value) {
+  return value.startsWith("https://") ? value : "";
 }
 function normalizeBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
   const candidates = [
@@ -16453,10 +16520,66 @@ function renderBunproDefinitionSource(card, sourceAttributes, info, language, ti
                 ${info.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(info.meaning)}</span></div></div>` : ""}
                 ${info.nuance ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong><div>${escapeHtml$1(info.nuance)}</div>${info.nuanceTranslation ? `<div>${escapeHtml$1(info.nuanceTranslation)}</div>` : ""}</div>` : ""}
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(acceptedLabel)}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
+                ${renderBunproExamples(info.examples, sourceAttributes, language)}
                 <a class="jpdb-reader-pill jpdb-reader-action-pill" href="${escapeHtml$1(info.sourceUrl)}" target="_blank" rel="noopener">Bunpro ↗</a>
             </article>
         </details>
     `;
+}
+function renderBunproExamples(examples, sourceAttributes, language) {
+  return examples.length ? `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group jpdb-reader-bunpro-examples-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:examples`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-examples">
+                    ${examples.map((example) => renderBunproExample(example, language)).join("")}
+                </ul>
+            </div>
+        </details>
+    ` : "";
+}
+function renderBunproExample(example, language) {
+  return `
+        <li class="jpdb-reader-jpdb-example jpdb-reader-bunpro-example">
+            <div class="jpdb-reader-jpdb-example-row has-audio">
+                ${renderBunproAudioButton(example, language)}
+                <div class="jpdb-reader-jpdb-example-text">
+                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${example.parts.map(renderBunproExamplePart).join("")}</div>
+                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
+                </div>
+            </div>
+        </li>
+    `;
+}
+function renderBunproExamplePart(part) {
+  const html = renderBunproAnnotatedText(part.text);
+  return part.target ? `<mark class="jpdb-reader-example-target jpdb-reader-bunpro-example-target">${html}</mark>` : html;
+}
+function renderBunproAudioButton(example, language) {
+  const label = uiText(language, "playAudio");
+  const audioUrl = example.audioUrl ? ` data-audio-url="${escapeHtml$1(example.audioUrl)}"` : "";
+  return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml$1(example.text)}"${audioUrl} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>`;
+}
+const BUNPRO_FURIGANA_RE = /([一-龯々-〇]+)（([ぁ-ゖァ-ヺー・]+)）/g;
+function renderBunproAnnotatedText(value) {
+  let html = "";
+  let offset = 0;
+  let match;
+  BUNPRO_FURIGANA_RE.lastIndex = 0;
+  while ((match = BUNPRO_FURIGANA_RE.exec(value)) !== null) {
+  html += escapeHtml$1(value.slice(offset, match.index));
+  html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
+  offset = match.index + match[0].length;
+  }
+  html += escapeHtml$1(value.slice(offset));
+  return html;
+}
+function stripBunproFurigana(value) {
+  BUNPRO_FURIGANA_RE.lastIndex = 0;
+  return value.replace(BUNPRO_FURIGANA_RE, "$1");
 }
 function definitionInfo(value, kind) {
   const record = objectRecord(value);
@@ -16472,13 +16595,15 @@ function definitionInfo(value, kind) {
   kind,
   expression,
   reading,
+  slug,
   meaning: textValue(attributes.meaning),
   nuance: textValue(attributes.nuance),
   nuanceTranslation: textValue(attributes.nuance_translation),
   acceptedAnswers: textList(attributes.accepted_answers),
   partOfSpeech: textList(attributes.jmdict_pos),
   jlptLevel: textValue(attributes.jlpt_level),
-  sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`
+  sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`,
+  examples: []
   };
 }
 function searchItems(raw, key) {
@@ -33397,6 +33522,9 @@ class BunproClient {
   getVocab(slugOrId) {
   return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
   }
+  getGrammarPoint(id) {
+  return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
+  }
   async search(query, options = {}) {
   return this.frontend("/search/reviewables_v1_1", {
     method: "POST",
@@ -34902,8 +35030,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.139"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.139"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.140"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.140"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35017,7 +35145,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.139"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.140"}`;
   } catch {
   return null;
   }

@@ -167,6 +167,7 @@ export class CardActionController {
             'study-read-sentence': () => this.performStudyReadSentence(button, sentence),
             'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
             'jiten-audio': () => this.performJitenAudio(button, sentence),
+            'bunpro-audio': () => this.performBunproAudio(button, sentence),
             'anki-media-audio': () => this.performAnkiMediaAudio(button),
         };
         return handlers[action];
@@ -225,6 +226,21 @@ export class CardActionController {
                 } catch {
                     // Try the next Jiten URL before falling back to sentence TTS.
                 }
+            }
+        }
+        await this.options.playSentenceAudio(fallbackSentence);
+        return false;
+    }
+
+    private async performBunproAudio(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
+        const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
+        const audioUrl = button.dataset.audioUrl?.trim() ?? '';
+        if (audioUrl && this.options.playMediaUrl) {
+            try {
+                const played = await this.options.playMediaUrl(audioUrl);
+                if (played !== false) return false;
+            } catch {
+                // Bunpro CDN URLs occasionally 403; fall back to sentence TTS.
             }
         }
         await this.options.playSentenceAudio(fallbackSentence);

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.140] - 2026-07-11
+
+### Added
+
+- The Bunpro dictionary card now shows Bunpro's own example sentences with hot-linked audio, matching the Jiten and JPDB sources: each sentence plays its Bunpro recording on tap (with text-to-speech as a fallback), renders furigana as ruby, highlights the looked-up word, and includes the English translation.
+
+### Fixed
+
+- JPDB, Jiten, and Bunpro dictionaries all stay enabled by default for new users instead of depending on a single chosen provider; each can still be turned off individually in settings.
+
 ## [1.6.139] - 2026-07-11
 
 ### Fixed

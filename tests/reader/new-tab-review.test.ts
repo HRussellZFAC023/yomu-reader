@@ -10932,6 +10932,8 @@ describe('new tab review helpers', () => {
             partOfSpeech: ['noun'],
             jlptLevel: 'n5',
             sourceUrl: 'https://bunpro.jp/vocabs/%E7%8C%AB',
+            slug: '猫',
+            examples: [],
         };
         const hydrateBunproDefinitionInfo = vi.fn(async () => bunproDefinitionInfo);
         const cardRenderData = {
