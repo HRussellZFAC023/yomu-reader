@@ -51,8 +51,6 @@ interface HoverLookupInternals {
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
     lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
-    lookupRenderedSelection(selected: string): Promise<boolean>;
-    lookupSelection(): Promise<void>;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
@@ -1217,23 +1215,20 @@ describe('hover lookup', () => {
         }
     });
 
-    it('lets another popup reader own page click, hover, and selection when Yomu popup lookup is off', async () => {
+    it('lets another popup reader own page click and hover when Yomu popup lookup is off', () => {
         const app = new ReaderApp();
         const word = readerWordFixture('今日は読む', '読む');
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
-        const lookupRenderedSelection = vi.fn(async () => true);
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
             popupActivationMode: 'off',
             lookupOnClick: true,
             lookupOnHover: true,
-            parseSelection: true,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
         internals.showWord = showWord;
-        internals.lookupRenderedSelection = lookupRenderedSelection;
         internals.bindEvents();
 
         try {
@@ -1247,17 +1242,7 @@ describe('hover lookup', () => {
             hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word));
             expectNoHoverLookup(hoverLookup);
             expect(hoverLookup.internals.canBeginPrimaryPressLookup(hoverPointerEvent(word, 'mouse'))).toBe(false);
-
-            const range = document.createRange();
-            range.selectNode(word);
-            const selection = window.getSelection()!;
-            selection.removeAllRanges();
-            selection.addRange(range);
-            await internals.lookupSelection();
-
-            expect(lookupRenderedSelection).not.toHaveBeenCalled();
         } finally {
-            window.getSelection()?.removeAllRanges();
             cleanupReaderApp(app);
         }
     });

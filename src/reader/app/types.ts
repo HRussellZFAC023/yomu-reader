@@ -348,8 +348,6 @@ export interface ReaderSettings {
     immersionKitPlayOnHover: boolean;
     immersionKitPlayOnImageClick: boolean;
     immersionKitPlaybackRate: number;
-    selectionPopoverShowTranslation: boolean;
-    parseSelection: boolean;
     lookupOnClick: boolean;
     lookupOnHover: boolean;
     lookupOnMiddleMouse: boolean;

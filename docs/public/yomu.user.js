@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.127
+// @version 1.6.128
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.127#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.127#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.127#sha256=z/kHCjFjvGP8kLjM20gct8AUcZuJoqaME7+xf6+ZXvk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.127#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.127#sha256=BBuVY0QhKwDvtascb9sgCRxolvzXcSsKRVUXaxx1mKg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.127#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.127#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.128#sha256=oQn9gYVXs5OOetAgxB+sz9918gGeTpwLL1f7uoUrdCQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.128#sha256=ctM3dfR1060MDfiXiASs95rKDDLTH3y9YQqpPvST5SI=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.128#sha256=Q0lZjILoA2FoEcJs+qnYaKFLGR0WtILwgRQBBW8XNqw=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.128#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.128#sha256=TeUlGHyPnfoqh/q8Gru+LPfv3QhKCa+jP2kWPXNyLDA=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.128#sha256=H+jhWkRyO5vA0p1zDCtr66lJbhqh/cp1TlNnmq3Uxts=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.128#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -3629,8 +3629,6 @@ const DEFAULT_SETTINGS = {
   immersionKitPlayOnHover: true,
   immersionKitPlayOnImageClick: true,
   immersionKitPlaybackRate: 1,
-  selectionPopoverShowTranslation: true,
-  parseSelection: true,
   lookupOnClick: true,
   lookupOnHover: true,
   lookupOnMiddleMouse: true,
@@ -3977,7 +3975,6 @@ function normalizeLookupSettings(value) {
   lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
   lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
   lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
-  selectionPopoverShowTranslation: booleanSettingWithFallback(value, "selectionPopoverShowTranslation", DEFAULT_SETTINGS.selectionPopoverShowTranslation),
   hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
   hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
   };
@@ -4831,23 +4828,8 @@ const canvasFallbackTextLayers = new WeakMap();
 function getSelectionText() {
   return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
-function getSelectionSentence() {
-  const selected = getSelectionText();
-  const fullText = activeControlSelectionHostText() || selectionHostText(window.getSelection());
-  if (!fullText || !selected) return selected;
-  return sentenceAroundSurface(fullText, selected) || selected;
-}
-function getSelectionControlElement() {
-  const control = activeSelectableControl();
-  return activeControlSelectionText(control) ? control : null;
-}
 function documentSelectionText() {
   return normalizedSelectedText(window.getSelection()?.toString() ?? "");
-}
-function activeControlSelectionHostText() {
-  const control = activeSelectableControl();
-  if (!control || !activeControlSelectionText(control)) return "";
-  return normalizedSelectedText(control.value);
 }
 function activeControlSelectionText(control) {
   if (!control) return "";
@@ -4878,18 +4860,6 @@ function controlSelectionRange(control) {
 }
 function normalizedSelectedText(text2) {
   return text2.replace(/\s+/g, " ").trim();
-}
-function selectionHostText(selection) {
-  return selectionSentenceHost(selection)?.textContent?.replace(/\s+/g, " ").trim() ?? "";
-}
-function selectionSentenceHost(selection) {
-  const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
-  if (!range) return null;
-  return rangeContainerElement(range.commonAncestorContainer)?.closest("p, li, blockquote, td, th, div, article, section") ?? null;
-}
-function rangeContainerElement(container) {
-  if (container.nodeType === Node.TEXT_NODE) return container.parentElement;
-  return container instanceof Element ? container : null;
 }
 function collectVisibleTextTargets(limit = 40) {
   return collectTextTargetsIn(document.body, limit, true);
@@ -26473,10 +26443,6 @@ function normalizedLookupText$1(text2) {
 function isLookupableJapaneseText(text2) {
   return Boolean(text2 && HAS_JAPANESE$1.test(text2));
 }
-function isProseDominantSelection(text2) {
-  const latin = text2.match(/[A-Za-z]/gu)?.length ?? 0;
-  return latin >= 24 && latin > (text2.match(/[぀-鿿]/gu)?.length ?? 0);
-}
 function lookupCandidateSentence(text2, start = 0, end = text2.length) {
   const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText$1(text2);
   return isLookupableJapaneseText(sentence) ? sentence : "";
@@ -29813,9 +29779,9 @@ function wordPillContext(card, overrideQuery) {
 function isSingleKanji(value) {
   return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
 }
-function renderTokenListHtml(tokens, selected, source, previousNavigationEntry, settings) {
+function renderTokenListHtml(tokens, selected, previousNavigationEntry, settings) {
   const language = settings.interfaceLanguage;
-  const title = uiText(language, source === "selection" ? "selection" : "search");
+  const title = uiText(language, "search");
   return `
         <div class="jpdb-reader-sheet-handle"></div>
         <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml$1(selected)}">
@@ -29823,7 +29789,6 @@ function renderTokenListHtml(tokens, selected, source, previousNavigationEntry, 
             <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
             ${renderSelectionLookupPills(selected, settings)}
             ${renderTokenSentence(tokens, selected, settings)}
-            ${source === "selection" ? renderTokenListTranslation(tokens, settings) : ""}
         </div>
     `;
 }
@@ -29920,17 +29885,10 @@ function renderTokenSentenceWord(token, surface, settings) {
   const readingAttr = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
   return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml$1(surface)}" data-expression="${escapeHtml$1(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml$1(pitchClass || "unknown")}">${content}</button>`;
 }
-function renderTokenListTranslation(tokens, settings) {
-  if (!settings.selectionPopoverShowTranslation) return "";
-  const glosses = tokens.map((token) => token.card.meanings.flatMap((meaning) => meaning.glosses).filter(Boolean).slice(0, 2).join(", ")).filter(Boolean);
-  if (!glosses.length) return "";
-  return `<div class="jpdb-reader-help jpdb-reader-selection-translation">${escapeHtml$1(glosses.join(" / "))}</div>`;
-}
-const RENDERED_SELECTION_MAX_LENGTH = 13;
 function createTextLookupDisplayContext(text2, options, state) {
   const selected = normalizedLookupText$1(text2);
   if (!isLookupableJapaneseText(selected)) return null;
-  const trigger = options.trigger ?? textLookupDefaultTrigger(options.source, state);
+  const trigger = options.trigger ?? state.defaultTrigger;
   const navigation = options.navigation ?? "reset";
   return {
   selected,
@@ -29939,17 +29897,13 @@ function createTextLookupDisplayContext(text2, options, state) {
   trigger,
   navigation,
   preservePosition: options.preservePosition ?? textLookupPreservePosition(navigation, state),
-  focusOnMount: options.focusOnMount ?? textLookupFocusOnMount(options.source),
+  focusOnMount: options.focusOnMount ?? true,
   previousNavigationEntry: options.previousNavigationEntry ?? state.previousNavigationEntry(trigger, navigation),
   insideReaderPopup: options.insideReaderPopup,
   userGesture: options.userGesture,
   hoverLookupGeneration: options.hoverLookupGeneration,
-  stackOverSettings: options.stackOverSettings,
-  source: options.source
+  stackOverSettings: options.stackOverSettings
   };
-}
-function textLookupDefaultTrigger(source, state) {
-  return source === "selection" ? "modal" : state.defaultTrigger;
 }
 function textLookupParseOptions(apiKey) {
   const apiKeyActive = Boolean(apiKey.trim());
@@ -29962,20 +29916,6 @@ function textLookupParseOptions(apiKey) {
   } : {}
   });
 }
-function lookupRenderedSelection(selected, callbacks) {
-  const selection = window.getSelection();
-  if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
-  const words = selectionLookupRenderedWords(selection, callbacks.lookupableReaderWords());
-  if (!words.length) return false;
-  const tokens = renderedSelectionTokens(words, callbacks);
-  if (!tokens.length) return false;
-  const context = renderedSelectionDisplayContext(words, selected, callbacks.displayState);
-  if (!context) return false;
-  const sentence = renderedSelectionSentence(words, getSelectionSentence() || context.selected, callbacks);
-  if (context.selected.length > RENDERED_SELECTION_MAX_LENGTH) return false;
-  showRenderedSelectionTokens(tokens, context, sentence, callbacks);
-  return true;
-}
 async function showTextLookupResult(context, tokens, sentence, callbacks) {
   const parsedTokens = lookupResultTokens(tokens, callbacks.isJpdbBackedCard);
   const relevantTokens = tokensOverlappingSelection(parsedTokens, context.selected, sentence);
@@ -29985,12 +29925,7 @@ async function showTextLookupResult(context, tokens, sentence, callbacks) {
   return;
   }
   if (relevantTokens.length) {
-  callbacks.showTokenList(relevantTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
-  return;
-  }
-  const fallbackTokens = sentenceSelectionFallbackTokens(parsedTokens, context.selected, sentence, context.source);
-  if (fallbackTokens.length) {
-  callbacks.showTokenList(fallbackTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
+  callbacks.showTokenList(relevantTokens, context.displaySelected, context.anchor, textLookupCardOptions(context));
   return;
   }
   if (sentence !== context.selected && await showSelectedTextParsedLookupResult(context, callbacks)) return;
@@ -30005,7 +29940,7 @@ async function showSelectedTextParsedLookupResult(context, callbacks) {
   return true;
   }
   if (parsedTokens.length) {
-  callbacks.showTokenList(parsedTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
+  callbacks.showTokenList(parsedTokens, context.displaySelected, context.anchor, textLookupCardOptions(context));
   return true;
   }
   return false;
@@ -30023,79 +29958,11 @@ function textLookupCardOptions(context) {
   stackOverSettings: context.stackOverSettings
   };
 }
-function textLookupTokenListOptions(context) {
-  return {
-  ...textLookupCardOptions(context),
-  source: context.source
-  };
-}
 function textLookupPreservePosition(navigation, state) {
   return navigation !== "reset" && state.hasActivePopover;
 }
-function textLookupFocusOnMount(source) {
-  return source !== "selection";
-}
-function selectionLookupRenderedWords(selection, words) {
-  return words.filter((word) => selectionIntersectsElement(selection, word));
-}
-function renderedSelectionDisplayContext(words, selected, state) {
-  return createTextLookupDisplayContext(renderedSelectionLookupText(words, selected), {
-  anchor: words[0],
-  source: "selection",
-  displaySelected: selected
-  }, state);
-}
-function showRenderedSelectionTokens(tokens, context, sentence, callbacks) {
-  if (showRenderedSelectionSingleToken(tokens, context, sentence, callbacks)) return;
-  callbacks.showTokenList(tokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
-}
-function showRenderedSelectionSingleToken(tokens, context, sentence, callbacks) {
-  if (tokens.length !== 1 || !renderedSelectionSingleTokenMatches(tokens[0], context.selected)) return false;
-  callbacks.showCard(tokens[0].card, tokens[0].sentence ?? sentence, context.anchor, textLookupCardOptions(context));
-  return true;
-}
-function renderedSelectionTokens(words, callbacks) {
-  let offset = 0;
-  return words.flatMap((word) => {
-  const surface = renderedWordLookupText(word);
-  if (!surface) return [];
-  const card = callbacks.cardForRenderedWord(word) ?? callbacks.fallbackCardFromText(surface);
-  const token = {
-    card,
-    start: offset,
-    end: offset + surface.length,
-    length: surface.length,
-    rubies: [],
-    pitchClass: word.dataset.pitchClass ?? "",
-    sentence: callbacks.renderedWordSentence(word)
-  };
-  offset = token.end;
-  return [token];
-  });
-}
-function renderedSelectionSentence(words, fallback, callbacks) {
-  return words.map((word) => callbacks.renderedWordSentence(word)).find(Boolean) || fallback;
-}
-function renderedSelectionLookupText(words, fallback) {
-  const text2 = normalizedLookupText$1(words.map((word) => renderedWordLookupText(word)).join(""));
-  return isLookupableJapaneseText(text2) ? text2 : fallback;
-}
-function renderedSelectionSingleTokenMatches(token, selected) {
-  const compactSelected = compactLookupText(selected);
-  return compactLookupText(token.card.spelling) === compactSelected || compactLookupText(token.card.reading) === compactSelected;
-}
 function lookupResultTokens(tokens = [], isJpdbBackedCard) {
   return tokens.filter((token) => isJpdbBackedCard(token.card) || token.card.source === "jiten" || token.card.source === "local" || token.card.source === "fallback");
-}
-function sentenceSelectionFallbackTokens(tokens, selected, sentence, source) {
-  if (source !== "selection" || !tokens.length || sentence === selected) return [];
-  const compactSelected = compactLookupText(selected);
-  if (!compactSelected || !compactLookupText(sentence).includes(compactSelected)) return [];
-  return tokens.filter((token) => {
-  const spelling = compactLookupText(token.card.spelling);
-  const reading = compactLookupText(token.card.reading);
-  return Boolean(spelling && compactSelected.includes(spelling) || reading && compactSelected.includes(reading));
-  });
 }
 function popoverScrollBody(popover) {
   return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
@@ -34895,8 +34762,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.127"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.127"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.128"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.128"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35010,7 +34877,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.127"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.128"}`;
   } catch {
   return null;
   }
@@ -35946,10 +35813,6 @@ const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
   SUBTITLE_SURFACE_SELECTOR,
   NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
 ].join(", ");
-const SELECTION_LOOKUP_ANCHOR_SELECTOR = [
-  ".jpdb-reader-word",
-  VIDEO_LOOKUP_ANCHOR_SELECTOR
-].join(", ");
 function createNoopImageOcrController() {
   const noop2 = () => void 0;
   return {
@@ -36201,7 +36064,6 @@ class ReaderApp {
   lastCard;
   lastCardSentence;
   lastAnkiLookup;
-  selectionTimer;
   autoScanTimer;
   autoScanDeadline = 0;
   autoScanForced = false;
@@ -36293,8 +36155,6 @@ class ReaderApp {
   pressedKeys = new Set();
   hoverAnchorIds = new WeakMap();
   nextHoverAnchorId = 1;
-  suppressSelectionLookupUntil = 0;
-  dismissedSelectionText = "";
   suppressWordClickUntil = 0;
   suppressPenHoverUntil = 0;
   pageHasJapaneseText = false;
@@ -37253,7 +37113,6 @@ class ReaderApp {
   window.clearTimeout(this.autoScanTimer);
   this.autoScanForced = false;
   window.clearTimeout(this.asbScanTimer);
-  window.clearTimeout(this.selectionTimer);
   window.clearTimeout(this.visiblePageReparseTimer);
   window.clearTimeout(this.jpdbPageEnhanceTimer);
   window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
@@ -37586,10 +37445,6 @@ class ReaderApp {
       this.handleHoverPointerOut(event);
     }, { capture: true, signal: abortSignal });
   }
-  document.addEventListener("keyup", () => this.scheduleSelectionLookup(120), { signal: abortSignal });
-  document.addEventListener("mouseup", () => this.scheduleSelectionLookup(140), { signal: abortSignal });
-  document.addEventListener("touchend", () => this.scheduleSelectionLookup(180), { passive: true, signal: abortSignal });
-  document.addEventListener("selectionchange", () => this.scheduleSelectionLookup(250), { signal: abortSignal });
   document.addEventListener("keydown", (event) => this.handleDocumentKeydown(event), { signal: abortSignal });
   document.addEventListener("keyup", (event) => {
     this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -37603,11 +37458,6 @@ class ReaderApp {
     this.cancelPendingHoverLookup();
     if (this.activePopoverMode === "hover") this.scheduleHoverClose(0, { ignoreCssHover: true });
   }, { signal: abortSignal });
-  }
-  scheduleSelectionLookup(delayMs) {
-  if (this.isDestroyed || this.settings.popupActivationMode === "off" || !this.settings.parseSelection) return;
-  window.clearTimeout(this.selectionTimer);
-  this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), delayMs);
   }
   handleDocumentClick(event) {
   if (this.isDestroyed) return;
@@ -37633,7 +37483,6 @@ class ReaderApp {
   event.preventDefault();
   event.stopPropagation();
   this.prepareModalLookupFromPointer(event);
-  this.suppressSelectionLookupUntil = Date.now() + 350;
   void this.showLookupCandidate(candidate, "modal", {
     navigation: insideActivePopover ? "push-current" : "reset",
     preservePosition: insideActivePopover,
@@ -37712,7 +37561,6 @@ class ReaderApp {
   const now = Date.now();
   this.suppressWordClickUntil = now + 1200;
   this.suppressLinkContextMenuUntil = now + 1200;
-  this.suppressSelectionLookupUntil = now + 700;
   this.lastPointerPosition = { x: press.x, y: press.y };
   this.cancelPendingHoverLookup();
   this.cancelHoverClose();
@@ -37726,7 +37574,6 @@ class ReaderApp {
     event.stopPropagation();
   }
   this.prepareModalLookupFromPointer(event);
-  this.suppressSelectionLookupUntil = Date.now() + 350;
   this.pinOcrLineForModalLookup(word);
   if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
   const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
@@ -37740,7 +37587,6 @@ class ReaderApp {
   event.preventDefault();
   this.prepareModalLookupFromPointer(event);
   const now = Date.now();
-  this.suppressSelectionLookupUntil = now + 350;
   this.suppressWordClickUntil = now + 700;
   this.pinOcrLineForModalLookup(word);
   const fastInitialRender = !word.closest(".jpdb-ocr-line");
@@ -37901,7 +37747,6 @@ class ReaderApp {
   if (!this.hasOpenReaderDialog()) return false;
   if (!escapeClose && !matchesShortcut(event, this.settings.shortcuts.closePopup)) return false;
   event.preventDefault();
-  this.rememberDismissedSelection();
   this.dismiss({ suppressHoverTarget: true });
   return true;
   }
@@ -38202,7 +38047,6 @@ class ReaderApp {
   }
   suppressPressLookupAfterRelease() {
   this.suppressWordClickUntil = Date.now() + 700;
-  this.suppressSelectionLookupUntil = Date.now() + 350;
   }
   finishMiddlePressLookup(event, pressLookup) {
   event.preventDefault();
@@ -38219,7 +38063,6 @@ class ReaderApp {
   event.preventDefault();
   event.stopPropagation();
   this.suppressMiddleAuxClickUntil = Date.now() + 1200;
-  this.suppressSelectionLookupUntil = Date.now() + 350;
   document.documentElement.classList.add("jpdb-reader-middle-scan-active");
   try {
     if (event.target instanceof Element) event.target.setPointerCapture?.(event.pointerId);
@@ -38712,7 +38555,6 @@ class ReaderApp {
   if (this.isInsideActivePopover(event.target)) return;
   if (this.shouldKeepModalPopoverForOutsidePointer(event.target)) return;
   if (getSelectionText()) event.preventDefault();
-  this.rememberDismissedSelection();
   this.dismiss({ suppressHoverTarget: true });
   }
   shouldKeepModalPopoverForOutsidePointer(target) {
@@ -39064,43 +38906,6 @@ class ReaderApp {
   isParserBackedLookupCard(card) {
   return this.isJpdbBackedCard(card) || card.source === "jiten";
   }
-  async lookupSelection() {
-  if (this.isDestroyed) return;
-  if (this.settings.popupActivationMode === "off") return;
-  if (!this.settings.parseSelection) return;
-  if (Date.now() < this.suppressSelectionLookupUntil) return;
-  this.suppressHoverForActivePageSelection();
-  const selected = this.selectionLookupText();
-  if (!selected) {
-    this.dismissedSelectionText = "";
-    return;
-  }
-  if (selected === this.dismissedSelectionText) return;
-  this.dismissedSelectionText = "";
-  const anchor = this.selectionLookupAnchor();
-  if (anchor && this.shouldPauseForLookupAnchor(anchor)) this.pauseVideoForSubtitleMining();
-  if (await this.lookupRenderedSelection(selected)) return;
-  await this.lookupText(selected, getSelectionSentence(), { source: "selection", anchor });
-  }
-  rememberDismissedSelection() {
-  this.dismissedSelectionText = getSelectionText();
-  }
-  selectionLookupText() {
-  const selected = getSelectionText();
-  return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || isProseDominantSelection(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
-  }
-  selectionLookupAnchor() {
-  const control = getSelectionControlElement();
-  if (control) return control;
-  const selection = window.getSelection();
-  if (!selection?.rangeCount) return void 0;
-  const range = selection.getRangeAt(0);
-  return this.selectionLookupElement(selection.focusNode) ?? this.selectionLookupElement(selection.anchorNode) ?? this.selectionLookupElement(range.startContainer) ?? this.selectionLookupElement(range.commonAncestorContainer);
-  }
-  selectionLookupElement(node) {
-  const element2 = node instanceof HTMLElement ? node : node?.parentElement;
-  return element2?.closest(SELECTION_LOOKUP_ANCHOR_SELECTOR) ?? element2 ?? void 0;
-  }
   async lookupText(text2, sentence = text2, options = {}) {
   const context = this.textLookupDisplayContext(text2, options);
   if (!context) return;
@@ -39134,21 +38939,6 @@ class ReaderApp {
   }
   textLookupParseOptions() {
   return textLookupParseOptions(effectiveJpdbApiKey(this.settings));
-  }
-  async lookupRenderedSelection(selected) {
-  return lookupRenderedSelection(selected, {
-    cardForRenderedWord: (word) => this.cardForRenderedWord(word),
-    displayState: this.textLookupDisplayState(),
-    fallbackCardFromText: (textValue2) => this.parser.fallbackCardFromText(textValue2),
-    lookupableReaderWords: () => this.lookupableReaderWords(),
-    renderedWordSentence: (word) => this.renderedWordSentence(word),
-    showCard: (card, cardSentence, anchor, cardOptions) => {
-      void this.showCard(card, cardSentence, anchor, cardOptions);
-    },
-    showTokenList: (tokens, selectedText, anchor, tokenOptions) => {
-      this.showTokenList(tokens, selectedText, anchor, tokenOptions);
-    }
-  });
   }
   textLookupResultCallbacks() {
   return {
@@ -39923,11 +39713,10 @@ class ReaderApp {
   if (!tokens.length) return;
   const trigger = options.trigger === "hover" ? "hover" : "modal";
   const navigation = options.navigation ?? "reset";
-  const source = options.source ?? "lookup";
   const previousNavigationEntry = trigger === "modal" ? options.previousNavigationEntry : void 0;
   this.prepareTokenListNavigation(trigger, navigation);
   const popover = this.createPopover();
-  setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, source, previousNavigationEntry));
+  setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
   this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
   this.mountPopover(popover, anchor, {
     mode: trigger,
@@ -39940,8 +39729,8 @@ class ReaderApp {
   prepareTokenListNavigation(trigger, navigation) {
   if (trigger === "modal" && navigation === "reset") this.navigation.clearWord();
   }
-  renderTokenListHtml(tokens, selected, source, previousNavigationEntry) {
-  return renderTokenListHtml(tokens, selected, source, previousNavigationEntry, this.settings);
+  renderTokenListHtml(tokens, selected, previousNavigationEntry) {
+  return renderTokenListHtml(tokens, selected, previousNavigationEntry, this.settings);
   }
   installTokenListHandlers(popover, tokens, anchor, context) {
   installTokenListHandlers(popover, tokens, anchor, context, {
@@ -42245,7 +42034,6 @@ class ReaderApp {
   popoverMountState(anchor, options) {
   const mode = options.mode ?? "modal";
   const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : createReaderBackdrop(() => {
-    this.rememberDismissedSelection();
     this.dismiss();
   });
   const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);

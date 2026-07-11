@@ -1557,7 +1557,6 @@
       popupLookup: "Popup lookup",
       popupLookupEnabled: "Show Yomu lookup popup",
       popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
-      parseSelection: "Selection popups",
       lookupOnClick: "Look up on tap or click",
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
@@ -2383,10 +2382,8 @@
       ankiTemplateContext: "Context",
       ankiTemplateRecognition: "Recognition",
       ankiLocalDictionaryStatus: "local dictionary",
-      selection: "Selection",
       parsedFrom: "Parsed from",
       composedOf: "Composed of",
-      selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
       ocrModeAutoToast: "Image OCR automatic.",
@@ -3039,10 +3036,8 @@ ankiMergeFieldPlural	フィールド
 ankiMergeAudio	音声
 ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
-selection	選択範囲
 parsedFrom	解析元
 composedOf	構成語
-selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
 ocrModeAutoToast	画像OCRを自動にしました。
@@ -3304,7 +3299,6 @@ interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
 popupLookupHelp	他リーダーのポップアップ用。オフでも他機能は有効。
-parseSelection	選択ポップアップを表示
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
@@ -7515,8 +7509,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     immersionKitPlayOnHover: true,
     immersionKitPlayOnImageClick: true,
     immersionKitPlaybackRate: 1,
-    selectionPopoverShowTranslation: true,
-    parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
     lookupOnMiddleMouse: true,
@@ -7874,7 +7866,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
-      selectionPopoverShowTranslation: booleanSettingWithFallback(value, "selectionPopoverShowTranslation", DEFAULT_SETTINGS.selectionPopoverShowTranslation),
       hoverOpenDelayMs: clampNumber$3(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber$3(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
@@ -13375,6 +13366,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -14059,7 +14051,6 @@ ${entry.reading}`;
     done();
     log$A.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
-      parseSelection: settings.parseSelection,
       theme: settings.theme
     });
     return { settings, dictionaryNames };
@@ -14150,7 +14141,6 @@ ${entry.reading}`;
     return values.length ? values.some(Boolean) : void 0;
   }
   function applyScanningSettings(settings, scanning) {
-    if (typeof scanning?.selectText === "boolean") settings.parseSelection = scanning.selectText;
     if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber$2(scanning.delay, 0, 1500);
     if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber$2(scanning.hideDelay, 0, 3e3);
     applyScanInputSettings(settings, scanning);
@@ -41483,7 +41473,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.127".trim() ? "1.6.127".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.128".trim() ? "1.6.128".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42058,7 +42048,6 @@ ${spelling}`);
     const { get, has, clamped } = reader;
     const pageScanMode = readOption(get("pageScanMode"), ["off", "auto", "manual"], pageScanModeFromSettings$1(current));
     return {
-      parseSelection: has("parseSelection"),
       lookupOnClick: has("lookupOnClick"),
       lookupOnHover: has("lookupOnHover"),
       lookupOnMiddleMouse: has("lookupOnMiddleMouse"),
@@ -42220,7 +42209,6 @@ ${spelling}`);
       popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
       popoverHeight: clamped("popoverHeight", 220, 900, current.popoverHeight),
       popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode),
-      selectionPopoverShowTranslation: has("selectionPopoverShowTranslation"),
       readerFontFamily: readFontFamilySetting(reader, "readerFontFamily", current.readerFontFamily),
       popupFontFamily: readFontFamilySetting(reader, "popupFontFamily", current.popupFontFamily),
       popupFontWeight: clamped("popupFontWeight", 300, 900, current.popupFontWeight)
@@ -43872,7 +43860,6 @@ ${spelling}`);
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
                     ${input("popoverHeight", "Popover height (px)", String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
                     ${select("popoverHeightMode", "Popover height behavior", settings.popoverHeightMode, [["available", "Grow to available space"], ["fixed", "Use height setting"]])}
-                    ${checkbox("selectionPopoverShowTranslation", "Show translation in selection popovers", settings.selectionPopoverShowTranslation)}
                     ${fontFamilyControl("readerFontFamily", "Reader interface font", settings.readerFontFamily)}
                     ${fontFamilyControl("popupFontFamily", "Popup Japanese font", settings.popupFontFamily)}
                     ${input("popupFontWeight", "Popup Japanese weight", String(settings.popupFontWeight), "number", { min: 300, max: 900, step: 10 })}
@@ -44229,7 +44216,7 @@ ${spelling}`);
     return source === "nadeshiko" || source === "combined";
   }
   function popupLookupEnabledSetting(settings) {
-    return settings.popupActivationMode !== "off" && (settings.parseSelection || settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+    return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
   }
   function renderReaderSettingsPanel(settings) {
     const pageScanMode = pageScanModeFromSettings(settings);
@@ -44244,7 +44231,6 @@ ${spelling}`);
                     <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Off for another reader's popups. Yomu tools stay on.</div>
                 </div>
                 <div class="grid">
-                    ${checkbox("parseSelection", "Selection popups", settings.parseSelection)}
                     ${checkbox("lookupOnClick", "Look up on tap or click", settings.lookupOnClick)}
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
@@ -45327,7 +45313,6 @@ ${spelling}`);
     "popoverWidth",
     "popoverHeight",
     "popoverHeightMode",
-    "selectionPopoverShowTranslation",
     "readerFontFamily",
     "popupFontFamily",
     "popupFontWeight",
@@ -45369,7 +45354,6 @@ ${spelling}`);
     "subtitleHighlightColorSource",
     "subtitleUnderlineColorSource",
     "subtitleTextColorSource",
-    "parseSelection",
     "lookupOnClick",
     "popupLookupEnabled",
     "lookupOnHover",

@@ -31,8 +31,6 @@ import {
     appendToDocumentHead,
     documentHasJapaneseText,
     escapeHtml,
-    getSelectionControlElement,
-    getSelectionSentence,
     getSelectionText,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
@@ -93,7 +91,6 @@ import type { KanjiVGInfo } from '../kanji/vg';
 import {
     canExpandLocalPointerRange,
     isLookupableJapaneseText,
-    isProseDominantSelection,
     isLowValuePitchEnrichmentToken,
     isLowValuePointerTextToken,
     isOverbroadLocalPointerRange,
@@ -126,7 +123,6 @@ import {
 } from '../main/token-list';
 import {
     createTextLookupDisplayContext,
-    lookupRenderedSelection as lookupRenderedSelectionFromPage,
     showTextLookupResult as showTextLookupResultForContext,
     textLookupCardOptions,
     textLookupParseOptions as createTextLookupParseOptions,
@@ -231,7 +227,6 @@ import {
     type TextLookupDisplayContext,
     type TextLookupOptions,
     type TokenListOptions,
-    type TokenListSource,
 } from './main-helpers';
 import { isBookWalkerStorefrontPage } from './site-parsers';
 import { watchMokuroOcrToggle } from './mokuro-integration';
@@ -553,10 +548,6 @@ const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
     SUBTITLE_SURFACE_SELECTOR,
     NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR,
 ].join(', ');
-const SELECTION_LOOKUP_ANCHOR_SELECTOR = [
-    '.jpdb-reader-word',
-    VIDEO_LOOKUP_ANCHOR_SELECTOR,
-].join(', ');
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -836,7 +827,6 @@ export class ReaderApp {
     private lastCard?: JPDBCard;
     private lastCardSentence?: string;
     private lastAnkiLookup?: AnkiLookupResult;
-    private selectionTimer?: number;
     private autoScanTimer?: number;
     private autoScanDeadline = 0;
     private autoScanForced = false;
@@ -950,8 +940,6 @@ export class ReaderApp {
     private pressedKeys = new Set<string>();
     private hoverAnchorIds = new WeakMap<HTMLElement, number>();
     private nextHoverAnchorId = 1;
-    private suppressSelectionLookupUntil = 0;
-    private dismissedSelectionText = '';
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
@@ -2105,7 +2093,6 @@ export class ReaderApp {
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = false;
         window.clearTimeout(this.asbScanTimer);
-        window.clearTimeout(this.selectionTimer);
         window.clearTimeout(this.visiblePageReparseTimer);
         window.clearTimeout(this.jpdbPageEnhanceTimer);
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
@@ -2546,19 +2533,6 @@ export class ReaderApp {
             }, { capture: true, signal: abortSignal });
         }
 
-        document.addEventListener('keyup', () => this.scheduleSelectionLookup(120), { signal: abortSignal });
-
-        document.addEventListener('mouseup', () => this.scheduleSelectionLookup(140), { signal: abortSignal });
-
-        document.addEventListener('touchend', () => this.scheduleSelectionLookup(180), { passive: true, signal: abortSignal });
-
-        // mouseup/touchend/keyup miss selections that settle without a fresh
-        // gesture end on document — most visibly iPad selection-handle drags and
-        // the text loupe. A debounced selectionchange catches the settled
-        // selection so the popover triggers consistently; the longer delay
-        // coalesces the burst of events a drag emits into a single lookup.
-        document.addEventListener('selectionchange', () => this.scheduleSelectionLookup(250), { signal: abortSignal });
-
         document.addEventListener('keydown', event => this.handleDocumentKeydown(event), { signal: abortSignal });
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -2572,12 +2546,6 @@ export class ReaderApp {
             this.cancelPendingHoverLookup();
             if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
         }, { signal: abortSignal });
-    }
-
-    private scheduleSelectionLookup(delayMs: number): void {
-        if (this.isDestroyed || this.settings.popupActivationMode === 'off' || !this.settings.parseSelection) return;
-        window.clearTimeout(this.selectionTimer);
-        this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), delayMs);
     }
 
     private handleDocumentClick(event: MouseEvent): void {
@@ -2613,7 +2581,6 @@ export class ReaderApp {
         event.preventDefault();
         event.stopPropagation();
         this.prepareModalLookupFromPointer(event);
-        this.suppressSelectionLookupUntil = Date.now() + 350;
         void this.showLookupCandidate(candidate, 'modal', {
             navigation: insideActivePopover ? 'push-current' : 'reset',
             preservePosition: insideActivePopover,
@@ -2725,7 +2692,6 @@ export class ReaderApp {
         const now = Date.now();
         this.suppressWordClickUntil = now + 1200;
         this.suppressLinkContextMenuUntil = now + 1200;
-        this.suppressSelectionLookupUntil = now + 700;
         this.lastPointerPosition = { x: press.x, y: press.y };
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
@@ -2745,7 +2711,6 @@ export class ReaderApp {
             event.stopPropagation();
         }
         this.prepareModalLookupFromPointer(event);
-        this.suppressSelectionLookupUntil = Date.now() + 350;
         this.pinOcrLineForModalLookup(word);
         if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
         // The touch fast-fallback shows a single-sense placeholder card first and only
@@ -2769,7 +2734,6 @@ export class ReaderApp {
         event.preventDefault();
         this.prepareModalLookupFromPointer(event);
         const now = Date.now();
-        this.suppressSelectionLookupUntil = now + 350;
         this.suppressWordClickUntil = now + 700;
         this.pinOcrLineForModalLookup(word);
         // Full entry on the first tap for OCR overlay text (see openReaderWordFromPointer).
@@ -3013,9 +2977,6 @@ export class ReaderApp {
         if (!this.hasOpenReaderDialog()) return false;
         if (!escapeClose && !matchesShortcut(event, this.settings.shortcuts.closePopup)) return false;
         event.preventDefault();
-        // Remember the current selection so the keyup that follows this Escape
-        // doesn't immediately re-open the popover for it. The highlight stays put.
-        this.rememberDismissedSelection();
         this.dismiss({ suppressHoverTarget: true });
         return true;
     }
@@ -3377,7 +3338,6 @@ export class ReaderApp {
 
     private suppressPressLookupAfterRelease(): void {
         this.suppressWordClickUntil = Date.now() + 700;
-        this.suppressSelectionLookupUntil = Date.now() + 350;
     }
 
     private finishMiddlePressLookup(event: PointerEvent, pressLookup: PressLookupState): void {
@@ -3397,7 +3357,6 @@ export class ReaderApp {
         event.preventDefault();
         event.stopPropagation();
         this.suppressMiddleAuxClickUntil = Date.now() + 1200;
-        this.suppressSelectionLookupUntil = Date.now() + 350;
         document.documentElement.classList.add('jpdb-reader-middle-scan-active');
         try {
             if (event.target instanceof Element) event.target.setPointerCapture?.(event.pointerId);
@@ -4020,7 +3979,6 @@ export class ReaderApp {
         if (this.isInsideActivePopover(event.target as Node | null)) return;
         if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
         if (getSelectionText()) event.preventDefault();
-        this.rememberDismissedSelection();
         this.dismiss({ suppressHoverTarget: true });
     }
 
@@ -4482,60 +4440,6 @@ export class ReaderApp {
         return this.isJpdbBackedCard(card) || card.source === 'jiten';
     }
 
-    private async lookupSelection(): Promise<void> {
-        if (this.isDestroyed) return;
-        if (this.settings.popupActivationMode === 'off') return;
-        if (!this.settings.parseSelection) return;
-        if (Date.now() < this.suppressSelectionLookupUntil) return;
-        this.suppressHoverForActivePageSelection();
-        const selected = this.selectionLookupText();
-        if (!selected) {
-            // Selection went away — drop the dismissal guard so a fresh
-            // selection of the same text opens the popover again.
-            this.dismissedSelectionText = '';
-            return;
-        }
-        // The user explicitly closed the popover for this exact selection
-        // (Escape or click-away). Keep the highlight but don't re-open until
-        // the selection actually changes.
-        if (selected === this.dismissedSelectionText) return;
-        this.dismissedSelectionText = '';
-        const anchor = this.selectionLookupAnchor();
-        if (anchor && this.shouldPauseForLookupAnchor(anchor)) this.pauseVideoForSubtitleMining();
-        if (await this.lookupRenderedSelection(selected)) return;
-        await this.lookupText(selected, getSelectionSentence(), { source: 'selection', anchor });
-    }
-
-    private rememberDismissedSelection(): void {
-        this.dismissedSelectionText = getSelectionText();
-    }
-
-    private selectionLookupText(): string {
-        const selected = getSelectionText();
-        return (!selected
-            || selected.length > 500
-            || !HAS_JAPANESE.test(selected)
-            || isProseDominantSelection(selected)
-            || (document.activeElement as HTMLElement | null)?.closest?.('[data-jpdb-reader-root]')) ? '' : selected;
-    }
-
-    private selectionLookupAnchor(): HTMLElement | undefined {
-        const control = getSelectionControlElement();
-        if (control) return control;
-        const selection = window.getSelection();
-        if (!selection?.rangeCount) return undefined;
-        const range = selection.getRangeAt(0);
-        return this.selectionLookupElement(selection.focusNode)
-            ?? this.selectionLookupElement(selection.anchorNode)
-            ?? this.selectionLookupElement(range.startContainer)
-            ?? this.selectionLookupElement(range.commonAncestorContainer);
-    }
-
-    private selectionLookupElement(node: Node | null): HTMLElement | undefined {
-        const element = node instanceof HTMLElement ? node : node?.parentElement;
-        return element?.closest<HTMLElement>(SELECTION_LOOKUP_ANCHOR_SELECTOR) ?? element ?? undefined;
-    }
-
     private async lookupText(text: string, sentence = text, options: TextLookupOptions = {}): Promise<void> {
         const context = this.textLookupDisplayContext(text, options);
         if (!context) return;
@@ -4576,22 +4480,6 @@ export class ReaderApp {
 
     private textLookupParseOptions(): ReaderParserParseOptions {
         return createTextLookupParseOptions(effectiveJpdbApiKey(this.settings));
-    }
-
-    private async lookupRenderedSelection(selected: string): Promise<boolean> {
-        return lookupRenderedSelectionFromPage(selected, {
-            cardForRenderedWord: word => this.cardForRenderedWord(word),
-            displayState: this.textLookupDisplayState(),
-            fallbackCardFromText: textValue => this.parser.fallbackCardFromText(textValue),
-            lookupableReaderWords: () => this.lookupableReaderWords(),
-            renderedWordSentence: word => this.renderedWordSentence(word),
-            showCard: (card, cardSentence, anchor, cardOptions) => {
-                void this.showCard(card, cardSentence, anchor, cardOptions);
-            },
-            showTokenList: (tokens, selectedText, anchor, tokenOptions) => {
-                this.showTokenList(tokens, selectedText, anchor, tokenOptions);
-            },
-        });
     }
 
     private textLookupResultCallbacks(): TextLookupResultCallbacks {
@@ -5686,11 +5574,10 @@ export class ReaderApp {
         if (!tokens.length) return;
         const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
         const navigation = options.navigation ?? 'reset';
-        const source = options.source ?? 'lookup';
         const previousNavigationEntry = trigger === 'modal' ? options.previousNavigationEntry : undefined;
         this.prepareTokenListNavigation(trigger, navigation);
         const popover = this.createPopover();
-        setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, source, previousNavigationEntry));
+        setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
         this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
         this.mountPopover(popover, anchor, {
             mode: trigger,
@@ -5705,8 +5592,8 @@ export class ReaderApp {
         if (trigger === 'modal' && navigation === 'reset') this.navigation.clearWord();
     }
 
-    private renderTokenListHtml(tokens: JPDBToken[], selected: string, source: TokenListSource, previousNavigationEntry?: PopupNavigationEntry): string {
-        return renderTokenListMarkup(tokens, selected, source, previousNavigationEntry, this.settings);
+    private renderTokenListHtml(tokens: JPDBToken[], selected: string, previousNavigationEntry?: PopupNavigationEntry): string {
+        return renderTokenListMarkup(tokens, selected, previousNavigationEntry, this.settings);
     }
 
     private installTokenListHandlers(
@@ -8634,10 +8521,6 @@ export class ReaderApp {
         const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
             ? undefined
             : createReaderBackdrop(() => {
-                // Clicking away keeps the page selection (the backdrop swallows the
-                // selection-collapsing mousedown); remember it so the trailing
-                // mouseup doesn't re-open the popover we just dismissed.
-                this.rememberDismissedSelection();
                 this.dismiss();
             });
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);

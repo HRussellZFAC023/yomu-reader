@@ -436,7 +436,6 @@ export interface TextLookupOptions {
     trigger?: 'modal' | 'hover';
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
-    source?: TokenListSource;
     displaySelected?: string;
 }
 
@@ -453,13 +452,9 @@ export interface TextLookupDisplayContext {
     userGesture?: boolean;
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
-    source?: TokenListSource;
 }
 
-export type TokenListSource = 'lookup' | 'selection';
-export type TokenListOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'focusOnMount' | 'previousNavigationEntry' | 'stackOverSettings'> & {
-    source?: TokenListSource;
-};
+export type TokenListOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'focusOnMount' | 'previousNavigationEntry' | 'stackOverSettings'>;
 
 export interface ReviewShortcutContext {
     grade: JPDBGrade;

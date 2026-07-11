@@ -4258,51 +4258,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('pauses a playing video for selection lookups on native YouTube captions', async () => {
-        const app = new ReaderApp();
-        const activeVideo = document.createElement('video');
-        let paused = false;
-        const pause = vi.fn(() => { paused = true; });
-        Object.defineProperty(activeVideo, 'readyState', { configurable: true, value: 4 });
-        Object.defineProperty(activeVideo, 'paused', { configurable: true, get: () => paused });
-        Object.defineProperty(activeVideo, 'pause', { configurable: true, value: pause });
-
-        document.body.innerHTML = '<div class="caption-window"><span class="ytp-caption-segment">日本語</span></div>';
-        document.body.append(activeVideo);
-        const segment = document.querySelector<HTMLElement>('.ytp-caption-segment')!;
-        const range = document.createRange();
-        range.selectNodeContents(segment);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const lookupRenderedSelection = vi.fn(async () => false);
-        const lookupText = vi.fn(async () => undefined);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            lookupRenderedSelection: typeof lookupRenderedSelection;
-            lookupText: typeof lookupText;
-            lookupSelection(): Promise<void>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, parseSelection: true, subtitleMiningPause: true };
-        internals.lookupRenderedSelection = lookupRenderedSelection;
-        internals.lookupText = lookupText;
-
-        try {
-            await internals.lookupSelection();
-
-            expect(pause).toHaveBeenCalledTimes(1);
-            expect(lookupText).toHaveBeenCalledWith('日本語', '日本語', expect.objectContaining({
-                source: 'selection',
-                anchor: segment,
-            }));
-        } finally {
-            selection.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
     it('keeps sheet popover body scroll stable after in-body control actions', async () => {
         const app = new ReaderApp();
         const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
@@ -20716,104 +20671,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps large selection popovers open when sentence spacing prevents direct offset matching', async () => {
-        const app = new ReaderApp();
-        const sentence = '今日は 静かです。';
-        const tokens: JPDBToken[] = [
-            {
-                card: { ...card, vid: 601, sid: 601, spelling: '今日', reading: 'きょう', cardState: ['not-in-deck'], source: 'jpdb' },
-                start: 0,
-                end: 2,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence,
-            },
-            {
-                card: { ...card, vid: 602, sid: 602, spelling: '静か', reading: 'しずか', cardState: ['not-in-deck'], source: 'jpdb' },
-                start: 4,
-                end: 6,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence,
-            },
-        ];
-        const parse = vi.fn(async () => [tokens]);
-        const showTokenList = vi.fn();
-        const showLocalOrFallbackLookupCard = vi.fn(async () => undefined);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
-            showTokenList: typeof showTokenList;
-            showLocalOrFallbackLookupCard: typeof showLocalOrFallbackLookupCard;
-            lookupText(text: string, sentence?: string, options?: { source?: 'lookup' | 'selection' }): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: 'api-key',
-        };
-        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
-        internals.showTokenList = showTokenList;
-        internals.showLocalOrFallbackLookupCard = showLocalOrFallbackLookupCard;
-
-        try {
-            await internals.lookupText('今日は静かです', sentence, { source: 'selection' });
-
-            expect(showLocalOrFallbackLookupCard).not.toHaveBeenCalled();
-            expect(showTokenList).toHaveBeenCalledWith(
-                tokens,
-                '今日は静かです',
-                undefined,
-                expect.objectContaining({ source: 'selection', focusOnMount: false }),
-            );
-        } finally {
-            app.destroy();
-        }
-    });
-
-    it('marks exact selection card popovers to preserve page selection focus', async () => {
-        const app = new ReaderApp();
-        const sentence = '日本語';
-        const exactCard: JPDBCard = { ...card, vid: 603, sid: 603, spelling: '日本語', reading: 'にほんご', cardState: ['not-in-deck'], source: 'jpdb' };
-        const token: JPDBToken = {
-            card: exactCard,
-            start: 0,
-            end: 3,
-            length: 3,
-            rubies: [],
-            pitchClass: '',
-            sentence,
-        };
-        const parse = vi.fn(async () => [[token]]);
-        const showCard = vi.fn();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
-            showCard: typeof showCard;
-            lookupText(text: string, sentence?: string, options?: { source?: 'lookup' | 'selection' }): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: 'api-key',
-        };
-        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
-        internals.showCard = showCard;
-
-        try {
-            await internals.lookupText('日本語', sentence, { source: 'selection' });
-
-            expect(showCard).toHaveBeenCalledWith(
-                exactCard,
-                sentence,
-                undefined,
-                expect.objectContaining({ focusOnMount: false }),
-            );
-        } finally {
-            app.destroy();
-        }
-    });
-
     it('uses segmented fallback for selected text even when local dictionaries are enabled without an API key', async () => {
         const app = new ReaderApp();
         const sentence = '今日は静かな喫茶店で新しい本を読みました。';
@@ -20927,7 +20784,6 @@ describe('reader helpers', () => {
             renderTokenListHtml(
                 tokens: JPDBToken[],
                 selected: string,
-                source: 'lookup' | 'selection',
                 previousNavigationEntry?: TestPreviousNavigationEntry,
             ): string;
             installTokenListHandlers(
@@ -20940,7 +20796,7 @@ describe('reader helpers', () => {
         };
         internals.settings = { ...DEFAULT_SETTINGS };
         internals.showCard = showCard;
-        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'lookup', previousNavigationEntry);
+        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳', previousNavigationEntry);
         internals.installTokenListHandlers(popover, [token], anchor, {
             trigger: 'modal',
             navigation: 'push-current',
@@ -20980,7 +20836,7 @@ describe('reader helpers', () => {
         };
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
+            renderTokenListHtml(tokens: JPDBToken[], selected: string): string;
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -20989,7 +20845,7 @@ describe('reader helpers', () => {
 
         try {
             const wrapper = document.createElement('div');
-            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
+            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳');
 
             expect(wrapper.querySelector('.jpdb-reader-selection-pills')).not.toBeNull();
             expect([...wrapper.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-selection-pills a')].map(link => link.textContent?.trim())).toEqual(expect.arrayContaining(['Yomu', 'Jiten', 'JPDB']));
@@ -21000,39 +20856,8 @@ describe('reader helpers', () => {
             const pills = wrapper.querySelector('.jpdb-reader-selection-pills')!;
             const meanings = wrapper.querySelector('.jpdb-reader-meanings')!;
             expect(pills.compareDocumentPosition(meanings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-            expect(wrapper.querySelector('.jpdb-reader-selection-translation')?.textContent).toBe('Japanese language');
             expect(wrapper.textContent).not.toContain('Parsed from');
             expect(wrapper.textContent).not.toContain('解析元');
-        } finally {
-            app.destroy();
-        }
-    });
-
-    it('hides token choice translations when selection popover translations are disabled', () => {
-        const app = new ReaderApp();
-        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb', meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['noun'] }] };
-        const token: JPDBToken = {
-            card: tokenCard,
-            start: 0,
-            end: 3,
-            length: 3,
-            rubies: [],
-            pitchClass: '',
-            sentence: '日本語訳',
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, selectionPopoverShowTranslation: false };
-
-        try {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
-
-            expect(wrapper.querySelector('.jpdb-reader-selection-translation')).toBeNull();
-            expect(wrapper.textContent).not.toContain('Japanese language');
-            expect(wrapper.textContent).not.toContain('Parsed from');
         } finally {
             app.destroy();
         }
@@ -21060,7 +20885,7 @@ describe('reader helpers', () => {
         document.body.append(popover);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
+            renderTokenListHtml(tokens: JPDBToken[], selected: string): string;
             installTokenListHandlers(
                 popover: HTMLElement,
                 tokens: JPDBToken[],
@@ -21072,7 +20897,7 @@ describe('reader helpers', () => {
             ...DEFAULT_SETTINGS,
             dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
         };
-        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
+        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳');
         internals.installTokenListHandlers(popover, [token], undefined, { trigger: 'modal', navigation: 'reset' });
 
         try {
@@ -21082,260 +20907,6 @@ describe('reader helpers', () => {
         } finally {
             if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
             else Reflect.deleteProperty(navigator, 'clipboard');
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('uses already rendered parsed words for multi-word page selections', async () => {
-        const app = new ReaderApp();
-        const firstCard: JPDBCard = { ...card, vid: 501, sid: 501, spelling: '今日', reading: 'きょう', source: 'jpdb' };
-        const secondCard: JPDBCard = { ...card, vid: 502, sid: 502, spelling: '静か', reading: 'しずか', source: 'jpdb' };
-        document.body.innerHTML = `
-            <p>
-                <span class="jpdb-reader-word jpdb-pitch-atamadaka" data-vid="501" data-sid="501" data-expression="今日" data-reading="きょう" data-pitch-class="atamadaka" data-sentence="今日は静かです。"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt class="jpdb-reader-furi">きょう</rt></ruby></span>は
-                <span class="jpdb-reader-word jpdb-pitch-atamadaka" data-vid="502" data-sid="502" data-expression="静か" data-reading="しずか" data-pitch-class="atamadaka" data-sentence="今日は静かです。"><ruby><span class="jpdb-reader-ruby-base">静か</span><rt class="jpdb-reader-furi">しずか</rt></ruby></span>です。
-            </p>
-        `;
-        const paragraph = document.querySelector('p')!;
-        const range = document.createRange();
-        range.selectNodeContents(paragraph);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const parse = vi.fn();
-        const showTokenList = vi.fn();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: {
-                parse: typeof parse;
-                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
-                fallbackCardFromText(text: string): JPDBCard;
-                isJpdbBackedCard(card: JPDBCard): boolean;
-            };
-            showTokenList: typeof showTokenList;
-            lookupSelection(): Promise<void>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true };
-        internals.parser = {
-            parse,
-            getCachedCard: (vid, sid) => vid === 501 && sid === 501 ? firstCard : vid === 502 && sid === 502 ? secondCard : undefined,
-            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
-            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
-        };
-        internals.showTokenList = showTokenList;
-        const selectedText = selection.toString().replace(/\s+/g, ' ').trim();
-
-        try {
-            await internals.lookupSelection();
-
-            expect(parse).not.toHaveBeenCalled();
-            expect(showTokenList).toHaveBeenCalledTimes(1);
-            expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling)).toEqual(['今日', '静か']);
-            expect(showTokenList.mock.calls[0]?.[1]).toBe(selectedText);
-            expect(showTokenList.mock.calls[0]?.[1]).toContain('です。');
-        } finally {
-            selection.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('does not re-open the selection popover after the user dismisses the same selection', async () => {
-        const app = new ReaderApp();
-        document.body.innerHTML = `
-            <p>
-                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="今日" data-reading="きょう" data-sentence="今日は静かです。">今日</span>は
-                <span class="jpdb-reader-word" data-vid="502" data-sid="502" data-expression="静か" data-reading="しずか" data-sentence="今日は静かです。">静か</span>です。
-            </p>
-        `;
-        const paragraph = document.querySelector('p')!;
-        const selectWord = (vid: string): void => {
-            const range = document.createRange();
-            range.selectNode(paragraph.querySelector(`[data-vid="${vid}"]`)!);
-            const selection = window.getSelection()!;
-            selection.removeAllRanges();
-            selection.addRange(range);
-        };
-        selectWord('501');
-
-        // The guard sits in lookupSelection ahead of the render path, so spying on
-        // lookupRenderedSelection keeps this independent of single-card vs token-list routing.
-        const lookupRenderedSelection = vi.fn(async () => true);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            lookupRenderedSelection: typeof lookupRenderedSelection;
-            lookupSelection(): Promise<void>;
-            rememberDismissedSelection(): void;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true };
-        internals.lookupRenderedSelection = lookupRenderedSelection;
-
-        try {
-            await internals.lookupSelection();
-            expect(lookupRenderedSelection).toHaveBeenCalledTimes(1);
-
-            // User closes the popover (Escape / click-away) for this selection.
-            internals.rememberDismissedSelection();
-
-            // The trailing keyup/mouseup re-runs the lookup with the same, still
-            // highlighted selection — it must stay closed.
-            await internals.lookupSelection();
-            expect(lookupRenderedSelection).toHaveBeenCalledTimes(1);
-
-            // Selecting a different word clears the guard and opens again.
-            selectWord('502');
-            await internals.lookupSelection();
-            expect(lookupRenderedSelection).toHaveBeenCalledTimes(2);
-        } finally {
-            window.getSelection()?.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('does not open selection popovers when selection lookup is disabled', async () => {
-        const app = new ReaderApp();
-        document.body.innerHTML = '<p><span class="jpdb-reader-word" data-vid="501" data-sid="501">今日</span>は静かです。</p>';
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const range = document.createRange();
-        range.selectNode(word);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const lookupRenderedSelection = vi.fn(async () => true);
-        const lookupText = vi.fn(async () => undefined);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            lookupRenderedSelection: typeof lookupRenderedSelection;
-            lookupText: typeof lookupText;
-            lookupSelection(): Promise<void>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, parseSelection: false };
-        internals.lookupRenderedSelection = lookupRenderedSelection;
-        internals.lookupText = lookupText;
-
-        try {
-            await internals.lookupSelection();
-
-            expect(lookupRenderedSelection).not.toHaveBeenCalled();
-            expect(lookupText).not.toHaveBeenCalled();
-            expect(selection.toString()).toBe('今日');
-        } finally {
-            selection.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('reparses long rendered sentence selections instead of reusing fragmented page spans', async () => {
-        const app = new ReaderApp();
-        const sentence = '好きなものを読んで日本語を学ぶ';
-        document.body.innerHTML = `
-            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="好き" data-sentence="${sentence}">好き</span><span class="jpdb-reader-word" data-vid="502" data-sid="502" data-expression="な" data-sentence="${sentence}">な</span><span class="jpdb-reader-word" data-vid="503" data-sid="503" data-expression="もの" data-sentence="${sentence}">もの</span><span class="jpdb-reader-word" data-vid="504" data-sid="504" data-expression="を" data-sentence="${sentence}">を</span><span class="jpdb-reader-word" data-vid="505" data-sid="505" data-expression="読む" data-sentence="${sentence}">読</span><span class="jpdb-reader-word" data-vid="506" data-sid="506" data-expression="んで" data-sentence="${sentence}">んで</span><span class="jpdb-reader-word" data-vid="507" data-sid="507" data-expression="日本語" data-sentence="${sentence}">日本語</span><span class="jpdb-reader-word" data-vid="508" data-sid="508" data-expression="を" data-sentence="${sentence}">を</span><span class="jpdb-reader-word" data-vid="509" data-sid="509" data-expression="学ぶ" data-sentence="${sentence}">学ぶ</span></p>
-        `;
-        const paragraph = document.querySelector('p')!;
-        const range = document.createRange();
-        range.selectNodeContents(paragraph);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const parsedTokens = [
-            parsedProviderToken(sentence, '好き', 0, 'jpdb'),
-            parsedProviderToken(sentence, 'な', 2, 'jpdb'),
-            parsedProviderToken(sentence, 'もの', 3, 'jpdb'),
-            parsedProviderToken(sentence, 'を', 5, 'jpdb'),
-            parsedProviderToken(sentence, '読んで', 6, 'jpdb', '読む'),
-            parsedProviderToken(sentence, '日本語', 9, 'jpdb'),
-            parsedProviderToken(sentence, 'を', 12, 'jpdb'),
-            parsedProviderToken(sentence, '学ぶ', 13, 'jpdb'),
-        ];
-        const parse = vi.fn(async () => [parsedTokens]);
-        const showTokenList = vi.fn();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: {
-                parse: typeof parse;
-                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
-                fallbackCardFromText(text: string): JPDBCard;
-                isJpdbBackedCard(card: JPDBCard): boolean;
-            };
-            showTokenList: typeof showTokenList;
-            lookupSelection(): Promise<void>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: true };
-        internals.parser = {
-            parse,
-            getCachedCard: () => undefined,
-            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
-            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
-        };
-        internals.showTokenList = showTokenList;
-
-        try {
-            await internals.lookupSelection();
-
-            expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({ allowSegmentedFallback: true }));
-            expect(showTokenList).toHaveBeenCalledTimes(1);
-            expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling))
-                .toEqual(['好き', 'な', 'もの', 'を', '読む', '日本語', 'を', '学ぶ']);
-            expect(showTokenList.mock.calls[0]?.[1]).toBe(sentence);
-        } finally {
-            selection.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('shows a popup for selected Japanese sentences longer than the old selection cap', async () => {
-        const app = new ReaderApp();
-        const repeated = '好きなものを読んで日本語を学ぶ。'.repeat(9);
-        document.body.innerHTML = `<p>${repeated}</p>`;
-        const paragraph = document.querySelector('p')!;
-        const range = document.createRange();
-        range.selectNodeContents(paragraph);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const parse = vi.fn(async () => [[
-            parsedProviderToken(repeated, '好き', 0, 'jpdb'),
-            parsedProviderToken(repeated, '読んで', 6, 'jpdb', '読む'),
-            parsedProviderToken(repeated, '日本語', 9, 'jpdb'),
-            parsedProviderToken(repeated, '学ぶ', 13, 'jpdb'),
-        ]]);
-        const showTokenList = vi.fn();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: {
-                parse: typeof parse;
-                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
-                fallbackCardFromText(text: string): JPDBCard;
-                isJpdbBackedCard(card: JPDBCard): boolean;
-            };
-            showTokenList: typeof showTokenList;
-            lookupSelection(): Promise<void>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: true };
-        internals.parser = {
-            parse,
-            getCachedCard: () => undefined,
-            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
-            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
-        };
-        internals.showTokenList = showTokenList;
-
-        try {
-            await internals.lookupSelection();
-
-            expect(repeated.length).toBeGreaterThan(120);
-            expect(parse).toHaveBeenCalledWith([repeated], expect.objectContaining({ allowSegmentedFallback: true }));
-            expect(showTokenList).toHaveBeenCalledTimes(1);
-        } finally {
-            selection.removeAllRanges();
             app.destroy();
             document.body.replaceChildren();
         }

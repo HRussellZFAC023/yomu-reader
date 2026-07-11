@@ -219,6 +219,9 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Removed': '削除',
+    'Selecting Japanese text on a page no longer opens a lookup pop-up. The panel that used to appear on every selection — often unwanted, and covering most of the screen on phones — is gone, so selecting text just selects it. To look up a word, hover or tap it as before: Yomu still shows its reading, meaning, pitch accent, and dictionary links on the words it has parsed.': 'ページ上の日本語を選択しても、検索ポップアップが開かなくなりました。選択のたびに表示されていたパネル（多くの場合は不要で、スマートフォンでは画面の大半を覆っていました）はなくなり、テキストを選択すると通常どおり選択されるだけになります。単語を調べるには、これまでどおりホバーまたはタップしてください。よむは解析済みの単語について、読み・意味・ピッチアクセント・辞書リンクを引き続き表示します。',
+    'Removed the "Selection popups" and "Show translation in selection popovers" settings, which no longer had anything to control.': '「選択ポップアップを表示」と「選択ポップアップに翻訳を表示」の設定は、制御する対象がなくなったため削除しました。',
     'BookWalker manga OCR is reliable across a whole book again, in both the page-turn and vertical continuous-scroll modes: recognition no longer stalls on "Scanning…", stops working after a few pages, or only covers the first page.': 'BookWalkerのマンガOCRが、ページめくりモードでも縦の連続スクロールモードでも、一冊を通して安定して動作するようになりました。「Scanning…」で止まったり、数ページで動かなくなったり、最初のページしか認識されなかったりすることはなくなりました。',
     'Pages you have already read are no longer re-scanned on every scroll or page turn, which removes the BookWalker lag and the flicker between "Scanning…" and "No text found".': '一度読んだページがスクロールやページめくりのたびに再スキャンされることはなくなり、BookWalkerのもたつきや、「Scanning…」と「No text found」の間のちらつきが解消されました。',
     'BookWalker pages no longer flash "Could not read text" from the hidden raw page image: on Firefox the page is rebuilt from BookWalker\'s own signed images so recognition matches other browsers.': 'BookWalkerのページが、隠れた生のページ画像のせいで「Could not read text」と一瞬表示されることはなくなりました。Firefoxでは、BookWalker自身の署名付き画像からページを再構成するため、他のブラウザーと同じように認識できます。',

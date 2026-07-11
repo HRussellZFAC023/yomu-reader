@@ -43,7 +43,6 @@ export function parseYomitanSettingsExport(value: unknown, language: InterfaceLa
     done();
     log.info('Yomitan settings import parsed', {
         hasAudioSources: Boolean(settings.audioSources?.length),
-        parseSelection: settings.parseSelection,
         theme: settings.theme,
     });
     return { settings, dictionaryNames };
@@ -168,7 +167,6 @@ function importedPitchDisplayEnabled(general: Record<string, unknown> | undefine
 }
 
 function applyScanningSettings(settings: ImportedSettings, scanning: ImportSection): void {
-    if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
     if (typeof scanning?.delay === 'number') settings.hoverOpenDelayMs = clampNumber(scanning.delay, 0, 1500);
     if (typeof scanning?.hideDelay === 'number') settings.hoverCloseDelayMs = clampNumber(scanning.hideDelay, 0, 3000);
     applyScanInputSettings(settings, scanning);

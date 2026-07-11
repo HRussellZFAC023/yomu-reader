@@ -630,22 +630,17 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(checkboxValue(form, 'popupLookupEnabled')).toBe(true);
-        expect(checkboxValue(form, 'parseSelection')).toBe(true);
-        expect(labelForControl(form, 'parseSelection')).toContain('Selection popups');
         expect(settingsText(form, '[data-help-key="popupLookupHelp"]')).toContain('another reader');
 
-        form.querySelector<HTMLInputElement>('input[name="parseSelection"]')!.checked = false;
         form.querySelector<HTMLInputElement>('input[name="popupLookupEnabled"]')!.checked = false;
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
         expect(saved.popupActivationMode).toBe('off');
-        expect(saved.parseSelection).toBe(false);
         expect(saved.lookupOnClick).toBe(true);
         expect(saved.lookupOnHover).toBe(true);
 
         localizeSettingsForm(form, 'ja');
         expect(labelForControl(form, 'popupLookupEnabled')).toContain('よむの検索ポップアップを表示');
-        expect(labelForControl(form, 'parseSelection')).toContain('選択ポップアップを表示');
         expect(settingsText(form, '[data-popup-lookup-title]')).toBe('ポップアップ検索');
     });
 
@@ -734,7 +729,6 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.selectionPopoverShowTranslation).toBe(true);
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
@@ -782,7 +776,6 @@ describe('settings form localization', () => {
         expect(appearancePreset.textContent).not.toContain('Show all furigana');
         expect(appearancePreset.textContent).not.toContain('No furigana');
         expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
-        expect(form.querySelector<HTMLInputElement>('input[name="selectionPopoverShowTranslation"]')?.checked).toBe(true);
         expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');
         expect(form.querySelector<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip')?.textContent).toContain('yomu');
         expect(form.querySelector<HTMLElement>(`[data-source-id="${ANKI_SOURCE_ID}"]`)).not.toBeNull();
@@ -792,7 +785,6 @@ describe('settings form localization', () => {
         const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false, popupMode: 'popover' });
         expect(saved.ankiEnabled).toBe(false);
         expect(saved.popupMode).toBe('auto');
-        expect(saved.selectionPopoverShowTranslation).toBe(true);
         expect(saved.ankiTags).toBe('yomu');
     });
 
@@ -1634,22 +1626,18 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const videoAudio = form.querySelector<HTMLInputElement>('input[name="suppressAutoAudioOnVideo"]')!;
         const backdrop = form.querySelector<HTMLInputElement>('input[name="popoverBackdropEnabled"]')!;
-        const selectionTranslation = form.querySelector<HTMLInputElement>('input[name="selectionPopoverShowTranslation"]')!;
 
         expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
         expect(DEFAULT_SETTINGS.popoverBackdropEnabled).toBe(true);
         expect(videoAudio.checked).toBe(true);
         expect(backdrop.checked).toBe(true);
-        expect(selectionTranslation.checked).toBe(true);
 
         videoAudio.checked = false;
         backdrop.checked = false;
-        selectionTranslation.checked = false;
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.suppressAutoAudioOnVideo).toBe(false);
         expect(saved.popoverBackdropEnabled).toBe(false);
-        expect(saved.selectionPopoverShowTranslation).toBe(false);
     });
 
     it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {

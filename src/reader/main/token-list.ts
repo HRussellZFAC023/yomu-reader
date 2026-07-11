@@ -5,7 +5,6 @@ import { uiText } from '../app/i18n';
 import { renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import { renderSelectionLookupPills } from '../sources/word-pills';
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import type { TokenListSource } from '../app/main-helpers';
 
 export type TokenListContext = {
     trigger: 'modal' | 'hover';
@@ -23,12 +22,11 @@ export type TokenListHandlerCallbacks = {
 export function renderTokenListHtml(
     tokens: JPDBToken[],
     selected: string,
-    source: TokenListSource,
     previousNavigationEntry: PopupNavigationEntry | undefined,
     settings: ReaderSettings,
 ): string {
     const language = settings.interfaceLanguage;
-    const title = uiText(language, source === 'selection' ? 'selection' : 'search');
+    const title = uiText(language, 'search');
     return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml(selected)}">
@@ -36,7 +34,6 @@ export function renderTokenListHtml(
                 <div class="jpdb-reader-pos">${escapeHtml(title)}</div>
                 ${renderSelectionLookupPills(selected, settings)}
                 ${renderTokenSentence(tokens, selected, settings)}
-                ${source === 'selection' ? renderTokenListTranslation(tokens, settings) : ''}
             </div>
         `;
 }
@@ -167,13 +164,4 @@ function renderTokenSentenceWord(token: JPDBToken, surface: string, settings: Re
     const content = withRuby ? renderRuby(surface, chipToken) : escapeHtml(surface);
     const readingAttr = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
     return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml(surface)}" data-expression="${escapeHtml(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml(pitchClass || 'unknown')}">${content}</button>`;
-}
-
-function renderTokenListTranslation(tokens: JPDBToken[], settings: ReaderSettings): string {
-    if (!settings.selectionPopoverShowTranslation) return '';
-    const glosses = tokens
-        .map(token => token.card.meanings.flatMap(meaning => meaning.glosses).filter(Boolean).slice(0, 2).join(', '))
-        .filter(Boolean);
-    if (!glosses.length) return '';
-    return `<div class="jpdb-reader-help jpdb-reader-selection-translation">${escapeHtml(glosses.join(' / '))}</div>`;
 }

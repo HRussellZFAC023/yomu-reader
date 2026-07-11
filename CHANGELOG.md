@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.128] - 2026-07-11
+
+### Removed
+
+- Selecting Japanese text on a page no longer opens a lookup pop-up. The panel that used to appear on every selection — often unwanted, and covering most of the screen on phones — is gone, so selecting text just selects it. To look up a word, hover or tap it as before: Yomu still shows its reading, meaning, pitch accent, and dictionary links on the words it has parsed.
+- Removed the "Selection popups" and "Show translation in selection popovers" settings, which no longer had anything to control.
+
 ## [1.6.127] - 2026-07-11
 
 ### Fixed

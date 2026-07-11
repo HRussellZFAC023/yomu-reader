@@ -299,7 +299,6 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
     const { get, has, clamped } = reader;
     const pageScanMode = readOption(get('pageScanMode'), ['off', 'auto', 'manual'] as const, pageScanModeFromSettings(current));
     return {
-        parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
         lookupOnMiddleMouse: has('lookupOnMiddleMouse'),
@@ -488,7 +487,6 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
         popoverWidth: clamped('popoverWidth', 280, 900, current.popoverWidth),
         popoverHeight: clamped('popoverHeight', 220, 900, current.popoverHeight),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
-        selectionPopoverShowTranslation: has('selectionPopoverShowTranslation'),
         readerFontFamily: readFontFamilySetting(reader, 'readerFontFamily', current.readerFontFamily),
         popupFontFamily: readFontFamilySetting(reader, 'popupFontFamily', current.popupFontFamily),
         popupFontWeight: clamped('popupFontWeight', 300, 900, current.popupFontWeight),

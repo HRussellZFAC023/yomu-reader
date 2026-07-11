@@ -44,7 +44,7 @@ function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
 
 function renderStrip(tokens: JPDBToken[], selected: string, extra: Partial<ReaderSettings> = {}): HTMLElement {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderTokenListHtml(tokens, selected, 'selection', undefined, settings(extra));
+    wrapper.innerHTML = renderTokenListHtml(tokens, selected, undefined, settings(extra));
     return wrapper;
 }
 

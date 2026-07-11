@@ -240,7 +240,6 @@ const COPY = {
         popupLookup: 'Popup lookup',
         popupLookupEnabled: 'Show Yomu lookup popup',
         popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
-        parseSelection: 'Selection popups',
         lookupOnClick: 'Look up on tap or click',
         lookupOnHover: 'Look up on hover',
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
@@ -1066,10 +1065,8 @@ const COPY = {
         ankiTemplateContext: 'Context',
         ankiTemplateRecognition: 'Recognition',
         ankiLocalDictionaryStatus: 'local dictionary',
-        selection: 'Selection',
         parsedFrom: 'Parsed from',
         composedOf: 'Composed of',
-        selectionPopoverShowTranslation: 'Show translation in selection popovers',
         imageReadingEnabled: 'Image reading enabled.',
         imageReadingHidden: 'Image reading hidden.',
         ocrModeAutoToast: 'Image OCR automatic.',
@@ -1727,10 +1724,8 @@ ankiMergeFieldPlural	フィールド
 ankiMergeAudio	音声
 ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
-selection	選択範囲
 parsedFrom	解析元
 composedOf	構成語
-selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
 ocrModeAutoToast	画像OCRを自動にしました。
@@ -1993,7 +1988,6 @@ interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
 popupLookupHelp	他リーダーのポップアップ用。オフでも他機能は有効。
-parseSelection	選択ポップアップを表示
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
