@@ -13375,6 +13375,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -37028,9 +37029,6 @@ ${spelling}`);
         this.syncOcrLineActiveState(currentLine);
         this.schedulePosition();
       };
-    }
-    clearActiveLines() {
-      this.unpinAllLines();
     }
     ensureObserver(settings) {
       const rootMargin = `${imagePrefetchMargin(settings)}px 0px`;

@@ -68,6 +68,7 @@
     "smoke:bookwalker-apex-ocr": "node scripts/bookwalker-apex-ocr-smoke.mjs",
     "smoke:bookwalker-modes-ocr": "node scripts/bookwalker-modes-ocr-smoke.mjs",
     "smoke:bookwalker-cty2-scroll": "node scripts/bookwalker-cty2-scroll-smoke.mjs",
+    "smoke:bookwalker-live-firefox": "node scripts/bookwalker-live-firefox-smoke.mjs",
     "smoke:bookwalker-tap-passthrough": "node scripts/bookwalker-tap-passthrough-smoke.mjs",
     "smoke:bookwalker-tap-retry": "node scripts/bookwalker-tap-retry-smoke.mjs",
     "smoke:overlay-scroll-lock": "node scripts/overlay-scroll-lock-smoke.mjs",

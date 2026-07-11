@@ -431,7 +431,6 @@ export function pullPageMirrorRecords(target: MirrorGlobalState = state(), scope
 
 let summaryBridgeContractMismatch = false;
 
-// fallow-ignore-next-line unused-export
 export function resetMirrorSummaryBridgeForTests(): void {
     summaryBridgeContractMismatch = false;
     mirrorContentSummaryCache.clear();

@@ -865,10 +865,6 @@ export class ImageOcrController {
         };
     }
 
-    clearActiveLines(): void {
-        this.unpinAllLines();
-    }
-
     private ensureObserver(settings: ReaderSettings): void {
         const rootMargin = `${imagePrefetchMargin(settings)}px 0px`;
         if (this.observer && this.observerMargin === rootMargin) return;

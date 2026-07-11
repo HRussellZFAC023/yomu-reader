@@ -11,9 +11,9 @@
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.127#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.127#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.127#sha256=NzXFXDJ0ZQWEohKBVy8tDiz8xtzQ80TK5h/p8/TDPuA=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.127#sha256=z/kHCjFjvGP8kLjM20gct8AUcZuJoqaME7+xf6+ZXvk=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.127#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.127#sha256=BBuVY0QhKwDvtascb9sgCRxolvzXcSsKRVUXaxx1mKg=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.127#sha256=6MQ1iJaLRHUAvvqZEAzKYlVydtjkasl0QAj5JjJpXRI=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.127#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
 // @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.127#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
 // @connect api.jiten.moe
@@ -35961,7 +35961,6 @@ function createNoopImageOcrController() {
   pinLineForElement: noop2,
   unpinLineForElement: noop2,
   retainLineForLookup: () => void 0,
-  clearActiveLines: noop2,
   captureSourceImageForElement: () => void 0
   };
 }

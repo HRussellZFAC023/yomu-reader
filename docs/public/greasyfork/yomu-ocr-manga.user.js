@@ -8521,9 +8521,6 @@ ${candidate.depth}`;
         this.schedulePosition();
       };
     }
-    clearActiveLines() {
-      this.unpinAllLines();
-    }
     ensureObserver(settings) {
       const rootMargin = `${imagePrefetchMargin(settings)}px 0px`;
       if (this.observer && this.observerMargin === rootMargin) return;

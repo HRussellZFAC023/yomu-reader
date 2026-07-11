@@ -569,7 +569,6 @@ function createNoopImageOcrController(): ImageOcrController {
         pinLineForElement: noop,
         unpinLineForElement: noop,
         retainLineForLookup: () => undefined,
-        clearActiveLines: noop,
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
 }
