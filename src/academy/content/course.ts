@@ -47,7 +47,9 @@ const FOUNDATION_WEEK_ORDERS: Record<number, number> = {
 };
 
 const defaultFetch: WeeklyCourseFetch = async (path: string) => {
-    const response = await fetch(path);
+    // Content JSON must revalidate: heuristic caching otherwise pins a stale
+    // week index for days after a content deploy.
+    const response = await fetch(path, { cache: 'no-cache' });
     return { ok: response.ok, status: response.status, json: () => response.json() };
 };
 
