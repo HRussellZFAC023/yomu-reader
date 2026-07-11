@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.134] - 2026-07-11
+
+### Fixed
+
+- iPad annotations no longer shift or disappear in fixed-height controls, menus, compact card titles, and web components. Mirrored text now follows the page's own padding and vertical centring, and touch layouts use a stable non-ruby line instead of a sticky-hover swap that could clip or reflow the row.
+- Compact YouTube and Reddit titles keep their native wrapping and visible word annotations without overflowing their cards, including content inside open shadow roots.
+- Pitch-accent component diagrams are centred consistently in the lookup sheet.
+
 ## [1.6.133] - 2026-07-11
 
 ### Changed

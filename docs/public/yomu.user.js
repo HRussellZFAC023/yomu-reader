@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.133
+// @version 1.6.134
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.133#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.133#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.133#sha256=9liUVz+sSuI5+jPZEKZBbUQ2jfLNitHlTzyD1YaLbec=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.133#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.133#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.133#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.133#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.134#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.134#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.134#sha256=9liUVz+sSuI5+jPZEKZBbUQ2jfLNitHlTzyD1YaLbec=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.134#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.134#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.134#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.134#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -5883,7 +5883,13 @@ function createNonDestructiveTextMirror(context) {
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
-  const state = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
+  const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+  const state = styleTextMirrorHost(
+  host,
+  mirrorRubyLayout,
+  context.clipHoverOnly && !stableClippedMirror,
+  Boolean(context.clipRow)
+  );
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
   styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
@@ -5899,6 +5905,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     removeTextMirror(host);
     return;
   }
+  if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
   hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
@@ -5911,6 +5918,22 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   } catch (error) {
   removeTextMirror(host);
   throw error;
+  }
+}
+function prefersStableClippedMirror() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+}
+function stabilizeClippedTextMirror(mirror) {
+  mirror.style.setProperty("visibility", "visible", "important");
+  for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
+  reading.style.setProperty("display", "none", "important");
+  reading.style.setProperty("visibility", "hidden", "important");
+  }
+  for (const segment of mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word, ruby")) {
+  segment.style.setProperty("white-space", "normal", "important");
+  segment.style.setProperty("word-break", "normal", "important");
+  segment.style.setProperty("overflow-wrap", "break-word", "important");
+  segment.style.setProperty("line-break", "auto", "important");
   }
 }
 function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
@@ -6438,6 +6461,15 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
   mirror.style.setProperty("position", "absolute");
   mirror.style.setProperty("inset", "0 0 auto 0");
+  mirror.style.setProperty("box-sizing", "border-box");
+  mirror.style.setProperty("padding-top", style.paddingTop);
+  mirror.style.setProperty("padding-right", style.paddingRight);
+  mirror.style.setProperty("padding-bottom", style.paddingBottom);
+  mirror.style.setProperty("padding-left", style.paddingLeft);
+  if (hostCentersTextVertically(host, style)) {
+  mirror.style.setProperty("inset", "50% 0 auto 0");
+  mirror.style.setProperty("transform", "translateY(-50%)");
+  }
   mirror.style.setProperty("height", "auto");
   mirror.style.setProperty("overflow", "visible");
   mirror.style.setProperty("visibility", "visible", "important");
@@ -6451,6 +6483,11 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   mirror.style.setProperty("text-align", style.textAlign);
   mirror.style.setProperty("z-index", "1");
   if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+}
+function hostCentersTextVertically(host, style) {
+  const itemized = style.display.includes("flex") || style.display.includes("grid");
+  if (itemized) return style.alignItems === "center" || style.alignContent === "center";
+  return host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]');
 }
 function tightenMirrorRubyOverhang(mirror) {
   if (typeof Range.prototype.getBoundingClientRect !== "function") return;
@@ -34815,8 +34852,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.133"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.133"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.134"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.134"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34930,7 +34967,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.133"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.134"}`;
   } catch {
   return null;
   }

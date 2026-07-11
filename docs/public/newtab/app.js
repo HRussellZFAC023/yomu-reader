@@ -9611,7 +9611,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
     const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
-    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
+    const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+    const state2 = styleTextMirrorHost(
+      host,
+      mirrorRubyLayout,
+      context.clipHoverOnly && !stableClippedMirror,
+      Boolean(context.clipRow)
+    );
     try {
       styleTextMirror(mirror, host, mirrorRubyLayout);
       styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
@@ -9630,6 +9636,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         removeTextMirror(host);
         return;
       }
+      if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
       hideTextMirrorHost(host, state2, mirror);
       host.append(mirror);
       registerTextMirrorOwner(mirror, host);
@@ -9642,6 +9649,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch (error) {
       removeTextMirror(host);
       throw error;
+    }
+  }
+  function prefersStableClippedMirror() {
+    return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  }
+  function stabilizeClippedTextMirror(mirror) {
+    mirror.style.setProperty("visibility", "visible", "important");
+    for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
+      reading.style.setProperty("display", "none", "important");
+      reading.style.setProperty("visibility", "hidden", "important");
+    }
+    for (const segment of mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word, ruby")) {
+      segment.style.setProperty("white-space", "normal", "important");
+      segment.style.setProperty("word-break", "normal", "important");
+      segment.style.setProperty("overflow-wrap", "break-word", "important");
+      segment.style.setProperty("line-break", "auto", "important");
     }
   }
   function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
@@ -10161,6 +10184,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const style = safeComputedStyle(host);
     mirror.style.setProperty("position", "absolute");
     mirror.style.setProperty("inset", "0 0 auto 0");
+    mirror.style.setProperty("box-sizing", "border-box");
+    mirror.style.setProperty("padding-top", style.paddingTop);
+    mirror.style.setProperty("padding-right", style.paddingRight);
+    mirror.style.setProperty("padding-bottom", style.paddingBottom);
+    mirror.style.setProperty("padding-left", style.paddingLeft);
+    if (hostCentersTextVertically(host, style)) {
+      mirror.style.setProperty("inset", "50% 0 auto 0");
+      mirror.style.setProperty("transform", "translateY(-50%)");
+    }
     mirror.style.setProperty("height", "auto");
     mirror.style.setProperty("overflow", "visible");
     mirror.style.setProperty("visibility", "visible", "important");
@@ -10174,6 +10206,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.style.setProperty("text-align", style.textAlign);
     mirror.style.setProperty("z-index", "1");
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+  }
+  function hostCentersTextVertically(host, style) {
+    const itemized = style.display.includes("flex") || style.display.includes("grid");
+    if (itemized) return style.alignItems === "center" || style.alignContent === "center";
+    return host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]');
   }
   function tightenMirrorRubyOverhang(mirror) {
     if (typeof Range.prototype.getBoundingClientRect !== "function") return;
@@ -41490,7 +41527,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.133".trim() ? "1.6.133".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.134".trim() ? "1.6.134".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

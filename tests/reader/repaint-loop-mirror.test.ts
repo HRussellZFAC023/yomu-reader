@@ -177,6 +177,23 @@ describe('repaint-loop mirror fallback', () => {
         expect(mirror.style.transform).toBe('translateY(-50%)');
     });
 
+    it('preserves an explicit non-centred control cross-axis alignment', () => {
+        document.body.innerHTML = `<button id="control" style="display:flex;align-items:flex-start;height:40px;padding:4px 10px;line-height:14px">${TEXT}</button>`;
+        const host = document.getElementById('control')!;
+        const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
+
+        applyTokensToScanTarget({
+            ...target,
+            nonDestructive: true,
+            suppressRuby: true,
+            passiveInteraction: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.inset).toBe('0 0 auto 0');
+        expect(mirror.style.transform).toBe('');
+    });
+
     it('keeps broad YouTube comment containers visible by mirroring the attributed text host only', () => {
         document.body.innerHTML = `
             <ytd-comment-view-model>

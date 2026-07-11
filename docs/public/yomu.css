@@ -1341,15 +1341,47 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 /* Clip-constrained HOVER-ONLY mirror (paint-invariant design, third live
    gate): at rest the host text paints naturally and the mirror stays hidden
-   (inline visibility on the element). Hovering the stamped host reveals the
-   annotated mirror over it and blanks the host glyphs so the two texts never
-   double-paint; the mirror carries its own inline colour. */
-[data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
-  visibility: visible !important;
+   (inline visibility on the element). A real fine hover pointer may reveal the
+   annotated mirror and blank the native glyphs so the two texts never
+   double-paint. Touch WebKit synthesises a sticky :hover after tapping; letting
+   that state swap in a ruby-bearing mirror leaves tablet rows displaced or
+   blank long after the tap. Coarse pointers therefore use a stable at-rest
+   mirror below: it keeps word decoration and tap lookup, removes rt from ruby
+   layout, and restores native wrapping instead of depending on sticky hover. */
+@media (hover: hover) and (pointer: fine) {
+  [data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
+    visibility: visible !important;
+  }
+  [data-yomu-clip-hover-host="true"]:hover {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+  }
 }
-[data-yomu-clip-hover-host="true"]:hover {
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
+
+@media (hover: none), (pointer: coarse) {
+  [data-yomu-clip-hover-host="true"] {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-decoration-color: transparent !important;
+    text-shadow: none !important;
+  }
+  [data-yomu-clip-hover-host="true"] .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
+    visibility: visible !important;
+  }
+  [data-yomu-clip-hover-host="true"]
+    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
+    rt.jpdb-reader-furi {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  [data-yomu-clip-hover-host="true"]
+    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
+    :is(.jpdb-reader-word.jpdb-reader-scan-word, ruby) {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    line-break: auto !important;
+  }
 }
 
 /* Class Q: clip-constrained rows (fixed-height nav rows, line-clamped titles)
@@ -7794,6 +7826,7 @@ html.jpdb-reader-doodle-active * {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: center;
   gap: 4px 10px;
 }
 .jpdb-reader-pitch-component {

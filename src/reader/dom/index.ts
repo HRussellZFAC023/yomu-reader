@@ -2880,9 +2880,9 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
 }
 
 function hostCentersTextVertically(host: HTMLElement, style: CSSStyleDeclaration): boolean {
-    if (host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]')) return true;
     const itemized = style.display.includes('flex') || style.display.includes('grid');
-    return itemized && (style.alignItems === 'center' || style.alignContent === 'center');
+    if (itemized) return style.alignItems === 'center' || style.alignContent === 'center';
+    return host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]');
 }
 
 // A reading wider than its base (じゅん over 順) makes ruby layout grow the
