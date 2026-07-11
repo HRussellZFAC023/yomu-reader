@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
+import { captureCanvasMirror as captureRealCanvasMirror, mirrorContentTokenForRecords } from '../../src/reader/ocr/canvas-mirror';
 import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -57,6 +58,7 @@ function createController(
     captureCanvasMirror?: (canvas: HTMLCanvasElement, loadCleanImage: (url: string) => Promise<CanvasImageSource | undefined>) => Promise<HTMLCanvasElement | undefined>,
     shouldAutoScan: () => boolean = () => true,
     configure?: (controller: ImageOcrController) => void,
+    onToast: (message: string) => void = vi.fn(),
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
@@ -70,7 +72,7 @@ function createController(
             ...overrides,
         }),
         parseJapanese: vi.fn(async () => []),
-        onToast: vi.fn(),
+        onToast,
         shouldAutoScan,
         captureReaderSurface,
         captureCanvasMirror,
@@ -337,16 +339,22 @@ describe('reader raster OCR surfaces', () => {
             lines: [],
         }));
 
+        const decodedFrames = new WeakSet<HTMLImageElement>();
+        const decodeFrames = window.setInterval(() => {
+            for (const candidate of document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')) {
+                if (decodedFrames.has(candidate)) continue;
+                decodedFrames.add(candidate);
+                Object.defineProperty(candidate, 'naturalWidth', { value: 1200, configurable: true });
+                Object.defineProperty(candidate, 'naturalHeight', { value: 1600, configurable: true });
+                candidate.dispatchEvent(new Event('load'));
+            }
+        }, 10);
         try {
             let frame: HTMLImageElement | null = null;
             await waitForExpect(() => {
                 frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).not.toBeNull();
             });
-            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
-            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
-            frame!.dispatchEvent(new Event('load'));
-
             await waitForExpect(() => {
                 const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
                 expect(status).not.toBeNull();
@@ -358,17 +366,18 @@ describe('reader raster OCR surfaces', () => {
                 expect(status!.dataset.yomuOcrRetry).toBe('true');
                 expect(status!.textContent).toContain('No text found');
                 expect(status!.textContent).toContain('Scan again');
-            });
+            }, 5_000);
             const contentKey = frame!.dataset.ocrContentKey!;
             const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
             expect(contentKey).toMatch(/^cv:/);
-            expect(internals.cache.has(contentKey)).toBe(false);
+            expect(internals.cache.get(contentKey)).toBeNull();
         } finally {
+            window.clearInterval(decodeFrames);
             controller.destroy();
         }
     });
 
-    it('retries a BookWalker reader frame after a transient empty OCR result', async () => {
+    it('keeps a BookWalker reader frame scanning while a transient empty OCR result retries', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -397,7 +406,7 @@ describe('reader raster OCR surfaces', () => {
 
             await waitForExpect(() => {
                 expect(recognizeImage).toHaveBeenCalledTimes(1);
-                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('loading');
             });
 
             await waitForExpect(() => {
@@ -449,13 +458,13 @@ describe('reader raster OCR surfaces', () => {
                 expect(fetchMock).toHaveBeenCalled();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
                 expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
-            });
+            }, 5_000);
         } finally {
             controller.destroy();
         }
     });
 
-    it('does not rescan a failed BookWalker reader frame until manual retry', async () => {
+    it('automatically retries a transient BookWalker provider failure without showing a terminal error', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -480,36 +489,8 @@ describe('reader raster OCR surfaces', () => {
             }, 20_000);
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
-            const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
-            // Loaded CI runners (4 vitest children on 4 cores) starve the scan
-            // pipeline's real-timer steps past the default 1s budget, so keep
-            // re-triggering the scan until the failing provider call lands. The
-            // no-rescan contract is asserted by the exact call count below: once
-            // the failure is recorded, the extra scanImage calls in this loop
-            // must NOT reach the provider again.
-            await waitForExpect(async () => {
-                await scanImage(frame!);
-                expect(recognizeImage).toHaveBeenCalled();
-                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
-            }, 20_000);
-            expect(recognizeImage).toHaveBeenCalledTimes(1);
-
-            await scanImage(frame!);
-            expect(recognizeImage).toHaveBeenCalledTimes(1);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
-
-            document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            let retryFrame: HTMLImageElement | null = null;
+            frame!.dispatchEvent(new Event('load'));
             await waitForExpect(() => {
-                retryFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
-                expect(retryFrame).not.toBeNull();
-                expect(retryFrame).not.toBe(frame);
-            }, 20_000);
-            Object.defineProperty(retryFrame!, 'naturalWidth', { value: 1200, configurable: true });
-            Object.defineProperty(retryFrame!, 'naturalHeight', { value: 1600, configurable: true });
-            await waitForExpect(async () => {
-                await scanImage(retryFrame!);
                 expect(recognizeImage).toHaveBeenCalledTimes(2);
             }, 20_000);
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
@@ -518,6 +499,64 @@ describe('reader raster OCR surfaces', () => {
             controller.destroy();
         }
     }, 90_000);
+
+    it('does not OCR a newly captured BookWalker frame before it has decoded', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        const canvas = pageCanvas(24, 20);
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('DECODE_FIRST'));
+        const controller = createController({ ocrAutoScanImages: false }, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [{ text: '読み込み後', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false }],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull());
+            await new Promise(resolve => setTimeout(resolve, 80));
+            expect(recognizeImage).not.toHaveBeenCalled();
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => expect(recognizeImage).toHaveBeenCalledTimes(1));
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not toast that no images exist while a requested BookWalker capture is pending', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+        const onToast = vi.fn();
+        let resolveMirror!: (value: HTMLCanvasElement) => void;
+        const captureCanvasMirror = vi.fn(() => new Promise<HTMLCanvasElement>(resolve => { resolveMirror = resolve; }));
+        const controller = createController({}, undefined, captureCanvasMirror, () => true, undefined, onToast);
+
+        try {
+            await controller.scanVisible();
+            expect(onToast).not.toHaveBeenCalled();
+        } finally {
+            resolveMirror(mirrorCanvas('LATE'));
+            controller.destroy();
+        }
+    });
 
     it('keeps both visible BookWalker spread pages even when only one is currentScreen', () => {
         stubLocation('viewer.bookwalker.jp');
@@ -937,6 +976,60 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('caps empty OCR retries by stable canvas content when screenshots encode different bytes', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('6/13');
+        seedCanvasMirror({
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-6.jpeg')] },
+        });
+        let screenshot = 0;
+        const captureReaderSurface = vi.fn(async () => ({
+            dataUrl: `data:image/jpeg;base64,SCREENSHOT_${++screenshot}`,
+            rect: new DOMRect(24, 20, 420, 560),
+        }));
+        const captureCanvasMirror = vi.fn(async () => undefined);
+        const canvas = pageCanvas(24, 20);
+        canvas.dataset.yomuMid = 'm10';
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+
+        const controller = createController({}, captureReaderSurface, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
+
+        try {
+            const volatileContentKeys: string[] = [];
+            let previousFrame: HTMLImageElement | null = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                let frame: HTMLImageElement | null = null;
+                await waitForExpect(() => {
+                    frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                    expect(frame).not.toBeNull();
+                    expect(frame).not.toBe(previousFrame);
+                }, 5_000);
+                Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+                Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+                volatileContentKeys.push(frame!.dataset.ocrContentKey!);
+                await scanImage(frame!);
+                previousFrame = frame;
+            }
+
+            expect(new Set(volatileContentKeys).size).toBe(1);
+            await new Promise(resolve => window.setTimeout(resolve, 900));
+            expect(captureReaderSurface).toHaveBeenCalledTimes(3);
+            expect(recognizeImage).toHaveBeenCalledTimes(3);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps an empty BookWalker page terminal through size changes until manual retry', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
@@ -1181,10 +1274,10 @@ describe('reader raster OCR surfaces', () => {
                 expect(line).not.toBeNull();
                 expect(layer!.style.top).toBe('72px');
                 expect(layer!.style.height).toBe('300px');
-                // The vertical frame now grows to the re-typeset column height
-                // (mocked 190px text vs a 37.5px OCR box) and clamps inside the
-                // layer, so the column stays readable instead of clipped.
-                expect(Math.round(Number.parseFloat(line!.style.top))).toBe(0);
+                // The vertical frame grows to the re-typeset column height
+                // (mocked 190px text vs a 37.5px OCR box) but remains anchored at
+                // the provider's 160/800 * 300 = 60px Y coordinate.
+                expect(Math.round(Number.parseFloat(line!.style.top))).toBe(60);
                 expect(Math.round(Number.parseFloat(line!.style.height))).toBeGreaterThanOrEqual(190);
             });
         } finally {
@@ -1308,7 +1401,7 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    it('re-snapshots a BookWalker canvas when the displayed size changes after zoom', async () => {
+    it('keeps a ready BookWalker canvas frame through CSS zoom without recapturing', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         pageCounter('8 / 195');
@@ -1342,19 +1435,18 @@ describe('reader raster OCR surfaces', () => {
             controller.refresh();
 
             await waitForExpect(() => {
-                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
-                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
-                expect(secondFrame).not.toBeNull();
-                expect(secondFrame).not.toBe(firstFrame);
-                expect(secondFrame!.style.width).toBe('520px');
-                expect(secondFrame!.style.height).toBe('676px');
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                const currentFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(currentFrame).toBe(firstFrame);
+                expect(currentFrame!.style.width).toBe('520px');
+                expect(currentFrame!.style.height).toBe('676px');
             });
         } finally {
             controller.destroy();
         }
     });
 
-    it('re-snapshots a parsed BookWalker canvas after zoom even if the ready pill is gone', async () => {
+    it('keeps parsed BookWalker OCR aligned through CSS zoom after the ready pill is gone', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         pageCounter('8 / 195');
@@ -1397,18 +1489,23 @@ describe('reader raster OCR surfaces', () => {
             internals.imageStatuses.get(firstFrame!)?.remove();
             internals.imageStatuses.delete(firstFrame!);
             expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+            const recognizesBeforeZoom = recognizeImage.mock.calls.length;
 
             rect = new DOMRect(32, 40, 520, 676);
             controller.refresh();
 
             await waitForExpect(() => {
-                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
-                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
-                expect(secondFrame).not.toBeNull();
-                expect(secondFrame).not.toBe(firstFrame);
-                expect(secondFrame!.style.width).toBe('520px');
-                expect(secondFrame!.style.height).toBe('676px');
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                const currentFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(currentFrame).toBe(firstFrame);
+                expect(currentFrame!.style.width).toBe('520px');
+                expect(currentFrame!.style.height).toBe('676px');
+                const overlay = document.querySelector<HTMLElement>('.jpdb-ocr-layer');
+                expect(overlay?.style.width).toBe('520px');
+                expect(overlay?.style.height).toBe('676px');
+                expect(overlay?.querySelector('.jpdb-ocr-line')).not.toBeNull();
             });
+            expect(recognizeImage).toHaveBeenCalledTimes(recognizesBeforeZoom);
         } finally {
             controller.destroy();
         }
@@ -1535,6 +1632,57 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('does not auto-scan decoded source images while a reader raster capture owns the page', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        pageCounter('3 / 180');
+        const canvas = pageCanvas(100, 20, 760, 720);
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+
+        const incidental = document.createElement('img');
+        incidental.src = 'https://viewer.bookwalker.jp/internal-page-source.jpg';
+        incidental.getBoundingClientRect = () => new DOMRect(100, 20, 760, 720);
+        Object.defineProperties(incidental, {
+            complete: { get: () => true, configurable: true },
+            naturalWidth: { get: () => 768, configurable: true },
+            naturalHeight: { get: () => 1024, configurable: true },
+        });
+        document.body.append(viewport, incidental);
+
+        const recognizeImage = vi.fn(async (image: HTMLImageElement) => ({
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+            lines: [
+                { text: '本文', box: { left: 120, top: 120, width: 180, height: 80 }, vertical: false },
+            ],
+        } satisfies OcrResult));
+        const controller = createController(
+            {},
+            undefined,
+            vi.fn(async () => mirrorCanvas('AUTHORITATIVE_READER_PAGE')),
+            () => true,
+            instance => {
+                (instance as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+            },
+        );
+
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+            await new Promise(resolve => setTimeout(resolve, 1100));
+            expect(recognizeImage.mock.calls.some(([image]) => image === incidental)).toBe(false);
+            expect(document.querySelectorAll('.jpdb-ocr-video-frame-status')).toHaveLength(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('re-OCRs a stable BookWalker vertical surface when its painted page content changes', async () => {
         vi.stubGlobal('location', {
             hostname: 'viewer.bookwalker.jp',
@@ -1650,6 +1798,34 @@ describe('reader raster OCR surfaces', () => {
                 expect(frame).not.toBeNull();
                 expect(frame!.dataset.yomuCanvasFrame).toBe('true');
             });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps a tapped manual canvas in global tap mode until its content changes', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const page = document.createElement('section');
+        page.dataset.yomuCanvasOcr = 'manual';
+        const canvas = pageCanvas(24, 20);
+        canvas.dataset.yomuCanvasOcr = 'manual';
+        page.append(canvas);
+        document.body.append(page);
+        const controller = createController({ ocrAutoScanImages: false });
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull());
+
+            controller.refresh();
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(frame, 'complete', { value: true, configurable: true });
+            Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
+            canvas.width += 1;
+            controller.refresh();
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -1904,6 +2080,33 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('does not replace an automatic BookWalker page capture with a pointer-driven visible crop', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('FULL_PAGE'));
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            });
+
+            dispatchCanvasPointer(canvas, 'pointermove');
+            await new Promise(resolve => window.setTimeout(resolve, 300));
+
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.dataset.ocrContentKey)
+                .not.toContain(':region:');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not drop a BookWalker canvas OCR frame before the frame image loads', async () => {
         stubLocation('viewer.bookwalker.jp');
         document.body.append(Object.assign(document.createElement('span'), {
@@ -2048,6 +2251,66 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('does not OCR an overlapping raw background when a reader canvas owns the same page', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const canvas = pageCanvas(24, 18, 681, 965);
+        const rawPage = document.createElement('div');
+        rawPage.dataset.pageIndex = '6';
+        rawPage.style.backgroundImage = 'url("https://viewer-epubs.bookwalker.jp/scrambled-page.jpg")';
+        rawPage.getBoundingClientRect = () => new DOMRect(24, 18, 681, 965);
+        document.body.append(rawPage, canvas);
+        const controller = createController();
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+            expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('never OCRs BookWalker raw background assets before its canvas becomes active', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const rawPage = document.createElement('div');
+        rawPage.dataset.pageIndex = '6';
+        rawPage.style.backgroundImage = 'url("https://viewer-epubs.bookwalker.jp/scrambled-page.jpg")';
+        rawPage.getBoundingClientRect = () => new DOMRect(24, 18, 681, 965);
+        document.body.append(rawPage);
+        const controller = createController();
+        try {
+            await new Promise(resolve => window.setTimeout(resolve, 80));
+            expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('ignores BookWalker loadingImage assets that back the scrambled page canvas', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const image = document.createElement('img');
+        image.className = 'loadingImage';
+        image.src = 'https://viewer-trial.bookwalker.jp/03/21/image/scrambled.jpeg';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: '誤検出', box: { left: 0.1, top: 0.1, width: 0.2, height: 0.08 } },
+        ]);
+        Object.defineProperties(image, {
+            complete: { value: true, configurable: true },
+            naturalWidth: { value: 768, configurable: true },
+            naturalHeight: { value: 1024, configurable: true },
+        });
+        image.getBoundingClientRect = () => new DOMRect(24, 18, 681, 965);
+        document.body.append(image);
+        const controller = createController();
+        try {
+            await new Promise(resolve => window.setTimeout(resolve, 80));
+            expect(document.querySelector('.jpdb-ocr-layer')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('releases Mokuro background OCR frames after their page leaves the capture window', async () => {
         stubLocation('reader.mokuro.app');
         let firstLeft = 24;
@@ -2150,6 +2413,183 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('commits one real mirror capture when the summary bridge is unavailable', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        seedCanvasMirror({
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        });
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        const readablePixels = new Uint8ClampedArray(20 * 20 * 4);
+        readablePixels.fill(255);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = function (this: HTMLCanvasElement) {
+            return {
+                drawImage() { /* mirror replay */ },
+                getImageData: () => {
+                    if (this === canvas) throw new Error('The operation is insecure.');
+                    return { data: readablePixels };
+                },
+            };
+        };
+        stubCanvasDataUrl('data:image/jpeg;base64,CANONICAL_TOKEN');
+        const cleanSource = document.createElement('canvas');
+        cleanSource.width = 1200;
+        cleanSource.height = 1600;
+        let rebuilt: HTMLCanvasElement | undefined;
+        const captureCanvasMirror = vi.fn(async (surface: HTMLCanvasElement) => {
+            rebuilt = await captureRealCanvasMirror(surface, async () => cleanSource);
+            return rebuilt;
+        });
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+            expect(rebuilt?.dataset.yomuMirrorContentToken).toMatch(/^m:[a-z0-9]+$/);
+            await new Promise(resolve => window.setTimeout(resolve, 1250));
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('bounds repeated commit-identity mismatches instead of rescanning forever', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        seedCanvasMirror({
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        });
+        const mismatched = mirrorCanvas('MISMATCHED_TOKEN');
+        mismatched.dataset.yomuMirrorContentToken = 'm:foreign-contract';
+        const captureCanvasMirror = vi.fn(async () => mismatched);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+            });
+
+            await new Promise(resolve => window.setTimeout(resolve, 1350));
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('retries a manual commit-identity mismatch without requiring a second tap', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const records: Record<string, MirrorRecord> = {
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        };
+        seedCanvasMirror(records);
+        const expectedToken = mirrorContentTokenForRecords('m10', key => records[key]);
+        const captureCanvasMirror = vi.fn(async () => {
+            const mirror = mirrorCanvas(captureCanvasMirror.mock.calls.length === 1 ? 'RACED' : 'RECOVERED');
+            mirror.dataset.yomuMirrorContentToken = captureCanvasMirror.mock.calls.length === 1
+                ? 'm:stale-page'
+                : expectedToken;
+            return mirror;
+        });
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        try {
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(event);
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src'))
+                    .toBe('data:image/jpeg;base64,RECOVERED');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps a paused capture capped without its status card and reopens it for changed content', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const records: Record<string, MirrorRecord> = {
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        };
+        seedCanvasMirror(records);
+        // A stable vertical surface: page-signature changes never release-all here,
+        // so only the failure-token comparison can reopen a paused canvas.
+        const viewportW = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        const surface = Object.assign(document.createElement('div'), { id: 'wideScreen0' });
+        surface.className = 'canvasRoot verticalAxis';
+        let rect = new DOMRect(32, 40, 400, 520);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        surface.append(canvas);
+        viewportW.append(surface);
+        document.body.append(viewportW);
+
+        // Captures keep disagreeing with the live identity until the page turns.
+        let mirrorToken = 'm:foreign-contract';
+        const captureCanvasMirror = vi.fn(async () => {
+            const mirror = mirrorCanvas(`CAPTURE_${captureCanvasMirror.mock.calls.length}`);
+            mirror.dataset.yomuMirrorContentToken = mirrorToken;
+            return mirror;
+        });
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+            });
+
+            const internals = controller as unknown as { positionCanvasFrames(): void };
+            rect = new DOMRect(32, 900, 400, 520);
+            internals.positionCanvasFrames();
+            expect(document.querySelector('.jpdb-ocr-canvas-status')).toBeNull();
+
+            rect = new DOMRect(32, 40, 400, 520);
+            controller.refresh();
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
+
+            // NFBR recycles the same canvas for the next page: a new source image
+            // lands and the capture token agrees with the live identity again.
+            records.m10!.ops.push(mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-2.jpeg', 50));
+            mirrorToken = mirrorContentTokenForRecords('m10', key => records[key]);
+            expect(mirrorToken).toMatch(/^m:[a-z0-9]+$/);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror.mock.calls.length).toBeGreaterThanOrEqual(4);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            }, 5_000);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     // P0-2: a capture that races the engine (mirror has no ops yet) must retry with
     // backoff and recover on its own, instead of leaving the page permanently blank
     // until a full reload.
@@ -2157,10 +2597,17 @@ describe('reader raster OCR surfaces', () => {
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
+        // The page identity is already recorded: the exponential backoff budget
+        // applies. (A canvas with NO mirror identity instead rides the recorder
+        // boot grace on the 1200ms poll — covered by the boot test below.)
+        seedCanvasMirror({
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        });
         const mirror = mirrorCanvas('RECOVERED');
         let attempt = 0;
         const captureCanvasMirror = vi.fn(async () => (++attempt >= 3 ? mirror : undefined));
         const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
         canvas.toDataURL = TAINTED_CANVAS;
         document.body.append(canvas);
         const controller = createController({}, async () => undefined, captureCanvasMirror);
@@ -2174,38 +2621,157 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    it('abandons a hung BookWalker mirror capture and retries the same visible canvas', async () => {
+    it('waits cheaply for BookWalker recorder boot and resumes when mirror identity appears', async () => {
+        vi.useFakeTimers();
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
-        let now = 1000;
-        const dateNow = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const records: Record<string, MirrorRecord> = {};
+        seedCanvasMirror(records);
+        let ready = false;
+        const captureCanvasMirror = vi.fn(async () => ready ? mirrorCanvas('RECORDER_READY') : undefined);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await vi.advanceTimersByTimeAsync(4_000);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('loading');
+            expect(captureCanvasMirror.mock.calls.length).toBeLessThanOrEqual(7);
+
+            records.m10 = { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] };
+            ready = true;
+            await vi.advanceTimersByTimeAsync(1_000);
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+            expect(frame?.getAttribute('src')).toBe('data:image/jpeg;base64,RECORDER_READY');
+            frame?.dispatchEvent(new Event('load'));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).not.toBe('failed');
+        } finally {
+            controller.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('terminates a BookWalker recorder wait instead of scanning forever', async () => {
+        vi.useFakeTimers();
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const captureCanvasMirror = vi.fn(async () => undefined);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await vi.advanceTimersByTimeAsync(14_000);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('loading');
+
+            await vi.advanceTimersByTimeAsync(2_000);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+            expect(captureCanvasMirror.mock.calls.length).toBeLessThanOrEqual(24);
+        } finally {
+            controller.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('times out a hung manual BookWalker capture and retries without another tap or refresh', async () => {
+        vi.useFakeTimers();
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
         const captureCanvasMirror = vi.fn()
             .mockImplementationOnce(() => new Promise<HTMLCanvasElement>(() => { /* deliberately hung */ }))
             .mockImplementationOnce(async () => mirrorCanvas('RECOVERED_AFTER_HANG'));
         const canvas = pageCanvas(32, 40, 400, 520);
         canvas.toDataURL = TAINTED_CANVAS;
         document.body.append(canvas);
-        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
         try {
-            await waitForExpect(() => {
-                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
             });
+            canvas.dispatchEvent(event);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
 
-            now += 8100;
-            controller.refresh();
+            await vi.advanceTimersByTimeAsync(40_500);
 
-            await waitForExpect(() => {
-                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
-                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,RECOVERED_AFTER_HANG');
-            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src'))
+                .toBe('data:image/jpeg;base64,RECOVERED_AFTER_HANG');
         } finally {
             controller.destroy();
-            dateNow.mockRestore();
+            vi.useRealTimers();
         }
     });
 
-    it('removes offscreen failed BookWalker pending status and clears the blocked pending capture', async () => {
+    it('recovers from a rejected manual BookWalker capture without another tap', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn()
+            .mockRejectedValueOnce(new Error('signed image request failed'))
+            .mockResolvedValueOnce(mirrorCanvas('RECOVERED_AFTER_REJECTION'));
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        try {
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(event);
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src'))
+                    .toBe('data:image/jpeg;base64,RECOVERED_AFTER_REJECTION');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('retries when a committed BookWalker frame fails to decode instead of leaving Scanning stuck', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn()
+            .mockResolvedValueOnce(mirrorCanvas('BROKEN_FRAME'))
+            .mockResolvedValueOnce(mirrorCanvas('RECOVERED_FRAME'));
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame?.getAttribute('src')).toBe('data:image/jpeg;base64,BROKEN_FRAME');
+            });
+            firstFrame!.dispatchEvent(new Event('error'));
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src'))
+                    .toBe('data:image/jpeg;base64,RECOVERED_FRAME');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('removes an offscreen status without cancelling capture ownership', async () => {
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
@@ -2221,18 +2787,120 @@ describe('reader raster OCR surfaces', () => {
                 expect(document.querySelector('.jpdb-ocr-canvas-status')).not.toBeNull();
             });
             const internals = controller as unknown as {
-                pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, { key: string; startedAt: number }>;
+                pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, { key: string; startedAt: number; cancelled: boolean }>;
                 updateCanvasPendingStatus(canvas: HTMLCanvasElement, rect: DOMRect, status: 'failed'): void;
                 positionCanvasFrames(): void;
             };
-            internals.pendingCanvasSnapshots.set(canvas, { key: 'blocked', startedAt: Date.now() });
+            internals.pendingCanvasSnapshots.set(canvas, { key: 'blocked', startedAt: Date.now(), cancelled: false });
             internals.updateCanvasPendingStatus(canvas, rect, 'failed');
 
             rect = new DOMRect(32, 900, 400, 520);
             internals.positionCanvasFrames();
 
             expect(document.querySelector('.jpdb-ocr-canvas-status')).toBeNull();
-            expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(false);
+            expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('commits a delayed capture after its loading status is harmlessly hidden offscreen', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        let resolveCapture: ((canvas: HTMLCanvasElement) => void) | undefined;
+        const captureCanvasMirror = vi.fn(() => new Promise<HTMLCanvasElement>(resolve => { resolveCapture = resolve; }));
+        let rect = new DOMRect(32, 40, 400, 520);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(document.querySelector('.jpdb-ocr-canvas-status')).not.toBeNull();
+            });
+            const internals = controller as unknown as {
+                pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, unknown>;
+                positionCanvasFrames(): void;
+            };
+            rect = new DOMRect(32, 900, 400, 520);
+            internals.positionCanvasFrames();
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.hidden).toBe(true);
+            expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(true);
+
+            resolveCapture?.(mirrorCanvas('LANDED_AFTER_STATUS_FLICKER'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src'))
+                    .toBe('data:image/jpeg;base64,LANDED_AFTER_STATUS_FLICKER');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('cancels a late capture when its canvas leaves the active BookWalker set', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('15/180');
+        stubTaintedCanvas();
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        let firstRect = new DOMRect(0, 60, 500, 700);
+        let secondRect = new DOMRect(0, -790, 500, 800);
+        const first = pageCanvas(0, 60, 500, 700);
+        const second = pageCanvas(0, -790, 500, 800);
+        first.dataset.page = 'first';
+        second.dataset.page = 'second';
+        first.getBoundingClientRect = () => firstRect;
+        second.getBoundingClientRect = () => secondRect;
+        first.toDataURL = TAINTED_CANVAS;
+        second.toDataURL = TAINTED_CANVAS;
+        document.body.append(first, second);
+
+        const captureResolvers = new Map<HTMLCanvasElement, (canvas: HTMLCanvasElement) => void>();
+        const captureCanvasMirror = vi.fn((canvas: HTMLCanvasElement) => new Promise<HTMLCanvasElement>(resolve => {
+            captureResolvers.set(canvas, resolve);
+        }));
+        const controller = createController({ ocrMaxImagesPerPage: 1, ocrPrefetchPages: 0 }, async () => undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [{ text: '現行ページ', box: { left: 120, top: 200, width: 260, height: 90 }, vertical: false }],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(captureResolvers.has(first)).toBe(true);
+            });
+
+            firstRect = new DOMRect(0, -790, 500, 800);
+            secondRect = new DOMRect(0, 60, 500, 700);
+            controller.refresh();
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                expect(captureResolvers.has(second)).toBe(true);
+            });
+
+            captureResolvers.get(first)?.(mirrorCanvas('LATE_INACTIVE_PAGE'));
+            await new Promise(resolve => window.setTimeout(resolve, 30));
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
+            expect(recognizeImage).not.toHaveBeenCalled();
+
+            captureResolvers.get(second)?.(mirrorCanvas('ACTIVE_PAGE'));
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame?.getAttribute('src')).toBe('data:image/jpeg;base64,ACTIVE_PAGE');
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+            await waitForExpect(() => expect(recognizeImage).toHaveBeenCalledTimes(1));
         } finally {
             controller.destroy();
         }
@@ -2426,6 +3094,153 @@ describe('reader raster OCR surfaces', () => {
             await new Promise(resolve => setTimeout(resolve, 300));
             expect(captureCanvasMirror).not.toHaveBeenCalled();
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('reuses cached OCR when the same BookWalker page is rebuilt with different encoded pixels', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const records: Record<string, MirrorRecord> = {
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-1.jpeg')] },
+        };
+        seedCanvasMirror(records);
+        const contentToken = mirrorContentTokenForRecords('m10', key => records[key]);
+        const captureCanvasMirror = vi.fn(async () => {
+            const mirror = mirrorCanvas(`ENCODING_${captureCanvasMirror.mock.calls.length}`);
+            mirror.dataset.yomuMirrorContentToken = contentToken;
+            return mirror;
+        });
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [{ text: '同じページ', box: { left: 100, top: 100, width: 200, height: 80 }, vertical: false }],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+            });
+            Object.defineProperties(firstFrame!, {
+                naturalWidth: { configurable: true, value: 1200 },
+                naturalHeight: { configurable: true, value: 1600 },
+            });
+            firstFrame!.dispatchEvent(new Event('load'));
+            await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalledTimes(1);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+            const firstKey = firstFrame!.dataset.ocrContentKey;
+            expect(firstKey).toMatch(/^bw:m:/);
+
+            const internals = controller as unknown as {
+                releaseCanvasFrame(surface: HTMLCanvasElement): void;
+            };
+            internals.releaseCanvasFrame(canvas);
+            controller.refresh();
+
+            let revisitedFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                revisitedFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(revisitedFrame).not.toBeNull();
+                expect(revisitedFrame).not.toBe(firstFrame);
+            });
+            Object.defineProperties(revisitedFrame!, {
+                naturalWidth: { configurable: true, value: 1200 },
+                naturalHeight: { configurable: true, value: 1600 },
+            });
+            revisitedFrame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(revisitedFrame!.dataset.ocrContentKey).toBe(firstKey);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+            expect(recognizeImage).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('reuses cached OCR when BookWalker zoom re-rasterizes the same page at a new intrinsic size', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('5 / 41');
+        stubTaintedCanvas();
+        const records: Record<string, MirrorRecord> = {
+            m10: { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-5.jpeg')] },
+        };
+        seedCanvasMirror(records);
+        const contentToken = mirrorContentTokenForRecords('m10', key => records[key]);
+        const captureCanvasMirror = vi.fn(async () => {
+            const mirror = mirrorCanvas(`RASTER_${captureCanvasMirror.mock.calls.length}`);
+            mirror.dataset.yomuMirrorContentToken = contentToken;
+            return mirror;
+        });
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [{ text: '拡大しても同じ頁', box: { left: 100, top: 100, width: 200, height: 80 }, vertical: false }],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.setAttribute('data-yomu-mid', 'm10');
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+            });
+            Object.defineProperties(firstFrame!, {
+                naturalWidth: { configurable: true, value: 1200 },
+                naturalHeight: { configurable: true, value: 1600 },
+            });
+            firstFrame!.dispatchEvent(new Event('load'));
+            await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalledTimes(1);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+            const firstKey = firstFrame!.dataset.ocrContentKey;
+            expect(firstKey).toMatch(/^bw:m:/);
+
+            // The zoom button re-rasterizes the SAME page into a larger backing
+            // store. The snapshot key moves (new intrinsic size forces a crisp
+            // recapture), but the page-content key must not, so the OCR cache is
+            // reused instead of spending another provider call per zoom step.
+            canvas.width = 1500;
+            canvas.height = 2000;
+            canvas.getBoundingClientRect = () => new DOMRect(12, 20, 500, 650);
+            controller.refresh();
+
+            let zoomedFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                zoomedFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(zoomedFrame).not.toBeNull();
+                expect(zoomedFrame).not.toBe(firstFrame);
+            }, 5_000);
+            Object.defineProperties(zoomedFrame!, {
+                naturalWidth: { configurable: true, value: 1500 },
+                naturalHeight: { configurable: true, value: 2000 },
+            });
+            zoomedFrame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(zoomedFrame!.dataset.ocrContentKey).toBe(firstKey);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            }, 5_000);
+            expect(recognizeImage).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
         }

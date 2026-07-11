@@ -1,5 +1,10 @@
 const CAPTURE_VISIBLE_TAB_MESSAGE = 'yomu.captureVisibleTab';
 const SCREENSHOT_HIDE_STYLE_ID = 'yomu-extension-screenshot-hide-style';
+const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6000;
+const SCREENSHOT_PREFLIGHT_TIMEOUT_MS = 250;
+const SCREENSHOT_DECODE_TIMEOUT_MS = 4000;
+
+let readerUiHideLeaseCount = 0;
 
 interface ExtensionRuntimeApi {
     id?: string;
@@ -54,13 +59,6 @@ async function requestVisibleTabScreenshot(): Promise<string | undefined> {
 }
 
 function sendExtensionMessage(extension: ExtensionRuntime, message: unknown): Promise<unknown> {
-    if (extension.promiseBased) {
-        try {
-            return Promise.resolve(extension.runtime.sendMessage?.(message)).catch(() => undefined);
-        } catch {
-            return Promise.resolve(undefined);
-        }
-    }
     return new Promise(resolve => {
         let settled = false;
         const finish = (response: unknown) => {
@@ -69,12 +67,14 @@ function sendExtensionMessage(extension: ExtensionRuntime, message: unknown): Pr
             window.clearTimeout(timer);
             resolve(response);
         };
-        const timer = window.setTimeout(() => finish(undefined), 6000);
+        const timer = window.setTimeout(() => finish(undefined), SCREENSHOT_MESSAGE_TIMEOUT_MS);
         try {
-            const maybePromise = extension.runtime.sendMessage?.(message, response => {
-                if (extension.runtime.lastError) finish(undefined);
-                else finish(response);
-            });
+            const maybePromise = extension.promiseBased
+                ? extension.runtime.sendMessage?.(message)
+                : extension.runtime.sendMessage?.(message, response => {
+                    if (extension.runtime.lastError) finish(undefined);
+                    else finish(response);
+                });
             if (isPromiseLike(maybePromise)) {
                 void maybePromise.then(finish, () => finish(undefined));
             }
@@ -99,18 +99,33 @@ function screenshotResponseDataUrl(response: unknown): string | undefined {
 }
 
 async function withReaderUiHidden<T>(task: () => Promise<T>): Promise<T> {
-    const style = ensureScreenshotHideStyle();
-    document.documentElement.dataset.yomuExtensionScreenshotCapture = 'true';
-    await animationFrame();
+    const release = acquireReaderUiHideLease();
     try {
+        await animationFrame();
         return await task();
     } finally {
-        delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
-        style.remove();
+        release();
     }
 }
 
-function ensureScreenshotHideStyle(): HTMLStyleElement {
+function acquireReaderUiHideLease(): () => void {
+    if (readerUiHideLeaseCount === 0) {
+        ensureScreenshotHideStyle();
+        document.documentElement.dataset.yomuExtensionScreenshotCapture = 'true';
+    }
+    readerUiHideLeaseCount += 1;
+    let active = true;
+    return () => {
+        if (!active) return;
+        active = false;
+        readerUiHideLeaseCount = Math.max(0, readerUiHideLeaseCount - 1);
+        if (readerUiHideLeaseCount > 0) return;
+        delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
+        document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
+    };
+}
+
+function ensureScreenshotHideStyle(): void {
     document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
     const style = document.createElement('style');
     style.id = SCREENSHOT_HIDE_STYLE_ID;
@@ -122,11 +137,24 @@ function ensureScreenshotHideStyle(): HTMLStyleElement {
     ];
     style.textContent = `${selectors.join(',')} { visibility: hidden !important; }`;
     document.documentElement.append(style);
-    return style;
 }
 
 function animationFrame(): Promise<void> {
-    return new Promise(resolve => requestAnimationFrame(() => resolve()));
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            resolve();
+        };
+        const timer = window.setTimeout(finish, SCREENSHOT_PREFLIGHT_TIMEOUT_MS);
+        try {
+            requestAnimationFrame(finish);
+        } catch {
+            finish();
+        }
+    });
 }
 
 function visibleViewportIntersection(rect: DOMRect): ViewportRect | null {
@@ -173,9 +201,27 @@ async function cropVisibleTabScreenshot(dataUrl: string, rect: ViewportRect, max
 function loadScreenshotImage(dataUrl: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Screenshot decode failed.'));
-        image.src = dataUrl;
+        let settled = false;
+        const finish = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            image.onload = null;
+            image.onerror = null;
+            if (error) reject(error);
+            else resolve(image);
+        };
+        const timer = window.setTimeout(
+            () => finish(new Error('Screenshot decode timed out.')),
+            SCREENSHOT_DECODE_TIMEOUT_MS,
+        );
+        image.onload = () => finish();
+        image.onerror = () => finish(new Error('Screenshot decode failed.'));
+        try {
+            image.src = dataUrl;
+        } catch {
+            finish(new Error('Screenshot decode failed.'));
+        }
     });
 }
 

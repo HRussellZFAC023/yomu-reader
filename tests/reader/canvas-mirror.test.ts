@@ -1,12 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    canonicalBookwalkerAssetUrl,
     collectLeafUrls,
     recorderBootstrap,
     selectLatestContentOps,
     type MirrorOp,
     type MirrorRecord,
 } from '../../src/reader/ocr/canvas-mirror';
+
+describe('canonicalBookwalkerAssetUrl', () => {
+    it('drops only expiring signature fields and preserves content-bearing query identity', () => {
+        const first = canonicalBookwalkerAssetUrl(
+            'https://bw-bv-epubs.bookwalker.jp/page.jpeg?uuid=page-a&bid=book-a&hti=tile-a&pfCd=03&Policy=old&Signature=one&Key-Pair-Id=key',
+        );
+        const refreshed = canonicalBookwalkerAssetUrl(
+            'https://bw-bv-epubs.bookwalker.jp/page.jpeg?uuid=page-a&bid=book-a&hti=tile-a&pfCd=03&Policy=new&Signature=two&Key-Pair-Id=key',
+        );
+        const otherContent = canonicalBookwalkerAssetUrl(
+            'https://bw-bv-epubs.bookwalker.jp/page.jpeg?uuid=page-b&bid=book-a&hti=tile-b&pfCd=04&Policy=new&Signature=two&Key-Pair-Id=key',
+        );
+
+        expect(refreshed).toBe(first);
+        expect(otherContent).not.toBe(first);
+        expect(first).toContain('uuid=page-a');
+        expect(first).toContain('hti=tile-a');
+        expect(first).not.toContain('Policy=');
+        expect(first).not.toContain('Signature=');
+    });
+});
 
 function op(partial: Partial<MirrorOp> & { seq: number }): MirrorOp {
     return { srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false, ...partial };

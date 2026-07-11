@@ -30,6 +30,7 @@ function createOcrImageControllerFixture(options: {
     sentence?: string;
     src?: string;
     box?: OcrLineFixtureBox;
+    inlineResult?: boolean;
     settings?: Partial<ReaderSettings>;
     parseJapanese?: ImageOcrControllerOptions['parseJapanese'];
     parseJapaneseBatch?: ImageOcrControllerOptions['parseJapaneseBatch'];
@@ -44,9 +45,11 @@ function createOcrImageControllerFixture(options: {
     const sentence = options.sentence ?? '日本語を読む';
     const image = document.createElement('img');
     image.src = options.src ?? '/ocr-test.png';
-    image.dataset.ocrLines = JSON.stringify([
-        { text: sentence, box: options.box ?? { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
-    ]);
+    if (options.inlineResult !== false) {
+        image.dataset.ocrLines = JSON.stringify([
+            { text: sentence, box: options.box ?? { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+    }
     Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
     Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
     image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
@@ -280,6 +283,99 @@ describe('OCR sentence focus', () => {
             expect(line.getAttribute('aria-pressed')).toBe('false');
         } finally {
             controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('holds an OCR line for a lookup without exposing manual pressed state', async () => {
+        const restoreCanvas = installCanvasEncodingMock();
+        stubInstantIntersectionObserver();
+        stubLocalOcrFetch('日本語を読む');
+        const { controller } = createOcrImageControllerFixture({
+            inlineResult: false,
+            settings: { ocrProvider: 'local-service' },
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const release = controller.retainLineForLookup(word);
+
+            expect(release).toBeTypeOf('function');
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(line.dataset.pinned).not.toBe('true');
+            expect(line.getAttribute('aria-pressed')).toBe('false');
+
+            await controller.scanVisible();
+            await waitForExpect(() => {
+                const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(replacement).not.toBe(line);
+                expect(replacement?.classList.contains('jpdb-ocr-line-active')).toBe(true);
+                expect(replacement?.getAttribute('aria-pressed')).toBe('false');
+            });
+            const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+
+            release?.();
+            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(replacement.getAttribute('aria-pressed')).toBe('false');
+        } finally {
+            controller.destroy();
+            restoreCanvas();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps a manual OCR pin after its transient lookup lease is released', async () => {
+        const restoreCanvas = installCanvasEncodingMock();
+        stubInstantIntersectionObserver();
+        stubLocalOcrFetch('日本語を読む');
+        const { controller } = createOcrImageControllerFixture({
+            inlineResult: false,
+            settings: { ocrProvider: 'local-service' },
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const release = controller.retainLineForLookup(word);
+            line.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' }));
+
+            await controller.scanVisible();
+            await waitForExpect(() => {
+                const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(replacement).not.toBe(line);
+                expect(replacement?.classList.contains('jpdb-ocr-line-active')).toBe(true);
+                expect(replacement?.dataset.pinned).toBe('true');
+                expect(replacement?.getAttribute('aria-pressed')).toBe('true');
+            });
+            const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+
+            release?.();
+            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(replacement.dataset.pinned).toBe('true');
+            expect(replacement.getAttribute('aria-pressed')).toBe('true');
+
+            controller.unpinLineForElement(line);
+            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(replacement.dataset.pinned).toBe('false');
+            expect(replacement.getAttribute('aria-pressed')).toBe('false');
+        } finally {
+            controller.destroy();
+            restoreCanvas();
             vi.unstubAllGlobals();
             document.body.replaceChildren();
         }

@@ -27,6 +27,7 @@
 
 import { canvasPageContentToken, canvasReaderHasStableSurface } from './canvas-readers';
 import { isBookwalkerViewerHost } from './canvas-hosts';
+import { canvasMirrorContentToken } from './canvas-mirror';
 
 // A bare global mirror epoch is `data-yomu-mirror-epoch` — a decimal (or a
 // comma-joined set of them when several surfaces contribute). It is global page
@@ -65,21 +66,23 @@ export function isRealContentIdentity(identity: string): boolean {
 }
 
 // The strong, per-canvas identity used to decide whether a LANDED OCR frame still
-// belongs to its canvas. Scoped to BookWalker canvases that live on a stable vertical
-// surface (the cty=2 continuous case) — that is the ONLY mode where the page-turn
-// signature/counter cannot distinguish a real turn from within-page scroll, so a
-// per-canvas content fingerprint is needed to release/hold correctly. Everywhere else
-// (paged BookWalker, mokuro, generic readers) the page signature already carries page
-// identity, and tracking a raw pixel hash here would tear a good overlay down on
-// benign same-page pixel flicker (a transient blank/anti-aliased re-raster), so this
-// returns '' to defer to the signature path.
+// belongs to its canvas. BookWalker updates its page counter/currentScreen before it
+// paints the new pixels. A poll in that short gap can therefore capture page N-2 under
+// page N's counter; the counter then stays unchanged and cannot repair the stale frame.
+// Retaining the recorder's canonical source-image token lets the next poll reject that
+// frame as soon as the new composite lands. In paged mode we intentionally use the
+// mirror token rather than a raw pixel hash so harmless same-page anti-aliasing or a
+// transient clear cannot tear down a ready overlay. Other readers still defer to their
+// page-signature path.
 //
 // Even within scope it returns '' for a bare epoch or a stable-surface token: a
 // surface token or global activity must not invalidate an otherwise-correct frame,
 // and must not stand in as content.
 export function stableContentIdentityForCanvas(canvas: HTMLCanvasElement): string {
-    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return '';
-    const token = identityForCanvas(canvas);
+    if (!isBookwalkerViewerHost()) return '';
+    const token = canvasReaderHasStableSurface(canvas)
+        ? identityForCanvas(canvas)
+        : canvasMirrorContentToken(canvas);
     return isRealContentIdentity(token) ? token : '';
 }
 

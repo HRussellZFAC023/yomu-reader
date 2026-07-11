@@ -374,6 +374,9 @@ type ReaderLifecycleSurface = {
     refresh: () => void;
     destroy: () => void;
 };
+type ActivePopoverDismissOptions = DismissOptions & {
+    preserveOcrLookupState?: boolean;
+};
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 // Gesture events a host viewer (e.g. BookWalker/NFBR) uses to turn the page; Yomu
 // swallows them when they land on its own overlay/popover so a text tap looks up
@@ -564,6 +567,8 @@ function createNoopImageOcrController(): ImageOcrController {
         scanVisible: noop,
         refreshForModeChange: noop,
         pinLineForElement: noop,
+        unpinLineForElement: noop,
+        retainLineForLookup: () => undefined,
         clearActiveLines: noop,
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
@@ -880,6 +885,8 @@ export class ReaderApp {
     private hoverLookupGeneration = 0;
     private activeHoverWord?: HTMLElement;
     private activeHoverLookupKey = '';
+    private releaseActiveOcrLookupLine?: () => void;
+    private ownedModalOcrPin?: HTMLElement;
     private activePointerTextLookup?: ActivePointerTextLookup;
     private suppressedHoverWord?: HTMLElement;
     private suppressedHoverLookupKey = '';
@@ -2723,9 +2730,10 @@ export class ReaderApp {
         this.lastPointerPosition = { x: press.x, y: press.y };
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
-        this.ocr.pinLineForElement(press.word);
+        this.pinOcrLineForModalLookup(press.word);
         if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
-        void this.showWord(press.word, { trigger: 'click', userGesture: true, fastInitialRender: true });
+        void this.showWord(press.word, { trigger: 'click', userGesture: true, fastInitialRender: true })
+            .finally(() => this.releaseOrphanedModalOcrPin());
     }
 
     private openReaderWordFromPointer(
@@ -2739,7 +2747,7 @@ export class ReaderApp {
         }
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
-        this.ocr.pinLineForElement(word);
+        this.pinOcrLineForModalLookup(word);
         if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
         // The touch fast-fallback shows a single-sense placeholder card first and only
         // fills in the full entry after a background reparse — so the FIRST tap on OCR
@@ -2750,7 +2758,8 @@ export class ReaderApp {
             && !word.closest('.jpdb-ocr-line');
         void this.showWord(word, surfaces.r
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
-            : { trigger: 'click', userGesture: true, fastInitialRender });
+            : { trigger: 'click', userGesture: true, fastInitialRender })
+            .finally(() => this.releaseOrphanedModalOcrPin());
     }
 
     private handleOcrReaderWordPointerDown(event: PointerEvent): boolean {
@@ -2763,12 +2772,13 @@ export class ReaderApp {
         const now = Date.now();
         this.suppressSelectionLookupUntil = now + 350;
         this.suppressWordClickUntil = now + 700;
-        this.ocr.pinLineForElement(word);
+        this.pinOcrLineForModalLookup(word);
         // Full entry on the first tap for OCR overlay text (see openReaderWordFromPointer).
         const fastInitialRender = !word.closest('.jpdb-ocr-line');
         void this.showWord(word, surfaces.r
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
-            : { trigger: 'click', userGesture: true, fastInitialRender });
+            : { trigger: 'click', userGesture: true, fastInitialRender })
+            .finally(() => this.releaseOrphanedModalOcrPin());
         return true;
     }
 
@@ -4427,6 +4437,7 @@ export class ReaderApp {
         if (this.activePopoverAnchor === anchor && (this.activePointerTextLookup || this.activeHoverWord === anchor)) return;
         this.activePopoverAnchor = anchor;
         if (!this.activePointerTextLookup) this.activeHoverWord = anchor;
+        this.retainOcrLookupLineForAnchor(anchor);
         this.captureActiveHoverAnchorRect(anchor);
         this.repositionActivePopover();
     }
@@ -8597,6 +8608,10 @@ export class ReaderApp {
         const settingsStack = this.settingsStackForMountedPopover(options);
         if (settingsStack) forceReaderPopoverSurface(popover, this.settings);
         const state = this.popoverMountState(anchor, { ...options, stackOverSettings: Boolean(settingsStack) });
+        const preserveOcrLookupLine = Boolean(
+            state.resolvedAnchor
+            && this.activePopover?.contains(state.resolvedAnchor),
+        );
         if (settingsStack) {
             this.prepareSettingsStackedPopover(settingsStack);
         } else {
@@ -8605,10 +8620,11 @@ export class ReaderApp {
                 preserveNavigation: true,
                 preserveHoverGeneration: state.mode === 'hover',
                 preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
+                preserveOcrLookupState: true,
             });
         }
         this.appendMountedPopover(popover, state);
-        this.activateMountedPopover(popover, state, options);
+        this.activateMountedPopover(popover, state, options, preserveOcrLookupLine);
         this.dictionarySourceState.installTracking(popover);
         this.installMountedPopoverSurface(popover, state);
         this.finishMountedPopoverLifecycle(popover, state.mode, options);
@@ -8669,7 +8685,12 @@ export class ReaderApp {
         else mountParent.append(popover);
     }
 
-    private activateMountedPopover(popover: HTMLElement, state: PopoverMountState, options: MountPopoverOptions): void {
+    private activateMountedPopover(
+        popover: HTMLElement,
+        state: PopoverMountState,
+        options: MountPopoverOptions,
+        preserveOcrLookupLine: boolean,
+    ): void {
         this.activeBackdrop = state.backdrop;
         this.activePopover = popover;
         this.activePopoverMode = state.mode;
@@ -8679,6 +8700,9 @@ export class ReaderApp {
         this.activeHoverWord = state.mode === 'hover' && !options.pointerTextLookup ? state.resolvedAnchor : undefined;
         this.activeHoverLookupKey = state.mode === 'hover' ? options.hoverLookupKey ?? '' : '';
         this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
+        // A lookup sheet can cover its OCR source line and steal CSS :hover.
+        // Hold a transient visibility lease without changing manual pin state.
+        this.retainOcrLookupLineForAnchor(state.resolvedAnchor, { preserveExisting: preserveOcrLookupLine });
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
         popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
         this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
@@ -8881,14 +8905,14 @@ export class ReaderApp {
         this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
     }
 
-    private dismiss(options: DismissOptions = { suppressHoverTarget: true }): void {
+    private dismiss(options: ActivePopoverDismissOptions = { suppressHoverTarget: true }): void {
         if (!options.forceAll && this.shouldDismissStackedLookupOnly()) {
             this.dismissStackedLookupOverSettings(options);
             return;
         }
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
         this.prepareActivePopoverDismiss(options);
-        this.ocr.clearActiveLines();
+        if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
         this.restoreSettingsPreviewState();
         this.removeReaderDialogNodes();
         this.stackedSettingsDialog = undefined;
@@ -8911,9 +8935,9 @@ export class ReaderApp {
         return Boolean(this.stackedSettingsDialog && this.activePopover && this.activePopover !== this.stackedSettingsDialog.form);
     }
 
-    private dismissStackedLookupOverSettings(options: DismissOptions): void {
+    private dismissStackedLookupOverSettings(options: ActivePopoverDismissOptions): void {
         this.prepareActivePopoverDismiss(options);
-        this.ocr.clearActiveLines();
+        if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
         this.nativeTitleGuard.restore();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
@@ -8932,7 +8956,7 @@ export class ReaderApp {
         }
     }
 
-    private prepareActivePopoverDismiss(options: DismissOptions): void {
+    private prepareActivePopoverDismiss(options: ActivePopoverDismissOptions): void {
         if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
         // Re-mounts during nested navigation (push-current) dismiss with
         // preserveNavigation:true — keep the video paused across them; only a
@@ -9019,7 +9043,8 @@ export class ReaderApp {
             .forEach(element => element.remove());
     }
 
-    private clearActivePopoverState(options: { preserveKeyboardActive?: boolean } = {}): void {
+    private clearActivePopoverState(options: ActivePopoverDismissOptions = {}): void {
+        if (!options.preserveOcrLookupState) this.releaseOcrLookupLine();
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
         this.activePopoverResizeObserver = undefined;
@@ -9032,6 +9057,48 @@ export class ReaderApp {
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
         if (!options.preserveKeyboardActive) this.clearKeyboardActiveWord();
+    }
+
+    private retainOcrLookupLineForAnchor(
+        anchor: Element | undefined,
+        options: { preserveExisting?: boolean } = {},
+    ): void {
+        const release = this.ocr.retainLineForLookup(anchor ?? null);
+        if (!release) {
+            if (!options.preserveExisting) this.releaseOcrLookupLine();
+            return;
+        }
+        const releasePrevious = this.releaseActiveOcrLookupLine;
+        this.releaseActiveOcrLookupLine = release;
+        releasePrevious?.();
+    }
+
+    private releaseOcrLookupLine(): void {
+        const release = this.releaseActiveOcrLookupLine;
+        this.releaseActiveOcrLookupLine = undefined;
+        release?.();
+    }
+
+    private pinOcrLineForModalLookup(anchor: Element): void {
+        const line = anchor.closest<HTMLElement>('.jpdb-ocr-line');
+        if (!line) {
+            this.releaseOwnedModalOcrPin();
+            return;
+        }
+        if (this.ownedModalOcrPin && this.ownedModalOcrPin !== line) this.releaseOwnedModalOcrPin();
+        if (line.dataset.pinned === 'true') return;
+        this.ocr.pinLineForElement(anchor);
+        if (line.dataset.pinned === 'true') this.ownedModalOcrPin = line;
+    }
+
+    private releaseOwnedModalOcrPin(): void {
+        const line = this.ownedModalOcrPin;
+        this.ownedModalOcrPin = undefined;
+        if (line?.dataset.pinned === 'true') this.ocr.unpinLineForElement(line);
+    }
+
+    private releaseOrphanedModalOcrPin(): void {
+        if (!this.activePopover || this.activePopoverMode !== 'modal') this.releaseOwnedModalOcrPin();
     }
 
     private schedulePendingDictionaryRescan(): void {

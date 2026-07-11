@@ -22,6 +22,12 @@ interface HoverLookupInternals {
     hoverLookupGeneration: number;
     activePopoverAnchor?: HTMLElement;
     activePointerTextLookup?: { text: string; start: number; end: number; anchor: HTMLElement };
+    ocr: {
+        pinLineForElement(element: Element | null): void;
+        unpinLineForElement(element: Element | null): void;
+        retainLineForLookup(element: Element | null): (() => void) | undefined;
+        destroy(): void;
+    };
     lastPointerPosition?: { x: number; y: number };
     parser: { cacheCards(cards: JPDBCard[]): void };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
@@ -93,6 +99,9 @@ interface HoverLookupInternals {
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
     mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; focusOnMount?: boolean }): void;
     dismiss(options?: { suppressHoverTarget?: boolean }): void;
+    pinActiveHoverPopoverForPendingModalLookup(): void;
+    pinOcrLineForModalLookup(anchor: Element): void;
+    releaseOrphanedModalOcrPin(): void;
     bindEvents(): void;
 }
 
@@ -164,6 +173,55 @@ function linkTitleMirrorFixture(): string {
 function cleanupReaderApp(app: ReaderApp): void {
     app.destroy();
     document.body.replaceChildren();
+}
+
+function installOcrLookupLifecycleFixture(internals: HoverLookupInternals) {
+    const leases = new Map<HTMLElement, Set<symbol>>();
+    const lineFor = (element: Element | null): HTMLElement | null => element?.closest<HTMLElement>('.jpdb-ocr-line') ?? null;
+    const syncLine = (line: HTMLElement): void => {
+        line.classList.toggle('jpdb-ocr-line-active', line.dataset.pinned === 'true' || Boolean(leases.get(line)?.size));
+    };
+    const pinLineForElement = vi.fn((element: Element | null) => {
+        const line = lineFor(element);
+        if (!line) return;
+        line.dataset.pinned = 'true';
+        line.setAttribute('aria-pressed', 'true');
+        syncLine(line);
+    });
+    const unpinLineForElement = vi.fn((element: Element | null) => {
+        const line = lineFor(element);
+        if (!line || line.dataset.pinned !== 'true') return;
+        line.dataset.pinned = 'false';
+        line.setAttribute('aria-pressed', 'false');
+        syncLine(line);
+    });
+    const retainLineForLookup = vi.fn((element: Element | null): (() => void) | undefined => {
+        const line = lineFor(element);
+        if (!line) return undefined;
+        const token = Symbol('test-ocr-lookup-line');
+        const lineLeases = leases.get(line) ?? new Set<symbol>();
+        lineLeases.add(token);
+        leases.set(line, lineLeases);
+        syncLine(line);
+        let released = false;
+        return () => {
+            if (released) return;
+            released = true;
+            lineLeases.delete(token);
+            if (lineLeases.size === 0) leases.delete(line);
+            syncLine(line);
+        };
+    });
+    internals.ocr = {
+        pinLineForElement,
+        unpinLineForElement,
+        retainLineForLookup,
+        destroy: vi.fn(),
+    };
+    return {
+        leaseCount: (line: HTMLElement) => leases.get(line)?.size ?? 0,
+        unpinLineForElement,
+    };
 }
 
 function activePopoverWordFixture(): { popover: HTMLElement; word: HTMLElement } {
@@ -461,6 +519,151 @@ describe('hover lookup', () => {
 
             internals.dismiss();
             expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps the OCR lookup lease through hover promotion with no replacement mount', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const ocr = installOcrLookupLifecycleFixture(internals);
+        const { line, word } = appendSingleWordOcrLine();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            expect(ocr.leaseCount(line)).toBe(1);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+
+            // A slow or rejected modal lookup leaves the promoted sheet in place
+            // without mounting a replacement. Promotion itself must not drop the lease.
+            internals.pinActiveHoverPopoverForPendingModalLookup();
+            expect(internals.activePopoverMode).toBe('modal');
+            expect(ocr.leaseCount(line)).toBe(1);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+
+            internals.dismiss({ suppressHoverTarget: false });
+            expect(ocr.leaseCount(line)).toBe(0);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(ocr.unpinLineForElement).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('retains the original OCR line across nested text remounts until another OCR anchor takes ownership', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const ocr = installOcrLookupLifecycleFixture(internals);
+        const first = appendSingleWordOcrLine();
+        const second = appendSingleWordOcrLine();
+        const hover = document.createElement('div');
+        hover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        hover.innerHTML = '<span class="jpdb-reader-parseable">青空です。</span>';
+        const nestedAnchor = hover.querySelector<HTMLElement>('.jpdb-reader-parseable')!;
+        const nested = document.createElement('div');
+        nested.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        const ordinaryWord = document.createElement('span');
+        ordinaryWord.className = 'jpdb-reader-word';
+        ordinaryWord.dataset.vid = '3';
+        ordinaryWord.dataset.sid = '4';
+        ordinaryWord.dataset.sentence = '普通の本文';
+        ordinaryWord.textContent = '本文';
+        document.body.append(ordinaryWord);
+        const ordinary = document.createElement('div');
+        ordinary.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        const replacement = document.createElement('div');
+        replacement.className = 'jpdb-reader-popover jpdb-reader-sheet';
+
+        try {
+            internals.mountPopover(hover, first.word, { mode: 'hover', focusOnMount: false });
+            expect(ocr.leaseCount(first.line)).toBe(1);
+
+            internals.pinActiveHoverPopoverForPendingModalLookup();
+            internals.mountPopover(nested, nestedAnchor, { mode: 'modal', focusOnMount: false });
+            expect(nestedAnchor.isConnected).toBe(false);
+            expect(ocr.leaseCount(first.line)).toBe(1);
+            expect(ocr.leaseCount(second.line)).toBe(0);
+
+            internals.mountPopover(ordinary, ordinaryWord, { mode: 'modal', focusOnMount: false });
+            expect(ocr.leaseCount(first.line)).toBe(0);
+
+            internals.mountPopover(replacement, second.word, { mode: 'modal', focusOnMount: false });
+            expect(ocr.leaseCount(second.line)).toBe(1);
+
+            internals.dismiss();
+            expect(ocr.leaseCount(second.line)).toBe(0);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('preserves a pre-existing manual OCR pin through hover remount and dismissal', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const ocr = installOcrLookupLifecycleFixture(internals);
+        const { line, word } = appendSingleWordOcrLine();
+        internals.ocr.pinLineForElement(word);
+        const hover = document.createElement('div');
+        hover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        hover.innerHTML = '<span class="jpdb-reader-parseable">青空です。</span>';
+        const nestedAnchor = hover.querySelector<HTMLElement>('.jpdb-reader-parseable')!;
+        const nested = document.createElement('div');
+        nested.className = 'jpdb-reader-popover jpdb-reader-sheet';
+
+        try {
+            internals.mountPopover(hover, word, { mode: 'hover', focusOnMount: false });
+            internals.pinActiveHoverPopoverForPendingModalLookup();
+            internals.pinOcrLineForModalLookup(word);
+            internals.mountPopover(nested, nestedAnchor, { mode: 'modal', focusOnMount: false });
+            internals.dismiss();
+
+            expect(ocr.leaseCount(line)).toBe(0);
+            expect(line.dataset.pinned).toBe('true');
+            expect(line.getAttribute('aria-pressed')).toBe('true');
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(ocr.unpinLineForElement).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('clears only a modal OCR pin that the app created', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const ocr = installOcrLookupLifecycleFixture(internals);
+        const { line, word } = appendSingleWordOcrLine();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'modal', focusOnMount: false });
+            internals.pinOcrLineForModalLookup(word);
+            expect(line.dataset.pinned).toBe('true');
+
+            internals.dismiss();
+            expect(line.dataset.pinned).toBe('false');
+            expect(ocr.unpinLineForElement).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('releases an app-owned OCR pin when a modal lookup never mounts', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const ocr = installOcrLookupLifecycleFixture(internals);
+        const { line, word } = appendSingleWordOcrLine();
+
+        try {
+            internals.pinOcrLineForModalLookup(word);
+            expect(line.dataset.pinned).toBe('true');
+
+            internals.releaseOrphanedModalOcrPin();
+            expect(line.dataset.pinned).toBe('false');
+            expect(ocr.unpinLineForElement).toHaveBeenCalledTimes(1);
         } finally {
             cleanupReaderApp(app);
         }

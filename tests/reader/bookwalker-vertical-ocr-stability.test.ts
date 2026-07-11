@@ -90,7 +90,8 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
         const canvas = clusterCanvas('m6');
 
         const token = canvasMirrorContentToken(canvas);
-        expect(token).toBe('m:https://cdn/pageA.jpg:0:0:-1:-1:0:0:-1:-1');
+        expect(token).toMatch(/^m:[a-z0-9]+$/);
+        expect(token).not.toContain('pageA.jpg');
 
         bumpEpoch(42);
         expect(canvasMirrorContentToken(canvas)).toBe(token);
@@ -150,15 +151,20 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
 
         const counter = Object.assign(document.createElement('span'), { id: 'pageSliderCounter', textContent: '25/195' });
         document.body.append(counter);
-        document.body.append(clusterCanvas('m6'), clusterCanvas('m7'));
-        document.body.append(clusterCanvas('m2', /* hidden */ true));
+        const pageA = clusterCanvas('m6');
+        const pageB = clusterCanvas('m7');
+        const hidden = clusterCanvas('m2', /* hidden */ true);
+        document.body.append(pageA, pageB, hidden);
         bumpEpoch(118);
 
+        const pageAToken = canvasMirrorContentToken(pageA);
+        const pageBToken = canvasMirrorContentToken(pageB);
+        const hiddenToken = canvasMirrorContentToken(hidden);
         const signature = canvasReaderPageSignature();
-        expect(signature).toContain('pageA.jpg');
-        expect(signature).toContain('pageB.jpg');
+        expect(signature).toContain(pageAToken);
+        expect(signature).toContain(pageBToken);
         // The hidden current-screen buffer is excluded from the visible signature.
-        expect(signature).not.toContain('buffer.jpg');
+        expect(signature).not.toContain(hiddenToken);
 
         // The exact churn from the bug report: the epoch ticks while the same pages
         // stay on screen. Pre-fix this flipped the signature every poll and wiped OCR.
@@ -168,8 +174,10 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
         // A genuine page turn (new source image painted into a visible canvas) must
         // still move the signature so stale overlays are dropped and the new page OCRs.
         records.m6!.ops.push(imageOp('https://cdn/pageC.jpg', 1500));
+        const pageCToken = canvasMirrorContentToken(pageA);
         const afterTurn = canvasReaderPageSignature();
+        expect(pageCToken).not.toBe(pageAToken);
         expect(afterTurn).not.toBe(signature);
-        expect(afterTurn).toContain('pageC.jpg');
+        expect(afterTurn).toContain(pageCToken);
     });
 });

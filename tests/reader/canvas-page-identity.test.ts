@@ -267,9 +267,168 @@ describe('OCR identity invariants — paged (currentScreen swap, readable canvas
         stubReadableCanvasHash(29);
         expect(identityForCanvas(canvas)).toBe(pageB);
     });
+
+    it('retains a tainted paged canvas mirror token after the counter advances before paint', () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        seedMirror({ m2: { w: 2202, h: 3132, ops: [imageOp('https://cdn/pageA.jpg', 1)] } });
+        const canvas = taintedCanvas('m2');
+
+        const beforePaint = stableContentIdentityForCanvas(canvas);
+        expect(isRealContentIdentity(beforePaint)).toBe(true);
+
+        const records = (globalThis as typeof globalThis & { __yomuCanvasMirror: MirrorGlobalState }).__yomuCanvasMirror.records;
+        records.m2!.ops.push({
+            seq: 2,
+            srcId: null,
+            url: '',
+            sx: 0,
+            sy: 0,
+            sw: -1,
+            sh: -1,
+            dx: 0,
+            dy: 0,
+            dw: -1,
+            dh: -1,
+            clear: true,
+        });
+        records.m2!.ops.push(imageOp('https://cdn/pageB.jpg', 3));
+
+        expect(hasIdentityChanged(canvas, beforePaint)).toBe(true);
+    });
 });
 
 describe('OCR identity invariants — end-to-end scan counts (controller)', () => {
+    it('paged readable BookWalker: repairs the pre-paint race through its recorder token', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('3/12');
+        let readablePage = 11;
+        const dataForPage = () => {
+            const data = new Uint8ClampedArray(20 * 20 * 4);
+            for (let pixel = 0; pixel < 400; pixel++) {
+                const value = (pixel * readablePage + 7) % 256;
+                data[pixel * 4] = value;
+                data[pixel * 4 + 1] = value;
+                data[pixel * 4 + 2] = value;
+                data[pixel * 4 + 3] = 255;
+            }
+            return data;
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({
+            drawImage() {},
+            getImageData: () => ({ data: dataForPage() }),
+        });
+        const records: Record<string, MirrorRecord> = {
+            m2: { w: 1200, h: 1600, ops: [imageOp('https://cdn/page1.jpg', 1)] },
+        };
+        seedMirror(records);
+        const canvas = taintedCanvas('m2');
+        canvas.width = 1200;
+        canvas.height = 1600;
+        canvas.getBoundingClientRect = () => new DOMRect(32, 40, 400, 520);
+        canvas.toDataURL = () => `data:image/jpeg;base64,PAGE${readablePage}`;
+        document.body.append(canvas);
+
+        const controller = createController(async () => undefined);
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE11');
+            });
+            const staleFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(staleFrame, 'complete', { value: true, configurable: true });
+
+            records.m2!.ops.push({
+                seq: 2,
+                srcId: null,
+                url: '',
+                sx: 0,
+                sy: 0,
+                sw: -1,
+                sh: -1,
+                dx: 0,
+                dy: 0,
+                dw: -1,
+                dh: -1,
+                clear: true,
+            });
+            records.m2!.ops.push(imageOp('https://cdn/page3.jpg', 3));
+            readablePage = 29;
+            bumpEpoch(6);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBe(staleFrame);
+                expect(frame?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE29');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('paged BookWalker: repairs a stale capture made after the counter moves but before new pixels land', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('3/12');
+        const records: Record<string, MirrorRecord> = {
+            m2: { w: 2202, h: 3132, ops: [imageOp('https://cdn/page1.jpg', 1)] },
+        };
+        seedMirror(records);
+        const canvas = taintedCanvas('m2');
+        canvas.getBoundingClientRect = () => new DOMRect(32, 40, 400, 520);
+        canvas.toDataURL = () => { throw new Error('The operation is insecure.'); };
+        document.body.append(canvas);
+
+        let page = 'PAGE1';
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas(page));
+        const controller = createController(captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE1');
+            });
+            const staleFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(staleFrame, 'complete', { value: true, configurable: true });
+            const internals = controller as unknown as {
+                canvasFrameContentTokens: Map<HTMLCanvasElement, string>;
+                canvasFrameNeedsResnapshot: (canvas: HTMLCanvasElement) => boolean;
+            };
+            const staleContentToken = internals.canvasFrameContentTokens.get(canvas);
+            expect(isRealContentIdentity(staleContentToken ?? '')).toBe(true);
+
+            records.m2!.ops.push({
+                seq: 2,
+                srcId: null,
+                url: '',
+                sx: 0,
+                sy: 0,
+                sw: -1,
+                sh: -1,
+                dx: 0,
+                dy: 0,
+                dw: -1,
+                dh: -1,
+                clear: true,
+            });
+            records.m2!.ops.push(imageOp('https://cdn/page3.jpg', 3));
+            page = 'PAGE3';
+            bumpEpoch(6);
+            expect(hasIdentityChanged(canvas, staleContentToken)).toBe(true);
+            expect(internals.canvasFrameNeedsResnapshot(canvas)).toBe(true);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')];
+                expect(frames).toHaveLength(1);
+                expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE3');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('cty=2 vertical: SAME content across epoch flashes → exactly ONE scan', async () => {
         stubTaintedCanvas();
         pageCounter('8/195');

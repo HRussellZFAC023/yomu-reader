@@ -73,8 +73,12 @@ const DUMP_ATTR = 'data-yomu-mirror-dump';
 const REQUEST_ATTR = 'data-yomu-mirror-request';
 const SUMMARY_REQUEST_PREFIX = 'summary:';
 const PULL_EVENT = 'yomu-canvas-mirror-pull';
+// The page-world recorder can be installed by another Yomu version before this
+// reader starts. Only trust its compact summaries when both sides use the same
+// canonical identity representation; records remain backward-compatible.
+const MIRROR_TOKEN_CONTRACT_VERSION = 2;
 
-interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; q?: string; p: string; r: string; }
+interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; q?: string; p: string; r: string; v?: number; }
 
 export interface MirrorGlobalState {
     seq: number; nextId: number; installed: boolean; epoch?: number;
@@ -86,6 +90,7 @@ interface MirrorBridgePayload {
     seq?: number;
     nextId?: number;
     epoch?: number;
+    tv?: number;
 }
 // Content-world reader state. Page-world recorder state is copied here through
 // the shared-DOM bridge; do not store page-world objects in this realm.
@@ -310,9 +315,10 @@ function rebuildById(
     canvases: Map<string, HTMLCanvasElement>,
     seen: Set<string>,
     depth: number,
+    lookup: (id: string) => MirrorRecord | undefined,
 ): HTMLCanvasElement | null {
     if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-    const record = state().records[id];
+    const record = lookup(id);
     if (!record || !record.w || !record.h) return null;
     const ops = selectLatestReplayOps(record.ops, beforeSeq);
     if (!ops.length) return null;
@@ -325,11 +331,11 @@ function rebuildById(
     for (const op of ops) {
         let source: CanvasImageSource | null = null;
         if (op.srcOps?.length && op.srcW && op.srcH) {
-            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1, lookup);
         } else if (op.srcId) {
-            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1)
-                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])
-                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1)
+            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup)
+                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)
+                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup)
                     : null)
                 ?? canvases.get(op.srcId)
                 ?? null;
@@ -354,6 +360,7 @@ function rebuildSnapshotSource(
     canvases: Map<string, HTMLCanvasElement>,
     seen: Set<string>,
     depth: number,
+    lookup: (id: string) => MirrorRecord | undefined,
 ): HTMLCanvasElement | null {
     if (depth > MAX_REBUILD_DEPTH || !width || !height) return null;
     const contentOps = selectLatestReplayOps(ops, Number.POSITIVE_INFINITY);
@@ -367,11 +374,11 @@ function rebuildSnapshotSource(
     for (const op of contentOps) {
         let source: CanvasImageSource | null = null;
         if (op.srcOps?.length && op.srcW && op.srcH) {
-            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1, lookup);
         } else if (op.srcId) {
-            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1)
-                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])
-                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1)
+            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup)
+                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)
+                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup)
                     : null)
                 ?? canvases.get(op.srcId)
                 ?? null;
@@ -422,10 +429,23 @@ export function pullPageMirrorRecords(target: MirrorGlobalState = state(), scope
     return true;
 }
 
+let summaryBridgeContractMismatch = false;
+
+// fallow-ignore-next-line unused-export
+export function resetMirrorSummaryBridgeForTests(): void {
+    summaryBridgeContractMismatch = false;
+    mirrorContentSummaryCache.clear();
+}
+
 function pullPageMirrorContentSummary(id: string, target: MirrorGlobalState = state()): string {
     const parsed = requestPageMirrorPayload(`${SUMMARY_REQUEST_PREFIX}${id}`);
     if (!parsed) return '';
     mergeMirrorPayloadMetadata(target, parsed);
+    if (parsed.tv !== MIRROR_TOKEN_CONTRACT_VERSION) {
+        summaryBridgeContractMismatch = true;
+        mirrorContentSummaryCache.delete(id);
+        return '';
+    }
     const token = parsed.summaries?.[id] ?? '';
     const epoch = canvasMirrorTurnToken();
     if (token) mirrorContentSummaryCache.set(id, { epoch, token });
@@ -500,7 +520,7 @@ export function canvasMirrorContentToken(canvas: object): string {
     if (!id) return '';
     const s = state();
     const epoch = canvasMirrorTurnToken();
-    if (recorderMarkerPresent()) {
+    if (recorderMarkerPresent() && !summaryBridgeContractMismatch) {
         const cachedSummary = mirrorContentSummaryCache.get(id);
         if (cachedSummary && (!epoch || cachedSummary.epoch === epoch)) return cachedSummary.token;
         const summary = pullPageMirrorContentSummary(id, s);
@@ -509,11 +529,10 @@ export function canvasMirrorContentToken(canvas: object): string {
     if (!(s.records[id]?.ops.length) || (epoch && lastMirrorTargetSyncEpoch.get(id) !== epoch)) {
         pullPageMirrorRecords(s, id);
     }
-    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, key => s.records[key]);
-    if (content.size) return `m:${[...content].sort().join('')}`;
-    const record = s.records[id];
-    const fingerprint = record ? operationContentFingerprint(id, record) : '';
-    return fingerprint ? `o:${fingerprint}` : '';
+    // captureCanvasMirror stamps this exact representation on the rebuilt frame.
+    // Returning a raw fingerprint here made a successful capture compare unequal
+    // to the same live record whenever an older recorder lacked summary support.
+    return mirrorContentTokenForRecords(id, key => s.records[key]);
 }
 
 function operationContentFingerprint(id: string, record: MirrorRecord): string {
@@ -566,11 +585,6 @@ function isVolatileSignedUrlParam(key: string): boolean {
         || lower === 'signature'
         || lower === 'key-pair-id'
         || lower === 'expires'
-        || lower === 'uuid'
-        || lower === 'bid'
-        || lower === 'ht'
-        || lower === 'hti'
-        || lower === 'pfcd'
         || lower.startsWith('x-amz-');
 }
 
@@ -592,20 +606,77 @@ export async function captureCanvasMirror(
     // recorded into the PAGE-world __yomuCanvasMirror this realm can't see, so its own
     // records map is empty. Pull the page-world records over the shared-DOM bridge.
     if (id && recorderMarkerPresent()) pullPageMirrorRecords(s, id);
-    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, key => s.records[key]) : new Set<string>();
+    // BookWalker reuses and mutates its canvas records while source images are being
+    // fetched. Freeze the reachable operation graph before the first await so page A
+    // cannot be rebuilt from page B's later operations.
+    const records = id ? snapshotMirrorRecordGraph(id, s.records) : Object.create(null) as Record<string, MirrorRecord>;
+    const lookup = (key: string): MirrorRecord | undefined => records[key];
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, lookup) : new Set<string>();
+    const contentToken = id ? mirrorContentTokenForRecords(id, lookup) : '';
     const images = new Map<string, CanvasImageSource>();
     if (urls.size) {
         await Promise.all([...urls].map(async url => {
             try { const image = await loadCleanImage(url); if (image) images.set(url, image); } catch { /* skip */ }
         }));
+        // A one-tile rebuild is not a successful page capture. Giving a partial
+        // bitmap the complete page token would poison the OCR cache and make the
+        // missing text permanent, so fall back/retry until every selected leaf is
+        // available.
+        if (images.size !== urls.size) return undefined;
     }
     const canvases = new Map(
         Array.from(document.querySelectorAll<HTMLCanvasElement>(`canvas[${ID_ATTR}]`))
             .map(source => [source.getAttribute(ID_ATTR) ?? '', source] as const)
             .filter(([sourceId]) => sourceId),
     );
-    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, new Set(), 0) : null;
+    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, new Set(), 0, lookup) : null;
+    if (rebuilt && contentToken) rebuilt.dataset.yomuMirrorContentToken = contentToken;
     return rebuilt && isReadable(rebuilt) ? rebuilt : undefined;
+}
+
+function snapshotMirrorRecordGraph(rootId: string, source: Record<string, MirrorRecord>): Record<string, MirrorRecord> {
+    const snapshot: Record<string, MirrorRecord> = Object.create(null);
+    const visitRecord = (id: string, depth: number): void => {
+        if (depth > MAX_REBUILD_DEPTH || snapshot[id]) return;
+        const record = source[id];
+        if (!record) return;
+        const ops = record.ops.map(cloneMirrorOp);
+        snapshot[id] = { w: record.w, h: record.h, ops };
+        visitOps(ops, depth + 1);
+    };
+    const visitOps = (ops: readonly MirrorOp[], depth: number): void => {
+        if (depth > MAX_REBUILD_DEPTH) return;
+        for (const op of ops) {
+            if (op.srcId) visitRecord(op.srcId, depth);
+            if (op.srcOps?.length) visitOps(op.srcOps, depth + 1);
+        }
+    };
+    visitRecord(rootId, 0);
+    return snapshot;
+}
+
+function cloneMirrorOp(op: MirrorOp): MirrorOp {
+    return {
+        ...op,
+        ...(op.srcOps ? { srcOps: op.srcOps.map(cloneMirrorOp) } : {}),
+    };
+}
+
+export function mirrorContentTokenForRecords(id: string, lookup: (id: string) => MirrorRecord | undefined): string {
+    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, lookup);
+    if (content.size) return `m:${mirrorTokenHash([...content].sort().join('\u0001'))}`;
+    const record = lookup(id);
+    const fingerprint = record ? operationContentFingerprint(id, record) : '';
+    return fingerprint ? `o:${mirrorTokenHash(fingerprint)}` : '';
+}
+
+function mirrorTokenHash(value: string): string {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
 }
 
 interface Context2DPrototype {
@@ -721,11 +792,6 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
             || lower === 'signature'
             || lower === 'key-pair-id'
             || lower === 'expires'
-            || lower === 'uuid'
-            || lower === 'bid'
-            || lower === 'ht'
-            || lower === 'hti'
-            || lower === 'pfcd'
             || lower.startsWith('x-amz-');
     };
     const canonicalUrl = (raw: string): string => {
@@ -763,11 +829,30 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         op.dw,
         op.dh,
     ].join(':');
+    const shouldUseLatestSource = (id: string, beforeSeq: number): boolean => {
+        if (!Number.isFinite(beforeSeq)) return false;
+        const record = S.records[id];
+        if (!record?.ops.length) return false;
+        return !record.ops.some(op => !op.clear && op.seq < beforeSeq);
+    };
+    const addSourceLeafFingerprints = (
+        id: string,
+        beforeSeq: number,
+        out: Record<string, boolean>,
+        seen: Record<string, boolean>,
+        depth: number,
+    ): void => {
+        const before = Object.keys(out).length;
+        addLeafFingerprints(id, beforeSeq, out, seen, depth);
+        if (Object.keys(out).length === before && shouldUseLatestSource(id, beforeSeq)) {
+            addLeafFingerprints(id, Number.POSITIVE_INFINITY, out, seen, depth);
+        }
+    };
     const addLeafFingerprintsFromOps = (ops: MirrorOp[], out: Record<string, boolean>, seen: Record<string, boolean>, depth: number): void => {
         if (depth > 6) return;
         for (const op of latestOps(ops, Number.POSITIVE_INFINITY)) {
             if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, seen, depth + 1);
-            else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
+            else if (op.srcId) addSourceLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
             else if (op.url) out[leafFingerprint(op)] = true;
         }
     };
@@ -778,7 +863,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         const nextSeen = { ...seen, [id]: true };
         for (const op of latestOps(record.ops, beforeSeq)) {
             if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
-            else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
+            else if (op.srcId) addSourceLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
             else if (op.url) out[leafFingerprint(op)] = true;
         }
     };
@@ -883,7 +968,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     const requestAttr = opts.q || 'data-yomu-mirror-request';
                     const request = root.getAttribute(requestAttr) || '';
                     if (request.indexOf('summary:') === 0) {
-                        node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice('summary:'.length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+                        node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice('summary:'.length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0, tv: opts.v || 0 });
                     } else {
                         node.textContent = JSON.stringify({ records: requestedRecords(request), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
                     }
@@ -912,7 +997,17 @@ interface UserscriptGlobal {
 }
 
 function recorderOpts(): RecorderOpts {
-    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, q: REQUEST_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
+    return {
+        a: ID_ATTR,
+        m: MAX_OPS_PER_CANVAS,
+        k: PRUNE_KEEP,
+        e: EPOCH_ATTR,
+        d: DUMP_ATTR,
+        q: REQUEST_ATTR,
+        p: PULL_EVENT,
+        r: MARKER_ATTR,
+        v: MIRROR_TOKEN_CONTRACT_VERSION,
+    };
 }
 
 // Inject the recorder into the page main world. A <script> appended to the DOM

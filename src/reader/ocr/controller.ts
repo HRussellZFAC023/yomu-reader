@@ -27,7 +27,13 @@ import {
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
-import { canonicalBookwalkerAssetUrl, captureCanvasMirror, markCanvasMirrorSkip } from './canvas-mirror';
+import {
+    canonicalBookwalkerAssetUrl,
+    canvasMirrorContentToken,
+    captureCanvasMirror,
+    markCanvasMirrorSkip,
+} from './canvas-mirror';
+import { BookwalkerAssetResolver } from './bookwalker-assets';
 import {
     hasIdentityChanged as hasCanvasIdentityChanged,
     isGlobalEpochTransition as isCanvasContentEpochTransition,
@@ -54,7 +60,7 @@ import {
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity } from '../settings/index';
 import { fallbackJapaneseSegments } from '../lookup/parser';
 import type { ReaderParserParseOptions } from '../lookup/parser';
-import { stablePositiveHashId } from '../core/stable-hash';
+import { stableHashBase36, stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { getUserscriptHttpRequest } from '../userscript/index';
 
@@ -94,6 +100,15 @@ interface OcrRenderableMediaMutationSummary {
 interface PendingCanvasSnapshot {
     key: string;
     startedAt: number;
+    cancelled: boolean;
+    timeoutId?: number;
+}
+
+interface CanvasSnapshotCapture {
+    frameSrc: string;
+    frameRect: DOMRect;
+    contentKey?: string;
+    contentToken?: string;
 }
 
 interface OcrControllerOptions {
@@ -119,6 +134,10 @@ interface OcrWordRenderState {
     token: JPDBToken;
 }
 
+interface OcrLookupLineLease {
+    line?: HTMLElement;
+}
+
 const MAX_CACHE_ITEMS = 36;
 const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
 // Flash the "ready" dot briefly so the user sees the scan finished, then fade
@@ -129,13 +148,20 @@ const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 // the mirror recorder hasn't recorded the new page's draw ops when the poll races
 // a turn. Retry with backoff so the page is never left permanently un-OCR'd while
 // waiting for the next 1200ms poll (the "stuck, must refresh" report). After the
-// cap the 1200ms poll keeps retrying at its own cadence, and a tap force-rescans.
+// cap automatic retries pause on a tappable status; a page turn or tap reopens capture.
 const READER_RASTER_RETRY_BASE_MS = 140;
 const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
 const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
 const READER_RASTER_EMPTY_RETRY_MS = 650;
-const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 8000;
+const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
+// Mirror capture can spend one timeout fetching, one decoding, then six seconds
+// asking the extension screenshot bridge. Ownership must outlive that whole chain.
+const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 40_000;
+const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8_000;
+const BOOKWALKER_RECORDER_BOOT_GRACE_MS = 15_000;
 const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
@@ -151,6 +177,7 @@ const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
 const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
+const bookwalkerAssetResolver = new BookwalkerAssetResolver();
 const log = Logger.scope('OCR');
 const STALE_OCR_STATE = Symbol('stale-ocr-state');
 const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
@@ -330,11 +357,13 @@ export class ImageOcrController {
     // OCR runs as a small concurrency pool rather than one-at-a-time: manga
     // readers surface many page images/canvases at once and the serial wait was
     // the dominant source of "slow OCR". `activeScans` counts in-flight requests
-    // (capped by settings.ocrConcurrency) and `inFlightKeys` deduplicates work
+    // (capped by settings.ocrConcurrency) and `inFlightJobs` deduplicates work
     // when several queued elements share the same image content (e.g. a canvas
     // frame re-snapshotted on a page poll).
     private activeScans = 0;
-    private readonly inFlightKeys = new Set<string>();
+    // A token owns each key. A stale scan may finish after a page turn/manual retry;
+    // it must not delete the marker belonging to the newer job for the same content.
+    private readonly inFlightJobs = new Map<string, symbol>();
     private positionFrame = 0;
     private refreshTimer = 0;
     private destroyed = false;
@@ -354,14 +383,13 @@ export class ImageOcrController {
     // its place, plus the page fingerprint and the page-turn poll.
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
-    private canvasFrameCaptureRects = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameRegionFractions = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameKeys = new Map<HTMLCanvasElement, string>();
     private canvasFrameContentTokens = new Map<HTMLCanvasElement, string>();
+    private readonly canvasFrameLoadTimers = new Map<HTMLImageElement, number>();
     private canvasPendingStatuses = new Map<HTMLCanvasElement, HTMLElement>();
     private canvasPendingStatusKeys = new Map<HTMLCanvasElement, string>();
-    private canvasPendingStatusContentTokens = new Map<HTMLCanvasElement, string>();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -379,7 +407,10 @@ export class ImageOcrController {
     private readerRasterFreeMemo?: { href: string; free: boolean };
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
-    private readonly pendingCanvasSnapshots = new WeakMap<HTMLCanvasElement, PendingCanvasSnapshot>();
+    // Entries are short-lived: settled in the capture's `finally`, cancelled on
+    // release/rebind/teardown. A real Map (not WeakMap) so pointer-ownership can
+    // ask "is any capture pending?" without tracking a parallel counter.
+    private readonly pendingCanvasSnapshots = new Map<HTMLCanvasElement, PendingCanvasSnapshot>();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
     // stable surface location instead of the canvas object: NFBR sometimes swaps an
     // equivalent #viewport canvas node while painting the same page, and object-keyed
@@ -387,8 +418,17 @@ export class ImageOcrController {
     private readonly canvasContentReadiness = new Map<string, string>();
     // Per-canvas failed-capture counter driving the backoff retry above.
     private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
+    private readonly canvasMirrorWaitStartedAt = new Map<HTMLCanvasElement, number>();
+    private readonly canvasCommitMismatches = new Map<HTMLCanvasElement, number>();
+    // Content identity recorded when a canvas's automatic retries were paused on a
+    // terminal status. Continuous mode repaints the recycled canvas in place with
+    // no release-all page turn, so a paused surface must reopen when it shows a
+    // genuinely new page instead of inheriting "Could not read" forever.
+    private readonly canvasFailureContentTokens = new Map<HTMLCanvasElement, string>();
     private readonly readerRasterEmptyScans = new Map<string, number>();
     private readonly readerRasterFailedScans = new Set<string>();
+    private readonly readerRasterProviderFailures = new Map<string, number>();
+    private readonly readerRasterProviderRetryTimers = new Map<string, number>();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -401,6 +441,8 @@ export class ImageOcrController {
     private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
+    private readonly replacementOcrLines = new WeakMap<HTMLElement, HTMLElement>();
+    private readonly lookupLineLeases = new Map<HTMLElement, Set<OcrLookupLineLease>>();
     private recentTouchOcrPoint?: { clientX: number; clientY: number; at: number };
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     // Manual trigger from the subtitle rail's OCR button: reads the paused
@@ -529,6 +571,8 @@ export class ImageOcrController {
         this.releaseAllCanvasFrames();
         this.canvasTapRecapture.clear();
         this.releaseAllBackgroundFrames();
+        for (const pending of this.pendingCanvasSnapshots.values()) pending.cancelled = true;
+        this.pendingCanvasSnapshots.clear();
         if (this.readerRasterPoll) { window.clearInterval(this.readerRasterPoll); this.readerRasterPoll = 0; }
         if (this.readerRasterRetryTimer) { window.clearTimeout(this.readerRasterRetryTimer); this.readerRasterRetryTimer = 0; }
         this.mutationObserver?.disconnect();
@@ -651,12 +695,27 @@ export class ImageOcrController {
     }
 
     private hasReaderRasterSurfaces(): boolean {
-        if (this.canvasFrames.size > 0
+        return this.canvasFrames.size > 0
             || this.canvasPendingStatuses.size > 0
-            || this.backgroundFrames.size > 0) return true;
-        if (this.isProvenRasterFreePage()) return false;
-        return collectCanvasReaderSurfaces().length > 0
-            || collectBackgroundImageReaderSurfaces().length > 0;
+            || this.backgroundFrames.size > 0
+            || isReaderRasterPage();
+    }
+
+    private hasReaderRasterCaptureWork(): boolean {
+        return this.canvasFrames.size > 0
+            || this.canvasPendingStatuses.size > 0
+            || this.backgroundFrames.size > 0
+            || isReaderRasterPage();
+    }
+
+    private hasTrackedManualCanvasSurface(): boolean {
+        for (const canvas of this.canvasFrames.keys()) {
+            if (isManualCanvasReaderSurface(canvas)) return true;
+        }
+        for (const canvas of this.canvasPendingStatuses.keys()) {
+            if (isManualCanvasReaderSurface(canvas)) return true;
+        }
+        return false;
     }
 
     // A "free" verdict is provable from layout-free facts alone and stays valid
@@ -709,7 +768,20 @@ export class ImageOcrController {
     }
 
     private canScanInlineImages(userRequested: boolean): boolean {
+        // A full-page raster capture is the authoritative reader image. BookWalker
+        // also keeps decoded source <img>s mounted behind its canvas; auto-scanning
+        // those starts a second OCR job, flashes a terminal pill for the hidden image,
+        // and competes with the mirror capture that actually owns hit testing.
+        // Keep explicit/manual inline-image OCR available for mixed-content pages.
+        if (!userRequested && this.hasActiveReaderRasterOwnership()) return false;
         return this.options.shouldScanInlineImages?.(userRequested) !== false;
+    }
+
+    private hasActiveReaderRasterOwnership(): boolean {
+        return this.canvasFrames.size > 0
+            || this.canvasPendingStatuses.size > 0
+            || this.pendingCanvasSnapshots.size > 0
+            || this.backgroundFrames.size > 0;
     }
 
     async scanVisible(): Promise<void> {
@@ -725,7 +797,11 @@ export class ImageOcrController {
         }
         const images = [...this.states.keys()].filter(image => isCandidateImage(image, settings) && isNearViewport(image, 120));
         if (!images.length) {
-            if (!retriedReaderFrames) this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, 'ocrNoReadableImages'));
+            // Canvas capture is asynchronous. Reporting "no images" while a
+            // BookWalker mirror is being fetched is both false and noisy.
+            if (!retriedReaderFrames && !this.hasReaderRasterCaptureWork()) {
+                this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, 'ocrNoReadableImages'));
+            }
             return;
         }
         images.forEach(image => this.enqueue(image, true));
@@ -733,8 +809,9 @@ export class ImageOcrController {
     }
 
     captureSourceImageForElement(element: Element | null): string | undefined {
-        const line = element?.closest?.('.jpdb-ocr-line');
-        if (!line) return undefined;
+        const staleLine = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
+        if (!staleLine) return undefined;
+        const line = this.currentOcrLine(staleLine);
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
         if (!state) return undefined;
         const image = captureImageElement(state.image);
@@ -742,10 +819,45 @@ export class ImageOcrController {
     }
 
     pinLineForElement(element: Element | null): void {
-        const line = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
-        if (!line) return;
+        const staleLine = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
+        if (!staleLine) return;
+        const line = this.currentOcrLine(staleLine);
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
         if (state) this.pinLine(state, line);
+    }
+
+    unpinLineForElement(element: Element | null): void {
+        const staleLine = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
+        const line = staleLine ? this.currentOcrLine(staleLine) : undefined;
+        if (line?.dataset.pinned === 'true') this.unpinLine(line);
+    }
+
+    retainLineForLookup(element: Element | null): (() => void) | undefined {
+        const staleLine = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
+        if (!staleLine) return undefined;
+        const line = this.currentOcrLine(staleLine);
+        const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
+        if (!state) return undefined;
+        const lease: OcrLookupLineLease = { line };
+        const leases = this.lookupLineLeases.get(line) ?? new Set<OcrLookupLineLease>();
+        leases.add(lease);
+        this.lookupLineLeases.set(line, leases);
+        this.activateOcrLineMarkup(state, line);
+        this.syncOcrLineActiveState(line);
+        this.schedulePosition();
+        let released = false;
+        return () => {
+            if (released) return;
+            released = true;
+            const currentLine = lease.line;
+            lease.line = undefined;
+            if (!currentLine) return;
+            const current = this.lookupLineLeases.get(currentLine);
+            if (!current?.delete(lease)) return;
+            if (current.size === 0) this.lookupLineLeases.delete(currentLine);
+            this.syncOcrLineActiveState(currentLine);
+            this.schedulePosition();
+        };
     }
 
     clearActiveLines(): void {
@@ -850,6 +962,14 @@ export class ImageOcrController {
         }
         const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
         if (!surface) return false;
+        // Auto mode owns reader canvases through the stable full-page poll. Treating
+        // pointermove/pointerover as a manual request captures only the visible crop;
+        // scrolling then changes that crop and repeatedly tears down/re-OCRs the same
+        // page. A failed status card remains the explicit retry control.
+        const autoOwnsSurface = settings.ocrAutoScanImages
+            && this.options.shouldAutoScan?.() !== false
+            && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
+        if (autoOwnsSurface) return false;
         const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
         if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
         if (event.type === 'pointermove') {
@@ -859,9 +979,7 @@ export class ImageOcrController {
             this.lastPointerMoveReaderSurface = undefined;
             this.lastPointerMoveReaderSurfaceKey = undefined;
         }
-        void this.snapshotReaderSurface(surface, settings).then(frame => {
-            if (frame) this.enqueue(frame, true);
-        });
+        void this.snapshotReaderSurface(surface, settings);
         return true;
     }
 
@@ -884,13 +1002,25 @@ export class ImageOcrController {
         return Math.abs(event.clientX - recent.clientX) <= 6 && Math.abs(event.clientY - recent.clientY) <= 6;
     }
 
-    private async snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): Promise<HTMLImageElement | undefined> {
+    private async snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): Promise<void> {
         if (surface instanceof HTMLCanvasElement) {
+            const existing = this.canvasFrames.get(surface);
+            if (existing?.complete && existing.naturalWidth > 0) {
+                this.enqueue(existing, true);
+                return;
+            }
             await this.snapshotCanvasSurface(surface, settings, true);
-            return this.canvasFrames.get(surface);
+            // A newly created frame is queued exclusively by its load listener.
+            // Queuing here races image decode and used to poison the page with an
+            // "Image is not loaded yet" failure before the valid load event arrived.
+            return;
+        }
+        const existing = this.backgroundFrames.get(surface);
+        if (existing?.complete && existing.naturalWidth > 0) {
+            this.enqueue(existing, true);
+            return;
         }
         this.snapshotBackgroundImageSurface(surface, settings, true);
-        return this.backgroundFrames.get(surface);
     }
 
     private queueImageForOcr(image: HTMLImageElement): void {
@@ -913,7 +1043,7 @@ export class ImageOcrController {
     private takeNextQueuedImage(): HTMLImageElement | undefined {
         for (let index = 0; index < this.queue.length; index++) {
             const candidate = this.queue[index];
-            if (this.inFlightKeys.has(imageCacheKey(candidate))) continue;
+            if (this.inFlightJobs.has(imageCacheKey(candidate))) continue;
             this.queue.splice(index, 1);
             return candidate;
         }
@@ -923,8 +1053,9 @@ export class ImageOcrController {
     private startScan(image: HTMLImageElement): void {
         if (this.destroyed) return;
         const key = imageCacheKey(image);
+        const job = Symbol(key);
         this.activeScans++;
-        this.inFlightKeys.add(key);
+        this.inFlightJobs.set(key, job);
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
         // Canvas / background reader frames are dedicated manga pages where OCR is
         // the entire point, so skip the 900ms batching idle that only earns its
@@ -939,7 +1070,7 @@ export class ImageOcrController {
             })
             .finally(() => {
                 this.activeScans = Math.max(0, this.activeScans - 1);
-                this.inFlightKeys.delete(key);
+                if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
                 if (!this.destroyed) this.drainQueue();
             });
     }
@@ -985,7 +1116,7 @@ export class ImageOcrController {
     private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
         if (this.isReaderRasterFrame(state.image) && !state.manualRequested && this.readerRasterFailedScans.has(key)) {
             this.requireCurrentContentState(state, key);
-            renderNoOcrLines(state);
+            this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'failed');
             state.manualRequested = false;
             return true;
@@ -999,8 +1130,9 @@ export class ImageOcrController {
         this.requireCurrentContentState(state, key);
         if (!cached) {
             if (this.isReaderRasterFrame(state.image)) {
-                if ((this.readerRasterEmptyScans.get(key) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-                    renderNoOcrLines(state);
+                const emptyScanKey = this.readerRasterEmptyScanKey(state, key);
+                if ((this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
+                    this.renderNoOcrLines(state);
                     this.updateOcrStatus(state.image, 'empty');
                     state.manualRequested = false;
                     return true;
@@ -1009,7 +1141,7 @@ export class ImageOcrController {
                 return false;
             }
             if (this.shouldPreserveReaderRasterResult(state)) return true;
-            renderNoOcrLines(state);
+            this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
             state.manualRequested = false;
             return true;
@@ -1042,6 +1174,7 @@ export class ImageOcrController {
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
             this.readerRasterFailedScans.delete(key);
+            this.clearReaderRasterProviderRetry(key);
             if (this.shouldPreserveReaderRasterResult(state)) {
                 this.updateOcrStatus(image, 'ready');
                 return;
@@ -1059,14 +1192,20 @@ export class ImageOcrController {
                 this.remember(key, null);
             }
             this.requireCurrentContentState(state, key);
-            renderNoOcrLines(state);
-            this.updateOcrStatus(image, 'empty');
+            this.renderNoOcrLines(state);
+            this.updateOcrStatus(
+                image,
+                this.isReaderRasterFrame(image) && readerRasterEmptyAttempts < READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS
+                    ? 'loading'
+                    : 'empty',
+            );
             return;
         }
 
         this.remember(key, result);
-        this.readerRasterEmptyScans.delete(key);
+        this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state, key));
         this.readerRasterFailedScans.delete(key);
+        this.clearReaderRasterProviderRetry(key);
         this.requireCurrentContentState(state, key);
         state.key = key;
         // The page may have started providing its own native text layer while
@@ -1107,10 +1246,18 @@ export class ImageOcrController {
         if (fallback?.lines.length) {
             log.warn('OCR provider failed', { provider }, error);
             this.readerRasterFailedScans.delete(key);
+            this.clearReaderRasterProviderRetry(key);
             await this.renderResult(state, fallback, false, key);
             return;
         }
-        if (this.isReaderRasterFrame(image)) this.rememberReaderRasterFailure(key);
+        if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state, key, manualRequested, error)) {
+            this.updateOcrStatus(image, 'loading');
+            return;
+        }
+        if (this.isReaderRasterFrame(image)) {
+            this.clearReaderRasterProviderRetry(key);
+            this.rememberReaderRasterFailure(key);
+        }
         logOcrFailure(state, provider, manualRequested, error);
         this.updateOcrStatus(image, 'failed');
     }
@@ -1234,7 +1381,7 @@ export class ImageOcrController {
                 this.updateOcrStatus(state.image, 'ready');
                 return;
             }
-            renderNoOcrLines(state);
+            this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
             return;
         }
@@ -1261,8 +1408,9 @@ export class ImageOcrController {
         const lineElements = lines.map((line, index) => (
             this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings)
         ));
-        const staleLines = Array.from(state.overlay.querySelectorAll('.jpdb-ocr-line'));
+        const staleLines = Array.from(state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line'));
         state.overlay.append(...lineElements);
+        this.migrateOcrLineInteractionState(state, staleLines, lineElements);
         staleLines.forEach(node => node.remove());
         this.revealVideoFrameOverlay(state.image);
         this.positionState(state.image);
@@ -1380,21 +1528,105 @@ export class ImageOcrController {
     }
 
     private pinLine(state: ImageState, element: HTMLElement): void {
-        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => {
+        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line[data-pinned="true"]').forEach(line => {
             if (line !== element) this.unpinLine(line);
         });
         this.activateOcrLineMarkup(state, element);
-        element.classList.add('jpdb-ocr-line-active');
         element.dataset.pinned = 'true';
         element.setAttribute('aria-pressed', 'true');
+        this.syncOcrLineActiveState(element);
         this.schedulePosition();
     }
 
     private unpinLine(element: HTMLElement): void {
-        element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
         element.setAttribute('aria-pressed', 'false');
+        this.syncOcrLineActiveState(element);
         this.schedulePosition();
+    }
+
+    private syncOcrLineActiveState(element: HTMLElement): void {
+        const retained = Boolean(this.lookupLineLeases.get(element)?.size);
+        element.classList.toggle('jpdb-ocr-line-active', element.dataset.pinned === 'true' || retained);
+    }
+
+    private migrateOcrLineInteractionState(
+        state: ImageState,
+        staleLines: HTMLElement[],
+        replacementLines: HTMLElement[],
+    ): void {
+        const available = new Set(replacementLines);
+        const replacements = new Map<HTMLElement, HTMLElement>();
+        staleLines.forEach(staleLine => {
+            const identity = ocrRenderedLineIdentity(staleLine);
+            const replacement = replacementLines.find(candidate => (
+                available.has(candidate) && ocrRenderedLineIdentity(candidate) === identity
+            ));
+            if (!replacement) return;
+            replacements.set(staleLine, replacement);
+            available.delete(replacement);
+        });
+        staleLines.forEach((staleLine, index) => {
+            if (replacements.has(staleLine)) return;
+            const replacement = replacementLines[index];
+            if (!replacement || !available.has(replacement)) return;
+            replacements.set(staleLine, replacement);
+            available.delete(replacement);
+        });
+
+        staleLines.forEach(staleLine => {
+            const replacement = replacements.get(staleLine);
+            if (replacement) {
+                this.replacementOcrLines.set(staleLine, replacement);
+            }
+
+            const leases = this.lookupLineLeases.get(staleLine);
+            this.lookupLineLeases.delete(staleLine);
+            if (leases && replacement) {
+                const replacementLeases = this.lookupLineLeases.get(replacement) ?? new Set<OcrLookupLineLease>();
+                leases.forEach(lease => {
+                    lease.line = replacement;
+                    replacementLeases.add(lease);
+                });
+                this.lookupLineLeases.set(replacement, replacementLeases);
+            } else {
+                leases?.forEach(lease => { lease.line = undefined; });
+            }
+
+            if (!replacement) return;
+            if (staleLine.dataset.pinned === 'true') {
+                replacement.dataset.pinned = 'true';
+                replacement.setAttribute('aria-pressed', 'true');
+            }
+            if (leases?.size || replacement.dataset.pinned === 'true') {
+                this.activateOcrLineMarkup(state, replacement);
+            }
+            this.syncOcrLineActiveState(replacement);
+        });
+    }
+
+    private currentOcrLine(line: HTMLElement): HTMLElement {
+        let current = line;
+        let replacement = this.replacementOcrLines.get(current);
+        while (replacement && replacement !== current) {
+            current = replacement;
+            replacement = this.replacementOcrLines.get(current);
+        }
+        if (current !== line) this.replacementOcrLines.set(line, current);
+        return current;
+    }
+
+    private discardOcrLineInteractionState(lines: Iterable<HTMLElement>): void {
+        for (const line of lines) {
+            const leases = this.lookupLineLeases.get(line);
+            leases?.forEach(lease => { lease.line = undefined; });
+            this.lookupLineLeases.delete(line);
+        }
+    }
+
+    private renderNoOcrLines(state: ImageState): void {
+        this.discardOcrLineInteractionState(state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line'));
+        renderNoOcrLines(state);
     }
 
     private unpinOcrLinesFromDocumentEvent(event: Event): void {
@@ -1405,7 +1637,7 @@ export class ImageOcrController {
 
     private unpinAllLines(): void {
         for (const state of this.states.values()) {
-            state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => this.unpinLine(line));
+            state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line[data-pinned="true"]').forEach(line => this.unpinLine(line));
         }
     }
 
@@ -1427,6 +1659,7 @@ export class ImageOcrController {
         state.manualRequested = false;
         state.autoSkipped = false;
         if (!preserveReaderRasterResult) {
+            this.discardOcrLineInteractionState(state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line'));
             state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
             this.removeImageStatusCard(state.image);
         }
@@ -1442,9 +1675,10 @@ export class ImageOcrController {
 
     private recordReaderRasterEmptyScan(state: ImageState, key: string, userRequested: boolean): number {
         if (!this.isReaderRasterFrame(state.image)) return 0;
-        const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
-        this.readerRasterEmptyScans.set(key, attempts);
-        if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
+        const emptyScanKey = this.readerRasterEmptyScanKey(state, key);
+        const attempts = (this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) + 1;
+        this.readerRasterEmptyScans.set(emptyScanKey, attempts);
+        if (attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
         window.setTimeout(() => {
             if (!this.isCurrentContentState(state, key)) return;
             const canvas = this.canvasFrameSources.get(state.image);
@@ -1460,6 +1694,46 @@ export class ImageOcrController {
             }
         }, READER_RASTER_EMPTY_RETRY_MS);
         return attempts;
+    }
+
+    private readerRasterEmptyScanKey(state: ImageState, fallbackKey: string): string {
+        return state.image.dataset.ocrAttemptKey || fallbackKey;
+    }
+
+    private scheduleReaderRasterProviderRetry(
+        state: ImageState,
+        key: string,
+        userRequested: boolean,
+        error: unknown,
+    ): boolean {
+        const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
+        this.readerRasterProviderFailures.set(key, attempts);
+        if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
+
+        const delay = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
+        log.warn('OCR provider failed transiently; retrying reader page', { attempt: attempts, delay }, error);
+        const previousTimer = this.readerRasterProviderRetryTimers.get(key);
+        if (previousTimer) window.clearTimeout(previousTimer);
+        const timer = window.setTimeout(() => {
+            if (this.readerRasterProviderRetryTimers.get(key) !== timer) return;
+            this.readerRasterProviderRetryTimers.delete(key);
+            if (!this.isCurrentContentState(state, key)) return;
+            state.autoSkipped = false;
+            this.enqueue(state.image, userRequested);
+        }, delay);
+        this.readerRasterProviderRetryTimers.set(key, timer);
+        return true;
+    }
+
+    private clearReaderRasterProviderRetry(key: string): void {
+        this.cancelReaderRasterProviderRetryTimer(key);
+        this.readerRasterProviderFailures.delete(key);
+    }
+
+    private cancelReaderRasterProviderRetryTimer(key: string): void {
+        const timer = this.readerRasterProviderRetryTimers.get(key);
+        if (timer) window.clearTimeout(timer);
+        this.readerRasterProviderRetryTimers.delete(key);
     }
 
     private rememberReaderRasterFailure(key: string): void {
@@ -1904,55 +2178,98 @@ export class ImageOcrController {
         const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
             ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested)
             : undefined;
-        // asked to scan, so a background poll must NOT wipe the frame they tapped to
-        // create — only a genuine page turn (detected below) should drop it.
-        if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
-            if (!isReaderRasterPage()) { this.releaseAllCanvasFrames(); return; }
-            // Native-text-layer page (mokuro et al.): strip AUTO frames so we don't
-            // double-paint the page's own text, but KEEP a frame the user explicitly
-            // tapped to create — only a real page turn drops that. Releasing everything
-            // here wiped a just-tapped frame on the very next background poll. Never
-            // auto-capture from this path (that is the whole point of the gate).
-            const signature = canvasReaderPageSignature();
-            const turned = signature !== this.canvasReaderSignature;
-            this.canvasReaderSignature = signature;
-            for (const canvas of [...this.canvasFrames.keys()]) {
-                if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
-            }
-            return;
-        }
-        if (!isReaderRasterPage()) {
+        if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
+        if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
             this.releaseAllCanvasFrames();
             return;
         }
         this.startReaderRasterPollingIfNeeded();
-        // ALWAYS detect page turns — even when we won't auto-capture. NFBR repaints
-        // one in-place canvas, so without this a turn in tap/manual mode left the
-        // previous page's overlay sitting over the new page until a full reload. On
-        // a turn we drop stale frames; whether we then capture is the mode's choice.
-        const signature = canvasReaderPageSignature();
-        if (signature !== this.canvasReaderSignature) {
-            if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
-                this.scheduleReaderRasterRefresh(80);
-                return;
-            }
-            this.canvasReaderSamePageSignatureSkips = 0;
-            this.releaseAllCanvasFrames();
-            this.canvasReaderSignature = signature;
-        } else {
-            this.canvasReaderSamePageSignatureSkips = 0;
-        }
+        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        const signature = this.registerCanvasReaderPageSignature(canvases);
+        if (signature === null) return;
         // Tap/manual mode: never spend OCR calls on the poll. Detection above already
         // cleared the stale overlay; a tap (userRequested) re-enters here to capture.
         // A tap that failed because the page wasn't composited yet still re-attempts
         // here (it stays flagged user-requested) so the page OCRs without a 2nd tap.
         if (!settings.ocrAutoScanImages && !userRequested) {
-            this.retryPendingUserRequestedCaptures(settings);
+            this.refreshManualCanvasReaderFrames(canvases, settings);
             return;
         }
-        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        this.reconcileCanvasReaderFrames(canvases, signature, settings, userRequested);
+    }
+
+    private handleNativeTextLayerCanvasGate(
+        nativeTextLayerBlocksAutoScan: boolean,
+        ocrOptInCanvases: HTMLCanvasElement[] | undefined,
+    ): boolean {
+        if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
+        // A native-text-layer page (mokuro et al.) strips auto frames but keeps a
+        // frame the user explicitly tapped until a genuine page turn.
+        if (!isReaderRasterPage()) {
+            this.releaseAllCanvasFrames();
+            return true;
+        }
+        const signature = canvasReaderPageSignature();
+        const turned = signature !== this.canvasReaderSignature;
+        this.canvasReaderSignature = signature;
+        for (const canvas of [...this.canvasFrames.keys()]) {
+            if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
+        }
+        return true;
+    }
+
+    private registerCanvasReaderPageSignature(canvases: HTMLCanvasElement[]): string | null {
+        const signature = canvasReaderPageSignature();
+        if (signature === this.canvasReaderSignature) {
+            this.canvasReaderSamePageSignatureSkips = 0;
+            return signature;
+        }
+        // Continuous BookWalker mounts/reorders offscreen surfaces. Its aggregate
+        // signature is only a wake-up hint; stable per-canvas content owns frames.
+        if (canvases.some(canvasReaderHasStableSurface)) {
+            this.canvasReaderSamePageSignatureSkips = 0;
+            this.canvasReaderSignature = signature;
+            return signature;
+        }
+        if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
+            // A readable BookWalker canvas may expose a raw pixel signature here,
+            // while the landed frame still carries the recorder's canonical source
+            // token. If that per-canvas token moved, let reconciliation repair the
+            // counter-before-paint race; benign readable-pixel flicker has no mirror
+            // mismatch and continues through the stable-counter hold below.
+            if (canvases.some(canvas => this.canvasFrameNeedsResnapshot(canvas))) {
+                this.canvasReaderSamePageSignatureSkips = 0;
+                this.canvasReaderSignature = signature;
+                return signature;
+            }
+            this.scheduleReaderRasterRefresh(80);
+            return null;
+        }
+        this.canvasReaderSamePageSignatureSkips = 0;
+        this.releaseAllCanvasFrames();
+        this.canvasReaderSignature = signature;
+        return signature;
+    }
+
+    private refreshManualCanvasReaderFrames(canvases: HTMLCanvasElement[], settings: ReaderSettings): void {
+        for (const canvas of [...this.canvasFrames.keys()]) {
+            if (this.reconcileUserRequestedManualCanvasFrame(canvas)) continue;
+            if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
+            else if (this.canvasFrameNeedsResnapshot(canvas)) this.releaseCanvasFrameForResnapshot(canvas);
+        }
+        this.retryPendingUserRequestedCaptures(settings);
+    }
+
+    private reconcileCanvasReaderFrames(
+        canvases: HTMLCanvasElement[],
+        signature: string,
+        settings: ReaderSettings,
+        userRequested: boolean,
+    ): void {
         for (const canvas of [...this.canvasPendingStatuses.keys()]) {
-            if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+            if (canvases.includes(canvas)) continue;
+            if (isBookwalkerViewerHost()) this.cancelCanvasSnapshot(canvas);
+            this.removeCanvasPendingStatus(canvas);
         }
         for (const canvas of canvases) {
             if (this.canvasFrames.has(canvas)) continue;
@@ -1960,6 +2277,7 @@ export class ImageOcrController {
         }
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (canvases.includes(canvas)) continue;
+            if (this.reconcileUserRequestedManualCanvasFrame(canvas)) continue;
             if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
             // Don't drop a frame whose image is still loading — a transient off-screen
             // blip (layout shift right after capture, before the mirror image decodes)
@@ -1978,6 +2296,15 @@ export class ImageOcrController {
         if (this.canvasFrames.size || this.canvasPendingStatuses.size) this.schedulePosition();
     }
 
+    private reconcileUserRequestedManualCanvasFrame(canvas: HTMLCanvasElement): boolean {
+        if (!this.canvasFrameUserRequested.has(canvas) || !isManualCanvasReaderSurface(canvas)) return false;
+        // Per-surface manual canvases are deliberately absent from auto candidates.
+        // Keep the tapped frame through observer/poll refreshes, but never carry it
+        // onto changed pixels or auto-recapture the next page.
+        if (this.canvasFrameNeedsResnapshot(canvas)) this.releaseCanvasFrameForResnapshot(canvas);
+        return true;
+    }
+
     private async snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings, userRequested = false): Promise<void> {
         const key = canvasSurfaceSnapshotKey(canvas);
         const startContentToken = canvasStablePageContentToken(canvas);
@@ -1985,159 +2312,328 @@ export class ImageOcrController {
             if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
             this.releaseCanvasFrame(canvas);
         }
+        if (!userRequested
+            && (this.canvasCaptureAttempts.get(canvas) ?? 0) > READER_RASTER_MAX_CAPTURE_ATTEMPTS) {
+            // The pause belongs to the page that failed. A recycled canvas that now
+            // shows a DIFFERENT real content identity reopens capture; the same
+            // failing page stays paused until a tap or a page turn.
+            const liveToken = canvasStablePageContentToken(canvas);
+            const failedToken = this.canvasFailureContentTokens.get(canvas);
+            if (liveToken && failedToken && liveToken !== failedToken) {
+                this.clearCanvasCaptureRetry(canvas);
+            } else {
+                this.updateCanvasPendingStatus(canvas, canvas.getBoundingClientRect(), 'failed');
+                return;
+            }
+        }
         const existingPending = this.pendingCanvasSnapshots.get(canvas);
         if (existingPending?.key === key) {
             if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
-            this.pendingCanvasSnapshots.delete(canvas);
-            this.setCanvasCaptureFailed(canvas);
+            this.cancelCanvasSnapshot(canvas, existingPending);
+            this.handleCanvasCaptureNotReady(canvas, canvas.getBoundingClientRect(), userRequested);
+            return;
         }
-        const pendingSnapshot: PendingCanvasSnapshot = { key, startedAt: Date.now() };
+        if (existingPending) this.cancelCanvasSnapshot(canvas, existingPending);
+        const pendingSnapshot: PendingCanvasSnapshot = { key, startedAt: Date.now(), cancelled: false };
         this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
+        const rect = canvas.getBoundingClientRect();
         try {
-            const rect = canvas.getBoundingClientRect();
             if (rect.width * rect.height < settings.ocrMinImageArea) return;
             // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
             // never spend an OCR call on a page the reader hasn't painted yet.
             if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
             this.updateCanvasPendingStatus(canvas, rect, 'loading');
-            // A readable canvas is snapshotted directly. A tainted one can only fall
-            // back to a fetched source image on readers where that resource is the
-            // same page the user sees; BookWalker source assets may be scrambled, so
-            // those must wait for a readable rendered buffer/screenshot instead.
-            let frameSrc: string | undefined;
-            let frameRect = rect;
-            // Stable per-page OCR cache key. The captured data-URL changes every
-            // capture (re-encoded JPEG, re-rebuilt mirror), so keying the OCR cache on
-            // it re-OCRs a page each time it is revisited (turn forward then back).
-            // A content key — the page's rendered pixel hash, or its source image URL —
-            // is the same whenever the same page is shown, so the revisit hits the
-            // cache instead of calling Lens again.
-            let contentKey: string | undefined;
-            const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : undefined;
-            const captureRect = visibleRetryRect ?? rect;
-            const regionKey = visibleRetryRect
-                ? canvasRegionContentKey(rect, visibleRetryRect)
-                : '';
-            if (isCanvasReadable(canvas)) {
-                const contentSignature = canvasRenderedContentSignature(canvas);
-                if (!contentSignature) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
-                if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
-                frameSrc = visibleRetryRect
-                    ? captureCanvasRegionDataUrl(canvas, rect, visibleRetryRect, settings.ocrMaxImagePixels)
-                    : captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-                frameRect = captureRect;
-                contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}${regionKey}`;
-            } else if (isBookwalkerViewerHost()) {
-                // Firefox/iPad taint the DRM page canvas. Rebuild it from the engine's
-                // own descramble drawImage ops replayed against GM-fetched origin-clean
-                // source images (works in any userscript manager, including iPad). Fall
-                // back to the extension screenshot bridge when nothing was recorded
-                // (e.g. the Yomu extension, where the canvas is read directly anyway).
-                const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
-                const mirror = await captureMirror(canvas, loadCleanMirrorImage);
-                if (mirror) {
-                    frameSrc = visibleRetryRect
-                        ? captureCanvasRegionDataUrl(mirror, rect, visibleRetryRect, settings.ocrMaxImagePixels)
-                        : captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
-                    frameRect = captureRect;
-                    // The rebuilt mirror canvas is origin-clean, so its pixel hash is a
-                    // stable per-page key (the same page rebuilds to the same image).
-                    const mirrorSignature = canvasRenderedContentSignature(mirror);
-                    if (mirrorSignature) contentKey = `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}`;
-                } else {
-                    const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
-                    const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
-                    frameSrc = screenshot?.dataUrl;
-                    frameRect = screenshot?.rect ?? rect;
-                }
-            } else if (canUseReaderCanvasSourceImageFallback()) {
-                frameSrc = readerCanvasSourceImageUrl();
-                if (frameSrc) contentKey = `src:${frameSrc}`; // page image URL is stable per page
+            this.armCanvasSnapshotTimeout(canvas, pendingSnapshot, rect, userRequested);
+            const captured = await this.captureCanvasSnapshotSource(canvas, settings, rect, userRequested, startContentToken);
+            if (captured === null) return;
+            // A missing pending entry means the capture was canceled by a page turn,
+            // teardown, timeout, or surface removal. Never let that old async result
+            // commit into a recycled canvas; tap-mode recapture is already bounded and
+            // survives the cancellation separately.
+            if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+            if (!captured) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
+            // A stable surface id is not page identity: BookWalker deliberately
+            // recycles the same viewport canvas for the whole book. When neither
+            // mirror/source identity is available, hash the captured pixels instead
+            // of aliasing every page to `surface:${key}`.
+            const contentKey = captured.contentKey ?? (captured.frameSrc.startsWith('data:')
+                ? `raster:${stableHashBase36(captured.frameSrc)}`
+                : undefined);
+            this.commitCanvasSnapshot(canvas, pendingSnapshot, key, rect, { ...captured, contentKey }, userRequested);
+        } catch (error) {
+            if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) {
+                const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || 'unidentified';
+                log.warnOnce(`canvas-capture:${surface}`, 'Reader raster capture failed; retrying', { surface }, error);
+                this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
             }
-            // Drop the capture only if a NEWER snapshot superseded it. A missing entry
-            // means a page-turn release (releaseAllCanvasFrames on a signature change —
-            // e.g. the poll tick seeing the page this tap is FOR) deleted it as
-            // collateral while we awaited the mirror; the frame is still for the
-            // current page, and the token/key checks below catch genuine turns. In
-            // tap/manual mode nothing re-captures, so bailing here loses the tap.
-            if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
-            if (!frameSrc) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
-            contentKey ??= `surface:${key}`;
-            if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-            if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
-            // A pause can land while the mirror/screenshot capture was awaiting;
-            // appending now would paint an overlay on a paused page.
-            if (!ocrRuntimeActive(this.options.getSettings())) return;
-            const finishContentToken = canvasStablePageContentToken(canvas);
-            if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
-                this.scheduleReaderRasterRefresh(40);
-                return;
-            }
-            if (canvasSurfaceSnapshotKey(canvas) !== key) {
-                // BookWalker can repaint the same canvas while a mirror/screenshot
-                // capture from the previous page is still resolving. Never append
-                // that stale frame over the new page; schedule a fresh capture for
-                // the current signature instead.
-                this.scheduleReaderRasterRefresh(40);
-                return;
-            }
-            const frame = document.createElement('img');
-            frame.className = 'jpdb-ocr-canvas-frame';
-            frame.dataset.yomuCanvasFrame = 'true';
-            // Set before the load → enqueue so the OCR cache keys by stable content.
-            if (contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(contentKey, canvas);
-            frame.alt = '';
-            positionCanvasFrameImage(frame, frameRect);
-            frame.addEventListener('load', () => {
-                if (this.canvasFrames.get(canvas) === frame) {
-                    this.removeCanvasPendingStatus(canvas);
-                    this.enqueue(frame, userRequested);
-                }
-            }, { once: true });
-            document.body.append(frame);
-            this.canvasFrames.set(canvas, frame);
-            this.canvasFrameSources.set(frame, canvas);
-            this.canvasFrameCaptureRects.set(frame, frameRect);
-            this.canvasFrameKeys.set(canvas, key);
-            const capturedContentToken = finishContentToken || startContentToken;
-            if (capturedContentToken) this.canvasFrameContentTokens.set(canvas, capturedContentToken);
-            else this.canvasFrameContentTokens.delete(canvas);
-            if (frameRect !== rect) {
-                this.canvasFrameStaticRects.set(frame, frameRect);
-                this.canvasFrameRegionFractions.set(frame, new DOMRect(
-                    (frameRect.left - rect.left) / rect.width,
-                    (frameRect.top - rect.top) / rect.height,
-                    frameRect.width / rect.width,
-                    frameRect.height / rect.height,
-                ));
-            }
-            if (userRequested) this.canvasFrameUserRequested.add(canvas);
-            else this.canvasFrameUserRequested.delete(canvas);
-            this.updateOcrStatus(frame, 'loading');
-            frame.src = frameSrc;
-            this.clearCanvasCaptureRetry(canvas);
-            // Sync the page-turn signature to the state we just captured. A tap
-            // (userRequested) reaches snapshotCanvasSurface WITHOUT going through
-            // refreshCanvasReaderSurfaces, so canvasReaderSignature would still hold a
-            // pre-capture value; the next poll would then see a "change" and release
-            // this fresh frame. Recording it here keeps the tapped/auto frame alive
-            // until the page genuinely turns.
-            this.canvasReaderSignature = canvasReaderPageSignature();
-            this.canvasReaderSamePageSignatureSkips = 0;
-            this.schedulePosition();
         } finally {
-            if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
+            this.settleCanvasSnapshot(canvas, pendingSnapshot);
         }
+    }
+
+    private async captureCanvasSnapshotSource(
+        canvas: HTMLCanvasElement,
+        settings: ReaderSettings,
+        rect: DOMRect,
+        userRequested: boolean,
+        startContentToken: string | undefined,
+    ): Promise<CanvasSnapshotCapture | null | undefined> {
+        const visibleRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : undefined;
+        const frameRect = visibleRect ?? rect;
+        const regionKey = visibleRect ? canvasRegionContentKey(rect, visibleRect) : '';
+        if (isCanvasReadable(canvas)) {
+            return this.captureReadableCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, userRequested, startContentToken);
+        }
+        if (isBookwalkerViewerHost()) {
+            return this.captureBookwalkerCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, startContentToken);
+        }
+        if (!canUseReaderCanvasSourceImageFallback()) return undefined;
+        const frameSrc = readerCanvasSourceImageUrl();
+        return frameSrc ? { frameSrc, frameRect, contentKey: `src:${frameSrc}`, contentToken: startContentToken } : undefined;
+    }
+
+    private captureReadableCanvasSnapshot(
+        canvas: HTMLCanvasElement,
+        settings: ReaderSettings,
+        rect: DOMRect,
+        frameRect: DOMRect,
+        visibleRect: DOMRect | undefined,
+        regionKey: string,
+        userRequested: boolean,
+        contentToken: string | undefined,
+    ): CanvasSnapshotCapture | null | undefined {
+        const contentSignature = canvasRenderedContentSignature(canvas);
+        if (!contentSignature) {
+            this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
+            return null;
+        }
+        if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return null;
+        const frameSrc = visibleRect
+            ? captureCanvasRegionDataUrl(canvas, rect, visibleRect, settings.ocrMaxImagePixels)
+            : captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+        return frameSrc ? {
+            frameSrc,
+            frameRect,
+            contentKey: bookwalkerCanvasContentKey(contentToken, regionKey)
+                ?? `cv:${contentSignature}:${canvas.width}x${canvas.height}${regionKey}`,
+            contentToken,
+        } : undefined;
+    }
+
+    private async captureBookwalkerCanvasSnapshot(
+        canvas: HTMLCanvasElement,
+        settings: ReaderSettings,
+        rect: DOMRect,
+        frameRect: DOMRect,
+        visibleRect: DOMRect | undefined,
+        regionKey: string,
+        startContentToken: string | undefined,
+    ): Promise<CanvasSnapshotCapture | undefined> {
+        // Firefox/iPad taint the DRM page canvas. Rebuild the viewer's recorded
+        // draw graph with origin-clean assets, then use the extension screenshot
+        // bridge only when no recorder graph is available.
+        const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
+        const mirror = await captureMirror(canvas, loadCleanMirrorImage);
+        if (!mirror) {
+            const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+            const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+            return screenshot?.dataUrl ? {
+                frameSrc: screenshot.dataUrl,
+                frameRect: screenshot.rect ?? rect,
+                contentKey: bookwalkerCanvasContentKey(startContentToken, regionKey),
+                contentToken: startContentToken,
+            } : undefined;
+        }
+        const frameSrc = visibleRect
+            ? captureCanvasRegionDataUrl(mirror, rect, visibleRect, settings.ocrMaxImagePixels)
+            : captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+        if (!frameSrc) return undefined;
+        const mirrorSignature = canvasRenderedContentSignature(mirror);
+        const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
+        return {
+            frameSrc,
+            frameRect,
+            contentKey: bookwalkerCanvasContentKey(contentToken, regionKey)
+                ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : undefined),
+            contentToken,
+        };
+    }
+
+    private commitCanvasSnapshot(
+        canvas: HTMLCanvasElement,
+        pendingSnapshot: PendingCanvasSnapshot,
+        key: string,
+        canvasRect: DOMRect,
+        captured: CanvasSnapshotCapture,
+        userRequested: boolean,
+    ): void {
+        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+        if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+        // A pause can land while the mirror/screenshot capture was awaiting;
+        // appending now would paint an overlay on a paused page.
+        if (!ocrRuntimeActive(this.options.getSettings())) return;
+        const finishContentToken = canvasStablePageContentToken(canvas);
+        if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
+            this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, 'content identity');
+            return;
+        }
+        if (canvasSurfaceSnapshotKey(canvas) !== key) {
+            this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, 'surface identity');
+            return;
+        }
+        const frame = document.createElement('img');
+        frame.className = 'jpdb-ocr-canvas-frame';
+        frame.dataset.yomuCanvasFrame = 'true';
+        if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
+        frame.alt = '';
+        positionCanvasFrameImage(frame, captured.frameRect);
+        const finishFrameLoad = (loaded: boolean) => {
+            if (this.canvasFrames.get(canvas) !== frame) return;
+            const timer = this.canvasFrameLoadTimers.get(frame);
+            if (timer) window.clearTimeout(timer);
+            this.canvasFrameLoadTimers.delete(frame);
+            if (loaded) {
+                this.removeCanvasPendingStatus(canvas);
+                this.clearCanvasCaptureRetry(canvas);
+                this.canvasCommitMismatches.delete(canvas);
+                this.enqueue(frame, userRequested);
+                return;
+            }
+            this.discardUnloadedCanvasFrame(canvas, frame);
+            this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested);
+        };
+        frame.addEventListener('load', () => finishFrameLoad(true), { once: true });
+        frame.addEventListener('error', () => finishFrameLoad(false), { once: true });
+        document.body.append(frame);
+        this.canvasFrames.set(canvas, frame);
+        this.canvasFrameSources.set(frame, canvas);
+        this.canvasFrameKeys.set(canvas, key);
+        const committedContentToken = captured.contentToken || finishContentToken;
+        if (committedContentToken) this.canvasFrameContentTokens.set(canvas, committedContentToken);
+        else this.canvasFrameContentTokens.delete(canvas);
+        frame.dataset.ocrAttemptKey = canvasFrameOcrAttemptKey(canvas, key, committedContentToken);
+        this.rememberCanvasSnapshotRegion(frame, canvasRect, captured.frameRect);
+        if (userRequested) this.canvasFrameUserRequested.add(canvas);
+        else this.canvasFrameUserRequested.delete(canvas);
+        this.canvasFrameLoadTimers.set(frame, window.setTimeout(
+            () => finishFrameLoad(false),
+            READER_RASTER_FRAME_LOAD_TIMEOUT_MS,
+        ));
+        frame.src = captured.frameSrc;
+        this.canvasReaderSignature = canvasReaderPageSignature();
+        this.canvasReaderSamePageSignatureSkips = 0;
+        this.schedulePosition();
+    }
+
+    private handleCanvasCommitMismatch(
+        canvas: HTMLCanvasElement,
+        rect: DOMRect,
+        userRequested: boolean,
+        reason: string,
+    ): void {
+        const mismatches = (this.canvasCommitMismatches.get(canvas) ?? 0) + 1;
+        this.canvasCommitMismatches.set(canvas, mismatches);
+        if (mismatches < READER_RASTER_MAX_COMMIT_MISMATCHES) {
+            if (userRequested) this.scheduleCanvasCaptureRetry(canvas, true);
+            else this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS * mismatches);
+            return;
+        }
+        this.canvasCommitMismatches.delete(canvas);
+        this.canvasCaptureAttempts.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS + 1);
+        this.canvasTapRecapture.delete(canvas);
+        this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
+        const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || 'unidentified';
+        log.warnOnce(
+            `canvas-commit-mismatch:${surface}:${reason}`,
+            `Reader raster capture repeatedly changed ${reason}; automatic retries paused`,
+            { surface, userRequested },
+        );
+        this.updateCanvasPendingStatus(canvas, rect, 'failed');
+    }
+
+    private rememberCanvasSnapshotRegion(frame: HTMLImageElement, canvasRect: DOMRect, frameRect: DOMRect): void {
+        if (frameRect === canvasRect) return;
+        this.canvasFrameStaticRects.set(frame, frameRect);
+        this.canvasFrameRegionFractions.set(frame, new DOMRect(
+            (frameRect.left - canvasRect.left) / canvasRect.width,
+            (frameRect.top - canvasRect.top) / canvasRect.height,
+            frameRect.width / canvasRect.width,
+            frameRect.height / canvasRect.height,
+        ));
     }
 
     private wasCanvasSnapshotSuperseded(canvas: HTMLCanvasElement, pendingSnapshot: PendingCanvasSnapshot): boolean {
         const current = this.pendingCanvasSnapshots.get(canvas);
-        return Boolean(current && current !== pendingSnapshot);
+        return pendingSnapshot.cancelled || Boolean(current && current !== pendingSnapshot);
+    }
+
+    private armCanvasSnapshotTimeout(
+        canvas: HTMLCanvasElement,
+        pending: PendingCanvasSnapshot,
+        rect: DOMRect,
+        userRequested: boolean,
+    ): void {
+        pending.timeoutId = window.setTimeout(() => {
+            if (this.pendingCanvasSnapshots.get(canvas) !== pending || pending.cancelled) return;
+            this.cancelCanvasSnapshot(canvas, pending);
+            this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
+        }, READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS);
+    }
+
+    private settleCanvasSnapshot(canvas: HTMLCanvasElement, pending: PendingCanvasSnapshot): void {
+        if (pending.timeoutId) window.clearTimeout(pending.timeoutId);
+        pending.timeoutId = undefined;
+        if (this.pendingCanvasSnapshots.get(canvas) === pending) this.pendingCanvasSnapshots.delete(canvas);
+    }
+
+    private cancelCanvasSnapshot(canvas: HTMLCanvasElement, pending = this.pendingCanvasSnapshots.get(canvas)): void {
+        if (!pending) return;
+        pending.cancelled = true;
+        if (pending.timeoutId) window.clearTimeout(pending.timeoutId);
+        pending.timeoutId = undefined;
+        if (this.pendingCanvasSnapshots.get(canvas) === pending) this.pendingCanvasSnapshots.delete(canvas);
+    }
+
+    private discardUnloadedCanvasFrame(canvas: HTMLCanvasElement, frame: HTMLImageElement): void {
+        if (this.canvasFrames.get(canvas) !== frame) return;
+        const timer = this.canvasFrameLoadTimers.get(frame);
+        if (timer) window.clearTimeout(timer);
+        this.canvasFrameLoadTimers.delete(frame);
+        this.canvasFrames.delete(canvas);
+        this.canvasFrameSources.delete(frame);
+        this.canvasFrameStaticRects.delete(frame);
+        this.canvasFrameRegionFractions.delete(frame);
+        this.canvasFrameKeys.delete(canvas);
+        this.canvasFrameContentTokens.delete(canvas);
+        this.canvasFrameUserRequested.delete(canvas);
+        this.removeImageStatusCard(frame);
+        frame.remove();
+    }
+
+    private shouldDiscardCanvasSnapshot(
+        canvas: HTMLCanvasElement,
+        pendingSnapshot: PendingCanvasSnapshot,
+        userRequested: boolean,
+    ): boolean {
+        if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return false;
+        // Signature registration/page cleanup may cancel an async tap capture before
+        // the mirror fetch resolves. The pixels remain canceled, but carry the tap's
+        // intent into the existing bounded recapture window so one tap is sufficient.
+        if (userRequested && canvas.isConnected && !this.canvasFrames.has(canvas)) {
+            this.scheduleCanvasCaptureRetry(canvas, true);
+        }
+        return true;
     }
 
     private shouldHoldCanvasFramesForSamePageSignature(signature: string): boolean {
         if (!this.canvasReaderSignature) return false;
         if (!this.canvasFrames.size) return false;
+        // BookWalker moves its counter/currentScreen before the replacement pixels
+        // land. A capture in that gap can have the new counter but the previous page's
+        // real mirror token, so a later real-token change must beat the otherwise
+        // stable counter and repair the stale frame. Empty/epoch-only churn still
+        // falls through to the counter hold below.
+        if (hasDifferentRecordedCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
         if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
         if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
         // A genuine page turn replaces the per-canvas CONTENT fingerprint with a
@@ -2145,7 +2641,6 @@ export class ImageOcrController {
         // counter lags. Scroll offset and global mirror-epoch churn are NOT real
         // content changes — holding through them is what stops within-page scroll on a
         // single vertical viewport (BookWalker cty=2) from tearing the overlay down.
-        if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
         if (hasSameRealCanvasReaderContent(this.canvasReaderSignature, signature)) return true;
         if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
         // No usable page counter and no real content token: the global mirror epoch is
@@ -2177,6 +2672,8 @@ export class ImageOcrController {
 
         this.removeCanvasPendingStatus(previousCanvas);
         this.removeCanvasPendingStatus(canvas);
+        this.cancelCanvasSnapshot(previousCanvas);
+        this.cancelCanvasSnapshot(canvas);
         this.canvasFrames.delete(previousCanvas);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
@@ -2186,7 +2683,6 @@ export class ImageOcrController {
         this.canvasFrameContentTokens.delete(previousCanvas);
         if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
         else this.canvasFrameContentTokens.delete(canvas);
-        this.canvasFrameCaptureRects.set(frame, rect);
         this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
         this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
         this.canvasCaptureAttempts.delete(previousCanvas);
@@ -2243,9 +2739,9 @@ export class ImageOcrController {
 
     // A canvas capture failed (engine hasn't painted / mirror has no ops yet).
     // Retry with exponential backoff so the page OCRs as soon as it's ready instead
-    // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
-    // poll keeps trying and a tap force-rescans, so the page is never permanently
-    // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
+    // of waiting for the next 1200ms poll. After the cap automatic retries pause on
+    // a tappable status. A real turn (releaseAllCanvasFrames), success, or explicit
+    // tap resets the counter and reopens capture.
     // A user-requested (tapped) capture opens a bounded recapture WINDOW so the retry
     // re-attempts AS a tap — in tap/manual mode the poll itself never captures, so
     // without this a failed tap is dropped and the page never OCRs until the user taps
@@ -2254,8 +2750,33 @@ export class ImageOcrController {
     // turn) and is bounded by its own attempt count, so it can never become permanent
     // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
     private handleCanvasCaptureNotReady(canvas: HTMLCanvasElement, rect: DOMRect, userRequested: boolean): void {
+        if (this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
         if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
+        this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
         this.updateCanvasPendingStatus(canvas, rect, 'failed');
+    }
+
+    private deferAutomaticCaptureForBookwalkerRecorder(
+        canvas: HTMLCanvasElement,
+        rect: DOMRect,
+        userRequested: boolean,
+    ): boolean {
+        if (userRequested || !isBookwalkerViewerHost()) return false;
+        if (canvasMirrorContentToken(canvas)) {
+            if (this.canvasMirrorWaitStartedAt.delete(canvas)) this.canvasCaptureAttempts.delete(canvas);
+            return false;
+        }
+        const startedAt = this.canvasMirrorWaitStartedAt.get(canvas) ?? Date.now();
+        this.canvasMirrorWaitStartedAt.set(canvas, startedAt);
+        if (Date.now() - startedAt >= BOOKWALKER_RECORDER_BOOT_GRACE_MS) return false;
+        // Keep one cheap retry per poll while BookWalker's document-start recorder
+        // is still empty. The ordinary exponential budget is for genuine capture
+        // failures after a page identity exists, not for viewer boot.
+        this.canvasCaptureAttempts.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
+        this.updateCanvasPendingStatus(canvas, rect, 'loading');
+        // The existing 1200 ms reader-raster poll owns the next check. Scheduling
+        // another timer here doubles mirror capture work and makes scrolling stutter.
+        return true;
     }
 
     private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement, userRequested = false): boolean {
@@ -2294,6 +2815,9 @@ export class ImageOcrController {
 
     private clearCanvasCaptureRetry(canvas: HTMLCanvasElement): void {
         this.canvasCaptureAttempts.delete(canvas);
+        this.canvasMirrorWaitStartedAt.delete(canvas);
+        this.canvasCommitMismatches.delete(canvas);
+        this.canvasFailureContentTokens.delete(canvas);
         this.canvasTapRecapture.delete(canvas);
     }
 
@@ -2305,9 +2829,6 @@ export class ImageOcrController {
         card.classList.add('jpdb-ocr-canvas-status');
         this.configureCanvasPendingStatusRetry(card);
         this.updateReaderRasterRetryLabel(card, status);
-        const contentToken = canvasStablePageContentToken(canvas);
-        if (contentToken) this.canvasPendingStatusContentTokens.set(canvas, contentToken);
-        else this.canvasPendingStatusContentTokens.delete(canvas);
         const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
         if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
         card.hidden = false;
@@ -2315,20 +2836,12 @@ export class ImageOcrController {
         positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
     }
 
-    private setCanvasCaptureFailed(canvas: HTMLCanvasElement): void {
-        const rect = canvas.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        this.updateCanvasPendingStatus(canvas, rect, 'failed');
-    }
-
     private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
         const card = this.canvasPendingStatuses.get(canvas);
-        this.pendingCanvasSnapshots.delete(canvas);
         if (!card) return;
         removeOcrArtifact(card);
         this.canvasPendingStatuses.delete(canvas);
         this.canvasPendingStatusKeys.delete(canvas);
-        this.canvasPendingStatusContentTokens.delete(canvas);
     }
 
     private isTerminalCanvasPendingStatus(card: HTMLElement): boolean {
@@ -2358,7 +2871,7 @@ export class ImageOcrController {
     private retryCanvasPendingStatusCard(card: HTMLElement): void {
         const canvas = [...this.canvasPendingStatuses].find(([, candidate]) => candidate === card)?.[0];
         if (!canvas) return;
-        this.pendingCanvasSnapshots.delete(canvas);
+        this.cancelCanvasSnapshot(canvas);
         this.removeCanvasPendingStatus(canvas);
         this.clearCanvasCaptureRetry(canvas);
         void this.snapshotCanvasSurface(canvas, this.options.getSettings(), true);
@@ -2366,20 +2879,26 @@ export class ImageOcrController {
 
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
         const frame = this.canvasFrames.get(canvas);
+        this.cancelCanvasSnapshot(canvas);
         this.removeCanvasPendingStatus(canvas);
         if (!frame) return;
+        const loadTimer = this.canvasFrameLoadTimers.get(frame);
+        if (loadTimer) window.clearTimeout(loadTimer);
+        this.canvasFrameLoadTimers.delete(frame);
         this.canvasFrames.delete(canvas);
         const state = this.states.get(frame);
         if (state) this.releaseImageState(frame, state);
         else this.forgetImageWork(frame);
         this.canvasFrameSources.delete(frame);
-        this.canvasFrameCaptureRects.delete(frame);
         this.canvasFrameStaticRects.delete(frame);
         this.canvasFrameRegionFractions.delete(frame);
         this.canvasFrameKeys.delete(canvas);
         this.canvasFrameContentTokens.delete(canvas);
         this.canvasContentReadiness.delete(canvasContentReadinessKey(canvas));
         this.canvasCaptureAttempts.delete(canvas);
+        this.canvasMirrorWaitStartedAt.delete(canvas);
+        this.canvasCommitMismatches.delete(canvas);
+        this.canvasFailureContentTokens.delete(canvas);
         this.canvasTapRecapture.delete(canvas);
         this.canvasFrameUserRequested.delete(canvas);
         frame.remove();
@@ -2387,11 +2906,17 @@ export class ImageOcrController {
 
     private releaseAllCanvasFrames(): void {
         for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
-        for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
+        for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+            this.cancelCanvasSnapshot(canvas);
+            this.removeCanvasPendingStatus(canvas);
+        }
         // NFBR reuses the same canvas object across turns; a stale readiness entry
         // (or capture-attempt count) would carry into the next page, so clear both.
         this.canvasContentReadiness.clear();
         this.canvasCaptureAttempts.clear();
+        this.canvasMirrorWaitStartedAt.clear();
+        this.canvasCommitMismatches.clear();
+        this.canvasFailureContentTokens.clear();
         // NOTE: canvasTapRecapture is deliberately NOT cleared here. A turn is detected
         // by a page-signature change, but so is a late repaint / the poll first seeing
         // the just-composited page — clearing the tap window on either would drop a tap
@@ -2404,17 +2929,14 @@ export class ImageOcrController {
     private positionCanvasFrames(): void {
         for (const [canvas, status] of [...this.canvasPendingStatuses]) {
             if (!canvas.isConnected) {
+                this.cancelCanvasSnapshot(canvas);
                 this.removeCanvasPendingStatus(canvas);
                 continue;
             }
             const key = this.canvasPendingStatusKeys.get(canvas);
             if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
+                this.cancelCanvasSnapshot(canvas);
                 this.removeCanvasPendingStatus(canvas);
-                continue;
-            }
-            if (this.canvasContentTokenChanged(canvas, this.canvasPendingStatusContentTokens.get(canvas))) {
-                this.removeCanvasPendingStatus(canvas);
-                this.scheduleReaderRasterRefresh(40);
                 continue;
             }
             const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
@@ -2442,16 +2964,15 @@ export class ImageOcrController {
                 this.scheduleReaderRasterRefresh(40);
                 continue;
             }
-            if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) {
-                this.releaseCanvasFrame(canvas);
-                this.scheduleReaderRasterRefresh(40);
-                continue;
-            }
+            // Content identity is checked by the debounced raster refresh. The rAF
+            // scroll path only repositions artifacts; sampling/pulling mirror state
+            // here made continuous scrolling stutter and could tear down a ready
+            // frame mid-gesture.
             const staticRect = this.canvasFrameStaticRects.get(frame);
             if (staticRect) {
                 const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
                 if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
-                    if (this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
+                    if (this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
                         this.releaseCanvasFrameForResnapshot(canvas);
                         this.scheduleReaderRasterRefresh(40);
                         continue;
@@ -2460,15 +2981,11 @@ export class ImageOcrController {
                 positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
                 continue;
             }
-            if (this.canvasFrameSizeChanged(frame, rect)) {
-                if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
-                    positionCanvasFrameImage(frame, rect);
-                    continue;
-                }
-                this.releaseCanvasFrameForResnapshot(canvas);
-                this.scheduleReaderRasterRefresh(40);
-                continue;
-            }
+            // A CSS-only zoom/reflow does not invalidate a complete OCR map. Reader
+            // overlays use proportional provider coordinates, so resizing both the
+            // canvas and frame in place preserves alignment without another mirror
+            // capture or OCR request. Intrinsic bitmap and page-content changes are
+            // still rejected above through the snapshot key/content token.
             positionCanvasFrameImage(frame, rect);
         }
     }
@@ -2490,29 +3007,20 @@ export class ImageOcrController {
             const canvasRect = canvas.getBoundingClientRect();
             const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
             return Boolean(this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect)
-                && this.shouldRecaptureReaderRasterFrameForSizeChange(frame));
+                && this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame));
         }
-        const rect = canvas.getBoundingClientRect();
-        return this.canvasFrameSizeChanged(frame, rect)
-            && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
+        return false;
     }
 
-    private shouldRecaptureReaderRasterFrameForSizeChange(frame: HTMLImageElement): boolean {
+    private shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame: HTMLImageElement): boolean {
         if (!this.isReaderRasterFrame(frame)) return false;
         const status = this.imageStatuses.get(frame)?.dataset.status;
-        // Reusing a ready BookWalker OCR map after the viewer zooms/reflows the
-        // canvas stretches the old coordinate space over a new rendered page, which
-        // shows up as vertical hover drift. Terminal/no-text frames and in-flight
-        // captures are kept to avoid retry loops from harmless layout jitter. Use
-        // the parsed result as the durable signal: the status pill can be removed
-        // or replaced independently from the OCR layer, but a frame with lines is
-        // still a ready coordinate map that must not be stretched after reflow.
+        // A manual retry may OCR only the visible crop of a tall canvas. If that crop
+        // changes, its pixels no longer represent the newly visible source region and
+        // must be rebuilt. Full-page frames never enter this branch and can scale in
+        // place. Use the parsed result as the durable signal because the status pill
+        // can be removed independently from the OCR layer.
         return status === 'ready' || Boolean(this.states.get(frame)?.result?.lines.length);
-    }
-
-    private canvasFrameSizeChanged(frame: HTMLImageElement, rect: DOMRect): boolean {
-        const captured = this.canvasFrameCaptureRects.get(frame);
-        return Boolean(captured && this.canvasFrameRectSizeChanged(captured, rect));
     }
 
     private canvasFrameRectSizeChanged(captured: DOMRect, current: DOMRect): boolean {
@@ -2572,6 +3080,13 @@ export class ImageOcrController {
     private refreshBackgroundImageReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off') return;
         if (!settings.ocrAutoScanImages && !userRequested) return;
+        // BookWalker's CSS/source assets are scrambled inputs to its page canvas,
+        // not alternate readable pages. Sending them to OCR duplicates the mirror
+        // request, adds substantial scroll work, and can flash a false failure.
+        if (isBookwalkerViewerHost()) {
+            this.releaseAllBackgroundFrames();
+            return;
+        }
         if (this.options.shouldAutoScan?.() === false && !userRequested) {
             this.releaseAllBackgroundFrames();
             return;
@@ -2581,7 +3096,15 @@ export class ImageOcrController {
             return;
         }
         this.startReaderRasterPollingIfNeeded();
-        const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested);
+        // Some readers expose the same painted page twice: a canvas used for display
+        // plus its raw CSS/source image underneath. OCRing both wastes a provider
+        // request and, on scrambled readers such as BookWalker, lets the unusable raw
+        // asset flash "Could not read text" while the reconstructed canvas succeeds.
+        // Prefer the canvas only when the two representations visibly overlap; true
+        // background-only readers and distinct neighbouring pages remain untouched.
+        const canvasSurfaces = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested)
+            .filter(surface => !canvasSurfaces.some(canvas => readerRasterSurfacesOverlap(canvas, surface)));
         for (const surface of [...this.backgroundFrames.keys()]) {
             const key = this.backgroundFrameKeys.get(surface);
             if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
@@ -2647,15 +3170,17 @@ export class ImageOcrController {
     private retryReaderRasterImage(image: HTMLImageElement): void {
         const key = imageCacheKey(image);
         const state = this.states.get(image);
+        const emptyScanKey = state ? this.readerRasterEmptyScanKey(state, state.key) : image.dataset.ocrAttemptKey;
         if (state) this.forget(state.key);
         this.forget(key);
         this.readerRasterEmptyScans.delete(key);
         if (state) this.readerRasterEmptyScans.delete(state.key);
+        if (emptyScanKey) this.readerRasterEmptyScans.delete(emptyScanKey);
         this.readerRasterFailedScans.delete(key);
         if (state) this.readerRasterFailedScans.delete(state.key);
+        this.clearReaderRasterProviderRetry(key);
+        if (state && state.key !== key) this.clearReaderRasterProviderRetry(state.key);
         this.queue = this.queue.filter(queued => queued !== image);
-        this.inFlightKeys.delete(key);
-        if (state) this.inFlightKeys.delete(state.key);
         const settings = this.options.getSettings();
         const canvas = this.canvasFrameSources.get(image);
         if (canvas) {
@@ -2812,7 +3337,16 @@ export class ImageOcrController {
         const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-        const top = clampNumber(shouldCenterOcrText(element.dataset.ocrText ?? '', vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
+        // Expanded vertical columns must stay anchored to the OCR provider's box
+        // top. Centering a tall re-typeset column around a short source box shifts
+        // it upward (often all the way to the layer edge), while X remains correct.
+        // The max clamp still moves a near-bottom column only as far as necessary.
+        const targetTop = vertical
+            ? boxTop
+            : shouldCenterOcrText(element.dataset.ocrText ?? '')
+                ? centeredTop
+                : baselineAlignedTop;
+        const top = clampNumber(targetTop, minTop, maxTop);
 
         element.style.left = `${left}px`;
         element.style.top = `${top}px`;
@@ -2828,12 +3362,16 @@ export class ImageOcrController {
         this.releaseAllCanvasFrames();
         this.releaseAllBackgroundFrames();
         this.queue = [];
-        this.inFlightKeys.clear();
+        this.inFlightJobs.clear();
+        for (const timer of this.readerRasterProviderRetryTimers.values()) window.clearTimeout(timer);
+        this.readerRasterProviderRetryTimers.clear();
+        this.readerRasterProviderFailures.clear();
         for (const state of this.states.values()) {
             if (state.loadListener) state.image.removeEventListener('load', state.loadListener);
             removeOcrArtifact(state.overlay);
         }
         this.states.clear();
+        this.discardOcrLineInteractionState([...this.lookupLineLeases.keys()]);
         for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
         this.imageStatusTimers.clear();
         for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
@@ -2949,6 +3487,7 @@ export class ImageOcrController {
         if (state) {
             this.observer?.unobserve(image);
             if (state.loadListener) image.removeEventListener('load', state.loadListener);
+            this.discardOcrLineInteractionState(state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line'));
             removeOcrArtifact(state.overlay);
             this.states.delete(image);
         }
@@ -2968,8 +3507,8 @@ export class ImageOcrController {
 
     private forgetImageWork(image: HTMLImageElement, state?: ImageState): void {
         this.queue = this.queue.filter(queued => queued !== image);
-        this.inFlightKeys.delete(imageCacheKey(image));
-        if (state) this.inFlightKeys.delete(state.key);
+        this.cancelReaderRasterProviderRetryTimer(imageCacheKey(image));
+        if (state) this.cancelReaderRasterProviderRetryTimer(state.key);
         this.removeImageStatusCard(image);
     }
 
@@ -3262,6 +3801,17 @@ function createOcrLineElement(
     element.dataset.hasFuri = String(Boolean(textElement.querySelector('.jpdb-reader-has-furi')));
     setOcrLinePosition(element, result, line);
     return element;
+}
+
+function ocrRenderedLineIdentity(element: HTMLElement): string {
+    return JSON.stringify([
+        element.dataset.ocrText ?? '',
+        element.dataset.boxLeft ?? '',
+        element.dataset.boxTop ?? '',
+        element.dataset.boxWidth ?? '',
+        element.dataset.boxHeight ?? '',
+        element.dataset.vertical ?? '',
+    ]);
 }
 
 function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolean): void {
@@ -3565,8 +4115,8 @@ function visualTextLength(text: string): number {
     }, 0);
 }
 
-function shouldCenterOcrText(text: string, vertical: boolean): boolean {
-    return vertical || visualTextLength(text) <= 1.5;
+function shouldCenterOcrText(text: string): boolean {
+    return visualTextLength(text) <= 1.5;
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -4081,8 +4631,15 @@ function isIgnoredOcrImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest('[data-jpdb-reader-root]')
         || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]')
         || image.closest('[aria-hidden="true"], [hidden], .slick-cloned')
+        || isBookwalkerReaderSourceImage(image)
         || isBrandOrIconOcrImage(image)
         || isYouTubeThumbnailImage(image));
+}
+
+function isBookwalkerReaderSourceImage(image: HTMLImageElement): boolean {
+    // NFBR's loadingImage is the scrambled page source that the viewer composites
+    // into its canvas. OCR must consume Yomu's reconstructed canvas frame instead.
+    return isBookwalkerViewerHost() && image.classList.contains('loadingImage');
 }
 
 function isYouTubeThumbnailImage(image: HTMLImageElement): boolean {
@@ -4355,6 +4912,15 @@ function visibleElementViewportArea(element: Element): number {
     const right = Math.min(viewportWidth, rect.right);
     const bottom = Math.min(viewportHeight, rect.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function readerRasterSurfacesOverlap(first: Element, second: Element): boolean {
+    const a = first.getBoundingClientRect();
+    const b = second.getBoundingClientRect();
+    const intersection = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+        * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const smallerArea = Math.min(a.width * a.height, b.width * b.height);
+    return smallerArea > 0 && intersection / smallerArea >= 0.72;
 }
 
 function bookwalkerVisibleCanvasRegion(canvas: HTMLCanvasElement, rect: DOMRect): DOMRect | undefined {
@@ -4795,6 +5361,20 @@ function canvasFrameContentKey(contentKey: string, canvas: HTMLCanvasElement): s
     return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
 }
 
+function bookwalkerCanvasContentKey(contentToken: string | undefined, regionKey: string): string | undefined {
+    if (!isBookwalkerViewerHost() || !contentToken) return undefined;
+    // The mirror token is derived from the canonical source-image draw ops, so it
+    // is resolution-independent: BookWalker's zoom re-rasterizes the SAME page at
+    // a new intrinsic size. Embedding the raster dimensions here made every zoom
+    // step a fresh OCR cache miss (a new Lens call per click); the proportional
+    // OCR boxes fit any raster of the same page, so the page IS the key.
+    return `bw:${contentToken}${regionKey}`;
+}
+
+function canvasFrameOcrAttemptKey(canvas: HTMLCanvasElement, snapshotKey: string, contentToken: string | undefined): string {
+    return `canvas:${snapshotKey}|${contentToken || canvasStablePageContentToken(canvas)}`;
+}
+
 function isWideBookwalkerSpreadCanvas(canvas: HTMLCanvasElement): boolean {
     return isBookwalkerViewerHost()
         && !isBookwalkerContinuousScrollCanvas(canvas)
@@ -4870,11 +5450,18 @@ function isSameCanvasReaderPageLocation(previous: string, next: string): boolean
 // overlay down on cty=2 while still releasing immediately on real content swaps.
 // The content classification is owned by canvas-page-identity; this wrapper only
 // extracts the content field from the whole-reader signature string.
-function hasDifferentRealCanvasReaderContent(previous: string, next: string): boolean {
+function hasDifferentRecordedCanvasReaderContent(previous: string, next: string): boolean {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    return isRealCanvasContentChange(previousParts.content, nextParts.content);
+    return isRecordedCanvasReaderContent(previousParts.content)
+        && isRecordedCanvasReaderContent(nextParts.content)
+        && isRealCanvasContentChange(previousParts.content, nextParts.content);
+}
+
+function isRecordedCanvasReaderContent(content: string): boolean {
+    const tokens = content.split(',').filter(Boolean);
+    return tokens.length > 0 && tokens.every(token => token.startsWith('m:') || token.startsWith('o:'));
 }
 
 function hasSameRealCanvasReaderContent(previous: string, next: string): boolean {
@@ -5041,11 +5628,12 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
         timeout,
     }, response => response.response as ArrayBuffer, status => `Google Lens returned ${status}.`, 'Google Lens timed out.');
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url, {
+    return fetchWithTimeout(url, {
         method: 'POST',
         headers,
         body: body.buffer,
-    }).then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+    }, timeout, 'Google Lens timed out.')
+        .then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
 }
 
 function requestTextForm(url: string, data: FormData, timeout: number, headers?: Record<string, string>): Promise<string> {
@@ -5058,8 +5646,24 @@ function requestTextForm(url: string, data: FormData, timeout: number, headers?:
         timeout,
     }, response => String(response.responseText ?? response.response ?? ''), status => `Google Lens upload returned ${status}.`, 'Google Lens upload timed out.');
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url, { method: 'POST', body: data })
+    return fetchWithTimeout(url, { method: 'POST', body: data }, timeout, 'Google Lens upload timed out.')
         .then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+}
+
+function fetchWithTimeout(url: string, init: RequestInit, timeout: number, timeoutMessage: string): Promise<Response> {
+    if (!timeout) return fetch(url, init);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+    }, timeout);
+    return fetch(url, { ...init, signal: controller.signal })
+        .catch(error => {
+            if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
+            throw error;
+        })
+        .finally(() => window.clearTimeout(timeoutId));
 }
 
 function requestBlob(url: string, timeout = 0): Promise<Blob> {
@@ -5213,6 +5817,8 @@ const cleanMirrorImageCache = new Map<string, Promise<HTMLImageElement | undefin
 
 async function loadCleanMirrorImage(url: string): Promise<HTMLImageElement | undefined> {
     if (!url || url.startsWith('data:') || url.startsWith('blob:')) return undefined;
+    // Authorization query parameters rotate while the page image does not. Preserve
+    // content-bearing parameters but share the decoded bitmap across renewed tokens.
     const cacheKey = canonicalBookwalkerAssetUrl(url);
     const cached = cleanMirrorImageCache.get(cacheKey);
     if (cached) return cached;
@@ -5235,12 +5841,48 @@ async function loadCleanMirrorImage(url: string): Promise<HTMLImageElement | und
 }
 
 async function fetchCleanMirrorImage(url: string): Promise<HTMLImageElement | undefined> {
-    const blob = await requestBlob(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+    const resource = mirrorImageResourceLabel(url);
+    let blob: Blob;
+    try {
+        const resolvedUrl = await bookwalkerAssetResolver.resolve(url);
+        try {
+            blob = await requestBlob(resolvedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+        } catch (error) {
+            if (!isBookwalkerAuthorizationFailure(error)) throw error;
+            const refreshedUrl = await bookwalkerAssetResolver.refresh(url);
+            if (!refreshedUrl || refreshedUrl === resolvedUrl) throw error;
+            blob = await requestBlob(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+        }
+    } catch (error) {
+        log.warnOnce(`mirror-image-fetch:${resource}`, 'BookWalker mirror image fetch failed', { resource }, error);
+        throw error;
+    }
     const objectUrl = URL.createObjectURL(blob);
     try {
         return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+    } catch (error) {
+        log.warnOnce(
+            `mirror-image-decode:${resource}`,
+            'BookWalker mirror image decode failed',
+            { bytes: blob.size, resource, type: blob.type },
+            error,
+        );
+        throw error;
     } finally {
         URL.revokeObjectURL(objectUrl);
+    }
+}
+
+function isBookwalkerAuthorizationFailure(error: unknown): boolean {
+    return error instanceof Error && /Image fetch returned (401|403)\./.test(error.message);
+}
+
+function mirrorImageResourceLabel(url: string): string {
+    try {
+        const parsed = new URL(url, location.href);
+        return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+        return url.split(/[?#]/, 1)[0] ?? '';
     }
 }
 
@@ -5264,6 +5906,11 @@ function imageSummary(image: HTMLImageElement): Record<string, unknown> {
         width: image.naturalWidth || image.width,
         height: image.naturalHeight || image.height,
         altLength: image.alt?.length ?? 0,
+        frame: image.dataset.yomuCanvasFrame === 'true'
+            ? 'canvas'
+            : image.dataset.yomuBackgroundFrame === 'true' ? 'background' : 'inline',
+        className: image.className,
+        parentId: image.parentElement?.id || '',
     };
 }
 

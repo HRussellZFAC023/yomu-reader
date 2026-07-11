@@ -21651,7 +21651,7 @@ describe('reader helpers', () => {
 
             expect(down.defaultPrevented).toBe(false);
             expect(up.defaultPrevented).toBe(true);
-            expect(pinLineForElement).toHaveBeenCalledWith(word);
+            expect(pinLineForElement).not.toHaveBeenCalled();
             expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(up);
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
                 trigger: 'click',
