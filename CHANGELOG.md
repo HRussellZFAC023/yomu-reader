@@ -1,18 +1,18 @@
 # Changelog
 
-## [1.6.135] - 2026-07-11
-
-### Fixed
-
-- Pitch-accent marks and furigana now appear on Japanese text without selecting or clicking it when the local dictionary database is slow or blocked. Yomu moves on to its bounded public fallback after 500 ms, still tries the direct pitch source when exact vocabulary hydration misses, and retains local-first behavior once the local check finishes.
-
-## [1.6.134] - 2026-07-11
+## [1.6.136] - 2026-07-11
 
 ### Fixed
 
 - iPad annotations no longer shift or disappear in fixed-height controls, menus, compact card titles, and web components. Mirrored text now follows the page's own padding and vertical centring, and touch layouts use a stable non-ruby line instead of a sticky-hover swap that could clip or reflow the row.
 - Compact YouTube and Reddit titles keep their native wrapping and visible word annotations without overflowing their cards, including content inside open shadow roots.
 - Pitch-accent component diagrams are centred consistently in the lookup sheet.
+
+## [1.6.135] - 2026-07-11
+
+### Fixed
+
+- Pitch-accent marks and furigana now appear on Japanese text without selecting or clicking it when the local dictionary database is slow or blocked. Yomu moves on to its bounded public fallback after 500 ms, still tries the direct pitch source when exact vocabulary hydration misses, and retains local-first behavior once the local check finishes.
 
 ## [1.6.133] - 2026-07-11
 
