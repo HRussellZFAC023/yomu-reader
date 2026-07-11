@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.133] - 2026-07-11
+
+### Changed
+
+- The word lookup popup now lists Yomu first in its row of dictionary links, before Jiten, JPDB, and Bunpro. If you never re-ordered these pills yourself they follow the new order automatically, and a custom order you set is kept.
+- The support status banner now explains that the monthly goal keeps fast audio playback and shadowing running, instead of warning that Ultimate Audio will switch off next month.
+
+### Fixed
+
+- The Jiten frequency number and Jiten dictionary entry now load reliably in the word lookup popup, including on a slow connection: a slow Jiten reply is no longer thrown away, so the Jiten reading, meanings, and rank fill in once they arrive instead of leaving the Jiten pill blank.
+
 ## [1.6.132] - 2026-07-11
 
 ### Fixed

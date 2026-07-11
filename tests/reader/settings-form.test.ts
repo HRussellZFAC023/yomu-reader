@@ -857,7 +857,7 @@ describe('settings form localization', () => {
 
     it('normalizes saved lookup links so Jiten stays before JPDB', () => {
         const defaultIds = normalizeReaderSettings({}).dictionaryLookupLinks.map(link => link.id);
-        expect(defaultIds.slice(0, 5)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
+        expect(defaultIds.slice(0, 5)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
 
         const defaultLinks = new Map(DEFAULT_SETTINGS.dictionaryLookupLinks.map(link => [link.id, link]));
         const staleJpdbFirstOrder = [
@@ -879,8 +879,16 @@ describe('settings form localization', () => {
                 ? { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: false }
                 : { ...defaultLinks.get(id)! }),
         });
-        expect(migrated.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
+        expect(migrated.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
         expect(migrated.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
+
+        // Users still on the previous jiten-first default (with the merged
+        // frequency pills) are re-ordered to the new Yomu-first default.
+        const priorDefaultOrder = ['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search', 'bunpro', 'jisho', 'weblio', 'kotobank', 'takoboto', 'wiktionary-ja', 'immersion-kit', 'uchisen', 'copy'];
+        const migratedFromPriorDefault = normalizeReaderSettings({
+            dictionaryLookupLinks: priorDefaultOrder.map(id => ({ ...defaultLinks.get(id)! })),
+        });
+        expect(migratedFromPriorDefault.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
 
         const custom = normalizeReaderSettings({
             dictionaryLookupLinks: [

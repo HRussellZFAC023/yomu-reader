@@ -30,7 +30,7 @@ Donations are optional. They help cover testing devices, hosting, API usage, mai
 
 ## Service Budget
 
-The donation goal follows current monthly running costs with a **£10/month floor**. If the monthly goal is not met, **Ultimate Audio** will switch off for the next month. Ultimate Audio provides fast real-audio playback for words and shadowing practice. Reading, dictionaries you keep on your device, study, and card mining stay free.
+The donation goal follows current monthly running costs with a **£10/month floor**. The goal is needed for **Ultimate Audio** — fast real-audio playback for words and shadowing practice. Reading, dictionaries you keep on your device, study, and card mining stay free.
 
 Supporters may be thanked in additional ways as よむ grows.
 

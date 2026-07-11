@@ -59,6 +59,7 @@ export interface CardRenderDataLoad {
     hydrateAnkiLookup?: () => Promise<AnkiLookupResult>;
     jpdbVocabularyInfo?: Promise<JpdbVocabularyInfo | null>;
     jitenVocabularyInfo?: Promise<JitenVocabularyInfo | null>;
+    hydrateJitenVocabularyInfo?: () => Promise<JitenVocabularyInfo | null>;
     bunproDefinitionInfo?: Promise<BunproDefinitionInfo | null>;
     hydrateBunproDefinitionInfo?: () => Promise<BunproDefinitionInfo | null>;
     all: Promise<CardRenderData>;
@@ -159,7 +160,8 @@ export class CardRenderDataLoader {
         };
         const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
         const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-        const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+        const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
+        const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', jitenVocabularyLookup, null as JitenVocabularyInfo | null);
         const bunproDefinitionLookup = options.includeBunproDefinition === false
             ? Promise.resolve(null)
             : this.lookupBunproDefinitionInfo(card);
@@ -199,6 +201,7 @@ export class CardRenderDataLoader {
             hydrateAnkiLookup,
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
+            hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
             bunproDefinitionInfo,
             hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
             all,
@@ -273,16 +276,22 @@ export class CardRenderDataLoader {
         }), null as JpdbVocabularyInfo | null);
     }
 
+    // The raw (uncapped) Jiten lookup. A non-Jiten-backed card needs two or three
+    // sequential round trips (search → info → examples); over a slow link or the
+    // hosted proxy that easily exceeds the render timeout. The caller caps this for
+    // the initial full render but ALSO keeps the uncapped promise so a slow result
+    // still hydrates the popover instead of being discarded (which left the Jiten
+    // frequency pill blank and the Jiten source missing — see the hydration pass).
     private loadJitenVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const settings = this.settings();
         if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
-        return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
+        return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
             this.applyJitenVocabularyInfoPitchAccent(card, info);
             return info;
         }).catch(error => {
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
             return null;
-        }), null as JitenVocabularyInfo | null);
+        });
     }
 
     private lookupBunproDefinitionInfo(card: JPDBCard): Promise<BunproDefinitionInfo | null> {

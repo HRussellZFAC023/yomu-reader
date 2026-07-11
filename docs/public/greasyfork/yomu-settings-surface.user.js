@@ -1799,11 +1799,11 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JITEN_LIVE_FREQUENCY_PILL,
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
-    YOMU_LOOKUP_LINK,
     BUNPRO_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
@@ -1820,6 +1820,24 @@
     COPY_LOOKUP_LINK
   ];
   const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    // The jiten-first default that shipped before Yomu was promoted to the front
+    // of the pill row. Users who never re-ordered their pills are migrated to the
+    // current Yomu-first default order instead of being pinned to the old layout.
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    YOMU_LOOKUP_LINK.id,
+    BUNPRO_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
@@ -13065,6 +13083,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

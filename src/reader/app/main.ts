@@ -5703,6 +5703,7 @@ export class ReaderApp {
             this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
             const hydrationState = { data: fullData };
             this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+            this.renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
             this.renderHydratedCardBunproDefinition(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
         } finally {
             done();
@@ -6233,6 +6234,32 @@ export class ReaderApp {
             return;
         }
         hydrate();
+    }
+
+    // Jiten details for a non-Jiten card take search → info → examples; over a
+    // slow link or the hosted proxy that overruns the render timeout, so the full
+    // render lands with no Jiten frequency rank and no Jiten source. Mirror the
+    // Bunpro hydration: when the capped result was empty, wait on the uncapped
+    // lookup and re-render once it arrives instead of dropping it on the floor.
+    private renderHydratedCardJitenVocabulary(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        state: { data: CardRenderData },
+        renderData: CardRenderDataLoad,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+        anchor?: HTMLElement,
+    ): void {
+        if (state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
+        void renderData.hydrateJitenVocabularyInfo()
+            .then(info => {
+                if (!info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                state.data = { ...state.data, jitenVocabularyInfo: info };
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            })
+            .catch(error => log.debug('Popup Jiten vocabulary hydration failed', { term: card.spelling, error }));
     }
 
     private renderHydratedCardBunproDefinition(

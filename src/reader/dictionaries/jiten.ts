@@ -347,11 +347,16 @@ export class JitenApiClient {
     async lookupVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const reference = jitenCardReference(card);
         const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+        // Fire the examples request alongside info rather than after it: the info
+        // response already carries the frequency rank and definitions the popover
+        // needs, so making examples a second serial round trip only widened the
+        // window in which the whole lookup overran the card-render timeout.
+        const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
         const info = await this.requestEndpoint<unknown>(endpoint, undefined, { method: 'GET' });
         if (!isJsonRecord(info)) return null;
         const normalized = normalizeJitenVocabularyInfo(info);
         if (!normalized) return null;
-        normalized.examples = await this.lookupVocabularyExamples(reference).catch(() => []);
+        normalized.examples = await examplesPromise;
         return normalized;
     }
 

@@ -6837,11 +6837,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JITEN_LIVE_FREQUENCY_PILL,
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
-    YOMU_LOOKUP_LINK,
     BUNPRO_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
@@ -6858,6 +6858,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
     COPY_LOOKUP_LINK
   ];
   const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    // The jiten-first default that shipped before Yomu was promoted to the front
+    // of the pill row. Users who never re-ordered their pills are migrated to the
+    // current Yomu-first default order instead of being pinned to the old layout.
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    YOMU_LOOKUP_LINK.id,
+    BUNPRO_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
@@ -13367,6 +13385,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -41472,7 +41491,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.132".trim() ? "1.6.132".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.133".trim() ? "1.6.133".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -64572,7 +64591,8 @@ ${component.reading}`;
       };
       const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
       const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-      const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+      const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
+      const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null);
       const bunproDefinitionLookup = options.includeBunproDefinition === false ? Promise.resolve(null) : this.lookupBunproDefinitionInfo(card);
       const bunproDefinitionInfo = this.withFallback(
         card,
@@ -64610,6 +64630,7 @@ ${component.reading}`;
         hydrateAnkiLookup,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
         bunproDefinitionInfo,
         hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
         all
@@ -64672,16 +64693,22 @@ ${component.reading}`;
         return null;
       }), null);
     }
+    // The raw (uncapped) Jiten lookup. A non-Jiten-backed card needs two or three
+    // sequential round trips (search → info → examples); over a slow link or the
+    // hosted proxy that easily exceeds the render timeout. The caller caps this for
+    // the initial full render but ALSO keeps the uncapped promise so a slow result
+    // still hydrates the popover instead of being discarded (which left the Jiten
+    // frequency pill blank and the Jiten source missing — see the hydration pass).
     loadJitenVocabularyInfo(card) {
       const settings = this.settings();
       if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
-      return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
+      return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
         this.applyJitenVocabularyInfoPitchAccent(card, info);
         return info;
       }).catch((error) => {
         log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
-      }), null);
+      });
     }
     lookupBunproDefinitionInfo(card) {
       const settings = this.settings();
@@ -67948,7 +67975,7 @@ ${component.reading}`;
       studyTourStart: "Start",
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
-      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
+      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
       listenPerceive: "Perceive",
@@ -68215,7 +68242,7 @@ ${component.reading}`;
     studyTourStart: "開始",
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
-    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。今月の目標に届かない場合、単語とシャドーイング用の高速な実音声再生は翌月停止します。",
+    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
     listenPerceive: "聞き取り",
@@ -69424,11 +69451,12 @@ ${component.reading}`;
     async lookupVocabularyInfo(card) {
       const reference = jitenCardReference(card);
       const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+      const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
       const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
       if (!isJsonRecord(info)) return null;
       const normalized = normalizeJitenVocabularyInfo(info);
       if (!normalized) return null;
-      normalized.examples = await this.lookupVocabularyExamples(reference).catch(() => []);
+      normalized.examples = await examplesPromise;
       return normalized;
     }
     async lookupVocabularyInfoForCard(card) {

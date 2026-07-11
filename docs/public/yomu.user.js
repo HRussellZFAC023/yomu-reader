@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.132
+// @version 1.6.133
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.132#sha256=gZqaiqJ87x5xBbzVqRf7sd64TgMjryMqH25wthW+1fE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.132#sha256=Y21ChbFFui0aORx4oo6iAEsYTRW79fv6GnGfqnXWCvg=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.132#sha256=rRgfTdn2crrTTgAcf0I/5TgH2vgZhDTbn1Q3rF+e/rM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.132#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.132#sha256=QC3AJauMmzNPC1r7GjnDyuWf3x25ZyrfpjRw5U/gkRg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.132#sha256=bx12D0fGCG7dkUYYqhUYdOy2NldVkOQUYqKLzbdC5gA=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.132#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.133#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.133#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.133#sha256=9liUVz+sSuI5+jPZEKZBbUQ2jfLNitHlTzyD1YaLbec=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.133#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.133#sha256=OqK0VWgyFnYW781ISvWmvNLw3W8qp379IkghdTjXfkw=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.133#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.133#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -2945,11 +2945,11 @@ const COPY_LOOKUP_LINK = {
   action: "copy"
 };
 const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+  YOMU_LOOKUP_LINK,
   JITEN_LOOKUP_LINK,
   JITEN_LIVE_FREQUENCY_PILL,
   JPDB_LOOKUP_LINK,
   JPDB_LIVE_FREQUENCY_PILL,
-  YOMU_LOOKUP_LINK,
   BUNPRO_LOOKUP_LINK,
   JISHO_LOOKUP_LINK,
   WEBLIO_LOOKUP_LINK,
@@ -2966,6 +2966,21 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
   COPY_LOOKUP_LINK
 ];
 const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+  JITEN_LOOKUP_LINK.id,
+  JITEN_LIVE_FREQUENCY_PILL.id,
+  JPDB_LOOKUP_LINK.id,
+  JPDB_LIVE_FREQUENCY_PILL.id,
+  YOMU_LOOKUP_LINK.id,
+  BUNPRO_LOOKUP_LINK.id,
+  JISHO_LOOKUP_LINK.id,
+  WEBLIO_LOOKUP_LINK.id,
+  KOTOBANK_LOOKUP_LINK.id,
+  TAKOBOTO_LOOKUP_LINK.id,
+  WIKTIONARY_LOOKUP_LINK.id,
+  IMMERSION_KIT_LOOKUP_LINK.id,
+  UCHISEN_LOOKUP_LINK.id,
+  COPY_LOOKUP_LINK.id
+], [
   YOMU_LOOKUP_LINK.id,
   JITEN_LOOKUP_LINK.id,
   JPDB_LOOKUP_LINK.id,
@@ -16508,7 +16523,8 @@ class CardRenderDataLoader {
   };
   const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
   const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-  const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+  const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
+  const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null);
   const bunproDefinitionLookup = options.includeBunproDefinition === false ? Promise.resolve(null) : this.lookupBunproDefinitionInfo(card);
   const bunproDefinitionInfo = this.withFallback(
     card,
@@ -16546,6 +16562,7 @@ class CardRenderDataLoader {
     hydrateAnkiLookup,
     jpdbVocabularyInfo,
     jitenVocabularyInfo,
+    hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
     bunproDefinitionInfo,
     hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
     all
@@ -16611,13 +16628,13 @@ class CardRenderDataLoader {
   loadJitenVocabularyInfo(card) {
   const settings = this.settings();
   if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
-  return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
+  return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
     this.applyJitenVocabularyInfoPitchAccent(card, info);
     return info;
   }).catch((error) => {
     log$f.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
     return null;
-  }), null);
+  });
   }
   lookupBunproDefinitionInfo(card) {
   const settings = this.settings();
@@ -22700,11 +22717,12 @@ class JitenApiClient {
   async lookupVocabularyInfo(card) {
   const reference = jitenCardReference(card);
   const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+  const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
   const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
   if (!isJsonRecord$1(info)) return null;
   const normalized = normalizeJitenVocabularyInfo(info);
   if (!normalized) return null;
-  normalized.examples = await this.lookupVocabularyExamples(reference).catch(() => []);
+  normalized.examples = await examplesPromise;
   return normalized;
   }
   async lookupVocabularyInfoForCard(card) {
@@ -34797,8 +34815,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.132"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.132"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.133"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.133"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34912,7 +34930,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.132"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.133"}`;
   } catch {
   return null;
   }
@@ -39854,6 +39872,7 @@ class ReaderApp {
     this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
     const hydrationState = { data: fullData };
     this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+    this.renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
     this.renderHydratedCardBunproDefinition(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
   } finally {
     done();
@@ -40202,6 +40221,14 @@ class ReaderApp {
     return;
   }
   hydrate();
+  }
+  renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, state, renderData, requestId, isCurrentHoverCard, anchor) {
+  if (state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
+  void renderData.hydrateJitenVocabularyInfo().then((info) => {
+    if (!info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    state.data = { ...state.data, jitenVocabularyInfo: info };
+    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+  }).catch((error) => log.debug("Popup Jiten vocabulary hydration failed", { term: card.spelling, error }));
   }
   renderHydratedCardBunproDefinition(popover, card, sentence, trigger, state, renderData, requestId, isCurrentHoverCard, anchor) {
   if (state.data.bunproDefinitionInfo || !renderData.hydrateBunproDefinitionInfo) return;
