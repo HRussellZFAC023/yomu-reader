@@ -553,6 +553,7 @@
     { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
     // OCR result cache.
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
+    { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
     { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
     // Reader CSS cache (version-suffixed → prefix family).
     { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },

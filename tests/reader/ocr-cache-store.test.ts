@@ -32,7 +32,7 @@ describe('persistent OCR cache (survives page refresh)', () => {
     });
 
     it('drops previously persisted reader-raster empty results on load', () => {
-        localStorage.setItem('yomu-ocr-cache-v1', JSON.stringify({
+        localStorage.setItem('yomu-ocr-cache-v2', JSON.stringify({
             'cv:old-empty:255:16:1846x2625': { r: null, at: 1000 },
             'src:https://cdn.example/page.jpg': { r: null, at: 1001 },
             'https://manga.example/p2.png|800x1200': { r: null, at: 1002 },
@@ -43,6 +43,15 @@ describe('persistent OCR cache (survives page refresh)', () => {
         expect(loaded.has('cv:old-empty:255:16:1846x2625')).toBe(false);
         expect(loaded.has('src:https://cdn.example/page.jpg')).toBe(false);
         expect(loaded.get('https://manga.example/p2.png|800x1200')).toBeNull();
+    });
+
+    it('invalidates the legacy cache that could contain removed homepage demo boxes', () => {
+        localStorage.setItem('yomu-ocr-cache-v1', JSON.stringify({
+            'https://yomureader.com/manga.webp|800x1200': { r: result('stale boxes'), at: 1000 },
+        }));
+
+        expect(loadPersistedOcrCache().size).toBe(0);
+        expect(localStorage.getItem('yomu-ocr-cache-v1')).toBeNull();
     });
 
     it('never persists transient data: or blob: frame keys', () => {

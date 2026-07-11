@@ -9,7 +9,8 @@
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
 import type { OcrResult } from './response-shared';
 
-const STORE_KEY = 'yomu-ocr-cache-v1';
+const STORE_KEY = 'yomu-ocr-cache-v2';
+const LEGACY_STORE_KEYS = ['yomu-ocr-cache-v1'] as const;
 const MAX_ENTRIES = 300;
 const MAX_BYTES = 1_500_000;
 const PERSIST_DELAY_MS = 1200;
@@ -40,6 +41,10 @@ export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
     const store = storage();
     if (!store) return map;
     try {
+        // v1 could contain homepage demo results synthesized from the removed
+        // hand-authored boxes. Drop it once so existing installs use provider
+        // geometry immediately after upgrading.
+        for (const key of LEGACY_STORE_KEYS) store.removeItem(key);
         const raw = store.getItem(STORE_KEY);
         if (!raw) return map;
         const parsed = JSON.parse(raw) as Record<string, StoredEntry>;

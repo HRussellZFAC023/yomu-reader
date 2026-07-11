@@ -47,7 +47,7 @@ if (typeof NativeBroadcastChannel === 'function') {
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
-const OCR_CACHE_STORE_KEY = 'yomu-ocr-cache-v1';
+const OCR_CACHE_STORE_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2'] as const;
 let mediaMethodRestorers: Array<() => void> = [];
 
 // The OCR controller hydrates its result cache from localStorage at construction
@@ -57,7 +57,7 @@ let mediaMethodRestorers: Array<() => void> = [];
 // elapse mid-file, which is why it surfaced as a loaded-CI-only release flake.
 function resetPersistedOcrCache(): void {
     try {
-        localStorage.removeItem(OCR_CACHE_STORE_KEY);
+        for (const key of OCR_CACHE_STORE_KEYS) localStorage.removeItem(key);
     } catch {
         // jsdom storage may be unavailable in a few isolated setup failures.
     }

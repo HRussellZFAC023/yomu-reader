@@ -55,6 +55,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
 
     // OCR result cache.
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v1' },
+    { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v2' },
     { owner: 'ocr/canvas-mirror', kind: 'session', key: 'yomu:bw:mirror-loadguard' },
 
     // Reader CSS cache (version-suffixed → prefix family).

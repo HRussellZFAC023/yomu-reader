@@ -214,5 +214,6 @@ describe('factory reset write-suppression — debounced writers cannot re-create
         flushPersistedOcrCache();
 
         expect(localStorage.getItem('yomu-ocr-cache-v1')).toBeNull();
+        expect(localStorage.getItem('yomu-ocr-cache-v2')).toBeNull();
     });
 });

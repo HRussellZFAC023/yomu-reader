@@ -1656,6 +1656,7 @@
     { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
     // OCR result cache.
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
+    { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
     { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
     // Reader CSS cache (version-suffixed → prefix family).
     { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
@@ -2747,7 +2748,8 @@
       textNode.replaceWith(replacement);
     }
   }
-  const STORE_KEY = "yomu-ocr-cache-v1";
+  const STORE_KEY = "yomu-ocr-cache-v2";
+  const LEGACY_STORE_KEYS = ["yomu-ocr-cache-v1"];
   const MAX_ENTRIES = 300;
   const MAX_BYTES = 15e5;
   const PERSIST_DELAY_MS = 1200;
@@ -2771,6 +2773,7 @@
     const store = storage();
     if (!store) return map;
     try {
+      for (const key of LEGACY_STORE_KEYS) store.removeItem(key);
       const raw = store.getItem(STORE_KEY);
       if (!raw) return map;
       const parsed = JSON.parse(raw);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.130] - 2026-07-11
+
+### Fixed
+
+- The legacy persistent OCR cache is cleared once during upgrade, so the removed three-box homepage demo geometry cannot survive an update and keep manga text offset from the image.
+
 ## [1.6.129] - 2026-07-11
 
 ### Fixed

@@ -4070,6 +4070,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
     // OCR result cache.
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
+    { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
     { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
     // Reader CSS cache (version-suffixed → prefix family).
     { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
@@ -33363,7 +33364,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       textNode.replaceWith(replacement);
     }
   }
-  const STORE_KEY = "yomu-ocr-cache-v1";
+  const STORE_KEY = "yomu-ocr-cache-v2";
+  const LEGACY_STORE_KEYS = ["yomu-ocr-cache-v1"];
   const MAX_ENTRIES = 300;
   const MAX_BYTES = 15e5;
   const PERSIST_DELAY_MS = 1200;
@@ -33387,6 +33389,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const store = storage();
     if (!store) return map;
     try {
+      for (const key of LEGACY_STORE_KEYS) store.removeItem(key);
       const raw = store.getItem(STORE_KEY);
       if (!raw) return map;
       const parsed = JSON.parse(raw);
@@ -41469,7 +41472,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.129".trim() ? "1.6.129".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.130".trim() ? "1.6.130".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

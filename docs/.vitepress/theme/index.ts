@@ -213,6 +213,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The legacy persistent OCR cache is cleared once during upgrade, so the removed three-box homepage demo geometry cannot survive an update and keep manga text offset from the image.': 'アップグレード時に古い永続OCRキャッシュを一度消去し、削除済みのホームページ用3枠デモ座標が更新後も残って漫画文字を画像からずらし続けることを防ぎます。',
     'Removed': '削除',
     'Selecting Japanese text on a page no longer opens a lookup pop-up. The panel that used to appear on every selection — often unwanted, and covering most of the screen on phones — is gone, so selecting text just selects it. To look up a word, hover or tap it as before: Yomu still shows its reading, meaning, pitch accent, and dictionary links on the words it has parsed.': 'ページ上の日本語を選択しても、検索ポップアップが開かなくなりました。選択のたびに表示されていたパネル（多くの場合は不要で、スマートフォンでは画面の大半を覆っていました）はなくなり、テキストを選択すると通常どおり選択されるだけになります。単語を調べるには、これまでどおりホバーまたはタップしてください。よむは解析済みの単語について、読み・意味・ピッチアクセント・辞書リンクを引き続き表示します。',
     'Removed the "Selection popups" and "Show translation in selection popovers" settings, which no longer had anything to control.': '「選択ポップアップを表示」と「選択ポップアップに翻訳を表示」の設定は、制御する対象がなくなったため削除しました。',
