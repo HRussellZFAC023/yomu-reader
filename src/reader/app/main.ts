@@ -2,7 +2,7 @@ import { AudioPlayer } from '../audio/player';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
-import { runLimited } from '../core/async-utils';
+import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
@@ -146,6 +146,7 @@ import {
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
     DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
+    LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
     FALLBACK_LOOKUP_INITIAL_WAIT_MS,
     FIVE_BUTTON_REVIEW_SHORTCUTS,
     HOVER_ANKI_HYDRATION_DELAY_MS,
@@ -7981,7 +7982,18 @@ export class ReaderApp {
             log.warn('Local pitch dictionary availability check failed', { error });
             return false;
         });
-        return this.localPitchDictionaryAvailability;
+        return promiseWithTimeout(
+            this.localPitchDictionaryAvailability,
+            LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
+            'Local pitch dictionary presence check timed out.',
+        ).catch(error => {
+            // Keep the raw probe cached: if IndexedDB eventually answers, later
+            // scans still recover local-first behavior. This caller may proceed
+            // through the existing bounded public lane instead of leaving page
+            // words unknown until they are clicked.
+            log.warnOnce('local-pitch-dictionary-presence-timeout', 'Local pitch dictionary presence check timed out', error);
+            return false;
+        });
     }
 
     private async localPitchAccentForCard(card: JPDBCard): Promise<string[]> {
