@@ -1118,6 +1118,10 @@
     .academy-study h1 { font-size: 24px; }
     .academy-sprite { max-width: 70vw; height: min(58%, 480px); }
     .academy-map-marker { font-size: 13px; padding: 6px 10px; }
+    /* Clear the floating Yomu runtime pill (bottom-right). */
+    .academy-dialogue-controls { padding-right: 56px; }
+    .academy-nav { padding-right: calc(8px + 52px); }
+    .academy-nav-item { min-width: 56px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
