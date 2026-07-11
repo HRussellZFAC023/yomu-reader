@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.126
+// @version 1.6.127
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.126#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.126#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.126#sha256=L6iRa+8aKOdobQpFQIKZFtGHp1yaSNklS3s5YWugSJk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.126#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.126#sha256=BBuVY0QhKwDvtascb9sgCRxolvzXcSsKRVUXaxx1mKg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.126#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.126#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.127#sha256=PlfxbpdHAOs9fWQcZB+0EbEF+YrQ/pJd9/AgWY/QBLc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.127#sha256=8QYnOwjaF8QkWFkvBGldmhaDbgtrt5zv1aAHmQXlffc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.127#sha256=NzXFXDJ0ZQWEohKBVy8tDiz8xtzQ80TK5h/p8/TDPuA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.127#sha256=v7QXoE8LTHnDuTZcfbPjsASy6fOfMGJSNTsfZGRejis=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.127#sha256=6MQ1iJaLRHUAvvqZEAzKYlVydtjkasl0QAj5JjJpXRI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.127#sha256=P1bC22y0v2ANNEs8N+6z8GcoKn1P6xPabco+ul9lXbw=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.127#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -34895,8 +34895,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.126"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.126"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.127"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.127"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35010,7 +35010,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.126"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.127"}`;
   } catch {
   return null;
   }
@@ -35959,6 +35959,8 @@ function createNoopImageOcrController() {
   scanVisible: noop2,
   refreshForModeChange: noop2,
   pinLineForElement: noop2,
+  unpinLineForElement: noop2,
+  retainLineForLookup: () => void 0,
   clearActiveLines: noop2,
   captureSourceImageForElement: () => void 0
   };
@@ -36230,6 +36232,8 @@ class ReaderApp {
   hoverLookupGeneration = 0;
   activeHoverWord;
   activeHoverLookupKey = "";
+  releaseActiveOcrLookupLine;
+  ownedModalOcrPin;
   activePointerTextLookup;
   suppressedHoverWord;
   suppressedHoverLookupKey = "";
@@ -37713,9 +37717,9 @@ class ReaderApp {
   this.lastPointerPosition = { x: press.x, y: press.y };
   this.cancelPendingHoverLookup();
   this.cancelHoverClose();
-  this.ocr.pinLineForElement(press.word);
+  this.pinOcrLineForModalLookup(press.word);
   if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
-  void this.showWord(press.word, { trigger: "click", userGesture: true, fastInitialRender: true });
+  void this.showWord(press.word, { trigger: "click", userGesture: true, fastInitialRender: true }).finally(() => this.releaseOrphanedModalOcrPin());
   }
   openReaderWordFromPointer(event, word, surfaces) {
   if (!surfaces.n) {
@@ -37724,10 +37728,10 @@ class ReaderApp {
   }
   this.prepareModalLookupFromPointer(event);
   this.suppressSelectionLookupUntil = Date.now() + 350;
-  this.ocr.pinLineForElement(word);
+  this.pinOcrLineForModalLookup(word);
   if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
   const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
-  void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
+  void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender }).finally(() => this.releaseOrphanedModalOcrPin());
   }
   handleOcrReaderWordPointerDown(event) {
   const word = this.ocrPointerDownReaderWord(event);
@@ -37739,9 +37743,9 @@ class ReaderApp {
   const now = Date.now();
   this.suppressSelectionLookupUntil = now + 350;
   this.suppressWordClickUntil = now + 700;
-  this.ocr.pinLineForElement(word);
+  this.pinOcrLineForModalLookup(word);
   const fastInitialRender = !word.closest(".jpdb-ocr-line");
-  void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
+  void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender }).finally(() => this.releaseOrphanedModalOcrPin());
   return true;
   }
   ocrPointerDownReaderWord(event) {
@@ -39026,6 +39030,7 @@ class ReaderApp {
   if (this.activePopoverAnchor === anchor && (this.activePointerTextLookup || this.activeHoverWord === anchor)) return;
   this.activePopoverAnchor = anchor;
   if (!this.activePointerTextLookup) this.activeHoverWord = anchor;
+  this.retainOcrLookupLineForAnchor(anchor);
   this.captureActiveHoverAnchorRect(anchor);
   this.repositionActivePopover();
   }
@@ -42218,6 +42223,9 @@ class ReaderApp {
   const settingsStack = this.settingsStackForMountedPopover(options);
   if (settingsStack) forceReaderPopoverSurface(popover, this.settings);
   const state = this.popoverMountState(anchor, { ...options, stackOverSettings: Boolean(settingsStack) });
+  const preserveOcrLookupLine = Boolean(
+    state.resolvedAnchor && this.activePopover?.contains(state.resolvedAnchor)
+  );
   if (settingsStack) {
     this.prepareSettingsStackedPopover(settingsStack);
   } else {
@@ -42225,11 +42233,12 @@ class ReaderApp {
       suppressHoverTarget: false,
       preserveNavigation: true,
       preserveHoverGeneration: state.mode === "hover",
-      preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord
+      preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
+      preserveOcrLookupState: true
     });
   }
   this.appendMountedPopover(popover, state);
-  this.activateMountedPopover(popover, state, options);
+  this.activateMountedPopover(popover, state, options, preserveOcrLookupLine);
   this.dictionarySourceState.installTracking(popover);
   this.installMountedPopoverSurface(popover, state);
   this.finishMountedPopoverLifecycle(popover, state.mode, options);
@@ -42278,7 +42287,7 @@ class ReaderApp {
   if (state.backdrop) mountParent.append(state.backdrop, popover);
   else mountParent.append(popover);
   }
-  activateMountedPopover(popover, state, options) {
+  activateMountedPopover(popover, state, options, preserveOcrLookupLine) {
   this.activeBackdrop = state.backdrop;
   this.activePopover = popover;
   this.activePopoverMode = state.mode;
@@ -42288,6 +42297,7 @@ class ReaderApp {
   this.activeHoverWord = state.mode === "hover" && !options.pointerTextLookup ? state.resolvedAnchor : void 0;
   this.activeHoverLookupKey = state.mode === "hover" ? options.hoverLookupKey ?? "" : "";
   this.activePointerTextLookup = state.mode === "hover" ? options.pointerTextLookup : void 0;
+  this.retainOcrLookupLineForAnchor(state.resolvedAnchor, { preserveExisting: preserveOcrLookupLine });
   this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
   popover.classList.toggle("jpdb-reader-sheet-sticky", this.isStickyMountedSheet(popover, state));
   this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
@@ -42457,7 +42467,7 @@ class ReaderApp {
   }
   const hadSettingsDialog = Boolean(this.activePopover?.classList.contains("jpdb-reader-settings"));
   this.prepareActivePopoverDismiss(options);
-  this.ocr.clearActiveLines();
+  if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
   this.restoreSettingsPreviewState();
   this.removeReaderDialogNodes();
   this.stackedSettingsDialog = void 0;
@@ -42476,7 +42486,7 @@ class ReaderApp {
   }
   dismissStackedLookupOverSettings(options) {
   this.prepareActivePopoverDismiss(options);
-  this.ocr.clearActiveLines();
+  if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
   this.nativeTitleGuard.restore();
   this.activePopover?.remove();
   this.activeBackdrop?.remove();
@@ -42570,6 +42580,7 @@ class ReaderApp {
   document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element2) => element2.remove());
   }
   clearActivePopoverState(options = {}) {
+  if (!options.preserveOcrLookupState) this.releaseOcrLookupLine();
   this.activePopover = void 0;
   this.activeBackdrop = void 0;
   this.activePopoverResizeObserver = void 0;
@@ -42582,6 +42593,40 @@ class ReaderApp {
   this.activeHoverLookupKey = "";
   this.activePointerTextLookup = void 0;
   if (!options.preserveKeyboardActive) this.clearKeyboardActiveWord();
+  }
+  retainOcrLookupLineForAnchor(anchor, options = {}) {
+  const release = this.ocr.retainLineForLookup(anchor ?? null);
+  if (!release) {
+    if (!options.preserveExisting) this.releaseOcrLookupLine();
+    return;
+  }
+  const releasePrevious = this.releaseActiveOcrLookupLine;
+  this.releaseActiveOcrLookupLine = release;
+  releasePrevious?.();
+  }
+  releaseOcrLookupLine() {
+  const release = this.releaseActiveOcrLookupLine;
+  this.releaseActiveOcrLookupLine = void 0;
+  release?.();
+  }
+  pinOcrLineForModalLookup(anchor) {
+  const line = anchor.closest(".jpdb-ocr-line");
+  if (!line) {
+    this.releaseOwnedModalOcrPin();
+    return;
+  }
+  if (this.ownedModalOcrPin && this.ownedModalOcrPin !== line) this.releaseOwnedModalOcrPin();
+  if (line.dataset.pinned === "true") return;
+  this.ocr.pinLineForElement(anchor);
+  if (line.dataset.pinned === "true") this.ownedModalOcrPin = line;
+  }
+  releaseOwnedModalOcrPin() {
+  const line = this.ownedModalOcrPin;
+  this.ownedModalOcrPin = void 0;
+  if (line?.dataset.pinned === "true") this.ocr.unpinLineForElement(line);
+  }
+  releaseOrphanedModalOcrPin() {
+  if (!this.activePopover || this.activePopoverMode !== "modal") this.releaseOwnedModalOcrPin();
   }
   schedulePendingDictionaryRescan() {
   if (!this.dictionaryRescanPending) return;

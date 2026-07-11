@@ -695,10 +695,15 @@ export class ImageOcrController {
     }
 
     private hasReaderRasterSurfaces(): boolean {
-        return this.canvasFrames.size > 0
+        if (this.canvasFrames.size > 0
             || this.canvasPendingStatuses.size > 0
-            || this.backgroundFrames.size > 0
-            || isReaderRasterPage();
+            || this.backgroundFrames.size > 0) return true;
+        // The memo keeps this O(1) and querySelector-free on non-reader pages
+        // (the inert-raster hardening). On reader pages the cheap host check
+        // replaces the full canvas/background census that ran on every scroll
+        // and regressed BookWalker continuous-mode smoothness.
+        if (this.isProvenRasterFreePage()) return false;
+        return isReaderRasterPage();
     }
 
     private hasReaderRasterCaptureWork(): boolean {

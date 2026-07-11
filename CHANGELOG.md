@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.127] - 2026-07-11
+
+### Fixed
+
+- BookWalker manga OCR is reliable across a whole book again, in both the page-turn and vertical continuous-scroll modes: recognition no longer stalls on "Scanning…", stops working after a few pages, or only covers the first page.
+- Pages you have already read are no longer re-scanned on every scroll or page turn, which removes the BookWalker lag and the flicker between "Scanning…" and "No text found".
+- BookWalker pages no longer flash "Could not read text" from the hidden raw page image: on Firefox the page is rebuilt from BookWalker's own signed images so recognition matches other browsers.
+- Hovering recognised manga text now reliably shows its reading and lookup, instead of the highlight sometimes vanishing when the lookup sheet opens.
+- Zooming a BookWalker page keeps the text it already recognised instead of discarding it and scanning again, and switching away from the tab and back keeps the recognised text.
+
 ## [1.6.126] - 2026-07-11
 
 ### Fixed

@@ -342,7 +342,7 @@
     for (const [index, candidate] of candidates.entries()) {
       try {
         const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-        const response = await fetchWithTimeout$2(attempt.url, attempt.options);
+        const response = await fetchWithTimeout$3(attempt.url, attempt.options);
         if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
           lastError = new Error(`Proxy request failed (${response.status}).`);
           continue;
@@ -441,7 +441,7 @@
   function isHttpUrl$1(url) {
     return /^https?:\/\//i.test(url);
   }
-  function fetchWithTimeout$2(url, options) {
+  function fetchWithTimeout$3(url, options) {
     const {
       timeoutMs,
       allowPublicProxies: _allowPublicProxies,
@@ -13375,6 +13375,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -32451,6 +32452,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const REQUEST_ATTR = "data-yomu-mirror-request";
   const SUMMARY_REQUEST_PREFIX = "summary:";
   const PULL_EVENT = "yomu-canvas-mirror-pull";
+  const MIRROR_TOKEN_CONTRACT_VERSION = 2;
   function pageWindow() {
     return globalThis;
   }
@@ -32465,15 +32467,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return id;
     }
     if (el2 && el2.__yomuMid) return el2.__yomuMid;
-    if (el2 && create) {
-      const id = `m${state().nextId++}`;
-      try {
-        el2.__yomuMid = id;
-        return id;
-      } catch {
-        return null;
-      }
-    }
     return null;
   }
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
@@ -32612,9 +32605,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return false;
     }
   }
-  function rebuildById(id, beforeSeq, images, canvases, seen, depth) {
+  function rebuildById(id, beforeSeq, images, canvases, seen, depth, lookup) {
     if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-    const record = state().records[id];
+    const record = lookup(id);
     if (!record || !record.w || !record.h) return null;
     const ops = selectLatestReplayOps(record.ops, beforeSeq);
     if (!ops.length) return null;
@@ -32628,9 +32621,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const op of ops) {
       let source = null;
       if (op.srcOps?.length && op.srcW && op.srcH) {
-        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1, lookup);
       } else if (op.srcId) {
-        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
+        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup) : null) ?? canvases.get(op.srcId) ?? null;
       } else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
       try {
@@ -32643,7 +32636,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return drew ? out : null;
   }
-  function rebuildSnapshotSource(ops, width, height, images, canvases, seen, depth) {
+  function rebuildSnapshotSource(ops, width, height, images, canvases, seen, depth, lookup) {
     if (depth > MAX_REBUILD_DEPTH || !width || !height) return null;
     const contentOps = selectLatestReplayOps(ops, Number.POSITIVE_INFINITY);
     if (!contentOps.length) return null;
@@ -32656,9 +32649,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const op of contentOps) {
       let source = null;
       if (op.srcOps?.length && op.srcW && op.srcH) {
-        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1, lookup);
       } else if (op.srcId) {
-        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
+        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup) : null) ?? canvases.get(op.srcId) ?? null;
       } else if (op.url) {
         source = images.get(op.url) ?? null;
       }
@@ -32674,7 +32667,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return drew ? out : null;
   }
   function pullPageMirrorRecords(target = state(), scope) {
-    const requestedId = typeof scope === "string" ? scope : scope ? canvasId(scope, false) ?? "" : "";
+    const requestedId = typeof scope === "string" ? scope : scope ? canvasId(scope) ?? "" : "";
     const parsed = requestPageMirrorPayload(requestedId);
     if (!parsed?.records) return false;
     mergeMirrorPayloadMetadata(target, parsed);
@@ -32692,10 +32685,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return true;
   }
+  let summaryBridgeContractMismatch = false;
   function pullPageMirrorContentSummary(id, target = state()) {
     const parsed = requestPageMirrorPayload(`${SUMMARY_REQUEST_PREFIX}${id}`);
     if (!parsed) return "";
     mergeMirrorPayloadMetadata(target, parsed);
+    if (parsed.tv !== MIRROR_TOKEN_CONTRACT_VERSION) {
+      summaryBridgeContractMismatch = true;
+      mirrorContentSummaryCache.delete(id);
+      return "";
+    }
     const token = parsed.summaries?.[id] ?? "";
     const epoch = canvasMirrorTurnToken();
     if (token) mirrorContentSummaryCache.set(id, { epoch, token });
@@ -32733,11 +32732,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function canvasMirrorContentToken(canvas) {
-    const id = canvasId(canvas, false);
+    const id = canvasId(canvas);
     if (!id) return "";
     const s = state();
     const epoch = canvasMirrorTurnToken();
-    if (recorderMarkerPresent()) {
+    if (recorderMarkerPresent() && !summaryBridgeContractMismatch) {
       const cachedSummary = mirrorContentSummaryCache.get(id);
       if (cachedSummary && (!epoch || cachedSummary.epoch === epoch)) return cachedSummary.token;
       const summary = pullPageMirrorContentSummary(id, s);
@@ -32746,11 +32745,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!s.records[id]?.ops.length || epoch && lastMirrorTargetSyncEpoch.get(id) !== epoch) {
       pullPageMirrorRecords(s, id);
     }
-    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, (key) => s.records[key]);
-    if (content.size) return `m:${[...content].sort().join("")}`;
-    const record = s.records[id];
-    const fingerprint = record ? operationContentFingerprint(id, record) : "";
-    return fingerprint ? `o:${fingerprint}` : "";
+    return mirrorContentTokenForRecords(id, (key) => s.records[key]);
   }
   function operationContentFingerprint(id, record) {
     const ops = selectLatestReplayOps(record.ops, Number.POSITIVE_INFINITY);
@@ -32794,14 +32789,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isVolatileSignedUrlParam(key) {
     const lower = key.toLowerCase();
-    return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
+    return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower.startsWith("x-amz-");
   }
   async function captureCanvasMirror(canvas, loadCleanImage) {
     installCanvasMirrorRecorder();
     const s = state();
-    const id = canvasId(canvas, false);
+    const id = canvasId(canvas);
     if (id && recorderMarkerPresent()) pullPageMirrorRecords(s, id);
-    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
+    const records = id ? snapshotMirrorRecordGraph(id, s.records) : /* @__PURE__ */ Object.create(null);
+    const lookup = (key) => records[key];
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, lookup) : /* @__PURE__ */ new Set();
+    const contentToken = id ? mirrorContentTokenForRecords(id, lookup) : "";
     const images = /* @__PURE__ */ new Map();
     if (urls.size) {
       await Promise.all([...urls].map(async (url) => {
@@ -32811,12 +32809,55 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         } catch {
         }
       }));
+      if (images.size !== urls.size) return void 0;
     }
     const canvases = new Map(
       Array.from(document.querySelectorAll(`canvas[${ID_ATTR}]`)).map((source) => [source.getAttribute(ID_ATTR) ?? "", source]).filter(([sourceId]) => sourceId)
     );
-    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, /* @__PURE__ */ new Set(), 0) : null;
+    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, /* @__PURE__ */ new Set(), 0, lookup) : null;
+    if (rebuilt && contentToken) rebuilt.dataset.yomuMirrorContentToken = contentToken;
     return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
+  }
+  function snapshotMirrorRecordGraph(rootId, source) {
+    const snapshot = /* @__PURE__ */ Object.create(null);
+    const visitRecord = (id, depth) => {
+      if (depth > MAX_REBUILD_DEPTH || snapshot[id]) return;
+      const record = source[id];
+      if (!record) return;
+      const ops = record.ops.map(cloneMirrorOp);
+      snapshot[id] = { w: record.w, h: record.h, ops };
+      visitOps(ops, depth + 1);
+    };
+    const visitOps = (ops, depth) => {
+      if (depth > MAX_REBUILD_DEPTH) return;
+      for (const op of ops) {
+        if (op.srcId) visitRecord(op.srcId, depth);
+        if (op.srcOps?.length) visitOps(op.srcOps, depth + 1);
+      }
+    };
+    visitRecord(rootId, 0);
+    return snapshot;
+  }
+  function cloneMirrorOp(op) {
+    return {
+      ...op,
+      ...op.srcOps ? { srcOps: op.srcOps.map(cloneMirrorOp) } : {}
+    };
+  }
+  function mirrorContentTokenForRecords(id, lookup) {
+    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, lookup);
+    if (content.size) return `m:${mirrorTokenHash([...content].sort().join(""))}`;
+    const record = lookup(id);
+    const fingerprint = record ? operationContentFingerprint(id, record) : "";
+    return fingerprint ? `o:${mirrorTokenHash(fingerprint)}` : "";
+  }
+  function mirrorTokenHash(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
   }
   function recorderBootstrap(win, opts) {
     if (win.__yomuCanvasMirrorRecorder) return;
@@ -32946,7 +32987,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
     const volatileSignedParam = (key) => {
       const lower = key.toLowerCase();
-      return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
+      return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower.startsWith("x-amz-");
     };
     const canonicalUrl = (raw) => {
       if (!raw) return "";
@@ -32983,11 +33024,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       op.dw,
       op.dh
     ].join(":");
+    const shouldUseLatestSource = (id, beforeSeq) => {
+      if (!Number.isFinite(beforeSeq)) return false;
+      const record = S.records[id];
+      if (!record?.ops.length) return false;
+      return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
+    };
+    const addSourceLeafFingerprints = (id, beforeSeq, out, seen, depth) => {
+      const before = Object.keys(out).length;
+      addLeafFingerprints(id, beforeSeq, out, seen, depth);
+      if (Object.keys(out).length === before && shouldUseLatestSource(id, beforeSeq)) {
+        addLeafFingerprints(id, Number.POSITIVE_INFINITY, out, seen, depth);
+      }
+    };
     const addLeafFingerprintsFromOps = (ops, out, seen, depth) => {
       if (depth > 6) return;
       for (const op of latestOps(ops, Number.POSITIVE_INFINITY)) {
         if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, seen, depth + 1);
-        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
+        else if (op.srcId) addSourceLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
         else if (op.url) out[leafFingerprint(op)] = true;
       }
     };
@@ -32998,7 +33052,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const nextSeen = { ...seen, [id]: true };
       for (const op of latestOps(record.ops, beforeSeq)) {
         if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
-        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
+        else if (op.srcId) addSourceLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
         else if (op.url) out[leafFingerprint(op)] = true;
       }
     };
@@ -33136,7 +33190,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             const requestAttr = opts.q || "data-yomu-mirror-request";
             const request = root.getAttribute(requestAttr) || "";
             if (request.indexOf("summary:") === 0) {
-              node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice("summary:".length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+              node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice("summary:".length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0, tv: opts.v || 0 });
             } else {
               node.textContent = JSON.stringify({ records: requestedRecords(request), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
             }
@@ -33148,7 +33202,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function recorderOpts() {
-    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, q: REQUEST_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
+    return {
+      a: ID_ATTR,
+      m: MAX_OPS_PER_CANVAS,
+      k: PRUNE_KEEP,
+      e: EPOCH_ATTR,
+      d: DUMP_ATTR,
+      q: REQUEST_ATTR,
+      p: PULL_EVENT,
+      r: MARKER_ATTR,
+      v: MIRROR_TOKEN_CONTRACT_VERSION
+    };
   }
   function injectRecorderIntoPage(opts) {
     const parent = document.head || document.documentElement;
@@ -33566,20 +33630,26 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
   }
   function bookwalkerContinuousScrollCanvases(canvases, hostname = location.hostname) {
-    const scrollCanvases = canvases.filter((canvas) => isBookwalkerContinuousScrollCanvasForHost(canvas, hostname));
+    if (!isBookwalkerViewerHost(hostname)) return [];
+    const byViewport = /* @__PURE__ */ new Map();
+    for (const canvas of canvases) {
+      const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
+      if (!viewport) continue;
+      const group = byViewport.get(viewport) ?? [];
+      group.push(canvas);
+      byViewport.set(viewport, group);
+    }
+    const scrollCanvases = [];
+    for (const [viewport, group] of byViewport) {
+      const explicitContinuousViewport = viewport.id === "viewportW" || viewport.classList.contains("overScroll");
+      if (explicitContinuousViewport || hasVerticallyStackedDocumentPageRun(group)) scrollCanvases.push(...group);
+    }
     if (scrollCanvases.length < 2) return [];
     return hasVerticallyStackedDocumentPageRun(scrollCanvases) ? scrollCanvases : [];
   }
   function isBookwalkerContinuousScrollCanvas(canvas) {
-    return isBookwalkerContinuousScrollCanvasForHost(canvas, location.hostname);
-  }
-  function isBookwalkerContinuousScrollCanvasForHost(canvas, hostname) {
-    if (!isBookwalkerViewerHost(hostname)) return false;
-    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
-    if (!viewport) return false;
-    if (viewport.id === "viewportW" || viewport.classList.contains("overScroll")) return true;
-    const viewportCanvases = Array.from(viewport.querySelectorAll("canvas")).filter((canvasInViewport) => !shouldSkipCanvasReaderSurface(canvasInViewport)).filter(isVisibleCanvasReaderSurface).filter((canvasInViewport) => isLikelyPageCanvas(canvasInViewport, true));
-    return hasVerticallyStackedDocumentPageRun(viewportCanvases);
+    if (!isBookwalkerViewerHost()) return false;
+    return bookwalkerContinuousScrollCanvases(pageCanvases(location.hostname, { preferBookwalkerCurrent: false })).includes(canvas);
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
@@ -33670,7 +33740,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return backgroundImagePages(hostname);
   }
   function isReaderRasterPage(hostname = location.hostname) {
-    return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
+    return isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname) || isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname);
   }
   const READER_RASTER_SIGNAL_SELECTOR = "[data-page-index], [data-mokuro-reader], [data-yomu-canvas-ocr]";
   const READER_RASTER_CANDIDATE_NODE_SELECTOR = `canvas, ${PAGE_COUNTER_SELECTOR}, ${READER_RASTER_SIGNAL_SELECTOR}`;
@@ -33878,6 +33948,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
   const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
+  const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6e3;
+  const SCREENSHOT_PREFLIGHT_TIMEOUT_MS = 250;
+  const SCREENSHOT_DECODE_TIMEOUT_MS = 4e3;
+  let readerUiHideLeaseCount = 0;
   async function captureReaderSurfaceViaExtensionScreenshot(surface, maxPixels) {
     const rect = surface.getBoundingClientRect();
     const clip = visibleViewportIntersection(rect);
@@ -33894,13 +33968,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return screenshotResponseDataUrl(response);
   }
   function sendExtensionMessage(extension, message) {
-    if (extension.promiseBased) {
-      try {
-        return Promise.resolve(extension.runtime.sendMessage?.(message)).catch(() => void 0);
-      } catch {
-        return Promise.resolve(void 0);
-      }
-    }
     return new Promise((resolve) => {
       let settled = false;
       const finish = (response) => {
@@ -33909,9 +33976,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         window.clearTimeout(timer);
         resolve(response);
       };
-      const timer = window.setTimeout(() => finish(void 0), 6e3);
+      const timer = window.setTimeout(() => finish(void 0), SCREENSHOT_MESSAGE_TIMEOUT_MS);
       try {
-        const maybePromise = extension.runtime.sendMessage?.(message, (response) => {
+        const maybePromise = extension.promiseBased ? extension.runtime.sendMessage?.(message) : extension.runtime.sendMessage?.(message, (response) => {
           if (extension.runtime.lastError) finish(void 0);
           else finish(response);
         });
@@ -33934,15 +34001,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return detail?.ok && typeof detail.dataUrl === "string" && detail.dataUrl.startsWith("data:image/") ? detail.dataUrl : void 0;
   }
   async function withReaderUiHidden(task) {
-    const style = ensureScreenshotHideStyle();
-    document.documentElement.dataset.yomuExtensionScreenshotCapture = "true";
-    await animationFrame();
+    const release = acquireReaderUiHideLease();
     try {
+      await animationFrame();
       return await task();
     } finally {
-      delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
-      style.remove();
+      release();
     }
+  }
+  function acquireReaderUiHideLease() {
+    if (readerUiHideLeaseCount === 0) {
+      ensureScreenshotHideStyle();
+      document.documentElement.dataset.yomuExtensionScreenshotCapture = "true";
+    }
+    readerUiHideLeaseCount += 1;
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      readerUiHideLeaseCount = Math.max(0, readerUiHideLeaseCount - 1);
+      if (readerUiHideLeaseCount > 0) return;
+      delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
+      document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
+    };
   }
   function ensureScreenshotHideStyle() {
     document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
@@ -33956,10 +34037,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ];
     style.textContent = `${selectors.join(",")} { visibility: hidden !important; }`;
     document.documentElement.append(style);
-    return style;
   }
   function animationFrame() {
-    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const timer = window.setTimeout(finish, SCREENSHOT_PREFLIGHT_TIMEOUT_MS);
+      try {
+        requestAnimationFrame(finish);
+      } catch {
+        finish();
+      }
+    });
   }
   function visibleViewportIntersection(rect) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
@@ -34003,13 +34097,176 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function loadScreenshotImage(dataUrl) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Screenshot decode failed."));
-      image.src = dataUrl;
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        image.onload = null;
+        image.onerror = null;
+        if (error) reject(error);
+        else resolve(image);
+      };
+      const timer = window.setTimeout(
+        () => finish(new Error("Screenshot decode timed out.")),
+        SCREENSHOT_DECODE_TIMEOUT_MS
+      );
+      image.onload = () => finish();
+      image.onerror = () => finish(new Error("Screenshot decode failed."));
+      try {
+        image.src = dataUrl;
+      } catch {
+        finish(new Error("Screenshot decode failed."));
+      }
     });
   }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
+  }
+  const BOOKWALKER_CONTENT_SESSION_PATHS = /* @__PURE__ */ new Set([
+    "/browserWebApi/c",
+    "/trial-page/c"
+  ]);
+  const BOOKWALKER_AUTH_QUERY_KEYS = ["pfCd", "Policy", "Signature", "Key-Pair-Id"];
+  const SIGNED_URL_REFRESH_MARGIN_MS = 3e4;
+  const CONTENT_SESSION_TIMEOUT_MS = 6e3;
+  class BookwalkerAssetResolver {
+    constructor(environment = browserEnvironment()) {
+      this.environment = environment;
+    }
+    sessionEndpoint = "";
+    refreshPending;
+    rememberSessionEndpoint() {
+      this.findSessionEndpoint();
+    }
+    async resolve(url) {
+      if (!isBookwalkerAssetUrl(url)) return url;
+      this.rememberSessionEndpoint();
+      if (!bookwalkerSignedUrlNeedsRefresh(url, this.environment.now())) return url;
+      return await this.refresh(url) ?? url;
+    }
+    async refresh(url) {
+      if (!isBookwalkerAssetUrl(url)) return void 0;
+      const endpoint = this.findSessionEndpoint();
+      if (!endpoint) return void 0;
+      const authorization = await this.loadAuthorization(endpoint);
+      if (!authorization) {
+        if (this.sessionEndpoint === endpoint) this.sessionEndpoint = "";
+        return void 0;
+      }
+      return applyAuthorization(url, authorization);
+    }
+    findSessionEndpoint() {
+      const current = safeUrl(this.environment.currentUrl());
+      if (!current) return "";
+      const contentId = current.searchParams.get("cid") ?? "";
+      const candidate = this.environment.resourceUrls().slice().reverse().find((url) => isMatchingSessionEndpoint(url, current, contentId));
+      if (candidate) this.sessionEndpoint = candidate;
+      else if (!isMatchingSessionEndpoint(this.sessionEndpoint, current, contentId)) this.sessionEndpoint = "";
+      return this.sessionEndpoint;
+    }
+    loadAuthorization(endpoint) {
+      if (this.refreshPending?.endpoint === endpoint) return this.refreshPending.promise;
+      const pending = this.environment.fetchJson(endpoint).then(parseContentAuthorization).catch(() => void 0).finally(() => {
+        if (this.refreshPending?.promise === pending) this.refreshPending = void 0;
+      });
+      this.refreshPending = { endpoint, promise: pending };
+      return pending;
+    }
+  }
+  function bookwalkerSignedUrlNeedsRefresh(url, now = Date.now()) {
+    const parsed = safeUrl(url);
+    if (!parsed || !isBookwalkerHost(parsed.hostname)) return false;
+    const expiresAt = signedUrlExpiry(parsed);
+    return expiresAt !== void 0 && expiresAt <= now + SIGNED_URL_REFRESH_MARGIN_MS;
+  }
+  function browserEnvironment() {
+    return {
+      currentUrl: () => location.href,
+      resourceUrls: () => {
+        try {
+          return performance.getEntriesByType("resource").map((entry) => entry.name).filter(Boolean);
+        } catch {
+          return [];
+        }
+      },
+      fetchJson: async (url) => {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), CONTENT_SESSION_TIMEOUT_MS);
+        try {
+          const response = await fetch(url, {
+            cache: "no-store",
+            credentials: "include",
+            headers: { accept: "application/json" },
+            signal: controller.signal
+          });
+          if (!response.ok) throw new Error(`BookWalker content session returned ${response.status}.`);
+          return response.json();
+        } finally {
+          window.clearTimeout(timer);
+        }
+      },
+      now: () => Date.now()
+    };
+  }
+  function isMatchingSessionEndpoint(rawUrl, current, contentId) {
+    const candidate = safeUrl(rawUrl);
+    if (!candidate || candidate.origin !== current.origin) return false;
+    if (!BOOKWALKER_CONTENT_SESSION_PATHS.has(candidate.pathname)) return false;
+    if (!candidate.searchParams.get("BID")) return false;
+    return !contentId || candidate.searchParams.get("cid") === contentId;
+  }
+  function parseContentAuthorization(value) {
+    if (!value || typeof value !== "object") return void 0;
+    const response = value;
+    if (String(response.status ?? "") !== "200" || typeof response.url !== "string") return void 0;
+    const baseUrl = safeUrl(response.url);
+    if (!baseUrl || !isBookwalkerHost(baseUrl.hostname)) return void 0;
+    if (!response.auth_info || typeof response.auth_info !== "object") return void 0;
+    const source = response.auth_info;
+    const query = /* @__PURE__ */ new Map();
+    for (const key of BOOKWALKER_AUTH_QUERY_KEYS) {
+      const entry = source[key];
+      if (typeof entry === "string" && entry) query.set(key, entry);
+    }
+    return query.has("Policy") && query.has("Signature") && query.has("Key-Pair-Id") ? { baseUrl, query } : void 0;
+  }
+  function applyAuthorization(rawUrl, authorization) {
+    const target = safeUrl(rawUrl);
+    if (!target || target.origin !== authorization.baseUrl.origin) return void 0;
+    if (!target.pathname.startsWith(authorization.baseUrl.pathname)) return void 0;
+    for (const key of BOOKWALKER_AUTH_QUERY_KEYS) target.searchParams.delete(key);
+    for (const [key, value] of authorization.query) target.searchParams.set(key, value);
+    return target.toString();
+  }
+  function signedUrlExpiry(url) {
+    const expires = Number(url.searchParams.get("Expires"));
+    if (Number.isFinite(expires) && expires > 0) return expires * 1e3;
+    const policy = url.searchParams.get("Policy");
+    if (!policy) return void 0;
+    try {
+      const normalized = policy.replace(/-/g, "+").replace(/_/g, "=").replace(/~/g, "/");
+      const decoded = atob(normalized);
+      const parsed = JSON.parse(decoded);
+      const epoch = Number(parsed.Statement?.[0]?.Condition?.DateLessThan?.["AWS:EpochTime"]);
+      return Number.isFinite(epoch) && epoch > 0 ? epoch * 1e3 : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function isBookwalkerAssetUrl(rawUrl) {
+    const url = safeUrl(rawUrl);
+    return Boolean(url && isBookwalkerHost(url.hostname) && /\/OPS\/images\//.test(url.pathname));
+  }
+  function isBookwalkerHost(hostname) {
+    return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function safeUrl(value) {
+    try {
+      return new URL(value, typeof location === "undefined" ? void 0 : location.href);
+    } catch {
+      return void 0;
+    }
   }
   function isCanvasMirrorEpochOrEmpty(content) {
     return content === "" || /^\d+(?:,\d+)*$/.test(content);
@@ -34030,8 +34287,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return true;
   }
   function stableContentIdentityForCanvas(canvas) {
-    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return "";
-    const token = identityForCanvas(canvas);
+    if (!isBookwalkerViewerHost()) return "";
+    const token = canvasReaderHasStableSurface(canvas) ? identityForCanvas(canvas) : canvasMirrorContentToken(canvas);
     return isRealContentIdentity(token) ? token : "";
   }
   function hasIdentityChanged(canvas, lastIdentity) {
@@ -36189,9 +36446,14 @@ ${spelling}`);
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
   const READER_RASTER_EMPTY_RETRY_MS = 650;
-  const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 8e3;
+  const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+  const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
+  const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
+  const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
+  const BOOKWALKER_RECORDER_BOOT_GRACE_MS = 15e3;
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
@@ -36207,6 +36469,7 @@ ${spelling}`);
   const LENS_PLATFORM_WEB = 3;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
+  const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log$l = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
   const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
@@ -36344,11 +36607,13 @@ ${spelling}`);
     // OCR runs as a small concurrency pool rather than one-at-a-time: manga
     // readers surface many page images/canvases at once and the serial wait was
     // the dominant source of "slow OCR". `activeScans` counts in-flight requests
-    // (capped by settings.ocrConcurrency) and `inFlightKeys` deduplicates work
+    // (capped by settings.ocrConcurrency) and `inFlightJobs` deduplicates work
     // when several queued elements share the same image content (e.g. a canvas
     // frame re-snapshotted on a page poll).
     activeScans = 0;
-    inFlightKeys = /* @__PURE__ */ new Set();
+    // A token owns each key. A stale scan may finish after a page turn/manual retry;
+    // it must not delete the marker belonging to the newer job for the same content.
+    inFlightJobs = /* @__PURE__ */ new Map();
     positionFrame = 0;
     refreshTimer = 0;
     destroyed = false;
@@ -36368,14 +36633,13 @@ ${spelling}`);
     // its place, plus the page fingerprint and the page-turn poll.
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
-    canvasFrameCaptureRects = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
     canvasFrameRegionFractions = /* @__PURE__ */ new Map();
     canvasFrameKeys = /* @__PURE__ */ new Map();
     canvasFrameContentTokens = /* @__PURE__ */ new Map();
+    canvasFrameLoadTimers = /* @__PURE__ */ new Map();
     canvasPendingStatuses = /* @__PURE__ */ new Map();
     canvasPendingStatusKeys = /* @__PURE__ */ new Map();
-    canvasPendingStatusContentTokens = /* @__PURE__ */ new Map();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -36393,7 +36657,10 @@ ${spelling}`);
     readerRasterFreeMemo;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
-    pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
+    // Entries are short-lived: settled in the capture's `finally`, cancelled on
+    // release/rebind/teardown. A real Map (not WeakMap) so pointer-ownership can
+    // ask "is any capture pending?" without tracking a parallel counter.
+    pendingCanvasSnapshots = /* @__PURE__ */ new Map();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
     // stable surface location instead of the canvas object: NFBR sometimes swaps an
     // equivalent #viewport canvas node while painting the same page, and object-keyed
@@ -36401,8 +36668,17 @@ ${spelling}`);
     canvasContentReadiness = /* @__PURE__ */ new Map();
     // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
+    canvasMirrorWaitStartedAt = /* @__PURE__ */ new Map();
+    canvasCommitMismatches = /* @__PURE__ */ new Map();
+    // Content identity recorded when a canvas's automatic retries were paused on a
+    // terminal status. Continuous mode repaints the recycled canvas in place with
+    // no release-all page turn, so a paused surface must reopen when it shows a
+    // genuinely new page instead of inheriting "Could not read" forever.
+    canvasFailureContentTokens = /* @__PURE__ */ new Map();
     readerRasterEmptyScans = /* @__PURE__ */ new Map();
     readerRasterFailedScans = /* @__PURE__ */ new Set();
+    readerRasterProviderFailures = /* @__PURE__ */ new Map();
+    readerRasterProviderRetryTimers = /* @__PURE__ */ new Map();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -36415,6 +36691,8 @@ ${spelling}`);
     canvasTapRecapture = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
+    replacementOcrLines = /* @__PURE__ */ new WeakMap();
+    lookupLineLeases = /* @__PURE__ */ new Map();
     recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     // Manual trigger from the subtitle rail's OCR button: reads the paused
@@ -36516,6 +36794,8 @@ ${spelling}`);
       this.releaseAllCanvasFrames();
       this.canvasTapRecapture.clear();
       this.releaseAllBackgroundFrames();
+      for (const pending of this.pendingCanvasSnapshots.values()) pending.cancelled = true;
+      this.pendingCanvasSnapshots.clear();
       if (this.readerRasterPoll) {
         window.clearInterval(this.readerRasterPoll);
         this.readerRasterPoll = 0;
@@ -36625,7 +36905,19 @@ ${spelling}`);
     hasReaderRasterSurfaces() {
       if (this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0) return true;
       if (this.isProvenRasterFreePage()) return false;
-      return collectCanvasReaderSurfaces().length > 0 || collectBackgroundImageReaderSurfaces().length > 0;
+      return isReaderRasterPage();
+    }
+    hasReaderRasterCaptureWork() {
+      return this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0 || isReaderRasterPage();
+    }
+    hasTrackedManualCanvasSurface() {
+      for (const canvas of this.canvasFrames.keys()) {
+        if (isManualCanvasReaderSurface(canvas)) return true;
+      }
+      for (const canvas of this.canvasPendingStatuses.keys()) {
+        if (isManualCanvasReaderSurface(canvas)) return true;
+      }
+      return false;
     }
     // A "free" verdict is provable from layout-free facts alone and stays valid
     // until a mutation could add a candidate (observer invalidates) or the SPA
@@ -36665,7 +36957,11 @@ ${spelling}`);
       return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
     }
     canScanInlineImages(userRequested) {
+      if (!userRequested && this.hasActiveReaderRasterOwnership()) return false;
       return this.options.shouldScanInlineImages?.(userRequested) !== false;
+    }
+    hasActiveReaderRasterOwnership() {
+      return this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.pendingCanvasSnapshots.size > 0 || this.backgroundFrames.size > 0;
     }
     async scanVisible() {
       this.readerRasterFreeMemo = void 0;
@@ -36678,25 +36974,61 @@ ${spelling}`);
       }
       const images = [...this.states.keys()].filter((image) => isCandidateImage(image, settings) && isNearViewport(image, 120));
       if (!images.length) {
-        if (!retriedReaderFrames) this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
+        if (!retriedReaderFrames && !this.hasReaderRasterCaptureWork()) {
+          this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
+        }
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
       log$l.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element) {
-      const line = element?.closest?.(".jpdb-ocr-line");
-      if (!line) return void 0;
+      const staleLine = element?.closest?.(".jpdb-ocr-line");
+      if (!staleLine) return void 0;
+      const line = this.currentOcrLine(staleLine);
       const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
       if (!state2) return void 0;
       const image = captureImageElement(state2.image);
       return image;
     }
     pinLineForElement(element) {
-      const line = element?.closest?.(".jpdb-ocr-line");
-      if (!line) return;
+      const staleLine = element?.closest?.(".jpdb-ocr-line");
+      if (!staleLine) return;
+      const line = this.currentOcrLine(staleLine);
       const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
       if (state2) this.pinLine(state2, line);
+    }
+    unpinLineForElement(element) {
+      const staleLine = element?.closest?.(".jpdb-ocr-line");
+      const line = staleLine ? this.currentOcrLine(staleLine) : void 0;
+      if (line?.dataset.pinned === "true") this.unpinLine(line);
+    }
+    retainLineForLookup(element) {
+      const staleLine = element?.closest?.(".jpdb-ocr-line");
+      if (!staleLine) return void 0;
+      const line = this.currentOcrLine(staleLine);
+      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (!state2) return void 0;
+      const lease = { line };
+      const leases = this.lookupLineLeases.get(line) ?? /* @__PURE__ */ new Set();
+      leases.add(lease);
+      this.lookupLineLeases.set(line, leases);
+      this.activateOcrLineMarkup(state2, line);
+      this.syncOcrLineActiveState(line);
+      this.schedulePosition();
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        const currentLine = lease.line;
+        lease.line = void 0;
+        if (!currentLine) return;
+        const current = this.lookupLineLeases.get(currentLine);
+        if (!current?.delete(lease)) return;
+        if (current.size === 0) this.lookupLineLeases.delete(currentLine);
+        this.syncOcrLineActiveState(currentLine);
+        this.schedulePosition();
+      };
     }
     clearActiveLines() {
       this.unpinAllLines();
@@ -36789,6 +37121,8 @@ ${spelling}`);
       }
       const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
       if (!surface) return false;
+      const autoOwnsSurface = settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
+      if (autoOwnsSurface) return false;
       const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
       if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
       if (event.type === "pointermove") {
@@ -36798,9 +37132,7 @@ ${spelling}`);
         this.lastPointerMoveReaderSurface = void 0;
         this.lastPointerMoveReaderSurfaceKey = void 0;
       }
-      void this.snapshotReaderSurface(surface, settings).then((frame) => {
-        if (frame) this.enqueue(frame, true);
-      });
+      void this.snapshotReaderSurface(surface, settings);
       return true;
     }
     requestOcrFromTouchEvent(event) {
@@ -36822,11 +37154,20 @@ ${spelling}`);
     }
     async snapshotReaderSurface(surface, settings) {
       if (surface instanceof HTMLCanvasElement) {
+        const existing2 = this.canvasFrames.get(surface);
+        if (existing2?.complete && existing2.naturalWidth > 0) {
+          this.enqueue(existing2, true);
+          return;
+        }
         await this.snapshotCanvasSurface(surface, settings, true);
-        return this.canvasFrames.get(surface);
+        return;
+      }
+      const existing = this.backgroundFrames.get(surface);
+      if (existing?.complete && existing.naturalWidth > 0) {
+        this.enqueue(existing, true);
+        return;
       }
       this.snapshotBackgroundImageSurface(surface, settings, true);
-      return this.backgroundFrames.get(surface);
     }
     queueImageForOcr(image) {
       if (!this.queue.includes(image)) this.queue.push(image);
@@ -36846,7 +37187,7 @@ ${spelling}`);
     takeNextQueuedImage() {
       for (let index = 0; index < this.queue.length; index++) {
         const candidate = this.queue[index];
-        if (this.inFlightKeys.has(imageCacheKey(candidate))) continue;
+        if (this.inFlightJobs.has(imageCacheKey(candidate))) continue;
         this.queue.splice(index, 1);
         return candidate;
       }
@@ -36855,8 +37196,9 @@ ${spelling}`);
     startScan(image) {
       if (this.destroyed) return;
       const key = imageCacheKey(image);
+      const job = Symbol(key);
       this.activeScans++;
-      this.inFlightKeys.add(key);
+      this.inFlightJobs.set(key, job);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const isReaderRasterFrame = this.isReaderRasterFrame(image);
       const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
@@ -36865,7 +37207,7 @@ ${spelling}`);
         log$l.warn("OCR scan task failed unexpectedly", {}, error);
       }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
-        this.inFlightKeys.delete(key);
+        if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
         if (!this.destroyed) this.drainQueue();
       });
     }
@@ -36904,7 +37246,7 @@ ${spelling}`);
     async renderCachedOcrResult(state2, key) {
       if (this.isReaderRasterFrame(state2.image) && !state2.manualRequested && this.readerRasterFailedScans.has(key)) {
         this.requireCurrentContentState(state2, key);
-        renderNoOcrLines(state2);
+        this.renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "failed");
         state2.manualRequested = false;
         return true;
@@ -36918,8 +37260,9 @@ ${spelling}`);
       this.requireCurrentContentState(state2, key);
       if (!cached) {
         if (this.isReaderRasterFrame(state2.image)) {
-          if ((this.readerRasterEmptyScans.get(key) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-            renderNoOcrLines(state2);
+          const emptyScanKey = this.readerRasterEmptyScanKey(state2, key);
+          if ((this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
+            this.renderNoOcrLines(state2);
             this.updateOcrStatus(state2.image, "empty");
             state2.manualRequested = false;
             return true;
@@ -36928,7 +37271,7 @@ ${spelling}`);
           return false;
         }
         if (this.shouldPreserveReaderRasterResult(state2)) return true;
-        renderNoOcrLines(state2);
+        this.renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         state2.manualRequested = false;
         return true;
@@ -36952,6 +37295,7 @@ ${spelling}`);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         this.readerRasterFailedScans.delete(key);
+        this.clearReaderRasterProviderRetry(key);
         if (this.shouldPreserveReaderRasterResult(state2)) {
           this.updateOcrStatus(image, "ready");
           return;
@@ -36967,13 +37311,17 @@ ${spelling}`);
           this.remember(key, null);
         }
         this.requireCurrentContentState(state2, key);
-        renderNoOcrLines(state2);
-        this.updateOcrStatus(image, "empty");
+        this.renderNoOcrLines(state2);
+        this.updateOcrStatus(
+          image,
+          this.isReaderRasterFrame(image) && readerRasterEmptyAttempts < READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS ? "loading" : "empty"
+        );
         return;
       }
       this.remember(key, result);
-      this.readerRasterEmptyScans.delete(key);
+      this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state2, key));
       this.readerRasterFailedScans.delete(key);
+      this.clearReaderRasterProviderRetry(key);
       this.requireCurrentContentState(state2, key);
       state2.key = key;
       if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
@@ -36996,10 +37344,18 @@ ${spelling}`);
       if (fallback?.lines.length) {
         log$l.warn("OCR provider failed", { provider }, error);
         this.readerRasterFailedScans.delete(key);
+        this.clearReaderRasterProviderRetry(key);
         await this.renderResult(state2, fallback, false, key);
         return;
       }
-      if (this.isReaderRasterFrame(image)) this.rememberReaderRasterFailure(key);
+      if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state2, key, manualRequested, error)) {
+        this.updateOcrStatus(image, "loading");
+        return;
+      }
+      if (this.isReaderRasterFrame(image)) {
+        this.clearReaderRasterProviderRetry(key);
+        this.rememberReaderRasterFailure(key);
+      }
       logOcrFailure(state2, provider, manualRequested, error);
       this.updateOcrStatus(image, "failed");
     }
@@ -37089,7 +37445,7 @@ ${spelling}`);
           this.updateOcrStatus(state2.image, "ready");
           return;
         }
-        renderNoOcrLines(state2);
+        this.renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         return;
       }
@@ -37113,6 +37469,7 @@ ${spelling}`);
       const lineElements = lines.map((line, index) => this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       const staleLines = Array.from(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
       state2.overlay.append(...lineElements);
+      this.migrateOcrLineInteractionState(state2, staleLines, lineElements);
       staleLines.forEach((node) => node.remove());
       this.revealVideoFrameOverlay(state2.image);
       this.positionState(state2.image);
@@ -37198,20 +37555,94 @@ ${spelling}`);
       return recent;
     }
     pinLine(state2, element) {
-      state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
+      state2.overlay.querySelectorAll('.jpdb-ocr-line[data-pinned="true"]').forEach((line) => {
         if (line !== element) this.unpinLine(line);
       });
       this.activateOcrLineMarkup(state2, element);
-      element.classList.add("jpdb-ocr-line-active");
       element.dataset.pinned = "true";
       element.setAttribute("aria-pressed", "true");
+      this.syncOcrLineActiveState(element);
       this.schedulePosition();
     }
     unpinLine(element) {
-      element.classList.remove("jpdb-ocr-line-active");
       element.dataset.pinned = "false";
       element.setAttribute("aria-pressed", "false");
+      this.syncOcrLineActiveState(element);
       this.schedulePosition();
+    }
+    syncOcrLineActiveState(element) {
+      const retained = Boolean(this.lookupLineLeases.get(element)?.size);
+      element.classList.toggle("jpdb-ocr-line-active", element.dataset.pinned === "true" || retained);
+    }
+    migrateOcrLineInteractionState(state2, staleLines, replacementLines) {
+      const available = new Set(replacementLines);
+      const replacements = /* @__PURE__ */ new Map();
+      staleLines.forEach((staleLine) => {
+        const identity = ocrRenderedLineIdentity(staleLine);
+        const replacement = replacementLines.find((candidate) => available.has(candidate) && ocrRenderedLineIdentity(candidate) === identity);
+        if (!replacement) return;
+        replacements.set(staleLine, replacement);
+        available.delete(replacement);
+      });
+      staleLines.forEach((staleLine, index) => {
+        if (replacements.has(staleLine)) return;
+        const replacement = replacementLines[index];
+        if (!replacement || !available.has(replacement)) return;
+        replacements.set(staleLine, replacement);
+        available.delete(replacement);
+      });
+      staleLines.forEach((staleLine) => {
+        const replacement = replacements.get(staleLine);
+        if (replacement) {
+          this.replacementOcrLines.set(staleLine, replacement);
+        }
+        const leases = this.lookupLineLeases.get(staleLine);
+        this.lookupLineLeases.delete(staleLine);
+        if (leases && replacement) {
+          const replacementLeases = this.lookupLineLeases.get(replacement) ?? /* @__PURE__ */ new Set();
+          leases.forEach((lease) => {
+            lease.line = replacement;
+            replacementLeases.add(lease);
+          });
+          this.lookupLineLeases.set(replacement, replacementLeases);
+        } else {
+          leases?.forEach((lease) => {
+            lease.line = void 0;
+          });
+        }
+        if (!replacement) return;
+        if (staleLine.dataset.pinned === "true") {
+          replacement.dataset.pinned = "true";
+          replacement.setAttribute("aria-pressed", "true");
+        }
+        if (leases?.size || replacement.dataset.pinned === "true") {
+          this.activateOcrLineMarkup(state2, replacement);
+        }
+        this.syncOcrLineActiveState(replacement);
+      });
+    }
+    currentOcrLine(line) {
+      let current = line;
+      let replacement = this.replacementOcrLines.get(current);
+      while (replacement && replacement !== current) {
+        current = replacement;
+        replacement = this.replacementOcrLines.get(current);
+      }
+      if (current !== line) this.replacementOcrLines.set(line, current);
+      return current;
+    }
+    discardOcrLineInteractionState(lines) {
+      for (const line of lines) {
+        const leases = this.lookupLineLeases.get(line);
+        leases?.forEach((lease) => {
+          lease.line = void 0;
+        });
+        this.lookupLineLeases.delete(line);
+      }
+    }
+    renderNoOcrLines(state2) {
+      this.discardOcrLineInteractionState(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
+      renderNoOcrLines(state2);
     }
     unpinOcrLinesFromDocumentEvent(event) {
       const target = event.target instanceof Element ? event.target : null;
@@ -37220,7 +37651,7 @@ ${spelling}`);
     }
     unpinAllLines() {
       for (const state2 of this.states.values()) {
-        state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
+        state2.overlay.querySelectorAll('.jpdb-ocr-line[data-pinned="true"]').forEach((line) => this.unpinLine(line));
       }
     }
     observePriority(image) {
@@ -37240,6 +37671,7 @@ ${spelling}`);
       state2.manualRequested = false;
       state2.autoSkipped = false;
       if (!preserveReaderRasterResult) {
+        this.discardOcrLineInteractionState(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
         state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
         this.removeImageStatusCard(state2.image);
       }
@@ -37252,9 +37684,10 @@ ${spelling}`);
     }
     recordReaderRasterEmptyScan(state2, key, userRequested) {
       if (!this.isReaderRasterFrame(state2.image)) return 0;
-      const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
-      this.readerRasterEmptyScans.set(key, attempts);
-      if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
+      const emptyScanKey = this.readerRasterEmptyScanKey(state2, key);
+      const attempts = (this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) + 1;
+      this.readerRasterEmptyScans.set(emptyScanKey, attempts);
+      if (attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
       window.setTimeout(() => {
         if (!this.isCurrentContentState(state2, key)) return;
         const canvas = this.canvasFrameSources.get(state2.image);
@@ -37270,6 +37703,36 @@ ${spelling}`);
         }
       }, READER_RASTER_EMPTY_RETRY_MS);
       return attempts;
+    }
+    readerRasterEmptyScanKey(state2, fallbackKey) {
+      return state2.image.dataset.ocrAttemptKey || fallbackKey;
+    }
+    scheduleReaderRasterProviderRetry(state2, key, userRequested, error) {
+      const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
+      this.readerRasterProviderFailures.set(key, attempts);
+      if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
+      const delay2 = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
+      log$l.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
+      const previousTimer = this.readerRasterProviderRetryTimers.get(key);
+      if (previousTimer) window.clearTimeout(previousTimer);
+      const timer = window.setTimeout(() => {
+        if (this.readerRasterProviderRetryTimers.get(key) !== timer) return;
+        this.readerRasterProviderRetryTimers.delete(key);
+        if (!this.isCurrentContentState(state2, key)) return;
+        state2.autoSkipped = false;
+        this.enqueue(state2.image, userRequested);
+      }, delay2);
+      this.readerRasterProviderRetryTimers.set(key, timer);
+      return true;
+    }
+    clearReaderRasterProviderRetry(key) {
+      this.cancelReaderRasterProviderRetryTimer(key);
+      this.readerRasterProviderFailures.delete(key);
+    }
+    cancelReaderRasterProviderRetryTimer(key) {
+      const timer = this.readerRasterProviderRetryTimers.get(key);
+      if (timer) window.clearTimeout(timer);
+      this.readerRasterProviderRetryTimers.delete(key);
     }
     rememberReaderRasterFailure(key) {
       if (key.startsWith("data:")) return;
@@ -37637,43 +38100,73 @@ ${spelling}`);
       }
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
       const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
-      if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
-        if (!isReaderRasterPage()) {
-          this.releaseAllCanvasFrames();
-          return;
-        }
-        const signature2 = canvasReaderPageSignature();
-        const turned = signature2 !== this.canvasReaderSignature;
-        this.canvasReaderSignature = signature2;
-        for (const canvas of [...this.canvasFrames.keys()]) {
-          if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
-        }
-        return;
-      }
-      if (!isReaderRasterPage()) {
+      if (this.handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases)) return;
+      if (!isReaderRasterPage() && !this.hasTrackedManualCanvasSurface()) {
         this.releaseAllCanvasFrames();
         return;
       }
       this.startReaderRasterPollingIfNeeded();
-      const signature = canvasReaderPageSignature();
-      if (signature !== this.canvasReaderSignature) {
-        if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
-          this.scheduleReaderRasterRefresh(80);
-          return;
-        }
-        this.canvasReaderSamePageSignatureSkips = 0;
-        this.releaseAllCanvasFrames();
-        this.canvasReaderSignature = signature;
-      } else {
-        this.canvasReaderSamePageSignatureSkips = 0;
-      }
+      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      const signature = this.registerCanvasReaderPageSignature(canvases);
+      if (signature === null) return;
       if (!settings.ocrAutoScanImages && !userRequested) {
-        this.retryPendingUserRequestedCaptures(settings);
+        this.refreshManualCanvasReaderFrames(canvases, settings);
         return;
       }
-      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      this.reconcileCanvasReaderFrames(canvases, signature, settings, userRequested);
+    }
+    handleNativeTextLayerCanvasGate(nativeTextLayerBlocksAutoScan, ocrOptInCanvases) {
+      if (!nativeTextLayerBlocksAutoScan || ocrOptInCanvases?.length) return false;
+      if (!isReaderRasterPage()) {
+        this.releaseAllCanvasFrames();
+        return true;
+      }
+      const signature = canvasReaderPageSignature();
+      const turned = signature !== this.canvasReaderSignature;
+      this.canvasReaderSignature = signature;
+      for (const canvas of [...this.canvasFrames.keys()]) {
+        if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
+      }
+      return true;
+    }
+    registerCanvasReaderPageSignature(canvases) {
+      const signature = canvasReaderPageSignature();
+      if (signature === this.canvasReaderSignature) {
+        this.canvasReaderSamePageSignatureSkips = 0;
+        return signature;
+      }
+      if (canvases.some(canvasReaderHasStableSurface)) {
+        this.canvasReaderSamePageSignatureSkips = 0;
+        this.canvasReaderSignature = signature;
+        return signature;
+      }
+      if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
+        if (canvases.some((canvas) => this.canvasFrameNeedsResnapshot(canvas))) {
+          this.canvasReaderSamePageSignatureSkips = 0;
+          this.canvasReaderSignature = signature;
+          return signature;
+        }
+        this.scheduleReaderRasterRefresh(80);
+        return null;
+      }
+      this.canvasReaderSamePageSignatureSkips = 0;
+      this.releaseAllCanvasFrames();
+      this.canvasReaderSignature = signature;
+      return signature;
+    }
+    refreshManualCanvasReaderFrames(canvases, settings) {
+      for (const canvas of [...this.canvasFrames.keys()]) {
+        if (this.reconcileUserRequestedManualCanvasFrame(canvas)) continue;
+        if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
+        else if (this.canvasFrameNeedsResnapshot(canvas)) this.releaseCanvasFrameForResnapshot(canvas);
+      }
+      this.retryPendingUserRequestedCaptures(settings);
+    }
+    reconcileCanvasReaderFrames(canvases, signature, settings, userRequested) {
       for (const canvas of [...this.canvasPendingStatuses.keys()]) {
-        if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+        if (canvases.includes(canvas)) continue;
+        if (isBookwalkerViewerHost()) this.cancelCanvasSnapshot(canvas);
+        this.removeCanvasPendingStatus(canvas);
       }
       for (const canvas of canvases) {
         if (this.canvasFrames.has(canvas)) continue;
@@ -37681,6 +38174,7 @@ ${spelling}`);
       }
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
+        if (this.reconcileUserRequestedManualCanvasFrame(canvas)) continue;
         if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
         if (this.canvasFrames.get(canvas)?.complete === false) continue;
         this.releaseCanvasFrame(canvas);
@@ -37695,6 +38189,11 @@ ${spelling}`);
       }
       if (this.canvasFrames.size || this.canvasPendingStatuses.size) this.schedulePosition();
     }
+    reconcileUserRequestedManualCanvasFrame(canvas) {
+      if (!this.canvasFrameUserRequested.has(canvas) || !isManualCanvasReaderSurface(canvas)) return false;
+      if (this.canvasFrameNeedsResnapshot(canvas)) this.releaseCanvasFrameForResnapshot(canvas);
+      return true;
+    }
     async snapshotCanvasSurface(canvas, settings, userRequested = false) {
       const key = canvasSurfaceSnapshotKey(canvas);
       const startContentToken = canvasStablePageContentToken(canvas);
@@ -37702,122 +38201,241 @@ ${spelling}`);
         if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
         this.releaseCanvasFrame(canvas);
       }
+      if (!userRequested && (this.canvasCaptureAttempts.get(canvas) ?? 0) > READER_RASTER_MAX_CAPTURE_ATTEMPTS) {
+        const liveToken = canvasStablePageContentToken(canvas);
+        const failedToken = this.canvasFailureContentTokens.get(canvas);
+        if (liveToken && failedToken && liveToken !== failedToken) {
+          this.clearCanvasCaptureRetry(canvas);
+        } else {
+          this.updateCanvasPendingStatus(canvas, canvas.getBoundingClientRect(), "failed");
+          return;
+        }
+      }
       const existingPending = this.pendingCanvasSnapshots.get(canvas);
       if (existingPending?.key === key) {
         if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
-        this.pendingCanvasSnapshots.delete(canvas);
-        this.setCanvasCaptureFailed(canvas);
+        this.cancelCanvasSnapshot(canvas, existingPending);
+        this.handleCanvasCaptureNotReady(canvas, canvas.getBoundingClientRect(), userRequested);
+        return;
       }
-      const pendingSnapshot = { key, startedAt: Date.now() };
+      if (existingPending) this.cancelCanvasSnapshot(canvas, existingPending);
+      const pendingSnapshot = { key, startedAt: Date.now(), cancelled: false };
       this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
+      const rect = canvas.getBoundingClientRect();
       try {
-        const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
         if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
         this.updateCanvasPendingStatus(canvas, rect, "loading");
-        let frameSrc;
-        let frameRect = rect;
-        let contentKey;
-        const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : void 0;
-        const captureRect = visibleRetryRect ?? rect;
-        const regionKey = visibleRetryRect ? canvasRegionContentKey(rect, visibleRetryRect) : "";
-        if (isCanvasReadable(canvas)) {
-          const contentSignature = canvasRenderedContentSignature(canvas);
-          if (!contentSignature) {
-            this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
-            return;
-          }
-          if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
-          frameSrc = visibleRetryRect ? captureCanvasRegionDataUrl(canvas, rect, visibleRetryRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-          frameRect = captureRect;
-          contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}${regionKey}`;
-        } else if (isBookwalkerViewerHost()) {
-          const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
-          const mirror = await captureMirror(canvas, loadCleanMirrorImage);
-          if (mirror) {
-            frameSrc = visibleRetryRect ? captureCanvasRegionDataUrl(mirror, rect, visibleRetryRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
-            frameRect = captureRect;
-            const mirrorSignature = canvasRenderedContentSignature(mirror);
-            if (mirrorSignature) contentKey = `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}`;
-          } else {
-            const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
-            const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
-            frameSrc = screenshot?.dataUrl;
-            frameRect = screenshot?.rect ?? rect;
-          }
-        } else if (canUseReaderCanvasSourceImageFallback()) {
-          frameSrc = readerCanvasSourceImageUrl();
-          if (frameSrc) contentKey = `src:${frameSrc}`;
-        }
-        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
-        if (!frameSrc) {
+        this.armCanvasSnapshotTimeout(canvas, pendingSnapshot, rect, userRequested);
+        const captured = await this.captureCanvasSnapshotSource(canvas, settings, rect, userRequested, startContentToken);
+        if (captured === null) return;
+        if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+        if (!captured) {
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
           return;
         }
-        contentKey ??= `surface:${key}`;
-        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
-        if (!ocrRuntimeActive(this.options.getSettings())) return;
-        const finishContentToken = canvasStablePageContentToken(canvas);
-        if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
-          this.scheduleReaderRasterRefresh(40);
-          return;
+        const contentKey = captured.contentKey ?? (captured.frameSrc.startsWith("data:") ? `raster:${stableHashBase36(captured.frameSrc)}` : void 0);
+        this.commitCanvasSnapshot(canvas, pendingSnapshot, key, rect, { ...captured, contentKey }, userRequested);
+      } catch (error) {
+        if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) {
+          const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
+          log$l.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
+          this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
         }
-        if (canvasSurfaceSnapshotKey(canvas) !== key) {
-          this.scheduleReaderRasterRefresh(40);
-          return;
-        }
-        const frame = document.createElement("img");
-        frame.className = "jpdb-ocr-canvas-frame";
-        frame.dataset.yomuCanvasFrame = "true";
-        if (contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(contentKey, canvas);
-        frame.alt = "";
-        positionCanvasFrameImage(frame, frameRect);
-        frame.addEventListener("load", () => {
-          if (this.canvasFrames.get(canvas) === frame) {
-            this.removeCanvasPendingStatus(canvas);
-            this.enqueue(frame, userRequested);
-          }
-        }, { once: true });
-        document.body.append(frame);
-        this.canvasFrames.set(canvas, frame);
-        this.canvasFrameSources.set(frame, canvas);
-        this.canvasFrameCaptureRects.set(frame, frameRect);
-        this.canvasFrameKeys.set(canvas, key);
-        const capturedContentToken = finishContentToken || startContentToken;
-        if (capturedContentToken) this.canvasFrameContentTokens.set(canvas, capturedContentToken);
-        else this.canvasFrameContentTokens.delete(canvas);
-        if (frameRect !== rect) {
-          this.canvasFrameStaticRects.set(frame, frameRect);
-          this.canvasFrameRegionFractions.set(frame, new DOMRect(
-            (frameRect.left - rect.left) / rect.width,
-            (frameRect.top - rect.top) / rect.height,
-            frameRect.width / rect.width,
-            frameRect.height / rect.height
-          ));
-        }
-        if (userRequested) this.canvasFrameUserRequested.add(canvas);
-        else this.canvasFrameUserRequested.delete(canvas);
-        this.updateOcrStatus(frame, "loading");
-        frame.src = frameSrc;
-        this.clearCanvasCaptureRetry(canvas);
-        this.canvasReaderSignature = canvasReaderPageSignature();
-        this.canvasReaderSamePageSignatureSkips = 0;
-        this.schedulePosition();
       } finally {
-        if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
+        this.settleCanvasSnapshot(canvas, pendingSnapshot);
       }
+    }
+    async captureCanvasSnapshotSource(canvas, settings, rect, userRequested, startContentToken) {
+      const visibleRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : void 0;
+      const frameRect = visibleRect ?? rect;
+      const regionKey = visibleRect ? canvasRegionContentKey(rect, visibleRect) : "";
+      if (isCanvasReadable(canvas)) {
+        return this.captureReadableCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, userRequested, startContentToken);
+      }
+      if (isBookwalkerViewerHost()) {
+        return this.captureBookwalkerCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, startContentToken);
+      }
+      if (!canUseReaderCanvasSourceImageFallback()) return void 0;
+      const frameSrc = readerCanvasSourceImageUrl();
+      return frameSrc ? { frameSrc, frameRect, contentKey: `src:${frameSrc}`, contentToken: startContentToken } : void 0;
+    }
+    captureReadableCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, userRequested, contentToken) {
+      const contentSignature = canvasRenderedContentSignature(canvas);
+      if (!contentSignature) {
+        this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
+        return null;
+      }
+      if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return null;
+      const frameSrc = visibleRect ? captureCanvasRegionDataUrl(canvas, rect, visibleRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+      return frameSrc ? {
+        frameSrc,
+        frameRect,
+        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? `cv:${contentSignature}:${canvas.width}x${canvas.height}${regionKey}`,
+        contentToken
+      } : void 0;
+    }
+    async captureBookwalkerCanvasSnapshot(canvas, settings, rect, frameRect, visibleRect, regionKey, startContentToken) {
+      const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
+      const mirror = await captureMirror(canvas, loadCleanMirrorImage);
+      if (!mirror) {
+        const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+        const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+        return screenshot?.dataUrl ? {
+          frameSrc: screenshot.dataUrl,
+          frameRect: screenshot.rect ?? rect,
+          contentKey: bookwalkerCanvasContentKey(startContentToken, regionKey),
+          contentToken: startContentToken
+        } : void 0;
+      }
+      const frameSrc = visibleRect ? captureCanvasRegionDataUrl(mirror, rect, visibleRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+      if (!frameSrc) return void 0;
+      const mirrorSignature = canvasRenderedContentSignature(mirror);
+      const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
+      return {
+        frameSrc,
+        frameRect,
+        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0),
+        contentToken
+      };
+    }
+    commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
+      if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+      if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
+      if (!ocrRuntimeActive(this.options.getSettings())) return;
+      const finishContentToken = canvasStablePageContentToken(canvas);
+      if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
+        this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, "content identity");
+        return;
+      }
+      if (canvasSurfaceSnapshotKey(canvas) !== key) {
+        this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, "surface identity");
+        return;
+      }
+      const frame = document.createElement("img");
+      frame.className = "jpdb-ocr-canvas-frame";
+      frame.dataset.yomuCanvasFrame = "true";
+      if (captured.contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(captured.contentKey, canvas);
+      frame.alt = "";
+      positionCanvasFrameImage(frame, captured.frameRect);
+      const finishFrameLoad = (loaded) => {
+        if (this.canvasFrames.get(canvas) !== frame) return;
+        const timer = this.canvasFrameLoadTimers.get(frame);
+        if (timer) window.clearTimeout(timer);
+        this.canvasFrameLoadTimers.delete(frame);
+        if (loaded) {
+          this.removeCanvasPendingStatus(canvas);
+          this.clearCanvasCaptureRetry(canvas);
+          this.canvasCommitMismatches.delete(canvas);
+          this.enqueue(frame, userRequested);
+          return;
+        }
+        this.discardUnloadedCanvasFrame(canvas, frame);
+        this.handleCanvasCaptureNotReady(canvas, canvasRect, userRequested);
+      };
+      frame.addEventListener("load", () => finishFrameLoad(true), { once: true });
+      frame.addEventListener("error", () => finishFrameLoad(false), { once: true });
+      document.body.append(frame);
+      this.canvasFrames.set(canvas, frame);
+      this.canvasFrameSources.set(frame, canvas);
+      this.canvasFrameKeys.set(canvas, key);
+      const committedContentToken = captured.contentToken || finishContentToken;
+      if (committedContentToken) this.canvasFrameContentTokens.set(canvas, committedContentToken);
+      else this.canvasFrameContentTokens.delete(canvas);
+      frame.dataset.ocrAttemptKey = canvasFrameOcrAttemptKey(canvas, key, committedContentToken);
+      this.rememberCanvasSnapshotRegion(frame, canvasRect, captured.frameRect);
+      if (userRequested) this.canvasFrameUserRequested.add(canvas);
+      else this.canvasFrameUserRequested.delete(canvas);
+      this.canvasFrameLoadTimers.set(frame, window.setTimeout(
+        () => finishFrameLoad(false),
+        READER_RASTER_FRAME_LOAD_TIMEOUT_MS
+      ));
+      frame.src = captured.frameSrc;
+      this.canvasReaderSignature = canvasReaderPageSignature();
+      this.canvasReaderSamePageSignatureSkips = 0;
+      this.schedulePosition();
+    }
+    handleCanvasCommitMismatch(canvas, rect, userRequested, reason) {
+      const mismatches = (this.canvasCommitMismatches.get(canvas) ?? 0) + 1;
+      this.canvasCommitMismatches.set(canvas, mismatches);
+      if (mismatches < READER_RASTER_MAX_COMMIT_MISMATCHES) {
+        if (userRequested) this.scheduleCanvasCaptureRetry(canvas, true);
+        else this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS * mismatches);
+        return;
+      }
+      this.canvasCommitMismatches.delete(canvas);
+      this.canvasCaptureAttempts.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS + 1);
+      this.canvasTapRecapture.delete(canvas);
+      this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
+      const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
+      log$l.warnOnce(
+        `canvas-commit-mismatch:${surface}:${reason}`,
+        `Reader raster capture repeatedly changed ${reason}; automatic retries paused`,
+        { surface, userRequested }
+      );
+      this.updateCanvasPendingStatus(canvas, rect, "failed");
+    }
+    rememberCanvasSnapshotRegion(frame, canvasRect, frameRect) {
+      if (frameRect === canvasRect) return;
+      this.canvasFrameStaticRects.set(frame, frameRect);
+      this.canvasFrameRegionFractions.set(frame, new DOMRect(
+        (frameRect.left - canvasRect.left) / canvasRect.width,
+        (frameRect.top - canvasRect.top) / canvasRect.height,
+        frameRect.width / canvasRect.width,
+        frameRect.height / canvasRect.height
+      ));
     }
     wasCanvasSnapshotSuperseded(canvas, pendingSnapshot) {
       const current = this.pendingCanvasSnapshots.get(canvas);
-      return Boolean(current && current !== pendingSnapshot);
+      return pendingSnapshot.cancelled || Boolean(current && current !== pendingSnapshot);
+    }
+    armCanvasSnapshotTimeout(canvas, pending, rect, userRequested) {
+      pending.timeoutId = window.setTimeout(() => {
+        if (this.pendingCanvasSnapshots.get(canvas) !== pending || pending.cancelled) return;
+        this.cancelCanvasSnapshot(canvas, pending);
+        this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
+      }, READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS);
+    }
+    settleCanvasSnapshot(canvas, pending) {
+      if (pending.timeoutId) window.clearTimeout(pending.timeoutId);
+      pending.timeoutId = void 0;
+      if (this.pendingCanvasSnapshots.get(canvas) === pending) this.pendingCanvasSnapshots.delete(canvas);
+    }
+    cancelCanvasSnapshot(canvas, pending = this.pendingCanvasSnapshots.get(canvas)) {
+      if (!pending) return;
+      pending.cancelled = true;
+      if (pending.timeoutId) window.clearTimeout(pending.timeoutId);
+      pending.timeoutId = void 0;
+      if (this.pendingCanvasSnapshots.get(canvas) === pending) this.pendingCanvasSnapshots.delete(canvas);
+    }
+    discardUnloadedCanvasFrame(canvas, frame) {
+      if (this.canvasFrames.get(canvas) !== frame) return;
+      const timer = this.canvasFrameLoadTimers.get(frame);
+      if (timer) window.clearTimeout(timer);
+      this.canvasFrameLoadTimers.delete(frame);
+      this.canvasFrames.delete(canvas);
+      this.canvasFrameSources.delete(frame);
+      this.canvasFrameStaticRects.delete(frame);
+      this.canvasFrameRegionFractions.delete(frame);
+      this.canvasFrameKeys.delete(canvas);
+      this.canvasFrameContentTokens.delete(canvas);
+      this.canvasFrameUserRequested.delete(canvas);
+      this.removeImageStatusCard(frame);
+      frame.remove();
+    }
+    shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested) {
+      if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return false;
+      if (userRequested && canvas.isConnected && !this.canvasFrames.has(canvas)) {
+        this.scheduleCanvasCaptureRetry(canvas, true);
+      }
+      return true;
     }
     shouldHoldCanvasFramesForSamePageSignature(signature) {
       if (!this.canvasReaderSignature) return false;
       if (!this.canvasFrames.size) return false;
+      if (hasDifferentRecordedCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
       if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
-      if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
       if (hasSameRealCanvasReaderContent(this.canvasReaderSignature, signature)) return true;
       if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
@@ -37841,6 +38459,8 @@ ${spelling}`);
       if (!rect.width || !rect.height) return false;
       this.removeCanvasPendingStatus(previousCanvas);
       this.removeCanvasPendingStatus(canvas);
+      this.cancelCanvasSnapshot(previousCanvas);
+      this.cancelCanvasSnapshot(canvas);
       this.canvasFrames.delete(previousCanvas);
       this.canvasFrames.set(canvas, frame);
       this.canvasFrameSources.set(frame, canvas);
@@ -37850,7 +38470,6 @@ ${spelling}`);
       this.canvasFrameContentTokens.delete(previousCanvas);
       if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
       else this.canvasFrameContentTokens.delete(canvas);
-      this.canvasFrameCaptureRects.set(frame, rect);
       this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
       this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
       this.canvasCaptureAttempts.delete(previousCanvas);
@@ -37896,9 +38515,9 @@ ${spelling}`);
     }
     // A canvas capture failed (engine hasn't painted / mirror has no ops yet).
     // Retry with exponential backoff so the page OCRs as soon as it's ready instead
-    // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
-    // poll keeps trying and a tap force-rescans, so the page is never permanently
-    // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
+    // of waiting for the next 1200ms poll. After the cap automatic retries pause on
+    // a tappable status. A real turn (releaseAllCanvasFrames), success, or explicit
+    // tap resets the counter and reopens capture.
     // A user-requested (tapped) capture opens a bounded recapture WINDOW so the retry
     // re-attempts AS a tap — in tap/manual mode the poll itself never captures, so
     // without this a failed tap is dropped and the page never OCRs until the user taps
@@ -37907,8 +38526,23 @@ ${spelling}`);
     // turn) and is bounded by its own attempt count, so it can never become permanent
     // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
     handleCanvasCaptureNotReady(canvas, rect, userRequested) {
+      if (this.deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested)) return;
       if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
+      this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
       this.updateCanvasPendingStatus(canvas, rect, "failed");
+    }
+    deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested) {
+      if (userRequested || !isBookwalkerViewerHost()) return false;
+      if (canvasMirrorContentToken(canvas)) {
+        if (this.canvasMirrorWaitStartedAt.delete(canvas)) this.canvasCaptureAttempts.delete(canvas);
+        return false;
+      }
+      const startedAt = this.canvasMirrorWaitStartedAt.get(canvas) ?? Date.now();
+      this.canvasMirrorWaitStartedAt.set(canvas, startedAt);
+      if (Date.now() - startedAt >= BOOKWALKER_RECORDER_BOOT_GRACE_MS) return false;
+      this.canvasCaptureAttempts.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
+      this.updateCanvasPendingStatus(canvas, rect, "loading");
+      return true;
     }
     scheduleCanvasCaptureRetry(canvas, userRequested = false) {
       if (userRequested) {
@@ -37947,6 +38581,9 @@ ${spelling}`);
     }
     clearCanvasCaptureRetry(canvas) {
       this.canvasCaptureAttempts.delete(canvas);
+      this.canvasMirrorWaitStartedAt.delete(canvas);
+      this.canvasCommitMismatches.delete(canvas);
+      this.canvasFailureContentTokens.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
     }
     updateCanvasPendingStatus(canvas, rect, status) {
@@ -37957,28 +38594,18 @@ ${spelling}`);
       card.classList.add("jpdb-ocr-canvas-status");
       this.configureCanvasPendingStatusRetry(card);
       this.updateReaderRasterRetryLabel(card, status);
-      const contentToken = canvasStablePageContentToken(canvas);
-      if (contentToken) this.canvasPendingStatusContentTokens.set(canvas, contentToken);
-      else this.canvasPendingStatusContentTokens.delete(canvas);
       const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
       if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
       card.hidden = false;
       this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
       positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
     }
-    setCanvasCaptureFailed(canvas) {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      this.updateCanvasPendingStatus(canvas, rect, "failed");
-    }
     removeCanvasPendingStatus(canvas) {
       const card = this.canvasPendingStatuses.get(canvas);
-      this.pendingCanvasSnapshots.delete(canvas);
       if (!card) return;
       removeOcrArtifact(card);
       this.canvasPendingStatuses.delete(canvas);
       this.canvasPendingStatusKeys.delete(canvas);
-      this.canvasPendingStatusContentTokens.delete(canvas);
     }
     isTerminalCanvasPendingStatus(card) {
       const status = card.dataset.status;
@@ -38005,53 +38632,62 @@ ${spelling}`);
     retryCanvasPendingStatusCard(card) {
       const canvas = [...this.canvasPendingStatuses].find(([, candidate]) => candidate === card)?.[0];
       if (!canvas) return;
-      this.pendingCanvasSnapshots.delete(canvas);
+      this.cancelCanvasSnapshot(canvas);
       this.removeCanvasPendingStatus(canvas);
       this.clearCanvasCaptureRetry(canvas);
       void this.snapshotCanvasSurface(canvas, this.options.getSettings(), true);
     }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
+      this.cancelCanvasSnapshot(canvas);
       this.removeCanvasPendingStatus(canvas);
       if (!frame) return;
+      const loadTimer = this.canvasFrameLoadTimers.get(frame);
+      if (loadTimer) window.clearTimeout(loadTimer);
+      this.canvasFrameLoadTimers.delete(frame);
       this.canvasFrames.delete(canvas);
       const state2 = this.states.get(frame);
       if (state2) this.releaseImageState(frame, state2);
       else this.forgetImageWork(frame);
       this.canvasFrameSources.delete(frame);
-      this.canvasFrameCaptureRects.delete(frame);
       this.canvasFrameStaticRects.delete(frame);
       this.canvasFrameRegionFractions.delete(frame);
       this.canvasFrameKeys.delete(canvas);
       this.canvasFrameContentTokens.delete(canvas);
       this.canvasContentReadiness.delete(canvasContentReadinessKey(canvas));
       this.canvasCaptureAttempts.delete(canvas);
+      this.canvasMirrorWaitStartedAt.delete(canvas);
+      this.canvasCommitMismatches.delete(canvas);
+      this.canvasFailureContentTokens.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
       this.canvasFrameUserRequested.delete(canvas);
       frame.remove();
     }
     releaseAllCanvasFrames() {
       for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
-      for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
+      for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+        this.cancelCanvasSnapshot(canvas);
+        this.removeCanvasPendingStatus(canvas);
+      }
       this.canvasContentReadiness.clear();
       this.canvasCaptureAttempts.clear();
+      this.canvasMirrorWaitStartedAt.clear();
+      this.canvasCommitMismatches.clear();
+      this.canvasFailureContentTokens.clear();
       this.canvasReaderSignature = void 0;
       this.canvasReaderSamePageSignatureSkips = 0;
     }
     positionCanvasFrames() {
       for (const [canvas, status] of [...this.canvasPendingStatuses]) {
         if (!canvas.isConnected) {
+          this.cancelCanvasSnapshot(canvas);
           this.removeCanvasPendingStatus(canvas);
           continue;
         }
         const key = this.canvasPendingStatusKeys.get(canvas);
         if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
+          this.cancelCanvasSnapshot(canvas);
           this.removeCanvasPendingStatus(canvas);
-          continue;
-        }
-        if (this.canvasContentTokenChanged(canvas, this.canvasPendingStatusContentTokens.get(canvas))) {
-          this.removeCanvasPendingStatus(canvas);
-          this.scheduleReaderRasterRefresh(40);
           continue;
         }
         const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
@@ -38079,31 +38715,17 @@ ${spelling}`);
           this.scheduleReaderRasterRefresh(40);
           continue;
         }
-        if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) {
-          this.releaseCanvasFrame(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) {
           const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
           if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
-            if (this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
+            if (this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame)) {
               this.releaseCanvasFrameForResnapshot(canvas);
               this.scheduleReaderRasterRefresh(40);
               continue;
             }
           }
           positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
-          continue;
-        }
-        if (this.canvasFrameSizeChanged(frame, rect)) {
-          if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
-            positionCanvasFrameImage(frame, rect);
-            continue;
-          }
-          this.releaseCanvasFrameForResnapshot(canvas);
-          this.scheduleReaderRasterRefresh(40);
           continue;
         }
         positionCanvasFrameImage(frame, rect);
@@ -38124,19 +38746,14 @@ ${spelling}`);
       if (staticRect) {
         const canvasRect = canvas.getBoundingClientRect();
         const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
-        return Boolean(this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame));
+        return Boolean(this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) && this.shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame));
       }
-      const rect = canvas.getBoundingClientRect();
-      return this.canvasFrameSizeChanged(frame, rect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
+      return false;
     }
-    shouldRecaptureReaderRasterFrameForSizeChange(frame) {
+    shouldRecaptureCroppedReaderRasterFrameForGeometryChange(frame) {
       if (!this.isReaderRasterFrame(frame)) return false;
       const status = this.imageStatuses.get(frame)?.dataset.status;
       return status === "ready" || Boolean(this.states.get(frame)?.result?.lines.length);
-    }
-    canvasFrameSizeChanged(frame, rect) {
-      const captured = this.canvasFrameCaptureRects.get(frame);
-      return Boolean(captured && this.canvasFrameRectSizeChanged(captured, rect));
     }
     canvasFrameRectSizeChanged(captured, current) {
       return Math.abs(captured.width - current.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(captured.height - current.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
@@ -38179,6 +38796,10 @@ ${spelling}`);
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
       if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (isBookwalkerViewerHost()) {
+        this.releaseAllBackgroundFrames();
+        return;
+      }
       if (this.options.shouldAutoScan?.() === false && !userRequested) {
         this.releaseAllBackgroundFrames();
         return;
@@ -38188,7 +38809,8 @@ ${spelling}`);
         return;
       }
       this.startReaderRasterPollingIfNeeded();
-      const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested);
+      const canvasSurfaces = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested).filter((surface) => !canvasSurfaces.some((canvas) => readerRasterSurfacesOverlap(canvas, surface)));
       for (const surface of [...this.backgroundFrames.keys()]) {
         const key = this.backgroundFrameKeys.get(surface);
         if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
@@ -38249,15 +38871,17 @@ ${spelling}`);
     retryReaderRasterImage(image) {
       const key = imageCacheKey(image);
       const state2 = this.states.get(image);
+      const emptyScanKey = state2 ? this.readerRasterEmptyScanKey(state2, state2.key) : image.dataset.ocrAttemptKey;
       if (state2) this.forget(state2.key);
       this.forget(key);
       this.readerRasterEmptyScans.delete(key);
       if (state2) this.readerRasterEmptyScans.delete(state2.key);
+      if (emptyScanKey) this.readerRasterEmptyScans.delete(emptyScanKey);
       this.readerRasterFailedScans.delete(key);
       if (state2) this.readerRasterFailedScans.delete(state2.key);
+      this.clearReaderRasterProviderRetry(key);
+      if (state2 && state2.key !== key) this.clearReaderRasterProviderRetry(state2.key);
       this.queue = this.queue.filter((queued) => queued !== image);
-      this.inFlightKeys.delete(key);
-      if (state2) this.inFlightKeys.delete(state2.key);
       const settings = this.options.getSettings();
       const canvas = this.canvasFrameSources.get(image);
       if (canvas) {
@@ -38380,7 +39004,8 @@ ${spelling}`);
       const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
       const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-      const top = clampNumber$1(shouldCenterOcrText(element.dataset.ocrText ?? "", vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
+      const targetTop = vertical ? boxTop : shouldCenterOcrText(element.dataset.ocrText ?? "") ? centeredTop : baselineAlignedTop;
+      const top = clampNumber$1(targetTop, minTop, maxTop);
       element.style.left = `${left}px`;
       element.style.top = `${top}px`;
       element.style.width = `${frameWidth}px`;
@@ -38394,12 +39019,16 @@ ${spelling}`);
       this.releaseAllCanvasFrames();
       this.releaseAllBackgroundFrames();
       this.queue = [];
-      this.inFlightKeys.clear();
+      this.inFlightJobs.clear();
+      for (const timer of this.readerRasterProviderRetryTimers.values()) window.clearTimeout(timer);
+      this.readerRasterProviderRetryTimers.clear();
+      this.readerRasterProviderFailures.clear();
       for (const state2 of this.states.values()) {
         if (state2.loadListener) state2.image.removeEventListener("load", state2.loadListener);
         removeOcrArtifact(state2.overlay);
       }
       this.states.clear();
+      this.discardOcrLineInteractionState([...this.lookupLineLeases.keys()]);
       for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
       this.imageStatusTimers.clear();
       for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
@@ -38504,6 +39133,7 @@ ${spelling}`);
       if (state2) {
         this.observer?.unobserve(image);
         if (state2.loadListener) image.removeEventListener("load", state2.loadListener);
+        this.discardOcrLineInteractionState(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
         removeOcrArtifact(state2.overlay);
         this.states.delete(image);
       }
@@ -38521,8 +39151,8 @@ ${spelling}`);
     }
     forgetImageWork(image, state2) {
       this.queue = this.queue.filter((queued) => queued !== image);
-      this.inFlightKeys.delete(imageCacheKey(image));
-      if (state2) this.inFlightKeys.delete(state2.key);
+      this.cancelReaderRasterProviderRetryTimer(imageCacheKey(image));
+      if (state2) this.cancelReaderRasterProviderRetryTimer(state2.key);
       this.removeImageStatusCard(image);
     }
     isCurrentState(state2) {
@@ -38750,6 +39380,16 @@ ${spelling}`);
     element.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));
     setOcrLinePosition(element, result, line);
     return element;
+  }
+  function ocrRenderedLineIdentity(element) {
+    return JSON.stringify([
+      element.dataset.ocrText ?? "",
+      element.dataset.boxLeft ?? "",
+      element.dataset.boxTop ?? "",
+      element.dataset.boxWidth ?? "",
+      element.dataset.boxHeight ?? "",
+      element.dataset.vertical ?? ""
+    ]);
   }
   function setOcrOverlayAccessibility(overlay, visible) {
     overlay.setAttribute("aria-hidden", String(!visible));
@@ -39000,8 +39640,8 @@ ${spelling}`);
       return total + 1;
     }, 0);
   }
-  function shouldCenterOcrText(text2, vertical) {
-    return vertical || visualTextLength(text2) <= 1.5;
+  function shouldCenterOcrText(text2) {
+    return visualTextLength(text2) <= 1.5;
   }
   function clampNumber$1(value, min, max2) {
     return Math.min(max2, Math.max(min, value));
@@ -39412,7 +40052,10 @@ ${spelling}`);
     return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }
   function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
+    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBookwalkerReaderSourceImage(image) || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
+  }
+  function isBookwalkerReaderSourceImage(image) {
+    return isBookwalkerViewerHost() && image.classList.contains("loadingImage");
   }
   function isYouTubeThumbnailImage(image) {
     return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
@@ -39614,6 +40257,13 @@ ${spelling}`);
     const right = Math.min(viewportWidth, rect.right);
     const bottom = Math.min(viewportHeight, rect.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
+  function readerRasterSurfacesOverlap(first2, second) {
+    const a = first2.getBoundingClientRect();
+    const b = second.getBoundingClientRect();
+    const intersection = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const smallerArea = Math.min(a.width * a.height, b.width * b.height);
+    return smallerArea > 0 && intersection / smallerArea >= 0.72;
   }
   function bookwalkerVisibleCanvasRegion(canvas, rect) {
     if (!isBookwalkerViewerHost()) return void 0;
@@ -39965,6 +40615,13 @@ ${spelling}`);
   function canvasFrameContentKey(contentKey, canvas) {
     return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
   }
+  function bookwalkerCanvasContentKey(contentToken, regionKey) {
+    if (!isBookwalkerViewerHost() || !contentToken) return void 0;
+    return `bw:${contentToken}${regionKey}`;
+  }
+  function canvasFrameOcrAttemptKey(canvas, snapshotKey, contentToken) {
+    return `canvas:${snapshotKey}|${contentToken || canvasStablePageContentToken(canvas)}`;
+  }
   function isWideBookwalkerSpreadCanvas(canvas) {
     return isBookwalkerViewerHost() && !isBookwalkerContinuousScrollCanvas(canvas) && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
   }
@@ -40005,11 +40662,15 @@ ${spelling}`);
     if (!previousParts || !nextParts) return false;
     return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
   }
-  function hasDifferentRealCanvasReaderContent(previous, next) {
+  function hasDifferentRecordedCanvasReaderContent(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    return isRealContentChange(previousParts.content, nextParts.content);
+    return isRecordedCanvasReaderContent(previousParts.content) && isRecordedCanvasReaderContent(nextParts.content) && isRealContentChange(previousParts.content, nextParts.content);
+  }
+  function isRecordedCanvasReaderContent(content) {
+    const tokens = content.split(",").filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => token.startsWith("m:") || token.startsWith("o:"));
   }
   function hasSameRealCanvasReaderContent(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);
@@ -40144,11 +40805,11 @@ ${spelling}`);
       timeout
     }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url, {
+    return fetchWithTimeout$2(url, {
       method: "POST",
       headers,
       body: body.buffer
-    }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+    }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
   }
   function requestTextForm(url, data, timeout, headers) {
     const userscriptRequest = requestViaUserscript({
@@ -40160,7 +40821,20 @@ ${spelling}`);
       timeout
     }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+    return fetchWithTimeout$2(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }
+  function fetchWithTimeout$2(url, init, timeout, timeoutMessage) {
+    if (!timeout) return fetch(url, init);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError$3(error)) throw new Error(timeoutMessage);
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
   }
   function requestBlob$1(url, timeout = 0) {
     const fallbackType = imageMimeTypeFromUrl(url);
@@ -40306,12 +40980,46 @@ ${spelling}`);
     return pending;
   }
   async function fetchCleanMirrorImage(url) {
-    const blob = await requestBlob$1(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+    const resource = mirrorImageResourceLabel(url);
+    let blob;
+    try {
+      const resolvedUrl = await bookwalkerAssetResolver.resolve(url);
+      try {
+        blob = await requestBlob$1(resolvedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+      } catch (error) {
+        if (!isBookwalkerAuthorizationFailure(error)) throw error;
+        const refreshedUrl = await bookwalkerAssetResolver.refresh(url);
+        if (!refreshedUrl || refreshedUrl === resolvedUrl) throw error;
+        blob = await requestBlob$1(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+      }
+    } catch (error) {
+      log$l.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
+      throw error;
+    }
     const objectUrl = URL.createObjectURL(blob);
     try {
       return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
+    } catch (error) {
+      log$l.warnOnce(
+        `mirror-image-decode:${resource}`,
+        "BookWalker mirror image decode failed",
+        { bytes: blob.size, resource, type: blob.type },
+        error
+      );
+      throw error;
     } finally {
       URL.revokeObjectURL(objectUrl);
+    }
+  }
+  function isBookwalkerAuthorizationFailure(error) {
+    return error instanceof Error && /Image fetch returned (401|403)\./.test(error.message);
+  }
+  function mirrorImageResourceLabel(url) {
+    try {
+      const parsed = new URL(url, location.href);
+      return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      return url.split(/[?#]/, 1)[0] ?? "";
     }
   }
   function trimCleanMirrorImageCache() {
@@ -40331,7 +41039,10 @@ ${spelling}`);
       host: safeHost$1(image.currentSrc || image.src),
       width: image.naturalWidth || image.width,
       height: image.naturalHeight || image.height,
-      altLength: image.alt?.length ?? 0
+      altLength: image.alt?.length ?? 0,
+      frame: image.dataset.yomuCanvasFrame === "true" ? "canvas" : image.dataset.yomuBackgroundFrame === "true" ? "background" : "inline",
+      className: image.className,
+      parentId: image.parentElement?.id || ""
     };
   }
   function inlineProviderLabel(settings) {
@@ -40776,7 +41487,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.126".trim() ? "1.6.126".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.127".trim() ? "1.6.127".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
