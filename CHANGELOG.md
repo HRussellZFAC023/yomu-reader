@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.139] - 2026-07-11
+
+### Fixed
+
+- Annotated text no longer goes blank after moving between pages on YouTube and other single-page apps. A text mirror hidden while its page section was momentarily concealed is re-shown as soon as the section is visible again, so titles, channel names, and feed chips keep painting.
+- Furigana readings are back on mirrored buttons, chips, and menu labels. The overlay mirror keeps readings without changing the control's own layout, and clipped rows still reveal their readings on hover only.
+- The YouTube immersion filter now hides in-feed ads and no longer counts Japanese interface metadata (view counts, upload age, watch labels) as Japanese content, so English videos in shelves and ad slots are hidden as intended.
+
 ## [1.6.138] - 2026-07-11
 
 ### Fixed

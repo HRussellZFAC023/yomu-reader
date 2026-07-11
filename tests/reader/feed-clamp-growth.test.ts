@@ -167,7 +167,14 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(mirror.querySelector('rt')).toBeNull();
+        // Mirrored controls keep their readings (2026-07-11), but a
+        // clip-constrained control row must hide them at rest — the reveal is
+        // hover-only, so the pill's own paint never changes.
+        expect(mirror.querySelector('rt')).toBeTruthy();
+        expect(
+            mirror.classList.contains('jpdb-reader-clip-hover-mirror')
+            || mirror.dataset.yomuClipConstrained === 'true',
+        ).toBe(true);
         // No one-line-taller mirror poking below the pill.
         expect(mirror.style.maxHeight).toBe('36px');
     });

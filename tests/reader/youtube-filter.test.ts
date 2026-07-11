@@ -2389,3 +2389,98 @@ describe('YouTube channel subscription flag', () => {
         expect(gmStorageGetSync(STORAGE_KEY, null)).toBeNull();
     });
 });
+
+// 2026-07-11 live repro: in-feed ad slots (and the lockup ad variant) carry no
+// <h3>; the generic a[href*="/watch"] title fallback landed on their CTA label
+// (視聴する in a Japanese UI), so English ads classified as Japanese and stayed
+// visible. Ads are never immersion content — always hidden while filtering.
+describe('ad cards are always hidden', () => {
+    it('hides an in-feed ad slot regardless of its CTA label language', async () => {
+        const { filter } = await startYoutubeFilter({
+            html: `
+            <main>
+                <ytd-rich-item-renderer data-case="ad">
+                    <ytd-ad-slot-renderer>
+                        <ytd-in-feed-ad-layout-renderer>
+                            <a href="/watch?v=advid">視聴する</a>
+                            <span>Sponsored product tour</span>
+                        </ytd-in-feed-ad-layout-renderer>
+                    </ytd-ad-slot-renderer>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="jp">
+                    <a id="video-title" href="/watch?v=jp">日本語のタイトル</a>
+                </ytd-rich-item-renderer>
+            </main>
+        `,
+        });
+        expect(card('ad').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        filter.destroy();
+    });
+
+    it('hides the h3-less lockup ad card via its ad-details marker', async () => {
+        const { filter } = await startYoutubeFilter({
+            html: `
+            <main>
+                <yt-lockup-view-model data-case="lockup-ad">
+                    <a href="/watch?v=lockupad">視聴する</a>
+                    <span class="ytwAdDetailsLineViewModelHostTextStyleStandardBrowse">Some Brand PLC</span>
+                    <span>How to start investing comfortably</span>
+                </yt-lockup-view-model>
+            </main>
+        `,
+        });
+        expect(card('lockup-ad').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        filter.destroy();
+    });
+});
+
+// A card whose title node the selectors do not recognize falls back to the
+// whole-card text — which, under a Japanese UI locale, always contains
+// metadata like 7.2万回視聴・4時間前. That chrome must not count as Japanese
+// signal (an English shelf video stayed visible through it), while a real
+// Japanese title in the same unrecognized markup must keep the card.
+describe('whole-card title fallback ignores UI metadata', () => {
+    it('hides an English card whose only Japanese text is view-count metadata', async () => {
+        const { filter } = await startYoutubeFilter({
+            html: `
+            <main>
+                <ytd-rich-item-renderer data-case="metadata-en">
+                    <div>
+                        <a class="thumbnail" href="/watch?v=meta-en"><img alt=""></a>
+                        <div class="unrecognized-title-shell">The FIFA World Cup Husband Hunt</div>
+                        <span>7.2万回視聴・4時間前</span>
+                    </div>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="metadata-jp">
+                    <div>
+                        <a class="thumbnail" href="/watch?v=meta-jp"><img alt=""></a>
+                        <div class="unrecognized-title-shell">東京の朝ごはん散歩</div>
+                        <span>7.2万回視聴・4時間前</span>
+                    </div>
+                </ytd-rich-item-renderer>
+            </main>
+        `,
+        });
+        expect(card('metadata-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('metadata-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        filter.destroy();
+    });
+
+    it('does not let Yomu ruby readings make an English card look Japanese', async () => {
+        const { filter } = await startYoutubeFilter({
+            html: `
+            <main>
+                <ytd-rich-item-renderer data-case="annotated-en">
+                    <div>
+                        <a class="thumbnail" href="/watch?v=annotated"><img alt=""></a>
+                        <div class="unrecognized-title-shell">Top 10 productivity hacks<span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true"><ruby>散歩<rt class="jpdb-reader-furi">さんぽ</rt></ruby></span></div>
+                    </div>
+                </ytd-rich-item-renderer>
+            </main>
+        `,
+        });
+        expect(card('annotated-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        filter.destroy();
+    });
+});

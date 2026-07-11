@@ -1,6 +1,7 @@
 import {
     applyTokensToScanTarget,
     collectTextTargetsIn,
+    healTextMirrorPageVisibility,
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
     removeStaleControlTextMirrors,
@@ -148,6 +149,10 @@ export class VisiblePageScanner {
             this.handleVisiblePageScanError(error, silent);
         } finally {
             this.finishScan();
+            // Empty/fully-skipped scans apply no tokens, so the guarded-apply
+            // sweep never runs — heal stuck-hidden mirrors here so an SPA page
+            // swap cannot leave concealed hosts blank (2026-07-11 regression).
+            healTextMirrorPageVisibility();
             this.scheduleClampedRubySweep(silent);
             done();
         }

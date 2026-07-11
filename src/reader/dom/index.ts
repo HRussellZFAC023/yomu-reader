@@ -2290,7 +2290,17 @@ export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boole
     );
     if (mirror.classList.contains('jpdb-reader-clip-hover-mirror') !== shouldClipHover) return false;
     const source = mirror.dataset.sourceText ?? '';
-    return normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
+    const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
+    // A transient ancestor hide (an SPA page swap that re-renders cards while
+    // the old page is display:none) leaves the mirror force-hidden with no
+    // host mutation left to re-sync it — and this skip would then park the
+    // host blank forever (concealed text under a hidden mirror). Heal it
+    // here; gating on the injected 'hidden' keeps the common visible path
+    // free of the ancestor style walk.
+    if (renders && mirror.style.getPropertyValue('visibility') === 'hidden') {
+        syncTextMirrorVisibilityToPage(host, mirror);
+    }
+    return renders;
 }
 
 function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings, suppressRuby = Boolean(target.suppressRuby)): string {
@@ -2587,12 +2597,16 @@ function scanTargetSuppressesRuby(
     // Yomu-owned surfaces (lookup panel, drawer) may always force readings.
     if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
     // The SEALED interactive-passive decision dominates the page-wide
-    // furigana-mode=all attribute for EXPLICIT CONTROLS: a button/menuitem
-    // must never regain in-flow ruby just because the user forces readings.
-    // Cascade-derived compact-chrome suppression (notification rows, chrome-
-    // shaped links) keeps the old precedence — forcing readings re-enables
-    // them, as the owner-pinned scanner behaviors require.
-    if (decoration === 'interactive-passive' && interactivePassiveControl(parent)) return true;
+    // furigana-mode=all attribute for EXPLICIT CONTROLS in the IN-PLACE
+    // channel: a button/menuitem must never regain in-flow ruby (which
+    // changes its line box) just because the user forces readings. The
+    // MIRROR channel is out-of-flow and paint-invariant — readings there
+    // cannot distort the control's own layout, so mirrored controls keep
+    // their furigana (feed chips, 作成/もっと見る buttons). Cascade-derived
+    // compact-chrome suppression (notification rows, chrome-shaped links)
+    // keeps the old precedence — forcing readings re-enables them, as the
+    // owner-pinned scanner behaviors require.
+    if (decoration === 'interactive-passive' && interactivePassiveControl(parent)) return inPlace;
     // Constrained rows reject IN-PLACE ruby on every engine (class Q): the rt
     // paints into the half-leading and the ancestor clip shaves it. The
     // absolutely-positioned mirror sizes its own line, so mirrored renders
@@ -3188,6 +3202,34 @@ function sweepAndDrainTextMirrorObservers(): void {
             continue;
         }
         observer.takeRecords();
+        healStuckHiddenTextMirror(host);
+    }
+}
+
+// A transient ancestor hide (SPA page swap) can leave a mirror force-hidden
+// with no host mutation left to re-sync it — blank text under a concealed
+// host. Scans may never re-collect the host (budget, channel bylines), so
+// heal wherever mirrors are visited in bulk; the force-hidden gate keeps the
+// common visible path to one style read.
+function healStuckHiddenTextMirror(host: HTMLElement): void {
+    const mirror = currentTextMirror(host);
+    if (mirror && mirror.style.getPropertyValue('visibility') === 'hidden') {
+        syncTextMirrorVisibilityToPage(host, mirror);
+    }
+}
+
+// Called from every visible-page scan settle (including empty/skipped scans,
+// where no guarded token apply runs and the sweep above never fires).
+export function healTextMirrorPageVisibility(): void {
+    for (const [observer, hostRef] of liveTextMirrorObservers) {
+        const host = hostRef.deref();
+        if (!host || !host.isConnected) {
+            liveTextMirrorObservers.delete(observer);
+            observer.disconnect();
+            if (host) removeTextMirror(host);
+            continue;
+        }
+        healStuckHiddenTextMirror(host);
     }
 }
 

@@ -17303,8 +17303,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reason: options.revealed ? "revealed" : "non-japanese"
     };
   }
+  const YOUTUBE_UI_METADATA_RE = new RegExp([
+    /視聴回数\s*[\d.,]+\s*(?:万|億)?\s*回/.source,
+    /[\d.,]+\s*(?:万|億)?\s*回視聴/.source,
+    /[\d.,]+\s*(?:万|億)?\s*人が視聴中/.source,
+    /\d+\s*(?:秒|分|時間|日|週間|か月|カ月|ヶ月|年)前/.source,
+    /(?:ライブ配信中|配信済み|プレミア公開|視聴する|再生リスト|ミックスリスト|ミックス)/.source
+  ].join("|"), "g");
   function normalizeYouTubeTitleForLanguageCheck(text) {
-    return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
+    return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
   }
   const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
@@ -17475,9 +17482,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const titleText = title ? readYouTubeTitleText(title) : "";
     return {
       card,
-      title: (titleText.trim() || card.textContent?.trim() || "").trim(),
+      title: (titleText.trim() || nativeYouTubeText(card).trim() || "").trim(),
       videoId: readYouTubeVideoId(card)
     };
+  }
+  function nativeYouTubeText(element) {
+    if (!element.querySelector(".jpdb-reader-text-mirror,rt.jpdb-reader-furi,[data-jpdb-reader-root]")) {
+      return element.textContent ?? "";
+    }
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll(".jpdb-reader-text-mirror,rt.jpdb-reader-furi,[data-jpdb-reader-root]").forEach((node) => node.remove());
+    return clone.textContent ?? "";
   }
   class YoutubeImmersionFilter {
     constructor(options) {
@@ -19025,7 +19040,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function readYouTubeTitleText(title) {
     const visibleTitle = [
       title.getAttribute("title"),
-      title.textContent
+      nativeYouTubeText(title)
     ].find((value) => value?.trim());
     if (visibleTitle) return visibleTitle.trim();
     return cleanYouTubeAriaTitle(title.getAttribute("aria-label") ?? "");
@@ -19171,7 +19186,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return normalizeYouTubeVideoCard(element);
   }
+  const YOUTUBE_AD_CARD_SELECTOR = 'ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-promoted-sparkles-web-renderer,ytm-promoted-video-renderer,[class*="AdDetailsLineViewModel"]';
+  function isYouTubeAdCard(card) {
+    return Boolean(card.closest("ytd-ad-slot-renderer")) || Boolean(card.querySelector(YOUTUBE_AD_CARD_SELECTOR));
+  }
   function isYouTubeAlwaysHiddenItem(card) {
+    if (isYouTubeAdCard(card)) return true;
     if (card.querySelector(CHANNEL_LISTING_CONTENT_SELECTOR)) return false;
     return card.matches(NON_VIDEO_CONTAINER_SELECTOR) || isYouTubePlaylistLikeCard(card);
   }

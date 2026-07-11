@@ -114,11 +114,25 @@ function nonJapaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate, opt
     };
 }
 
+// Japanese-locale UI metadata that leaks into whole-card title fallbacks
+// (view counts, upload age, live badges, the ad/watch CTA). It is chrome, not
+// content: an English card whose only Japanese characters come from
+// 「7.2万回視聴・4時間前」or a 視聴する CTA must still classify non-Japanese
+// (2026-07-11 "EN videos should be hidden" report — shelf/ad lockup cards
+// with no recognizable title node).
+const YOUTUBE_UI_METADATA_RE = new RegExp([
+    /視聴回数\s*[\d.,]+\s*(?:万|億)?\s*回/.source,
+    /[\d.,]+\s*(?:万|億)?\s*回視聴/.source,
+    /[\d.,]+\s*(?:万|億)?\s*人が視聴中/.source,
+    /\d+\s*(?:秒|分|時間|日|週間|か月|カ月|ヶ月|年)前/.source,
+    /(?:ライブ配信中|配信済み|プレミア公開|視聴する|再生リスト|ミックスリスト|ミックス)/.source,
+].join('|'), 'g');
+
 function normalizeYouTubeTitleForLanguageCheck(text: string): string {
     return text
         .replace(/fypシ゚/g, '')
         .replace(/fypシ/g, '')
-        .replace(/ミックスリスト/g, '')
+        .replace(YOUTUBE_UI_METADATA_RE, '')
         .replace(NIHONGO_TUBE_SYMBOL_RE, '')
         .replace(/\s+/g, ' ')
         .trim();

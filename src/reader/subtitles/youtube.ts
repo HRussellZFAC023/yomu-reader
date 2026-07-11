@@ -273,9 +273,23 @@ function readYouTubeCardInfo(card: HTMLElement): YouTubeCardInfo {
     const titleText = title ? readYouTubeTitleText(title) : '';
     return {
         card,
-        title: (titleText.trim() || card.textContent?.trim() || '').trim(),
+        title: (titleText.trim() || nativeYouTubeText(card).trim() || '').trim(),
         videoId: readYouTubeVideoId(card),
     };
+}
+
+// Yomu's own annotations live inside the card (the text mirror duplicates the
+// title, ruby rt adds kana readings). Language classification and title
+// comparisons must read the PAGE's text only — a mirror-doubled title breaks
+// oEmbed equality checks, and injected readings would make any card look
+// Japanese.
+function nativeYouTubeText(element: HTMLElement): string {
+    if (!element.querySelector('.jpdb-reader-text-mirror,rt.jpdb-reader-furi,[data-jpdb-reader-root]')) {
+        return element.textContent ?? '';
+    }
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.jpdb-reader-text-mirror,rt.jpdb-reader-furi,[data-jpdb-reader-root]').forEach(node => node.remove());
+    return clone.textContent ?? '';
 }
 
 export class YoutubeImmersionFilter {
@@ -2164,7 +2178,7 @@ function youTubeFilterCandidateTitle(info: YouTubeCardInfo, filterText: string):
 function readYouTubeTitleText(title: HTMLElement): string {
     const visibleTitle = [
         title.getAttribute('title'),
-        title.textContent,
+        nativeYouTubeText(title),
     ].find(value => value?.trim());
     if (visibleTitle) return visibleTitle.trim();
     return cleanYouTubeAriaTitle(title.getAttribute('aria-label') ?? '');
@@ -2359,7 +2373,19 @@ function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
     return normalizeYouTubeVideoCard(element);
 }
 
+// Ad cards (in-feed ad slots and the lockup ad variant, live 2026-07-11)
+// carry no <h3> title; the generic a[href*="/watch"] title fallback lands on
+// their CTA label (視聴する under a Japanese UI locale), which classified
+// every ad — English included — as Japanese and kept it visible. Ads are not
+// immersion content in any language: always hidden while the filter is on.
+const YOUTUBE_AD_CARD_SELECTOR = 'ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-promoted-sparkles-web-renderer,ytm-promoted-video-renderer,[class*="AdDetailsLineViewModel"]';
+
+function isYouTubeAdCard(card: HTMLElement): boolean {
+    return Boolean(card.closest('ytd-ad-slot-renderer')) || Boolean(card.querySelector(YOUTUBE_AD_CARD_SELECTOR));
+}
+
 function isYouTubeAlwaysHiddenItem(card: HTMLElement): boolean {
+    if (isYouTubeAdCard(card)) return true;
     if (card.querySelector(CHANNEL_LISTING_CONTENT_SELECTOR)) return false;
     return card.matches(NON_VIDEO_CONTAINER_SELECTOR) || isYouTubePlaylistLikeCard(card);
 }

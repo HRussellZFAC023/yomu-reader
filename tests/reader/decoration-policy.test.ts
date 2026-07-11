@@ -516,9 +516,10 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
         expect(mirror).toBeTruthy();
         expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // No furigana in ANY channel: not in flow, not in the mirror.
-        expect(button.querySelectorAll('rt')).toHaveLength(0);
-        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+        // 2026-07-11: mirrored controls keep readings — the out-of-flow
+        // mirror cannot change the button's own line geometry, and clipped
+        // rows rest-hide the readings via the clip-constrained channel.
+        expect(mirror?.querySelectorAll('rt').length).toBeGreaterThan(0);
     });
 
     it('keeps a clipped Reddit-style control mirror annotated and visible at rest', () => {
@@ -539,10 +540,13 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
-        expect(mirror.querySelector('rt')).toBeNull();
-        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
-        expect(button.dataset.yomuClipHoverHost).toBeUndefined();
+        // 2026-07-11: the control mirror carries readings, so the clipped
+        // row takes the same paint-invariant hover-reveal arrangement as
+        // clipped content titles — host text keeps painting at rest and the
+        // row never grows.
+        expect(mirror.querySelector('rt')).toBeTruthy();
+        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(true);
+        expect(button.dataset.yomuClipHoverHost).toBe('true');
         expect(button.getBoundingClientRect().height).toBe(40);
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
@@ -564,7 +568,9 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         expect(metadata.style.display).toBe('inline');
         expect(metadata.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-        expect(metadata.querySelector('rt')).toBeNull();
+        // 2026-07-11: readings render in the mirror (rest-hidden by the
+        // clip-constrained channel); the host layout is still untouched.
+        expect(metadata.querySelector('rt')).toBeTruthy();
         expect(metadata.textContent).toContain('告知');
     });
 });

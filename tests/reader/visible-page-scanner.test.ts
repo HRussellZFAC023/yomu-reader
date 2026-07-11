@@ -1123,10 +1123,11 @@ describe('VisiblePageScanner', () => {
             expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['すべて', '動画']));
             expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
             const video = words.find(word => word.dataset.expression === '動画');
-            // Filter chips are interactive-passive controls: colour + pitch
-            // underline only — no furigana in any channel, even under
-            // furigana-mode=all (live-YT release gate, 2026-07-10).
-            expect(video?.querySelector('rt')).toBeFalsy();
+            // Filter chips are interactive-passive controls rendered through
+            // the out-of-flow mirror: readings paint there without changing
+            // the chip's own layout (2026-07-11 "furigana is missing" fix
+            // reversing the 2026-07-10 blanket suppression).
+            expect(video?.querySelector('rt')?.textContent).toBe('どうが');
             expect(video?.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
@@ -1246,9 +1247,10 @@ describe('VisiblePageScanner', () => {
             expect(create).not.toBeNull();
             expect(create.classList.contains('jpdb-reader-passive-word')).toBe(true);
             expect(create.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            // The topbar create button is a control: no furigana in any
-            // channel under any furigana mode (live-YT release gate).
-            expect(create.querySelector('rt')).toBeFalsy();
+            // The topbar create button is a control rendered through the
+            // out-of-flow mirror: readings paint there without changing the
+            // button's layout (2026-07-11 "furigana is missing" fix).
+            expect(create.querySelector('rt')?.textContent).toBe('さくせい');
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);
