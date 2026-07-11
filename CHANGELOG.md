@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.142] - 2026-07-11
+
+### Changed
+
+- The video subtitle rail shows previous-line and next-line buttons again, but only while the subtitle side panel is closed. When the panel is open its own transport controls take over and the rail hides its copies to avoid duplicate controls.
+
 ## [1.6.141] - 2026-07-11
 
 ### Changed

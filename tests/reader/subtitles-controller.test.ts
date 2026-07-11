@@ -472,7 +472,7 @@ describe('SubtitlePlayerController', () => {
         expect(meta.title).toBe(full);
     });
 
-    it('keeps the rail to OCR, visibility, panel, and style controls', () => {
+    it('keeps the rail to prev/next line, OCR, visibility, panel, and style controls', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -490,15 +490,15 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['ocr', 'visibility', 'panel', 'style']);
+        expect(actions).toEqual(['previous', 'next', 'ocr', 'visibility', 'panel', 'style']);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="previous"]')).toHaveLength(1);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="next"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="visibility"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
-        // Transport (‹ › ▶) lives only in the drawer head, fullscreen belongs
-        // to the player's own chrome, and the tracks shortcut duplicated the
-        // panel toggle — none of them may creep back into the rail.
-        expect(document.querySelector('.jpdb-subtitle-rail [data-action="previous"]')).toBeNull();
-        expect(document.querySelector('.jpdb-subtitle-rail [data-action="next"]')).toBeNull();
+        // Only prev/next line returned to the rail — playback, fullscreen, and
+        // the tracks shortcut stay out (playback/transport live in the drawer,
+        // fullscreen belongs to the player's own chrome).
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="playback"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="fullscreen"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toBeNull();
@@ -1508,9 +1508,12 @@ describe('SubtitlePlayerController', () => {
             const playback = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]')!;
 
             expect(panel.hidden).toBe(false);
-            // The drawer transport is the only line-navigation surface — the
-            // rail carries no transport buttons at all.
-            expect(document.querySelector('.jpdb-subtitle-rail [data-action="previous"]')).toBeNull();
+            // While the panel is open the drawer transport takes over, so the
+            // rail's own prev/next copies hide (they only show panel-closed).
+            const railPrevious = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
+            const railNext = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
+            expect(railPrevious.hidden).toBe(true);
+            expect(railNext.hidden).toBe(true);
             expect(previous.hidden).toBe(false);
             expect(previous.disabled).toBe(false);
             expect(next.hidden).toBe(false);
@@ -1518,6 +1521,40 @@ describe('SubtitlePlayerController', () => {
             expect(playback.hidden).toBe(false);
             expect(playback.getAttribute('aria-label')).toBe('Pause video');
             expect(playback.getAttribute('aria-pressed')).toBe('true');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('shows rail prev/next line while the panel is closed and hides them once it opens', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController();
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        Object.defineProperty(video, 'paused', { configurable: true, value: false });
+
+        try {
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const railPrevious = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
+            const railNext = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
+            // Panel closed: rail transport is visible and live.
+            expect(railPrevious.hidden).toBe(false);
+            expect(railPrevious.disabled).toBe(false);
+            expect(railNext.hidden).toBe(false);
+            expect(railNext.disabled).toBe(false);
+            expect(railPrevious.getAttribute('aria-label')).toBe('Previous subtitle');
+            expect(railNext.getAttribute('aria-label')).toBe('Next subtitle');
+
+            // Opening the panel hides the rail copies (drawer transport takes over).
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            expect(railPrevious.hidden).toBe(true);
+            expect(railNext.hidden).toBe(true);
         } finally {
             controller.destroy();
         }
@@ -5193,8 +5230,9 @@ Watch the cat
             const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
 
             // A mobile tap leaves the rail button focused; without the blur
-            // the sticky :focus-within would block idling forever.
-            const railButton = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail button')!;
+            // the sticky :focus-within would block idling forever. Use the
+            // always-present visibility toggle — prev/next hide without lines.
+            const railButton = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="visibility"]')!;
             railButton.focus();
 
             overlay.classList.remove('fadein');

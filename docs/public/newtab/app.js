@@ -41577,7 +41577,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.141".trim() ? "1.6.141".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.142".trim() ? "1.6.142".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -54441,6 +54441,8 @@ ${spelling}`);
       root.className = "jpdb-subtitle-player";
       root.dataset.jpdbReaderRoot = "true";
       const settings = this.options.getSettings();
+      const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
+      const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
@@ -54451,6 +54453,8 @@ ${spelling}`);
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+                <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
+                <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
@@ -57603,7 +57607,13 @@ ${spelling}`);
     }
     syncLineNavigationButtons(hasLines) {
       const language = this.options.getSettings().interfaceLanguage;
+      const hideRailNavigation = this.isTranscriptPanelOpen();
       for (const action of ["previous", "next"]) {
+        const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
+        if (railButton) {
+          syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), language);
+          if (hideRailNavigation) railButton.hidden = true;
+        }
         const drawerButton = this.transcriptPanel?.querySelector(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
         if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
       }

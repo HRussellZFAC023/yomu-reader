@@ -1447,6 +1447,8 @@ export class SubtitlePlayerController {
         root.className = 'jpdb-subtitle-player';
         root.dataset.jpdbReaderRoot = 'true';
         const settings = this.options.getSettings();
+        const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
+        const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
         const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
@@ -1459,6 +1461,8 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+                <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
+                <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
@@ -5253,7 +5257,16 @@ export class SubtitlePlayerController {
 
     private syncLineNavigationButtons(hasLines: boolean): void {
         const language = this.options.getSettings().interfaceLanguage;
+        // Prev/next live on the on-video rail AND in the drawer head's playback
+        // cluster. The rail copy only shows while the subtitle panel is closed —
+        // an open panel already carries its own transport, so the rail hides it.
+        const hideRailNavigation = this.isTranscriptPanelOpen();
         for (const action of ['previous', 'next'] as const) {
+            const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
+            if (railButton) {
+                syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), language);
+                if (hideRailNavigation) railButton.hidden = true;
+            }
             const drawerButton = this.transcriptPanel?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
             if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
         }
