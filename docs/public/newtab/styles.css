@@ -8619,6 +8619,22 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   white-space: normal;
 }
 
+/* Mirrored interactive controls (chips, pills, compact buttons): readings are
+   rest-hidden with display:none — visibility:hidden still reserves ruby space
+   on WebKit and pushed the base glyphs out of fixed-height pills (iPad,
+   2026-07-11). A fine-pointer hover/focus reveals them; the absolute mirror
+   grows over its neighbours transiently without moving the host. */
+.jpdb-reader-text-mirror[data-yomu-control-mirror="true"] rt.jpdb-reader-furi {
+  display: none !important;
+  visibility: hidden;
+}
+.jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:hover rt.jpdb-reader-furi,
+.jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:focus-within rt.jpdb-reader-furi,
+.jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
+  display: ruby-text !important;
+  visibility: visible;
+}
+
 
 /* Source: src/reader/styles/popover-core.css */
 .jpdb-reader-backdrop {

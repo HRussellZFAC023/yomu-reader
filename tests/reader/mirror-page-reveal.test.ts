@@ -117,5 +117,9 @@ describe('mirrored interactive chrome keeps furigana', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.querySelector('rt')?.textContent).toBe('にほんご');
+        // Control mirrors are stamped so CSS can rest-hide the readings
+        // (display:none — WebKit reserves ruby space under visibility:hidden,
+        // which pushed pill labels out of view) and reveal them on hover.
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
     });
 });

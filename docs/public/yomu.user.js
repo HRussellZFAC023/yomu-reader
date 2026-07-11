@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.143
+// @version 1.6.144
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.143#sha256=5aICQ7dC+CvwxwDvKe76Dy8AHNsZf1FN6lED9e3ywlc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.143#sha256=D9048lgIFmnL/03AwLd+wgmBve2qr577mVE1gXZ+n2A=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.143#sha256=utnXWYkXy327QHPGOI2GL7C2LM8iidJsgmMYWac7m9o=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.143#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.143#sha256=pKdavmH3fG92hq0lx/zoqyMzvzi/8dU20cxHJRaPnG4=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.143#sha256=xr6yPb0qdkRvJo0GZ52zBOfrwYo76ZZR6gyylngQQW4=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.143#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.144#sha256=5aICQ7dC+CvwxwDvKe76Dy8AHNsZf1FN6lED9e3ywlc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.144#sha256=D9048lgIFmnL/03AwLd+wgmBve2qr577mVE1gXZ+n2A=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.144#sha256=utnXWYkXy327QHPGOI2GL7C2LM8iidJsgmMYWac7m9o=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.144#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.144#sha256=hBfcvEyoi96GMTqz8lagxamOdJnK6nOQ6dJp3Gvio4g=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.144#sha256=RPSmh9g0g1tbVNlh41aZWYKFxO/BgahypUH3AzpywjE=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.144#sha256=0H9sNZB7VyQlqW/USZM7LsdH56Gjd+2T1KBhBdiFV/o=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -3752,6 +3752,7 @@ const DEFAULT_SETTINGS = {
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
   youtubeShowFilterNotice: true,
+  youtubeFilterNoticeRestored20260711: true,
   youtubeShowChannelRecommendations: true,
   preferJapaneseSiteLanguage: true,
   ankiEnabled: false,
@@ -3846,7 +3847,7 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
   ["ankiTags", DEFAULT_SETTINGS.ankiTags]
 ];
 function mergeSettings(value) {
-  const settingsValue = migrateLegacyDefaultMobileSettings(value);
+  const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
   const audio = normalizeAudioSettings(settingsValue);
   const supportedSettings = stripUnsupportedSettings(settingsValue);
   const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -3892,6 +3893,13 @@ function stripUnsupportedSettings(value) {
   return Object.fromEntries(
   Object.entries(value).filter(([key]) => supportedKeys.has(key))
   );
+}
+function migrateHiddenFilterNotice(value) {
+  if (!value) return value;
+  if (value.youtubeFilterNoticeRestored20260711) return value;
+  const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
+  if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+  return migrated;
 }
 function migrateLegacyDefaultMobileSettings(value) {
   if (!value) return value;
@@ -5888,7 +5896,9 @@ function createNonDestructiveTextMirror(context) {
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
-  const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+  const controlMirror = target.decoration === "interactive-passive" && context.hasRenderedRuby;
+  if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+  const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
   const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
   const state = styleTextMirrorHost(
   host,
@@ -6672,9 +6682,9 @@ function sweepAndDrainTextMirrorObservers() {
 }
 function healStuckHiddenTextMirror(host) {
   const mirror = currentTextMirror(host);
-  if (mirror && mirror.style.getPropertyValue("visibility") === "hidden") {
+  if (!mirror || mirror.style.getPropertyValue("visibility") !== "hidden") return;
+  if (pageConcealsTextMirrorHostMemoized(host)) return;
   syncTextMirrorVisibilityToPage(host, mirror);
-  }
 }
 function healTextMirrorPageVisibility() {
   for (const [observer, hostRef] of liveTextMirrorObservers) {
@@ -6801,6 +6811,16 @@ function pageConcealsTextMirrorHost(host) {
   if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
   }
   return false;
+}
+const PAGE_CONCEAL_VERDICT_TTL_MS = 1e3;
+const pageConcealVerdictMemo = new WeakMap();
+function pageConcealsTextMirrorHostMemoized(host) {
+  const now = Date.now();
+  const memo = pageConcealVerdictMemo.get(host);
+  if (memo && now - memo.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo.concealed;
+  const concealed = pageConcealsTextMirrorHost(host);
+  pageConcealVerdictMemo.set(host, { at: now, concealed });
+  return concealed;
 }
 function reassertTextMirrorHostStyles(host, state) {
   const mirror = currentTextMirror(host);
@@ -35037,8 +35057,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.143"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.143"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.144"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.144"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35152,7 +35172,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.143"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.144"}`;
   } catch {
   return null;
   }
@@ -36726,10 +36746,10 @@ class ReaderApp {
   }
   async setYoutubeImmersionEnabled(enabled) {
   this.settings.youtubeImmersionEnabled = enabled;
-  await saveSettings(this.settings);
   this.youtube.refresh();
-  log.info("YouTube immersion filter toggled", { enabled });
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
+  log.info("YouTube immersion filter toggled", { enabled });
+  await saveSettings(this.settings);
   }
   async setYoutubeFilterNoticeVisible(visible) {
   this.settings.youtubeShowFilterNotice = visible;

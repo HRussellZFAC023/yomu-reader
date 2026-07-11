@@ -1692,6 +1692,9 @@
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    // Default TRUE: only stored records that PREDATE this key (the era when
+    // the notice's hide button persisted the setting off) migrate below.
+    youtubeFilterNoticeRestored20260711: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
@@ -17448,6 +17451,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 1e4;
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
+  const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
   const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
   const YOUTUBE_SHORTS_ADVANCE_RETRY_MS = 1e3;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
@@ -17521,6 +17525,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     channelShelf;
     revealed = false;
     dismissedNoticeScope = "";
+    // "Hide notice" is a SESSION dismissal: it must never persist — the
+    // permanent switch lives in the settings dialog only (2026-07-11 report:
+    // one tap on the notice silently disabled it forever).
+    noticeSessionHidden = false;
+    // Route scope that was auto-revealed because the user's own search came
+    // back all non-Japanese; cleared when the route changes or the user
+    // toggles manually.
+    autoRevealedScope = "";
     noticeRouteKey = "";
     channelShelfRouteKey = "";
     channelShelfExpanded = false;
@@ -17691,10 +17703,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       this.restoreCurrentShortsWatchItem();
       this.advancePastFilteredActiveShort();
+      this.resetStaleAutoReveal();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+      if (this.shouldAutoRevealSearchResults(result)) {
+        this.revealed = true;
+        this.autoRevealedScope = this.currentNoticeScope();
+        this.schedule(0);
+        return;
+      }
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
-      if (settings.youtubeShowFilterNotice && shouldShowFilterNoticeForRoute()) {
+      if (settings.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
         this.renderNotice(result.filteredCount, result.shownCount, settings);
       } else {
         this.bar?.remove();
@@ -18009,10 +18028,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     toggleHiddenVideos() {
       this.revealed = !this.revealed;
+      this.autoRevealedScope = "";
       this.schedule(0);
     }
+    shouldAutoRevealSearchResults(result) {
+      if (this.revealed) return false;
+      if (location.pathname !== "/results") return false;
+      return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
+    }
+    // Auto-reveal is scoped to the search route it rescued: navigating away
+    // restores normal filtering. A manual toggle (autoRevealedScope cleared)
+    // is never touched.
+    resetStaleAutoReveal() {
+      if (!this.autoRevealedScope) return;
+      if (this.currentNoticeScope().split(":")[0] === this.autoRevealedScope.split(":")[0]) return;
+      this.autoRevealedScope = "";
+      this.revealed = false;
+    }
     dismissFilterNotice() {
-      this.options.setShowFilterNotice?.(false);
+      this.noticeSessionHidden = true;
       this.dismissedNoticeScope = this.currentNoticeScope();
       this.removeNotice();
     }

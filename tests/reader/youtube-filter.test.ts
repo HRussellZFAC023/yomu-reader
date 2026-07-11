@@ -923,7 +923,9 @@ describe('YouTube immersion filter', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(settings.youtubeImmersionEnabled).toBe(true);
-        expect(settings.youtubeShowFilterNotice).toBe(false);
+        // 2026-07-11: "Hide notice" is a session dismissal — it must never
+        // silently persist the notice off (the settings dialog owns that).
+        expect(settings.youtubeShowFilterNotice).toBe(true);
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
@@ -1635,7 +1637,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('persists the hidden-video notice dismissal', async () => {
+    it('dismisses the hidden-video notice for the session without persisting it off', async () => {
         renderYouTubeCards();
         const { filter, settings } = await startYoutubeFilter({
             oEmbedTitles: {
@@ -1651,15 +1653,22 @@ describe('YouTube immersion filter', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-        expect(settings.youtubeShowFilterNotice).toBe(false);
+        // Session dismissal only: the persisted setting stays on.
+        expect(settings.youtubeShowFilterNotice).toBe(true);
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
 
+        // The dismissal survives refreshes within the same session…
         filter.refresh();
         await flushPendingFilterWork();
-
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-
         filter.destroy();
+
+        // …but a fresh session (new filter instance) shows the notice again.
+        const fresh = createYoutubeFilter(() => settings);
+        fresh.refresh();
+        await flushPendingFilterWork();
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
+        fresh.destroy();
     });
 
     it('does not keep reopening the notice as more cards are filtered on the same route', async () => {
@@ -2481,6 +2490,69 @@ describe('whole-card title fallback ignores UI metadata', () => {
         `,
         });
         expect(card('annotated-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        filter.destroy();
+    });
+});
+
+// 2026-07-11: the notice's "hide" button must be a SESSION dismissal, not a
+// silent permanent opt-out — and a search whose results are all non-Japanese
+// must auto-reveal instead of spinning a hide/continuation filtering loop.
+describe('notice dismissal and search auto-reveal', () => {
+    it('hide-notice does not persist the setting off', async () => {
+        const { filter, settings } = await startYoutubeFilter({
+            html: `
+            <main>
+                <ytd-rich-item-renderer data-case="en">
+                    <a id="video-title" href="/watch?v=en1">English only video</a>
+                </ytd-rich-item-renderer>
+            </main>
+        `,
+        });
+        const hide = document.querySelector<HTMLButtonElement>('.jpdb-youtube-filter-bar [data-action="hide-notice"]');
+        expect(hide).toBeTruthy();
+        hide!.click();
+        expect(settings.youtubeShowFilterNotice).toBe(true);
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        filter.destroy();
+    });
+
+    it('auto-reveals an all-filtered search results page', async () => {
+        const cards = Array.from({ length: 9 }, (_, i) => `
+            <ytd-video-renderer data-case="en-${i}">
+                <a id="video-title" href="/watch?v=en${i}">English search result ${i}</a>
+            </ytd-video-renderer>`).join('');
+        const { filter } = await startYoutubeFilter({
+            location: {
+                href: 'https://www.youtube.com/results?search_query=fifa',
+                origin: 'https://www.youtube.com',
+                hostname: 'www.youtube.com',
+                pathname: '/results',
+                search: '?search_query=fifa',
+            },
+            html: `<main>${cards}</main>`,
+        });
+        const hidden = document.querySelectorAll('.jpdb-youtube-filtered').length;
+        expect(hidden).toBe(0);
+        filter.destroy();
+    });
+
+    it('keeps filtering a search page that still has Japanese results', async () => {
+        const cards = Array.from({ length: 9 }, (_, i) => `
+            <ytd-video-renderer data-case="en-${i}">
+                <a id="video-title" href="/watch?v=en${i}">English search result ${i}</a>
+            </ytd-video-renderer>`).join('');
+        const { filter } = await startYoutubeFilter({
+            location: {
+                href: 'https://www.youtube.com/results?search_query=fifa',
+                origin: 'https://www.youtube.com',
+                hostname: 'www.youtube.com',
+                pathname: '/results',
+                search: '?search_query=fifa',
+            },
+            html: `<main>${cards}<ytd-video-renderer data-case="jp"><a id="video-title" href="/watch?v=jp1">日本語の動画</a></ytd-video-renderer></main>`,
+        });
+        expect(document.querySelectorAll('.jpdb-youtube-filtered').length).toBe(9);
+        expect(card('jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
         filter.destroy();
     });
 });

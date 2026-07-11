@@ -19,6 +19,7 @@ import {
     isProbablyJapaneseYouTubeText,
     type YouTubeFilterCandidate,
     type YouTubeFilterDecision,
+    type YouTubeFilterScanDecision,
 } from './youtube-filter-scan';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
@@ -161,6 +162,7 @@ const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
 const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 10_000;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
+const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
 const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
 // How long to wait before re-advancing the SAME short. Long enough to let an
 // in-flight navigation settle (so we don't over-skip past the next short), but
@@ -303,6 +305,14 @@ export class YoutubeImmersionFilter {
     private channelShelf?: HTMLElement;
     private revealed = false;
     private dismissedNoticeScope = '';
+    // "Hide notice" is a SESSION dismissal: it must never persist — the
+    // permanent switch lives in the settings dialog only (2026-07-11 report:
+    // one tap on the notice silently disabled it forever).
+    private noticeSessionHidden = false;
+    // Route scope that was auto-revealed because the user's own search came
+    // back all non-Japanese; cleared when the route changes or the user
+    // toggles manually.
+    private autoRevealedScope = '';
     private noticeRouteKey = '';
     private channelShelfRouteKey = '';
     private channelShelfExpanded = false;
@@ -500,11 +510,24 @@ export class YoutubeImmersionFilter {
         this.restoreCurrentShortsWatchItem();
         this.advancePastFilteredActiveShort();
 
+        this.resetStaleAutoReveal();
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+        // A search whose results are ALL non-Japanese must not become a
+        // filtering loop: hiding everything keeps YouTube's continuation
+        // loader in view, which loads more results, which we hide again —
+        // unbounded DOM growth that saturates the page (and made the puck
+        // toggle unresponsive). The user typed that query: reveal the
+        // results for THIS route and let the notice explain.
+        if (this.shouldAutoRevealSearchResults(result)) {
+            this.revealed = true;
+            this.autoRevealedScope = this.currentNoticeScope();
+            this.schedule(0);
+            return;
+        }
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
         this.syncFilterableVideoShelves();
 
-        if (settings.youtubeShowFilterNotice && shouldShowFilterNoticeForRoute()) {
+        if (settings.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
             this.renderNotice(result.filteredCount, result.shownCount, settings);
         } else {
             this.bar?.remove();
@@ -900,11 +923,28 @@ export class YoutubeImmersionFilter {
 
     private toggleHiddenVideos(): void {
         this.revealed = !this.revealed;
+        this.autoRevealedScope = '';
         this.schedule(0);
     }
 
+    private shouldAutoRevealSearchResults(result: YouTubeFilterScanDecision): boolean {
+        if (this.revealed) return false;
+        if (location.pathname !== '/results') return false;
+        return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
+    }
+
+    // Auto-reveal is scoped to the search route it rescued: navigating away
+    // restores normal filtering. A manual toggle (autoRevealedScope cleared)
+    // is never touched.
+    private resetStaleAutoReveal(): void {
+        if (!this.autoRevealedScope) return;
+        if (this.currentNoticeScope().split(':')[0] === this.autoRevealedScope.split(':')[0]) return;
+        this.autoRevealedScope = '';
+        this.revealed = false;
+    }
+
     private dismissFilterNotice(): void {
-        this.options.setShowFilterNotice?.(false);
+        this.noticeSessionHidden = true;
         this.dismissedNoticeScope = this.currentNoticeScope();
         this.removeNotice();
     }

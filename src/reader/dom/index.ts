@@ -2018,13 +2018,22 @@ function mountNonDestructiveTextMirror(
     context: NonDestructiveMirrorRenderContext,
 ): void {
     const mirror = createNonDestructiveTextMirror(context);
+    // A mirrored CONTROL (chip, pill, compact button) must lay out exactly
+    // like its host at rest: the ruby-friendly line height pushed the base
+    // glyphs out of fixed-height pills on WebKit (iPad 2026-07-11 — chip text
+    // "gone", readings wrapping into neighbours). Readings stay in the DOM
+    // but rest-hidden with display:none (visibility:hidden still reserves
+    // ruby space on WebKit); a fine-pointer hover reveals them, and touch
+    // keeps the long-press popover.
+    const controlMirror = target.decoration === 'interactive-passive' && context.hasRenderedRuby;
+    if (controlMirror) mirror.dataset.yomuControlMirror = 'true';
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
     // room for only one tall line — hiding base glyphs (invisible subscriber
     // count) and over-clamping 2-line titles to one. Readings are rest-hidden
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
-    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
     // Document-level CSS cannot cross an open shadow boundary. Decide the
     // touch-safe paint mode here as well as in CSS so the same generic mirror
     // contract holds for web components (Reddit controls are representative):
@@ -3213,9 +3222,11 @@ function sweepAndDrainTextMirrorObservers(): void {
 // common visible path to one style read.
 function healStuckHiddenTextMirror(host: HTMLElement): void {
     const mirror = currentTextMirror(host);
-    if (mirror && mirror.style.getPropertyValue('visibility') === 'hidden') {
-        syncTextMirrorVisibilityToPage(host, mirror);
-    }
+    if (!mirror || mirror.style.getPropertyValue('visibility') !== 'hidden') return;
+    // Bulk path: consult the memoized verdict first — only a mirror whose
+    // page context has actually un-concealed pays the exact sync below.
+    if (pageConcealsTextMirrorHostMemoized(host)) return;
+    syncTextMirrorVisibilityToPage(host, mirror);
 }
 
 // Called from every visible-page scan settle (including empty/skipped scans,
@@ -3450,6 +3461,24 @@ function pageConcealsTextMirrorHost(host: HTMLElement): boolean {
         if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return true;
     }
     return false;
+}
+
+// HEAL-PATH memo only. The heal pass consults the conceal verdict for every
+// force-hidden mirror on every scan settle; an unmemoized ancestor walk
+// (getComputedStyle per level) across the dozens of legitimately-hidden
+// mirrors on an SPA's cached previous page forces repeated style recalcs and
+// janks the page (iPad 2026-07-11 "LAG"). Direct syncs (creation, reassert)
+// keep the exact walk — only the bulk heal amortizes.
+const PAGE_CONCEAL_VERDICT_TTL_MS = 1000;
+const pageConcealVerdictMemo = new WeakMap<HTMLElement, { at: number; concealed: boolean }>();
+
+function pageConcealsTextMirrorHostMemoized(host: HTMLElement): boolean {
+    const now = Date.now();
+    const memo = pageConcealVerdictMemo.get(host);
+    if (memo && now - memo.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo.concealed;
+    const concealed = pageConcealsTextMirrorHost(host);
+    pageConcealVerdictMemo.set(host, { at: now, concealed });
+    return concealed;
 }
 
 // A YouTube re-render of a live host (e.g. the caption/translation strip) can

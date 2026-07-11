@@ -7642,6 +7642,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    // Default TRUE: only stored records that PREDATE this key (the era when
+    // the notice's hide button persisted the setting off) migrate below.
+    youtubeFilterNoticeRestored20260711: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
@@ -7739,7 +7742,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migrateLegacyDefaultMobileSettings(value);
+    const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -7788,6 +7791,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Object.fromEntries(
       Object.entries(value).filter(([key]) => supportedKeys.has(key))
     );
+  }
+  function migrateHiddenFilterNotice(value) {
+    if (!value) return value;
+    if (value.youtubeFilterNoticeRestored20260711) return value;
+    const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
+    if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+    return migrated;
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;
@@ -9618,7 +9628,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
-    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
+    const controlMirror = target.decoration === "interactive-passive" && context.hasRenderedRuby;
+    if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
     const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
     const state2 = styleTextMirrorHost(
       host,
@@ -10393,9 +10405,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function healStuckHiddenTextMirror(host) {
     const mirror = currentTextMirror(host);
-    if (mirror && mirror.style.getPropertyValue("visibility") === "hidden") {
-      syncTextMirrorVisibilityToPage(host, mirror);
-    }
+    if (!mirror || mirror.style.getPropertyValue("visibility") !== "hidden") return;
+    if (pageConcealsTextMirrorHostMemoized(host)) return;
+    syncTextMirrorVisibilityToPage(host, mirror);
   }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -10510,6 +10522,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
     }
     return false;
+  }
+  const PAGE_CONCEAL_VERDICT_TTL_MS = 1e3;
+  const pageConcealVerdictMemo = /* @__PURE__ */ new WeakMap();
+  function pageConcealsTextMirrorHostMemoized(host) {
+    const now = Date.now();
+    const memo = pageConcealVerdictMemo.get(host);
+    if (memo && now - memo.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo.concealed;
+    const concealed = pageConcealsTextMirrorHost(host);
+    pageConcealVerdictMemo.set(host, { at: now, concealed });
+    return concealed;
   }
   function reassertTextMirrorHostStyles(host, state2) {
     const mirror = currentTextMirror(host);
@@ -41581,7 +41603,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.143".trim() ? "1.6.143".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.144".trim() ? "1.6.144".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -60481,6 +60503,7 @@ ${spelling}`);
   const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 1e4;
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
+  const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
   const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
   const YOUTUBE_SHORTS_ADVANCE_RETRY_MS = 1e3;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
@@ -60554,6 +60577,14 @@ ${spelling}`);
     channelShelf;
     revealed = false;
     dismissedNoticeScope = "";
+    // "Hide notice" is a SESSION dismissal: it must never persist — the
+    // permanent switch lives in the settings dialog only (2026-07-11 report:
+    // one tap on the notice silently disabled it forever).
+    noticeSessionHidden = false;
+    // Route scope that was auto-revealed because the user's own search came
+    // back all non-Japanese; cleared when the route changes or the user
+    // toggles manually.
+    autoRevealedScope = "";
     noticeRouteKey = "";
     channelShelfRouteKey = "";
     channelShelfExpanded = false;
@@ -60724,10 +60755,17 @@ ${spelling}`);
       });
       this.restoreCurrentShortsWatchItem();
       this.advancePastFilteredActiveShort();
+      this.resetStaleAutoReveal();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+      if (this.shouldAutoRevealSearchResults(result)) {
+        this.revealed = true;
+        this.autoRevealedScope = this.currentNoticeScope();
+        this.schedule(0);
+        return;
+      }
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
-      if (settings.youtubeShowFilterNotice && shouldShowFilterNoticeForRoute()) {
+      if (settings.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
         this.renderNotice(result.filteredCount, result.shownCount, settings);
       } else {
         this.bar?.remove();
@@ -61042,10 +61080,25 @@ ${spelling}`);
     }
     toggleHiddenVideos() {
       this.revealed = !this.revealed;
+      this.autoRevealedScope = "";
       this.schedule(0);
     }
+    shouldAutoRevealSearchResults(result) {
+      if (this.revealed) return false;
+      if (location.pathname !== "/results") return false;
+      return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
+    }
+    // Auto-reveal is scoped to the search route it rescued: navigating away
+    // restores normal filtering. A manual toggle (autoRevealedScope cleared)
+    // is never touched.
+    resetStaleAutoReveal() {
+      if (!this.autoRevealedScope) return;
+      if (this.currentNoticeScope().split(":")[0] === this.autoRevealedScope.split(":")[0]) return;
+      this.autoRevealedScope = "";
+      this.revealed = false;
+    }
     dismissFilterNotice() {
-      this.options.setShowFilterNotice?.(false);
+      this.noticeSessionHidden = true;
       this.dismissedNoticeScope = this.currentNoticeScope();
       this.removeNotice();
     }

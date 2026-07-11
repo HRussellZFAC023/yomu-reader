@@ -1278,10 +1278,13 @@ export class ReaderApp {
 
     private async setYoutubeImmersionEnabled(enabled: boolean): Promise<void> {
         this.settings.youtubeImmersionEnabled = enabled;
-        await saveSettings(this.settings);
+        // Respond on screen before persisting: settings writes can stall for
+        // hundreds of ms on iPad userscript managers, and the puck toggle
+        // must not feel dead while the filter is busy (2026-07-11 report).
         this.youtube.refresh();
-        log.info('YouTube immersion filter toggled', { enabled });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
+        log.info('YouTube immersion filter toggled', { enabled });
+        await saveSettings(this.settings);
     }
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {

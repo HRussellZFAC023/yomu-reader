@@ -52,3 +52,25 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(await loadSettings()).toBeTruthy();
     });
 });
+
+// Until 1.6.140 the YouTube filter notice's "hide" button silently persisted
+// youtubeShowFilterNotice=false — the only in-page path writing that key.
+// The one-time marker migration restores it; deliberate settings-dialog
+// choices made afterwards stick.
+describe('hidden filter notice restore migration', () => {
+    it('restores a stored notice-off once, then honors later choices', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { youtubeShowFilterNotice: false });
+
+        const migrated = await loadSettings();
+        expect(migrated.youtubeShowFilterNotice).toBe(true);
+        expect(migrated.youtubeFilterNoticeRestored20260711).toBe(true);
+
+        // A post-migration deliberate opt-out sticks across loads.
+        migrated.youtubeShowFilterNotice = false;
+        await saveSettings(migrated);
+        const reloaded = await loadSettings();
+        expect(reloaded.youtubeShowFilterNotice).toBe(false);
+    });
+});

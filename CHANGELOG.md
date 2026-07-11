@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.144] - 2026-07-11
+
+### Fixed
+
+- The hidden-video notice's Hide button now dismisses the notice for the current session only instead of silently turning the notice off forever; anyone who previously hid it this way gets it back once.
+- Searching for a non-Japanese term no longer spins a filtering loop that hides every result while YouTube keeps loading more: a search whose results are all non-Japanese is shown as searched, with filtering resuming on the next page.
+- Toggling the immersion filter from the puck responds immediately: the filter refreshes before settings are persisted, annotation readings on compact controls no longer distort chips or hide their labels, and the mirror visibility heal no longer re-walks hidden sections on every scan.
 ## [1.6.143] - 2026-07-11
 
 ### Fixed
@@ -12,12 +19,6 @@
 ### Changed
 
 - The video subtitle rail shows previous-line and next-line buttons again, but only while the subtitle side panel is closed. When the panel is open its own transport controls take over and the rail hides its copies to avoid duplicate controls.
-
-## [1.6.141] - 2026-07-11
-
-### Changed
-
-- Hover lookups now open as a compact popover by default on every screen size instead of the bottom panel, so passively hovering a word no longer covers the page on small screens; tap and click lookups keep the bottom panel there. A new "Hover popup mode" setting controls the hover surface independently of the existing "Popup mode" setting used for tap and click lookups.
 
 ## [1.6.140] - 2026-07-11
 

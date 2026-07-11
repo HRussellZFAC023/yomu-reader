@@ -2575,6 +2575,9 @@
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    // Default TRUE: only stored records that PREDATE this key (the era when
+    // the notice's hide button persisted the setting off) migrate below.
+    youtubeFilterNoticeRestored20260711: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
@@ -2672,7 +2675,7 @@
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migrateLegacyDefaultMobileSettings(value);
+    const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -2721,6 +2724,13 @@
     return Object.fromEntries(
       Object.entries(value).filter(([key]) => supportedKeys.has(key))
     );
+  }
+  function migrateHiddenFilterNotice(value) {
+    if (!value) return value;
+    if (value.youtubeFilterNoticeRestored20260711) return value;
+    const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
+    if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+    return migrated;
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;

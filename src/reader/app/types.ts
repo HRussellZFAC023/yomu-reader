@@ -480,6 +480,7 @@ export interface ReaderSettings {
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
+    youtubeFilterNoticeRestored20260711: boolean;
     youtubeShowChannelRecommendations: boolean;
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
