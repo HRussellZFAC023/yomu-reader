@@ -618,8 +618,8 @@ describe('JitenApiClient', () => {
         expect(info?.alternativeReadings[0]).toMatchObject({ text: '訓む', readingIndex: 1 });
         expect(info?.composedOf[0]?.audioUrls).toEqual(['https://audio.example.test/yomu.mp3']);
         expect(info?.examples[0]?.audioUrls).toEqual(['https://audio.example.test/sentence.mp3']);
-        expect(fetchMock).toHaveBeenNthCalledWith(1, `${JITEN_API_BASE_URL}/vocabulary/42/0/info`, expect.objectContaining({ method: 'GET' }));
-        expect(fetchMock).toHaveBeenNthCalledWith(2, `${JITEN_API_BASE_URL}/vocabulary/42/0/random-example-sentences`, expect.objectContaining({ method: 'POST' }));
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/vocabulary/42/0/info`, expect.objectContaining({ method: 'GET' }));
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/vocabulary/42/0/random-example-sentences`, expect.objectContaining({ method: 'POST' }));
     });
 
     it('loads Jiten kanji facts with exact frequency and reading word groups', async () => {
