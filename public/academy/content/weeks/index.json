@@ -1,0 +1,2084 @@
+{
+  "schema": "yomu-academy.week-index.v1",
+  "generated": {
+    "ledger": "generated/week-source-ledger.json",
+    "chapterReference": "minna-chapter-reference.json"
+  },
+  "spine": [
+    {
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "academyYear": 1,
+      "courseYear": "ucl-japanese-2023-2024",
+      "levelBand": "N5",
+      "minnaBook": "I"
+    },
+    {
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "academyYear": 1,
+      "courseYear": "ucl-japanese-2023-2024",
+      "levelBand": "N5",
+      "minnaBook": "I"
+    },
+    {
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "academyYear": 2,
+      "courseYear": "ucl-japanese-2024-2025",
+      "levelBand": "N5>N4",
+      "minnaBook": "I>II"
+    },
+    {
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "academyYear": 3,
+      "courseYear": "ucl-japanese-2025-2026",
+      "levelBand": "N4",
+      "minnaBook": "II"
+    },
+    {
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "academyYear": 3,
+      "courseYear": "ucl-japanese-2025-2026",
+      "levelBand": "N4",
+      "minnaBook": "II"
+    }
+  ],
+  "summary": {
+    "weekCount": 73,
+    "authored": 2,
+    "checkpoints": [
+      "l1-l06",
+      "l1-l10",
+      "l1plus-l06",
+      "l1plus-l10",
+      "l2plus-l06",
+      "l2plus-l10",
+      "l3-2-l06",
+      "l3-2-l10",
+      "l3plus-l05",
+      "l3plus-l09"
+    ]
+  },
+  "orderings": {
+    "chronology": [
+      "orientation",
+      "l1-kickoff",
+      "l1-l01",
+      "l1-l02",
+      "l1-l03",
+      "l1-l04",
+      "l1-l05",
+      "l1-l06",
+      "l1-l07",
+      "l1-l08",
+      "l1-l09",
+      "l1-l10",
+      "l1-hiragana-1",
+      "l1-hiragana-2",
+      "l1-hiragana-3",
+      "l1-hiragana-4",
+      "l1-hiragana-5",
+      "l1-hiragana-6",
+      "l1-hiragana-7",
+      "l1plus-kickoff",
+      "l1plus-l01",
+      "l1plus-l02",
+      "l1plus-l03",
+      "l1plus-l04",
+      "l1plus-l05",
+      "l1plus-l06",
+      "l1plus-l07",
+      "l1plus-l08",
+      "l1plus-l09",
+      "l1plus-l10",
+      "l1plus-summer-homework",
+      "l1plus-katakana-1",
+      "l1plus-katakana-2",
+      "l1plus-katakana-3",
+      "l1plus-katakana-4",
+      "l1plus-katakana-5",
+      "l2plus-kickoff",
+      "l2plus-l01",
+      "l2plus-l02",
+      "l2plus-l03",
+      "l2plus-l04",
+      "l2plus-l05",
+      "l2plus-l06",
+      "l2plus-l07",
+      "l2plus-l08",
+      "l2plus-l09",
+      "l2plus-l10",
+      "l2plus-kanji-4",
+      "l3-2-kickoff",
+      "l3-2-selfstudy-ch27",
+      "l3-2-l01",
+      "l3-2-l02",
+      "l3-2-l03",
+      "l3-2-l04",
+      "l3-2-l05",
+      "l3-2-l06",
+      "l3-2-l07",
+      "l3-2-prestudy-volitional",
+      "l3-2-l08",
+      "l3-2-l09",
+      "l3-2-l10",
+      "l3-2-kanji-6",
+      "l3plus-kickoff",
+      "l3plus-l01",
+      "l3plus-l02",
+      "l3plus-l03",
+      "l3plus-l04",
+      "l3plus-l05",
+      "l3plus-l06",
+      "l3plus-l07",
+      "l3plus-l08",
+      "l3plus-l09",
+      "l3plus-kanji-7"
+    ],
+    "minna": [
+      "l1-l01",
+      "l1-l02",
+      "l1-l03",
+      "l1-l04",
+      "l1-l05",
+      "l1-l08",
+      "l1plus-l02",
+      "l1-l06",
+      "l1-l07",
+      "l1-l09",
+      "l1-l10",
+      "l1plus-l03",
+      "l1plus-l01",
+      "l1plus-l04",
+      "l1plus-l05",
+      "l1plus-l08",
+      "l1plus-l06",
+      "l1plus-l07",
+      "l1plus-l09",
+      "l1plus-l10",
+      "l1plus-summer-homework",
+      "l2plus-l01",
+      "l2plus-l02",
+      "l2plus-l03",
+      "l2plus-l04",
+      "l2plus-l05",
+      "l2plus-l10",
+      "l2plus-l06",
+      "l2plus-l07",
+      "l2plus-l08",
+      "l2plus-l09",
+      "l3-2-l07",
+      "l3-2-l08",
+      "l3-2-selfstudy-ch27",
+      "l3-2-l01",
+      "l3-2-l02",
+      "l3-2-l03",
+      "l3-2-l04",
+      "l3-2-l05",
+      "l3-2-l06",
+      "l3-2-prestudy-volitional",
+      "l3-2-l09",
+      "l3-2-l10",
+      "l3plus-l07",
+      "l3plus-l01",
+      "l3plus-l02",
+      "l3plus-l03",
+      "l3plus-l04",
+      "l3plus-l05",
+      "l3plus-l06",
+      "l3plus-l08",
+      "l3plus-l09"
+    ]
+  },
+  "weeks": [
+    {
+      "order": 0,
+      "id": "orientation",
+      "file": "000-orientation.json",
+      "weekKind": "orientation",
+      "title": {
+        "en": "Lesson 0 — Welcome to the class"
+      },
+      "academyYear": 0,
+      "termId": "orientation",
+      "termLabel": "Orientation",
+      "courseYear": null,
+      "weekNumberInTerm": 0,
+      "minnaChapters": [],
+      "jlpt": "pre-N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [],
+      "mapping": {
+        "ucl": "· Orientation · Lesson 0 — Welcome to the class",
+        "minna": null
+      }
+    },
+    {
+      "order": 1,
+      "id": "l1-kickoff",
+      "file": "001-l1-kickoff.json",
+      "weekKind": "term-kickoff",
+      "title": {
+        "en": "Introduction"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "orientation"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 2,
+      "id": "l1-l01",
+      "file": "002-l1-l01.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Nice to meet you",
+        "ja": "はじめまして"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 1,
+      "minnaChapters": [
+        1
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-kickoff"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 1",
+        "minna": "II/I · 1"
+      }
+    },
+    {
+      "order": 3,
+      "id": "l1-l02",
+      "file": "003-l1-l02.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 2"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 2,
+      "minnaChapters": [
+        1
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l01"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 2",
+        "minna": "II/I · 1"
+      }
+    },
+    {
+      "order": 4,
+      "id": "l1-l03",
+      "file": "004-l1-l03.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 3"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 3,
+      "minnaChapters": [
+        1
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l02"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 3",
+        "minna": "II/I · 1"
+      }
+    },
+    {
+      "order": 5,
+      "id": "l1-l04",
+      "file": "005-l1-l04.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 4"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 4,
+      "minnaChapters": [
+        1,
+        2
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l03"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 4",
+        "minna": "II/I · 1,2"
+      }
+    },
+    {
+      "order": 6,
+      "id": "l1-l05",
+      "file": "006-l1-l05.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 5"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 5,
+      "minnaChapters": [
+        1,
+        2
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l04"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 5",
+        "minna": "II/I · 1,2"
+      }
+    },
+    {
+      "order": 7,
+      "id": "l1-l06",
+      "file": "007-l1-l06.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 6"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 6,
+      "minnaChapters": [
+        2,
+        3
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l1-l05"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 6",
+        "minna": "II/I · 2,3"
+      }
+    },
+    {
+      "order": 8,
+      "id": "l1-l07",
+      "file": "008-l1-l07.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 7"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 7,
+      "minnaChapters": [
+        3
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l06"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 7",
+        "minna": "II/I · 3"
+      }
+    },
+    {
+      "order": 9,
+      "id": "l1-l08",
+      "file": "009-l1-l08.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 8"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 8,
+      "minnaChapters": [
+        1,
+        3,
+        4
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l07"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 8",
+        "minna": "II/I · 1,3,4"
+      }
+    },
+    {
+      "order": 10,
+      "id": "l1-l09",
+      "file": "010-l1-l09.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 9"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 9,
+      "minnaChapters": [
+        4
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l08"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 9",
+        "minna": "II/I · 4"
+      }
+    },
+    {
+      "order": 11,
+      "id": "l1-l10",
+      "file": "011-l1-l10.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 10"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 10,
+      "minnaChapters": [
+        4
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l1-l09"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Lesson 10",
+        "minna": "II/I · 4"
+      }
+    },
+    {
+      "order": 12,
+      "id": "l1-hiragana-1",
+      "file": "012-l1-hiragana-1.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana あ／A line and か／Ka line"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-l10"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana あ／A line and か／Ka line",
+        "minna": null
+      }
+    },
+    {
+      "order": 13,
+      "id": "l1-hiragana-2",
+      "file": "013-l1-hiragana-2.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana さ／Sa line and た／Ta line"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-1"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana さ／Sa line and た／Ta line",
+        "minna": null
+      }
+    },
+    {
+      "order": 14,
+      "id": "l1-hiragana-3",
+      "file": "014-l1-hiragana-3.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana な／Na line and は／Ha line"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-2"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana な／Na line and は／Ha line",
+        "minna": null
+      }
+    },
+    {
+      "order": 15,
+      "id": "l1-hiragana-4",
+      "file": "015-l1-hiragana-4.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana ま／Ma、や／Ya、ら／Ra line and わ／Wa line"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-3"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana ま／Ma、や／Ya、ら／Ra line and わ／Wa line",
+        "minna": null
+      }
+    },
+    {
+      "order": 16,
+      "id": "l1-hiragana-5",
+      "file": "016-l1-hiragana-5.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana modified syllables, double consonants and long vowels"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-4"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana modified syllables, double consonants and long vowels",
+        "minna": null
+      }
+    },
+    {
+      "order": 17,
+      "id": "l1-hiragana-6",
+      "file": "017-l1-hiragana-6.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Look-alike hiragana"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-5"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Look-alike hiragana",
+        "minna": null
+      }
+    },
+    {
+      "order": 18,
+      "id": "l1-hiragana-7",
+      "file": "018-l1-hiragana-7.json",
+      "weekKind": "script-hiragana",
+      "title": {
+        "en": "Hiragana writing worksheets"
+      },
+      "academyYear": 1,
+      "termId": "l1",
+      "termLabel": "Level 1",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-6"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1 · Hiragana writing worksheets",
+        "minna": null
+      }
+    },
+    {
+      "order": 19,
+      "id": "l1plus-kickoff",
+      "file": "019-l1plus-kickoff.json",
+      "weekKind": "term-kickoff",
+      "title": {
+        "en": "Introduction"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1-hiragana-7"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 20,
+      "id": "l1plus-l01",
+      "file": "020-l1plus-l01.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 1"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 1,
+      "minnaChapters": [
+        8
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-kickoff"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 1",
+        "minna": "II/I · 8"
+      }
+    },
+    {
+      "order": 21,
+      "id": "l1plus-l02",
+      "file": "021-l1plus-l02.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 2"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 2,
+      "minnaChapters": [
+        1,
+        6,
+        8,
+        9
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l01"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 2",
+        "minna": "II/I · 1,6,8,9"
+      }
+    },
+    {
+      "order": 22,
+      "id": "l1plus-l03",
+      "file": "022-l1plus-l03.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 3"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 3,
+      "minnaChapters": [
+        6,
+        9
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l02"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 3",
+        "minna": "II/I · 6,9"
+      }
+    },
+    {
+      "order": 23,
+      "id": "l1plus-l04",
+      "file": "023-l1plus-l04.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 4 16/05/24_online"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 4,
+      "minnaChapters": [
+        9,
+        10
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l03"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 4 16/05/24_online",
+        "minna": "II/I · 9,10"
+      }
+    },
+    {
+      "order": 24,
+      "id": "l1plus-l05",
+      "file": "024-l1plus-l05.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 5 23/05/24_online"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 5,
+      "minnaChapters": [
+        9,
+        10
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l04"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 5 23/05/24_online",
+        "minna": "II/I · 9,10"
+      }
+    },
+    {
+      "order": 25,
+      "id": "l1plus-l06",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 6 29/05/24_online"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 6,
+      "minnaChapters": [
+        10
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l1plus-l05"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 6 29/05/24_online",
+        "minna": "II/I · 10"
+      }
+    },
+    {
+      "order": 26,
+      "id": "l1plus-l07",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 7 06/06/24_online"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 7,
+      "minnaChapters": [
+        10
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l06"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 7 06/06/24_online",
+        "minna": "II/I · 10"
+      }
+    },
+    {
+      "order": 27,
+      "id": "l1plus-l08",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 8"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 8,
+      "minnaChapters": [
+        9,
+        10,
+        11
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l07"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 8",
+        "minna": "II/I · 9,10,11"
+      }
+    },
+    {
+      "order": 28,
+      "id": "l1plus-l09",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 9"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 9,
+      "minnaChapters": [
+        11,
+        12
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l08"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 9",
+        "minna": "II/I · 11,12"
+      }
+    },
+    {
+      "order": 29,
+      "id": "l1plus-l10",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 10"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": 10,
+      "minnaChapters": [
+        11,
+        12
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l1plus-l09"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Lesson 10",
+        "minna": "II/I · 11,12"
+      }
+    },
+    {
+      "order": 30,
+      "id": "l1plus-summer-homework",
+      "file": null,
+      "weekKind": "consolidation",
+      "title": {
+        "en": "Summer Homework_to finalise Chapter 11"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [
+        11
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-l10"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Summer Homework_to finalise Chapter 11",
+        "minna": "II/I · 11"
+      }
+    },
+    {
+      "order": 31,
+      "id": "l1plus-katakana-1",
+      "file": null,
+      "weekKind": "script-katakana",
+      "title": {
+        "en": "Katakana Introduction"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-summer-homework"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Katakana Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 32,
+      "id": "l1plus-katakana-2",
+      "file": null,
+      "weekKind": "script-katakana",
+      "title": {
+        "en": "Katakana Work sheets アline カline"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-katakana-1"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Katakana Work sheets アline カline",
+        "minna": null
+      }
+    },
+    {
+      "order": 33,
+      "id": "l1plus-katakana-3",
+      "file": null,
+      "weekKind": "script-katakana",
+      "title": {
+        "en": "Katakana Work sheets サline タline"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-katakana-2"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Katakana Work sheets サline タline",
+        "minna": null
+      }
+    },
+    {
+      "order": 34,
+      "id": "l1plus-katakana-4",
+      "file": null,
+      "weekKind": "script-katakana",
+      "title": {
+        "en": "Katakana Work sheets ナline ハline"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-katakana-3"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Katakana Work sheets ナline ハline",
+        "minna": null
+      }
+    },
+    {
+      "order": 35,
+      "id": "l1plus-katakana-5",
+      "file": null,
+      "weekKind": "script-katakana",
+      "title": {
+        "en": "Katakana Worksheets マline ヤline ラline ワline"
+      },
+      "academyYear": 1,
+      "termId": "l1plus",
+      "termLabel": "Level 1+",
+      "courseYear": "2023/24",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-katakana-4"
+      ],
+      "mapping": {
+        "ucl": "2023/24 · Level 1+ · Katakana Worksheets マline ヤline ラline ワline",
+        "minna": null
+      }
+    },
+    {
+      "order": 36,
+      "id": "l2plus-kickoff",
+      "file": null,
+      "weekKind": "term-kickoff",
+      "title": {
+        "en": "Introduction"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5>N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l1plus-katakana-5"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 37,
+      "id": "l2plus-l01",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 1"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 1,
+      "minnaChapters": [
+        19
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-kickoff"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 1",
+        "minna": "II/I · 19"
+      }
+    },
+    {
+      "order": 38,
+      "id": "l2plus-l02",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 2"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 2,
+      "minnaChapters": [
+        19,
+        20
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l01"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 2",
+        "minna": "II/I · 19,20"
+      }
+    },
+    {
+      "order": 39,
+      "id": "l2plus-l03",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 3"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 3,
+      "minnaChapters": [
+        20,
+        21
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l02"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 3",
+        "minna": "II/I · 20,21"
+      }
+    },
+    {
+      "order": 40,
+      "id": "l2plus-l04",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 4"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 4,
+      "minnaChapters": [
+        20
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l03"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 4",
+        "minna": "II/I · 20"
+      }
+    },
+    {
+      "order": 41,
+      "id": "l2plus-l05",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 5"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 5,
+      "minnaChapters": [
+        20,
+        21
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l04"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 5",
+        "minna": "II/I · 20,21"
+      }
+    },
+    {
+      "order": 42,
+      "id": "l2plus-l06",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 6"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 6,
+      "minnaChapters": [
+        21
+      ],
+      "jlpt": "N5",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l2plus-l05"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 6",
+        "minna": "II/I · 21"
+      }
+    },
+    {
+      "order": 43,
+      "id": "l2plus-l07",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 7"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 7,
+      "minnaChapters": [
+        21,
+        22
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l06"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 7",
+        "minna": "II/I · 21,22"
+      }
+    },
+    {
+      "order": 44,
+      "id": "l2plus-l08",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 8"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 8,
+      "minnaChapters": [
+        22
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l07"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 8",
+        "minna": "II/I · 22"
+      }
+    },
+    {
+      "order": 45,
+      "id": "l2plus-l09",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 9"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 9,
+      "minnaChapters": [
+        22,
+        23
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l08"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 9",
+        "minna": "II/I · 22,23"
+      }
+    },
+    {
+      "order": 46,
+      "id": "l2plus-l10",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 10"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": 10,
+      "minnaChapters": [
+        20,
+        23,
+        25
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l2plus-l09"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Lesson 10",
+        "minna": "II/I · 20,23,25"
+      }
+    },
+    {
+      "order": 47,
+      "id": "l2plus-kanji-4",
+      "file": null,
+      "weekKind": "kanji-set",
+      "title": {
+        "en": "Kanji 4-東、京、名、前、国、男、女、区、市"
+      },
+      "academyYear": 2,
+      "termId": "l2plus",
+      "termLabel": "Level 2+",
+      "courseYear": "2024/25",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N5>N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-l10"
+      ],
+      "mapping": {
+        "ucl": "2024/25 · Level 2+ · Kanji 4-東、京、名、前、国、男、女、区、市",
+        "minna": null
+      }
+    },
+    {
+      "order": 48,
+      "id": "l3-2-kickoff",
+      "file": null,
+      "weekKind": "term-kickoff",
+      "title": {
+        "en": "Introduction"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l2plus-kanji-4"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 49,
+      "id": "l3-2-selfstudy-ch27",
+      "file": null,
+      "weekKind": "self-study",
+      "title": {
+        "en": "Self study_Chapter 27-〜しか_Nは_making contrast"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [
+        27
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-kickoff"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Self study_Chapter 27-〜しか_Nは_making contrast",
+        "minna": "II/I · 27"
+      }
+    },
+    {
+      "order": 50,
+      "id": "l3-2-l01",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 1"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 1,
+      "minnaChapters": [
+        28
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-selfstudy-ch27"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 1",
+        "minna": "II/I · 28"
+      }
+    },
+    {
+      "order": 51,
+      "id": "l3-2-l02",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 2"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 2,
+      "minnaChapters": [
+        28
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l01"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 2",
+        "minna": "II/I · 28"
+      }
+    },
+    {
+      "order": 52,
+      "id": "l3-2-l03",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 3"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 3,
+      "minnaChapters": [
+        29
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l02"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 3",
+        "minna": "II/I · 29"
+      }
+    },
+    {
+      "order": 53,
+      "id": "l3-2-l04",
+      "file": "053-l3-2-l04.json",
+      "weekKind": "lesson",
+      "title": {
+        "en": "The day it all went wrong",
+        "ja": "やってしまった日"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 4,
+      "minnaChapters": [
+        29
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l03"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 4",
+        "minna": "II/I · 29"
+      }
+    },
+    {
+      "order": 54,
+      "id": "l3-2-l05",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 5"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 5,
+      "minnaChapters": [
+        30
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l04"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 5",
+        "minna": "II/I · 30"
+      }
+    },
+    {
+      "order": 55,
+      "id": "l3-2-l06",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 6"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 6,
+      "minnaChapters": [
+        30
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l3-2-l05"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 6",
+        "minna": "II/I · 30"
+      }
+    },
+    {
+      "order": 56,
+      "id": "l3-2-l07",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 7"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 7,
+      "minnaChapters": [
+        26,
+        30
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l06"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 7",
+        "minna": "II/I · 26,30"
+      }
+    },
+    {
+      "order": 57,
+      "id": "l3-2-prestudy-volitional",
+      "file": null,
+      "weekKind": "pre-study",
+      "title": {
+        "en": "Pre-study_Volitional form"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [
+        31
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l07"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Pre-study_Volitional form",
+        "minna": "II/I · 31"
+      }
+    },
+    {
+      "order": 58,
+      "id": "l3-2-l08",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 8"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 8,
+      "minnaChapters": [
+        26,
+        30,
+        31
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-prestudy-volitional"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 8",
+        "minna": "II/I · 26,30,31"
+      }
+    },
+    {
+      "order": 59,
+      "id": "l3-2-l09",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 9"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 9,
+      "minnaChapters": [
+        31
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l08"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 9",
+        "minna": "II/I · 31"
+      }
+    },
+    {
+      "order": 60,
+      "id": "l3-2-l10",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 10"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 10,
+      "minnaChapters": [
+        31,
+        32
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l3-2-l09"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Lesson 10",
+        "minna": "II/I · 31,32"
+      }
+    },
+    {
+      "order": 61,
+      "id": "l3-2-kanji-6",
+      "file": null,
+      "weekKind": "kanji-set",
+      "title": {
+        "en": "Kanji 6-今、来、帰、会、社、聞、読、書、話"
+      },
+      "academyYear": 3,
+      "termId": "l3-2",
+      "termLabel": "Level 3-2",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-l10"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3-2 · Kanji 6-今、来、帰、会、社、聞、読、書、話",
+        "minna": null
+      }
+    },
+    {
+      "order": 62,
+      "id": "l3plus-kickoff",
+      "file": null,
+      "weekKind": "term-kickoff",
+      "title": {
+        "en": "Introduction"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3-2-kanji-6"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Introduction",
+        "minna": null
+      }
+    },
+    {
+      "order": 63,
+      "id": "l3plus-l01",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 1"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 1,
+      "minnaChapters": [
+        32
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-kickoff"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 1",
+        "minna": "II/I · 32"
+      }
+    },
+    {
+      "order": 64,
+      "id": "l3plus-l02",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 2"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 2,
+      "minnaChapters": [
+        32,
+        33
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l01"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 2",
+        "minna": "II/I · 32,33"
+      }
+    },
+    {
+      "order": 65,
+      "id": "l3plus-l03",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 3"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 3,
+      "minnaChapters": [
+        33
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l02"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 3",
+        "minna": "II/I · 33"
+      }
+    },
+    {
+      "order": 66,
+      "id": "l3plus-l04",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 4"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 4,
+      "minnaChapters": [
+        34
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l03"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 4",
+        "minna": "II/I · 34"
+      }
+    },
+    {
+      "order": 67,
+      "id": "l3plus-l05",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 5"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 5,
+      "minnaChapters": [
+        34
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l3plus-l04"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 5",
+        "minna": "II/I · 34"
+      }
+    },
+    {
+      "order": 68,
+      "id": "l3plus-l06",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson ６"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 6,
+      "minnaChapters": [
+        35
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l05"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson ６",
+        "minna": "II/I · 35"
+      }
+    },
+    {
+      "order": 69,
+      "id": "l3plus-l07",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 7"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 7,
+      "minnaChapters": [
+        31,
+        35
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l06"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 7",
+        "minna": "II/I · 31,35"
+      }
+    },
+    {
+      "order": 70,
+      "id": "l3plus-l08",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 8"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 8,
+      "minnaChapters": [
+        35,
+        36
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l07"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 8",
+        "minna": "II/I · 35,36"
+      }
+    },
+    {
+      "order": 71,
+      "id": "l3plus-l09",
+      "file": null,
+      "weekKind": "lesson",
+      "title": {
+        "en": "Lesson 9"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": 9,
+      "minnaChapters": [
+        35,
+        36
+      ],
+      "jlpt": "N4",
+      "isCheckpoint": true,
+      "prerequisiteWeekIds": [
+        "l3plus-l08"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Lesson 9",
+        "minna": "II/I · 35,36"
+      }
+    },
+    {
+      "order": 72,
+      "id": "l3plus-kanji-7",
+      "file": null,
+      "weekKind": "kanji-set",
+      "title": {
+        "en": "Kanji 7-肉、料、理、野、半、大、小"
+      },
+      "academyYear": 3,
+      "termId": "l3plus",
+      "termLabel": "Level 3+",
+      "courseYear": "2025/26",
+      "weekNumberInTerm": null,
+      "minnaChapters": [],
+      "jlpt": "N4",
+      "isCheckpoint": false,
+      "prerequisiteWeekIds": [
+        "l3plus-l09"
+      ],
+      "mapping": {
+        "ucl": "2025/26 · Level 3+ · Kanji 7-肉、料、理、野、半、大、小",
+        "minna": null
+      }
+    }
+  ]
+}
