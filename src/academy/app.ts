@@ -22,6 +22,7 @@ import {
     renderFoundationPlayer,
     type FoundationPlayerState,
 } from './foundation-player';
+import { renderWeekComponents } from './player/week-components';
 import type { FoundationLesson } from './foundation-course';
 
 export class AcademyApp {
@@ -236,19 +237,11 @@ export class AcademyApp {
             wrap.append(block);
         }
 
-        const components = (week?.components ?? []) as { type?: string; title?: string }[];
+        const components = (week?.components ?? []) as Parameters<typeof renderWeekComponents>[1];
         if (components.length) {
-            const listHeading = document.createElement('h2');
-            listHeading.textContent = 'This week\'s work';
-            wrap.append(listHeading);
-            const list = document.createElement('ul');
-            list.className = 'academy-component-list';
-            for (const component of components) {
-                const item = document.createElement('li');
-                item.textContent = component.title ?? component.type ?? 'Activity';
-                list.append(item);
-            }
-            wrap.append(list);
+            renderWeekComponents(wrap, components, () => {
+                // Exercise results feed the progression engine in a later slice.
+            });
         }
         screen.append(wrap);
     }
