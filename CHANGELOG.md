@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.132] - 2026-07-11
+
+### Fixed
+
+- Immersion Kit example sentences now load reliably instead of showing "No examples" for common words such as 見る: each lookup was downloading the entire example set — one to two megabytes — and timing out before it arrived, and now fetches a small batch that loads in about a second.
+
 ## [1.6.131] - 2026-07-11
 
 ### Fixed

@@ -9602,7 +9602,7 @@ describe('new tab review helpers', () => {
             expect(search).toHaveBeenCalledWith(
                 '中学生',
                 expect.objectContaining({ immersionKitEnabled: true }),
-                expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+                expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
             );
         } finally {
             root.remove();
@@ -14444,7 +14444,7 @@ describe('new tab review helpers', () => {
         expect(search).toHaveBeenCalledWith(
             '多',
             expect.anything(),
-            expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+            expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
         );
     });
 
@@ -15045,7 +15045,7 @@ describe('new tab review helpers', () => {
             expect(search).toHaveBeenCalledWith(
                 '書く',
                 expect.anything(),
-                expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+                expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
             );
             expect(search.mock.calls.map(([query]) => query).filter(query => query === '書く')).toHaveLength(writeSearchesBeforeReveal);
         } finally {
@@ -15199,7 +15199,7 @@ describe('new tab review helpers', () => {
             expect(search).toHaveBeenCalledWith(
                 '発音',
                 expect.objectContaining({ immersionKitAutoPlayAudio: true }),
-                expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+                expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
             );
         } finally {
             root.remove();

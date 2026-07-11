@@ -41472,7 +41472,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.131".trim() ? "1.6.131".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.132".trim() ? "1.6.132".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -66954,7 +66954,7 @@ ${component.reading}`;
   const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
   const IMMERSION_SEARCH_CACHE_LIMIT = 120;
   const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
-  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
+  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
   const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
   const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
   const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
@@ -77761,7 +77761,7 @@ ${entry.url}`),
   }
   const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
-  const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 48;
+  const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
   const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
   const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;

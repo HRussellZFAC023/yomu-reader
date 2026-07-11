@@ -46,7 +46,12 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 const IMMERSION_SEARCH_CACHE_LIMIT = 120;
 const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
-const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
+// Immersion Kit's `limit` is applied PER DECK (100+ decks), not to the whole
+// result, so a large value balloons the response to 1-2 MB for common words
+// (見る ≈ 2 MB at 48) — that regularly overruns audioTimeoutMs and the aborted
+// request renders as "no examples". 10-per-deck still yields hundreds of
+// post-filter candidates (far more than the 6 shown) at ~400 KB.
+const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
 const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
 // The active card's open immersion section loads on a short debounce when it's
 // already in view (snappier than the 180ms below-the-fold delay), so examples

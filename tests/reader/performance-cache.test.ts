@@ -204,7 +204,7 @@ describe('performance cache bounds', () => {
         expect(search).toHaveBeenCalledWith(
             '単語1',
             expect.objectContaining({ immersionKitEnabled: true }),
-            expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+            expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
         );
     });
 

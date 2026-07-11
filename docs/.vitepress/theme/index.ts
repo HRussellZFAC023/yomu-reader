@@ -215,6 +215,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Immersion Kit example sentences now load reliably instead of showing "No examples" for common words such as 見る: each lookup was downloading the entire example set — one to two megabytes — and timing out before it arrived, and now fetches a small batch that loads in about a second.': 'イマージョンキットの例文が、見るのようなよく使う単語でも「例文なし」と表示されず、確実に読み込まれるようになりました。これまでは検索のたびに例文セット全体（1〜2メガバイト）をダウンロードしており、届く前にタイムアウトしていました。今は小さなまとまりだけを取得するため、約1秒で読み込まれます。',
     'The hosted homepage now loads its reader runtime and companion scripts with the release version in their URLs, so browsers cannot keep executing an older cached OCR build after the site deploys a geometry fix.': 'ホスト版ホームページは、リーダー本体と補助スクリプトのURLにリリース番号を付けて読み込むようになりました。サイトが座標修正を配信した後も、ブラウザーが古いOCRビルドをキャッシュから実行し続けることを防ぎます。',
     'The legacy persistent OCR cache is cleared once during upgrade, so the removed three-box homepage demo geometry cannot survive an update and keep manga text offset from the image.': 'アップグレード時に古い永続OCRキャッシュを一度消去し、削除済みのホームページ用3枠デモ座標が更新後も残って漫画文字を画像からずらし続けることを防ぎます。',
     'Removed': '削除',

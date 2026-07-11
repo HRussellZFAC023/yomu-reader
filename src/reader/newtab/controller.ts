@@ -344,7 +344,10 @@ export { newTabKanjiSourceTitle } from './kanji-helpers';
 
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
-const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 48;
+// Immersion Kit applies `limit` per deck (100+ decks), so 48 balloons the
+// response to 1-2 MB and times out; 10 keeps it ~400 KB with hundreds of
+// post-filter candidates. See IMMERSION_POPUP_SEARCH_REQUEST_LIMIT.
+const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
 const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;

@@ -14303,8 +14303,8 @@ describe('reader helpers', () => {
 
         const result = await controller.searchExamples(compoundCard, { relatedQueries: ['国家', '主席'] });
 
-        expect(search).toHaveBeenNthCalledWith(1, '国家主席', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
-        expect(search).toHaveBeenNthCalledWith(2, '国家', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
+        expect(search).toHaveBeenNthCalledWith(1, '国家主席', expect.any(Object), expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
+        expect(search).toHaveBeenNthCalledWith(2, '国家', expect.any(Object), expect.objectContaining({ requestLimit: 10, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
         expect(result.query).toBe('国家');
         expect(result.examples[0]?.sourceTitle).toBe('Show');
         expect(result.examples[0]?.sentence).toBe('国家のために働く。');
