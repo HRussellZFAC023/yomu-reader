@@ -7,7 +7,7 @@
  */
 
 import { createShell, type ShellController, type ShellRoute } from './ui/shell';
-import { renderCast, renderReviewStub, renderSettings, renderSyllabus } from './ui/screens';
+import { renderCast, renderSettings, renderSyllabus } from './ui/screens';
 import { renderArea, renderMap } from './world/map';
 import { advanceSlot, addBondPoints, loadWorldState, markSceneSeen, saveWorldState, type WorldState } from './world/state';
 import type { AreaActivityKind, AreaDefinition } from './world/areas';
@@ -23,6 +23,8 @@ import {
     type FoundationPlayerState,
 } from './foundation-player';
 import { renderWeekComponents } from './player/week-components';
+import { renderWeekExercise } from './player/week-exercises';
+import { StudyProgress } from './world/study-progress';
 import type { FoundationLesson } from './foundation-course';
 
 export class AcademyApp {
@@ -30,7 +32,7 @@ export class AcademyApp {
     private shell!: ShellController;
     private state: WorldState;
     private course: CourseView = { weeks: [], authoredCount: 0, warnings: [] };
-    private currentAreaId: string | null = null;
+    private readonly progress = new StudyProgress();
 
     constructor(host: HTMLElement) {
         this.host = host;
@@ -41,6 +43,7 @@ export class AcademyApp {
         this.shell = createShell(this.host);
         this.shell.onNavigate(route => this.renderRoute(route));
         this.course = await loadCourse();
+        this.progress.attach(this.course);
         if (!this.state.flags['story:prologue-complete']) {
             await this.playScene(PROLOGUE_SCENE);
         }
@@ -52,7 +55,6 @@ export class AcademyApp {
     }
 
     private renderRoute(route: ShellRoute): void {
-        this.currentAreaId = null;
         switch (route) {
             case 'map':
                 renderMap(this.shell.screen, this.state, { onEnterArea: area => this.enterArea(area) });
@@ -61,7 +63,7 @@ export class AcademyApp {
                 renderSyllabus(this.shell.screen, this.course, this.state, { onOpenWeek: week => void this.openWeek(week) });
                 break;
             case 'review':
-                renderReviewStub(this.shell.screen, 0, () => this.shell.navigate('map'));
+                this.renderReview();
                 break;
             case 'cast':
                 renderCast(this.shell.screen, this.state);
@@ -84,7 +86,6 @@ export class AcademyApp {
     }
 
     private enterArea(area: AreaDefinition): void {
-        this.currentAreaId = area.id;
         renderArea(this.shell.screen, this.state, area.id, {
             onBack: () => this.shell.navigate('map'),
             onActivity: (fromArea, kind) => void this.startActivity(fromArea, kind),
@@ -239,9 +240,34 @@ export class AcademyApp {
 
         const components = (week?.components ?? []) as Parameters<typeof renderWeekComponents>[1];
         if (components.length) {
-            renderWeekComponents(wrap, components, () => {
-                // Exercise results feed the progression engine in a later slice.
+            renderWeekComponents(wrap, components, result => {
+                this.progress.recordAttempt(view.id, result.exerciseId, result.correct);
             });
+        }
+        screen.append(wrap);
+    }
+
+    private renderReview(): void {
+        const queue = this.progress.dueReviews();
+        const screen = this.shell.screen;
+        screen.innerHTML = '';
+        const wrap = document.createElement('section');
+        wrap.className = 'academy-study academy-review';
+        const heading = document.createElement('h1');
+        heading.textContent = 'Review';
+        wrap.append(heading);
+        const support = document.createElement('p');
+        support.className = 'academy-study-support';
+        support.textContent = queue.length
+            ? `${queue.length} due — answers here reschedule each item.`
+            : 'Nothing due right now. Finish a lesson and items will come back on a spaced schedule.';
+        wrap.append(support);
+        for (const entry of queue) {
+            wrap.append(
+                renderWeekExercise(entry.exercise, result => {
+                    this.progress.recordReview(entry.weekId, result.exerciseId, result.correct);
+                }),
+            );
         }
         screen.append(wrap);
     }

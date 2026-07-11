@@ -13,7 +13,6 @@ import { academyFoundationRoute, type FoundationLesson } from '../foundation-cou
 import {
     loadWeeklyCourseRepository,
     type WeeklyCourseFetch,
-    type WeeklyCourseRecord,
     type WeeklyCourseRepository,
     type WeeklyCourseWeek,
 } from '../weekly-course';
