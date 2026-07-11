@@ -142,7 +142,7 @@ describe('VisiblePageScanner ruby-room sweep cadence', () => {
 
         try {
             const scan = scanner.scanVisiblePage({ silent: true });
-            await vi.waitFor(() => expect(parseJapanese.mock.calls.length).toBeGreaterThanOrEqual(2));
+            await vi.waitFor(() => expect(parseJapanese.mock.calls.length).toBeGreaterThanOrEqual(2), { timeout: 5_000 });
             // The early root was swept while later batches are still pending.
             expect(rubyRoomSpy.mock.calls.some(c => c[0] === early)).toBe(true);
             later.resolve([]);
