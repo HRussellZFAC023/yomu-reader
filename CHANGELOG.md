@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.135] - 2026-07-11
+
+### Fixed
+
+- Pitch-accent marks and furigana now appear on Japanese text without selecting or clicking it when the local dictionary database is slow or blocked. Yomu moves on to its bounded public fallback after 500 ms, still tries the direct pitch source when exact vocabulary hydration misses, and retains local-first behavior once the local check finishes.
+
 ## [1.6.134] - 2026-07-11
 
 ### Fixed

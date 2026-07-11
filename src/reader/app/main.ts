@@ -7696,7 +7696,16 @@ export class ReaderApp {
             const card = resolved.get(key);
             if (!card || card.source === 'fallback') {
                 this.rememberUnresolvedFallbackVocabulary(key);
-                localOnlyTokens.push(...group.tokens);
+                // A vocabulary miss must not suppress pitch hydration. The
+                // urgent click path still reaches the direct JPDB pitch client,
+                // which made these same spans appear only after interaction.
+                // Continue through that bounded lane in the background when it
+                // is allowed; explicit no-public callers remain local-only.
+                if (this.settings.showPitchAccent && options.jpdbPublicLookup !== false) {
+                    queuedTokens.push(...group.tokens);
+                } else {
+                    localOnlyTokens.push(...group.tokens);
+                }
                 continue;
             }
             cardsToCache.push(card);

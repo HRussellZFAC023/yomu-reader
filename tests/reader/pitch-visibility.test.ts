@@ -19,6 +19,9 @@ interface AppInternals {
     jitenPublicVocabulary: {
         lookupMany: (terms: string[]) => Promise<Map<string, JPDBCard>>;
     };
+    jpdbVocabulary: {
+        search: (term: string, limit?: number) => Promise<JPDBCard[]>;
+    };
     jpdbPublicPitch: { lookup: (spelling: string, reading: string) => Promise<string[]> };
     toast(message: string): void;
     destroy(): void;
@@ -130,6 +133,100 @@ describe('visible pitch hydration', () => {
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
             expect(word.querySelector('rt')?.textContent).toBe('ことば');
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('continues to direct pitch when fallback vocabulary hydration misses', async () => {
+        vi.useFakeTimers();
+        const app = makeApp();
+        const fallback = pitchCard(-7002, 'こんばんは', 'こんばんは');
+        fallback.source = 'fallback';
+        const word = renderedPitchWord(fallback);
+        const publicPitch = vi.fn(async () => ['LHHHHH']);
+        app.dictionaries = {
+            hasPitchMetaDictionaries: vi.fn(() => new Promise<boolean>(() => undefined)),
+            lookupTermMeta: vi.fn(async () => []),
+        };
+        app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
+        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbPublicPitch = { lookup: publicPitch };
+
+        const enrichment = app.enrichPitchWords([pitchToken(fallback)], {
+            publicLookupLimit: 1,
+            publicLookupTotalLimit: 1,
+            publicLookupPageBudget: 1,
+            deferPublicLookup: false,
+        });
+
+        try {
+            await vi.advanceTimersByTimeAsync(LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS + 1);
+            await enrichment;
+
+            expect(publicPitch).toHaveBeenCalledWith('こんばんは', 'こんばんは');
+            expect(word.dataset.pitchClass).toBe('heiban');
+            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('respects an explicit no-JPDB fallback when vocabulary hydration misses', async () => {
+        const app = makeApp();
+        const fallback = pitchCard(-7003, 'こんばんは', 'こんばんは');
+        fallback.source = 'fallback';
+        const word = renderedPitchWord(fallback);
+        const publicPitch = vi.fn(async () => ['LHHHHH']);
+        app.dictionaries = {
+            hasPitchMetaDictionaries: vi.fn(async () => false),
+            lookupTermMeta: vi.fn(async () => []),
+        };
+        app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
+        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await app.enrichPitchWords([pitchToken(fallback)], {
+                publicLookupLimit: 1,
+                publicLookupTotalLimit: 1,
+                publicLookupPageBudget: 1,
+                jpdbPublicLookup: false,
+                deferPublicLookup: false,
+            });
+
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(word.dataset.pitchClass).toBe('unknown');
+            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(true);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('does not run direct pitch for a furigana-only vocabulary miss', async () => {
+        const app = makeApp({ showPitchAccent: false });
+        const fallback = pitchCard(-7004, '言葉', '言葉');
+        fallback.source = 'fallback';
+        const publicPitch = vi.fn(async () => ['LHH']);
+        app.dictionaries = {
+            hasPitchMetaDictionaries: vi.fn(async () => false),
+            lookupTermMeta: vi.fn(async () => []),
+        };
+        app.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map()) };
+        app.jpdbVocabulary = { search: vi.fn(async () => []) };
+        app.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await app.enrichPitchWords([pitchToken(fallback)], {
+                publicLookupLimit: 1,
+                publicLookupTotalLimit: 1,
+                publicLookupPageBudget: 1,
+                deferPublicLookup: false,
+            });
+
+            expect(app.jitenPublicVocabulary.lookupMany).toHaveBeenCalled();
+            expect(publicPitch).not.toHaveBeenCalled();
         } finally {
             app.destroy();
         }
