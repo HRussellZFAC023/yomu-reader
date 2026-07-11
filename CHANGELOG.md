@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.137] - 2026-07-11
+
+### Fixed
+
+- Yomu no longer annotates rapidly rotating marketing headlines or nests a second annotation layer inside a site's own Japanese demo words, preventing shifting duplicate text and overlapping elements while ordinary Japanese prose remains lookupable.
+
 ## [1.6.136] - 2026-07-11
 
 ### Fixed
