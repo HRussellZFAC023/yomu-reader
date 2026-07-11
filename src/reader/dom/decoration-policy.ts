@@ -53,6 +53,10 @@ export function safeComputedStyle(element: HTMLElement): CSSStyleDeclaration {
 }
 
 function safePseudoContent(element: HTMLElement, pseudo: '::before' | '::after'): string {
+    // jsdom reports pseudo-style access through its virtual console before it
+    // returns an empty declaration. There is no pseudo paint to inspect in
+    // that environment, so avoid the noisy unsupported call altogether.
+    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return '';
     try {
         return getComputedStyle(element, pseudo).content;
     } catch {
@@ -453,7 +457,7 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=tr
 export const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar')}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar')}`;
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
@@ -486,9 +490,61 @@ export function compactScanRubySuppression(parent: HTMLElement): CompactScanRuby
     if (notice) marks.push({ element: notice, atomic: true });
     const chrome = compactInteractiveChromeElement(parent)
         ?? compactPassiveInteractionRubyElement(parent)
-        ?? compactPassiveChromeElement(parent);
+        ?? compactPassiveChromeElement(parent)
+        ?? compactMetadataChromeElement(parent)
+        ?? compactVisualLabelElement(parent);
     if (chrome) marks.push({ element: chrome, atomic: true });
     return { suppress: Boolean(chrome || notice), marks };
+}
+
+// Painted badges/tags/pills are compact interface labels even when their
+// clickable thumbnail is deliberately aria-hidden from accessibility (the
+// accessible title lives elsewhere). They should get the passive, detached
+// channel: annotations remain visible without turning the badge into prose or
+// intercepting its owning card's click.
+function compactVisualLabelElement(parent: HTMLElement): HTMLElement | null {
+    // App shells commonly mount dialogs/panels under <main>. A class such as
+    // `preset-button-label-text` then trips the broad prose-name heuristic even
+    // though the element is unequivocally chrome. An explicit bounded chrome
+    // context wins; genuine article prose outside such a context still opts out.
+    const chromeContext = isCompactInteractiveChromeContext(parent);
+    if (isReadableProseContext(parent) && !chromeContext) return null;
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
+        if (!UI_CLASS_RE.test(elementClassName(current))) continue;
+        const text = compactInteractiveChromeText(current);
+        if (!isCompactInteractiveChromeText(text)) continue;
+        if (hasCompactInteractiveChromeGeometry(current)) return current;
+        // Hydrated panels are often scanned while their future label is still
+        // unmeasured, before the sibling <button> is attached. Seal the passive
+        // verdict now so the later reveal cannot inherit prose-full ruby and
+        // grow the row.
+        const rect = current.getBoundingClientRect();
+        if (chromeContext && rect.width === 0 && rect.height === 0) return current;
+    }
+    return null;
+}
+
+const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
+
+// View counts, timestamps, authors and similar card facts are reading
+// material, but they live in 14–20px rows whose geometry cannot accept in-flow
+// ruby. Framework classes commonly end in `MetadataText`; the generic prose
+// `text` hint must not turn those compact rows into full prose. Preserve all
+// furigana/pitch through the detached passive channel instead.
+function compactMetadataChromeElement(parent: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
+        const explicit = current.tagName === 'TIME'
+            || current.hasAttribute('datetime')
+            || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
+        if (!explicit || isConversationTextClass(current)) continue;
+        const text = current.textContent?.replace(/\s+/g, '').trim() ?? '';
+        if (!isCompactInteractiveChromeText(text)) continue;
+        const rect = current.getBoundingClientRect();
+        if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
+    }
+    return null;
 }
 
 function compactMediaPassiveChromeMark(parent: HTMLElement): PassiveChromeMark {
@@ -852,11 +908,49 @@ export function interactivePassiveControl(element: Element): HTMLElement | null 
         // A media card (thumbnail link/role=button with a real text label) is
         // CONTENT, not an icon button — UT-52's media-text tier.
         && !isMediaTextContentControl(control)) return control;
+    const siblingOwnedControl = siblingOwnedInteractiveControl(element);
+    if (siblingOwnedControl) return siblingOwnedControl;
     const link = element.closest<HTMLElement>(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
     if (isCompactLinkedCardMetadata(link, element)) return link;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+
+const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
+
+// Some component libraries render a control's visible label beside its real
+// <button> instead of inside it (player panel headers and speed presets are
+// representative). DOM ancestry alone then misclassifies the label as prose,
+// so Yomu takes ownership of taps and gives it in-flow ruby. Treat a compact
+// UI-labelled sibling as part of its single neighbouring control. The bounded
+// geometry/context checks keep card titles next to overflow buttons as content.
+function siblingOwnedInteractiveControl(element: Element): HTMLElement | null {
+    if (!(element instanceof HTMLElement)) return null;
+    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    // Component labels often end in `-text` (which is intentionally a prose
+    // hint elsewhere), even though the label is a compact sibling of its real
+    // button. A genuine article/prose context still wins; the class suffix
+    // alone must not defeat explicit neighbouring-control structure.
+    const chromeContext = isCompactInteractiveChromeContext(element);
+    if (!isCompactInteractiveChromeText(text)
+        || (isReadableProseContext(element) && !chromeContext)) return null;
+    let current = element.parentElement;
+    for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+        if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
+        const controls = Array.from(current.querySelectorAll<HTMLElement>(INTERACTIVE_CONTROL_SELECTOR))
+            .filter(candidate => !candidate.contains(element) && !element.contains(candidate));
+        if (controls.length !== 1) continue;
+        const classFacts = `${element.className} ${current.className}`;
+        const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
+        if (!uiContext) continue;
+        const rect = current.getBoundingClientRect();
+        const measuredCompact = rect.height > 0
+            && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT
+            && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
+        if (measuredCompact || rect.height === 0) return current;
+    }
+    return null;
 }
 
 function isCompactTemporalMetadata(element: HTMLElement): boolean {
@@ -936,6 +1030,7 @@ export function classifyDecoration(element: Element): DecorationState {
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
         return 'interactive-passive';
     }
+    if (element instanceof HTMLElement && compactMetadataChromeElement(element)) return 'interactive-passive';
     if (element.closest(NAMED_CONTENT_ROOT_SELECTOR)) return 'content-ruby';
     if (element instanceof HTMLElement && compactScanRubySuppression(element).suppress) return 'interactive-passive';
     return element instanceof HTMLElement && isProseFullContext(element) ? 'prose-full' : 'content-ruby';

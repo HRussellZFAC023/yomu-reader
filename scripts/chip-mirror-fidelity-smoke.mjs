@@ -28,6 +28,7 @@ writeFileSync(entryPath, `
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
     const TEXT = '新しい順';
+    const MINI_TEXT = '登録チャンネル';
     function card(spelling: string, reading: string): JPDBCard {
         return {
             vid: 1, sid: 1, rid: 0, spelling, reading, frequencyRank: null,
@@ -59,9 +60,46 @@ writeFileSync(entryPath, `
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
             const node = walker.currentNode as Text;
-            if ((node.data ?? '').includes(text) && !node.parentElement?.closest('rt')) return node;
+            if ((node.data ?? '').includes(text) && !node.parentElement?.closest('rt,.jpdb-reader-detached-furi')) return node;
         }
         throw new Error('text node not found: ' + text);
+    }
+
+    function readingIsClipped(reading: HTMLElement): boolean {
+        const rect = reading.getBoundingClientRect();
+        for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (![style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) continue;
+            const box = ancestor.getBoundingClientRect();
+            if (rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5 || rect.left < box.left - 0.5 || rect.right > box.right + 0.5) return true;
+        }
+        return false;
+    }
+
+    function readingClipAncestors(reading: HTMLElement): string[] {
+        const rect = reading.getBoundingClientRect();
+        const clipped: string[] = [];
+        for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (![style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) continue;
+            const box = ancestor.getBoundingClientRect();
+            if (rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5 || rect.left < box.left - 0.5 || rect.right > box.right + 0.5) clipped.push(ancestor.id || ancestor.className || ancestor.tagName);
+        }
+        return clipped;
+    }
+
+    function readingBaseOverlap(root: Element): number {
+        const bases = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
+        let overlap = 0;
+        for (const reading of root.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')) {
+            const r = reading.getBoundingClientRect();
+            for (const b of bases) {
+                const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+                const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+                if (width > 0.5 && height > 0.5) overlap += 1;
+            }
+        }
+        return overlap;
     }
 
     const MORE_TEXT = 'さらに表示';
@@ -75,22 +113,60 @@ writeFileSync(entryPath, `
         makeRoomForRubyInCroppedRows(document);
     }
 
+    function paintMiniGuideLabel(host: HTMLElement): void {
+        const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text.trim() === MINI_TEXT);
+        if (!target) throw new Error('mini-guide target not collected');
+        applyTokensToScanTarget(target, [
+            {
+                card: card(MINI_TEXT, 'とうろくチャンネル'), start: 0, end: MINI_TEXT.length,
+                length: MINI_TEXT.length,
+                rubies: [{ text: 'とうろくチャンネル', start: 0, end: MINI_TEXT.length, length: MINI_TEXT.length }],
+                pitchClass: 'heiban', sentence: MINI_TEXT,
+            },
+        ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        makeRoomForRubyInCroppedRows(document);
+    }
+
     Object.assign(window, {
+        runMiniGuideProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const host = document.querySelector('mini-guide-probe')!.shadowRoot!.getElementById('mini-label')!;
+            host.textContent = MINI_TEXT;
+            const before = host.getBoundingClientRect();
+            paintMiniGuideLabel(host);
+            const mirror = host.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror');
+            const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+            const after = host.getBoundingClientRect();
+            return {
+                mirror: Boolean(mirror),
+                readingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+                readingClipped: reading ? readingIsClipped(reading) : true,
+                readingBaseOverlap: mirror ? readingBaseOverlap(mirror) : -1,
+                overflow: getComputedStyle(host).overflow,
+                overflowStamp: host.dataset.yomuDetachedReadingOverflow ?? '',
+                widthGrowth: after.width - before.width,
+                heightGrowth: after.height - before.height,
+                nativeText: host.childNodes[0]?.textContent ?? '',
+            };
+        },
         runShowMoreProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
             const host = document.getElementById('more')!;
             host.textContent = MORE_TEXT;
             paintMore(host);
-            const rt = host.querySelector<HTMLElement>('rt');
+            const rt = host.querySelector<HTMLElement>('rt,.jpdb-reader-detached-furi');
             if (!rt) return { rtCount: 0, rtTopClip: 0, mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')) };
             const clipBox = document.getElementById('more-row')!;
             const rtRect = rt.getBoundingClientRect();
             return {
-                rtCount: host.querySelectorAll('rt').length,
+                rtCount: host.querySelectorAll('rt,.jpdb-reader-detached-furi').length,
                 mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')),
                 rtTopClip: clipBox.getBoundingClientRect().top - rtRect.top,
                 rtHeight: rtRect.height,
+                readingClipped: readingIsClipped(rt),
+                readingBaseOverlap: readingBaseOverlap(host),
             };
         },
         // A tab-style label whose line-height equals the fixed row height puts
@@ -105,10 +181,16 @@ writeFileSync(entryPath, `
             label.textContent = TEXT;
             paintLabel(label);
             const scope = label.querySelector('.jpdb-reader-text-mirror') ?? label;
-            const rts = [...scope.querySelectorAll<HTMLElement>('rt')];
+            const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
             if (!rts.length) return { rtCount: 0, rtTopClip: 0 };
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
-            return { rtCount: rts.length, rtTopClip: row.getBoundingClientRect().top - rtTop };
+            return {
+                rtCount: rts.length,
+                rtTopClip: row.getBoundingClientRect().top - rtTop,
+                readingClipped: rts.some(readingIsClipped),
+                readingClipAncestors: rts.flatMap(readingClipAncestors),
+                readingBaseOverlap: readingBaseOverlap(scope),
+            };
         },
         runChipMirrorProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
@@ -128,7 +210,7 @@ writeFileSync(entryPath, `
             const rectShii = rectOfText(shii, shii.data.indexOf('しい'), shii.data.indexOf('しい') + 2);
             const rectJun = rectOfText(jun, jun.data.indexOf('順'), jun.data.indexOf('順') + 1);
             const chipRect = chip.getBoundingClientRect();
-            const rts = [...scope.querySelectorAll<HTMLElement>('rt')];
+            const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
             const decoratedWidth = (mirror ?? label).getBoundingClientRect().width;
             return {
@@ -140,6 +222,13 @@ writeFileSync(entryPath, `
                 plainWidth,
                 words: words.length,
                 rtCount: rts.length,
+                readingClipped: rts.some(readingIsClipped),
+                readingClipAncestors: rts.flatMap(readingClipAncestors),
+                readingBaseOverlap: readingBaseOverlap(scope),
+                visiblePitchUnderlines: words.filter(word => {
+                    const color = getComputedStyle(word, '::after').borderBottomColor;
+                    return color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)';
+                }).length,
             };
         },
     });
@@ -152,7 +241,7 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 #chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px;
         background: rgba(0,0,0,0.05); overflow: hidden; }
 #chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; line-height: 20px; }
-</style></head><body>
+</style></head><body class="jpdb-reader-word-underline-pitch">
 <div id="chip"><div id="chip-label"></div></div>
 <div id="tab-row" style="overflow: hidden; height: 32px; margin-top: 24px; background: #f5f5f5;">
   <div id="tab-label" style="font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
@@ -160,6 +249,15 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 <div id="more-row" style="overflow: hidden; height: 22px; margin-top: 24px; background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 8px;">
   <div id="more" style="font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</div>
 </div>
+<mini-guide-probe></mini-guide-probe>
+<script>
+customElements.define('mini-guide-probe', class extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' }).innerHTML = '<a id="mini-label" href="#subscriptions" style="box-sizing:border-box;position:relative;display:flow-root;width:64px;height:16px;margin-top:24px;overflow:hidden;font-size:10px;line-height:16px;white-space:nowrap">登録チャンネル</a>';
+  }
+});
+</script>
 </body></html>`;
 
 let failed = false;
@@ -189,15 +287,26 @@ async function runEngine(name, browserType) {
         if (result.rtCount < 2) fail(`${name}: expected both readings rendered`, result);
         if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
         if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
-        if (result.rtTopClip > MAX_TOP_CLIP_PX) fail(`${name}: reading clipped at chip top`, result);
+        if (result.readingClipped) fail(`${name}: reading clipped at chip edge`, result);
+        if (result.readingBaseOverlap > 0) fail(`${name}: reading overlaps base text in chip`, result);
+        if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
         const more = await page.evaluate(() => window.runShowMoreProbe());
         console.log(`${name} show-more:`, JSON.stringify(more));
         if (more.rtCount < 1) fail(`${name}: show-more reading missing`, more);
-        else if (more.rtTopClip > -MIN_TOP_CLEARANCE_PX) fail(`${name}: show-more reading has no top clearance`, more);
+        else if (more.readingClipped) fail(`${name}: show-more reading is clipped`, more);
+        else if (more.readingBaseOverlap > 0) fail(`${name}: show-more reading overlaps base text`, more);
         const tab = await page.evaluate(() => window.runTabProbe());
         console.log(`${name} tab:`, JSON.stringify(tab));
         if (tab.rtCount < 1) fail(`${name}: tab reading missing`, tab);
-        else if (tab.rtTopClip > -MIN_TOP_CLEARANCE_PX) fail(`${name}: tab reading flush with (or above) the clipped row top`, tab);
+        else if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
+        else if (tab.readingBaseOverlap > 0) fail(`${name}: tab reading overlaps base text`, tab);
+        const mini = await page.evaluate(() => window.runMiniGuideProbe());
+        console.log(`${name} mini-guide:`, JSON.stringify(mini));
+        if (!mini.mirror || mini.readingCount < 1) fail(`${name}: mini-guide reading missing`, mini);
+        else if (mini.readingClipped) fail(`${name}: mini-guide reading is clipped`, mini);
+        else if (mini.readingBaseOverlap > 0) fail(`${name}: mini-guide reading overlaps base text`, mini);
+        if (Math.abs(mini.widthGrowth) > 0.5 || Math.abs(mini.heightGrowth) > 0.5) fail(`${name}: mini-guide geometry changed`, mini);
+        if (!mini.nativeText.includes('登録チャンネル')) fail(`${name}: mini-guide native fallback was removed`, mini);
     } finally {
         await browser.close();
     }

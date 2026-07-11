@@ -107,11 +107,13 @@ const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
+const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
 const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role=form],[role=search]`;
 const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs('control,toggle,player', ['class']);
 
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
+const SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = `${BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka,kifuku'.split(','));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
@@ -141,7 +143,9 @@ export function shouldHideFuriganaForCardState(settings: ReaderSettings, state: 
 }
 
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
+const FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = HARD_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 // ISS-11: YouTube wants ALL on-page Japanese parsed, including text inside the
 // ytp-*/player/control/toggle wrappers (Shorts overlay text, tooltips,
 // end-screen titles). These variants drop ONLY the PLAYER_CHROME_SKIP_ENTRIES
@@ -152,15 +156,20 @@ const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_
 // re-ingested here: it stays out via each YouTube profile's `exclude`
 // (YT_PLAYER_CHROME_EXCLUDE_ENTRIES), not via these element-skip selectors.
 const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = TAB_CHROME_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
+const FORM_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FORM_CHROME_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
 // The reader's own furigana mirror must never be re-ingested by a rescan.
 // BASE_SKIP_SELECTOR already skips it, but the passive-interaction path (used
 // for every site profile root, incl. YouTube) once did not — so a rescan of a
 // mirror host re-collected the mirror's bare gap text nodes alongside hidden
 // host text and self-perpetuated into a duplicated, flashing caption strip.
 const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],${EDITABLE_TEXT_SURFACE_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]`;
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden="true"]', '');
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
@@ -339,6 +348,11 @@ interface TextMirrorHostState {
     // Clip-constrained hover-only arrangement: the host text keeps painting
     // and the mirror is only revealed on hover (paint-invariant at rest).
     clipHoverOnly?: boolean;
+    // Detached-reading mirrors are additive: the page keeps painting its
+    // native glyphs while the mirror contributes only lookup hit targets,
+    // pitch/status decoration, and out-of-flow readings. A missing/recycled
+    // mirror can therefore never leave a blank control or title.
+    nativeTextVisible?: boolean;
 }
 
 interface ConcealedTextRecord {
@@ -576,7 +590,9 @@ function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visible
     const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
     if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
     const blocked = parent.closest(SKIP_SELECTOR);
-    if (blocked && !isAnnotatableChipControl(blocked)) return true;
+    if (blocked
+        && !isAnnotatableChipControl(blocked)
+        && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
     if (isShortCenteredDisplayHeading(parent, text)) return true;
     return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
@@ -1035,7 +1051,11 @@ function matchesSkippedFragmentElement(
     state: FragmentTextCollectionState,
     isRoot: boolean,
 ): boolean {
-    if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
+    if (state.excludeSelector && fragmentSelectorSkipsElement(
+        element,
+        state.excludeSelector,
+        selectorWithoutAriaHiddenToken(state.excludeSelector),
+    )) return true;
     if (isComposerActionControl(element)) return true;
     if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
@@ -1128,21 +1148,95 @@ function shouldSkipFragmentElement(
     // PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR never carried PLAYER_CHROME_SKIP_ENTRIES,
     // so the passive path already lets player chrome through; includePlayerChrome
     // only needs to relax the hard/tab-chrome branches below.
-    if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+    if (options.includePassiveInteractions) return fragmentSelectorSkipsElement(
+        element,
+        PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR,
+        PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN,
+    );
+    if (options.includeFormChrome) return fragmentSelectorSkipsElement(
+        element,
+        FORM_CHROME_FRAGMENT_SKIP_SELECTOR,
+        FORM_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN,
+    );
     if (options.includeTabChrome) {
         // ISS-11: YouTube parses player/control/toggle wrappers — drop only the
         // PLAYER_CHROME_SKIP_ENTRIES globs, keep every other tab-chrome guard.
-        return safeElementMatches(element, options.includePlayerChrome
-            ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR
-            : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+        return options.includePlayerChrome
+            ? fragmentSelectorSkipsElement(element, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)
+            : fragmentSelectorSkipsElement(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR, TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
     }
     if (options.includeUiChrome) {
-        return safeElementMatches(element, options.includePlayerChrome
-            ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR
-            : HARD_FRAGMENT_SKIP_SELECTOR);
+        return options.includePlayerChrome
+            ? fragmentSelectorSkipsElement(element, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)
+            : fragmentSelectorSkipsElement(element, HARD_FRAGMENT_SKIP_SELECTOR, HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
     }
-    return safeElementMatches(element, FRAGMENT_SKIP_SELECTOR);
+    return fragmentSelectorSkipsElement(element, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
+}
+
+// Some frameworks mark an entire clickable thumbnail `aria-hidden=true`
+// because a separate title supplies the accessible name, while still painting
+// a meaningful compact badge/tag inside it (playlist, ranking, live, free,
+// media type, etc.). A blanket aria-hidden skip leaves that visible Japanese
+// unannotated. Relax ONLY the aria-hidden reason when the subtree contains a
+// genuinely visible, compact visual-label box; every other hard skip remains.
+// This is structural and site-neutral, and the bounded candidate list avoids a
+// general hidden-tree scan.
+const ARIA_HIDDEN_VISUAL_LABEL_SELECTOR = [
+    '[class*="badge" i]',
+    '[class*="chip" i]',
+    '[class*="label" i]',
+    '[class*="pill" i]',
+    '[class*="tag" i]',
+    '[data-badge]',
+    '[data-label]',
+].join(',');
+const ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT = 60;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES = 32;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH = 360;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT = 96;
+
+function fragmentSelectorSkipsElement(element: HTMLElement, selector: string, selectorWithoutAriaHidden: string): boolean {
+    if (!safeElementMatches(element, selector)) return false;
+    if (!safeElementMatches(element, '[aria-hidden="true"]')) return true;
+    if (safeElementMatches(element, selectorWithoutAriaHidden)) return true;
+    return !ariaHiddenSubtreeHasVisibleVisualLabel(element);
+}
+
+function selectorWithoutAriaHiddenToken(selector: string): string {
+    return selector
+        .split(',')
+        .map(entry => entry.trim())
+        .filter(entry => entry !== '[aria-hidden=true]' && entry !== '[aria-hidden="true"]')
+        .join(',');
+}
+
+function isVisibleAriaHiddenVisualLabel(parent: HTMLElement, blocked: Element): boolean {
+    if (!(blocked instanceof HTMLElement) || !safeElementMatches(blocked, '[aria-hidden="true"]')) return false;
+    if (safeElementMatches(parent, SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)) return false;
+    const label = parent.closest<HTMLElement>(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR);
+    return Boolean(label && blocked.contains(label) && visibleVisualLabel(label));
+}
+
+function ariaHiddenSubtreeHasVisibleVisualLabel(root: HTMLElement): boolean {
+    if (!HAS_JAPANESE.test(root.textContent ?? '')) return false;
+    const candidates: HTMLElement[] = [];
+    if (safeElementMatches(root, ARIA_HIDDEN_VISUAL_LABEL_SELECTOR)) candidates.push(root);
+    for (const candidate of Array.from(root.querySelectorAll<HTMLElement>(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR))) {
+        candidates.push(candidate);
+        if (candidates.length >= ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES) break;
+    }
+    return candidates.some(visibleVisualLabel);
+}
+
+function visibleVisualLabel(element: HTMLElement): boolean {
+    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!text || compactLength(text) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text)) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0
+        && rect.height > 0
+        && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH
+        && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT
+        && isVisibleStyle(safeComputedStyle(element));
 }
 
 function isFragmentParagraphBoundary(
@@ -1532,6 +1626,9 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
     registerDestructivePaintTextNodes(fragment);
     target.node.replaceWith(fragment);
+    styleDetachedReadingElements(target.parent, target.parent);
+    openSafeDetachedReadingClips(target.parent);
+    stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
 
@@ -1551,7 +1648,7 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; decoration?: DecorationState; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; decoration?: DecorationState; suppressRuby?: boolean; detachedReadings?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
     const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
@@ -1576,7 +1673,12 @@ function renderTokenizedScanText(
             fragment.append(document.createElement('wbr'));
         }
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-            allowRuby: !target.hasNativeRuby && !suppressRuby,
+            // `suppressRuby` now means "do not put readings in flow", not
+            // "discard readings". Compact controls and clipped rows use the
+            // detached presentation below, which preserves the native line
+            // box while still rendering furigana at rest.
+            allowRuby: !target.hasNativeRuby,
+            detachedReadings: target.detachedReadings ?? suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             proseWrap: target.proseWrap === true,
@@ -1911,6 +2013,7 @@ interface NonDestructiveMirrorRenderContext {
     clipRow: HTMLElement | null;
     hasRenderedRuby: boolean;
     clipHoverOnly: boolean;
+    detachedReadings: boolean;
     suppressRuby: boolean;
     hostText: string;
 }
@@ -1932,7 +2035,8 @@ function nonDestructiveMirrorRenderContext(
         : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     // The rendered text depends on the host's LAYOUT (whitespace joints from
     // computed display contexts), not just its source text: a framework can
     // flip a host block→flex with identical text, changing which whitespace
@@ -1944,7 +2048,6 @@ function nonDestructiveMirrorRenderContext(
     // must flip the mirror between the hover-only overlay and the standard
     // host-hidden arrangement. The mode is part of idempotency, like the
     // whitespace joints above.
-    const { clipRow, hasRenderedRuby, clipHoverOnly } = textMirrorClipMode(host, suppressRuby, safeTokens);
     // A clipped mirror only needs the rest-hidden hover channel when it
     // actually contains ruby. Interactive/passive controls deliberately
     // suppress ruby; keeping those mirrors hidden also hid every underline and
@@ -1960,6 +2063,7 @@ function nonDestructiveMirrorRenderContext(
         clipRow,
         hasRenderedRuby,
         clipHoverOnly,
+        detachedReadings,
         suppressRuby,
         hostText: plan.hostText,
     };
@@ -1982,6 +2086,7 @@ function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirror
         existing?.dataset.renderSignature === context.signature,
         (existing?.dataset.whitespaceJoints ?? '') === context.whitespaceJointsKey,
         existing?.classList.contains('jpdb-reader-clip-hover-mirror') === context.clipHoverOnly,
+        existing?.classList.contains('jpdb-reader-additive-text-mirror') === context.detachedReadings,
     ].every(Boolean);
     if (!matches) return false;
     const state = textMirrorHosts.get(host);
@@ -2008,6 +2113,10 @@ function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderConte
     // an unconstrained mirror renders the FULL unclamped text below the tile
     // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
     if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
+    if (context.detachedReadings) {
+        mirror.classList.add('jpdb-reader-additive-text-mirror');
+        mirror.dataset.yomuDetachedReadings = 'true';
+    }
     return mirror;
 }
 
@@ -2045,12 +2154,13 @@ function mountNonDestructiveTextMirror(
         mirrorRubyLayout,
         context.clipHoverOnly && !stableClippedMirror,
         Boolean(context.clipRow),
+        context.detachedReadings,
     );
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
         // clamp on the mirror so it cannot paint past the clip row's box.
-        styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
+        styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
         mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -2060,6 +2170,7 @@ function mountNonDestructiveTextMirror(
             // computed suppression and paint ruby into a control's mirror.
             decoration: target.decoration,
             suppressRuby: context.suppressRuby,
+            detachedReadings: context.detachedReadings,
             passiveInteraction: target.passiveInteraction || context.suppressRuby,
         }));
         if (!mirror.textContent?.trim()) {
@@ -2067,12 +2178,19 @@ function mountNonDestructiveTextMirror(
             return;
         }
         if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
-        hideTextMirrorHost(host, state, mirror);
+        // Commit atomically: a framework host must never be concealed before
+        // its replacement is connected and known to contain paintable text.
         host.append(mirror);
         registerTextMirrorOwner(mirror, host);
         state.mirror = new WeakRef(mirror);
-        tightenMirrorRubyOverhang(mirror);
+        if (context.detachedReadings) {
+            styleDetachedReadingElements(mirror, host);
+            openSafeDetachedReadingClips(host);
+            stabilizeDetachedReadings(mirror, context.clipRow, true);
+        }
+        else tightenMirrorRubyOverhang(mirror);
         withdrawUnfitTextMirrorOverflow(host, state, mirror);
+        hideTextMirrorHost(host, state, mirror);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2101,14 +2219,227 @@ function stabilizeClippedTextMirror(mirror: HTMLElement): void {
     }
 }
 
+// A document stylesheet does not cross an open shadow boundary. Detached
+// readings therefore carry their essential geometry in the render contract as
+// inline styles too. The same pass runs in ordinary DOM, where it simply
+// duplicates the layout-critical subset of CSS and leaves visual theming to
+// the stylesheet. This keeps web-component controls, native buttons, and page
+// text on one structural path instead of introducing site-specific selectors.
+function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): void {
+    const detachedRubies = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby'));
+    if (!detachedRubies.length) return;
+
+    const hostStyle = safeComputedStyle(host);
+    const nativeColor = hostStyle.color || 'currentColor';
+    const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+    const additive = root.classList.contains('jpdb-reader-additive-text-mirror');
+    const pitchUnderline = document.documentElement.classList.contains('jpdb-reader-word-underline-pitch');
+
+    for (const wrapper of detachedRubies) {
+        wrapper.style.setProperty('position', 'relative', 'important');
+        wrapper.style.setProperty('display', 'inline-block', 'important');
+        wrapper.style.setProperty('line-height', '1', 'important');
+        wrapper.style.setProperty('vertical-align', 'baseline', 'important');
+        wrapper.style.setProperty('white-space', 'nowrap', 'important');
+    }
+
+    for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
+        reading.style.setProperty('position', 'absolute', 'important');
+        reading.style.setProperty('z-index', '2');
+        reading.style.setProperty('inset-inline-start', '50%');
+        reading.style.setProperty('inset-block-end', 'calc(100% + 1px)');
+        reading.style.setProperty('display', 'block', 'important');
+        reading.style.setProperty('width', 'max-content');
+        reading.style.setProperty('max-width', 'none');
+        reading.style.setProperty('font-size', `${readingFontSize}px`);
+        reading.style.setProperty('font-weight', '700');
+        reading.style.setProperty('line-height', '1', 'important');
+        reading.style.setProperty('white-space', 'nowrap', 'important');
+        reading.style.setProperty('word-break', 'keep-all', 'important');
+        reading.style.setProperty('overflow-wrap', 'normal', 'important');
+        reading.style.setProperty('transform', 'translate(-50%, var(--jpdb-reader-detached-lift, 0px))', 'important');
+        reading.style.setProperty('pointer-events', 'none');
+        reading.style.setProperty('text-decoration', 'none', 'important');
+        reading.style.setProperty('user-select', 'none');
+        reading.style.setProperty('-webkit-user-select', 'none');
+        reading.style.setProperty('color', nativeColor, 'important');
+        reading.style.setProperty('-webkit-text-fill-color', nativeColor, 'important');
+    }
+
+    if (!additive) return;
+    for (const element of root.querySelectorAll<HTMLElement>('.jpdb-reader-word, .jpdb-reader-ruby-base')) {
+        element.style.setProperty('color', 'transparent', 'important');
+        element.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
+        element.style.setProperty('text-shadow', 'none', 'important');
+    }
+    if (!pitchUnderline) return;
+    for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-pitch-class]')) {
+        const pitchClass = safePitchClass(word.dataset.pitchClass ?? 'unknown');
+        if (pitchClass === 'unknown') continue;
+        word.style.setProperty('text-decoration-line', 'underline', 'important');
+        word.style.setProperty('text-decoration-style', 'solid', 'important');
+        word.style.setProperty('text-decoration-color', `var(--jpdb-reader-pitch-${pitchClass}, ${nativeColor})`, 'important');
+        word.style.setProperty('text-decoration-thickness', 'max(2px, 0.08em)', 'important');
+        word.style.setProperty('text-underline-offset', '0.04em', 'important');
+        word.style.setProperty('text-decoration-skip-ink', 'none', 'important');
+    }
+}
+
+// Detached readings are geometry overlays, not ruby layout boxes. Keep only
+// words whose BASE intersects the authored clamp, then lift each reading far
+// enough that it cannot cover any rendered base glyph on the same horizontal
+// track. The page's native text remains underneath, so this pass can only add
+// information; a failed/removed overlay never removes the label.
+function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
+    root.style.setProperty('visibility', 'visible', 'important');
+    const clipRect = clipRow?.getBoundingClientRect();
+    const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+    if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
+        for (const word of words) {
+            const bases = Array.from(word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'));
+            const rects = (bases.length ? bases : [word]).map(base => base.getBoundingClientRect());
+            const visible = rects.some(rect => rect.bottom > clipRect.top + 0.5
+                && rect.top < clipRect.bottom - 0.5
+                && rect.right > clipRect.left + 0.5
+                && rect.left < clipRect.right - 0.5);
+            if (!visible) word.style.setProperty('visibility', 'hidden', 'important');
+        }
+    }
+
+    const bases = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'));
+    const baseRects = bases.map(base => ({ base, rect: base.getBoundingClientRect() }));
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
+        const readingRect = reading.getBoundingClientRect();
+        if (readingRect.width <= 0 || readingRect.height <= 0) continue;
+        let lift = 0;
+        for (const { rect } of baseRects) {
+            const horizontalOverlap = Math.min(readingRect.right, rect.right) - Math.max(readingRect.left, rect.left);
+            const verticalOverlap = Math.min(readingRect.bottom - lift, rect.bottom) - Math.max(readingRect.top - lift, rect.top);
+            if (horizontalOverlap <= 0.5 || verticalOverlap <= 0.5) continue;
+            lift = Math.max(lift, readingRect.bottom - rect.top + 1);
+        }
+        if (lift > 0) reading.style.setProperty('--jpdb-reader-detached-lift', `${-Math.ceil(lift)}px`);
+        if (viewportWidth > 0) {
+            const leftShift = readingRect.left < 1 ? 1 - readingRect.left : 0;
+            const rightShift = readingRect.right > viewportWidth - 1 ? viewportWidth - 1 - readingRect.right : 0;
+            const shift = leftShift || rightShift;
+            if (shift) reading.style.setProperty('margin-left', `${Math.round(shift)}px`);
+        }
+    }
+}
+
+const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
+const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
+
+// A detached reading may sit a few pixels above its base. Open only compact
+// clip boxes whose BASE content fits the block axis and either fits the inline
+// axis or overruns it by less than one compact glyph. That tiny tolerance
+// covers authored mini-navigation labels whose measured text is 4–8px wider
+// than their paint box; opening overflow changes no geometry and reveals the
+// reading instead of shaving it off at the top. Real truncation and scroll
+// regions stay closed. The decision is structural and applies to buttons,
+// metadata, menu rows, and titles on any site.
+function openSafeDetachedReadingClips(element: HTMLElement): void {
+    let current: HTMLElement | null = element;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+        if (!current.querySelector('.jpdb-reader-detached-furi')) continue;
+        const style = safeComputedStyle(current);
+        const clips = [style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip');
+        if (!clips) continue;
+        const rect = current.getBoundingClientRect();
+        const measured = current.clientWidth > 0 && current.clientHeight > 0;
+        const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT;
+        const baseFits = measured && detachedBaseContentFits(current);
+        if (compact && baseFits) openDetachedReadingClip(current);
+        else restoreDetachedReadingClip(current);
+    }
+}
+
+function openDetachedReadingClip(box: HTMLElement): void {
+    if (!detachedReadingClipStyles.has(box)) {
+        detachedReadingClipStyles.set(box, {
+            value: box.style.getPropertyValue('overflow'),
+            priority: box.style.getPropertyPriority('overflow'),
+        });
+    }
+    box.dataset.yomuDetachedReadingOverflow = 'true';
+    // Inline is required for open Shadow DOM: document-level Yomu CSS cannot
+    // cross the component boundary. The saved value is restored on teardown.
+    box.style.setProperty('overflow', 'visible', 'important');
+}
+
+function restoreDetachedReadingClip(box: HTMLElement): void {
+    const saved = detachedReadingClipStyles.get(box);
+    if (saved && box.style.getPropertyValue('overflow') === 'visible') {
+        if (saved.value) box.style.setProperty('overflow', saved.value, saved.priority);
+        else box.style.removeProperty('overflow');
+    }
+    detachedReadingClipStyles.delete(box);
+    delete box.dataset.yomuDetachedReadingOverflow;
+}
+
+function detachedBaseContentFits(box: HTMLElement): boolean {
+    // Additive mirrors are out-of-flow paint, but their overhanging absolute
+    // readings still contribute to scrollWidth/scrollHeight. Measure the
+    // page-owned base with the whole additive layer removed; destructive
+    // renders have no layer, so remove only their detached readings.
+    const overlays = Array.from(box.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror'));
+    const detached = Array.from(box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi'))
+        .filter(reading => !reading.closest('.jpdb-reader-additive-text-mirror'));
+    const hidden = [...overlays, ...detached];
+    const restores = hidden.map(element => ({
+        element,
+        display: element.style.getPropertyValue('display'),
+        priority: element.style.getPropertyPriority('display'),
+    }));
+    hidden.forEach(element => element.style.setProperty('display', 'none', 'important'));
+    try {
+        const rect = box.getBoundingClientRect();
+        const inlineSize = Math.max(box.clientWidth, rect.width);
+        const blockSize = Math.max(box.clientHeight, rect.height);
+        const inlineOverrun = box.scrollWidth - inlineSize;
+        const blockOverrun = box.scrollHeight - blockSize;
+        const fontSize = Number.parseFloat(safeComputedStyle(box).fontSize) || 16;
+        const compactGlyphTolerance = Math.max(2, Math.min(8, fontSize * 0.8));
+        return inlineOverrun <= compactGlyphTolerance
+            && blockOverrun <= 1;
+    } finally {
+        for (const { element, display, priority } of restores) {
+            if (display) element.style.setProperty('display', display, priority);
+            else element.style.removeProperty('display');
+        }
+    }
+}
+
+function closeOrphanedDetachedReadingClips(element: HTMLElement): void {
+    let current: HTMLElement | null = element;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+        if (current.dataset.yomuDetachedReadingOverflow === 'true'
+            && !current.querySelector('.jpdb-reader-detached-furi')) {
+            restoreDetachedReadingClip(current);
+        }
+    }
+}
+
 function styleConstrainedTextMirror(
     mirror: HTMLElement,
     host: HTMLElement,
     clipRow: HTMLElement | null,
     clipHoverOnly: boolean,
+    detachedReadings = false,
 ): void {
     if (!clipRow) return;
-    constrainMirrorToClampBox(mirror, clipRow);
+    if (detachedReadings) {
+        const height = clipRow.clientHeight;
+        if (height > 0) mirror.style.setProperty('max-height', `${height}px`);
+        // Base text stays native and the additive mirror's words are filtered
+        // to the visible clamp box after mount. Keep overflow open solely so
+        // detached readings can occupy the spare leading above a glyph.
+        mirror.style.setProperty('overflow', 'visible');
+    } else constrainMirrorToClampBox(mirror, clipRow);
     // Mirrors with real readings are hover-only at rest; ruby-suppressed
     // control mirrors stay visible so word state and lookup remain usable on
     // touch screens without changing the host's line geometry.
@@ -2127,10 +2458,20 @@ function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JP
     clipRow: HTMLElement | null;
     hasRenderedRuby: boolean;
     clipHoverOnly: boolean;
+    detachedReadings: boolean;
 } {
     const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasRenderedRuby = !suppressRuby && tokens.some(token => token.rubies.length > 0);
-    return { clipRow, hasRenderedRuby, clipHoverOnly: Boolean(clipRow && hasRenderedRuby) };
+    const hasReadings = tokens.some(token => token.rubies.length > 0);
+    const detachedReadings = hasReadings && (suppressRuby || Boolean(clipRow));
+    const hasRenderedRuby = hasReadings && !detachedReadings;
+    return {
+        clipRow,
+        hasRenderedRuby,
+        detachedReadings,
+        // Detached readings are stable at rest, so clipped text no longer
+        // needs a hover-only channel on touch or desktop.
+        clipHoverOnly: Boolean(clipRow && hasRenderedRuby),
+    };
 }
 
 // Reproduce the clip row's truncation inside the mirror: same line count for
@@ -2312,9 +2653,15 @@ export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boole
     return renders;
 }
 
-function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings, suppressRuby = Boolean(target.suppressRuby)): string {
+function nonDestructiveScanSignature(
+    target: ScanTextTarget,
+    tokens: JPDBToken[],
+    settings: ReaderSettings,
+    suppressRuby = Boolean(target.suppressRuby),
+    detachedReadings = suppressRuby,
+): string {
     return JSON.stringify({
-        ruby: !suppressRuby,
+        readings: detachedReadings ? 'detached' : suppressRuby ? 'none' : 'ruby',
         mode: settings.furiganaMode,
         hidden: settings.furiganaHiddenStateGroups,
         colors: settings.wordColorStates,
@@ -2341,8 +2688,9 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     const safeTokens = nonOverlappingTokens(tokens, text);
     const placeholderOverlay = isPlaceholderControlTextMirror(host, text);
     const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
+    const detachedReadings = suppressRuby && !placeholderOverlay;
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const existing = currentControlTextMirror(host);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
     removeControlTextMirror(host);
@@ -2361,6 +2709,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
             decoration: target.decoration,
             mirrorRender: true,
             suppressRuby,
+            detachedReadings,
             passiveInteraction: target.passiveInteraction,
             suppressRubyDoesNotImplyPassive: placeholderOverlay,
         }));
@@ -2605,17 +2954,13 @@ function scanTargetSuppressesRuby(
 ): boolean {
     // Yomu-owned surfaces (lookup panel, drawer) may always force readings.
     if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
-    // The SEALED interactive-passive decision dominates the page-wide
-    // furigana-mode=all attribute for EXPLICIT CONTROLS in the IN-PLACE
-    // channel: a button/menuitem must never regain in-flow ruby (which
-    // changes its line box) just because the user forces readings. The
-    // MIRROR channel is out-of-flow and paint-invariant — readings there
-    // cannot distort the control's own layout, so mirrored controls keep
-    // their furigana (feed chips, 作成/もっと見る buttons). Cascade-derived
-    // compact-chrome suppression (notification rows, chrome-shaped links)
-    // keeps the old precedence — forcing readings re-enables them, as the
-    // owner-pinned scanner behaviors require.
-    if (decoration === 'interactive-passive' && interactivePassiveControl(parent)) return inPlace;
+    // The SEALED interactive-passive decision always dominates the page-wide
+    // furigana-mode=all attribute. Controls, compact metadata, badges and
+    // chrome-shaped links all keep their readings through the DETACHED channel;
+    // re-enabling in-flow ruby here is what grew 20px metadata rows to 31–50px
+    // and clipped player labels. Owner-curated reading chips classify as
+    // content-ruby before this point, so they retain their content behavior.
+    if (decoration === 'interactive-passive') return true;
     // Constrained rows reject IN-PLACE ruby on every engine (class Q): the rt
     // paints into the half-leading and the ancestor clip shaves it. The
     // absolutely-positioned mirror sizes its own line, so mirrored renders
@@ -2678,6 +3023,7 @@ function styleTextMirrorHost(
     allowOverflow = true,
     clipHoverOnly = false,
     preserveConstrainedLayout = false,
+    nativeTextVisible = false,
 ): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
@@ -2699,6 +3045,7 @@ function styleTextMirrorHost(
         concealTextOnly: !hostIsVisuallyBareForMirror(host),
         concealedText: [],
         clipHoverOnly,
+        nativeTextVisible,
     };
     textMirrorHosts.set(host, state);
     if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
@@ -2764,9 +3111,10 @@ function mirrorBaseTextOverflowsBox(mirror: HTMLElement): boolean {
 
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
     textMirrorHosts.set(host, state);
-    // Hover-only arrangement (clip-constrained hosts): the host text KEEPS
-    // painting — never hide or conceal it; the mirror is a reveal affordance.
-    if (state.clipHoverOnly) return;
+    // Hover-only and additive arrangements keep the host text painting. The
+    // latter makes the mirror failure-safe: it contributes decoration and
+    // detached readings, never the sole copy of the label.
+    if (state.clipHoverOnly || state.nativeTextVisible) return;
     if (state.concealTextOnly) {
         // The mirror inherits colour from the host; pin the host's REAL text
         // colour on it before the host's colour goes transparent. (Bare hosts
@@ -2862,6 +3210,9 @@ function restoreConcealedTextMirrorHostText(state: TextMirrorHostState): void {
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false): void {
     const style = safeComputedStyle(host);
+    if (mirror.classList.contains('jpdb-reader-additive-text-mirror') && style.color) {
+        mirror.style.setProperty('--jpdb-reader-native-text-color', style.color);
+    }
     mirror.style.setProperty('position', 'absolute');
     mirror.style.setProperty('inset', '0 0 auto 0');
     // Absolute children start at the host padding box, while the page's native
@@ -2905,7 +3256,10 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
 function hostCentersTextVertically(host: HTMLElement, style: CSSStyleDeclaration): boolean {
     const itemized = style.display.includes('flex') || style.display.includes('grid');
     if (itemized) return style.alignItems === 'center' || style.alignContent === 'center';
-    return host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]');
+    // Native buttons centre their anonymous text by default. ARIA roles do
+    // not: a role=menuitem/div can be top-aligned or use authored padding, so
+    // centring every such host moves its mirror away from the original label.
+    return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
 }
 
 // A reading wider than its base (じゅん over 順) makes ruby layout grow the
@@ -3430,6 +3784,7 @@ function removeTextMirror(host: HTMLElement): void {
     // or root-wide queries, and direction-agnostic across root boundaries.
     const tracked = state?.mirror?.deref();
     if (tracked?.isConnected) tracked.remove();
+    closeOrphanedDetachedReadingClips(host);
     if (state) restoreTextMirrorHost(host, state);
     delete host.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host);
@@ -3495,7 +3850,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
         return;
     }
     syncTextMirrorVisibilityToPage(host, mirror);
-    if (state.clipHoverOnly) {
+    if (state.clipHoverOnly || state.nativeTextVisible) {
         // Host stays painted; only the anchoring position may need re-assert.
     } else if (state.concealTextOnly) {
         reassertConcealedTextMirrorHostText(host, state);
@@ -3889,6 +4244,9 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
         }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
+    styleDetachedReadingElements(target.parent, target.parent);
+    openSafeDetachedReadingClips(target.parent);
+    stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
 
@@ -3999,9 +4357,10 @@ function renderSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
-    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
+        detachedReadings: targetUsesDetachedReadings(target),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         proseWrap: target.proseWrap === true,
@@ -4042,7 +4401,7 @@ function applyTokenToIndexedFragments(
         return;
     }
 
-    if (!target.suppressRuby && fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
         const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
         if (nativeRubyRange) {
             insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
@@ -4081,7 +4440,8 @@ function applyTokenToIndexedFragments(
         scanWord: true,
         proseWrap: target.proseWrap === true,
         passiveInteraction,
-        allowRuby: !target.suppressRuby,
+        allowRuby: true,
+        detachedReadings: targetUsesDetachedReadings(target),
         preserveTokenRubies: true,
         miningInsightKeys,
     });
@@ -4102,7 +4462,8 @@ function insertSplitFragmentTokenPieces(
         if (!surface) continue;
         const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
         const rendered = renderToken(surface, pieceToken, settings, {
-            allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+            allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+            detachedReadings: targetUsesDetachedReadings(target),
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             proseWrap: target.proseWrap === true,
@@ -4325,10 +4686,11 @@ function insertSingleFragmentToken(
     miningInsightKeys: ReadonlySet<string>,
     passiveInteraction: boolean,
 ): void {
-    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
+        detachedReadings: targetUsesDetachedReadings(target),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         proseWrap: target.proseWrap === true,
@@ -4341,6 +4703,10 @@ function insertSingleFragmentToken(
 
 function scanFragmentAllowsRuby(hasNativeRuby: boolean): boolean {
     return !hasNativeRuby;
+}
+
+function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
+    return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {
@@ -4611,7 +4977,12 @@ function renderToken(
     const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
         span.classList.add('jpdb-reader-has-furi');
-        setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+        if (options.detachedReadings) {
+            span.classList.add('jpdb-reader-detached-reading-word');
+            setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+        } else {
+            setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+        }
     } else if (options.kanjiNavigation?.enabled) {
         setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation));
     } else {
@@ -4630,6 +5001,9 @@ function shouldSuppressLongProseRuby(surface: string, token: JPDBToken, options:
 
 interface TokenRenderOptions {
     allowRuby?: boolean;
+    // Paint furigana above its base without participating in ruby/line layout.
+    // Used for controls and clipped rows whose authored height must not grow.
+    detachedReadings?: boolean;
     kanjiNavigation?: KanjiNavigationRenderOptions;
     scanWord?: boolean;
     proseWrap?: boolean;
@@ -4790,6 +5164,28 @@ export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: 
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
         html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+        localOffset = end;
+    }
+    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
+    return html;
+}
+
+function renderDetachedReadings(
+    surface: string,
+    token: JPDBToken,
+    kanjiNavigation?: KanjiNavigationRenderOptions,
+    preserveTokenRubies = false,
+): string {
+    let html = '';
+    let localOffset = 0;
+    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+        const start = ruby.start - token.start;
+        const end = ruby.end - token.start;
+        html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
+        html += '<span class="jpdb-reader-detached-ruby">';
+        html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
+        html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span>`;
+        html += '</span>';
         localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -5519,6 +5915,11 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
         delete box.dataset.yomuRubyRoomPadTop;
         rubyRoomGrowthRecords.delete(box);
     }
+    if (root instanceof HTMLElement && root.dataset.yomuDetachedReadingOverflow === 'true') {
+        restoreDetachedReadingClip(root);
+    }
+    root.querySelectorAll<HTMLElement>('[data-yomu-detached-reading-overflow="true"]')
+        .forEach(restoreDetachedReadingClip);
     return boxes.length;
 }
 

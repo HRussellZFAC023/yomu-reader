@@ -19,6 +19,16 @@ const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled']);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
+    'summary',
+    '[aria-controls]',
+    '[aria-expanded]',
+    '[aria-haspopup]:not([aria-haspopup="false"])',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="tab"]',
+].join(',');
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     '.result.vocabulary',
     '.result.kanji',
@@ -55,6 +65,17 @@ export function mutationTouchesAsbPlayer(mutation: MutationRecord): boolean {
 
 export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
     return mutationInsideClosest(mutation, READER_ROOT_SELECTOR);
+}
+
+// Some UI libraries keep all submenu DOM mounted and swap panels using
+// transforms/dimensions that intentionally do not qualify as a reveal
+// mutation. A click on an explicit disclosure/menu/tab control is the stable
+// semantic signal. The caller schedules one debounced post-click scan, not a
+// scan for every style frame.
+export function clickMayRevealDynamicUiText(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    if (target.closest(READER_ROOT_SELECTOR)) return false;
+    return Boolean(target.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR));
 }
 
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {

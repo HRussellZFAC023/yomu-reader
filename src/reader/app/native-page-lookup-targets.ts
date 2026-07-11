@@ -42,7 +42,25 @@ const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
     '[class*="icon-" i]',
 ].join(',');
 
-const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
+// Native controls own a normal tap even when the page implements them with
+// ARIA roles instead of <button>. Keeping the complete interactive role family
+// here prevents passive annotations inside player menus, tabs, and listboxes
+// from opening Yomu instead of activating the host control.
+const NATIVE_CLICKABLE_SELECTOR = [
+    'a[href]',
+    'button',
+    'summary',
+    '[onclick]',
+    '[role="button"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="option"]',
+    '[role="tab"]',
+    '[role="switch"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+].join(',');
 const READER_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-reader-popover';
 
 export function nativeClickableAncestor(target: EventTarget | null): HTMLElement | null {

@@ -56,6 +56,12 @@ function mockRect(element: HTMLElement, rect: Pick<DOMRect, 'width' | 'height'>)
     });
 }
 
+function baseText(element: HTMLElement): string {
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.jpdb-reader-furi,.jpdb-reader-text-mirror').forEach(node => node.remove());
+    return clone.textContent ?? '';
+}
+
 function card(spelling: string, reading: string): JPDBCard {
     return {
         vid: spelling.charCodeAt(0),
@@ -90,6 +96,7 @@ const FURIGANA_SETTINGS = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMod
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
     document.body.innerHTML = '';
+    document.documentElement.classList.remove('jpdb-reader-word-underline-pitch');
     setRubyDistortsConstrainedRowsForTest(null);
     resetDecorationPolicyCachesForTest();
     vi.restoreAllMocks();
@@ -129,10 +136,114 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#label')).toBe('interactive-passive');
     });
 
+    it('classifies a compact label beside its owning button as interactive-passive', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <div class="ytp-variable-speed-panel-preset-button-wrapper">
+                <button class="ytp-variable-speed-panel-button"><span>1.0</span></button>
+                <div id="label" class="ytp-variable-speed-panel-preset-button-label-text">標準</div>
+            </div>
+        `;
+        expect(classifyText('#label')).toBe('interactive-passive');
+    });
+
+    it('classifies a compact panel heading beside its back button as interactive-passive', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <div class="ytp-panel-header">
+                <button aria-label="前のメニューに戻る"></button>
+                <span id="label" role="heading">再生速度</span>
+            </div>
+        `;
+        expect(classifyText('#label')).toBe('interactive-passive');
+    });
+
+    it('keeps a hydrated panel label passive when the app shell lives under main', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <main>
+                <div class="player-settings-menu">
+                    <div class="variable-speed-panel">
+                        <div class="preset-button-wrapper">
+                            <button><span>1.0</span></button>
+                            <div id="label" class="preset-button-label-text">標準</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        `;
+        expect(classifyText('#label')).toBe('interactive-passive');
+    });
+
+    it('seals an unmeasured panel label as passive before its sibling control hydrates', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <main>
+                <div class="player-settings-menu">
+                    <div class="variable-speed-panel">
+                        <div class="preset-button-wrapper">
+                            <div id="label" class="preset-button-label-text">標準</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        `;
+        expect(classifyText('#label')).toBe('interactive-passive');
+    });
+
+    it('keeps a media-card title as content when a separate overflow button is nearby', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <article>
+                <h3><a href="/watch?v=jp"><span id="title">世界のニュース</span></a></h3>
+                <button aria-label="その他の操作"></button>
+            </article>
+        `;
+        expect(classifyText('#title')).toBe('content-ruby');
+    });
+
+    it('collects a visible compact badge inside an aria-hidden thumbnail', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <a id="thumbnail" href="/watch?v=playlist" aria-hidden="true">
+                <img alt="">
+                <div class="thumbnail-overlay-badge">
+                    <div id="badge" class="badge-shape-text">ミックスリスト</div>
+                </div>
+            </a>
+        `;
+        const badge = document.querySelector<HTMLElement>('#badge')!;
+        mockRect(badge, { width: 92, height: 24 });
+
+        const target = collectFragmentTextTargetsIn(document.body, 20, false, '[aria-hidden="true"],svg', {
+            allowUiText: true,
+            includeUiChrome: true,
+            includePassiveInteractions: true,
+            heading: true,
+            minLength: 1,
+        }).find(candidate => candidate.text === 'ミックスリスト');
+
+        expect(target).toBeTruthy();
+        expect(target?.decoration).toBe('interactive-passive');
+        expect(target?.passiveInteraction).toBe(true);
+    });
+
+    it('does not collect a non-painted aria-hidden label', () => {
+        document.body.innerHTML = `
+            <div aria-hidden="true">
+                <span id="badge" class="badge-label" style="display:none">非表示ラベル</span>
+            </div>
+        `;
+        const badge = document.querySelector<HTMLElement>('#badge')!;
+        mockRect(badge, { width: 92, height: 24 });
+
+        expect(collectTargets().some(candidate => candidate.text === '非表示ラベル')).toBe(false);
+    });
+
     it('classifies subscribe buttons as interactive-passive even inside watch metadata', () => {
         stubYouTube();
         document.body.innerHTML = `
-            <ytd-watch-metadata>
+            <ytd-watch-metadata data-yomu-furigana-mode="all">
                 <ytd-subscribe-button-renderer>
                     <button id="subscribe"><span id="label">チャンネル登録</span></button>
                 </ytd-subscribe-button-renderer>
@@ -187,14 +298,14 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#title')).toBe('content-ruby');
     });
 
-    it('classifies a watch metadata count row as content-ruby', () => {
+    it('classifies a watch metadata count row as interactive-passive', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-watch-metadata>
                 <div id="counts">52,551回視聴 2026/06/12</div>
             </ytm-watch-metadata>
         `;
-        expect(classifyText('#counts')).toBe('content-ruby');
+        expect(classifyText('#counts')).toBe('interactive-passive');
     });
 
     it('classifies comment text as content-ruby', () => {
@@ -294,10 +405,11 @@ describe('interactive-passive geometry invariance', () => {
             ], FURIGANA_SETTINGS);
         }
 
-        // Zero layout delta: no in-flow ruby, no reserved ruby line, no
-        // ruby-room growth writes, identical rect.
+        // Zero layout delta: no in-flow ruby, but the detached reading remains
+        // visible without reserving a ruby line or growing the button.
         expect(button.querySelector('rt')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+        expect(button.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        expect(button.querySelector('.jpdb-reader-has-furi')).toBeTruthy();
         expect(button.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
         expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
 
@@ -335,9 +447,10 @@ describe('interactive-passive geometry invariance', () => {
             token('コメント', metadataText.indexOf('コメント'), metadataText, 'コメント'),
         ], FURIGANA_SETTINGS);
 
-        expect(metadata.textContent).toBe(metadataText);
+        expect(baseText(metadata)).toBe(metadataText);
         expect(metadata.querySelectorAll('.jpdb-reader-word').length).toBe(2);
         expect(metadata.querySelector('rt')).toBeNull();
+        expect(metadata.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんせいひょう');
         expect(metadata.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
 
         mockOverflow(card, 180, 120);
@@ -412,7 +525,7 @@ describe('interactive-passive under furigana-mode=all', () => {
         const button = document.querySelector<HTMLElement>('#open')!;
         expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(button.querySelector('rt')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+        expect(button.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せってい');
     });
 });
 
@@ -484,9 +597,10 @@ describe('mirror bareness with painted descendants', () => {
 // through the volatile-watch-metadata MIRROR; under furigana-mode=all the
 // inner mirror render re-derived suppression WITHOUT the sealed decision and
 // the mode attribute won — ruby appeared in the mirror channel. Realistic
-// live DOM shape; interactive-passive must show furigana in NO channel.
+// live DOM shape; interactive-passive must keep readings out of FLOW while
+// still painting them through the detached, failure-safe mirror channel.
 describe('interactive-passive mirror channel under furigana-mode=all', () => {
-    it('renders a subscribe-button mirror without any ruby when readings are forced page-wide', () => {
+    it('renders a subscribe-button mirror with detached readings when readings are forced page-wide', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div data-yomu-furigana-mode="all">
@@ -516,10 +630,63 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
         expect(mirror).toBeTruthy();
         expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // 2026-07-11: mirrored controls keep readings — the out-of-flow
-        // mirror cannot change the button's own line geometry, and clipped
-        // rows rest-hide the readings via the clip-constrained channel.
-        expect(mirror?.querySelectorAll('rt').length).toBeGreaterThan(0);
+        // No layout-changing ruby; the reading is present in the detached
+        // channel and native button text remains visible underneath.
+        expect(button.querySelectorAll('rt')).toHaveLength(0);
+        expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        expect(mirror?.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
+        expect(button.style.getPropertyValue('visibility')).not.toBe('hidden');
+    });
+
+    it('preserves compound and multiple pitch patterns on a detached control word', () => {
+        stubYouTube();
+        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
+        document.body.innerHTML = `
+            <button id="count" style="height:36px;overflow:hidden;white-space:nowrap">チャンネル登録者数</button>
+        `;
+        const button = document.querySelector<HTMLElement>('#count')!;
+        mockRect(button, { width: 168, height: 36 });
+        const collected = collectTargets(button).find(candidate => candidate.text === 'チャンネル登録者数')!;
+        const compound = token('登録者数', 'チャンネル登録者数'.indexOf('登録者数'), 'チャンネル登録者数', 'とうろくしゃすう');
+        compound.pitchClass = 'nakadaka';
+        compound.card.pitchAccent = ['LHHHHHLL', 'HLLLLLLL'];
+
+        applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [compound], FURIGANA_SETTINGS);
+
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror')!;
+        const word = mirror.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.dataset.pitchClass).toBe('nakadaka');
+        expect(word.dataset.pitchAccent).toBe('LHHHHHLL|HLLLLLLL');
+        expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
+        expect(button.dataset.yomuRubyRoom).toBeUndefined();
+    });
+
+    it('keeps a compact framework metadata row detached even inside a rich watch root', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-watch-metadata data-yomu-furigana-mode="all">
+                <span id="owner-sub-count" class="ytContentMetadataViewModelMetadataText"
+                      style="display:block;height:18px;line-height:18px;overflow:hidden;white-space:nowrap">
+                    チャンネル登録者数 43.9万人
+                </span>
+            </ytd-watch-metadata>
+        `;
+        const row = document.querySelector<HTMLElement>('#owner-sub-count')!;
+        mockRect(row, { width: 210, height: 18 });
+        const collected = collectTargets(row).find(candidate => candidate.text === 'チャンネル登録者数 43.9万人')!;
+        expect(collected.decoration).toBe('interactive-passive');
+        const compound = token('登録者数', 'チャンネル登録者数 43.9万人'.indexOf('登録者数'), 'チャンネル登録者数 43.9万人', 'とうろくしゃすう');
+
+        applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [compound], FURIGANA_SETTINGS);
+        makeRoomForRubyInCroppedRows(document);
+
+        expect(row.querySelector('rt')).toBeNull();
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
+        expect(row.querySelector('.jpdb-reader-additive-text-mirror')).toBeTruthy();
+        expect(row.getBoundingClientRect().height).toBe(18);
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
+        expect(row.closest('[data-yomu-ruby-room="true"]')).toBeNull();
     });
 
     it('keeps a clipped Reddit-style control mirror annotated and visible at rest', () => {
@@ -540,13 +707,12 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // 2026-07-11: the control mirror carries readings, so the clipped
-        // row takes the same paint-invariant hover-reveal arrangement as
-        // clipped content titles — host text keeps painting at rest and the
-        // row never grows.
-        expect(mirror.querySelector('rt')).toBeTruthy();
-        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(true);
-        expect(button.dataset.yomuClipHoverHost).toBe('true');
+        expect(mirror.querySelector('rt')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
+        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(button.dataset.yomuClipHoverHost).toBeUndefined();
         expect(button.getBoundingClientRect().height).toBe(40);
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
@@ -568,24 +734,17 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         expect(metadata.style.display).toBe('inline');
         expect(metadata.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-        // 2026-07-11: readings render in the mirror (rest-hidden by the
-        // clip-constrained channel); the host layout is still untouched.
-        expect(metadata.querySelector('rt')).toBeTruthy();
+        expect(metadata.querySelector('rt')).toBeNull();
+        expect(metadata.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('こくち');
         expect(metadata.textContent).toContain('告知');
     });
 });
 
-// Site-sweep release blocker (2026-07-10): at-rest furigana escaped
-// overflow-hidden / line-clamped one-line rows on live pages through BOTH
-// channels — the out-of-flow mirror's rt (sankei/kakaku) and in-place
-// fragment-path rt (tenki/bookwalker/amazon). Clip-constrained rows must
-// carry the data-yomu-clip-constrained stamp wherever their readings render,
-// so CSS can hide rt at rest (hover reveals; ruby-room growth re-shows).
-describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', () => {
-    it('renders a bare clipped category tile in place with the reading stamp (kakaku shape)', () => {
-        // Paint-invariant design: no mirror reroute for clip rows — the tile
-        // renders in place; its in-flow rt lives inside the stamped row so the
-        // rest-hide CSS keeps it invisible until hover.
+// Site-sweep release blocker (2026-07-10/11): compact clipped rows must keep
+// their authored box while still showing the requested reading. Readings are
+// now detached overlays rather than in-flow rt, so they cannot grow the row.
+describe('clip-constrained rows keep detached readings without ruby-room growth', () => {
+    it('renders a bare clipped category tile with a detached reading (kakaku shape)', () => {
         document.body.innerHTML = `
             <div class="category-tile">
                 <p><strong><span id="label" style="display:block;height:15px;overflow:hidden">パソコン周辺機器</span></strong></p>
@@ -599,14 +758,13 @@ describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', ()
             token('周辺', 'パソコン周辺機器'.indexOf('周辺'), 'パソコン周辺機器', 'しゅうへん'),
         ], FURIGANA_SETTINGS);
 
-        expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(label.style.getPropertyValue('visibility')).not.toBe('hidden');
-        const rt = label.querySelector('rt');
-        expect(rt).toBeTruthy();
-        expect(rt?.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
+        expect(label.querySelector('rt')).toBeNull();
+        expect(label.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しゅうへん');
+        expect(label.closest('[data-yomu-ruby-room="true"]')).toBeNull();
     });
 
-    it('stamps a styled fixed-height menu row rendered in place (tenki shape)', () => {
+    it('keeps a styled fixed-height menu row and its detached reading (tenki shape)', () => {
         document.body.innerHTML = `
             <aside>
                 <ul>
@@ -624,15 +782,13 @@ describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', ()
             token('週間', 0, '週間天気と予報の一覧', 'しゅうかん'),
         ], FURIGANA_SETTINGS);
 
-        // Styled host: no mirror-hiding of the painted row; the reading
-        // renders in place and the clip row must carry the stamp so CSS keeps
-        // the rt invisible at rest.
-        expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(row.querySelector('rt')).toBeTruthy();
-        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(row.querySelector('rt')).toBeNull();
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しゅうかん');
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('stamps the reading channel of a line-clamped store book title (bookwalker shape)', () => {
+    it('keeps a line-clamped store book title annotated without in-flow ruby (bookwalker shape)', () => {
         document.body.innerHTML = `
             <article>
                 <div>
@@ -650,12 +806,8 @@ describe('clip-constrained rows never show at-rest ruby (site-sweep shapes)', ()
             token('英雄', 0, '英雄村の少年、無自覚に無双する', 'えいゆう'),
         ], FURIGANA_SETTINGS);
 
-        // Wherever the reading landed (mirror or in place), its clip scope
-        // carries the stamp — no unstamped at-rest rt exists in the row.
-        const rts = Array.from(document.querySelectorAll<HTMLElement>('rt'));
-        expect(rts.length).toBeGreaterThan(0);
-        for (const rt of rts) {
-            expect(rt.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
-        }
+        expect(document.querySelector('rt')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('えいゆう');
+        expect(document.querySelector('[data-yomu-ruby-room="true"]')).toBeNull();
     });
 });

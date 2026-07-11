@@ -214,7 +214,7 @@ async function runEngine(engineName, browser) {
             page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#clipped-reader-row .jpdb-reader-clip-hover-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
+            page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
         await page.waitForTimeout(400);
 
@@ -233,7 +233,26 @@ async function runEngine(engineName, browser) {
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors);
-        return { engine: engineName, screenshot, requests: requests.length, baseline, touchHover, ...snapshot };
+        const mirrorRemovalFallback = await page.evaluate(() => {
+            const join = document.querySelector('reddit-header-shell').shadowRoot
+                .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+            join.querySelector('.jpdb-reader-text-mirror')?.remove();
+            const style = getComputedStyle(join);
+            return {
+                text: join.textContent.trim(),
+                visibility: style.visibility,
+                color: style.color,
+                fill: style.webkitTextFillColor,
+                width: join.getBoundingClientRect().width,
+            };
+        });
+        assert(mirrorRemovalFallback.text.includes('参加')
+            && mirrorRemovalFallback.visibility !== 'hidden'
+            && mirrorRemovalFallback.color !== 'transparent'
+            && mirrorRemovalFallback.color !== 'rgba(0, 0, 0, 0)'
+            && mirrorRemovalFallback.width > 0,
+        `${engineName}: removing a framework mirror left a blank control`, mirrorRemovalFallback);
+        return { engine: engineName, screenshot, requests: requests.length, baseline, touchHover, mirrorRemovalFallback, ...snapshot };
     } finally {
         await context.close().catch(() => undefined);
     }
@@ -308,9 +327,9 @@ function snapshotRedditElement(element, expected) {
     const words = [...element.querySelectorAll('.jpdb-reader-word')];
     const mirrors = [...element.querySelectorAll(':scope > .jpdb-reader-text-mirror')]
         .filter(mirror => getComputedStyle(mirror).visibility !== 'hidden');
-    const clone = element.cloneNode(true);
-    clone.querySelectorAll('.jpdb-reader-text-mirror,rt,rp').forEach(node => node.remove());
-    const visibleText = String(mirrors.length ? mirrors.map(mirror => mirror.textContent).join('') : clone.textContent)
+    const clone = (mirrors[0] ?? element).cloneNode(true);
+    clone.querySelectorAll('.jpdb-reader-text-mirror,.jpdb-reader-furi,rt,rp').forEach(node => node.remove());
+    const visibleText = String(clone.textContent)
         .replace(/\s+/g, ' ')
         .trim();
     const visibleWords = words.map(word => {
@@ -318,13 +337,29 @@ function snapshotRedditElement(element, expected) {
         const style = getComputedStyle(word);
         return [style.visibility !== 'hidden', style.opacity !== '0', wordRect.width > 0, wordRect.height > 0].every(Boolean);
     }).every(Boolean);
+    const readings = [...element.querySelectorAll('rt,.jpdb-reader-detached-furi')];
     return {
         expected,
         visibleText,
         height: rect.height,
         wordCount: words.length,
         expressions: words.map(word => word.getAttribute('data-expression')),
-        rubyCount: element.querySelectorAll('rt,.jpdb-reader-furi').length,
+        readingCount: readings.length,
+        nativeRubyCount: element.querySelectorAll('rt').length,
+        readingClipped: readings.some(readingIsClipped),
+        readingClipAncestors: readings.flatMap(readingClipAncestors),
+        readingBaseOverlap: readingBaseOverlap(element),
+        readingStyles: readings.map(reading => ({
+            lift: reading.style.getPropertyValue('--jpdb-reader-detached-lift'),
+            marginLeft: reading.style.marginLeft,
+            transform: getComputedStyle(reading).transform,
+            rect: reading.getBoundingClientRect().toJSON(),
+        })),
+        overflow: getComputedStyle(element).overflow,
+        inlineOverflow: element.style.getPropertyValue('overflow'),
+        detachedOverflowStamp: element.dataset.yomuDetachedReadingOverflow ?? '',
+        client: [element.clientWidth, element.clientHeight],
+        scroll: [element.scrollWidth, element.scrollHeight],
         rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length
             + Number(element.hasAttribute('data-yomu-ruby-room')),
         visibleWords,
@@ -335,11 +370,52 @@ function snapshotRedditElement(element, expected) {
         const rects = wordElements.map(word => word.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
         return rects.length ? (Math.min(...rects.map(box => box.top)) + Math.max(...rects.map(box => box.bottom))) / 2 : 0;
     }
+
+
+    function readingIsClipped(reading) {
+        const readingRect = reading.getBoundingClientRect();
+        for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (![style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) continue;
+            const box = ancestor.getBoundingClientRect();
+            if (readingRect.top < box.top - 0.5 || readingRect.bottom > box.bottom + 0.5
+                || readingRect.left < box.left - 0.5 || readingRect.right > box.right + 0.5) return true;
+        }
+        return false;
+    }
+
+    function readingClipAncestors(reading) {
+        const readingRect = reading.getBoundingClientRect();
+        const clipped = [];
+        for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (![style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) continue;
+            const box = ancestor.getBoundingClientRect();
+            if (readingRect.top < box.top - 0.5 || readingRect.bottom > box.bottom + 0.5
+                || readingRect.left < box.left - 0.5 || readingRect.right > box.right + 0.5) {
+                clipped.push(ancestor.id || ancestor.className || ancestor.tagName);
+            }
+        }
+        return clipped;
+    }
+
+    function readingBaseOverlap(root) {
+        const bases = [...root.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
+        let overlaps = 0;
+        for (const reading of root.querySelectorAll('rt,.jpdb-reader-detached-furi')) {
+            const r = reading.getBoundingClientRect();
+            for (const b of bases) {
+                if (Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
+                    && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5) overlaps += 1;
+            }
+        }
+        return overlaps;
+    }
 }
 
 async function snapshotTouchHoverSafety(page) {
     const host = page.locator('#clipped-reader-row');
-    const mirror = host.locator('.jpdb-reader-clip-hover-mirror');
+    const mirror = host.locator('.jpdb-reader-text-mirror');
     const before = await host.evaluate(touchHoverState);
     await host.hover({ force: true });
     const hovered = await host.evaluate(touchHoverState);
@@ -347,7 +423,7 @@ async function snapshotTouchHoverSafety(page) {
     const after = await host.evaluate(touchHoverState);
     return {
         mirrorWords: await mirror.locator('.jpdb-reader-word').count(),
-        mirrorRuby: await mirror.locator('rt').count(),
+        mirrorRuby: await mirror.locator('rt,.jpdb-reader-detached-furi').count(),
         before,
         hovered,
         after,
@@ -355,12 +431,21 @@ async function snapshotTouchHoverSafety(page) {
 }
 
 function touchHoverState(element) {
-    const mirror = element.querySelector('.jpdb-reader-clip-hover-mirror');
+    const mirror = element.querySelector('.jpdb-reader-text-mirror');
     const style = getComputedStyle(element);
+    const readings = mirror ? [...mirror.querySelectorAll('rt,.jpdb-reader-detached-furi')] : [];
+    const bases = mirror ? [...mirror.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect()) : [];
+    const readingBaseOverlap = readings.reduce((count, reading) => {
+        const r = reading.getBoundingClientRect();
+        return count + bases.filter(b => Math.min(r.right, b.right) - Math.max(r.left, b.left) > 0.5
+            && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 0.5).length;
+    }, 0);
     return {
         height: element.getBoundingClientRect().height,
         mirrorVisibility: mirror ? getComputedStyle(mirror).visibility : '',
-        visibleRuby: mirror ? [...mirror.querySelectorAll('rt')].filter(rt => getComputedStyle(rt).display !== 'none').length : 0,
+        visibleRuby: readings.filter(reading => getComputedStyle(reading).display !== 'none' && getComputedStyle(reading).visibility !== 'hidden').length,
+        detachedReadings: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+        readingBaseOverlap,
         wordWhiteSpace: mirror?.querySelector('.jpdb-reader-word') ? getComputedStyle(mirror.querySelector('.jpdb-reader-word')).whiteSpace : '',
         mirrorClientWidth: mirror?.clientWidth ?? 0,
         mirrorScrollWidth: mirror?.scrollWidth ?? 0,
@@ -391,7 +476,10 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
     for (const [name, label] of Object.entries(snapshot.labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
-        assert(label.rubyCount === 0, `${engineName}: ${name} gained layout-changing ruby`, label);
+        assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
+        assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
+        assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
@@ -413,19 +501,16 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assert(Math.abs(snapshot.labels.sort.wordCenterOffset - baseline.sortTextCenterOffset) <= 2,
         `${engineName}: mirrored sort label moved away from its native vertical alignment`, { baseline, sort: snapshot.labels.sort });
     assert(touchHover.mirrorWords > 0 && touchHover.mirrorRuby > 0,
-        `${engineName}: touch hover fixture did not retain its annotated ruby mirror`, touchHover);
+        `${engineName}: touch fixture did not retain its annotated mirror`, touchHover);
     assert(touchHover.before.mirrorVisibility === 'visible' && touchHover.hovered.mirrorVisibility === 'visible',
         `${engineName}: coarse-pointer annotations still depend on a sticky hover transition`, touchHover);
-    assert(touchHover.before.visibleRuby === 0 && touchHover.hovered.visibleRuby === 0,
-        `${engineName}: coarse-pointer mirror kept layout-changing ruby in the clipped row`, touchHover);
-    assert(touchHover.before.wordWhiteSpace === 'normal' && touchHover.hovered.wordWhiteSpace === 'normal',
-        `${engineName}: coarse-pointer mirror kept atomic word wrapping that clips card titles`, touchHover);
-    assert(touchHover.before.mirrorScrollWidth <= touchHover.before.mirrorClientWidth + 1,
-        `${engineName}: coarse-pointer mirror forces compact card text wider than its native row`, touchHover);
-    assert(touchHover.hovered.hostVisibility === 'hidden'
-        || touchHover.hovered.color === 'rgba(0, 0, 0, 0)'
-        || touchHover.hovered.color === 'transparent',
-        `${engineName}: coarse-pointer host did not hand paint to its stable annotation mirror`, touchHover);
+    assert(touchHover.before.detachedReadings > 0 && touchHover.before.visibleRuby > 0
+        && touchHover.hovered.visibleRuby > 0,
+    `${engineName}: coarse-pointer mirror hid its detached readings`, touchHover);
+    assert(touchHover.before.readingBaseOverlap === 0 && touchHover.hovered.readingBaseOverlap === 0,
+        `${engineName}: coarse-pointer furigana overlaps base text`, touchHover);
+    assert(touchHover.before.hostVisibility !== 'hidden' && touchHover.hovered.hostVisibility !== 'hidden',
+        `${engineName}: additive mirror hid the native fallback text`, touchHover);
     assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
         && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
     `${engineName}: coarse-pointer hover changed row geometry`, touchHover);

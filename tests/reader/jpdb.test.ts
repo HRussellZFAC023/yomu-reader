@@ -33368,7 +33368,9 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('.volume-card__title .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('終わり');
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
-        expect(document.querySelector('.volume-card__title rt')?.textContent).toBe('おわり');
+        expect(document.querySelector('.volume-card__title ruby rt')).toBeNull();
+        expect(document.querySelector('.volume-card__title .jpdb-reader-detached-furi')?.textContent).toBe('おわり');
+        expect(document.querySelector('.volume-card__title [data-yomu-ruby-room]')).toBeNull();
     });
 
     it('keeps single-line ellipsis rows lookupable and paint-invariant at rest', () => {
@@ -34479,10 +34481,13 @@ describe('reader helpers', () => {
         expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(summaryWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(summaryWord.tabIndex).toBe(-1);
-        expect(buttonWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-        expect(summaryWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(buttonWord.querySelector('ruby rt')).toBeNull();
+        expect(buttonWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せってい');
+        expect(summaryWord.querySelector('ruby rt')).toBeNull();
+        expect(summaryWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('つづ');
         expect(submitWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(submitWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(submitWord.querySelector('ruby rt')).toBeNull();
+        expect(submitWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -34542,9 +34547,11 @@ describe('reader helpers', () => {
         const tabWord = document.querySelector<HTMLElement>('[role="tab"] .jpdb-reader-word')!;
         const checkboxWord = document.querySelector<HTMLElement>('[role="checkbox"] .jpdb-reader-word')!;
         expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(tabWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(tabWord.querySelector('ruby rt')).toBeNull();
+        expect(tabWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('がいかん');
         expect(checkboxWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(checkboxWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(checkboxWord.querySelector('ruby rt')).toBeNull();
+        expect(checkboxWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('けんさく');
     });
 
     it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
@@ -34685,7 +34692,8 @@ describe('reader helpers', () => {
             .find(word => readerWordSurfaceText(word) === 'ライト')!;
         const pinWord = document.querySelector<HTMLElement>('.vector-pinnable-header-pin-button .jpdb-reader-word')!;
         expect(editWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(editWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(editWord.querySelector('ruby rt')).toBeNull();
+        expect(editWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('へんしゅう');
         expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
         expect(readerWordSurfaceText(lightWord)).toBe('ライト');
         expect(pinWord.dataset.jpdbReaderPassive).toBe('true');
@@ -34725,7 +34733,8 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('#docs-edit-menu .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(word.querySelector('ruby rt')).toBeNull();
+        expect(word.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('へんしゅう');
     });
 
     it('keeps inline prose links clickable without making surrounding prose passive', () => {
@@ -36572,6 +36581,45 @@ describe('reader helpers', () => {
         expect(document.querySelector('.ytp-menuitem-label .jpdb-reader-word')).toBeNull();
     });
 
+    it('scans dynamic player panel headings and keeps preset labels passive', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 330, height: 57 });
+        document.body.innerHTML = `
+            <main>
+                <div id="movie_player" class="html5-video-player">
+                    <div class="ytp-popup ytp-settings-menu">
+                        <div class="ytp-panel">
+                            <div class="ytp-panel-header">
+                                <div class="ytp-panel-back-button-container">
+                                    <button class="ytp-panel-back-button" aria-label="前のメニューに戻る"></button>
+                                </div>
+                                <span class="ytp-panel-title" role="heading">再生速度</span>
+                            </div>
+                            <div class="ytp-variable-speed-panel-content">
+                                <div class="ytp-variable-speed-panel-chips">
+                                    <div class="ytp-variable-speed-panel-preset-button-wrapper">
+                                        <button><span>1.0</span></button>
+                                        <div class="ytp-variable-speed-panel-preset-button-label-text">標準</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        `;
+        let targets: ReturnType<typeof collectScanTargets>;
+        try {
+            targets = collectScanTargets(10, YOUTUBE_WATCH_TEST_URL);
+        } finally {
+            rectSpy.mockRestore();
+        }
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining(['再生速度', '標準']));
+        expect(targets.find(target => target.text === '再生速度')?.decoration).toBe('interactive-passive');
+        expect(targets.find(target => target.text === '標準')?.decoration).toBe('interactive-passive');
+        expect(targets.find(target => target.text === '標準')?.suppressRuby).toBe(true);
+    });
+
     it('scans YouTube homepage, Shorts gallery, and suggested video titles without losing base text', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -37262,7 +37310,9 @@ describe('reader helpers', () => {
         expect(words[0]?.parentElement?.tagName).toBe('SPAN');
         expect(words.map(readerWordSurfaceText)).toEqual(['メディア', '化']);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
-        expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+        expect(words.every(word => word.querySelector('ruby rt') === null)).toBe(true);
+        expect(words[1]?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('か');
+        expect(link.querySelector('[data-yomu-ruby-room]')).toBeNull();
     });
 
     it('keeps compact image navigation labels inline against page span display rules', () => {
@@ -37322,7 +37372,9 @@ describe('reader helpers', () => {
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
         expect(words.every(word => word.closest<HTMLElement>('[data-jpdb-reader-passive-atomic="true"]'))).toBe(true);
         expect(words.map(readerWordSurfaceText)).toEqual(['現地', 'ツアー']);
-        expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+        expect(words.every(word => word.querySelector('ruby rt') === null)).toBe(true);
+        expect(words[0]?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('げんち');
+        expect(document.querySelector('#globalnav [data-yomu-ruby-room]')).toBeNull();
         expect(words.map(word => getComputedStyle(word).display)).toEqual(['inline', 'inline']);
         expect(words.map(word => getComputedStyle(word).whiteSpace)).toEqual(['nowrap', 'nowrap']);
         expectRenderedPitchWord(words[0]!, 'heiban');
@@ -37408,9 +37460,11 @@ describe('reader helpers', () => {
             expect(document.querySelector<HTMLElement>('[data-prose-link]')?.dataset.jpdbReaderPassiveChrome).toBeUndefined();
             [categoryWord, settingsWord, marketWord].forEach(word => {
                 expect(word.dataset.jpdbReaderPassive).toBe('true');
-                expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+                expect(word.querySelector('ruby rt')).toBeNull();
+                expect(word.querySelector('.jpdb-reader-detached-furi')).not.toBeNull();
                 expectRenderedPitchWord(word, 'heiban');
             });
+            expect(document.querySelector('[data-yomu-ruby-room]')).toBeNull();
             expect(proseWord.querySelector('rt')?.textContent).toBe('せんきょ');
         } finally {
             rectSpy.mockRestore();

@@ -1952,6 +1952,39 @@ describe('hover lookup', () => {
         }
     });
 
+    it('keeps passive text-mirror words inside ARIA menu items click-through', () => {
+        document.body.innerHTML = `
+            <div role="menu">
+                <div id="quality" role="menuitem" tabindex="0">
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="画質">
+                        <span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="501" data-sid="501" data-token-start="0" data-token-end="2" data-sentence="画質" data-expression="画質" data-jpdb-reader-passive="true">画質</span>
+                    </span>
+                </div>
+            </div>
+        `;
+        const app = new ReaderApp();
+        const menuItem = document.querySelector<HTMLElement>('#quality')!;
+        const word = menuItem.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const menuClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        menuItem.addEventListener('click', menuClick);
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(false);
+            expect(menuClick).toHaveBeenCalledTimes(1);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('lets native JPDB data-audio links receive clicks beside passive parsed text', () => {
         vi.stubGlobal('location', {
             href: 'https://jpdb.io/review?c=v%2C1%2C2&r=1#a',

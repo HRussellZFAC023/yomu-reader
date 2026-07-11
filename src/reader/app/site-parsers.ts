@@ -206,6 +206,13 @@ const SAFE_UI_CHROME_CONTROL_SELECTORS = [
     '[role="switch"]',
     '[role="tab"]',
 ];
+// Text peers that component libraries place beside their actual control.
+// They are roots only inside an already-bounded UI scope; DecorationPolicy
+// still decides whether each target is passive chrome or real content.
+const SAFE_UI_CHROME_PEER_TEXT_SELECTORS = [
+    '[role="heading"]',
+    '[class*="label" i]',
+];
 const PASSIVE_INTERACTION_ROOTS = [
     ...SAFE_UI_CHROME_CONTROL_SELECTORS,
     '[aria-controls]',
@@ -227,7 +234,8 @@ const PASSIVE_INTERACTION_ROOTS = [
 const SCOPED_SAFE_UI_CHROME_ROOTS = [
     ...SAFE_UI_CHROME_SCOPE_SELECTORS,
     ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => (
-        SAFE_UI_CHROME_CONTROL_SELECTORS.map(control => `${scope} ${control}`)
+        [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS]
+            .map(control => `${scope} ${control}`)
     )),
 ];
 const SAFE_UI_CHROME_ROOTS = [
@@ -1941,6 +1949,11 @@ function collectSafeUiChromeTargetsFromRoot(
         includeTabChrome: true,
         includePassiveInteractions: true,
         heading: true,
+        // Panel/dialog headings are functional chrome even when centered and
+        // very short (for example a playback-speed submenu title). The roots
+        // here are already restricted to safe UI surfaces, so the generic page
+        // rule that protects decorative centered headings does not apply.
+        allowShortCenteredHeadings: true,
         minLength: 1,
     });
 }

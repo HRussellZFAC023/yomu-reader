@@ -49,12 +49,13 @@ writeFileSync(entryPath, `
         return {
             id: host.id,
             mirror: Boolean(mirror),
-            mirrorReading: mirror?.querySelector('rt')?.textContent ?? '',
+            mirrorReading: mirror?.querySelector('rt,.jpdb-reader-detached-furi')?.textContent ?? '',
+            reading: host.querySelector('rt,.jpdb-reader-detached-furi')?.textContent ?? '',
             hostHidden: style.visibility === 'hidden',
             background: style.backgroundColor,
             words: host.querySelectorAll('.jpdb-reader-word').length,
-            inPlaceRt: Boolean(host.querySelector(':scope > .jpdb-reader-word rt, :scope > * > .jpdb-reader-word rt')
-                && !host.querySelector('.jpdb-reader-text-mirror rt')),
+            inPlaceRt: Boolean(host.querySelector(':scope > .jpdb-reader-word :is(rt,.jpdb-reader-detached-furi), :scope > * > .jpdb-reader-word :is(rt,.jpdb-reader-detached-furi)')
+                && !host.querySelector('.jpdb-reader-text-mirror :is(rt,.jpdb-reader-detached-furi)')),
             svgIntact: host.querySelector('svg') ? getComputedStyle(host.querySelector('svg')!).visibility !== 'hidden' : null,
         };
     }
@@ -74,7 +75,7 @@ writeFileSync(entryPath, `
             const svg = host.querySelector('svg');
             return {
                 mirror: Boolean(mirror),
-                mirrorReading: mirror?.querySelector('rt')?.textContent ?? '',
+                mirrorReading: mirror?.querySelector('rt,.jpdb-reader-detached-furi')?.textContent ?? '',
                 hostVisibility: style.visibility,
                 hostColor: style.color,
                 hostBackground: style.backgroundColor,
@@ -138,23 +139,20 @@ async function runEngine(name, browserType) {
         const forced = await page.evaluate(() => window.runConstrainedGateProbe(true));
         const healthy = await page.evaluate(() => window.runConstrainedGateProbe(false));
 
-        // Forced distorting engine: bare clipped row mirrors with the reading…
-        if (!forced['bare-title'].mirror || forced['bare-title'].mirrorReading !== 'にほんご' || !forced['bare-title'].hostHidden) {
-            fail(`${name}: bare clipped row did not get its reading via the mirror`, forced['bare-title']);
-        }
-        // …and every styled host keeps painting its own box, unmirrored.
-        for (const id of ['pill', 'dark-bar', 'nav-item', 'before-row']) {
+        // Every clipped row keeps its authored box and gains an out-of-flow
+        // detached reading; no engine verdict is allowed to discard it.
+        for (const id of ['bare-title', 'pill', 'dark-bar', 'nav-item', 'before-row']) {
             const snap = forced[id];
-            if (snap.mirror || snap.hostHidden || snap.words < 1) {
-                fail(`${name}: styled host ${id} was mirror-hidden or lost its words`, snap);
+            if (snap.hostHidden || snap.words < 1 || snap.reading !== 'にほんご') {
+                fail(`${name}: clipped host ${id} lost its base or detached reading`, snap);
             }
             if (id === 'nav-item' && snap.svgIntact === false) fail(`${name}: nav chevron SVG hidden`, snap);
         }
-        // Healthy engine: no constrained-row mirrors anywhere, in-place ruby on the bare title.
+        // Healthy and forced rounds share the same geometry-safe contract.
         for (const id of ['bare-title', 'pill', 'dark-bar', 'nav-item', 'before-row']) {
             if (healthy[id].mirror || healthy[id].hostHidden) fail(`${name}: healthy engine mirrored ${id}`, healthy[id]);
+            if (healthy[id].reading !== 'にほんご') fail(`${name}: healthy engine lost detached reading on ${id}`, healthy[id]);
         }
-        if (!healthy['bare-title'].inPlaceRt) fail(`${name}: healthy engine lost in-place ruby on the bare title`, healthy['bare-title']);
 
         // Styled framework host: text concealed, box paint intact, icon and
         // mirror text keep their real colours.

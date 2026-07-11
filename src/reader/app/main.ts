@@ -241,7 +241,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
@@ -2197,6 +2197,16 @@ export class ReaderApp {
                 this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
             }
         }, { passive: true, signal: abortSignal });
+        document.addEventListener('click', event => {
+            if (!this.canParseJapanese()
+                || !allowsFrequentVisibleAutoScan()
+                || !clickMayRevealDynamicUiText(event.target)) return;
+            this.noteVisibleAutoScanWorkObserved();
+            // Capture runs before the site's click handler. The delayed scan
+            // therefore sees the newly selected panel after its transition,
+            // and debounce collapses nested menu events into one pass.
+            this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
+        }, { capture: true, signal: abortSignal });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
         document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);

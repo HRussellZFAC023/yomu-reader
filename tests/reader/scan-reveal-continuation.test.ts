@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     AUTO_SCAN_OBSERVER_OPTIONS,
+    clickMayRevealDynamicUiText,
     mutationMayContainJapaneseText,
 } from '../../src/reader/app/mutation-scan';
 import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../../src/reader/app/main-helpers';
@@ -62,6 +63,32 @@ describe('auto-scan observer style/class reveal detection (class E)', () => {
         document.body.innerHTML = '<div hidden><div id="sheet" class="sheet open"><span>字幕を設定</span></div></div>';
         const sheet = document.getElementById('sheet')!;
         expect(mutationMayContainJapaneseText(attributeMutation(sheet, 'class', 'sheet'))).toBe(false);
+    });
+});
+
+describe('post-click dynamic UI reveal detection', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('recognizes menu items, disclosures and tabs', () => {
+        document.body.innerHTML = `
+            <div role="menuitem"><span id="menu-label">再生速度</span></div>
+            <button id="disclosure" aria-expanded="false">詳細</button>
+            <button id="tab" role="tab">字幕</button>
+        `;
+        expect(clickMayRevealDynamicUiText(document.querySelector('#menu-label'))).toBe(true);
+        expect(clickMayRevealDynamicUiText(document.querySelector('#disclosure'))).toBe(true);
+        expect(clickMayRevealDynamicUiText(document.querySelector('#tab'))).toBe(true);
+    });
+
+    it('ignores ordinary content clicks and reader-owned controls', () => {
+        document.body.innerHTML = `
+            <article><a id="story" href="/story">記事を読む</a></article>
+            <div data-jpdb-reader-root><button id="reader" aria-haspopup="menu">辞書</button></div>
+        `;
+        expect(clickMayRevealDynamicUiText(document.querySelector('#story'))).toBe(false);
+        expect(clickMayRevealDynamicUiText(document.querySelector('#reader'))).toBe(false);
     });
 });
 

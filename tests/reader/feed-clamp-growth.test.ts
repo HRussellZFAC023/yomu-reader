@@ -62,7 +62,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         });
     }
 
-    it('keeps a line-clamped lockup title at its clamp box (no growth, constrained mirror, rt stamped hidden)', () => {
+    it('keeps a line-clamped lockup title at its clamp box with visible detached readings', () => {
         stubYouTube();
         document.body.innerHTML = `
             <yt-lockup-view-model>
@@ -84,18 +84,18 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        // PAINT INVARIANT (third live gate): at rest the HOST text paints
-        // naturally — never hidden, no display coercion — and the mirror is a
-        // rest-hidden hover overlay, capped by the engine-stable pixel
-        // max-height (inline -webkit-line-clamp diverges across engines).
+        // Native text stays painted, while an additive mirror supplies a
+        // visible detached reading without changing line metrics.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(host.style.getPropertyValue('display')).toBe('');
-        expect(host.dataset.yomuClipHoverHost).toBe('true');
-        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(true);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.dataset.yomuClipHoverHost).toBeUndefined();
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
+        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
         expect(mirror.style.maxHeight).toBe('44px');
-        expect(mirror.style.overflow).toBe('hidden');
-        expect(mirror.dataset.yomuClipConstrained).toBe('true');
+        expect(mirror.style.overflow).toBe('visible');
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('だいひょう');
         // Host line metrics preserved (a ruby-friendly ~1.78em line-height
         // under the height cap over-clamped 2-line titles to one line).
         expect(mirror.style.lineHeight).toBe('22px');
@@ -133,10 +133,11 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.style.maxHeight).toBe('40px');
-        expect(mirror.style.overflow).toBe('hidden');
+        expect(mirror.style.overflow).toBe('visible');
         // Paint invariant: shorts title text keeps painting at rest.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('だいひょう');
 
         mockOverflow(mirror, 120, 40);
         makeRoomForRubyInCroppedRows(document);
@@ -167,14 +168,9 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        // Mirrored controls keep their readings (2026-07-11), but a
-        // clip-constrained control row must hide them at rest — the reveal is
-        // hover-only, so the pill's own paint never changes.
-        expect(mirror.querySelector('rt')).toBeTruthy();
-        expect(
-            mirror.classList.contains('jpdb-reader-clip-hover-mirror')
-            || mirror.dataset.yomuClipConstrained === 'true',
-        ).toBe(true);
+        expect(mirror.querySelector('rt')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         // No one-line-taller mirror poking below the pill.
         expect(mirror.style.maxHeight).toBe('36px');
     });
@@ -223,14 +219,15 @@ describe('watch metadata rows never grow and keep their base text painting', () 
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        // Rest-hidden reading in an ellipsis row: host line metrics preserved
-        // (the base text must paint inside the 20px row).
-        expect(mirror.dataset.yomuClipConstrained).toBe('true');
+        // Detached reading in an ellipsis row: host line metrics and native
+        // base paint are preserved while the reading remains visible.
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
         expect(mirror.style.lineHeight).toBe('20px');
         expect(mirror.style.maxHeight).toBe('20px');
-        // Paint invariant: channel name keeps painting; mirror is hover-only.
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+        // Paint invariant: channel name keeps painting; mirror is additive.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
 
         // The channel-name mirror is taller in scroll terms — the rest-hidden
         // reading must not grow #owner / #top-row / the anchor.
@@ -244,11 +241,7 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         }
     });
 
-    it('keeps a fixed metadata row unwritten with no at-rest reading (WebKit T residual)', () => {
-        // WebKit probe: grown metadata rows showed cramped visible rt (つき
-        // colliding into 月前). Under the paint-invariant design the row never
-        // grows and its reading lives in the rest-hidden hover mirror — no
-        // visible rt at rest on any engine.
+    it('keeps a fixed metadata row unwritten with a detached at-rest reading', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-watch-metadata>
@@ -268,8 +261,9 @@ describe('watch metadata rows never grow and keep their base text painting', () 
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
         expect(mirror.style.lineHeight).toBe('22px');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
 
         mockOverflow(mirror, 42, 22);
@@ -299,12 +293,13 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         applyTokensToScanTarget(target, [token('新卒', 0, text, 'しんそつ')], FURI);
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
-        // Engine-stable cap only (no clamp copy) + host line metrics + the
-        // paint invariant: title text paints at rest, mirror hover-only.
+        // Host-metric additive mirror: title text and detached reading paint
+        // at rest without lifting the clamp or growing the H1.
         expect(mirror.style.lineHeight).toBe('28px');
         expect(mirror.style.maxHeight).toBe('56px');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しんそつ');
 
         mockOverflow(mirror, 100, 56);
         makeRoomForRubyInCroppedRows(document);
