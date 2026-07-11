@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.131] - 2026-07-11
+
+### Fixed
+
+- The hosted homepage now loads its reader runtime and companion scripts with the release version in their URLs, so browsers cannot keep executing an older cached OCR build after the site deploys a geometry fix.
+
 ## [1.6.130] - 2026-07-11
 
 ### Fixed

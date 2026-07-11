@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme-without-fonts';
 import { useData, type Theme } from 'vitepress';
 import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
+import pkg from '../../../package.json' with { type: 'json' };
 import {
     sharedContrastRatio,
     sharedHexToRgba,
@@ -32,6 +33,7 @@ const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion
 const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID = 'yomu-hosted-ocr-manga-companion';
 const YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID = 'yomu-hosted-ui-copy-companion';
+const HOSTED_RUNTIME_VERSION = pkg.version;
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
@@ -213,6 +215,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The hosted homepage now loads its reader runtime and companion scripts with the release version in their URLs, so browsers cannot keep executing an older cached OCR build after the site deploys a geometry fix.': 'ホスト版ホームページは、リーダー本体と補助スクリプトのURLにリリース番号を付けて読み込むようになりました。サイトが座標修正を配信した後も、ブラウザーが古いOCRビルドをキャッシュから実行し続けることを防ぎます。',
     'The legacy persistent OCR cache is cleared once during upgrade, so the removed three-box homepage demo geometry cannot survive an update and keep manga text offset from the image.': 'アップグレード時に古い永続OCRキャッシュを一度消去し、削除済みのホームページ用3枠デモ座標が更新後も残って漫画文字を画像からずらし続けることを防ぎます。',
     'Removed': '削除',
     'Selecting Japanese text on a page no longer opens a lookup pop-up. The panel that used to appear on every selection — often unwanted, and covering most of the screen on phones — is gone, so selecting text just selects it. To look up a word, hover or tap it as before: Yomu still shows its reading, meaning, pitch accent, and dictionary links on the words it has parsed.': 'ページ上の日本語を選択しても、検索ポップアップが開かなくなりました。選択のたびに表示されていたパネル（多くの場合は不要で、スマートフォンでは画面の大半を覆っていました）はなくなり、テキストを選択すると通常どおり選択されるだけになります。単語を調べるには、これまでどおりホバーまたはタップしてください。よむは解析済みの単語について、読み・意味・ピッチアクセント・辞書リンクを引き続き表示します。',
@@ -4270,8 +4273,8 @@ function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
 }
 
 function hostedRuntimeAssetSrc(src: string, forceLocalRuntime: boolean): string {
-    if (!forceLocalRuntime) return src;
     const separator = src.includes('?') ? '&' : '?';
+    if (!forceLocalRuntime) return `${src}${separator}v=${encodeURIComponent(HOSTED_RUNTIME_VERSION)}`;
     return `${src}${separator}t=${Date.now()}`;
 }
 

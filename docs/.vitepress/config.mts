@@ -1,5 +1,6 @@
 import { defineConfig, type HeadConfig } from 'vitepress';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
+import pkg from '../../package.json' with { type: 'json' };
 
 const repositoryName = 'yomu-reader';
 const base = '/';
@@ -157,7 +158,7 @@ export default defineConfig({
     // so every URL gets accurate metadata instead of the home page's values.
     head: [
         ['link', { rel: 'preload', href: `${base}yomu-icon.svg`, as: 'image', type: 'image/svg+xml', fetchpriority: 'high' }],
-        ['link', { rel: 'preload', href: `${base}yomu.user.js`, as: 'script' }],
+        ['link', { rel: 'preload', href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`, as: 'script' }],
         ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${base}favicon-32x32.png` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16x16.png` }],
