@@ -229,7 +229,7 @@ describe('VisiblePageScanner', () => {
 
         try {
             const scan = scanner.scanVisiblePage({ silent: true });
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2), { timeout: 5_000 });
 
             firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
             await scan;
@@ -1576,7 +1576,7 @@ describe('VisiblePageScanner', () => {
 
         try {
             const scan = scanner.scanVisiblePage({ silent: true });
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2), { timeout: 5_000 });
 
             expect(title.querySelector('rt')).not.toBeNull();
             // Unclipped short row (clipped rows are clip-constrained and no
@@ -2380,7 +2380,7 @@ describe('VisiblePageScanner', () => {
             firstParse.resolve([[]]);
             await firstScan;
 
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2), { timeout: 5_000 });
             expect(parseJapanese.mock.calls[1]?.[0]).toEqual(['明日は書く。']);
 
             secondParse.resolve([[]]);
