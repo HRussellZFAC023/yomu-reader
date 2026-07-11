@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "style": "warm hand-painted anime + soft pixel grain (matches rie-sensei.webp)",
+  "source": "antigravity, from references/class-photos + rie-sensei.webp style bible",
+  "basePath": "art/characters/portraits/",
+  "rie": "art/characters/rie-sensei.webp",
+  "portraits": {
+    "aakash": "aakash.png",
+    "alex": "alex.png",
+    "angel": "angel.png",
+    "christian": "christian.png",
+    "francis": "francis.png",
+    "henry": "henry.png",
+    "jenny": "jenny.png",
+    "jodi": "jodi.png",
+    "mika": "mika.png",
+    "pho": "pho.png",
+    "robert": "robert.png",
+    "ruparna": "ruparna.png",
+    "sam": "sam.png",
+    "shin": "shin.png",
+    "sophie": "sophie.png",
+    "stasi": "stasi.png",
+    "tom": "tom.png",
+    "xingyu": "xingyu.png"
+  }
+}
