@@ -129,6 +129,8 @@ interface OcrControllerOptions {
     captureReaderSurface?: typeof captureReaderSurfaceViaExtensionScreenshot;
     /** Test seam: overrides clean-source replay for tainted BookWalker canvases. */
     captureCanvasMirror?: typeof captureCanvasMirror;
+    /** Test seam: lowers the 30-second OCR attempt floor so timeout paths run fast. */
+    ocrAttemptTimeoutFloorMs?: number;
 }
 
 interface OcrWordRenderState {
@@ -158,6 +160,18 @@ const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
 const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
 const READER_RASTER_EMPTY_RETRY_MS = 400;
 const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+// The whole-scan deadline reuses audioTimeoutMs (the only user-facing network
+// budget), but that setting defaults to 6 seconds — an audio-sized budget. One
+// OCR attempt spans canvas encode plus up to two Lens transports, and on iPad
+// userscript managers each hop crosses a slow native-messaging bridge, so a 6s
+// ceiling kills healthy scans after the first few pages and strands every later
+// page on "Could not read text" until a reload. Give OCR an attempt floor that
+// distinguishes "slow but working" from "genuinely hung".
+const OCR_MIN_ATTEMPT_TIMEOUT_MS = 30_000;
+
+function ocrAttemptTimeoutMs(settings: ReaderSettings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS): number {
+    return Math.max(floorMs, settings.audioTimeoutMs);
+}
 const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
 // Mirror capture can spend one timeout fetching, one decoding, then six seconds
 // asking the extension screenshot bridge. Ownership must outlive that whole chain.
@@ -1177,7 +1191,7 @@ export class ImageOcrController {
         // encode whose callback never arrives, and the status must still converge.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
             this.recognizeImage(image, settings),
-            Math.max(1, settings.audioTimeoutMs),
+            ocrAttemptTimeoutMs(settings, this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
         this.requireCurrentState(state);
@@ -1717,15 +1731,15 @@ export class ImageOcrController {
         userRequested: boolean,
         error: unknown,
     ): boolean {
-        // A timeout has already consumed the complete per-attempt budget. Retrying
-        // it automatically is especially harmful on iPad/Safari, where a manager-
-        // blocked Lens request otherwise leaves the page saying "Scanning..." for
-        // several identical timeout windows. Surface the existing tappable failure
-        // state instead; immediate network/server failures still get bounded retry.
-        if (isOcrRequestTimeout(error)) return false;
-        const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
+        // A timeout consumed the whole (30s-floor) attempt budget, so it signals a
+        // genuinely hung transport rather than a slow-but-working one. Give it one
+        // further attempt — a userscript-manager hiccup on iPad often clears on the
+        // next request — by charging it two attempt slots instead of one; sustained
+        // hangs still converge to the tappable failure state within a bounded time.
+        const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
+        const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + attemptCost;
         this.readerRasterProviderFailures.set(key, attempts);
-        if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
+        if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
 
         const delay = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
         log.warn('OCR provider failed transiently; retrying reader page', { attempt: attempts, delay }, error);
@@ -4174,7 +4188,7 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
         ocr_adapter_name: engine,
         detection_only: false,
     });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
+    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
@@ -4190,7 +4204,7 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
         }],
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson(url, body, settings.audioTimeoutMs);
+    const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
@@ -4201,7 +4215,7 @@ async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderS
     // managers can leave a blocked GM request pending until its timer fires; giving
     // both transports the full budget made one attempt take a minute, and the reader
     // page retry loop multiplied that into several minutes of "Scanning...".
-    const deadline = Date.now() + Math.max(1, settings.audioTimeoutMs);
+    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
     let protobufFailure: unknown;
     const protobuf = await recognizeViaGoogleLensProtobuf(
         blob,

@@ -35,8 +35,13 @@ const MODES = (process.env.YOMU_BOOKWALKER_LIVE_MODES || 'paged,continuous')
     .split(',')
     .map(value => value.trim())
     .filter(Boolean);
-const FIREFOX_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0';
-const VIEWPORT = Object.freeze({ width: 900, height: 1100 });
+const FIREFOX_UA = process.env.YOMU_BOOKWALKER_UA
+    || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0';
+const VIEWPORT = Object.freeze({
+    width: positiveInteger(process.env.YOMU_BOOKWALKER_VIEWPORT_WIDTH, 900, 320),
+    height: positiveInteger(process.env.YOMU_BOOKWALKER_VIEWPORT_HEIGHT, 1100, 320),
+});
+const HAS_TOUCH = process.env.YOMU_BOOKWALKER_TOUCH === '1';
 const READER_RASTER_POLL_MS = 1_200;
 const STABILITY_HOLD_MS = READER_RASTER_POLL_MS * 5 + 250;
 const OCR_READY_TIMEOUT_MS = 65_000;
@@ -1880,6 +1885,7 @@ async function runMode(mode, candidate) {
     });
     const context = await browser.newContext({
         viewport: VIEWPORT,
+        hasTouch: HAS_TOUCH,
         locale: 'ja-JP',
         userAgent: FIREFOX_UA,
         recordVideo: { dir: ARTIFACT_DIR, size: VIEWPORT },

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.143] - 2026-07-11
+
+### Fixed
+
+- BookWalker pages on iPad no longer flip to "Could not read text" after the first few pages and stay failed until a page reload. The scan deadline reused the 6-second audio timeout, which killed healthy-but-slow scans on iPad userscript managers and remembered each page as permanently failed; OCR now gets a 30-second attempt floor and a timed-out attempt retries once before showing the tappable retry state.
+- BookWalker storefront banners and cover images now scan reliably on iPad instead of failing or timing out: ordinary image OCR shares the same corrected 30-second scan deadline.
+
 ## [1.6.142] - 2026-07-11
 
 ### Changed

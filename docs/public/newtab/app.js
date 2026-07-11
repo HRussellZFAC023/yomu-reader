@@ -36507,6 +36507,10 @@ ${spelling}`);
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
   const READER_RASTER_EMPTY_RETRY_MS = 400;
   const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
+  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
+    return Math.max(floorMs, settings.audioTimeoutMs);
+  }
   const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
   const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
   const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
@@ -37346,7 +37350,7 @@ ${spelling}`);
       const inlineFallback = readFallbackOcrResult(image, false);
       const providerResult = inlineFallback ? null : await promiseWithTimeout(
         this.recognizeImage(image, settings),
-        Math.max(1, settings.audioTimeoutMs),
+        ocrAttemptTimeoutMs(settings, this.options.ocrAttemptTimeoutFloorMs),
         "OCR timed out."
       );
       this.requireCurrentState(state2);
@@ -37763,10 +37767,10 @@ ${spelling}`);
       return state2.image.dataset.ocrAttemptKey || fallbackKey;
     }
     scheduleReaderRasterProviderRetry(state2, key, userRequested, error) {
-      if (isOcrRequestTimeout(error)) return false;
-      const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
+      const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
+      const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + attemptCost;
       this.readerRasterProviderFailures.set(key, attempts);
-      if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
+      if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
       const delay2 = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
       log$l.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
       const previousTimer = this.readerRasterProviderRetryTimers.get(key);
@@ -39726,7 +39730,7 @@ ${spelling}`);
       ocr_adapter_name: engine,
       detection_only: false
     });
-    const response = await requestJson$1(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
+    const response = await requestJson$1(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaCloudVision(image, settings, invert = false) {
@@ -39741,12 +39745,12 @@ ${spelling}`);
       }]
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson$1(url, body, settings.audioTimeoutMs);
+    const response = await requestJson$1(url, body, ocrAttemptTimeoutMs(settings));
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings, invert = false) {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-    const deadline = Date.now() + Math.max(1, settings.audioTimeoutMs);
+    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
     let protobufFailure;
     const protobuf = await recognizeViaGoogleLensProtobuf(
       blob,
@@ -41577,7 +41581,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.142".trim() ? "1.6.142".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.143".trim() ? "1.6.143".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

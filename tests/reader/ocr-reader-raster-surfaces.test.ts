@@ -59,6 +59,7 @@ function createController(
     shouldAutoScan: () => boolean = () => true,
     configure?: (controller: ImageOcrController) => void,
     onToast: (message: string) => void = vi.fn(),
+    extraOptions: Partial<ConstructorParameters<typeof ImageOcrController>[0]> = {},
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
@@ -76,6 +77,7 @@ function createController(
         shouldAutoScan,
         captureReaderSurface,
         captureCanvasMirror,
+        ...extraOptions,
     });
     configure?.(controller);
     controller.init();
@@ -437,7 +439,11 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        const controller = createController({ ocrInvertDarkPanels: false, audioTimeoutMs: 120 });
+        const controller = createController(
+            { ocrInvertDarkPanels: false, audioTimeoutMs: 120 },
+            undefined, undefined, undefined, undefined, undefined,
+            { ocrAttemptTimeoutFloorMs: 120 },
+        );
         try {
             let frame: HTMLImageElement | null = null;
             await waitForExpect(() => {
@@ -451,9 +457,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
                 expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
-            }, 1_000);
+            }, 5_000);
+            // One bounded retry after the first timeout, then the tappable failure.
             expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
-            expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+            expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4);
         } finally {
             controller.destroy();
         }
@@ -468,7 +475,11 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        const controller = createController({ audioTimeoutMs: 120 });
+        const controller = createController(
+            { audioTimeoutMs: 120 },
+            undefined, undefined, undefined, undefined, undefined,
+            { ocrAttemptTimeoutFloorMs: 120 },
+        );
         const recognizeImage = vi.fn(() => new Promise<OcrResult | null>(() => { /* deliberately hung */ }));
         (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
         try {
@@ -483,7 +494,46 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
-            }, 1_000);
+            }, 5_000);
+            // A timed-out attempt gets exactly one bounded retry before failing.
+            expect(recognizeImage).toHaveBeenCalledTimes(2);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('lets a scan slower than the audio timeout finish instead of failing it (iPad-slow provider)', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        // audioTimeoutMs is an audio-sized budget (6s default, 50ms here); a slow
+        // userscript bridge routinely needs longer than that for one healthy scan.
+        const controller = createController({ audioTimeoutMs: 50 });
+        const recognizeImage = vi.fn(() => new Promise<OcrResult | null>(resolve => {
+            setTimeout(() => resolve({ width: 1200, height: 1600, lines: [
+                { text: '再スキャン', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
+            ] }), 300);
+        }));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            }, 10_000);
             expect(recognizeImage).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
