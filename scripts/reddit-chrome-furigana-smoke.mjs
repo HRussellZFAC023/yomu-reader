@@ -35,13 +35,16 @@ const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
-    ['賛成票数順', '賛成票数順', 'さんせいひょうすうじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
+    ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
     ['告知', '告知', 'こくち', 'announcement', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['賛成票', '賛成票', 'さんせいひょう', 'upvote', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['コメント', 'コメント', 'コメント', 'comment', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['時間', '時間', 'じかん', 'hour', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['前', '前', 'まえ', 'ago', ['noun'], 100, ['not-in-deck'], ['LH']],
     ['共有', '共有', 'きょうゆう', 'share', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['国際', '国際', 'こくさい', 'international', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['カップル', 'カップル', 'カップル', 'couple', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['恋愛', '恋愛', 'れんあい', 'romance', ['noun'], 100, ['not-in-deck'], ['LHH']],
     // Deliberately malformed parser outputs: valid offsets but non-Japanese
     // source slices. The renderer must discard both at its final boundary.
     ['r/singularity', '日本語', 'にほんご', 'invalid Latin token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -91,13 +94,14 @@ body { display: grid; place-items: start center; }
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
     <div class="feed-tools"><span>フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
+    <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
       <h2>Discord Server Link</h2>
       <span id="flair" class="card-row">告知</span>
       <span id="card-metadata" class="card-row">10件の賛成票・0件のコメント</span>
     </a>
     <article id="post" class="post">
-      <div class="post-meta"><span>u/ResultBackground2470・</span><time id="post-meta" datetime="2026-07-10T19:01:00Z">2時間前</time></div>
+      <div class="post-meta"><span>u/ResultBackground2470・</span><time id="post-meta" datetime="2026-07-10T19:01:00Z">2 時間前</time></div>
       <h2>GPT Solves Yet Another Problem</h2>
       <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
     </article>
@@ -111,7 +115,7 @@ class RedditJoinControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 18px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 16px/20px system-ui;white-space:nowrap}</style><button id="join" type="button">参加</button>';
+    root.innerHTML = '<style>button{box-sizing:border-box;display:inline-block;height:40px;max-height:40px;overflow:hidden;padding:13px 18px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 16px/14px system-ui;white-space:nowrap}</style><button id="join" type="button">参加</button>';
     root.getElementById('join').addEventListener('click', () => { window.__redditSmokeClicks.join += 1; });
   }
 }
@@ -129,11 +133,18 @@ class RedditSortControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}</style><button id="sort" type="button">賛成票数順⌄</button>';
+    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}</style><button id="sort" type="button">賛成票率順⌄</button>';
     root.getElementById('sort').addEventListener('click', () => { window.__redditSmokeClicks.sort += 1; });
   }
 }
 customElements.define('reddit-sort-control', RedditSortControl);
+class RedditClippedTitle extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' }).innerHTML = '<style>#clipped-reader-row{box-sizing:border-box;display:block;width:180px;height:44px;max-height:44px;overflow:hidden;color:#f2f4f5;font:600 16px/22px system-ui;white-space:pre-wrap}</style><span id="clipped-reader-row">#国際カップル #国際恋愛 #カップル</span>';
+  }
+}
+customElements.define('reddit-clipped-title', RedditClippedTitle);
 </script>
 </body>
 </html>`;
@@ -179,6 +190,8 @@ async function runEngine(engineName, browser) {
         colorScheme: 'dark',
         locale: 'ja-JP',
         viewport: { width: 760, height: 980 },
+        hasTouch: true,
+        isMobile: true,
     });
     const page = await context.newPage();
     const pageErrors = [];
@@ -201,6 +214,7 @@ async function runEngine(engineName, browser) {
             page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#clipped-reader-row .jpdb-reader-clip-hover-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
         await page.waitForTimeout(400);
 
@@ -215,10 +229,11 @@ async function runEngine(engineName, browser) {
         });
 
         const snapshot = await snapshotRedditRegression(page);
+        const touchHover = await snapshotTouchHoverSafety(page);
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
-        assertRedditRegression(engineName, baseline, snapshot, pageErrors);
-        return { engine: engineName, screenshot, requests: requests.length, baseline, ...snapshot };
+        assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors);
+        return { engine: engineName, screenshot, requests: requests.length, baseline, touchHover, ...snapshot };
     } finally {
         await context.close().catch(() => undefined);
     }
@@ -234,19 +249,34 @@ function mockedYomuRequest(request, requestLog) {
 function snapshotRedditLayout() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
+    const join = document.querySelector('reddit-header-shell').shadowRoot
+        .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+    const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
     return {
         createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
         shareHeight: document.querySelector('#share').getBoundingClientRect().height,
         cardHeight: card.height,
         cardToPostGap: post.top - card.bottom,
+        joinTextCenterOffset: nativeTextCenterOffset(join),
+        sortTextCenterOffset: nativeTextCenterOffset(sort),
     };
+
+    function nativeTextCenterOffset(element) {
+        const node = [...element.childNodes].find(child => child.nodeType === Node.TEXT_NODE && child.data.trim());
+        if (!node) return null;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        const box = element.getBoundingClientRect();
+        return (text.top + text.bottom - box.top - box.bottom) / 2;
+    }
 }
 
 async function snapshotRedditRegression(page) {
     const specs = {
         create: ['#create-post', '投稿を作成'],
         join: ['#join', '参加'],
-        sort: ['#sort', '賛成票数順'],
+        sort: ['#sort', '賛成票率順'],
         flair: ['#flair', '告知'],
         metadata: ['#card-metadata', '賛成票・コメント'],
         time: ['#post-meta', '時間前'],
@@ -298,6 +328,45 @@ function snapshotRedditElement(element, expected) {
         rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length
             + Number(element.hasAttribute('data-yomu-ruby-room')),
         visibleWords,
+        wordCenterOffset: words.length ? wordUnionCenter(words) - (rect.top + rect.bottom) / 2 : null,
+    };
+
+    function wordUnionCenter(wordElements) {
+        const rects = wordElements.map(word => word.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
+        return rects.length ? (Math.min(...rects.map(box => box.top)) + Math.max(...rects.map(box => box.bottom))) / 2 : 0;
+    }
+}
+
+async function snapshotTouchHoverSafety(page) {
+    const host = page.locator('#clipped-reader-row');
+    const mirror = host.locator('.jpdb-reader-clip-hover-mirror');
+    const before = await host.evaluate(touchHoverState);
+    await host.hover({ force: true });
+    const hovered = await host.evaluate(touchHoverState);
+    await page.mouse.move(0, 0);
+    const after = await host.evaluate(touchHoverState);
+    return {
+        mirrorWords: await mirror.locator('.jpdb-reader-word').count(),
+        mirrorRuby: await mirror.locator('rt').count(),
+        before,
+        hovered,
+        after,
+    };
+}
+
+function touchHoverState(element) {
+    const mirror = element.querySelector('.jpdb-reader-clip-hover-mirror');
+    const style = getComputedStyle(element);
+    return {
+        height: element.getBoundingClientRect().height,
+        mirrorVisibility: mirror ? getComputedStyle(mirror).visibility : '',
+        visibleRuby: mirror ? [...mirror.querySelectorAll('rt')].filter(rt => getComputedStyle(rt).display !== 'none').length : 0,
+        wordWhiteSpace: mirror?.querySelector('.jpdb-reader-word') ? getComputedStyle(mirror.querySelector('.jpdb-reader-word')).whiteSpace : '',
+        mirrorClientWidth: mirror?.clientWidth ?? 0,
+        mirrorScrollWidth: mirror?.scrollWidth ?? 0,
+        hostVisibility: style.visibility,
+        color: style.color,
+        fill: style.webkitTextFillColor,
     };
 }
 
@@ -318,7 +387,7 @@ function snapshotRedditPageSummary() {
     };
 }
 
-function assertRedditRegression(engineName, baseline, snapshot, pageErrors) {
+function assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors) {
     assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
     for (const [name, label] of Object.entries(snapshot.labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
@@ -339,4 +408,25 @@ function assertRedditRegression(engineName, baseline, snapshot, pageErrors) {
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, snapshot.layout);
     assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);
+    assert(Math.abs(snapshot.labels.join.wordCenterOffset - baseline.joinTextCenterOffset) <= 2,
+        `${engineName}: mirrored Join label moved away from its native vertical alignment`, { baseline, join: snapshot.labels.join });
+    assert(Math.abs(snapshot.labels.sort.wordCenterOffset - baseline.sortTextCenterOffset) <= 2,
+        `${engineName}: mirrored sort label moved away from its native vertical alignment`, { baseline, sort: snapshot.labels.sort });
+    assert(touchHover.mirrorWords > 0 && touchHover.mirrorRuby > 0,
+        `${engineName}: touch hover fixture did not retain its annotated ruby mirror`, touchHover);
+    assert(touchHover.before.mirrorVisibility === 'visible' && touchHover.hovered.mirrorVisibility === 'visible',
+        `${engineName}: coarse-pointer annotations still depend on a sticky hover transition`, touchHover);
+    assert(touchHover.before.visibleRuby === 0 && touchHover.hovered.visibleRuby === 0,
+        `${engineName}: coarse-pointer mirror kept layout-changing ruby in the clipped row`, touchHover);
+    assert(touchHover.before.wordWhiteSpace === 'normal' && touchHover.hovered.wordWhiteSpace === 'normal',
+        `${engineName}: coarse-pointer mirror kept atomic word wrapping that clips card titles`, touchHover);
+    assert(touchHover.before.mirrorScrollWidth <= touchHover.before.mirrorClientWidth + 1,
+        `${engineName}: coarse-pointer mirror forces compact card text wider than its native row`, touchHover);
+    assert(touchHover.hovered.hostVisibility === 'hidden'
+        || touchHover.hovered.color === 'rgba(0, 0, 0, 0)'
+        || touchHover.hovered.color === 'transparent',
+        `${engineName}: coarse-pointer host did not hand paint to its stable annotation mirror`, touchHover);
+    assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
+        && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
+    `${engineName}: coarse-pointer hover changed row geometry`, touchHover);
 }

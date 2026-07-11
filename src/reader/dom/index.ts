@@ -2025,7 +2025,18 @@ function mountNonDestructiveTextMirror(
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
     const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
-    const state = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
+    // Document-level CSS cannot cross an open shadow boundary. Decide the
+    // touch-safe paint mode here as well as in CSS so the same generic mirror
+    // contract holds for web components (Reddit controls are representative):
+    // coarse/no-hover rows paint a stable base-text mirror at rest, while only
+    // a real fine hover pointer gets the ruby reveal channel.
+    const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+    const state = styleTextMirrorHost(
+        host,
+        mirrorRubyLayout,
+        context.clipHoverOnly && !stableClippedMirror,
+        Boolean(context.clipRow),
+    );
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
         // After styleTextMirror (which opens overflow): re-impose the host's
@@ -2046,6 +2057,7 @@ function mountNonDestructiveTextMirror(
             removeTextMirror(host);
             return;
         }
+        if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
         hideTextMirrorHost(host, state, mirror);
         host.append(mirror);
         registerTextMirrorOwner(mirror, host);
@@ -2058,6 +2070,25 @@ function mountNonDestructiveTextMirror(
     } catch (error) {
         removeTextMirror(host);
         throw error;
+    }
+}
+
+function prefersStableClippedMirror(): boolean {
+    return typeof window.matchMedia === 'function'
+        && window.matchMedia('(hover: none), (pointer: coarse)').matches;
+}
+
+function stabilizeClippedTextMirror(mirror: HTMLElement): void {
+    mirror.style.setProperty('visibility', 'visible', 'important');
+    for (const reading of mirror.querySelectorAll<HTMLElement>('rt.jpdb-reader-furi')) {
+        reading.style.setProperty('display', 'none', 'important');
+        reading.style.setProperty('visibility', 'hidden', 'important');
+    }
+    for (const segment of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word, ruby')) {
+        segment.style.setProperty('white-space', 'normal', 'important');
+        segment.style.setProperty('word-break', 'normal', 'important');
+        segment.style.setProperty('overflow-wrap', 'break-word', 'important');
+        segment.style.setProperty('line-break', 'auto', 'important');
     }
 }
 
@@ -2810,6 +2841,29 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     const style = safeComputedStyle(host);
     mirror.style.setProperty('position', 'absolute');
     mirror.style.setProperty('inset', '0 0 auto 0');
+    // Absolute children start at the host padding box, while the page's native
+    // text starts at the content box. Reproduce that inset on the mirror: fixed
+    // controls commonly centre a short label with block padding (Reddit's Join
+    // button and video-player menus are representative), and dropping the
+    // padding pins the mirrored label to the top/edge of the control. Copy the
+    // computed physical sides rather than a shorthand so asymmetric and RTL
+    // controls retain their authored alignment without site selectors.
+    mirror.style.setProperty('box-sizing', 'border-box');
+    mirror.style.setProperty('padding-top', style.paddingTop);
+    mirror.style.setProperty('padding-right', style.paddingRight);
+    mirror.style.setProperty('padding-bottom', style.paddingBottom);
+    mirror.style.setProperty('padding-left', style.paddingLeft);
+    if (hostCentersTextVertically(host, style)) {
+        // Native buttons and centred flex/grid controls align their anonymous
+        // text item in the cross axis. An absolute mirror is no longer that
+        // item, so reproduce the same centring explicitly; copying padding
+        // above keeps its content box faithful while the transform centres the
+        // complete padded line box. This is structural (tag/role/layout), not a
+        // site profile, and covers transient player menus as well as web
+        // components.
+        mirror.style.setProperty('inset', '50% 0 auto 0');
+        mirror.style.setProperty('transform', 'translateY(-50%)');
+    }
     mirror.style.setProperty('height', 'auto');
     mirror.style.setProperty('overflow', 'visible');
     mirror.style.setProperty('visibility', 'visible', 'important');
@@ -2823,6 +2877,12 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     mirror.style.setProperty('text-align', style.textAlign);
     mirror.style.setProperty('z-index', '1');
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = 'true';
+}
+
+function hostCentersTextVertically(host: HTMLElement, style: CSSStyleDeclaration): boolean {
+    if (host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]')) return true;
+    const itemized = style.display.includes('flex') || style.display.includes('grid');
+    return itemized && (style.alignItems === 'center' || style.alignContent === 'center');
 }
 
 // A reading wider than its base (じゅん over 順) makes ruby layout grow the

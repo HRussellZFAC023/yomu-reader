@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.133#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.133#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.133#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.133#sha256=7KcT6oZ7W9zaPmnnkiAzC8Z+AkMPf7gp7Bvv6DZ6AqY=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.133#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -5883,7 +5883,13 @@ function createNonDestructiveTextMirror(context) {
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow;
-  const state = styleTextMirrorHost(host, mirrorRubyLayout, context.clipHoverOnly, Boolean(context.clipRow));
+  const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+  const state = styleTextMirrorHost(
+  host,
+  mirrorRubyLayout,
+  context.clipHoverOnly && !stableClippedMirror,
+  Boolean(context.clipRow)
+  );
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
   styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
@@ -5899,6 +5905,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     removeTextMirror(host);
     return;
   }
+  if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
   hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
@@ -5911,6 +5918,22 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   } catch (error) {
   removeTextMirror(host);
   throw error;
+  }
+}
+function prefersStableClippedMirror() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+}
+function stabilizeClippedTextMirror(mirror) {
+  mirror.style.setProperty("visibility", "visible", "important");
+  for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
+  reading.style.setProperty("display", "none", "important");
+  reading.style.setProperty("visibility", "hidden", "important");
+  }
+  for (const segment of mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word, ruby")) {
+  segment.style.setProperty("white-space", "normal", "important");
+  segment.style.setProperty("word-break", "normal", "important");
+  segment.style.setProperty("overflow-wrap", "break-word", "important");
+  segment.style.setProperty("line-break", "auto", "important");
   }
 }
 function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
@@ -6438,6 +6461,15 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
   mirror.style.setProperty("position", "absolute");
   mirror.style.setProperty("inset", "0 0 auto 0");
+  mirror.style.setProperty("box-sizing", "border-box");
+  mirror.style.setProperty("padding-top", style.paddingTop);
+  mirror.style.setProperty("padding-right", style.paddingRight);
+  mirror.style.setProperty("padding-bottom", style.paddingBottom);
+  mirror.style.setProperty("padding-left", style.paddingLeft);
+  if (hostCentersTextVertically(host, style)) {
+  mirror.style.setProperty("inset", "50% 0 auto 0");
+  mirror.style.setProperty("transform", "translateY(-50%)");
+  }
   mirror.style.setProperty("height", "auto");
   mirror.style.setProperty("overflow", "visible");
   mirror.style.setProperty("visibility", "visible", "important");
@@ -6451,6 +6483,11 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   mirror.style.setProperty("text-align", style.textAlign);
   mirror.style.setProperty("z-index", "1");
   if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+}
+function hostCentersTextVertically(host, style) {
+  if (host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]')) return true;
+  const itemized = style.display.includes("flex") || style.display.includes("grid");
+  return itemized && (style.alignItems === "center" || style.alignContent === "center");
 }
 function tightenMirrorRubyOverhang(mirror) {
   if (typeof Range.prototype.getBoundingClientRect !== "function") return;

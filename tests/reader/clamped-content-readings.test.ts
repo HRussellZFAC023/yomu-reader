@@ -119,6 +119,9 @@ describe('clamped content preserves base text and bounded geometry', () => {
         // "content" rows are visible at rest by default: the ONLY selector
         // that hides "content" readings is the :root hover-mode rule.
         expect(css).toContain('[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi');
+        expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)[\s\S]*\[data-yomu-clip-hover-host="true"\]:hover/);
+        expect(css).toMatch(/@media \(hover: none\), \(pointer: coarse\)[\s\S]*\.jpdb-reader-clip-hover-mirror[\s\S]*visibility: visible !important/);
+        expect(css).toMatch(/@media \(hover: none\), \(pointer: coarse\)[\s\S]*rt\.jpdb-reader-furi[\s\S]*display: none !important/);
         const contentSelectorUses = css.split('[data-yomu-clip-constrained="content"]').length - 1;
         expect(contentSelectorUses).toBe(1);
         expect(css).toMatch(/:root\[data-yomu-clamped-readings="hover"\]\s*\[data-yomu-clip-constrained="content"\]/);

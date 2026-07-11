@@ -120,6 +120,7 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.style.getPropertyValue('overflow')).toBe('visible');
         expect(host.style.getPropertyPriority('overflow')).toBe('important');
         expect(mirror.style.inset).toBe('0 0 auto 0');
+        expect(mirror.style.boxSizing).toBe('border-box');
         expect(mirror.style.width).toBe('');
         expect(mirror.style.minWidth).toBe('');
 
@@ -153,6 +154,27 @@ describe('repaint-loop mirror fallback', () => {
         expect(removeNonDestructiveScanMirrors(document)).toBe(1);
         expect(host.style.overflow).toBe('hidden');
         expect(host.style.visibility).toBe('');
+    });
+
+    it('preserves the host content-box inset in non-destructive mirrors', () => {
+        document.body.innerHTML = `<button id="control" style="box-sizing:border-box;height:40px;padding:13px 18px 13px 10px;line-height:14px">${TEXT}</button>`;
+        const host = document.getElementById('control')!;
+        const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
+
+        applyTokensToScanTarget({
+            ...target,
+            nonDestructive: true,
+            suppressRuby: true,
+            passiveInteraction: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.paddingTop).toBe('13px');
+        expect(mirror.style.paddingRight).toBe('18px');
+        expect(mirror.style.paddingBottom).toBe('13px');
+        expect(mirror.style.paddingLeft).toBe('10px');
+        expect(mirror.style.inset).toBe('50% 0 auto 0');
+        expect(mirror.style.transform).toBe('translateY(-50%)');
     });
 
     it('keeps broad YouTube comment containers visible by mirroring the attributed text host only', () => {

@@ -78,7 +78,7 @@ writeFileSync(entryPath, `
                 token({ card: card({ vid: 13, sid: 13, spelling: '読む', reading: 'よむ', pitchAccent: ['HL'], cardState: ['known'] }), start: 7, end: 10 }),
             ];
             const listHost = document.querySelector<HTMLElement>('#token-list')!;
-            listHost.innerHTML = renderTokenListHtml(tokens, selected, 'selection', undefined, settings);
+            listHost.innerHTML = renderTokenListHtml(tokens, selected, undefined, settings);
 
             const renderer = new CardPopoverRenderer({
                 getSettings: () => settings,
@@ -131,6 +131,7 @@ writeFileSync(entryPath, `
             const pos = cardHost.querySelector<HTMLElement>('.jpdb-reader-pos');
             // Pitch graph SVG in the card header (whole-word or per-component).
             const pitchContainer = cardHost.querySelector<HTMLElement>('.jpdb-reader-pitch');
+            const pitchComponents = [...cardHost.querySelectorAll<HTMLElement>('.jpdb-reader-pitch-component')];
             const pitchSvg = pitchContainer?.querySelector<SVGSVGElement>('svg') ?? null;
             const polyline = pitchContainer?.querySelector<SVGPolylineElement>('polyline') ?? null;
             const header = cardHost.querySelector<HTMLElement>('.jpdb-reader-header');
@@ -175,6 +176,7 @@ writeFileSync(entryPath, `
                 headerRect: rectOf(header),
                 headingRect: rectOf(heading),
                 pitchRect: rectOf(pitchContainer),
+                pitchComponentRects: pitchComponents.map(rectOf),
                 audioRect: rectOf(audioButton),
                 stripRubyRects,
                 stripWordRects,
@@ -284,6 +286,16 @@ async function runProbe(browserType, name) {
             `${name}: layout overlap detected: pitch graph overlaps the headword heading`, result);
         assert(boxesDisjoint(pitchRect, audioRect),
             `${name}: layout overlap detected: pitch graph overlaps the audio button`, result);
+        const componentRects = result.pitchComponentRects.filter(Boolean);
+        assert(componentRects.length >= 2, `${name}: expected multiple component pitch graphs`, result);
+        const graphLeft = Math.min(...componentRects.map(rect => rect.left));
+        const graphRight = Math.max(...componentRects.map(rect => rect.right));
+        const graphCenter = (graphLeft + graphRight) / 2;
+        const headerCenter = (result.headerRect.left + result.headerRect.right) / 2;
+        assert(Math.abs(graphCenter - headerCenter) <= 3,
+            `${name}: component pitch graphs are not centred in their full-width header row`, {
+                graphCenter, headerCenter, pitchComponentRects: componentRects, headerRect: result.headerRect,
+            });
 
         // Composed-of breakdown must sit at the popover-body inset, aligned with
         // the rest of the card content (e.g. the part-of-speech row), never

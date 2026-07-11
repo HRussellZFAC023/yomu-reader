@@ -1507,6 +1507,7 @@ html.jpdb-reader-doodle-active * {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: center;
   gap: 4px 10px;
 }
 .jpdb-reader-pitch-component {
