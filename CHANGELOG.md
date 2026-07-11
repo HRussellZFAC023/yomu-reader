@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.138] - 2026-07-11
+
+### Fixed
+
+- BookWalker OCR no longer stays on "Scanning..." for several minutes when Safari or an iPad userscript manager stalls while preparing the image or times out against Google Lens. The whole scan and both Lens transports now share one request deadline, and an exhausted deadline ends in the tappable retry state instead of automatically repeating the same long wait; the reconstructed page image remains in place when it is rescuing BookWalker's blank mobile canvas.
+
 ## [1.6.137] - 2026-07-11
 
 ### Fixed

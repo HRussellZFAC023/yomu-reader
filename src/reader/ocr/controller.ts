@@ -43,6 +43,7 @@ import {
 } from './canvas-page-identity';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
+import { promiseWithTimeout } from '../core/async-utils';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { Logger } from '../app/logger';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
@@ -1171,7 +1172,14 @@ export class ImageOcrController {
         manualRequested: boolean,
     ): Promise<void> {
         const inlineFallback = readFallbackOcrResult(image, false);
-        const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+        // Bound the whole provider attempt, including mobile canvas encoding and
+        // fallback transports. Individual HTTP timers do not cover a WebKit canvas
+        // encode whose callback never arrives, and the status must still converge.
+        const providerResult = inlineFallback ? null : await promiseWithTimeout(
+            this.recognizeImage(image, settings),
+            Math.max(1, settings.audioTimeoutMs),
+            'OCR timed out.',
+        );
         this.requireCurrentState(state);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
@@ -1709,6 +1717,12 @@ export class ImageOcrController {
         userRequested: boolean,
         error: unknown,
     ): boolean {
+        // A timeout has already consumed the complete per-attempt budget. Retrying
+        // it automatically is especially harmful on iPad/Safari, where a manager-
+        // blocked Lens request otherwise leaves the page saying "Scanning..." for
+        // several identical timeout windows. Surface the existing tappable failure
+        // state instead; immediate network/server failures still get bounded retry.
+        if (isOcrRequestTimeout(error)) return false;
         const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
         this.readerRasterProviderFailures.set(key, attempts);
         if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
@@ -4182,23 +4196,60 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
 
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings, invert = false): Promise<OcrResult | null> {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88, invert);
-    const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch(error => {
+    // The protobuf and upload endpoints are fallbacks within ONE OCR attempt, not
+    // independent requests that each get the full timeout. Safari userscript
+    // managers can leave a blocked GM request pending until its timer fires; giving
+    // both transports the full budget made one attempt take a minute, and the reader
+    // page retry loop multiplied that into several minutes of "Scanning...".
+    const deadline = Date.now() + Math.max(1, settings.audioTimeoutMs);
+    let protobufFailure: unknown;
+    const protobuf = await recognizeViaGoogleLensProtobuf(
+        blob,
+        canvas,
+        settings,
+        Math.max(1, remainingGoogleLensTimeout(deadline)),
+    ).catch(error => {
+        protobufFailure = error;
         log.warn('Google Lens protobuf failed', error);
         return undefined;
     });
     if (protobuf?.lines.length) return protobuf;
-    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch(error => {
+    const uploadTimeout = remainingGoogleLensTimeout(deadline);
+    if (uploadTimeout <= 0) {
+        if (protobuf === undefined) throw new Error('Google Lens OCR timed out.');
+        return protobuf;
+    }
+    let uploadFailure: unknown;
+    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch(error => {
+        uploadFailure = error;
         log.warn('Google Lens upload failed', error);
         return undefined;
     });
-    if (protobuf === undefined && upload === undefined) throw new Error('Google Lens OCR failed.');
+    if (upload === undefined && isOcrRequestTimeout(uploadFailure)) {
+        throw new Error('Google Lens OCR timed out.');
+    }
+    if (protobuf === undefined && upload === undefined) {
+        if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
+            throw new Error('Google Lens OCR timed out.');
+        }
+        throw new Error('Google Lens OCR failed.');
+    }
     return upload?.lines.length ? upload : (upload ?? protobuf ?? null);
 }
 
-async function recognizeViaGoogleLensProtobuf(blob: Blob, canvas: HTMLCanvasElement, settings: ReaderSettings): Promise<OcrResult | null> {
+function remainingGoogleLensTimeout(deadline: number): number {
+    return Math.max(0, deadline - Date.now());
+}
+
+async function recognizeViaGoogleLensProtobuf(
+    blob: Blob,
+    canvas: HTMLCanvasElement,
+    settings: ReaderSettings,
+    timeout: number,
+): Promise<OcrResult | null> {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
     return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
 }
 
@@ -5959,6 +6010,10 @@ function isLocalOcrConnectionError(error: unknown): boolean {
     return error.name === 'TypeError'
         || error.name === 'AbortError'
         || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+}
+
+function isOcrRequestTimeout(error: unknown): boolean {
+    return error instanceof Error && /timed out|timeout/i.test(error.message);
 }
 
 function isLocalOcrUnavailableError(error: unknown): error is LocalOcrUnavailableError {

@@ -423,21 +423,21 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('reports failed BookWalker OCR when both Google Lens transports fail', async () => {
+    it('bounds a timed-out BookWalker Lens attempt instead of retrying for minutes', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         stubCanvasEncoding();
         pageCounter('5/13');
-        const fetchMock = vi.fn(async () => {
-            throw new TypeError('Failed to fetch');
-        });
+        const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+        }));
         vi.stubGlobal('fetch', fetchMock);
         const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
         viewport.classList.add('currentScreen');
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        const controller = createController({ ocrInvertDarkPanels: false });
+        const controller = createController({ ocrInvertDarkPanels: false, audioTimeoutMs: 120 });
         try {
             let frame: HTMLImageElement | null = null;
             await waitForExpect(() => {
@@ -449,10 +449,42 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             frame!.dispatchEvent(new Event('load'));
 
             await waitForExpect(() => {
-                expect(fetchMock).toHaveBeenCalled();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
                 expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
-            }, 5_000);
+            }, 1_000);
+            expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+            expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('terminates a hung BookWalker provider attempt at the page deadline', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        const controller = createController({ audioTimeoutMs: 120 });
+        const recognizeImage = vi.fn(() => new Promise<OcrResult | null>(() => { /* deliberately hung */ }));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
+            }, 1_000);
+            expect(recognizeImage).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
         }
@@ -469,7 +501,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
         const controller = createController();
         const recognizeImage = vi.fn()
-            .mockRejectedValueOnce(new Error('OCR service timeout'))
+            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
             .mockResolvedValue({ width: 1200, height: 1600, lines: [
                 { text: '再スキャン', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
             ] } satisfies OcrResult);

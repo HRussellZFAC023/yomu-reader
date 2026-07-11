@@ -6358,6 +6358,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
+  function promiseWithTimeout(promise, timeoutMs, message) {
+    let timeoutId = 0;
+    const timeout = new Promise((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([
+      promise,
+      timeout
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
   function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -8788,7 +8798,11 @@ ${candidate.depth}`;
     }
     async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
-      const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+      const providerResult = inlineFallback ? null : await promiseWithTimeout(
+        this.recognizeImage(image, settings),
+        Math.max(1, settings.audioTimeoutMs),
+        "OCR timed out."
+      );
       this.requireCurrentState(state2);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
@@ -9203,6 +9217,7 @@ ${candidate.depth}`;
       return state2.image.dataset.ocrAttemptKey || fallbackKey;
     }
     scheduleReaderRasterProviderRetry(state2, key, userRequested, error) {
+      if (isOcrRequestTimeout(error)) return false;
       const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + 1;
       this.readerRasterProviderFailures.set(key, attempts);
       if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS) return false;
@@ -11185,22 +11200,48 @@ ${spelling}`);
   }
   async function recognizeViaGoogleLens(image, settings, invert = false) {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-    const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch((error) => {
+    const deadline = Date.now() + Math.max(1, settings.audioTimeoutMs);
+    let protobufFailure;
+    const protobuf = await recognizeViaGoogleLensProtobuf(
+      blob,
+      canvas,
+      settings,
+      Math.max(1, remainingGoogleLensTimeout(deadline))
+    ).catch((error) => {
+      protobufFailure = error;
       log.warn("Google Lens protobuf failed", error);
       return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
-    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch((error) => {
+    const uploadTimeout = remainingGoogleLensTimeout(deadline);
+    if (uploadTimeout <= 0) {
+      if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
+      return protobuf;
+    }
+    let uploadFailure;
+    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
+      uploadFailure = error;
       log.warn("Google Lens upload failed", error);
       return void 0;
     });
-    if (protobuf === void 0 && upload === void 0) throw new Error("Google Lens OCR failed.");
+    if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
+      throw new Error("Google Lens OCR timed out.");
+    }
+    if (protobuf === void 0 && upload === void 0) {
+      if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
+        throw new Error("Google Lens OCR timed out.");
+      }
+      throw new Error("Google Lens OCR failed.");
+    }
     return upload?.lines.length ? upload : upload ?? protobuf ?? null;
   }
-  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings) {
+  function remainingGoogleLensTimeout(deadline) {
+    return Math.max(0, deadline - Date.now());
+  }
+  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
     return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
   }
   function ocrRecognizer(settings) {
@@ -12564,6 +12605,9 @@ ${spelling}`);
     if (isLocalOcrUnavailableError(error)) return true;
     if (!(error instanceof Error)) return true;
     return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+  }
+  function isOcrRequestTimeout(error) {
+    return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
