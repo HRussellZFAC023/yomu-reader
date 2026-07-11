@@ -5779,7 +5779,7 @@ describe('reader helpers', () => {
         expect(html).toContain('--chip-bg:#2563c7');
     });
 
-    it('renders the built-in Jiten lookup pill by default with its provider color', () => {
+    it('renders the built-in lookup pills Yomu-first with their provider colors', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -5795,8 +5795,8 @@ describe('reader helpers', () => {
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
+        expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>Jiten '));
         expect(html.indexOf('>Jiten ')).toBeLessThan(html.indexOf('>JPDB '));
-        expect(html.indexOf('>JPDB ')).toBeLessThan(html.indexOf('>Yomu '));
         expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
@@ -12645,13 +12645,13 @@ describe('reader helpers', () => {
         expect(formatMetaFrequency({ displayValue: { value: 'Top 400' } })).toBe('#Top 400');
     });
 
-    it('sets external dictionary lookup pill defaults for Jiten-first and local-first setup', () => {
+    it('sets external dictionary lookup pill defaults for Yomu-first and local-first setup', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
+            ['yomu-search', true],
             ['jiten', true],
             ['jiten-frequency', true],
             ['jpdb', true],
             ['jpdb-frequency', true],
-            ['yomu-search', true],
             ['bunpro', true],
             ['jisho', false],
             ['weblio', false],
@@ -12663,11 +12663,11 @@ describe('reader helpers', () => {
             ['copy', false],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
+            ['yomu-search', true],
             ['jiten', true],
             ['jiten-frequency', true],
             ['jpdb', true],
             ['jpdb-frequency', true],
-            ['yomu-search', true],
             ['bunpro', true],
             ['jisho', false],
             ['weblio', false],
@@ -12679,11 +12679,11 @@ describe('reader helpers', () => {
             ['copy', true],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
+            ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
             ['jiten-frequency', 'Jiten', ''],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
             ['jpdb-frequency', 'JPDB', ''],
-            ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['bunpro', 'Bunpro', 'https://bunpro.jp/search?query={query}'],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
@@ -12698,11 +12698,11 @@ describe('reader helpers', () => {
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
         ])).toMatchObject([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
+            { id: 'yomu-search' },
             { id: 'jiten' },
             { id: 'jiten-frequency' },
             { id: 'jpdb' },
             { id: 'jpdb-frequency' },
-            { id: 'yomu-search' },
             { id: 'bunpro' },
             { id: 'jisho' },
             { id: 'weblio' },
@@ -12733,11 +12733,11 @@ describe('reader helpers', () => {
             const settings = await loadSettings();
 
             expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
+                ['yomu-search', true],
                 ['jiten', true],
                 ['jiten-frequency', true],
                 ['jpdb', true],
                 ['jpdb-frequency', true],
-                ['yomu-search', true],
                 ['bunpro', true],
                 ['jisho', false],
                 ['weblio', false],
@@ -12754,7 +12754,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('moves the previous built-in lookup pill order to Jiten first on load', async () => {
+    it('moves the previous built-in lookup pill order to Yomu first on load', async () => {
         const storageKey = 'jpdb-popup-reader-settings';
         const previous = localStorage.getItem(storageKey);
         const linksById = new Map(defaultDictionaryLookupLinks('local').map(link => [link.id, link]));
@@ -12783,7 +12783,7 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
+            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
             expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
             expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
         } finally {
@@ -12800,7 +12800,7 @@ describe('reader helpers', () => {
         const html = renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'));
         document.body.innerHTML = `<form>${html}</form>`;
         const form = document.querySelector('form')!;
-        expect(form.querySelector<HTMLInputElement>('[data-lookup-link-row] input[name$=".id"]')?.value).toBe('jiten');
+        expect(form.querySelector<HTMLInputElement>('[data-lookup-link-row] input[name$=".id"]')?.value).toBe('yomu-search');
         const copyRow = Array.from(form.querySelectorAll<HTMLElement>('[data-lookup-link-row]'))
             .find(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value === 'copy')!;
 

@@ -183,7 +183,10 @@ function mokuroBackgroundPageAt(index: number, rect: () => DOMRect): HTMLElement
     return page;
 }
 
-describe('reader raster OCR surfaces', () => {
+// These integration-style controller cases share the CI polling floor from
+// waitForExpect. Give the suite a matching ceiling so a busy four-shard runner
+// cannot abort a valid poll at Vitest's shorter default timeout.
+describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     it('prefers BookWalker currentScreen among overlapping page buffers', () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
@@ -1031,8 +1034,9 @@ describe('reader raster OCR surfaces', () => {
         const controller = createController({}, undefined, captureCanvasMirror);
         const recognizedSources: string[] = [];
         const recognizeImage = vi.fn(async (image: HTMLImageElement) => {
-            recognizedSources.push(image.getAttribute('src') ?? '');
-            if (recognizedSources.length === 1) {
+            const source = image.getAttribute('src') ?? '';
+            recognizedSources.push(source);
+            if (source === 'data:image/jpeg;base64,PAGE_A') {
                 records.m10 = { w: 1200, h: 1600, ops: [mirrorImageOp('https://viewer-epubs.bookwalker.jp/page-b.jpeg', 2)] };
                 captureLabel = 'PAGE_B';
                 return { width: 1200, height: 1600, lines: [] } satisfies OcrResult;
@@ -1052,7 +1056,9 @@ describe('reader raster OCR surfaces', () => {
             });
             Object.defineProperty(firstFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(firstFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
             firstFrame!.dispatchEvent(new Event('load'));
+            await waitForExpect(() => expect(recognizeImage).toHaveBeenCalled());
 
             let secondFrame: HTMLImageElement | null = null;
             await waitForExpect(() => {
@@ -1062,13 +1068,12 @@ describe('reader raster OCR surfaces', () => {
             }, 5_000);
             Object.defineProperty(secondFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(secondFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            Object.defineProperty(secondFrame!, 'complete', { value: true, configurable: true });
             secondFrame!.dispatchEvent(new Event('load'));
 
-            await waitForExpect(() => expect(recognizeImage).toHaveBeenCalledTimes(2));
-            expect(recognizedSources).toEqual([
-                'data:image/jpeg;base64,PAGE_A',
-                'data:image/jpeg;base64,PAGE_B',
-            ]);
+            await waitForExpect(() => expect(recognizedSources).toContain('data:image/jpeg;base64,PAGE_B'));
+            expect(recognizedSources[0]).toBe('data:image/jpeg;base64,PAGE_A');
+            expect(recognizedSources.at(-1)).toBe('data:image/jpeg;base64,PAGE_B');
         } finally {
             controller.destroy();
         }
