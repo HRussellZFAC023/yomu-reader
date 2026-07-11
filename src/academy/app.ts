@@ -9,7 +9,9 @@
 import { createShell, type ShellController, type ShellRoute } from './ui/shell';
 import { renderCast, renderSettings, renderSyllabus } from './ui/screens';
 import { renderArea, renderMap } from './world/map';
-import { advanceSlot, addBondPoints, loadWorldState, markSceneSeen, saveWorldState, type WorldState } from './world/state';
+import { advanceSlot, addBondPoints, bondRank, loadWorldState, markSceneSeen, saveWorldState, type WorldState } from './world/state';
+import { castAtSpot } from './cast';
+import { bondSceneForArea } from './story/bonds';
 import type { AreaActivityKind, AreaDefinition } from './world/areas';
 import { loadCourse, weekSceneScript, type CourseView, type CourseWeekView } from './content/course';
 import { runScene } from './engine/runtime';
@@ -100,12 +102,23 @@ export class AcademyApp {
                 if (week) await this.openWeek(week, { advanceOnFinish: true });
                 break;
             }
-            case 'bond-scene':
-                // Bond scenes are authored per character/rank; until authored
-                // scenes land, spending time gives a small honest beat.
-                await this.playSmallTalk(area);
+            case 'bond-scene': {
+                const spotAlias: Record<string, string> = { campus: 'quad', park: 'garden', street: 'station' };
+                const present = castAtSpot((spotAlias[area.id] ?? area.id) as never).map(member => member.id);
+                const entry = bondSceneForArea(
+                    area.id,
+                    area.id === 'classroom' ? ['rie', ...present] : present,
+                    character => bondRank(this.state.bonds[character] ?? 0),
+                    this.state.seenScenes,
+                );
+                if (entry) {
+                    await this.playScene(entry.scene);
+                } else {
+                    await this.playSmallTalk(area);
+                }
                 this.spendSlot();
                 break;
+            }
             default:
                 // Other activity players land in later slices; keep the map honest.
                 this.enterArea(area);
@@ -282,9 +295,10 @@ export class AcademyApp {
         });
         const result = await runScene(script, { stage, flags: { ...this.state.flags } });
         this.shell.setImmersive(false);
-        const firstTime = markSceneSeen(this.state, script.id) || options.replay !== true;
+        const firstTime = markSceneSeen(this.state, script.id);
         for (const [flag, value] of Object.entries(result.flags)) {
             if (flag.startsWith('bond:')) {
+                // Bond points award once, on the first completion only.
                 if (firstTime && !options.replay && typeof value === 'number') {
                     addBondPoints(this.state, flag.slice('bond:'.length), value);
                 }
