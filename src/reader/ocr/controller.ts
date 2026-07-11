@@ -99,6 +99,7 @@ interface OcrRenderableMediaMutationSummary {
 
 interface PendingCanvasSnapshot {
     key: string;
+    contentToken?: string;
     startedAt: number;
     cancelled: boolean;
     timeoutId?: number;
@@ -154,7 +155,7 @@ const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
 const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
 const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
-const READER_RASTER_EMPTY_RETRY_MS = 650;
+const READER_RASTER_EMPTY_RETRY_MS = 400;
 const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
 const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
 // Mirror capture can spend one timeout fetching, one decoding, then six seconds
@@ -408,8 +409,8 @@ export class ImageOcrController {
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
     // Entries are short-lived: settled in the capture's `finally`, cancelled on
-    // release/rebind/teardown. A real Map (not WeakMap) so pointer-ownership can
-    // ask "is any capture pending?" without tracking a parallel counter.
+    // release/rebind/teardown. Keep a real Map so pointer ownership can ask whether
+    // any capture is pending and destroy can invalidate every in-flight capture.
     private readonly pendingCanvasSnapshots = new Map<HTMLCanvasElement, PendingCanvasSnapshot>();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
     // stable surface location instead of the canvas object: NFBR sometimes swaps an
@@ -1683,16 +1684,17 @@ export class ImageOcrController {
         window.setTimeout(() => {
             if (!this.isCurrentContentState(state, key)) return;
             const canvas = this.canvasFrameSources.get(state.image);
-            if (canvas) {
-                this.releaseCanvasFrame(canvas);
-                this.scheduleCanvasCaptureRetry(canvas, userRequested);
+            if (canvas && this.canvasFrameNeedsResnapshot(canvas)) {
+                this.releaseCanvasFrameForResnapshot(canvas);
+                this.scheduleReaderRasterRefresh(0);
                 return;
             }
-            const background = this.backgroundFrameSources.get(state.image);
-            if (background) {
-                this.releaseBackgroundFrame(background);
-                this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
-            }
+            // The captured page is already stable and decoded. Rebuilding that
+            // same frame here repeats mirror work and restarts the status cycle.
+            // A genuine repaint is still detected by the surface identity poll;
+            // an empty provider response should retry OCR on the current frame.
+            state.autoSkipped = false;
+            this.enqueue(state.image, userRequested);
         }, READER_RASTER_EMPTY_RETRY_MS);
         return attempts;
     }
@@ -2328,14 +2330,21 @@ export class ImageOcrController {
             }
         }
         const existingPending = this.pendingCanvasSnapshots.get(canvas);
-        if (existingPending?.key === key) {
+        const pendingContentChanged = Boolean(existingPending
+            && isRealCanvasContentChange(existingPending.contentToken ?? '', startContentToken));
+        if (existingPending?.key === key && !pendingContentChanged) {
             if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
             this.cancelCanvasSnapshot(canvas, existingPending);
             this.handleCanvasCaptureNotReady(canvas, canvas.getBoundingClientRect(), userRequested);
             return;
         }
         if (existingPending) this.cancelCanvasSnapshot(canvas, existingPending);
-        const pendingSnapshot: PendingCanvasSnapshot = { key, startedAt: Date.now(), cancelled: false };
+        const pendingSnapshot: PendingCanvasSnapshot = {
+            key,
+            contentToken: startContentToken || undefined,
+            startedAt: Date.now(),
+            cancelled: false,
+        };
         this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
         const rect = canvas.getBoundingClientRect();
         try {
@@ -2469,10 +2478,8 @@ export class ImageOcrController {
         userRequested: boolean,
     ): void {
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
-        // A pause can land while the mirror/screenshot capture was awaiting;
-        // appending now would paint an overlay on a paused page.
         if (!ocrRuntimeActive(this.options.getSettings())) return;
+        if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
         const finishContentToken = canvasStablePageContentToken(canvas);
         if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
             this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, 'content identity');
@@ -2763,6 +2770,18 @@ export class ImageOcrController {
         userRequested: boolean,
     ): boolean {
         if (userRequested || !isBookwalkerViewerHost()) return false;
+        // Firefox can report BookWalker's just-created canvas as origin-readable
+        // while it is still a blank backing store. Only bypass recorder boot when
+        // that readable surface also contains page-like pixels; otherwise the
+        // ordinary retry budget expires seconds before BookWalker paints/claims it.
+        if (isCanvasReadable(canvas) && canvasRenderedContentSignature(canvas)) return false;
+        // Tampermonkey can finish the sandboxed app before its page-world recorder
+        // injection has installed or claimed BookWalker's first canvas. Treat that
+        // short startup gap as recorder boot: the live canvas becomes capturable as
+        // soon as the recorder arrives, while spending the ordinary retry budget
+        // here flashes a false failure immediately before the same page succeeds.
+        // Readable canvases bypass this wait above, and the bounded grace still
+        // terminates genuinely unavailable recorder/screenshot paths.
         if (canvasMirrorContentToken(canvas)) {
             if (this.canvasMirrorWaitStartedAt.delete(canvas)) this.canvasCaptureAttempts.delete(canvas);
             return false;
@@ -5362,13 +5381,14 @@ function canvasFrameContentKey(contentKey: string, canvas: HTMLCanvasElement): s
     return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
 }
 
-function bookwalkerCanvasContentKey(contentToken: string | undefined, regionKey: string): string | undefined {
+function bookwalkerCanvasContentKey(
+    contentToken: string | undefined,
+    regionKey: string,
+): string | undefined {
     if (!isBookwalkerViewerHost() || !contentToken) return undefined;
-    // The mirror token is derived from the canonical source-image draw ops, so it
-    // is resolution-independent: BookWalker's zoom re-rasterizes the SAME page at
-    // a new intrinsic size. Embedding the raster dimensions here made every zoom
-    // step a fresh OCR cache miss (a new Lens call per click); the proportional
-    // OCR boxes fit any raster of the same page, so the page IS the key.
+    // Provider coordinates are normalized to the captured frame. A full-page
+    // zoom changes bitmap dimensions but not page content; a manual crop remains
+    // region-keyed.
     return `bw:${contentToken}${regionKey}`;
 }
 
@@ -5398,8 +5418,6 @@ function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
         return [
             canvasReaderHasStableSurface(canvas) ? '' : canvasReaderPageCounter(),
             surfaceId,
-            canvas.width,
-            canvas.height,
         ].join('|');
     }
     return [

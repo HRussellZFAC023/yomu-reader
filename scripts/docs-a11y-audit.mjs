@@ -260,6 +260,17 @@ async function assertHomepageDemo(page, label) {
     await page.locator('.yomu-manga-ocr').scrollIntoViewIfNeeded();
     await page.evaluate(() => document.querySelector('.yomu-manga-ocr')?.scrollIntoView({ block: 'center', inline: 'nearest' }));
     await page.waitForFunction(() => window.__yomuReaderAppInitialized === true, null, { timeout: 10000 });
+    const embeddedOcrLines = await page.locator('.yomu-manga-image').getAttribute('data-ocr-lines');
+    assertAudit(embeddedOcrLines === null, `${label} homepage must use provider geometry, not canned OCR boxes`);
+    // Deterministic fixture for the local accessibility audit only. Live geometry
+    // acceptance is captured separately against yomureader.com.
+    await page.evaluate(() => {
+        const image = document.querySelector('.yomu-manga-image');
+        if (!(image instanceof HTMLImageElement)) throw new Error('Homepage manga image missing');
+        image.dataset.ocrLines = JSON.stringify([
+            { text: '日本語を読む', box: { left: 0.2, top: 0.3, width: 0.4, height: 0.08 } },
+        ]);
+    });
     await page.locator('.yomu-manga-image').click();
     await page.waitForFunction(() => (
         document.querySelectorAll('.yomu-manga-figure .jpdb-ocr-line, .jpdb-ocr-layer .jpdb-ocr-line').length >= 1
@@ -294,6 +305,8 @@ async function assertHomepageDemo(page, label) {
         const phoneFrameRect = rect(document.querySelector('.yomu-device-frame'));
         const ocrLines = [...document.querySelectorAll('.jpdb-ocr-layer .jpdb-ocr-line, .yomu-manga-figure .jpdb-ocr-line')];
         const ocrText = ocrLines.map(line => line.getAttribute('aria-label') || line.getAttribute('data-ocr-text') || line.textContent || '').join(' ');
+        const mangaImageRect = document.querySelector('.yomu-manga-image')?.getBoundingClientRect();
+        const ocrLayerRect = document.querySelector('.jpdb-ocr-layer')?.getBoundingClientRect();
         const hasSubtitlePlayer = Boolean(subtitlePlayer);
         const subtitleWords = document.querySelectorAll('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').length;
         const subtitleRailStyle = subtitlePlayer
@@ -326,6 +339,12 @@ async function assertHomepageDemo(page, label) {
             mangaTextLayerCount: document.querySelectorAll('.yomu-manga-text-layer').length,
             ocrLineCount: ocrLines.length,
             ocrText,
+            ocrLayerEdgeDelta: mangaImageRect && ocrLayerRect ? Math.max(
+                Math.abs(mangaImageRect.left - ocrLayerRect.left),
+                Math.abs(mangaImageRect.top - ocrLayerRect.top),
+                Math.abs(mangaImageRect.width - ocrLayerRect.width),
+                Math.abs(mangaImageRect.height - ocrLayerRect.height),
+            ) : null,
             ocrRegionCount: document.querySelectorAll('.yomu-ocr-region').length,
             ocrCardCount: document.querySelectorAll('[data-yomu-ocr-card], .yomu-ocr-card').length,
             figcaptionCount: document.querySelectorAll('.yomu-manga-figure figcaption').length,
@@ -376,6 +395,7 @@ async function assertHomepageDemo(page, label) {
     assertAudit(snapshot.mangaTextLayerCount === 0, `${label} should not render a hardcoded manga text layer: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.ocrRegionCount === 0 && snapshot.ocrCardCount === 0, `${label} should not render custom OCR buttons/cards: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.ocrLineCount >= 1, `${label} real OCR runtime did not prepare manga lookup lines: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.ocrLayerEdgeDelta !== null && snapshot.ocrLayerEdgeDelta <= 1, `${label} OCR layer is not aligned to the manga image: ${snapshot.ocrLayerEdgeDelta}`);
     assertAudit(snapshot.figcaptionCount === 0, `${label} manga caption should not be visible: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.sampleVideo?.controls && !snapshot.sampleVideo?.autoplay, `${label} video sample should be a controlled non-autoplay player: ${JSON.stringify(snapshot.sampleVideo)}`);
     assertAudit(snapshot.sampleVideo?.sourceCount >= 2 && snapshot.sampleVideo?.trackCount >= 1, `${label} video sample is missing sources or subtitles: ${JSON.stringify(snapshot.sampleVideo)}`);

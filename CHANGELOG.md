@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.129] - 2026-07-11
+
+### Fixed
+
+- Manga OCR on the Yomu homepage uses the OCR provider's real image coordinates again instead of three hand-authored boxes that drifted away from the printed text. The overlay follows the rendered image through page scroll, browser scaling, and object-fit layouts, and recognised text stays transparent until you hover it.
+- BookWalker OCR now waits through Firefox's blank-but-readable startup canvas, retries an empty response on the stable captured page instead of rebuilding it, and cancels a capture when the recycled canvas turns to different content. This removes false failures, repeated screenshots, stale previous-page text, and scanning/status flicker.
+- BookWalker zoom no longer changes page identity just because the viewer rewrites raster size or draw destination coordinates, so a recognised page stays aligned and comes back from cache without another OCR request. Extension screenshot fallback also refuses to capture while the reader tab is not active.
+- Batched public Jiten lookups keep parser results inside their original term boundary, preventing one word in a batch from borrowing another word's vocabulary result.
+
 ## [1.6.128] - 2026-07-11
 
 ### Removed

@@ -88,7 +88,7 @@ function recorderSummary(records: Record<string, MirrorRecord>, id: string): { t
         q: REQUEST_ATTR,
         p: PULL_EVENT,
         r: MARKER_ATTR,
-        v: 2,
+        v: 3,
     });
     const root = pageDocument.documentElement;
     root.setAttribute(REQUEST_ATTR, `summary:${id}`);
@@ -128,8 +128,25 @@ describe('canvas mirror identity contract', () => {
         const readerToken = mirrorContentTokenForRecords('m10', id => records[id]);
         const summary = recorderSummary(records, 'm10');
 
-        expect(summary.version).toBe(2);
+        expect(summary.version).toBe(3);
         expect(summary.token).toBe(readerToken);
+    });
+
+    it('keeps page identity stable when BookWalker only rescales the same source', () => {
+        const original = imageOp('https://viewer-epubs-trial.bookwalker.jp/book/OPS/images/page.jpg/0.jpeg', 1);
+        Object.assign(original, { dx: 0, dy: 0, dw: 900, dh: 1100 });
+        const zoomed = { ...original, seq: 2, dx: -45, dw: 990, dh: 1210 };
+        const recordsAt100: Record<string, MirrorRecord> = {
+            m10: { w: 900, h: 1100, ops: [original] },
+        };
+        const recordsAt110: Record<string, MirrorRecord> = {
+            m10: { w: 990, h: 1210, ops: [zoomed] },
+        };
+
+        expect(mirrorContentTokenForRecords('m10', id => recordsAt110[id]))
+            .toBe(mirrorContentTokenForRecords('m10', id => recordsAt100[id]));
+        expect(recorderSummary(recordsAt110, 'm10').token)
+            .toBe(recorderSummary(recordsAt100, 'm10').token);
     });
 
     it('uses the same latest-source fallback in page and reader realms', () => {

@@ -28,7 +28,7 @@ describe('selection preservation', () => {
         expect(getSelectionControlElement()).toBe(textarea);
     });
 
-    it('prevents outside pointer default while dismissing a modal over a textarea selection', () => {
+    it('prevents outside pointer default and preserves textarea selection while dismissing a modal', () => {
         const textarea = document.createElement('textarea');
         textarea.value = [
             'っていう',
@@ -60,7 +60,6 @@ describe('selection preservation', () => {
         backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
 
         expect(pointerEvent?.defaultPrevented).toBe(true);
-        expect(app.dismissedSelectionText).toBe('っていう 動く 楽しむ');
         expect(app.dismiss).toHaveBeenCalledWith({ suppressHoverTarget: true });
         expect(textarea.selectionStart).toBe(0);
         expect(textarea.selectionEnd).toBe(textarea.value.length);

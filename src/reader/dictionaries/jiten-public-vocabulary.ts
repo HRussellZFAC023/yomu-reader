@@ -203,10 +203,10 @@ export class JitenPublicVocabularyClient {
     }
 
     private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
-        const parsed = await this.parseTerms(terms);
+        const parsedByTerm = await this.parseTermGroups(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
-        terms.forEach(term => {
-            const candidate = bestParsedWordForBatchTerm(term, parsed);
+        terms.forEach((term, index) => {
+            const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
             if (candidate) candidatesByTerm.set(term, candidate);
         });
 
@@ -253,6 +253,16 @@ export class JitenPublicVocabularyClient {
     }
 
     private async requestParseText(text: string): Promise<PublicParseWord[]> {
+        const records = await this.requestParseRecords(text);
+        return records.filter(word => word.wordId > 0);
+    }
+
+    private async parseTermGroups(terms: readonly string[]): Promise<PublicParseWord[][]> {
+        const records = await this.requestParseRecords(terms.join(PARSE_TERM_SEPARATOR));
+        return publicParseTermGroups(terms, records);
+    }
+
+    private async requestParseRecords(text: string): Promise<PublicParseWord[]> {
         return sharedParseGate.run(async () => {
             if (this.isBackoffActive()) return [];
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
@@ -394,8 +404,39 @@ function normalizePublicParseWord(value: unknown): PublicParseWord | null {
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
-    if (wordId === undefined || wordId <= 0 || readingIndex === undefined || !originalText) return null;
+    if (wordId === undefined || wordId < 0 || readingIndex === undefined || !originalText) return null;
     return { wordId, readingIndex, originalText };
+}
+
+function publicParseTermGroups(terms: readonly string[], parsed: readonly PublicParseWord[]): PublicParseWord[][] {
+    const groups = terms.map((): PublicParseWord[] => []);
+    let termIndex = 0;
+    let consumed = '';
+    let complete = false;
+    for (const word of parsed) {
+        if (termIndex >= terms.length) break;
+        const surface = normalizeLookupText(word.originalText);
+        if (!surface) continue;
+        if (surface === PARSE_TERM_SEPARATOR) {
+            termIndex++;
+            consumed = '';
+            complete = false;
+            continue;
+        }
+        if (complete) {
+            termIndex++;
+            consumed = '';
+            complete = false;
+            if (termIndex >= terms.length) break;
+        }
+        const target = normalizeLookupText(terms[termIndex] ?? '');
+        const next = `${consumed}${surface}`;
+        if (!target.startsWith(next)) continue;
+        consumed = next;
+        if (word.wordId > 0) groups[termIndex].push(word);
+        complete = consumed === target;
+    }
+    return groups;
 }
 
 function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
@@ -407,11 +448,6 @@ function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicP
         })
         ?? parsed[0]
         ?? null;
-}
-
-function bestParsedWordForBatchTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
-    const normalized = normalizeLookupText(term);
-    return parsed.find(word => normalizeLookupText(word.originalText) === normalized) ?? null;
 }
 
 function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {

@@ -76,7 +76,7 @@ const PULL_EVENT = 'yomu-canvas-mirror-pull';
 // The page-world recorder can be installed by another Yomu version before this
 // reader starts. Only trust its compact summaries when both sides use the same
 // canonical identity representation; records remain backward-compatible.
-const MIRROR_TOKEN_CONTRACT_VERSION = 2;
+const MIRROR_TOKEN_CONTRACT_VERSION = 3;
 
 interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; q?: string; p: string; r: string; v?: number; }
 
@@ -232,16 +232,14 @@ function collectLeafContentFingerprints(
                 collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
             }
         } else if (op.url) {
+            // Destination geometry is presentation, not page identity: real
+            // BookWalker zoom rewrites dx/dy/dw/dh for the same source page.
             out.add([
                 canonicalBookwalkerAssetUrl(op.url),
                 op.sx,
                 op.sy,
                 op.sw,
                 op.sh,
-                op.dx,
-                op.dy,
-                op.dw,
-                op.dh,
             ].join(':'));
         }
     }
@@ -272,10 +270,6 @@ function collectLeafContentFingerprintsFromSnapshot(
                 op.sy,
                 op.sw,
                 op.sh,
-                op.dx,
-                op.dy,
-                op.dw,
-                op.dh,
             ].join(':'));
         }
     }
@@ -817,16 +811,14 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         }
         return (hash >>> 0).toString(36);
     };
+    // Keep the page-world summary byte-identical to the reader contract above.
+    // Zoom destination coordinates are deliberately excluded.
     const leafFingerprint = (op: MirrorOp): string => [
         canonicalUrl(op.url),
         op.sx,
         op.sy,
         op.sw,
         op.sh,
-        op.dx,
-        op.dy,
-        op.dw,
-        op.dh,
     ].join(':');
     const shouldUseLatestSource = (id: string, beforeSeq: number): boolean => {
         if (!Number.isFinite(beforeSeq)) return false;

@@ -212,16 +212,14 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '下さいね', spelling: '下さい', reading: 'ください', pitchPosition: 3 },
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
-const HOSTED_MANGA_OCR_LINES = [
-    { text: 'ファントムハイヴ家の執事たるもの', box: { left: 0.52, top: 0.09, width: 0.38, height: 0.055 } },
-    { text: 'この程度の技が使えなくてどうします', box: { left: 0.08, top: 0.47, width: 0.52, height: 0.07 } },
-    { text: '約束通りこれから晩餐の復習と予習を下さいね', box: { left: 0.12, top: 0.82, width: 0.72, height: 0.06 } },
-] as const;
-
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Removed': '削除',
     'Selecting Japanese text on a page no longer opens a lookup pop-up. The panel that used to appear on every selection — often unwanted, and covering most of the screen on phones — is gone, so selecting text just selects it. To look up a word, hover or tap it as before: Yomu still shows its reading, meaning, pitch accent, and dictionary links on the words it has parsed.': 'ページ上の日本語を選択しても、検索ポップアップが開かなくなりました。選択のたびに表示されていたパネル（多くの場合は不要で、スマートフォンでは画面の大半を覆っていました）はなくなり、テキストを選択すると通常どおり選択されるだけになります。単語を調べるには、これまでどおりホバーまたはタップしてください。よむは解析済みの単語について、読み・意味・ピッチアクセント・辞書リンクを引き続き表示します。',
     'Removed the "Selection popups" and "Show translation in selection popovers" settings, which no longer had anything to control.': '「選択ポップアップを表示」と「選択ポップアップに翻訳を表示」の設定は、制御する対象がなくなったため削除しました。',
+    "Manga OCR on the Yomu homepage uses the OCR provider's real image coordinates again instead of three hand-authored boxes that drifted away from the printed text. The overlay follows the rendered image through page scroll, browser scaling, and object-fit layouts, and recognised text stays transparent until you hover it.": "よむのホームページの漫画OCRは、印刷された文字からずれていた3つの手作業の枠ではなく、OCRプロバイダーが返す実際の画像座標を再び使います。オーバーレイはページのスクロール、ブラウザーの拡大縮小、object-fitレイアウトでも表示画像に追従し、認識された文字はホバーするまで透明のままです。",
+    "BookWalker OCR now waits through Firefox's blank-but-readable startup canvas, retries an empty response on the stable captured page instead of rebuilding it, and cancels a capture when the recycled canvas turns to different content. This removes false failures, repeated screenshots, stale previous-page text, and scanning/status flicker.": "BookWalker OCRは、Firefoxで起動直後に読み取り可能だが空のキャンバスを待ち、空の応答時には安定した取得済みページを作り直さず再試行し、再利用キャンバスの内容が別ページに変わった場合は取得を中止します。誤った失敗表示、スクリーンショットの繰り返し、前ページの古い文字、スキャン状態のちらつきを防ぎます。",
+    "BookWalker zoom no longer changes page identity just because the viewer rewrites raster size or draw destination coordinates, so a recognised page stays aligned and comes back from cache without another OCR request. Extension screenshot fallback also refuses to capture while the reader tab is not active.": "BookWalkerの拡大縮小で、ビューアーがラスターサイズや描画先座標を書き換えただけではページ識別子が変わらなくなりました。認識済みページは位置が揃ったまま、追加のOCR要求なしでキャッシュから復元されます。拡張機能のスクリーンショット代替経路も、リーダータブがアクティブでない間は取得しません。",
+    "Batched public Jiten lookups keep parser results inside their original term boundary, preventing one word in a batch from borrowing another word's vocabulary result.": "公開Jitenの一括検索では、解析結果が元の語の境界内に保たれるようになり、同じ一括処理内の別の語の語彙結果を誤って借用しません。",
     'BookWalker manga OCR is reliable across a whole book again, in both the page-turn and vertical continuous-scroll modes: recognition no longer stalls on "Scanning…", stops working after a few pages, or only covers the first page.': 'BookWalkerのマンガOCRが、ページめくりモードでも縦の連続スクロールモードでも、一冊を通して安定して動作するようになりました。「Scanning…」で止まったり、数ページで動かなくなったり、最初のページしか認識されなかったりすることはなくなりました。',
     'Pages you have already read are no longer re-scanned on every scroll or page turn, which removes the BookWalker lag and the flicker between "Scanning…" and "No text found".': '一度読んだページがスクロールやページめくりのたびに再スキャンされることはなくなり、BookWalkerのもたつきや、「Scanning…」と「No text found」の間のちらつきが解消されました。',
     'BookWalker pages no longer flash "Could not read text" from the hidden raw page image: on Firefox the page is rebuilt from BookWalker\'s own signed images so recognition matches other browsers.': 'BookWalkerのページが、隠れた生のページ画像のせいで「Could not read text」と一瞬表示されることはなくなりました。Firefoxでは、BookWalker自身の署名付き画像からページを再構成するため、他のブラウザーと同じように認識できます。',
@@ -4133,7 +4131,6 @@ function prepareHostedMangaOcrDemo(): void {
     const image = document.querySelector<HTMLImageElement>('.yomu-manga-image[src*="manga-ocr-sample"]');
     if (!image) return;
     image.dataset.ocrVocabulary = JSON.stringify(HOSTED_MANGA_OCR_VOCABULARY);
-    image.dataset.ocrLines = JSON.stringify(HOSTED_MANGA_OCR_LINES);
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {

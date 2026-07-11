@@ -42,13 +42,26 @@ export async function captureReaderSurfaceViaExtensionScreenshot(
     surface: Element,
     maxPixels: number,
 ): Promise<ExtensionSurfaceCapture | undefined> {
+    // captureVisibleTab captures whichever tab is active in the window, not
+    // necessarily the sender. Never let a background reader cache or OCR pixels
+    // from another tab while the user is switching away.
+    if (!documentIsActiveForVisibleTabCapture()) return undefined;
     const rect = surface.getBoundingClientRect();
     const clip = visibleViewportIntersection(rect);
     if (!clip || clip.width < 2 || clip.height < 2) return undefined;
-    const screenshot = await withReaderUiHidden(requestVisibleTabScreenshot);
-    if (!screenshot) return undefined;
+    const screenshot = await withReaderUiHidden(async () => {
+        if (!documentIsActiveForVisibleTabCapture()) return undefined;
+        return requestVisibleTabScreenshot();
+    });
+    if (!screenshot || !documentIsActiveForVisibleTabCapture()) return undefined;
     const cropped = await cropVisibleTabScreenshot(screenshot, clip, maxPixels);
-    return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : undefined;
+    return cropped && documentIsActiveForVisibleTabCapture()
+        ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) }
+        : undefined;
+}
+
+function documentIsActiveForVisibleTabCapture(): boolean {
+    return document.visibilityState === 'visible' && document.hasFocus();
 }
 
 async function requestVisibleTabScreenshot(): Promise<string | undefined> {

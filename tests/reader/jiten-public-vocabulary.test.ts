@@ -76,6 +76,46 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
     });
 
+    it('keeps decomposed words inside their own batched term boundary', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return [
+                    { wordId: 1355900, readingIndex: 0, originalText: '登録' },
+                    { wordId: 0, readingIndex: 0, originalText: '。' },
+                    { wordId: 1008910, readingIndex: 2, originalText: 'どう' },
+                    { wordId: 1157170, readingIndex: 1, originalText: 'する' },
+                    { wordId: 0, readingIndex: 0, originalText: '。' },
+                    { wordId: 0, readingIndex: 0, originalText: '未登録語' },
+                ];
+            }
+            if (url.includes('/vocabulary/1355900/0/info')) {
+                return {
+                    wordId: 1355900,
+                    mainReading: { text: '登[とう]録[ろく]' },
+                    definitions: [{ meanings: ['registration'] }],
+                };
+            }
+            if (url.includes('/vocabulary/1008910/2/info')) {
+                return {
+                    wordId: 1008910,
+                    mainReading: { text: 'どう' },
+                    definitions: [{ meanings: ['how', 'in what way'] }],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const cards = await client.lookupMany(['登録', 'どうする', '未登録語'], { detailLimit: 2 });
+
+        expect(cards.get('登録')).toMatchObject({ spelling: '登録', meanings: [{ glosses: ['registration'] }] });
+        expect(cards.get('どうする')).toMatchObject({ spelling: 'どう', meanings: [{ glosses: ['how', 'in what way'] }] });
+        expect(cards.has('未登録語')).toBe(false);
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/info'))).toHaveLength(2);
+        expect(requestJson.mock.calls.some(([url]) => String(url).includes('/vocabulary/1157170/1/info'))).toBe(false);
+    });
+
     it('caches keyless public Jiten cards across client instances', async () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {

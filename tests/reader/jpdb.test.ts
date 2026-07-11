@@ -9029,7 +9029,7 @@ describe('reader helpers', () => {
         image.src = '/yomu-reader/screenshots/real-kanji-drilldown.png';
         image.style.cssText = 'width: 541px; height: 371.9375px; object-fit: contain; object-position: center;';
         image.dataset.ocrLines = JSON.stringify([
-            { text: '日本語', box: { left: 0, top: 0, width: 561, height: 442 } },
+            { text: '日', box: { left: 50, top: 100, width: 300, height: 100 } },
         ]);
         Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 561 });
         Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 442 });
@@ -9058,13 +9058,19 @@ describe('reader helpers', () => {
         try {
             controller.init();
             const renderedWidth = 371.9375 * 561 / 442;
-            const expectedLeft = (541 - renderedWidth) / 2;
+            const objectLeft = (541 - renderedWidth) / 2;
+            const expectedLeft = objectLeft + renderedWidth * 50 / 561;
+            const expectedTop = 371.9375 * 100 / 442;
+            const expectedWidth = renderedWidth * 300 / 561;
+            const expectedHeight = 371.9375 * 100 / 442;
 
             await waitForExpect(() => {
                 const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
                 expect(line).not.toBeNull();
                 expect(Number.parseFloat(line?.style.left || '')).toBeCloseTo(expectedLeft, 1);
-                expect(Number.parseFloat(line?.style.width || '')).toBeCloseTo(renderedWidth, 1);
+                expect(Number.parseFloat(line?.style.top || '')).toBeCloseTo(expectedTop, 1);
+                expect(Number.parseFloat(line?.style.width || '')).toBeCloseTo(expectedWidth, 1);
+                expect(Number.parseFloat(line?.style.height || '')).toBeCloseTo(expectedHeight, 1);
             });
         } finally {
             controller.destroy();

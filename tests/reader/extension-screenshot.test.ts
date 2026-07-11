@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { captureReaderSurfaceViaExtensionScreenshot } from '../../src/reader/ocr/extension-screenshot';
 
@@ -17,15 +17,51 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     return { promise, resolve };
 }
 
+beforeEach(() => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+});
+
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     document.body.replaceChildren();
     delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
     document.getElementById('yomu-extension-screenshot-hide-style')?.remove();
 });
 
 describe('extension screenshot bridge', () => {
+    it('does not ask Firefox to capture a background tab', async () => {
+        vi.mocked(document.hasFocus).mockReturnValue(false);
+        const sendMessage = vi.fn(() => Promise.resolve({ ok: false }));
+        vi.stubGlobal('browser', { runtime: { id: 'firefox-runtime', sendMessage } });
+
+        await expect(captureReaderSurfaceViaExtensionScreenshot(createSurface(), 1_000_000)).resolves.toBeUndefined();
+
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(document.documentElement.dataset.yomuExtensionScreenshotCapture).toBeUndefined();
+    });
+
+    it('discards a visible-tab response if Firefox focus moved while capture was pending', async () => {
+        vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+            callback(0);
+            return 1;
+        });
+        const response = deferred<unknown>();
+        const sendMessage = vi.fn(() => response.promise);
+        vi.stubGlobal('browser', { runtime: { id: 'firefox-runtime', sendMessage } });
+
+        const capture = captureReaderSurfaceViaExtensionScreenshot(createSurface(), 1_000_000);
+        await Promise.resolve();
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+
+        vi.mocked(document.hasFocus).mockReturnValue(false);
+        response.resolve({ ok: true, dataUrl: 'data:image/jpeg;base64,c2NyZWVu' });
+
+        await expect(capture).resolves.toBeUndefined();
+        expect(document.documentElement.dataset.yomuExtensionScreenshotCapture).toBeUndefined();
+    });
+
     it('keeps reader UI hidden until concurrent Firefox captures both settle', async () => {
         vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
             callback(0);

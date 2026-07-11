@@ -32440,7 +32440,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const REQUEST_ATTR = "data-yomu-mirror-request";
   const SUMMARY_REQUEST_PREFIX = "summary:";
   const PULL_EVENT = "yomu-canvas-mirror-pull";
-  const MIRROR_TOKEN_CONTRACT_VERSION = 2;
+  const MIRROR_TOKEN_CONTRACT_VERSION = 3;
   function pageWindow() {
     return globalThis;
   }
@@ -32540,11 +32540,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           op.sx,
           op.sy,
           op.sw,
-          op.sh,
-          op.dx,
-          op.dy,
-          op.dw,
-          op.dh
+          op.sh
         ].join(":"));
       }
     }
@@ -32567,11 +32563,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           op.sx,
           op.sy,
           op.sw,
-          op.sh,
-          op.dx,
-          op.dy,
-          op.dw,
-          op.dh
+          op.sh
         ].join(":"));
       }
     }
@@ -33006,11 +32998,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       op.sx,
       op.sy,
       op.sw,
-      op.sh,
-      op.dx,
-      op.dy,
-      op.dw,
-      op.dh
+      op.sh
     ].join(":");
     const shouldUseLatestSource = (id, beforeSeq) => {
       if (!Number.isFinite(beforeSeq)) return false;
@@ -33941,13 +33929,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const SCREENSHOT_DECODE_TIMEOUT_MS = 4e3;
   let readerUiHideLeaseCount = 0;
   async function captureReaderSurfaceViaExtensionScreenshot(surface, maxPixels) {
+    if (!documentIsActiveForVisibleTabCapture()) return void 0;
     const rect = surface.getBoundingClientRect();
     const clip = visibleViewportIntersection(rect);
     if (!clip || clip.width < 2 || clip.height < 2) return void 0;
-    const screenshot = await withReaderUiHidden(requestVisibleTabScreenshot);
-    if (!screenshot) return void 0;
+    const screenshot = await withReaderUiHidden(async () => {
+      if (!documentIsActiveForVisibleTabCapture()) return void 0;
+      return requestVisibleTabScreenshot();
+    });
+    if (!screenshot || !documentIsActiveForVisibleTabCapture()) return void 0;
     const cropped = await cropVisibleTabScreenshot(screenshot, clip, maxPixels);
-    return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : void 0;
+    return cropped && documentIsActiveForVisibleTabCapture() ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : void 0;
+  }
+  function documentIsActiveForVisibleTabCapture() {
+    return document.visibilityState === "visible" && document.hasFocus();
   }
   async function requestVisibleTabScreenshot() {
     const extension = extensionRuntime();
@@ -36436,7 +36431,7 @@ ${spelling}`);
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
   const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
-  const READER_RASTER_EMPTY_RETRY_MS = 650;
+  const READER_RASTER_EMPTY_RETRY_MS = 400;
   const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
   const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
   const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
@@ -36646,8 +36641,8 @@ ${spelling}`);
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
     // Entries are short-lived: settled in the capture's `finally`, cancelled on
-    // release/rebind/teardown. A real Map (not WeakMap) so pointer-ownership can
-    // ask "is any capture pending?" without tracking a parallel counter.
+    // release/rebind/teardown. Keep a real Map so pointer ownership can ask whether
+    // any capture is pending and destroy can invalidate every in-flight capture.
     pendingCanvasSnapshots = /* @__PURE__ */ new Map();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
     // stable surface location instead of the canvas object: NFBR sometimes swaps an
@@ -37676,16 +37671,13 @@ ${spelling}`);
       window.setTimeout(() => {
         if (!this.isCurrentContentState(state2, key)) return;
         const canvas = this.canvasFrameSources.get(state2.image);
-        if (canvas) {
-          this.releaseCanvasFrame(canvas);
-          this.scheduleCanvasCaptureRetry(canvas, userRequested);
+        if (canvas && this.canvasFrameNeedsResnapshot(canvas)) {
+          this.releaseCanvasFrameForResnapshot(canvas);
+          this.scheduleReaderRasterRefresh(0);
           return;
         }
-        const background = this.backgroundFrameSources.get(state2.image);
-        if (background) {
-          this.releaseBackgroundFrame(background);
-          this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
-        }
+        state2.autoSkipped = false;
+        this.enqueue(state2.image, userRequested);
       }, READER_RASTER_EMPTY_RETRY_MS);
       return attempts;
     }
@@ -38197,14 +38189,20 @@ ${spelling}`);
         }
       }
       const existingPending = this.pendingCanvasSnapshots.get(canvas);
-      if (existingPending?.key === key) {
+      const pendingContentChanged = Boolean(existingPending && isRealContentChange(existingPending.contentToken ?? "", startContentToken));
+      if (existingPending?.key === key && !pendingContentChanged) {
         if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
         this.cancelCanvasSnapshot(canvas, existingPending);
         this.handleCanvasCaptureNotReady(canvas, canvas.getBoundingClientRect(), userRequested);
         return;
       }
       if (existingPending) this.cancelCanvasSnapshot(canvas, existingPending);
-      const pendingSnapshot = { key, startedAt: Date.now(), cancelled: false };
+      const pendingSnapshot = {
+        key,
+        contentToken: startContentToken || void 0,
+        startedAt: Date.now(),
+        cancelled: false
+      };
       this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
       const rect = canvas.getBoundingClientRect();
       try {
@@ -38286,8 +38284,8 @@ ${spelling}`);
     }
     commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
       if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-      if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
       if (!ocrRuntimeActive(this.options.getSettings())) return;
+      if (this.shouldDiscardCanvasSnapshot(canvas, pendingSnapshot, userRequested)) return;
       const finishContentToken = canvasStablePageContentToken(canvas);
       if (captured.contentToken && finishContentToken && finishContentToken !== captured.contentToken) {
         this.handleCanvasCommitMismatch(canvas, canvasRect, userRequested, "content identity");
@@ -38518,6 +38516,7 @@ ${spelling}`);
     }
     deferAutomaticCaptureForBookwalkerRecorder(canvas, rect, userRequested) {
       if (userRequested || !isBookwalkerViewerHost()) return false;
+      if (isCanvasReadable(canvas) && canvasRenderedContentSignature(canvas)) return false;
       if (canvasMirrorContentToken(canvas)) {
         if (this.canvasMirrorWaitStartedAt.delete(canvas)) this.canvasCaptureAttempts.delete(canvas);
         return false;
@@ -40615,9 +40614,7 @@ ${spelling}`);
     if (isBookwalkerViewerHost()) {
       return [
         canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-        surfaceId,
-        canvas.width,
-        canvas.height
+        surfaceId
       ].join("|");
     }
     return [
@@ -41472,7 +41469,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.128".trim() ? "1.6.128".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.129".trim() ? "1.6.129".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70855,10 +70852,10 @@ ${key}`] = { t: now, v: value };
       return candidate ? this.lookupDetail(candidate, term) : null;
     }
     async lookupManyUncached(terms, options) {
-      const parsed = await this.parseTerms(terms);
+      const parsedByTerm = await this.parseTermGroups(terms);
       const candidatesByTerm = /* @__PURE__ */ new Map();
-      terms.forEach((term) => {
-        const candidate = bestParsedWordForBatchTerm(term, parsed);
+      terms.forEach((term, index) => {
+        const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
         if (candidate) candidatesByTerm.set(term, candidate);
       });
       await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
@@ -70899,6 +70896,14 @@ ${key}`] = { t: now, v: value };
       return this.requestParseText(terms.join(PARSE_TERM_SEPARATOR));
     }
     async requestParseText(text2) {
+      const records = await this.requestParseRecords(text2);
+      return records.filter((word) => word.wordId > 0);
+    }
+    async parseTermGroups(terms) {
+      const records = await this.requestParseRecords(terms.join(PARSE_TERM_SEPARATOR));
+      return publicParseTermGroups(terms, records);
+    }
+    async requestParseRecords(text2) {
       return sharedParseGate.run(async () => {
         if (this.isBackoffActive()) return [];
         const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`).catch((error) => {
@@ -71024,8 +71029,38 @@ ${key}`] = { t: now, v: value };
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
-    if (wordId === void 0 || wordId <= 0 || readingIndex === void 0 || !originalText) return null;
+    if (wordId === void 0 || wordId < 0 || readingIndex === void 0 || !originalText) return null;
     return { wordId, readingIndex, originalText };
+  }
+  function publicParseTermGroups(terms, parsed) {
+    const groups = terms.map(() => []);
+    let termIndex = 0;
+    let consumed = "";
+    let complete = false;
+    for (const word of parsed) {
+      if (termIndex >= terms.length) break;
+      const surface = normalizeLookupText(word.originalText);
+      if (!surface) continue;
+      if (surface === PARSE_TERM_SEPARATOR) {
+        termIndex++;
+        consumed = "";
+        complete = false;
+        continue;
+      }
+      if (complete) {
+        termIndex++;
+        consumed = "";
+        complete = false;
+        if (termIndex >= terms.length) break;
+      }
+      const target = normalizeLookupText(terms[termIndex] ?? "");
+      const next = `${consumed}${surface}`;
+      if (!target.startsWith(next)) continue;
+      consumed = next;
+      if (word.wordId > 0) groups[termIndex].push(word);
+      complete = consumed === target;
+    }
+    return groups;
   }
   function bestParsedWordForTerm(term, parsed) {
     const normalized = normalizeLookupText(term);
@@ -71033,10 +71068,6 @@ ${key}`] = { t: now, v: value };
       const original = normalizeLookupText(word.originalText);
       return Boolean(original && normalized.includes(original));
     }) ?? parsed[0] ?? null;
-  }
-  function bestParsedWordForBatchTerm(term, parsed) {
-    const normalized = normalizeLookupText(term);
-    return parsed.find((word) => normalizeLookupText(word.originalText) === normalized) ?? null;
   }
   function publicParseChunks(paragraphs) {
     const chunks2 = [];

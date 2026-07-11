@@ -924,6 +924,7 @@ async function enableContinuousMode(page) {
 }
 
 async function scrollContinuousPage(page, direction = 'forward') {
+    await dismissLookupPopover(page);
     const before = (await readerState(page)).counter;
     const scroll = await page.evaluate(() => {
         const candidates = [
@@ -949,7 +950,11 @@ async function scrollContinuousPage(page, direction = 'forward') {
             })),
         };
     });
-    await page.mouse.move(450, 550);
+    // Wheel over the reader canvas but outside OCR hit boxes. The previous fixed
+    // centre point can land on a transparent OCR line; Firefox then targets the
+    // overlay instead of BookWalker's scroll viewport and scrollTop never moves.
+    await page.mouse.move(10, Math.round(VIEWPORT.height / 2));
+    await page.waitForTimeout(120);
     const counterText = () => page.locator('#pageSliderCounter').textContent().then(text => text?.trim() || '');
     // Half-page steps cross a boundary politely; escalate to full-page steps when
     // the snap hysteresis keeps pulling the viewport back to the starting page
@@ -1438,7 +1443,19 @@ async function assertOverlappingHoverSheet(page, mode, network, screenshotPaths)
         await popoverVisible();
     }
     await page.waitForTimeout(350);
-    const overlapped = await hoverProofState(page, candidate.line.id, candidate.word.point);
+    let overlapped = await hoverProofState(page, candidate.line.id, candidate.word.point);
+    if (!overlapped.hovered && (!overlapped.active || !overlapped.painted)) {
+        // Firefox can coalesce the final pointermove as the sheet enters, so the
+        // source lease never observes the trusted hover even though the lookup
+        // opens. Retry the same proven point once; a second miss remains fatal.
+        await dismissLookupPopover(page);
+        await page.mouse.move(890, 40);
+        await page.waitForTimeout(350);
+        await approachWord();
+        await popoverVisible();
+        await page.waitForTimeout(350);
+        overlapped = await hoverProofState(page, candidate.line.id, candidate.word.point);
+    }
     if (!overlapped.hovered) {
         // The lookup surface stole :hover from the source line — the exact
         // occlusion the transient line lease must survive.
@@ -1483,25 +1500,49 @@ function normalizedLineGeometry(state) {
     };
 }
 
+async function movePointerOffOcr(page) {
+    await page.mouse.move(VIEWPORT.width - 10, 40);
+    await page.waitForTimeout(120);
+}
+
 async function revealBookwalkerZoomControls(page, expectedCounter) {
+    await movePointerOffOcr(page);
+    await dismissLookupPopover(page);
+    await movePointerOffOcr(page);
+    const readControls = () => page.evaluate(() => ['zoomInBtn', 'zoomDefaultBtn', 'zoomOutBtn'].map(id => {
+        const element = document.getElementById(id);
+        const rect = element?.getBoundingClientRect();
+        const style = element ? getComputedStyle(element) : null;
+        const hit = rect ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
+        return {
+            id,
+            exists: Boolean(element),
+            visible: Boolean(rect?.width
+                && rect?.height
+                && style?.display !== 'none'
+                && style?.visibility !== 'hidden'
+                && style?.opacity !== '0'),
+            hitTested: Boolean(element && hit && (hit === element || element.contains(hit))),
+            disabled: Boolean(element?.disabled),
+        };
+    }));
+    const usable = controls => controls.every(control => control.exists)
+        && controls.some(control => control.visible && control.hitTested && !control.disabled);
     for (let attempt = 0; attempt < 6; attempt += 1) {
-        const controls = await page.evaluate(() => ['zoomInBtn', 'zoomDefaultBtn', 'zoomOutBtn'].map(id => {
-            const element = document.getElementById(id);
-            const rect = element?.getBoundingClientRect();
-            const style = element ? getComputedStyle(element) : null;
-            return {
-                id,
-                exists: Boolean(element),
-                visible: Boolean(rect?.width && rect?.height && style?.display !== 'none' && style?.visibility !== 'hidden'),
-                disabled: Boolean(element?.disabled),
-            };
-        }));
-        if (controls.every(control => control.exists) && controls.some(control => control.visible && !control.disabled)) return controls;
+        const controls = await readControls();
+        if (usable(controls)) return controls;
 
         await page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 18);
         await page.waitForTimeout(300);
+        const hoveredControls = await readControls();
+        if (usable(hoveredControls)) return hoveredControls;
         const point = await page.evaluate(() => {
             const candidates = [
+                [innerWidth * 0.5, 20],
+                [innerWidth * 0.75, 20],
+                [innerWidth * 0.25, 20],
+                [innerWidth - 8, innerHeight - 8],
+                [8, innerHeight - 8],
                 [innerWidth * 0.5, innerHeight * 0.5],
                 [innerWidth * 0.5, innerHeight * 0.38],
                 [innerWidth * 0.42, innerHeight * 0.5],
@@ -1512,7 +1553,11 @@ async function revealBookwalkerZoomControls(page, expectedCounter) {
                 return target && !target.closest('[data-jpdb-reader-root],.jpdb-ocr-line');
             }) || null;
         });
-        assert(point, 'Could not find a clear host point to reveal BookWalker zoom controls.', { attempt, controls });
+        assert(point, 'Could not find a clear host point to reveal BookWalker zoom controls.', {
+            attempt,
+            controls,
+            hoveredControls,
+        });
         await page.mouse.click(point.x, point.y);
         await page.waitForTimeout(500);
         const counter = (await readerState(page)).counter;
@@ -1530,7 +1575,40 @@ async function revealBookwalkerZoomControls(page, expectedCounter) {
         zoomRatio: document.querySelector('#zoomRatio')?.textContent?.trim() || '',
         controls: ['zoomInBtn', 'zoomDefaultBtn', 'zoomOutBtn'].map(id => document.getElementById(id)?.outerHTML || ''),
     }));
+    const controls = await readControls();
+    // Continuous mode can deliberately expose the zoom buttons only as hidden,
+    // disabled DOM placeholders. Return that real state so the caller records a
+    // truthful unavailable result instead of trying to click through host UI.
+    if (controls.every(control => control.exists)
+        && controls.every(control => !control.visible || control.disabled || !control.hitTested)) return controls;
     throw new Error(`BookWalker zoom controls could not be used: ${JSON.stringify(diagnostic)}`);
+}
+
+async function clickBookwalkerZoomControl(page, controlId, expectedCounter) {
+    await revealBookwalkerZoomControls(page, expectedCounter);
+    const control = page.locator(`#${controlId}`);
+    const box = await control.boundingBox();
+    assert(box?.width && box?.height, 'BookWalker zoom control has no clickable box.', {
+        controlId,
+        expectedCounter,
+        box,
+    });
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const hit = await page.evaluate(({ x, y, id }) => {
+        const target = document.elementFromPoint(x, y);
+        return {
+            target: target ? { tag: target.tagName, id: target.id, className: String(target.className) } : null,
+            ownsControl: Boolean(target?.closest(`#${id}`)),
+        };
+    }, { ...point, id: controlId });
+    assert(hit.ownsControl, 'BookWalker zoom control is covered before the user click.', {
+        controlId,
+        expectedCounter,
+        point,
+        hit,
+    });
+    await page.mouse.click(point.x, point.y);
+    return { point, hit };
 }
 
 async function waitForZoomGeometry(page, before, target, phase, ratioBefore = '') {
@@ -1578,15 +1656,44 @@ async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths
     };
     const controls = await revealBookwalkerZoomControls(page, target.counter);
     const zoomControls = [
+        controls.find(control => control.id === 'zoomInBtn' && control.visible && control.hitTested && !control.disabled),
+        controls.find(control => control.id === 'zoomOutBtn' && control.visible && control.hitTested && !control.disabled),
+    ].filter(Boolean);
+    const programmaticZoomControls = [
         controls.find(control => control.id === 'zoomInBtn' && control.visible && !control.disabled),
         controls.find(control => control.id === 'zoomOutBtn' && control.visible && !control.disabled),
     ].filter(Boolean);
-    assert(zoomControls.length > 0, 'BookWalker has no enabled visible zoom control.', { mode, controls });
+    const activation = zoomControls.length ? 'user-click' : 'programmatic-host-control';
+    const candidateControls = zoomControls.length ? zoomControls : programmaticZoomControls;
     const ratioBefore = await page.locator('#zoomRatio').textContent().catch(() => '');
+    if (!candidateControls.length) {
+        const stability = await assertStableCheckpoint(page, network, checkpoint, 'bookwalker-zoom-unavailable');
+        await capturePhase(page, mode, 'zoom-unavailable', screenshotPaths);
+        return {
+            skipped: true,
+            reason: 'zoom-controls-unavailable',
+            ratioBefore: ratioBefore?.trim() || '',
+            controls,
+            stability,
+        };
+    }
     let zoomed;
     let usedControl;
-    for (const control of zoomControls) {
-        await page.locator(`#${control.id}`).click({ force: true });
+    for (const control of candidateControls) {
+        if (activation === 'user-click') {
+            await clickBookwalkerZoomControl(page, control.id, target.counter);
+        } else {
+            const activated = await page.evaluate(id => {
+                const button = document.getElementById(id);
+                if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
+                button.click();
+                return true;
+            }, control.id);
+            assert(activated, 'BookWalker host zoom control could not be invoked programmatically.', {
+                mode,
+                control,
+            });
+        }
         try {
             zoomed = await waitForZoomGeometry(page, before, target, 'bookwalker-zoom', ratioBefore);
             usedControl = control;
@@ -1637,13 +1744,26 @@ async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths
     }
     await capturePhase(page, mode, 'real-bookwalker-zoom', screenshotPaths);
 
+    await movePointerOffOcr(page);
+    await dismissLookupPopover(page);
+    await movePointerOffOcr(page);
     await revealBookwalkerZoomControls(page, target.counter);
     const defaultControl = page.locator('#zoomDefaultBtn');
     assert(await defaultControl.isVisible() && await defaultControl.isEnabled(), 'BookWalker default zoom control is unavailable.', {
         mode,
         controls: await revealBookwalkerZoomControls(page, target.counter),
     });
-    await defaultControl.click({ force: true });
+    if (activation === 'user-click') {
+        await clickBookwalkerZoomControl(page, 'zoomDefaultBtn', target.counter);
+    } else {
+        const restored = await page.evaluate(() => {
+            const button = document.getElementById('zoomDefaultBtn');
+            if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
+            button.click();
+            return true;
+        });
+        assert(restored, 'BookWalker default host zoom control could not be invoked programmatically.', { mode });
+    }
     const restoreDeadline = Date.now() + 15_000;
     let restored;
     while (Date.now() < restoreDeadline) {
@@ -1673,6 +1793,7 @@ async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths
     }
     return {
         control: usedControl.id,
+        activation,
         ratioBefore: ratioBefore?.trim() || '',
         ratioAfter: ratioAfter?.trim() || '',
         before,
