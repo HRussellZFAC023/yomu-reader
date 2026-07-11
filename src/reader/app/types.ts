@@ -507,6 +507,7 @@ export interface ReaderSettings {
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
+    hoverPopupMode: 'auto' | 'sheet' | 'popover';
     stickyBottomSheet: boolean;
     popoverBackdropEnabled: boolean;
     popoverWidth: number;

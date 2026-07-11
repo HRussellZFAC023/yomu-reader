@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.140
+// @version 1.6.141
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.140#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.140#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.140#sha256=0PDcjjzd7IX4n1Rf4Y7bA9Xf/LOcZ/6hWA0/4UZ8fvU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.140#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.140#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.140#sha256=PWJf5cX+hgMrOgh3psr2RgT03DrjTW8tCbMs/Ud34X0=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.140#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.141#sha256=5aICQ7dC+CvwxwDvKe76Dy8AHNsZf1FN6lED9e3ywlc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.141#sha256=D9048lgIFmnL/03AwLd+wgmBve2qr577mVE1gXZ+n2A=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.141#sha256=xSGS9106+by7mAJ4ndOUMBbiR8Wq58LP0YZnBVVWPoo=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.141#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.141#sha256=pKdavmH3fG92hq0lx/zoqyMzvzi/8dU20cxHJRaPnG4=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.141#sha256=6Fu9dUPG6wnRZ9Jcoa8WBVAVLVq601YbIYcxJeAnkxo=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.141#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -3522,6 +3522,7 @@ const ANKI_TEMPLATE_MODES = ["context", "recognition"];
 const INTERFACE_LANGUAGES = ["en", "ja", "auto"];
 const THEMES = ["dark", "light", "auto"];
 const POPUP_MODES = ["sheet", "popover", "auto"];
+const HOVER_POPUP_MODES = ["sheet", "popover", "auto"];
 const POPOVER_HEIGHT_MODES = ["fixed", "available"];
 const AUDIO_AUTO_PLAY_MODES = ["off", "all", "hover", "tap"];
 const AUDIO_TTS_MODES = ["source-order", "fallback"];
@@ -3776,6 +3777,7 @@ const DEFAULT_SETTINGS = {
   ankiFieldMappings: {},
   theme: "light",
   popupMode: "auto",
+  hoverPopupMode: "popover",
   stickyBottomSheet: false,
   popoverBackdropEnabled: true,
   popoverWidth: 520,
@@ -4127,6 +4129,7 @@ function normalizePresentationSettings(value) {
   return {
   theme: normalizeTheme(value?.theme),
   popupMode: normalizePopupMode(value?.popupMode),
+  hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
   stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
   popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
   popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
@@ -4238,6 +4241,9 @@ function normalizeTheme(value) {
 }
 function normalizePopupMode(value) {
   return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
+}
+function normalizeHoverPopupMode(value) {
+  return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
 }
 function normalizePopoverHeightMode(value) {
   return normalizeOption(value, POPOVER_HEIGHT_MODES, DEFAULT_SETTINGS.popoverHeightMode);
@@ -19507,7 +19513,7 @@ function popoverBodyActionElement(target, scrollBody) {
   const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
   return action && scrollBody.contains(action) ? action : null;
 }
-function createReaderPopover(appName, settings) {
+function createReaderPopover(appName, settings, trigger = "modal") {
   const popover = document.createElement("div");
   popover.className = "jpdb-reader-popover";
   popover.dataset.jpdbReaderRoot = "true";
@@ -19515,7 +19521,7 @@ function createReaderPopover(appName, settings) {
   popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
   popover.setAttribute("aria-modal", "true");
   popover.tabIndex = -1;
-  if (shouldUseSheet(settings)) popover.classList.add("jpdb-reader-sheet");
+  if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
   else popover.style.width = `${settings.popoverWidth}px`;
   return popover;
 }
@@ -19876,9 +19882,10 @@ function installMiningDrawerHandle(root, setExpanded) {
 function eventHasPointTarget(event) {
   return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
 }
-function shouldUseSheet(settings) {
-  if (settings.popupMode === "sheet") return true;
-  if (settings.popupMode === "popover") return false;
+function shouldUseSheet(settings, trigger = "modal") {
+  const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
+  if (mode === "sheet") return true;
+  if (mode === "popover") return false;
   const { width, height } = lookupViewportSize();
   const popoverWidth = Math.max(0, settings.popoverWidth || 0);
   const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
@@ -35030,8 +35037,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.140"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.140"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.141"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.141"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35145,7 +35152,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.140"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.141"}`;
   } catch {
   return null;
   }
@@ -39984,7 +39991,7 @@ class ReaderApp {
   const navigation = options.navigation ?? "reset";
   const previousNavigationEntry = trigger === "modal" ? options.previousNavigationEntry : void 0;
   this.prepareTokenListNavigation(trigger, navigation);
-  const popover = this.createPopover();
+  const popover = this.createPopover(trigger);
   setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
   this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
   this.mountPopover(popover, anchor, {
@@ -40039,7 +40046,7 @@ class ReaderApp {
   if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
   this.lastCard = card;
   this.lastCardSentence = sentence;
-  const popover = this.createPopover();
+  const popover = this.createPopover(trigger);
   const navigation = options.navigation ?? "reset";
   const hoverLookup = this.cardHoverLookupContext(trigger, options);
   const isCurrentHoverCard = () => this.isCurrentCardHoverLookup(trigger, hoverLookup);
@@ -42293,8 +42300,8 @@ class ReaderApp {
   this.activePopover = form;
   form.focus();
   }
-  createPopover() {
-  return createReaderPopover(APP_NAME, this.settings);
+  createPopover(trigger = "modal") {
+  return createReaderPopover(APP_NAME, this.settings, trigger);
   }
   mountPopover(popover, anchor, options = {}) {
   const settingsStack = this.settingsStackForMountedPopover(options);

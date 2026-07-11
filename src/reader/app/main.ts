@@ -5577,7 +5577,7 @@ export class ReaderApp {
         const navigation = options.navigation ?? 'reset';
         const previousNavigationEntry = trigger === 'modal' ? options.previousNavigationEntry : undefined;
         this.prepareTokenListNavigation(trigger, navigation);
-        const popover = this.createPopover();
+        const popover = this.createPopover(trigger);
         setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
         this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
         this.mountPopover(popover, anchor, {
@@ -5652,7 +5652,7 @@ export class ReaderApp {
         if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
         this.lastCard = card;
         this.lastCardSentence = sentence;
-        const popover = this.createPopover();
+        const popover = this.createPopover(trigger);
         const navigation = options.navigation ?? 'reset';
         const hoverLookup = this.cardHoverLookupContext(trigger, options);
         const isCurrentHoverCard = () => this.isCurrentCardHoverLookup(trigger, hoverLookup);
@@ -8530,8 +8530,8 @@ export class ReaderApp {
         form.focus();
     }
 
-    private createPopover(): HTMLElement {
-        return createReaderPopover(APP_NAME, this.settings);
+    private createPopover(trigger: 'modal' | 'hover' = 'modal'): HTMLElement {
+        return createReaderPopover(APP_NAME, this.settings, trigger);
     }
 
     private mountPopover(

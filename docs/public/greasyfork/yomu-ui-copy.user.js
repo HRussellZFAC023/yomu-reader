@@ -1177,6 +1177,7 @@
       switchToDarkTheme: "Switch to dark theme",
       switchToLightTheme: "Switch to light theme",
       popupMode: "Popup mode",
+      hoverPopupMode: "Hover popup mode",
       bottomSheet: "Bottom sheet",
       popover: "Popover",
       stickyBottomSheet: "Keep sheet open after lookup",
@@ -2919,6 +2920,7 @@ auto	自動
 dark	ダーク
 light	ライト
 popupMode	ポップアップ表示
+hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く

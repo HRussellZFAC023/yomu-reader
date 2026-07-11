@@ -4161,6 +4161,33 @@ describe('reader helpers', () => {
         });
     });
 
+    it('keeps hover lookups as a popover on constrained viewports by default', () => {
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'auto' as const };
+
+        withViewport(390, 844, () => {
+            expect(shouldUseSheet(settings, 'hover')).toBe(false);
+            expect(shouldUseSheet(settings, 'modal')).toBe(true);
+            const popover = createReaderPopover('よむ', settings, 'hover');
+            expect(popover.classList.contains('jpdb-reader-sheet')).toBe(false);
+            expect(popover.style.width).toBe(`${settings.popoverWidth}px`);
+        });
+    });
+
+    it('honours an explicit hover popup mode independently of the tap popup mode', () => {
+        const hoverSheet = { ...DEFAULT_SETTINGS, popupMode: 'popover' as const, hoverPopupMode: 'sheet' as const };
+        const hoverAuto = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const, hoverPopupMode: 'auto' as const };
+
+        withViewport(1440, 900, () => {
+            expect(shouldUseSheet(hoverSheet, 'hover')).toBe(true);
+            expect(shouldUseSheet(hoverSheet, 'modal')).toBe(false);
+            expect(shouldUseSheet(hoverAuto, 'hover')).toBe(false);
+            expect(shouldUseSheet(hoverAuto, 'modal')).toBe(true);
+        });
+        withViewport(390, 844, () => {
+            expect(shouldUseSheet(hoverAuto, 'hover')).toBe(true);
+        });
+    });
+
     it('keeps an explicit sheet close button after drawer content rerenders', async () => {
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet jpdb-reader-sheet-sticky';

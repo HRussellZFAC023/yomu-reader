@@ -2340,6 +2340,7 @@
   const INTERFACE_LANGUAGES = ["en", "ja", "auto"];
   const THEMES = ["dark", "light", "auto"];
   const POPUP_MODES = ["sheet", "popover", "auto"];
+  const HOVER_POPUP_MODES = ["sheet", "popover", "auto"];
   const POPOVER_HEIGHT_MODES = ["fixed", "available"];
   const AUDIO_AUTO_PLAY_MODES = ["off", "all", "hover", "tap"];
   const AUDIO_TTS_MODES = ["source-order", "fallback"];
@@ -2600,6 +2601,7 @@
     ankiFieldMappings: {},
     theme: "light",
     popupMode: "auto",
+    hoverPopupMode: "popover",
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
     popoverWidth: 520,
@@ -2956,6 +2958,7 @@
     return {
       theme: normalizeTheme(value?.theme),
       popupMode: normalizePopupMode(value?.popupMode),
+      hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
       stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
       popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
       popoverWidth: clampNumber$1(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
@@ -3067,6 +3070,9 @@
   }
   function normalizePopupMode(value) {
     return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
+  }
+  function normalizeHoverPopupMode(value) {
+    return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
   }
   function normalizePopoverHeightMode(value) {
     return normalizeOption(value, POPOVER_HEIGHT_MODES, DEFAULT_SETTINGS.popoverHeightMode);
@@ -4227,6 +4233,7 @@
       switchToDarkTheme: "Switch to dark theme",
       switchToLightTheme: "Switch to light theme",
       popupMode: "Popup mode",
+      hoverPopupMode: "Hover popup mode",
       bottomSheet: "Bottom sheet",
       popover: "Popover",
       stickyBottomSheet: "Keep sheet open after lookup",
@@ -5969,6 +5976,7 @@ auto	自動
 dark	ダーク
 light	ライト
 popupMode	ポップアップ表示
+hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
@@ -7624,6 +7632,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
       popupMode,
+      hoverPopupMode: readOption(get("hoverPopupMode"), ["auto", "sheet", "popover"], current.hoverPopupMode),
       stickyBottomSheet: has("stickyBottomSheet"),
       popoverBackdropEnabled: has("popoverBackdropEnabled"),
       popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
@@ -9487,6 +9496,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     ${select("interfaceLanguage", "Settings language", settings.interfaceLanguage, [["auto", "Automatic"], ["en", "English"], ["ja", "日本語"]])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select("popupMode", "Popup mode", settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
+                    ${select("hoverPopupMode", "Hover popup mode", settings.hoverPopupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
                     ${renderStickyBottomSheetControl(settings)}
                     ${checkbox("popoverBackdropEnabled", "Dim page behind popover", settings.popoverBackdropEnabled)}
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
@@ -10443,6 +10453,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["sheet", text("bottomSheet")],
       ["popover", text("popover")]
     ]);
+    setSelectOptionLabels(form, "hoverPopupMode", [
+      ["auto", text("auto")],
+      ["sheet", text("bottomSheet")],
+      ["popover", text("popover")]
+    ]);
     setSelectOptionLabels(form, "popoverHeightMode", [
       ["available", text("popoverHeightAvailable")],
       ["fixed", text("popoverHeightFixed")]
@@ -10940,6 +10955,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "jpdbPageWordEnhancementsEnabled",
     "jpdbPageKanjiEnhancementsEnabled",
     "popupMode",
+    "hoverPopupMode",
     "stickyBottomSheet",
     "popoverBackdropEnabled",
     "popoverWidth",

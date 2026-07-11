@@ -315,6 +315,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${select('hoverPopupMode', 'Hover popup mode', settings.hoverPopupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
                     ${renderStickyBottomSheetControl(settings)}
                     ${checkbox('popoverBackdropEnabled', 'Dim page behind popover', settings.popoverBackdropEnabled)}
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
@@ -1376,6 +1377,11 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
         ['sheet', text('bottomSheet')],
         ['popover', text('popover')],
     ]);
+    setSelectOptionLabels(form, 'hoverPopupMode', [
+        ['auto', text('auto')],
+        ['sheet', text('bottomSheet')],
+        ['popover', text('popover')],
+    ]);
     setSelectOptionLabels(form, 'popoverHeightMode', [
         ['available', text('popoverHeightAvailable')],
         ['fixed', text('popoverHeightFixed')],
@@ -1915,7 +1921,7 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'bunproMiningEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
-    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
+    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',

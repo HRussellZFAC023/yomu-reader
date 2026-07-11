@@ -1449,6 +1449,7 @@
       switchToDarkTheme: "Switch to dark theme",
       switchToLightTheme: "Switch to light theme",
       popupMode: "Popup mode",
+      hoverPopupMode: "Hover popup mode",
       bottomSheet: "Bottom sheet",
       popover: "Popover",
       stickyBottomSheet: "Keep sheet open after lookup",
@@ -3191,6 +3192,7 @@ auto	自動
 dark	ダーク
 light	ライト
 popupMode	ポップアップ表示
+hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
@@ -7405,6 +7407,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const INTERFACE_LANGUAGES = ["en", "ja", "auto"];
   const THEMES = ["dark", "light", "auto"];
   const POPUP_MODES = ["sheet", "popover", "auto"];
+  const HOVER_POPUP_MODES = ["sheet", "popover", "auto"];
   const POPOVER_HEIGHT_MODES = ["fixed", "available"];
   const AUDIO_AUTO_PLAY_MODES = ["off", "all", "hover", "tap"];
   const AUDIO_TTS_MODES = ["source-order", "fallback"];
@@ -7665,6 +7668,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ankiFieldMappings: {},
     theme: "light",
     popupMode: "auto",
+    hoverPopupMode: "popover",
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
     popoverWidth: 520,
@@ -8021,6 +8025,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       theme: normalizeTheme(value?.theme),
       popupMode: normalizePopupMode(value?.popupMode),
+      hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
       stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
       popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
       popoverWidth: clampNumber$3(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
@@ -8132,6 +8137,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizePopupMode(value) {
     return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
+  }
+  function normalizeHoverPopupMode(value) {
+    return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
   }
   function normalizePopoverHeightMode(value) {
     return normalizeOption(value, POPOVER_HEIGHT_MODES, DEFAULT_SETTINGS.popoverHeightMode);
@@ -30574,7 +30582,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
     return action && scrollBody.contains(action) ? action : null;
   }
-  function createReaderPopover(appName, settings) {
+  function createReaderPopover(appName, settings, trigger = "modal") {
     const popover = document.createElement("div");
     popover.className = "jpdb-reader-popover";
     popover.dataset.jpdbReaderRoot = "true";
@@ -30582,7 +30590,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
     popover.setAttribute("aria-modal", "true");
     popover.tabIndex = -1;
-    if (shouldUseSheet(settings)) popover.classList.add("jpdb-reader-sheet");
+    if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
     else popover.style.width = `${settings.popoverWidth}px`;
     return popover;
   }
@@ -31075,9 +31083,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function eventHasPointTarget(event) {
     return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
   }
-  function shouldUseSheet(settings) {
-    if (settings.popupMode === "sheet") return true;
-    if (settings.popupMode === "popover") return false;
+  function shouldUseSheet(settings, trigger = "modal") {
+    const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
+    if (mode === "sheet") return true;
+    if (mode === "popover") return false;
     const { width, height } = lookupViewportSize();
     const popoverWidth = Math.max(0, settings.popoverWidth || 0);
     const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
@@ -41568,7 +41577,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.140".trim() ? "1.6.140".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.141".trim() ? "1.6.141".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42299,6 +42308,7 @@ ${spelling}`);
     return {
       theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
       popupMode,
+      hoverPopupMode: readOption(get("hoverPopupMode"), ["auto", "sheet", "popover"], current.hoverPopupMode),
       stickyBottomSheet: has("stickyBottomSheet"),
       popoverBackdropEnabled: has("popoverBackdropEnabled"),
       popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
@@ -43950,6 +43960,7 @@ ${spelling}`);
                     ${select("interfaceLanguage", "Settings language", settings.interfaceLanguage, [["auto", "Automatic"], ["en", "English"], ["ja", "日本語"]])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select("popupMode", "Popup mode", settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
+                    ${select("hoverPopupMode", "Hover popup mode", settings.hoverPopupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
                     ${renderStickyBottomSheetControl(settings)}
                     ${checkbox("popoverBackdropEnabled", "Dim page behind popover", settings.popoverBackdropEnabled)}
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
@@ -44906,6 +44917,11 @@ ${spelling}`);
       ["sheet", text2("bottomSheet")],
       ["popover", text2("popover")]
     ]);
+    setSelectOptionLabels(form, "hoverPopupMode", [
+      ["auto", text2("auto")],
+      ["sheet", text2("bottomSheet")],
+      ["popover", text2("popover")]
+    ]);
     setSelectOptionLabels(form, "popoverHeightMode", [
       ["available", text2("popoverHeightAvailable")],
       ["fixed", text2("popoverHeightFixed")]
@@ -45403,6 +45419,7 @@ ${spelling}`);
     "jpdbPageWordEnhancementsEnabled",
     "jpdbPageKanjiEnhancementsEnabled",
     "popupMode",
+    "hoverPopupMode",
     "stickyBottomSheet",
     "popoverBackdropEnabled",
     "popoverWidth",

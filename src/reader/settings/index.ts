@@ -223,6 +223,7 @@ const ANKI_TEMPLATE_MODES = ['context', 'recognition'] as const satisfies readon
 const INTERFACE_LANGUAGES = ['en', 'ja', 'auto'] as const satisfies readonly InterfaceLanguage[];
 const THEMES = ['dark', 'light', 'auto'] as const satisfies readonly ReaderSettings['theme'][];
 const POPUP_MODES = ['sheet', 'popover', 'auto'] as const satisfies readonly ReaderSettings['popupMode'][];
+const HOVER_POPUP_MODES = ['sheet', 'popover', 'auto'] as const satisfies readonly ReaderSettings['hoverPopupMode'][];
 const POPOVER_HEIGHT_MODES = ['fixed', 'available'] as const satisfies readonly ReaderSettings['popoverHeightMode'][];
 const AUDIO_AUTO_PLAY_MODES = ['off', 'all', 'hover', 'tap'] as const satisfies readonly AudioAutoPlayMode[];
 const AUDIO_TTS_MODES = ['source-order', 'fallback'] as const satisfies readonly AudioTtsMode[];
@@ -487,6 +488,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFieldMappings: {},
     theme: 'light',
     popupMode: 'auto',
+    hoverPopupMode: 'popover',
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
     popoverWidth: 520,
@@ -920,6 +922,7 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
     return {
         theme: normalizeTheme(value?.theme),
         popupMode: normalizePopupMode(value?.popupMode),
+        hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
         stickyBottomSheet: booleanSetting(value, 'stickyBottomSheet'),
         popoverBackdropEnabled: booleanSetting(value, 'popoverBackdropEnabled'),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
@@ -1048,6 +1051,10 @@ function normalizeTheme(value: unknown): ReaderSettings['theme'] {
 
 function normalizePopupMode(value: unknown): ReaderSettings['popupMode'] {
     return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
+}
+
+function normalizeHoverPopupMode(value: unknown): ReaderSettings['hoverPopupMode'] {
+    return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
 }
 
 function normalizePopoverHeightMode(value: unknown): ReaderSettings['popoverHeightMode'] {

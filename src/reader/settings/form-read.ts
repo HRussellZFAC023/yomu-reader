@@ -482,6 +482,7 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
     return {
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
         popupMode,
+        hoverPopupMode: readOption(get('hoverPopupMode'), ['auto', 'sheet', 'popover'] as const, current.hoverPopupMode),
         stickyBottomSheet: has('stickyBottomSheet'),
         popoverBackdropEnabled: has('popoverBackdropEnabled'),
         popoverWidth: clamped('popoverWidth', 280, 900, current.popoverWidth),

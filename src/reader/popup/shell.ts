@@ -69,7 +69,9 @@ export function popoverBodyActionElement(target: HTMLElement, scrollBody: HTMLEl
     return action && scrollBody.contains(action) ? action : null;
 }
 
-export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
+export type LookupPopupTrigger = 'modal' | 'hover';
+
+export function createReaderPopover(appName: string, settings: ReaderSettings, trigger: LookupPopupTrigger = 'modal'): HTMLElement {
     const popover = document.createElement('div');
     popover.className = 'jpdb-reader-popover';
     popover.dataset.jpdbReaderRoot = 'true';
@@ -77,7 +79,7 @@ export function createReaderPopover(appName: string, settings: ReaderSettings): 
     popover.setAttribute('aria-label', uiText(settings.interfaceLanguage, 'lookupDialog') || `${appName} lookup`);
     popover.setAttribute('aria-modal', 'true');
     popover.tabIndex = -1;
-    if (shouldUseSheet(settings)) popover.classList.add('jpdb-reader-sheet');
+    if (shouldUseSheet(settings, trigger)) popover.classList.add('jpdb-reader-sheet');
     else popover.style.width = `${settings.popoverWidth}px`;
     return popover;
 }
@@ -625,9 +627,10 @@ function eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
     return event.type !== 'click' || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
 }
 
-export function shouldUseSheet(settings: ReaderSettings): boolean {
-    if (settings.popupMode === 'sheet') return true;
-    if (settings.popupMode === 'popover') return false;
+export function shouldUseSheet(settings: ReaderSettings, trigger: LookupPopupTrigger = 'modal'): boolean {
+    const mode = trigger === 'hover' ? settings.hoverPopupMode : settings.popupMode;
+    if (mode === 'sheet') return true;
+    if (mode === 'popover') return false;
     const { width, height } = lookupViewportSize();
     const popoverWidth = Math.max(0, settings.popoverWidth || 0);
     const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;

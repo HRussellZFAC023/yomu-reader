@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.141] - 2026-07-11
+
+### Changed
+
+- Hover lookups now open as a compact popover by default on every screen size instead of the bottom panel, so passively hovering a word no longer covers the page on small screens; tap and click lookups keep the bottom panel there. A new "Hover popup mode" setting controls the hover surface independently of the existing "Popup mode" setting used for tap and click lookups.
+
 ## [1.6.140] - 2026-07-11
 
 ### Added
