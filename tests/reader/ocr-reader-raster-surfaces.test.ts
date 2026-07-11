@@ -1108,7 +1108,9 @@ describe('reader raster OCR surfaces', () => {
             await scanImage(frame!);
             await scanImage(frame!);
             await scanImage(frame!);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+            });
 
             const terminalFrame = frame;
             rect = new DOMRect(24, 20, 460, 610);
@@ -1117,7 +1119,9 @@ describe('reader raster OCR surfaces', () => {
             await new Promise(resolve => setTimeout(resolve, 60));
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBe(terminalFrame);
             expect(recognizeImage).toHaveBeenCalledTimes(3);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+            });
         } finally {
             controller.destroy();
         }
