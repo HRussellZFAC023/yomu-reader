@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.134
+// @version 1.6.135
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.134#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.134#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.134#sha256=9liUVz+sSuI5+jPZEKZBbUQ2jfLNitHlTzyD1YaLbec=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.134#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.134#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.134#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.134#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.135#sha256=qJd+FESo2ZfN7Q5BBptFu93Umt03WPurPhTgJ0G+CFQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.135#sha256=dclveQ5pLeK2xRm2KurIwIF8X8H/j8sIqkzJLl86mjU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.135#sha256=9liUVz+sSuI5+jPZEKZBbUQ2jfLNitHlTzyD1YaLbec=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.135#sha256=a96en1fSy+d+zD9WMvZmES0z3zyQLzOXj8WOqgKl2VQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.135#sha256=wTpy6tDNTL8AeLrZcv69q2eeUMmnZ0Xc3m+3qq+yCg8=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.135#sha256=aAQLhwF5k9GF3nmHpAqa6bgynb64j9Demh9Lq+7zFrU=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.135#sha256=y8oVHw+qJ7tmqQu/shxptrduN+pd3QAUqI4XMDY4mQE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -11630,6 +11630,16 @@ function renderReviewButtons(...args) {
 }
 function reviewButtonGrades(...args) {
   return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? [];
+}
+function promiseWithTimeout(promise, timeoutMs, message) {
+  let timeoutId = 0;
+  const timeout = new Promise((_resolve, reject) => {
+  timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([
+  promise,
+  timeout
+  ]).finally(() => window.clearTimeout(timeoutId));
 }
 async function runLimited(items, concurrency, worker) {
   if (!items.length) return;
@@ -29141,6 +29151,7 @@ const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
 const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 const PITCH_LOCAL_META_LIMIT = 12;
+const LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS = 500;
 const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
 const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1200;
@@ -34852,8 +34863,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.134"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.134"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.135"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.135"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34967,7 +34978,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.134"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.135"}`;
   } catch {
   return null;
   }
@@ -41424,7 +41435,11 @@ class ReaderApp {
     const card = resolved.get(key);
     if (!card || card.source === "fallback") {
       this.rememberUnresolvedFallbackVocabulary(key);
-      localOnlyTokens.push(...group.tokens);
+      if (this.settings.showPitchAccent && options.jpdbPublicLookup !== false) {
+        queuedTokens.push(...group.tokens);
+      } else {
+        localOnlyTokens.push(...group.tokens);
+      }
       continue;
     }
     cardsToCache.push(card);
@@ -41657,7 +41672,14 @@ class ReaderApp {
     log.warn("Local pitch dictionary availability check failed", { error });
     return false;
   });
-  return this.localPitchDictionaryAvailability;
+  return promiseWithTimeout(
+    this.localPitchDictionaryAvailability,
+    LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS,
+    "Local pitch dictionary presence check timed out."
+  ).catch((error) => {
+    log.warnOnce("local-pitch-dictionary-presence-timeout", "Local pitch dictionary presence check timed out", error);
+    return false;
+  });
   }
   async localPitchAccentForCard(card) {
   const pattern = await this.localPitchPatternForCard(card);
