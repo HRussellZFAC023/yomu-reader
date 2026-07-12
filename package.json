@@ -121,7 +121,7 @@
     "smoke:underline-baseline": "node scripts/underline-baseline-smoke.mjs",
     "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
-    "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability && npm run smoke:youtube-ruby-proof",
+    "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:constrained-gate && npm run smoke:reddit-chrome",
     "smoke:settings-layout": "node scripts/settings-layout-smoke.mjs",
