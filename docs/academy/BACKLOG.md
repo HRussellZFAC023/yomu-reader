@@ -29,6 +29,8 @@ Acceptance: `main` equals fetched upstream before Academy commits; donor trees a
 
 Acceptance: the full [`discovery/VERTICAL-SLICE.md`](discovery/VERTICAL-SLICE.md) script works at 320px and desktop with one clear action, approved art, intentional audio, stable annotations, and persistent evidence.
 
+Closure: source `371140513`, hosted assets `c5ef4629d`, release-candidate record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green. See [`evidence/stage-1/README.md`](evidence/stage-1/README.md).
+
 ## Stage 2 — source pipeline
 
 - [ ] Rebuild occurrence/payload ledgers from all 96 Moodle archives and local Japanese sources.

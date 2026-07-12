@@ -153,7 +153,19 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
   built VitePress, and verified the userscript. The clean deploy candidate is `s1-bbf9a61f26a3`;
   verification reported 1,887,405 bytes and 43,451 lines.
 
-### Remaining action
+### Stage close
 
-Commit the isolated hosted outputs, push and verify the Pages deployment/live
-Academy shell, then close Stage 1 and open Stage 2.
+- Pushed the rebased Stage 1 line through `5f759ee5f`. Pages run `29203203144`
+  passed the Reader build, hosted sync, Academy build, VitePress build,
+  userscript verification, artifact upload, and deployment.
+- Smoked `https://yomureader.com/academy/` in an isolated real browser at
+  1440x900. The page rendered the approved entrance composition without
+  horizontal overflow; Reader injected two word wrappers and one ruby while
+  leaving zero duplicate radios.
+- Verified live revision `s1-bbf9a61f26a3`, active `/academy/` service-worker
+  scope, and HTTP 200 responses for revisioned JS/CSS, manifest, service worker,
+  campus art, and the vertical-slice source record. Production `UCL2026` failed
+  closed with the authored Stage 7 boundary message.
+- Closed Stage 1 and opened Stage 2. Next action is the lossless 96-archive
+  occurrence/payload reconciliation; the product still claims exactly one
+  faithful playable Moodle question.

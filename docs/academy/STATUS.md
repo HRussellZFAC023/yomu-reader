@@ -1,10 +1,10 @@
 # Yomu Academy status
 
-**Updated:** 2026-07-12 19:00 Europe/London
+**Updated:** 2026-07-12 19:08 Europe/London
 
-**Current stage:** Stage 1 — skeleton and enrollment vertical slice (green; push/deploy pending)
+**Current stage:** Stage 2 — source pipeline (active; Stage 1 green and closed)
 
-**Canonical branch:** `main` contains source commit `371140513` and hosted-assets commit `c5ef4629d`; `origin/main` is integrated and awaits the Stage 1 push.
+**Canonical release line:** Stage 1 was pushed through `5f759ee5f`; source is `371140513`, hosted assets are `c5ef4629d`, Pages run `29203203144` deployed them successfully, and post-build asset refresh `d1104d10d` is integrated beneath this stage-close record.
 
 ## Gate board
 
@@ -24,7 +24,8 @@
 | Cross-model review | Green | The architecture follow-up passed in session `4308dfa7-1730-450e-b96d-6a22239cd44e`. Final delta session `7e12dfb2-4dbc-4cd4-bb65-9af74ec64bab` found one hover-only contrast blocker, verified its 5.10:1 composed-mirror fix, and returned `PASS`. |
 | Full repository check | Green | Definitive `npm run qa` passed: four regular shards, eight JPDB shards, Academy 20/61, production builds, 1,889,000-byte userscript verification, P0 smokes, deterministic QA 13/13, docs a11y 66/66, and complexity maximum 29/30. |
 | Deployment path | Green | Pages workflow now rebuilds hosted Reader assets, then Academy, then VitePress so the Academy service-worker revision hashes the exact deployed dependencies. |
-| Commit, push, deploy | Pending | Stage 1 closes only after the green checks, reviewed commit, push to `main`, and hosted Academy redeploy/smoke. |
+| Commit, push, deploy | Green | `main` pushed at `5f759ee5f`; Pages run `29203203144` passed build/deploy. Live `/academy/` serves `s1-bbf9a61f26a3`, owns its service-worker scope, returns 200 for app/CSS/manifest/SW/art/source records, and fails production invite entry closed until Stage 7. |
+| Stage 2 source baseline | In progress | The audited denominator remains 96 Moodle archives, 916 occurrences, 688 unique payloads, 716 PDF occurrences / 527 unique PDFs, and 185 MP3 occurrences / 146 unique audio payloads. Only the single Stage 1 source question is currently claimed playable. |
 
 ## Protected local work
 
@@ -50,6 +51,6 @@ Safety stashes remain at `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` and `c228c1e
 
 ## Next three actions
 
-1. Commit the isolated committed-source hosted outputs at revision `s1-bbf9a61f26a3`, preserving protected Reader paths.
-2. Push `main`, watch the Pages deployment, and smoke the live `/academy/` shell and revisioned assets.
-3. Close Stage 1 and begin the Stage 2 source-pipeline census from all 96 Moodle archives.
+1. Rebuild and reconcile the occurrence/payload ledger from all 96 Moodle archives without mutating donor evidence.
+2. Introduce the resumable PDF page/object/media census and unify question, image, audio, transcript, answer-key, and rights statuses.
+3. Migrate the 44 existing packs through the versioned source/augmentation validators and open the teacher comparison surface.

@@ -22,6 +22,19 @@ diff, checking the final hosted-contrast delta, and inspecting real composed
 mirror evidence. Their compact finding ledger is
 [`FABLE-REVIEW.md`](FABLE-REVIEW.md).
 
+## Live deployment
+
+- `main`: `5f759ee5f` (source `371140513`, hosted assets `c5ef4629d`).
+- GitHub Pages: run `29203203144`, build and deploy successful.
+- Live revision: `s1-bbf9a61f26a3` at `https://yomureader.com/academy/`.
+- Revisioned JS/CSS, manifest, service worker, campus art, and source JSON all
+  returned HTTP 200. The active service-worker scope is `/academy/`.
+- At 1440x900 the live page had `scrollWidth=innerWidth=1440`; Reader injected
+  two word wrappers and one ruby with no duplicate radio inputs.
+- `UCL2026` failed closed with `The invitation service is unavailable. A
+  previously opened session still works offline.`, as production access remains
+  a declared Stage 7 boundary.
+
 ## Browser journeys
 
 ### Fresh Lesson 0 enrollment
@@ -77,6 +90,7 @@ Query namespace: `qa-run=final-stage1-acceptance`.
 - [`aakash-rainy-directions-desktop-1440x900.png`](aakash-rainy-directions-desktop-1440x900.png)
 - [`offline-resume-annotated-n4.png`](offline-resume-annotated-n4.png)
 - [`offline-resume-campus.png`](offline-resume-campus.png)
+- [`live-access-1440x900.png`](live-access-1440x900.png)
 
 Current non-claims and later-stage boundaries are explicit in
 [`../../STAGE-1-LIMITATIONS.md`](../../STAGE-1-LIMITATIONS.md).
