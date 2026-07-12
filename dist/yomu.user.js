@@ -14,8 +14,8 @@
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.147#sha256=WEtm5RRRbehO+6h48ZoOUPItXCLiNv0TOgVerbp3X10=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.147#sha256=9Ln+BhVQfeN1kZEIomS5YidkHXua2atRQjXVE2XJZlw=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.147#sha256=6CCsxC0UGW/URP8D0avR+9mnfxUn83CNdUvy1d+/VFc=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.147#sha256=l5aaDTXUlJ38YLL8a8hFJL7cw4JF8o4ESyCS47ebvvU=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.147#sha256=ZbY7dUN1Vl20btZlMd8eW7fkvh8Nul60tFg+AYKR6RM=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.147#sha256=XrpkVmETkvvlbiOMSsUgcPhgPR4GgCnMDhaFvuFvzQw=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.147#sha256=GtFGo4D1FAzaT+FVwH24Vn28trV7pgosQ6dT+f50p5Y=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -35609,6 +35609,9 @@ function requestReaderCssViaUserscript(url, request) {
 function readerCssNeedsFallback(css = READER_CSS) {
   return !isFullReaderCss(css);
 }
+function shouldLoadReaderCssFallback(hasLinkedReaderCss, css = READER_CSS) {
+  return !hasLinkedReaderCss && readerCssNeedsFallback(css);
+}
 function readerCssFallbackUrls(href = safeLocationHref()) {
   const hostedUrl = hostedReaderCssUrl(href);
   return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
@@ -37290,7 +37293,7 @@ class ReaderApp {
   const style = document.createElement("style");
   style.textContent = hasLinkedReaderCss ? "" : initialReaderCss(READER_CSS);
   appendToDocumentHead(style);
-  if (!readerCssNeedsFallback(READER_CSS) || isJsdomRuntime()) return;
+  if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
   void loadReaderCssFallback().then((css) => {
     if (!css || this.isDestroyed) return;
     style.textContent = css;
