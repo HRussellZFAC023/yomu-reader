@@ -47,6 +47,8 @@ jobs:
         run: npm ci
       - name: Ensure Electron runtime
         run: npm run prepare:electron
+      - name: Install layout smoke browsers
+        run: npx playwright install chromium webkit
       - run: npm run check
       - run: npm run smoke:release
         env:
