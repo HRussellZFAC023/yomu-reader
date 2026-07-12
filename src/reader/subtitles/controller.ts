@@ -617,6 +617,11 @@ const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 // Window after a programmatic scroll during which scroll events are treated as
 // self-induced (scrollIntoView fires async), not as a user scroll.
 const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
+const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
+// A smooth scrollIntoView animation runs far longer than an instant one; the
+// self-induced-scroll window has to cover it or the animation's own scroll
+// events get misread as a manual scroll partway through and pause auto-follow.
+const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -690,6 +695,12 @@ interface TranscriptPanelRenderState {
     rows: TranscriptRow[];
     warmupRows?: TranscriptRow[];
     currentRowIndex: number;
+    // Track/loading/current-fallback/parse settings only -- excludes row count
+    // and virtual bounds, so it stays stable across a cue-list append.
+    structureSignature: string;
+    // structureSignature + row count.
+    baseSignature: string;
+    // baseSignature + virtual bounds.
     signature: string;
     rowIndexOffset?: number;
     totalRowCount?: number;
@@ -1042,6 +1053,12 @@ export class SubtitlePlayerController {
     private renderSerial = 0;
     private panelMode: SubtitlePanelMode = 'lines';
     private lastTranscriptSignature = '';
+    // Structure-only signature (see TranscriptPanelRenderState) committed by the
+    // last full render. Lets an append-only cue-list growth be detected as
+    // "only the row count grew" so it can patch the scroller's rows in place
+    // instead of a full setInnerHtml(panel, ...) that would replace the
+    // scroller and briefly paint a spacer-only, whitespace-band frame.
+    private lastTranscriptStructureSignature = '';
     // The virtual window actually committed to the DOM by the last full render.
     // Reused while auto-following so consecutive active-line advances keep the
     // same window (stable signature -> cheap class-swap, no list re-render that
@@ -1674,7 +1691,7 @@ export class SubtitlePlayerController {
         if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderTrackPanel();
         else if (this.panelMode === 'shadow') this.renderShadowPanel(true);
         else if (this.panelMode === 'mine') this.renderBatchMiningPanel();
-        else this.renderTranscriptPanel(true);
+        else this.renderTranscriptPanel();
     }
 
     private observeVideoLayout(video: HTMLVideoElement): void {
@@ -5938,6 +5955,14 @@ export class SubtitlePlayerController {
         this.transcriptPreviewPlayerResizeDeferred = false;
         const state = this.transcriptPanelRenderState();
         if (this.canRefreshTranscriptPanel(force, state)) return;
+        // Try the in-place patch first: an append-only cue-list growth (or a
+        // scroll-driven window shift) can reuse the existing scroller node, so
+        // it never replaces the panel and never paints a spacer-only frame.
+        // Falls back to a full render for structure changes, shrinks, or
+        // non-virtualized transcripts.
+        const scroller = panel.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        if (scroller && this.patchTranscriptVirtualWindow(state, scroller)) return;
+        this.lastTranscriptStructureSignature = state.structureSignature;
         this.lastTranscriptSignature = state.signature;
         this.renderedVirtualWindow = state.virtual
             ? { start: state.virtual.start, end: state.virtual.end, rowCount: state.totalRowCount ?? state.rows.length }
@@ -6382,6 +6407,8 @@ export class SubtitlePlayerController {
             rows: state.rows.slice(previewStart, previewEnd),
             warmupRows: state.warmupRows,
             currentRowIndex: state.currentRowIndex,
+            structureSignature: `preview:${state.structureSignature}`,
+            baseSignature: `preview:${state.baseSignature}`,
             signature: `preview:${state.signature}:${previewStart}`,
             rowIndexOffset: previewStart,
             totalRowCount: rowCount,
@@ -6422,18 +6449,20 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const virtual = this.transcriptVirtualWindow(rows.length, currentRowIndex);
         const renderedRows = virtual ? rows.slice(virtual.start, virtual.end) : rows;
-        const signature = [
-            rows.length,
+        const structureSignature = [
             this.selectedTrackId,
             this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
             !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
             this.parseCacheKey('', settings),
-            virtual ? `v:${virtual.start}:${virtual.end}` : '',
         ].join(':');
+        const baseSignature = [structureSignature, rows.length].join(':');
+        const signature = [baseSignature, virtual ? `v:${virtual.start}:${virtual.end}` : ''].join(':');
         return {
             rows: renderedRows,
             warmupRows: virtual ? renderedRows : undefined,
             currentRowIndex,
+            structureSignature,
+            baseSignature,
             signature,
             rowIndexOffset: virtual?.start,
             totalRowCount: virtual ? rows.length : undefined,
@@ -6683,34 +6712,60 @@ export class SubtitlePlayerController {
         const activeRows = Array.from(this.transcriptPanel.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row.active'));
         const active = this.transcriptPanel.querySelector<HTMLElement>(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
         if (active && activeRows.length === 1 && activeRows[0] === active) return;
+        const previousIndex = activeRows.length === 1 ? Number(activeRows[0]!.dataset.rowIndex) : undefined;
         activeRows.forEach(row => {
             if (row !== active) row.classList.remove('active');
         });
         if (active) active.classList.add('active');
-        this.scrollTranscriptToActive();
+        this.scrollTranscriptToActive({ behavior: this.transcriptActiveLineScrollBehavior(previousIndex, currentIndex) });
     }
 
-    private scrollTranscriptToActive(options: { force?: boolean } = {}): void {
+    // Only a small, nearby move between two already-mounted rows -- e.g. the
+    // ordinary line-by-line advance during playback -- reads well as a smooth
+    // glide. A default/full render, an explicit jump, or a large seek should
+    // land instantly: animating across a big distance (or one the viewer didn't
+    // themselves request) just reads as sluggish, not helpful.
+    private transcriptActiveLineScrollBehavior(previousIndex: number | undefined, currentIndex: number): ScrollBehavior {
+        if (previousIndex === undefined || !Number.isFinite(previousIndex) || currentIndex < 0) return 'auto';
+        if (this.prefersReducedMotion()) return 'auto';
+        const delta = Math.abs(currentIndex - previousIndex);
+        if (delta === 0 || delta > TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS) return 'auto';
+        return 'smooth';
+    }
+
+    private prefersReducedMotion(): boolean {
+        return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    private scrollTranscriptToActive(options: { force?: boolean; behavior?: ScrollBehavior; sync?: boolean } = {}): void {
         if ((!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll) || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
         // Respect a manual scroll: don't yank the list back to the active row
         // while the viewer is reading elsewhere. Auto-follow resumes after the
         // configurable resume window with no further manual scrolling.
         if (!options.force && this.isTranscriptAutoScrollPaused()) return;
-        if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
-        this.transcriptScrollFrame = requestAnimationFrame(() => {
+        const behavior: ScrollBehavior = options.behavior ?? 'auto';
+        const perform = () => {
             this.transcriptScrollFrame = undefined;
             if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             if (!active) return;
             // Mark the self-induced scroll so its scroll events are not counted
             // as a manual scroll that would pause auto-follow.
-            this.markTranscriptProgrammaticScroll();
-            active.scrollIntoView?.({ block: 'center', inline: 'nearest' });
-        });
+            this.markTranscriptProgrammaticScroll(behavior);
+            active.scrollIntoView?.({ block: 'center', inline: 'nearest', behavior });
+        };
+        if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
+        if (options.sync) {
+            this.transcriptScrollFrame = undefined;
+            perform();
+            return;
+        }
+        this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
 
-    private markTranscriptProgrammaticScroll(): void {
-        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+    private markTranscriptProgrammaticScroll(behavior: ScrollBehavior = 'auto'): void {
+        const windowMs = behavior === 'smooth' ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+        this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
     }
 
     private noteTranscriptScroll(): void {
@@ -6771,6 +6826,14 @@ export class SubtitlePlayerController {
             this.scheduleTranscriptHydration();
             this.scheduleTranscriptVirtualRender(scroller);
         }, { passive: true });
+        // A real user interruption -- touch, pointer, or wheel input -- must be
+        // recognized immediately even mid-smooth-scroll, so clear the
+        // self-induced-scroll marker rather than waiting out its window.
+        const clearProgrammaticMarker = () => { this.transcriptProgrammaticScrollUntil = 0; };
+        scroller.addEventListener('touchstart', clearProgrammaticMarker, { passive: true });
+        scroller.addEventListener('pointerdown', clearProgrammaticMarker, { passive: true });
+        scroller.addEventListener('wheel', clearProgrammaticMarker, { passive: true });
+        if ('onscrollend' in scroller) scroller.addEventListener('scrollend', clearProgrammaticMarker, { passive: true });
     }
 
     private scheduleTranscriptVirtualRender(scroller: HTMLElement): void {
@@ -6782,12 +6845,80 @@ export class SubtitlePlayerController {
             if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== 'lines') return;
             const state = this.transcriptPanelRenderState();
             if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+            if (this.patchTranscriptVirtualWindow(state, scroller)) return;
             this.renderTranscriptPanel(true);
         });
     }
 
     private isTranscriptVirtualScroller(scroller: HTMLElement): boolean {
         return scroller.dataset.virtualized === 'true';
+    }
+
+    // A scroll-driven virtual-window shift, or an append-only cue-list growth,
+    // only needs the rows inside the scroller swapped; the scroller element
+    // itself (and everything else in the panel) is unchanged. Patching its
+    // children in place -- instead of routing through renderTranscriptPanel's
+    // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
+    // so a tablet's in-flight native touch scroll gesture (bound to that node)
+    // survives the update instead of stopping dead, and growth never paints a
+    // spacer-only, whitespace-band frame while the new rows mount.
+    // Only safe when the structure hasn't changed and the row count is equal
+    // or grew (append-only); a shrink or a structure change falls back to a
+    // full render.
+    private patchTranscriptVirtualWindow(state: TranscriptPanelRenderState, scroller: HTMLElement): boolean {
+        if (!state.virtual) return false;
+        if (!this.isTranscriptVirtualScroller(scroller)) return false;
+        if (state.structureSignature !== this.lastTranscriptStructureSignature) return false;
+        const previousRowCount = this.renderedVirtualWindow?.rowCount;
+        const rowCount = state.totalRowCount ?? state.rows.length;
+        if (previousRowCount === undefined || rowCount < previousRowCount) return false;
+        const rowIndexOffset = state.rowIndexOffset ?? 0;
+        const transcriptRows = this.transcriptRows();
+        setInnerHtml(scroller, `
+            ${this.renderTranscriptVirtualSpacer(state.virtual.topSpacer)}
+            ${state.rows.length
+                ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows)).join('')
+                : this.renderTranscriptWaitingState()}
+            ${this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer)}
+        `);
+        scroller.dataset.totalRows = String(rowCount);
+        this.lastTranscriptStructureSignature = state.structureSignature;
+        this.lastTranscriptSignature = state.signature;
+        this.renderedVirtualWindow = { start: state.virtual.start, end: state.virtual.end, rowCount };
+        this.transcriptVirtualScrollTop = state.virtual.scrollTop;
+        this.indexTranscriptTextTargets();
+        this.updateTranscriptDrawerMeta(rowCount);
+        // Center synchronously (no rAF round-trip) so the active row is never
+        // painted at an obsolete scrollTop against the freshly-grown spacers.
+        // A manual (auto-follow-paused) scroll keeps its own scrollTop, since
+        // state.virtual.scrollTop was computed from the current scrollTop.
+        this.restoreTranscriptVirtualScroll(state);
+        if (this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused()) {
+            this.scrollTranscriptToActive({ behavior: 'auto', sync: true });
+        }
+        const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+        this.scheduleTranscriptHydration(hydrationIndex);
+        this.scheduleTranscriptCacheWarmup(state.warmupRows ?? state.rows, hydrationIndex);
+        this.syncPanelState();
+        return true;
+    }
+
+    private updateTranscriptDrawerMeta(rowCount: number): void {
+        const metaEl = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-drawer-meta');
+        if (!metaEl) return;
+        const language = this.options.getSettings().interfaceLanguage;
+        const metaArgs = {
+            mode: 'lines' as const,
+            count: rowCount,
+            tracks: this.tracks,
+            selectedTrackId: this.selectedTrackId,
+            secondaryTrackId: this.secondaryTrackId,
+            language,
+        };
+        const meta = subtitleDrawerMetaText(metaArgs);
+        const metaTitle = subtitleDrawerMetaText({ ...metaArgs, compact: false });
+        metaEl.textContent = meta;
+        metaEl.title = metaTitle;
     }
 
     private bindTranscriptResizeHandle(): void {
@@ -7009,7 +7140,26 @@ export class SubtitlePlayerController {
         const exact = this.currentTranscriptRowIndex(rows);
         if (exact >= 0) return exact;
         if (activeCueIndex >= 0) return rows.findIndex(row => row.cueIndex === activeCueIndex);
-        return this.cues.length ? -1 : 0;
+        if (this.cues.length) return this.transcriptGapAnchorRowIndex(rows);
+        return 0;
+    }
+
+    // A real inter-cue gap must still leave overlay/currentCue blank -- but for
+    // the transcript list only, snapping to "no active row" makes the highlight
+    // vanish and reappear a beat later, and forces a virtual-window recompute
+    // for no reason. Anchor instead on the latest row whose cue has already
+    // started: a seek into a gap lands near the seek destination immediately,
+    // and playback running through a gap keeps the previous row highlighted
+    // until the next cue advances it once. Only while auto-follow is enabled --
+    // with it off the previous "no active row" gap behavior is unchanged.
+    private transcriptGapAnchorRowIndex(rows: TranscriptRow[]): number {
+        if (this.currentCue || !this.video) return -1;
+        if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
+        const time = this.video.currentTime;
+        for (let index = rows.length - 1; index >= 0; index -= 1) {
+            if (rows[index]!.cue.start <= time) return index;
+        }
+        return -1;
     }
 
     private currentTranscriptRowIndex(rows: TranscriptRow[]): number {

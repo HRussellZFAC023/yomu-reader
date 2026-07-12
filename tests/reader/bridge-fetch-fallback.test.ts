@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestHttp } from '../../src/reader/network/http-request';
+import {
+    getUserscriptHttpRequest,
+    installUserscriptHttpBridge,
+    isUserscriptEventBridgeRequest,
+    probeUserscriptEventBridge,
+    uninstallUserscriptHttpBridge,
+    USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS,
+} from '../../src/reader/userscript';
 import { createWindowCustomEvent } from '../../src/reader/platform/window-events';
 import { registerYomuCompanion } from '../../src/reader/companions/registry';
 
@@ -11,9 +19,68 @@ import { registerYomuCompanion } from '../../src/reader/companions/registry';
 // the recovery paths.
 describe('event-bridge failure fetch fallback', () => {
     afterEach(() => {
+        vi.useRealTimers();
+        uninstallUserscriptHttpBridge();
         delete document.documentElement.dataset.yomuUserscriptHttpBridge;
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
+    });
+
+    it('detects a stale bridge before a timeout-free CORS-readable request can hang', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
+        document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
+        const kanjiVg = '<svg viewBox="0 0 109 109"><path d="M1 1L2 2" /></svg>';
+        const fetchMock = vi.fn().mockImplementation(async () => new Response(kanjiVg, { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = requestHttp('https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/081ea.svg', {
+            responseType: 'text',
+        });
+        await vi.advanceTimersByTimeAsync(USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS + 1);
+
+        await expect(result).resolves.toBe(kanjiVg);
+        expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBeUndefined();
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/081ea.svg',
+            expect.objectContaining({ credentials: 'omit' }),
+        );
+
+        await expect(requestHttp('https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/081ea.svg', {
+            responseType: 'text',
+        })).resolves.toBe(kanjiVg);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('coalesces concurrent stale-bridge probes before clearing the dead marker', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
+        document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
+        const probeListener = vi.fn();
+        window.addEventListener('yomu-userscript-http-probe', probeListener, { once: true });
+        const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const first = requestHttp('https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/04e00.svg');
+        const second = requestHttp('https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/04e8c.svg');
+
+        expect(probeListener).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS + 1);
+        await expect(Promise.all([first, second])).resolves.toEqual(['ok', 'ok']);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('answers a liveness probe without spending a real GM request', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
+        const gmRequest = vi.fn();
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+        installUserscriptHttpBridge();
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        const eventBridge = getUserscriptHttpRequest();
+
+        expect(isUserscriptEventBridgeRequest(eventBridge)).toBe(true);
+        await expect(probeUserscriptEventBridge(eventBridge)).resolves.toBe(true);
+        expect(gmRequest).not.toHaveBeenCalled();
     });
 
     it('retries a dead-bridge timeout through the hosted proxy fetch path', async () => {
@@ -38,6 +105,13 @@ describe('event-bridge failure fetch fallback', () => {
         document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
+        window.addEventListener('yomu-userscript-http-probe', event => {
+            const raw = (event as CustomEvent).detail;
+            const detail = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            window.dispatchEvent(new CustomEvent('yomu-userscript-http-probe-response', {
+                detail: JSON.stringify({ id: detail.id }),
+            }));
+        }, { once: true });
         window.addEventListener('yomu-userscript-http-request', event => {
             const raw = (event as CustomEvent).detail;
             const detail = typeof raw === 'string' ? JSON.parse(raw) : raw;

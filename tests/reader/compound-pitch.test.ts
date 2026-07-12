@@ -81,6 +81,16 @@ describe('composeCompoundPitchPatternFromMeta', () => {
         await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', withoutTail)).resolves.toBe('');
     });
 
+    it('composes the mixed-kana compound もう一度 from constituent pitch rows', async () => {
+        const lookup = bankLookup({
+            もう: [pitchEntry('もう', 1)],
+            一度: [pitchEntry('いちど', 0)],
+        });
+
+        const composed = await composeCompoundPitchPatternFromMeta('もう一度', 'もういちど', lookup);
+        expect(composed).toBe('HLLHHH');
+    });
+
     it('declines a reading-keyed constituent when the reading is ambiguous', async () => {
         // Two distinct pitches under reading むけ = ambiguous; the fallback must
         // decline rather than mis-colour a homograph.

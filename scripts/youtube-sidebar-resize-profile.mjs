@@ -221,11 +221,15 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         await screenshot(page, scenarioDir, 'dragged');
         screenshotNames.push('dragged');
 
+        let transcriptScrollContinuity;
         const transcriptScroll = await measuredStep(page, client, 'scroll-transcript-list', async () => {
-            await scrollTranscriptList(page);
+            transcriptScrollContinuity = await scrollTranscriptList(page);
             if (keylessMode) await waitForVisiblePageParse(page);
         });
-        transcriptScroll.transcriptScroll = await transcriptScrollEvidence(page);
+        transcriptScroll.transcriptScroll = {
+            ...await transcriptScrollEvidence(page),
+            continuity: transcriptScrollContinuity,
+        };
         steps.push(transcriptScroll);
         await screenshot(page, scenarioDir, 'transcript-scrolled');
         screenshotNames.push('transcript-scrolled');
@@ -518,11 +522,18 @@ async function scrollPageWithPanelOpen(page) {
 }
 
 async function scrollTranscriptList(page) {
-    await page.evaluate(() => {
+    const before = await page.evaluate(() => {
         const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
-        if (!(scroller instanceof HTMLElement)) return;
+        if (!(scroller instanceof HTMLElement)) return null;
+        scroller.dataset.scrollContinuityProbe = 'original';
+        const rows = [...scroller.querySelectorAll('.jpdb-subtitle-list-row')];
         const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
         scroller.scrollTo({ top: Math.round(maxScroll * 0.86), behavior: 'instant' });
+        return {
+            virtualized: scroller.dataset.virtualized === 'true',
+            firstRow: rows[0]?.getAttribute('data-row-index') ?? null,
+            lastRow: rows.at(-1)?.getAttribute('data-row-index') ?? null,
+        };
     });
     await page.waitForFunction(() => {
         const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
@@ -532,6 +543,22 @@ async function scrollTranscriptList(page) {
     }, null, { timeout: 1500 }).catch(() => undefined);
     await waitForVisibleTranscriptParse(page);
     await waitForFrames(page, 3);
+    const after = await page.evaluate(() => {
+        const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
+        if (!(scroller instanceof HTMLElement)) return null;
+        const rows = [...scroller.querySelectorAll('.jpdb-subtitle-list-row')];
+        return {
+            sameScroller: scroller.dataset.scrollContinuityProbe === 'original',
+            scrollTop: Math.round(scroller.scrollTop),
+            firstRow: rows[0]?.getAttribute('data-row-index') ?? null,
+            lastRow: rows.at(-1)?.getAttribute('data-row-index') ?? null,
+        };
+    });
+    const advancedVirtualRows = !before?.virtualized || Number(after?.firstRow) > Number(before.firstRow);
+    if (!before || !after || !after.sameScroller || after.scrollTop <= 0 || !advancedVirtualRows) {
+        throw new Error(`Transcript scroll continuity failed: ${JSON.stringify({ before, after, advancedVirtualRows })}`);
+    }
+    return { before, after, advancedVirtualRows };
 }
 
 async function dragPlan(page, placement) {

@@ -153,7 +153,12 @@ export function waitForTextTrackCues(track: TextTrack, timeoutMs = 900): Promise
                 resolve(cues);
                 return;
             }
-            window.setTimeout(poll, 50);
+            // Keep the bounded poll safe if a test/document realm is torn down
+            // while a native track is still waiting for its browser-populated
+            // cue list. `window` may disappear before the timeout fires; the
+            // global timer remains valid and lets the poll reach its timeout
+            // without surfacing an uncaught teardown error.
+            globalThis.setTimeout(poll, 50);
         };
         poll();
     });

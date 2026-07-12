@@ -4374,6 +4374,272 @@ Watch the cat
         }
     });
 
+    it('keeps the transcript scroll container in place when a hand scroll shifts the virtual window', async () => {
+        // On tablets, a virtual-window shift used to route through a full panel
+        // render that replaced .jpdb-subtitle-list-scroll with a new element,
+        // detaching it from the in-flight native touch scroll gesture and
+        // stopping the scroll dead. The scroller node must survive a scroll-
+        // driven window shift so the gesture keeps tracking it.
+        vi.useFakeTimers();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        window.requestAnimationFrame = ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)) as typeof window.requestAnimationFrame;
+        window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
+
+        try {
+            const cues = Array.from({ length: 300 }, (_, index) => ({
+                start: index,
+                end: index + 0.8,
+                text: `長い字幕${index}`,
+                transcriptEligible: true,
+            }));
+            const { controller, internals } = setupTranscriptCueController(cues, {
+                currentCue: cues[0],
+                settings: { subtitleTranscriptAutoScroll: false },
+            });
+
+            try {
+                internals.openLinesPanel();
+
+                const scrollerBefore = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+                const rowsBefore = Array.from(scrollerBefore.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+                expect(rowsBefore[0]?.dataset.rowIndex).toBe('0');
+                expect(rowsBefore.at(-1)?.dataset.rowIndex).toBe('20');
+
+                Object.defineProperty(scrollerBefore, 'scrollTop', {
+                    configurable: true,
+                    value: 4000,
+                    writable: true,
+                });
+                scrollerBefore.dispatchEvent(new Event('scroll'));
+
+                await vi.advanceTimersByTimeAsync(1);
+                await Promise.resolve();
+
+                const scrollerAfter = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+                // Same DOM node, not a replacement -- this is what keeps a tablet's
+                // native touch scroll gesture alive across the virtual window shift.
+                expect(scrollerAfter).toBe(scrollerBefore);
+                expect(scrollerAfter.scrollTop).toBe(4000);
+
+                const rowsAfter = Array.from(scrollerAfter.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+                expect(scrollerAfter.dataset.totalRows).toBe('300');
+                expect(rowsAfter[0]?.dataset.rowIndex).toBe('47');
+                expect(rowsAfter.at(-1)?.dataset.rowIndex).toBe('67');
+            } finally {
+                controller.destroy();
+            }
+        } finally {
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+            window.cancelAnimationFrame = originalCancelAnimationFrame;
+        }
+    });
+
+    it('keeps the previous transcript row anchored through a cue gap, then glides once to the next row', () => {
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const scrollSpy = vi.fn();
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (callback: FrameRequestCallback) => { callback(performance.now()); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+        const cues = [
+            { start: 0, end: 1, text: '前の字幕', transcriptEligible: true },
+            { start: 2, end: 3, text: '次の字幕', transcriptEligible: true },
+        ];
+        const { controller, internals, video } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number] | undefined;
+            updateFromLoadedCues: () => void;
+            renderTranscriptPanel: (force?: boolean) => void;
+        }>(cues, {
+            currentCue: cues[0],
+            currentTime: 0.5,
+            selectedTrackId: 'file-primary',
+            settings: { subtitleTranscriptAutoScroll: true },
+        });
+
+        try {
+            internals.openLinesPanel();
+            internals.updateFromLoadedCues();
+            internals.renderTranscriptPanel();
+            scrollSpy.mockClear();
+
+            video.currentTime = 1.5;
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBeUndefined();
+            expect(document.querySelector('.jpdb-subtitle-primary')).toBeNull();
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active')?.dataset.rowIndex).toBe('0');
+            expect(scrollSpy).not.toHaveBeenCalled();
+
+            video.currentTime = 2.1;
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBe(cues[1]);
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active')?.dataset.rowIndex).toBe('1');
+            expect(scrollSpy).toHaveBeenCalledTimes(1);
+            expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth', block: 'center' }));
+        } finally {
+            controller.destroy();
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        }
+    });
+
+    it('does not keep a transcript gap anchor when auto-follow is disabled', () => {
+        const cues = [
+            { start: 0, end: 1, text: '前の字幕', transcriptEligible: true },
+            { start: 2, end: 3, text: '次の字幕', transcriptEligible: true },
+        ];
+        const { controller, internals, video } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number] | undefined;
+            updateFromLoadedCues: () => void;
+        }>(cues, {
+            currentCue: cues[0],
+            currentTime: 0.5,
+            selectedTrackId: 'file-primary',
+            settings: { subtitleTranscriptAutoScroll: false },
+        });
+
+        try {
+            internals.openLinesPanel();
+            video.currentTime = 1.5;
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBeUndefined();
+            expect(document.querySelector('.jpdb-subtitle-list-row.active')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('patches appended virtual transcript rows and centres the new active row before returning', () => {
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const scrollSpy = vi.fn();
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (callback: FrameRequestCallback) => { callback(performance.now()); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+        const cues = Array.from({ length: 80 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `追加字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const initialCues = cues.slice(0, 70);
+        const { controller, internals, video } = setupTranscriptCueController<typeof cues[number], {
+            renderTranscriptPanel: (force?: boolean) => void;
+        }>(initialCues, {
+            currentCue: initialCues[65],
+            currentTime: 65.2,
+            selectedTrackId: 'file-primary',
+            settings: { subtitleTranscriptAutoScroll: true },
+        });
+
+        try {
+            internals.openLinesPanel();
+            const scrollerBefore = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+            scrollSpy.mockClear();
+
+            internals.cues = cues;
+            internals.currentCue = cues[75]!;
+            video.currentTime = 75.2;
+            internals.renderTranscriptPanel();
+
+            const scrollerAfter = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+            const active = scrollerAfter.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
+            expect(scrollerAfter).toBe(scrollerBefore);
+            expect(scrollerAfter.dataset.totalRows).toBe('80');
+            expect(document.querySelector('.jpdb-subtitle-drawer-meta')?.textContent).toContain('80');
+            expect(active?.dataset.rowIndex).toBe('75');
+            expect(scrollerAfter.querySelectorAll('.jpdb-subtitle-list-row').length).toBeGreaterThan(0);
+            expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto', block: 'center' }));
+        } finally {
+            controller.destroy();
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        }
+    });
+
+    it('honours reduced motion and distinguishes smooth auto-follow from a real touch interruption', () => {
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const matchMediaDescriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+        const scrollSpy = vi.fn();
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (callback: FrameRequestCallback) => { callback(performance.now()); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+        const cues = Array.from({ length: 10 }, (_, index) => ({
+            start: index,
+            end: index + 1,
+            text: `字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const { controller, internals, video } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number];
+            renderTranscriptPanel: (force?: boolean) => void;
+        }>(cues, {
+            currentCue: cues[0],
+            currentTime: 0.5,
+            selectedTrackId: 'file-primary',
+            settings: { subtitleTranscriptAutoScroll: true, subtitleTranscriptAutoScrollResumeSeconds: 30 },
+        });
+
+        try {
+            internals.openLinesPanel();
+            scrollSpy.mockClear();
+            internals.currentCue = cues[1]!;
+            video.currentTime = 1.2;
+            internals.renderTranscriptPanel();
+            expect(scrollSpy).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+
+            const scroller = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+            scroller.dispatchEvent(new Event('scroll'));
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
+
+            scroller.dispatchEvent(new Event('touchstart'));
+            scroller.dispatchEvent(new Event('scroll'));
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);
+
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: () => ({ matches: false }),
+            });
+            // Clear the manual pause, then prove a large seek stays instant even
+            // when motion is otherwise allowed.
+            document.querySelector<HTMLButtonElement>('[data-action="jump-current"]')!.click();
+            scrollSpy.mockClear();
+            internals.currentCue = cues[9]!;
+            video.currentTime = 9.2;
+            internals.renderTranscriptPanel();
+            expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }));
+
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: () => ({ matches: true }),
+            });
+            scrollSpy.mockClear();
+            internals.currentCue = cues[8]!;
+            video.currentTime = 8.2;
+            internals.renderTranscriptPanel();
+            expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }));
+        } finally {
+            controller.destroy();
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+            if (matchMediaDescriptor) Object.defineProperty(window, 'matchMedia', matchMediaDescriptor);
+            else delete (window as Partial<Window>).matchMedia;
+        }
+    });
+
     it('keeps an explicitly closed pause panel closed until the video plays again', async () => {
         vi.useFakeTimers();
         const settings = {

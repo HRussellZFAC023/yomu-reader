@@ -118,10 +118,12 @@ export function isYomuPublicProxyUrl(candidateUrl: string): boolean {
     }
 }
 
-function isKnownDirectCorsTarget(targetUrl: string): boolean {
+export function isKnownDirectCorsTarget(targetUrl: string): boolean {
     try {
         const target = new URL(targetUrl, location.href);
-        return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === 'api.nadeshiko.co';
+        return IMMERSION_KIT_API_HOSTS.has(target.hostname)
+            || target.hostname === 'api.nadeshiko.co'
+            || target.hostname === 'raw.githubusercontent.com';
     } catch {
         return false;
     }

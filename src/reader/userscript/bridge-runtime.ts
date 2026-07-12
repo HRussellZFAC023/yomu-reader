@@ -1,6 +1,7 @@
 import { isYomuHostedAppUrl } from '../app/pages';
 import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import {
+    bridgeEventId,
     bridgeEventDetail,
     bridgeRequestDetail,
     bridgeRequestOptions,
@@ -18,9 +19,13 @@ type UserscriptBridgeReject = (reason?: unknown) => void;
 
 const BRIDGE_REQUEST_EVENT = 'yomu-userscript-http-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-http-response';
+const BRIDGE_PROBE_EVENT = 'yomu-userscript-http-probe';
+const BRIDGE_PROBE_RESPONSE_EVENT = 'yomu-userscript-http-probe-response';
 const BRIDGE_MARKER = 'yomuUserscriptHttpBridge';
 const BRIDGE_TIMEOUT_MS = 30000;
-let bridgeRequestListenerCleanup: (() => void) | undefined;
+export const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let bridgeListenerCleanup: (() => void) | undefined;
+let eventBridgeProbeInFlight: Promise<boolean> | undefined;
 
 export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
     for (const candidate of userscriptRequestCandidates()) {
@@ -45,12 +50,12 @@ export function installUserscriptHttpBridge(): void {
         dispatchUserscriptBridgeReady();
         return;
     }
-    bridgeRequestListenerCleanup?.();
-    bridgeRequestListenerCleanup = undefined;
+    bridgeListenerCleanup?.();
+    bridgeListenerCleanup = undefined;
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = new Set<string>();
     markerDataset[BRIDGE_MARKER] = 'true';
-    bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
+    const requestCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = bridgeRequestDetail(event);
         if (!detail) return;
         if (handledRequestIds.has(detail.id)) return;
@@ -73,6 +78,14 @@ export function installUserscriptHttpBridge(): void {
             send('error', undefined, error instanceof Error ? error.message : String(error || 'Request failed.'));
         }
     });
+    const probeCleanup = addBridgeEventListener(BRIDGE_PROBE_EVENT, event => {
+        const id = bridgeEventId(event);
+        if (id) dispatchBridgeEvent(BRIDGE_PROBE_RESPONSE_EVENT, { id });
+    });
+    bridgeListenerCleanup = () => {
+        requestCleanup();
+        probeCleanup();
+    };
     dispatchUserscriptBridgeReady();
 }
 
@@ -85,8 +98,8 @@ export function installUserscriptHttpBridgeWhenReady(): void {
 }
 
 export function uninstallUserscriptHttpBridge(): void {
-    bridgeRequestListenerCleanup?.();
-    bridgeRequestListenerCleanup = undefined;
+    bridgeListenerCleanup?.();
+    bridgeListenerCleanup = undefined;
     const markerDataset = bridgeMarkerDataset();
     if (markerDataset) delete markerDataset[BRIDGE_MARKER];
 }
@@ -117,7 +130,7 @@ function scheduleUserscriptHttpBridgeRetry(): void {
 }
 
 function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset()): boolean {
-    return Boolean(markerDataset?.[BRIDGE_MARKER] === 'true' && bridgeRequestListenerCleanup);
+    return Boolean(markerDataset?.[BRIDGE_MARKER] === 'true' && bridgeListenerCleanup);
 }
 
 function dispatchUserscriptBridgeReady(): void {
@@ -133,6 +146,41 @@ const EVENT_BRIDGE_TAG = Symbol.for('yomu.userscriptEventBridge');
 export function isUserscriptEventBridgeRequest(request: unknown): boolean {
     return typeof request === 'function'
         && (request as { [EVENT_BRIDGE_TAG]?: boolean })[EVENT_BRIDGE_TAG] === true;
+}
+
+export function probeUserscriptEventBridge(request: unknown): Promise<boolean> {
+    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+    if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
+    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+    const probe = new Promise<boolean>(resolve => {
+        const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        let settled = false;
+        let responseCleanup = noop;
+        let bridgeReadyCleanup = noop;
+        const finish = (alive: boolean) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeout);
+            responseCleanup();
+            bridgeReadyCleanup();
+            if (!alive) {
+                const markerDataset = bridgeMarkerDataset();
+                if (markerDataset?.[BRIDGE_MARKER] === 'true') delete markerDataset[BRIDGE_MARKER];
+            }
+            resolve(alive);
+        };
+        const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+        responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, event => {
+            if (bridgeEventId(event) === id) finish(true);
+        });
+        bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+        dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+    });
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+        if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = undefined;
+    });
+    return probe;
 }
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
