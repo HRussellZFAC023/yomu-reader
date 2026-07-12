@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { applyTokensToScanTarget, collectFragmentTextTargetsIn, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
@@ -46,8 +44,6 @@ function renderedMirrorText(m: HTMLElement): string {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
     return text;
 }
-
-const mirrorCss = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\r\n/g, '\n');
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -277,7 +273,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         mirror(host).querySelectorAll<HTMLElement>('rt').forEach(rt => expect(rt.style.display).not.toBe('none'));
     });
 
-    it('clip-constrained rows: host overflow stays untouched (paint-invariant), and the MIRROR self-clips at rest', () => {
+    it('clip-constrained rows keep native overflow and use additive detached readings', () => {
         vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (this: Element) {
             return (this instanceof HTMLElement && this.classList.contains('jpdb-reader-text-mirror')) ? 500 : 100;
         });
@@ -293,17 +289,12 @@ describe('sol review: mirror fidelity edge cases', () => {
         // line, so its overflow must stay UNTOUCHED — forcing it visible would
         // un-ellipsize the page's own text sideways. The hover reveal lives on
         // the rest-hidden mirror instead (clipHoverOnly) …
-        expect(mirror(host).dataset.yomuClipConstrained).toBe('true');
+        expect(mirror(host).dataset.yomuDetachedReadings).toBe('true');
         expect(host.style.getPropertyValue('overflow')).toBe('hidden');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        // … while the MIRROR clips itself to the host box at rest, so a 500px
-        // base line cannot escape a 100px ellipsized title horizontally.
-        // CSS-driven so :hover / ruby-room growth can release it.
-        const restRule = mirrorCss.match(/(^|\n)\.jpdb-reader-text-mirror\[data-yomu-clip-constrained="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(restRule).toContain('overflow: hidden !important');
-        const revealRule = mirrorCss.match(/\.jpdb-reader-text-mirror\[data-yomu-clip-constrained="true"\]:hover[\s\S]*?\{[^}]*\}/)?.[0] ?? '';
-        expect(revealRule).toContain('overflow: visible !important');
-        expect(revealRule).toContain('data-yomu-ruby-room');
+        expect(mirror(host).querySelector('rt')).toBeNull();
+        expect(mirror(host).querySelector('.jpdb-reader-detached-furi')).not.toBeNull();
+        expect(host.querySelector('[data-yomu-ruby-room]')).toBeNull();
     });
 
     it('threads whitespace joints through multi-node fragment targets (production Discord path)', () => {

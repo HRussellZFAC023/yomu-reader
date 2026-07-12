@@ -59,11 +59,11 @@ describe('clamped content preserves base text and bounded geometry', () => {
         const row = document.querySelector<HTMLElement>('.prose')!;
         applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'prose-full'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
-        // The in-place channel stamps "content", NOT "true": the rest-hide CSS
-        // is value-exact on "true", so readings stay visible at rest and the
-        // clamped row grows naturally via the in-flow ruby line box.
+        // The in-place channel stamps "content", NOT "true": readings stay
+        // visible at rest, but use detached geometry so the clamp cannot grow.
         expect(row.dataset.yomuClipConstrained).toBe('content');
-        expect(row.querySelector('.jpdb-reader-word ruby rt')?.textContent).toBe('とうきょう');
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
+        expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
     it('stamps a Google-style result DIV as "true" so its base stays in the authored row', () => {
@@ -76,7 +76,7 @@ describe('clamped content preserves base text and bounded geometry', () => {
         applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
         expect(row.dataset.yomuClipConstrained).toBe('true');
-        expect(row.querySelector('.jpdb-reader-word ruby rt')?.textContent).toBe('とうきょう');
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 

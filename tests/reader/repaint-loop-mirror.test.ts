@@ -145,11 +145,14 @@ describe('repaint-loop mirror fallback', () => {
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        // Detached passive mirrors are additive: native glyphs remain visible
+        // while the overlay supplies hit targets, pitch, and readings.
+        expect(host.style.getPropertyValue('visibility')).toBe('');
         expect(host.style.getPropertyValue('overflow')).toBe('hidden');
         expect(host.style.getPropertyPriority('overflow')).toBe('');
         expect(mirror.querySelector('rt')).toBeNull();
         expect(mirror.querySelector('.jpdb-reader-passive-word')).toBeTruthy();
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
 
         expect(removeNonDestructiveScanMirrors(document)).toBe(1);
         expect(host.style.overflow).toBe('hidden');

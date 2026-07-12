@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.145] - 2026-07-12
+
+### Fixed
+
+- Furigana and pitch accents in compact page chrome—buttons, chips, menus, badges, metadata rows, and fixed-height labels—now use detached, glyph-anchored decoration that preserves the site's native spacing, wrapping, centring, and clipping.
+- Controls and dynamically revealed panels are rescanned through the same generic decoration policy, so their readings remain visible and passive without stealing taps from the page or opening the dictionary.
+- Compound words and entries with multiple pitch patterns retain every pitch-accent pattern instead of losing later alternatives.
+
+### Testing
+
+- Added Chromium and WebKit release gates for chip fidelity, constrained metadata rows, and Reddit-style compact chrome, including checks for growth, overlap, clipping, and click-through behavior.
+
 ## [1.6.144] - 2026-07-11
 
 ### Fixed

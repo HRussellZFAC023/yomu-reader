@@ -35,7 +35,7 @@ describe('generic reader layout overflow guards', () => {
         expect(word.querySelector('rt')?.textContent).toBe('にほんご');
     });
 
-    it('treats account chooser rows as compact passive chrome with ruby suppressed', () => {
+    it('treats account chooser rows as compact passive chrome with detached readings', () => {
         document.body.innerHTML = `
             <div role="dialog" aria-modal="true" class="account-chooser">
                 <div id="account-row" role="link" tabindex="0">
@@ -63,8 +63,9 @@ describe('generic reader layout overflow guards', () => {
         expect(row.dataset.jpdbReaderPassiveAtomic).toBe('true');
         expect(row.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
         expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(row.textContent?.replace(/\s+/g, '').trim()).toBe('アカウントを選択');
-        expect(row.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(Array.from(row.querySelectorAll<HTMLElement>('.jpdb-reader-word')).map(word => word.dataset.expression).join('')).toBe('アカウント選択');
+        expect(row.querySelector('rt')).toBeNull();
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せんたく');
         expect(Array.from(row.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
@@ -99,7 +100,8 @@ describe('generic reader layout overflow guards', () => {
 
         expect(panel.dataset.jpdbReaderPassiveChrome).toBe('true');
         expect(helper.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
-        expect(helper.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(helper.querySelector('rt')).toBeNull();
+        expect(helper.querySelector('.jpdb-reader-detached-furi')).not.toBeNull();
     });
 
     it('suppresses ruby on mobile YouTube question helper rows without suppressing media titles', () => {
@@ -221,16 +223,15 @@ describe('generic reader layout overflow guards', () => {
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
         // Paint-invariant design (third live gate): the clamped 36px title row
-        // renders IN PLACE — no mirror, host text painting — and its in-flow
-        // rt lives inside the clip-constrained-stamped row, which the rest-
-        // hide CSS keeps invisible until hover.
+        // renders IN PLACE — no mirror, host text painting — with detached
+        // readings that cannot grow the clamped title row.
         expect(link.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        const rt = link.querySelector('rt');
-        expect(rt).not.toBeNull();
-        expect(rt?.closest('[data-yomu-clip-constrained="true"]')).not.toBeNull();
+        expect(link.querySelector('rt')).toBeNull();
+        expect(link.querySelector('.jpdb-reader-detached-furi')).not.toBeNull();
+        expect(link.querySelector('[data-yomu-ruby-room]')).toBeNull();
     });
 
-    it('suppresses ruby on compact tabindex and onclick controls without named button roles', () => {
+    it('detaches readings on compact tabindex and onclick controls without named button roles', () => {
         document.body.innerHTML = `
             <section class="mobile-market">
                 <div id="trade-chip" tabindex="0" onclick="void 0" style="display:flex;align-items:center;justify-content:center;width:112px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
@@ -259,12 +260,13 @@ describe('generic reader layout overflow guards', () => {
         expect(chip.dataset.jpdbReaderPassiveChrome).toBe('true');
         expect(chip.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
         expect(chip.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(chip.textContent?.replace(/\s+/g, '').trim()).toBe('注文確認');
-        expect(chip.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).map(word => word.dataset.expression).join('')).toBe('注文確認');
+        expect(chip.querySelector('rt')).toBeNull();
+        expect(chip.querySelectorAll('.jpdb-reader-detached-furi')).toHaveLength(2);
         expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
-    it('re-renders mutated compact controls inline without duplicate mirrors or ruby', () => {
+    it('re-renders mutated compact controls inline without duplicate mirrors or in-flow ruby', () => {
         document.body.innerHTML = `
             <nav class="mobile-actions" role="navigation">
                 <button id="action-chip" type="button" style="display:inline-flex;align-items:center;justify-content:center;width:118px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
@@ -303,8 +305,9 @@ describe('generic reader layout overflow guards', () => {
         expect(chip.dataset.jpdbReaderPassiveChrome).toBe('true');
         expect(chip.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
         expect(chip.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(chip.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-        expect(chip.textContent?.replace(/\s+/g, '').trim()).toBe('取引詳細');
+        expect(chip.querySelector('rt')).toBeNull();
+        expect(chip.querySelectorAll('.jpdb-reader-detached-furi')).toHaveLength(2);
+        expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).map(word => word.dataset.expression).join('')).toBe('取引詳細');
         expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
@@ -492,7 +495,7 @@ describe('generic reader layout overflow guards', () => {
         expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).toContain('作曲家についての日本語本文です。');
     });
 
-    it('keeps NHK-style scrollable nav tab strips layout-neutral with ruby suppressed', () => {
+    it('keeps NHK-style scrollable nav tab strips layout-neutral with detached readings', () => {
         // Guards the NHK news nav regression: a horizontally-scrolling [role=tablist]
         // of kanji tabs must decorate as inline passive chrome with NO furigana row,
         // so decoration adds neither height (no <rt>) nor width (no inline-block box).
@@ -537,7 +540,8 @@ describe('generic reader layout overflow guards', () => {
             const word = tab.querySelector<HTMLElement>('.jpdb-reader-word');
             expect(word).toBeTruthy();
             expect(word!.dataset.jpdbReaderPassive).toBe('true');
-            expect(tab.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(tab.querySelector('rt')).toBeNull();
+            expect(tab.querySelector('.jpdb-reader-detached-furi')).not.toBeNull();
             expect(tab.querySelector('.jpdb-reader-text-mirror')).toBeNull();
             expect(tab.dataset.jpdbReaderPassiveChrome).toBe('true');
         }

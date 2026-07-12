@@ -110,16 +110,17 @@ describe('mirror visibility heals after a transient page hide', () => {
 // IN-PLACE renders — a mirrored control keeps its furigana (2026-07-11
 // "furigana is missing" report: 作成 / もっと見る / feed chips).
 describe('mirrored interactive chrome keeps furigana', () => {
-    it('renders ruby readings inside a mirrored button', () => {
+    it('renders detached readings inside a mirrored button', () => {
         document.body.innerHTML = `<button id="host">${TEXT}</button>`;
         const host = document.getElementById('host')!;
         paintMirror(host);
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(mirror.querySelector('rt')?.textContent).toBe('にほんご');
-        // Control mirrors are stamped so CSS can rest-hide the readings
-        // (display:none — WebKit reserves ruby space under visibility:hidden,
-        // which pushed pill labels out of view) and reveal them on hover.
-        expect(mirror.dataset.yomuControlMirror).toBe('true');
+        expect(mirror.querySelector('rt')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
+        // Detached readings stay out of the button's line box, so the old
+        // hover-only control-mirror stamp is no longer needed.
+        expect(mirror.dataset.yomuControlMirror).toBeUndefined();
     });
 });

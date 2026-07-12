@@ -1127,7 +1127,8 @@ describe('VisiblePageScanner', () => {
             // the out-of-flow mirror: readings paint there without changing
             // the chip's own layout (2026-07-11 "furigana is missing" fix
             // reversing the 2026-07-10 blanket suppression).
-            expect(video?.querySelector('rt')?.textContent).toBe('どうが');
+            expect(video?.querySelector('rt')).toBeNull();
+            expect(video?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('どうが');
             expect(video?.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
@@ -1250,7 +1251,8 @@ describe('VisiblePageScanner', () => {
             // The topbar create button is a control rendered through the
             // out-of-flow mirror: readings paint there without changing the
             // button's layout (2026-07-11 "furigana is missing" fix).
-            expect(create.querySelector('rt')?.textContent).toBe('さくせい');
+            expect(create.querySelector('rt')).toBeNull();
+            expect(create.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さくせい');
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);

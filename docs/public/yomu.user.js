@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.144
+// @version 1.6.145
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.144#sha256=5aICQ7dC+CvwxwDvKe76Dy8AHNsZf1FN6lED9e3ywlc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.144#sha256=D9048lgIFmnL/03AwLd+wgmBve2qr577mVE1gXZ+n2A=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.144#sha256=utnXWYkXy327QHPGOI2GL7C2LM8iidJsgmMYWac7m9o=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.144#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.144#sha256=hBfcvEyoi96GMTqz8lagxamOdJnK6nOQ6dJp3Gvio4g=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.144#sha256=RPSmh9g0g1tbVNlh41aZWYKFxO/BgahypUH3AzpywjE=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.144#sha256=0H9sNZB7VyQlqW/USZM7LsdH56Gjd+2T1KBhBdiFV/o=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.145#sha256=ljyBJAXF6htqFhMA5POoV67K05d+O7h83x6Z7bNAe0A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.145#sha256=tXrRCPFfG0C6Y/QuIX0I2c76Hfc3elGtKgCmwtrsiJ0=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.145#sha256=WEtm5RRRbehO+6h48ZoOUPItXCLiNv0TOgVerbp3X10=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.145#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.145#sha256=Y2r+XLWZOek+KlwzxOg0YxuuR+cNGzcHGiLsMOcg9s0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.145#sha256=NcAmEztR702H7yEX9BNNqNGaP4VM2k0zLpfmME/YU+A=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.145#sha256=ZbY7dUN1Vl20btZlMd8eW7fkvh8Nul60tFg+AYKR6RM=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -292,6 +292,7 @@ function safeComputedStyle(element2) {
   }
 }
 function safePseudoContent(element2, pseudo) {
+  if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)) return "";
   try {
   return getComputedStyle(element2, pseudo).content;
   } catch {
@@ -530,7 +531,7 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=tr
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
@@ -550,9 +551,36 @@ function compactScanRubySuppression(parent) {
   const marks = [];
   const notice = compactConstrainedNotificationElement(parent);
   if (notice) marks.push({ element: notice, atomic: true });
-  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
+  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent) ?? compactMetadataChromeElement(parent) ?? compactVisualLabelElement(parent);
   if (chrome) marks.push({ element: chrome, atomic: true });
   return { suppress: Boolean(chrome || notice), marks };
+}
+function compactVisualLabelElement(parent) {
+  const chromeContext = isCompactInteractiveChromeContext(parent);
+  if (isReadableProseContext(parent) && !chromeContext) return null;
+  let current = parent;
+  for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
+  if (!UI_CLASS_RE.test(elementClassName(current))) continue;
+  const text2 = compactInteractiveChromeText(current);
+  if (!isCompactInteractiveChromeText(text2)) continue;
+  if (hasCompactInteractiveChromeGeometry(current)) return current;
+  const rect = current.getBoundingClientRect();
+  if (chromeContext && rect.width === 0 && rect.height === 0) return current;
+  }
+  return null;
+}
+const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
+function compactMetadataChromeElement(parent) {
+  let current = parent;
+  for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
+  const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
+  if (!explicit || isConversationTextClass(current)) continue;
+  const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!isCompactInteractiveChromeText(text2)) continue;
+  const rect = current.getBoundingClientRect();
+  if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
+  }
+  return null;
 }
 function compactMediaPassiveChromeMark(parent) {
   const mediaLink = parent.closest('a[href],button,[role="link"],[role="button"]');
@@ -797,11 +825,33 @@ function interactivePassiveControl(element2) {
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
   const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
   if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
+  const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
+  if (siblingOwnedControl) return siblingOwnedControl;
   const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
   if (!link) return null;
   if (isCompactLinkedCardMetadata(link, element2)) return link;
   if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
   return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+}
+const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
+function siblingOwnedInteractiveControl(element2) {
+  if (!(element2 instanceof HTMLElement)) return null;
+  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const chromeContext = isCompactInteractiveChromeContext(element2);
+  if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
+  let current = element2.parentElement;
+  for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+  if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
+  const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate) => !candidate.contains(element2) && !element2.contains(candidate));
+  if (controls.length !== 1) continue;
+  const classFacts = `${element2.className} ${current.className}`;
+  const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
+  if (!uiContext) continue;
+  const rect = current.getBoundingClientRect();
+  const measuredCompact = rect.height > 0 && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
+  if (measuredCompact || rect.height === 0) return current;
+  }
+  return null;
 }
 function isCompactTemporalMetadata(element2) {
   return isCompactMetadataElement(element2);
@@ -853,6 +903,7 @@ function classifyDecoration(element2) {
   if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
   return "interactive-passive";
   }
+  if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
   if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
   if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
   return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
@@ -4794,10 +4845,12 @@ const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
+const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
 const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role=form],[role=search]`;
 const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
+const SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = `${BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set(["new", "not-in-deck", "in-deck"]);
@@ -4822,12 +4875,19 @@ function shouldHideFuriganaForCardState(settings, state) {
   return mode === "known-status" && furiganaHiddenStates(settings).has(state);
 }
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
+const FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = HARD_FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = TAB_CHROME_FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
+const FORM_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FORM_CHROME_FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],${EDITABLE_TEXT_SURFACE_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]`;
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden="true"]', "");
 const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
@@ -4977,7 +5037,7 @@ function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
   const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
   if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text2)) return true;
   const blocked = parent.closest(SKIP_SELECTOR);
-  if (blocked && !isAnnotatableChipControl(blocked)) return true;
+  if (blocked && !isAnnotatableChipControl(blocked) && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
   if (isInsideExcludedReaderRoot(parent, options)) return true;
   if (isShortCenteredDisplayHeading(parent, text2)) return true;
   return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
@@ -5285,7 +5345,11 @@ function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
   return shouldSkipFragmentTextPresentation(element2, state.options);
 }
 function matchesSkippedFragmentElement(element2, state, isRoot) {
-  if (state.excludeSelector && safeElementMatches$1(element2, state.excludeSelector)) return true;
+  if (state.excludeSelector && fragmentSelectorSkipsElement(
+  element2,
+  state.excludeSelector,
+  selectorWithoutAriaHiddenToken(state.excludeSelector)
+  )) return true;
   if (isComposerActionControl(element2)) return true;
   if (isRoot && element2.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
   return !isRoot && shouldSkipFragmentElement(element2, state.options);
@@ -5334,15 +5398,67 @@ function fragmentCollectionComplete(state) {
   return state.targets.length >= state.limit;
 }
 function shouldSkipFragmentElement(element2, options) {
-  if (options.includePassiveInteractions) return safeElementMatches$1(element2, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
-  if (options.includeFormChrome) return safeElementMatches$1(element2, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+  if (options.includePassiveInteractions) return fragmentSelectorSkipsElement(
+  element2,
+  PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR,
+  PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN
+  );
+  if (options.includeFormChrome) return fragmentSelectorSkipsElement(
+  element2,
+  FORM_CHROME_FRAGMENT_SKIP_SELECTOR,
+  FORM_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN
+  );
   if (options.includeTabChrome) {
-  return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element2, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element2, TAB_CHROME_FRAGMENT_SKIP_SELECTOR, TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
   }
   if (options.includeUiChrome) {
-  return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR : HARD_FRAGMENT_SKIP_SELECTOR);
+  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element2, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element2, HARD_FRAGMENT_SKIP_SELECTOR, HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
   }
-  return safeElementMatches$1(element2, FRAGMENT_SKIP_SELECTOR);
+  return fragmentSelectorSkipsElement(element2, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
+}
+const ARIA_HIDDEN_VISUAL_LABEL_SELECTOR = [
+  '[class*="badge" i]',
+  '[class*="chip" i]',
+  '[class*="label" i]',
+  '[class*="pill" i]',
+  '[class*="tag" i]',
+  "[data-badge]",
+  "[data-label]"
+].join(",");
+const ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT = 60;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES = 32;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH = 360;
+const ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT = 96;
+function fragmentSelectorSkipsElement(element2, selector, selectorWithoutAriaHidden) {
+  if (!safeElementMatches$1(element2, selector)) return false;
+  if (!safeElementMatches$1(element2, '[aria-hidden="true"]')) return true;
+  if (safeElementMatches$1(element2, selectorWithoutAriaHidden)) return true;
+  return !ariaHiddenSubtreeHasVisibleVisualLabel(element2);
+}
+function selectorWithoutAriaHiddenToken(selector) {
+  return selector.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "[aria-hidden=true]" && entry !== '[aria-hidden="true"]').join(",");
+}
+function isVisibleAriaHiddenVisualLabel(parent, blocked) {
+  if (!(blocked instanceof HTMLElement) || !safeElementMatches$1(blocked, '[aria-hidden="true"]')) return false;
+  if (safeElementMatches$1(parent, SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN)) return false;
+  const label = parent.closest(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR);
+  return Boolean(label && blocked.contains(label) && visibleVisualLabel(label));
+}
+function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
+  if (!HAS_JAPANESE$1.test(root.textContent ?? "")) return false;
+  const candidates = [];
+  if (safeElementMatches$1(root, ARIA_HIDDEN_VISUAL_LABEL_SELECTOR)) candidates.push(root);
+  for (const candidate of Array.from(root.querySelectorAll(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR))) {
+  candidates.push(candidate);
+  if (candidates.length >= ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES) break;
+  }
+  return candidates.some(visibleVisualLabel);
+}
+function visibleVisualLabel(element2) {
+  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE$1.test(text2)) return false;
+  const rect = element2.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element2));
 }
 function isFragmentParagraphBoundary(element2, options) {
   return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isParagraphBoundary(element2);
@@ -5603,6 +5719,9 @@ function applyTokensToTextNode(target, tokens, settings) {
   const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
   registerDestructivePaintTextNodes(fragment);
   target.node.replaceWith(fragment);
+  styleDetachedReadingElements(target.parent, target.parent);
+  openSafeDetachedReadingClips(target.parent);
+  stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
   markRenderedScanTarget(target);
 }
 function renderTokenizedTextFragment(target, tokens, settings) {
@@ -5634,7 +5753,8 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
     fragment.append(document.createElement("wbr"));
   }
   fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-    allowRuby: !target.hasNativeRuby && !suppressRuby,
+    allowRuby: !target.hasNativeRuby,
+    detachedReadings: target.detachedReadings ?? suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
     proseWrap: target.proseWrap === true,
@@ -5844,9 +5964,9 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
-  const { clipRow, hasRenderedRuby, clipHoverOnly } = textMirrorClipMode(host, suppressRuby, safeTokens);
   return {
   text: text2,
   safeTokens,
@@ -5857,6 +5977,7 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   clipRow,
   hasRenderedRuby,
   clipHoverOnly,
+  detachedReadings,
   suppressRuby,
   hostText: plan.hostText
   };
@@ -5876,7 +5997,8 @@ function reuseCurrentTextMirror(host, context) {
   existing?.dataset.sourceText === context.text,
   existing?.dataset.renderSignature === context.signature,
   (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
-  existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly
+  existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly,
+  existing?.classList.contains("jpdb-reader-additive-text-mirror") === context.detachedReadings
   ].every(Boolean);
   if (!matches) return false;
   const state = textMirrorHosts.get(host);
@@ -5892,6 +6014,10 @@ function createNonDestructiveTextMirror(context) {
   mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
   mirror.setAttribute("aria-hidden", "true");
   if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
+  if (context.detachedReadings) {
+  mirror.classList.add("jpdb-reader-additive-text-mirror");
+  mirror.dataset.yomuDetachedReadings = "true";
+  }
   return mirror;
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
@@ -5904,17 +6030,19 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   host,
   mirrorRubyLayout,
   context.clipHoverOnly && !stableClippedMirror,
-  Boolean(context.clipRow)
+  Boolean(context.clipRow),
+  context.detachedReadings
   );
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
-  styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly);
+  styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
   mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
     mirrorRender: true,
     decoration: target.decoration,
     suppressRuby: context.suppressRuby,
+    detachedReadings: context.detachedReadings,
     passiveInteraction: target.passiveInteraction || context.suppressRuby
   }));
   if (!mirror.textContent?.trim()) {
@@ -5922,12 +6050,16 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     return;
   }
   if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
-  hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
   state.mirror = new WeakRef(mirror);
-  tightenMirrorRubyOverhang(mirror);
+  if (context.detachedReadings) {
+    styleDetachedReadingElements(mirror, host);
+    openSafeDetachedReadingClips(host);
+    stabilizeDetachedReadings(mirror, context.clipRow, true);
+  } else tightenMirrorRubyOverhang(mirror);
   withdrawUnfitTextMirrorOverflow(host, state, mirror);
+  hideTextMirrorHost(host, state, mirror);
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -5952,9 +6084,173 @@ function stabilizeClippedTextMirror(mirror) {
   segment.style.setProperty("line-break", "auto", "important");
   }
 }
-function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
+function styleDetachedReadingElements(root, host) {
+  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+  if (!detachedRubies.length) return;
+  const hostStyle = safeComputedStyle(host);
+  const nativeColor = hostStyle.color || "currentColor";
+  const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+  const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+  const additive = root.classList.contains("jpdb-reader-additive-text-mirror");
+  const pitchUnderline = document.documentElement.classList.contains("jpdb-reader-word-underline-pitch");
+  for (const wrapper of detachedRubies) {
+  wrapper.style.setProperty("position", "relative", "important");
+  wrapper.style.setProperty("display", "inline-block", "important");
+  wrapper.style.setProperty("line-height", "1", "important");
+  wrapper.style.setProperty("vertical-align", "baseline", "important");
+  wrapper.style.setProperty("white-space", "nowrap", "important");
+  }
+  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+  reading.style.setProperty("position", "absolute", "important");
+  reading.style.setProperty("z-index", "2");
+  reading.style.setProperty("inset-inline-start", "50%");
+  reading.style.setProperty("inset-block-end", "calc(100% + 1px)");
+  reading.style.setProperty("display", "block", "important");
+  reading.style.setProperty("width", "max-content");
+  reading.style.setProperty("max-width", "none");
+  reading.style.setProperty("font-size", `${readingFontSize}px`);
+  reading.style.setProperty("font-weight", "700");
+  reading.style.setProperty("line-height", "1", "important");
+  reading.style.setProperty("white-space", "nowrap", "important");
+  reading.style.setProperty("word-break", "keep-all", "important");
+  reading.style.setProperty("overflow-wrap", "normal", "important");
+  reading.style.setProperty("transform", "translate(-50%, var(--jpdb-reader-detached-lift, 0px))", "important");
+  reading.style.setProperty("pointer-events", "none");
+  reading.style.setProperty("text-decoration", "none", "important");
+  reading.style.setProperty("user-select", "none");
+  reading.style.setProperty("-webkit-user-select", "none");
+  reading.style.setProperty("color", nativeColor, "important");
+  reading.style.setProperty("-webkit-text-fill-color", nativeColor, "important");
+  }
+  if (!additive) return;
+  for (const element2 of root.querySelectorAll(".jpdb-reader-word, .jpdb-reader-ruby-base")) {
+  element2.style.setProperty("color", "transparent", "important");
+  element2.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+  element2.style.setProperty("text-shadow", "none", "important");
+  }
+  if (!pitchUnderline) return;
+  for (const word of root.querySelectorAll(".jpdb-reader-word[data-pitch-class]")) {
+  const pitchClass = safePitchClass(word.dataset.pitchClass ?? "unknown");
+  if (pitchClass === "unknown") continue;
+  word.style.setProperty("text-decoration-line", "underline", "important");
+  word.style.setProperty("text-decoration-style", "solid", "important");
+  word.style.setProperty("text-decoration-color", `var(--jpdb-reader-pitch-${pitchClass}, ${nativeColor})`, "important");
+  word.style.setProperty("text-decoration-thickness", "max(2px, 0.08em)", "important");
+  word.style.setProperty("text-underline-offset", "0.04em", "important");
+  word.style.setProperty("text-decoration-skip-ink", "none", "important");
+  }
+}
+function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
+  const clipRect = clipRow?.getBoundingClientRect();
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+  if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
+  for (const word of words) {
+    const bases2 = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
+    const rects = (bases2.length ? bases2 : [word]).map((base) => base.getBoundingClientRect());
+    const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
+    if (!visible) word.style.setProperty("visibility", "hidden", "important");
+  }
+  }
+  const bases = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
+  const baseRects = bases.map((base) => ({ base, rect: base.getBoundingClientRect() }));
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+  const readingRect = reading.getBoundingClientRect();
+  if (readingRect.width <= 0 || readingRect.height <= 0) continue;
+  let lift = 0;
+  for (const { rect } of baseRects) {
+    const horizontalOverlap = Math.min(readingRect.right, rect.right) - Math.max(readingRect.left, rect.left);
+    const verticalOverlap = Math.min(readingRect.bottom - lift, rect.bottom) - Math.max(readingRect.top - lift, rect.top);
+    if (horizontalOverlap <= 0.5 || verticalOverlap <= 0.5) continue;
+    lift = Math.max(lift, readingRect.bottom - rect.top + 1);
+  }
+  if (lift > 0) reading.style.setProperty("--jpdb-reader-detached-lift", `${-Math.ceil(lift)}px`);
+  if (viewportWidth > 0) {
+    const leftShift = readingRect.left < 1 ? 1 - readingRect.left : 0;
+    const rightShift = readingRect.right > viewportWidth - 1 ? viewportWidth - 1 - readingRect.right : 0;
+    const shift = leftShift || rightShift;
+    if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
+  }
+  }
+}
+const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
+const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+const detachedReadingClipStyles = new WeakMap();
+function openSafeDetachedReadingClips(element2) {
+  let current = element2;
+  for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+  if (!current.querySelector(".jpdb-reader-detached-furi")) continue;
+  const style = safeComputedStyle(current);
+  const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
+  if (!clips) continue;
+  const rect = current.getBoundingClientRect();
+  const measured = current.clientWidth > 0 && current.clientHeight > 0;
+  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT;
+  const baseFits = measured && detachedBaseContentFits(current);
+  if (compact && baseFits) openDetachedReadingClip(current);
+  else restoreDetachedReadingClip(current);
+  }
+}
+function openDetachedReadingClip(box) {
+  if (!detachedReadingClipStyles.has(box)) {
+  detachedReadingClipStyles.set(box, {
+    value: box.style.getPropertyValue("overflow"),
+    priority: box.style.getPropertyPriority("overflow")
+  });
+  }
+  box.dataset.yomuDetachedReadingOverflow = "true";
+  box.style.setProperty("overflow", "visible", "important");
+}
+function restoreDetachedReadingClip(box) {
+  const saved = detachedReadingClipStyles.get(box);
+  if (saved && box.style.getPropertyValue("overflow") === "visible") {
+  if (saved.value) box.style.setProperty("overflow", saved.value, saved.priority);
+  else box.style.removeProperty("overflow");
+  }
+  detachedReadingClipStyles.delete(box);
+  delete box.dataset.yomuDetachedReadingOverflow;
+}
+function detachedBaseContentFits(box) {
+  const overlays = Array.from(box.querySelectorAll(".jpdb-reader-additive-text-mirror"));
+  const detached = Array.from(box.querySelectorAll(".jpdb-reader-detached-furi")).filter((reading) => !reading.closest(".jpdb-reader-additive-text-mirror"));
+  const hidden = [...overlays, ...detached];
+  const restores = hidden.map((element2) => ({
+  element: element2,
+  display: element2.style.getPropertyValue("display"),
+  priority: element2.style.getPropertyPriority("display")
+  }));
+  hidden.forEach((element2) => element2.style.setProperty("display", "none", "important"));
+  try {
+  const rect = box.getBoundingClientRect();
+  const inlineSize = Math.max(box.clientWidth, rect.width);
+  const blockSize = Math.max(box.clientHeight, rect.height);
+  const inlineOverrun = box.scrollWidth - inlineSize;
+  const blockOverrun = box.scrollHeight - blockSize;
+  const fontSize = Number.parseFloat(safeComputedStyle(box).fontSize) || 16;
+  const compactGlyphTolerance = Math.max(2, Math.min(8, fontSize * 0.8));
+  return inlineOverrun <= compactGlyphTolerance && blockOverrun <= 1;
+  } finally {
+  for (const { element: element2, display, priority: priority2 } of restores) {
+    if (display) element2.style.setProperty("display", display, priority2);
+    else element2.style.removeProperty("display");
+  }
+  }
+}
+function closeOrphanedDetachedReadingClips(element2) {
+  let current = element2;
+  for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+  if (current.dataset.yomuDetachedReadingOverflow === "true" && !current.querySelector(".jpdb-reader-detached-furi")) {
+    restoreDetachedReadingClip(current);
+  }
+  }
+}
+function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly, detachedReadings = false) {
   if (!clipRow) return;
-  constrainMirrorToClampBox(mirror, clipRow);
+  if (detachedReadings) {
+  const height = clipRow.clientHeight;
+  if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
+  mirror.style.setProperty("overflow", "visible");
+  } else constrainMirrorToClampBox(mirror, clipRow);
   if (!clipHoverOnly) return;
   mirror.classList.add("jpdb-reader-clip-hover-mirror");
   mirror.style.setProperty("visibility", "hidden");
@@ -5967,8 +6263,15 @@ function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly) {
 }
 function textMirrorClipMode(host, suppressRuby, tokens) {
   const clipRow = closestRubyFragileConstrainedRow(host);
-  const hasRenderedRuby = !suppressRuby && tokens.some((token) => token.rubies.length > 0);
-  return { clipRow, hasRenderedRuby, clipHoverOnly: Boolean(clipRow && hasRenderedRuby) };
+  const hasReadings = tokens.some((token) => token.rubies.length > 0);
+  const detachedReadings = hasReadings && (suppressRuby || Boolean(clipRow));
+  const hasRenderedRuby = hasReadings && !detachedReadings;
+  return {
+  clipRow,
+  hasRenderedRuby,
+  detachedReadings,
+  clipHoverOnly: Boolean(clipRow && hasRenderedRuby)
+  };
 }
 function constrainMirrorToClampBox(mirror, clipRow) {
   const height = clipRow.clientHeight;
@@ -6078,9 +6381,9 @@ function textMirrorAlreadyRenders(host, text2) {
   }
   return renders;
 }
-function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby)) {
+function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby), detachedReadings = suppressRuby) {
   return JSON.stringify({
-  ruby: !suppressRuby,
+  readings: detachedReadings ? "detached" : suppressRuby ? "none" : "ruby",
   mode: settings.furiganaMode,
   hidden: settings.furiganaHiddenStateGroups,
   colors: settings.wordColorStates,
@@ -6104,8 +6407,9 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   const safeTokens = nonOverlappingTokens(tokens, text2);
   const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
   const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
+  const detachedReadings = suppressRuby && !placeholderOverlay;
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const existing = currentControlTextMirror(host);
   if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
   removeControlTextMirror(host);
@@ -6123,6 +6427,7 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   decoration: target.decoration,
   mirrorRender: true,
   suppressRuby,
+  detachedReadings,
   passiveInteraction: target.passiveInteraction,
   suppressRubyDoesNotImplyPassive: placeholderOverlay
   }));
@@ -6313,7 +6618,7 @@ function furiganaSettingsForTarget(settings, parent) {
 }
 function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true, decoration) {
   if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (decoration === "interactive-passive" && interactivePassiveControl(parent)) return inPlace;
+  if (decoration === "interactive-passive") return true;
   if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
   if (targetForcesAllFurigana(parent)) return false;
   return Boolean(suppressRuby);
@@ -6345,7 +6650,7 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false, preserveConstrainedLayout = false) {
+function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false, preserveConstrainedLayout = false, nativeTextVisible = false) {
   const computed = safeComputedStyle(host);
   const state = {
   observer: new MutationObserver(() => void 0),
@@ -6363,7 +6668,8 @@ function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false, 
   displayAdjusted: computed.display === "inline" && !preserveConstrainedLayout,
   concealTextOnly: !hostIsVisuallyBareForMirror(host),
   concealedText: [],
-  clipHoverOnly
+  clipHoverOnly,
+  nativeTextVisible
   };
   textMirrorHosts.set(host, state);
   if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -6404,7 +6710,7 @@ function mirrorBaseTextOverflowsBox(mirror) {
 }
 function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
-  if (state.clipHoverOnly) return;
+  if (state.clipHoverOnly || state.nativeTextVisible) return;
   if (state.concealTextOnly) {
   if (mirror) {
     const hostColor = safeComputedStyle(host).color;
@@ -6479,6 +6785,9 @@ function restoreConcealedTextMirrorHostText(state) {
 }
 function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
+  if (mirror.classList.contains("jpdb-reader-additive-text-mirror") && style.color) {
+  mirror.style.setProperty("--jpdb-reader-native-text-color", style.color);
+  }
   mirror.style.setProperty("position", "absolute");
   mirror.style.setProperty("inset", "0 0 auto 0");
   mirror.style.setProperty("box-sizing", "border-box");
@@ -6507,7 +6816,7 @@ function styleTextMirror(mirror, host, hasRuby = false) {
 function hostCentersTextVertically(host, style) {
   const itemized = style.display.includes("flex") || style.display.includes("grid");
   if (itemized) return style.alignItems === "center" || style.alignContent === "center";
-  return host.matches('button,[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"]');
+  return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
 }
 function tightenMirrorRubyOverhang(mirror) {
   if (typeof Range.prototype.getBoundingClientRect !== "function") return;
@@ -6797,6 +7106,7 @@ function removeTextMirror(host) {
   owned.forEach((mirror) => mirror.remove());
   const tracked = state?.mirror?.deref();
   if (tracked?.isConnected) tracked.remove();
+  closeOrphanedDetachedReadingClips(host);
   if (state) restoreTextMirrorHost(host, state);
   delete host.dataset.yomuClipHoverHost;
   textMirrorHosts.delete(host);
@@ -6829,7 +7139,7 @@ function reassertTextMirrorHostStyles(host, state) {
   return;
   }
   syncTextMirrorVisibilityToPage(host, mirror);
-  if (state.clipHoverOnly) ;
+  if (state.clipHoverOnly || state.nativeTextVisible) ;
   else if (state.concealTextOnly) {
   reassertConcealedTextMirrorHostText(host, state);
   } else if (host.style.getPropertyValue("visibility") !== "hidden") {
@@ -7092,6 +7402,9 @@ function applyTokensToFragmentTarget(target, tokens, settings) {
   }
   }
   applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
+  styleDetachedReadingElements(target.parent, target.parent);
+  openSafeDetachedReadingClips(target.parent);
+  stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
   markRenderedScanTarget(target);
 }
 function hasFragmentTokenWork(target, tokens) {
@@ -7165,9 +7478,10 @@ function wrapDirectFlexGridTextRun(replacement, parent) {
   return fragment;
 }
 function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
-  const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
   return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
   allowRuby,
+  detachedReadings: targetUsesDetachedReadings(target),
   kanjiNavigation: kanjiNavigationForElement(target.parent),
   scanWord: true,
   proseWrap: target.proseWrap === true,
@@ -7197,7 +7511,7 @@ function applyTokenToIndexedFragments(target, indexedFragments, token, tokenWith
   );
   return;
   }
-  if (!target.suppressRuby && fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+  if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
   const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
   if (nativeRubyRange) {
     insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
@@ -7234,7 +7548,8 @@ function applyTokenToIndexedFragments(target, indexedFragments, token, tokenWith
   scanWord: true,
   proseWrap: target.proseWrap === true,
   passiveInteraction,
-  allowRuby: !target.suppressRuby,
+  allowRuby: true,
+  detachedReadings: targetUsesDetachedReadings(target),
   preserveTokenRubies: true,
   miningInsightKeys
   });
@@ -7246,7 +7561,8 @@ function insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence
   if (!surface) continue;
   const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
   const rendered = renderToken(surface, pieceToken, settings, {
-    allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+    allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+    detachedReadings: targetUsesDetachedReadings(target),
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
     proseWrap: target.proseWrap === true,
@@ -7396,10 +7712,11 @@ function attachedFragmentBoundary(boundary) {
   return boundary;
 }
 function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-  const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
   const surface = fragment.node.data.slice(start, end);
   const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
   allowRuby,
+  detachedReadings: targetUsesDetachedReadings(target),
   kanjiNavigation: kanjiNavigationForElement(target.parent),
   scanWord: true,
   proseWrap: target.proseWrap === true,
@@ -7411,6 +7728,9 @@ function insertSingleFragmentToken(target, fragment, start, end, token, tokenWit
 }
 function scanFragmentAllowsRuby(hasNativeRuby) {
   return !hasNativeRuby;
+}
+function targetUsesDetachedReadings(target) {
+  return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
 function isInsideOwnedReaderRoot(element2) {
   const readerRoot = element2.closest(READER_ROOT_SELECTOR$3);
@@ -7608,7 +7928,12 @@ function renderToken(surface, token, settings, options = {}) {
   const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
   if (hasRuby) {
   span.classList.add("jpdb-reader-has-furi");
-  setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+  if (options.detachedReadings) {
+    span.classList.add("jpdb-reader-detached-reading-word");
+    setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+  } else {
+    setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
+  }
   } else if (options.kanjiNavigation?.enabled) {
   setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation));
   } else {
@@ -7755,6 +8080,22 @@ function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
   html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(ruby.text)}</rt><rp>)</rp></ruby>`;
+  localOffset = end;
+  }
+  html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
+  return html;
+}
+function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+  let html = "";
+  let localOffset = 0;
+  for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+  const start = ruby.start - token.start;
+  const end = ruby.end - token.start;
+  html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
+  html += '<span class="jpdb-reader-detached-ruby">';
+  html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
+  html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$1(ruby.text)}</span>`;
+  html += "</span>";
   localOffset = end;
   }
   html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -8281,6 +8622,10 @@ function releaseRubyRoomGrowth(root = document) {
   delete box.dataset.yomuRubyRoomPadTop;
   rubyRoomGrowthRecords.delete(box);
   }
+  if (root instanceof HTMLElement && root.dataset.yomuDetachedReadingOverflow === "true") {
+  restoreDetachedReadingClip(root);
+  }
+  root.querySelectorAll('[data-yomu-detached-reading-overflow="true"]').forEach(restoreDetachedReadingClip);
   return boxes.length;
 }
 function restoreRubyRoomProperty(box, property, record, pick) {
@@ -27194,7 +27539,21 @@ const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
   '[class*="-icon" i]',
   '[class*="icon-" i]'
 ].join(",");
-const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
+const NATIVE_CLICKABLE_SELECTOR = [
+  "a[href]",
+  "button",
+  "summary",
+  "[onclick]",
+  '[role="button"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="tab"]',
+  '[role="switch"]',
+  '[role="checkbox"]',
+  '[role="radio"]'
+].join(",");
 const READER_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-reader-popover";
 function nativeClickableAncestor(target) {
   const link = navigableLinkAncestor(target);
@@ -27770,6 +28129,10 @@ const SAFE_UI_CHROME_CONTROL_SELECTORS = [
   '[role="switch"]',
   '[role="tab"]'
 ];
+const SAFE_UI_CHROME_PEER_TEXT_SELECTORS = [
+  '[role="heading"]',
+  '[class*="label" i]'
+];
 const PASSIVE_INTERACTION_ROOTS = [
   ...SAFE_UI_CHROME_CONTROL_SELECTORS,
   "[aria-controls]",
@@ -27790,7 +28153,7 @@ const PASSIVE_INTERACTION_ROOTS = [
 ].join(",");
 const SCOPED_SAFE_UI_CHROME_ROOTS = [
   ...SAFE_UI_CHROME_SCOPE_SELECTORS,
-  ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => SAFE_UI_CHROME_CONTROL_SELECTORS.map((control) => `${scope} ${control}`))
+  ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS].map((control) => `${scope} ${control}`))
 ];
 const SAFE_UI_CHROME_ROOTS = [
   ...SCOPED_SAFE_UI_CHROME_ROOTS,
@@ -29136,6 +29499,7 @@ function collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude = "",
   includeTabChrome: true,
   includePassiveInteractions: true,
   heading: true,
+  allowShortCenteredHeadings: true,
   minLength: 1
   });
 }
@@ -30495,6 +30859,16 @@ const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]);
 const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
+const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
+  "summary",
+  "[aria-controls]",
+  "[aria-expanded]",
+  '[aria-haspopup]:not([aria-haspopup="false"])',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="tab"]'
+].join(",");
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
   ".result.kanji",
@@ -30527,6 +30901,11 @@ function mutationTouchesAsbPlayer(mutation) {
 }
 function mutationInsideReaderRoot(mutation) {
   return mutationInsideClosest(mutation, READER_ROOT_SELECTOR$1);
+}
+function clickMayRevealDynamicUiText(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.closest(READER_ROOT_SELECTOR$1)) return false;
+  return Boolean(target.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR));
 }
 function mutationMayContainJapaneseText(mutation) {
   if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
@@ -35057,8 +35436,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.144"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.144"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.145"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.145"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35172,7 +35551,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.144"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.145"}`;
   } catch {
   return null;
   }
@@ -37494,6 +37873,11 @@ class ReaderApp {
       this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
     }
   }, { passive: true, signal: abortSignal });
+  document.addEventListener("click", (event) => {
+    if (!this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event.target)) return;
+    this.noteVisibleAutoScanWorkObserved();
+    this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
+  }, { capture: true, signal: abortSignal });
   window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
   if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
   document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);

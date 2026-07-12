@@ -2292,7 +2292,6 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
 // track. The page's native text remains underneath, so this pass can only add
 // information; a failed/removed overlay never removes the label.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
-    root.style.setProperty('visibility', 'visible', 'important');
     const clipRect = clipRow?.getBoundingClientRect();
     const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
     if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {

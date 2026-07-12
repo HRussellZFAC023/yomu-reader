@@ -1264,6 +1264,77 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word rt.jpdb-reader-furi {
   display: ruby-text !important;
 }
+
+/* Compact controls and clipped rows cannot accept native ruby line metrics,
+   but hiding rt also hides the very reading the user enabled. Detached
+   readings keep the base wrapper at the page's original line height and paint
+   the kana in an out-of-flow lane. The wrapper width is BASE-only, so a long
+   reading never opens gaps or narrows a flex/grid title column. */
+.jpdb-reader-word.jpdb-reader-detached-reading-word {
+  line-height: inherit !important;
+}
+.jpdb-reader-detached-ruby {
+  position: relative;
+  display: inline-block;
+  /* The positioning box must hug the base glyph, not inherit a 22–40px
+     control line box; otherwise `100%` places the reading above the whole
+     row and the overflow clip removes it. Baseline alignment preserves the
+     page's authored line metrics. */
+  line-height: 1;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.jpdb-reader-detached-furi {
+  position: absolute !important;
+  z-index: 2;
+  inset-inline-start: 50%;
+  inset-block-end: calc(100% + 1px);
+  display: block !important;
+  width: max-content;
+  max-width: none;
+  font-size: clamp(6px, 0.46em, 0.62rem);
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  transform: translate(-50%, var(--jpdb-reader-detached-lift, 0px)) !important;
+  pointer-events: none;
+  text-decoration: none !important;
+}
+
+/* Additive mirrors never own the only copy of a framework label. Native base
+   glyphs remain visible underneath; the mirror paints only lookup hit areas,
+   its ::after pitch/status underline, and detached furigana. This makes a
+   framework recycler removing the mirror degrade to plain readable text
+   instead of a blank Subscribe/Create/filter pill. */
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror,
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word,
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-ruby-base {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
+  color: var(
+    --jpdb-reader-furi-accessible-color,
+    var(--jpdb-reader-native-text-color, currentColor)
+  ) !important;
+  -webkit-text-fill-color: currentColor !important;
+  opacity: 1 !important;
+}
+/* An additive mirror keeps the native base glyphs visible and paints its pitch
+   line as a native text decoration anchored to those glyphs. The generic
+   absolute ::after line is anchored to the mirror's containing line box; in a
+   tall pill/button that put the line at the bottom edge instead of directly
+   beneath the label. Keep other underline modes unchanged. */
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word::after {
+  content: none !important;
+}
+[data-yomu-detached-reading-overflow="true"] {
+  overflow: visible !important;
+}
 .jpdb-reader-ruby-base {
   display: inline;
   border-radius: 3px;
