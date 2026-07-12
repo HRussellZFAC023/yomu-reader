@@ -216,6 +216,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Testing': 'テスト',
+    'YouTube buttons, tabs, and filter chips keep their native vertically centred labels while remaining lookupable and pitch-annotated; compact controls no longer reserve or overlay a furigana lane.': 'YouTubeのボタン、タブ、フィルターチップは、単語検索とピッチ注釈を維持しながら、本来の縦中央揃えで表示されます。コンパクトな操作部品にふりがな用の余白や重ね表示を追加しません。',
+    'Lazy-loaded YouTube comments and other text revealed near the bottom of long pages are discovered through the generic visible-page scanner instead of being starved by offscreen virtualized cards.': '長いYouTubeページの下部で遅延読み込みされるコメントなどの文字を、画面外の仮想カードに走査枠を奪われず、汎用の可視ページ走査で検出するようにしました。',
+    "Expanding annotated descriptions and other collapsible panels preserves the page's authored clipping, preventing annotation paint from escaping underneath neighbouring video content.": '注釈付きの説明欄や折りたたみパネルを展開しても、ページ本来のクリッピングを維持し、注釈が隣接する動画コンテンツの下へはみ出さないようにしました。',
     "Furigana and pitch accents in compact page chrome—buttons, chips, menus, badges, metadata rows, and fixed-height labels—now use detached, glyph-anchored decoration that preserves the site's native spacing, wrapping, centring, and clipping.": 'ボタン、チップ、メニュー、バッジ、メタデータ行、固定高ラベルなどのコンパクトなページUIで、ふりがなとピッチアクセントを文字に固定した分離表示に変更し、サイト本来の間隔・折り返し・中央揃え・クリッピングを維持するようにしました。',
     'Controls and dynamically revealed panels are rescanned through the same generic decoration policy, so their readings remain visible and passive without stealing taps from the page or opening the dictionary.': '操作部品と動的に表示されるパネルも同じ汎用装飾ポリシーで再走査され、ページのタップ操作を奪ったり辞書を開いたりせず、読みを表示し続けるようにしました。',
     'Compound words and entries with multiple pitch patterns retain every pitch-accent pattern instead of losing later alternatives.': '複合語と複数のピッチ型を持つ項目で、後続候補を失わず、すべてのピッチアクセント型を保持するようにしました。',

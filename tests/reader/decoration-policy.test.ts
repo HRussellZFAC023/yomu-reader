@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     applyTokensToScanTarget,
+    applyTokensToTextNode,
     classifyDecoration,
     collectFragmentTextTargetsIn,
     isCurrentScanTarget,
@@ -405,11 +406,10 @@ describe('interactive-passive geometry invariance', () => {
             ], FURIGANA_SETTINGS);
         }
 
-        // Zero layout delta: no in-flow ruby, but the detached reading remains
-        // visible without reserving a ruby line or growing the button.
+        // Zero layout delta: no in-flow or detached reading lane.
         expect(button.querySelector('rt')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        expect(button.querySelector('.jpdb-reader-has-furi')).toBeTruthy();
+        expect(button.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
         expect(button.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
         expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
 
@@ -597,10 +597,9 @@ describe('mirror bareness with painted descendants', () => {
 // through the volatile-watch-metadata MIRROR; under furigana-mode=all the
 // inner mirror render re-derived suppression WITHOUT the sealed decision and
 // the mode attribute won — ruby appeared in the mirror channel. Realistic
-// live DOM shape; interactive-passive must keep readings out of FLOW while
-// still painting them through the detached, failure-safe mirror channel.
+// live DOM shape; interactive-passive keeps the site's native line geometry.
 describe('interactive-passive mirror channel under furigana-mode=all', () => {
-    it('renders a subscribe-button mirror with detached readings when readings are forced page-wide', () => {
+    it('renders a centered subscribe-button annotation without a reading lane', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div data-yomu-furigana-mode="all">
@@ -630,15 +629,14 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
         expect(mirror).toBeTruthy();
         expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // No layout-changing ruby; the reading is present in the detached
-        // channel and native button text remains visible underneath.
+        // Controls remain lookupable without reserving or overlaying a
+        // furigana lane that can displace fixed-height labels on WebKit.
         expect(button.querySelectorAll('rt')).toHaveLength(0);
-        expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        expect(mirror?.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
-        expect(button.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(mirror?.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('preserves compound and multiple pitch patterns on a detached control word', () => {
+    it('preserves compound and multiple pitch patterns on a reading-free control word', () => {
         stubYouTube();
         document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
         document.body.innerHTML = `
@@ -653,16 +651,16 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [compound], FURIGANA_SETTINGS);
 
-        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror')!;
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         const word = mirror.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(word.dataset.pitchClass).toBe('nakadaka');
         expect(word.dataset.pitchAccent).toBe('LHHHHHLL|HLLLLLLL');
         expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('keeps a compact framework metadata row detached even inside a rich watch root', () => {
+    it('keeps a compact non-button metadata row detached inside a rich watch root', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-watch-metadata data-yomu-furigana-mode="all">
@@ -683,7 +681,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         expect(row.querySelector('rt')).toBeNull();
         expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
-        expect(row.querySelector('.jpdb-reader-additive-text-mirror')).toBeTruthy();
+        expect(row.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
         expect(row.getBoundingClientRect().height).toBe(18);
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
         expect(row.closest('[data-yomu-ruby-room="true"]')).toBeNull();
@@ -711,7 +709,6 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
         expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
         expect(button.dataset.yomuClipHoverHost).toBeUndefined();
         expect(button.getBoundingClientRect().height).toBe(40);
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
@@ -744,6 +741,48 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 // their authored box while still showing the requested reading. Readings are
 // now detached overlays rather than in-flow rt, so they cannot grow the row.
 describe('clip-constrained rows keep detached readings without ruby-room growth', () => {
+    it('keeps detached furigana on a destructive clipped text target', () => {
+        document.body.innerHTML = '<span id="label" style="display:block;height:15px;overflow:hidden">周辺機器</span>';
+        const label = document.querySelector<HTMLElement>('#label')!;
+        const node = label.firstChild as Text;
+        mockRect(label, { width: 70, height: 15 });
+
+        applyTokensToTextNode({
+            text: '周辺機器',
+            node,
+            parent: label,
+            decoration: 'content-ruby',
+        }, [token('周辺', 0, '周辺機器', 'しゅうへん')], FURIGANA_SETTINGS);
+
+        expect(label.querySelector('rt')).toBeNull();
+        expect(label.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しゅうへん');
+    });
+
+    it('does not open overflow on an expandable description panel', () => {
+        document.body.innerHTML = `
+            <section id="description-inline-expander" style="height:40px;overflow:hidden">
+                <span id="copy">日本語の説明です</span>
+            </section>
+        `;
+        const panel = document.querySelector<HTMLElement>('#description-inline-expander')!;
+        const copy = document.querySelector<HTMLElement>('#copy')!;
+        mockRect(panel, { width: 220, height: 40 });
+        mockRect(copy, { width: 120, height: 20 });
+        Object.defineProperties(panel, {
+            clientWidth: { value: 220, configurable: true },
+            clientHeight: { value: 40, configurable: true },
+            scrollWidth: { value: 220, configurable: true },
+            scrollHeight: { value: 40, configurable: true },
+        });
+        const target = collectTargets(panel).find(candidate => candidate.text === '日本語の説明です')!;
+
+        applyTokensToScanTarget(target, [token('日本語', 0, target.text, 'にほんご')], FURIGANA_SETTINGS);
+
+        expect(panel.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(panel.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(panel.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+    });
+
     it('renders a bare clipped category tile with a detached reading (kakaku shape)', () => {
         document.body.innerHTML = `
             <div class="category-tile">

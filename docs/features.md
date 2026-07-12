@@ -99,7 +99,7 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.
 
-A few controls that YouTube itself constantly re-renders — the Subscribe and Join buttons — are intentionally left un-annotated: re-painting them fought YouTube's own updates and caused flicker. Everything around them keeps furigana and pitch underlines.
+YouTube controls that it constantly re-renders — including Subscribe, Join, tabs, and filter chips — stay lookupable and keep pitch annotation without adding furigana above the label. This preserves YouTube's native vertical centring and avoids flicker or layout shifts; ordinary page text still keeps furigana.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
 

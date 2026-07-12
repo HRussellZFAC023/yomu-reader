@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.147] - 2026-07-12
+
+### Fixed
+
+- YouTube buttons, tabs, and filter chips keep their native vertically centred labels while remaining lookupable and pitch-annotated; compact controls no longer reserve or overlay a furigana lane.
+- Lazy-loaded YouTube comments and other text revealed near the bottom of long pages are discovered through the generic visible-page scanner instead of being starved by offscreen virtualized cards.
+- Expanding annotated descriptions and other collapsible panels preserves the page's authored clipping, preventing annotation paint from escaping underneath neighbouring video content.
+
 ## [1.6.146] - 2026-07-12
 
 ### Fixed

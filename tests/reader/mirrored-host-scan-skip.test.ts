@@ -9,6 +9,7 @@ describe('mirrored host scan skip', () => {
     afterEach(() => {
         document.body.innerHTML = '';
         vi.unstubAllGlobals();
+        vi.restoreAllMocks();
     });
 
     function stubYouTube(): void {
@@ -21,6 +22,10 @@ describe('mirrored host scan skip', () => {
     }
 
     function feedWithTitle(): HTMLElement {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            x: 0, y: 0, left: 0, top: 0, right: 320, bottom: 24,
+            width: 320, height: 24, toJSON: () => ({}),
+        } as DOMRect);
         document.body.innerHTML = `
             <ytd-rich-grid-renderer>
                 <ytd-rich-item-renderer><div id="title-host">日本語のタイトルです</div></ytd-rich-item-renderer>

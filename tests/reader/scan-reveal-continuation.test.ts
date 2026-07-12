@@ -213,6 +213,39 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     // CI shard contention can exceed Vitest's 5s default even though the
     // explicit continuation bound above has already stopped the loop.
     }, 15_000);
+
+    it('bounds non-silent continuations for re-walkable YouTube-style targets', async () => {
+        vi.resetModules();
+        const collectScanTargets = vi.fn(function* (limit: number) { yield; return makeTargets(limit, { singlePassScan: false }); });
+        vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
+            ...(await importOriginal<Record<string, unknown>>()),
+            collectScanTargetsInSteps: collectScanTargets,
+        }));
+        const { VisiblePageScanner } = await import('../../src/reader/app/visible-page-scanner');
+        const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
+        const scanner = new VisiblePageScanner({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese: async (paragraphs: string[]) => paragraphs.map(text => [{
+                card: {
+                    vid: 1, sid: 1, rid: 0, spelling: text, reading: text, frequencyRank: null,
+                    partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
+                },
+                start: 0, end: text.length, length: text.length, rubies: [], pitchClass: '', sentence: text,
+            }]),
+            pauseMutationObserver: (callback: () => unknown) => callback(),
+            preloadParsedTokens: () => undefined,
+            enrichPitchWords: () => undefined,
+            enrichAnkiWords: () => undefined,
+            toast: () => undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+
+        await scanner.scanVisiblePage({ silent: false });
+        for (let i = 0; i < 40; i += 1) await new Promise(resolve => setTimeout(resolve, 5));
+        expect(collectScanTargets.mock.calls.length).toBeGreaterThan(1);
+        expect(collectScanTargets.mock.calls.length).toBeLessThanOrEqual(12);
+        scanner.destroy();
+    }, 15_000);
 });
 
 interface FakeTargetOptions {

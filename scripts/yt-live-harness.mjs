@@ -129,6 +129,95 @@ const DIAGS = {
             .map(([k, v]) => ({ container: k, words: v }));
         return { kana };
     },
+    // Live release acceptance for annotation geometry and lazy coverage.
+    acceptance: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const expand = document.querySelector('#description-inline-expander #expand, #description #expand, ytd-text-inline-expander #expand');
+        if (expand instanceof HTMLElement) expand.click();
+        await sleep(1200);
+        const rect = selector => {
+            const element = document.querySelector(selector);
+            if (!(element instanceof HTMLElement)) return null;
+            const box = element.getBoundingClientRect();
+            return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height };
+        };
+        const overlap = (first, second) => Boolean(first && second
+            && Math.min(first.right, second.right) > Math.max(first.left, second.left)
+            && Math.min(first.bottom, second.bottom) > Math.max(first.top, second.top));
+        const description = rect('#description-inline-expander, ytd-text-inline-expander, ytd-watch-metadata #description, yt-description-preview-view-model, yt-description-view-model');
+        const video = rect('#movie_player, ytd-player');
+        const secondary = rect('#secondary');
+        const controlSamples = Array.from(document.querySelectorAll('button .jpdb-reader-word, [role="button"] .jpdb-reader-word, [role="tab"] .jpdb-reader-word'))
+            .slice(0, 30)
+            .map(word => {
+                const control = word.closest('button,[role="button"],[role="tab"]');
+                const controlRect = control?.getBoundingClientRect();
+                const wordRect = word.getBoundingClientRect();
+                return {
+                    text: (word.dataset.expression || word.textContent || '').trim(),
+                    readingCount: word.querySelectorAll('rt,.jpdb-reader-detached-furi').length,
+                    centerDelta: controlRect ? Math.round((wordRect.top + wordRect.height / 2 - controlRect.top - controlRect.height / 2) * 10) / 10 : null,
+                };
+            });
+        const collapse = document.querySelector('#description-inline-expander #collapse, #description #collapse, ytd-text-inline-expander #collapse');
+        if (collapse instanceof HTMLElement) collapse.click();
+        await sleep(600);
+        const comments = document.querySelector('ytd-comments') || document.querySelector('#comments');
+        comments?.scrollIntoView({ block: 'start' });
+        await sleep(2500);
+        window.scrollBy(0, 1200);
+        await sleep(1500);
+        const loadedJapaneseHosts = Array.from(document.querySelectorAll('ytd-comment-view-model #content-text,ytd-comment-renderer #content-text,ytm-comment-renderer #content-text'))
+            .filter(element => /[぀-ヿ㐀-鿿]/.test(element.textContent || ''));
+        const visibleJapaneseHosts = loadedJapaneseHosts
+            .filter(element => {
+                const box = element.getBoundingClientRect();
+                return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight
+                    && /[぀-ヿ㐀-鿿]/.test(element.textContent || '');
+            });
+        const unannotated = visibleJapaneseHosts
+            .filter(element => !element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror'))
+            .map(element => (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80))
+            .filter(Boolean)
+            .slice(0, 20);
+        return {
+            descriptionExpanded: Boolean(expand),
+            description,
+            overlapsVideo: overlap(description, video),
+            overlapsSecondary: overlap(description, secondary),
+            controlSamples,
+            maxControlCenterDelta: Math.max(0, ...controlSamples.map(sample => Math.abs(sample.centerDelta || 0))),
+            controlsWithReadings: controlSamples.filter(sample => sample.readingCount > 0).map(sample => sample.text),
+            commentsAvailable: Boolean(comments),
+            loadedJapaneseCommentHosts: loadedJapaneseHosts.length,
+            loadedAnnotatedCommentHosts: loadedJapaneseHosts.filter(element => element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).length,
+            bottomVisibleJapaneseHosts: visibleJapaneseHosts.length,
+            bottomUnannotated: unannotated,
+        };
+    },
+    comments: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const comments = document.querySelector('ytd-comments') || document.querySelector('#comments');
+        comments?.scrollIntoView({ block: 'start' });
+        await sleep(3000);
+        window.scrollBy(0, 900);
+        await sleep(1800);
+        const candidates = Array.from(document.querySelectorAll('ytd-comments yt-attributed-string,ytd-comments yt-formatted-string,ytd-comments .ytAttributedStringHost,ytd-comments #content-text'))
+            .filter(element => {
+                const box = element.getBoundingClientRect();
+                return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight
+                    && /[぀-ヿ㐀-鿿]/.test(element.textContent || '');
+            });
+        const summary = element => ({
+            text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100),
+            annotated: Boolean(element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')),
+        });
+        return {
+            commentsAvailable: Boolean(comments),
+            visibleJapanese: candidates.map(summary),
+            unannotated: candidates.filter(element => !element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).map(summary),
+        };
+    },
     // Empirically validate the geometry fix on a real broken title mirror.
     fixprobe: () => {
         const results = [];

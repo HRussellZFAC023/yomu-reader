@@ -169,8 +169,8 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(false);
         // No one-line-taller mirror poking below the pill.
         expect(mirror.style.maxHeight).toBe('36px');
     });

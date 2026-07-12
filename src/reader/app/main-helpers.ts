@@ -178,8 +178,10 @@ export function hasVisibleSiteScanTargets(): boolean {
 
 export function allowsGenericVisibleAutoScan(): boolean {
     // Canvas reader viewers have no page text worth scanning; storefront and
-    // every other host use the generic visible-text auto scan like any site.
-    return !isYouTubeHostForAutoScan() && !isBookWalkerReaderPage();
+    // every other host — including YouTube — uses the generic visible-text
+    // work detector. YouTube's parser still supplies priority roots, but it no
+    // longer owns discovery of late/lazy page text.
+    return !isBookWalkerReaderPage();
 }
 
 export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
@@ -192,10 +194,8 @@ export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
 }
 
 export function allowsFrequentVisibleAutoScan(): boolean {
-    // YouTube still opts out of the generic visible-text fallback above, but
-    // its site parser is narrow enough to rescan on mutations/scroll. Keeping
-    // frequent scans enabled is what makes homepage/feed titles annotate as
-    // cards stream in instead of waiting for a manual scan or one capped pass.
+    // Frequent mutation/scroll scans make dynamic feeds annotate as content
+    // streams in instead of waiting for a manual scan.
     return true;
 }
 

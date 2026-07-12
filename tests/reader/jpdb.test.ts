@@ -35662,6 +35662,13 @@ describe('reader helpers', () => {
             .not.toContain('wiktionary-ja-parser');
     });
 
+    it('uses viewport-bounded, continuable discovery for the main YouTube surface', () => {
+        const profile = SITE_PARSER_PROFILES.find(candidate => candidate.id === 'youtube-comments-parser');
+        expect(profile).toBeTruthy();
+        expect(profile?.visibleOnly).toBe(true);
+        expect(profile?.singlePassScan).not.toBe(true);
+    });
+
     it('scans YouTube watch titles, descriptions, and comments with JPDB ruby and pitch', () => {
         const targets = collectYouTubeWatchTargets(`
             <main>
@@ -35693,7 +35700,7 @@ describe('reader helpers', () => {
         expect(metadataRow).toBeTruthy();
         expect(metadataRow?.passiveInteraction).toBe(true);
         expect(metadataRow?.nonDestructive).toBe(true);
-        expect(targets.filter(target => !target.passiveInteraction).every(target => target.singlePassScan === true)).toBe(true);
+        expect(targets.some(target => !target.passiveInteraction && target.singlePassScan !== true)).toBe(true);
 
         const title = targets.find(target => target.text === '新卒エンジニア、仕事終わりにプログラミング勉強をする！！');
         const description = targets.find(target => target.text.startsWith('Webアプリ開発'));
@@ -35808,7 +35815,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('ruby ruby')).toBeNull();
     });
 
-    it('keeps YouTube generic scans off while allowing frequent site-parser rescans', () => {
+    it('uses generic discovery plus frequent rescans on YouTube', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
             origin: 'https://www.youtube.com',
@@ -35816,7 +35823,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            expect(allowsGenericVisibleAutoScan()).toBe(false);
+            expect(allowsGenericVisibleAutoScan()).toBe(true);
             expect(allowsFrequentVisibleAutoScan()).toBe(true);
             expect(visibleAutoScanMutationDelay()).toBe(320);
             expect(visibleAutoScanInitialDelay()).toBe(220);

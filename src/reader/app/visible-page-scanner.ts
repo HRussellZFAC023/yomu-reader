@@ -301,11 +301,11 @@ export class VisiblePageScanner {
     // never meant to cancel tail coverage when collection hit the budget cap
     // (the class-E starvation: comment roots consumed all 200 targets and the
     // menus/grid tail was simply dropped). A capped collection continues:
-    // unconditionally when any target re-walks (non-single-pass), and for
-    // silent scans (whose collection skips already-mirrored hosts, so each
-    // continuation reaches deeper) under a bounded number of rounds.
+    // when any target re-walks (non-single-pass), and for silent scans (whose
+    // collection skips already-mirrored hosts, so each continuation reaches
+    // deeper), always under a bounded number of rounds.
     private canQueueContinuationScan(targets: ScanTextTarget[], silent: boolean): boolean {
-        if (canContinueVisibleScan(targets)) return true;
+        if (canContinueVisibleScan(targets)) return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
         return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
     }
 

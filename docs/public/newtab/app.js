@@ -6293,6 +6293,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function shouldSuppressCompactMediaRuby(parent) {
     return isYouTubeFeedbackChromeLinkText(parent);
   }
+  function isYouTubeHost$1() {
+    const hostname = location.hostname.toLowerCase();
+    return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+  }
   function isYouTubeFeedbackChromeLinkText(parent) {
     if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
     return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
@@ -9418,6 +9422,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hasNativeRuby: target.hasNativeRuby,
       decoration: target.decoration,
       suppressRuby: target.suppressRuby,
+      detachedReadings: omitsInteractiveControlReadings(target.parent, target.decoration) ? false : void 0,
       proseWrap: target.proseWrap,
       passiveInteraction: target.passiveInteraction
     });
@@ -9441,11 +9446,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         fragment2.append(document.createElement("wbr"));
       }
       fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-        // `suppressRuby` now means "do not put readings in flow", not
-        // "discard readings". Compact controls and clipped rows use the
-        // detached presentation below, which preserves the native line
-        // box while still rendering furigana at rest.
-        allowRuby: !target.hasNativeRuby,
+        // Content in clipped rows uses detached readings; interactive
+        // controls discard the reading channel entirely so their native
+        // centred line box remains invariant on WebKit.
+        allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
         detachedReadings: target.detachedReadings ?? suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
@@ -9692,7 +9696,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(
+      host,
+      suppressRuby,
+      safeTokens,
+      !omitsInteractiveControlReadings(host, target.decoration)
+    );
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     return {
@@ -9750,7 +9759,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
-    const controlMirror = target.decoration === "interactive-passive" && context.hasRenderedRuby;
+    const controlMirror = omitsInteractiveControlReadings(host, target.decoration) || target.decoration === "interactive-passive" && context.hasRenderedRuby;
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
     const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
@@ -9763,6 +9772,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     );
     try {
       styleTextMirror(mirror, host, mirrorRubyLayout);
+      if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
       styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
       mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
         parent: host,
@@ -9798,6 +9808,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       removeTextMirror(host);
       throw error;
     }
+  }
+  function stabilizeReadingFreeControlMirror(mirror, host) {
+    const height = host.getBoundingClientRect().height;
+    if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
   }
   function prefersStableClippedMirror() {
     return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
@@ -9906,11 +9920,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+  const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
   function openSafeDetachedReadingClips(element) {
     let current = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
       if (!current.querySelector(".jpdb-reader-detached-furi")) continue;
+      if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+        restoreDetachedReadingClip(current);
+        continue;
+      }
       const style = safeComputedStyle(current);
       const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
       if (!clips) continue;
@@ -9992,11 +10011,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     host.dataset.yomuClipHoverHost = "true";
   }
-  function textMirrorClipMode(host, suppressRuby, tokens) {
+  function textMirrorClipMode(host, suppressRuby, tokens, allowDetachedReadings = true) {
     const clipRow = closestRubyFragileConstrainedRow(host);
     const hasReadings = tokens.some((token) => token.rubies.length > 0);
-    const detachedReadings = hasReadings && (suppressRuby || Boolean(clipRow));
-    const hasRenderedRuby = hasReadings && !detachedReadings;
+    const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
+    const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
     return {
       clipRow,
       hasRenderedRuby,
@@ -10997,7 +11016,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return fragment2;
   }
   function renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(target, fragment2.hasNativeRuby);
     return renderToken(fragment2.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       detachedReadings: targetUsesDetachedReadings(target),
@@ -11067,7 +11086,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       scanWord: true,
       proseWrap: target.proseWrap === true,
       passiveInteraction,
-      allowRuby: true,
+      allowRuby: !omitsInteractiveControlReadings(target.parent, target.decoration),
       detachedReadings: targetUsesDetachedReadings(target),
       preserveTokenRubies: true,
       miningInsightKeys
@@ -11080,7 +11099,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!surface) continue;
       const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
       const rendered = renderToken(surface, pieceToken, settings, {
-        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+        allowRuby: scanFragmentAllowsRuby(target, piece.fragment.hasNativeRuby),
         detachedReadings: targetUsesDetachedReadings(target),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
@@ -11231,7 +11250,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return boundary;
   }
   function insertSingleFragmentToken(target, fragment2, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(target, fragment2.hasNativeRuby);
     const surface = fragment2.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -11245,11 +11264,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     replaceTextNodeRange(fragment2.node, start, end, rendered);
   }
-  function scanFragmentAllowsRuby(hasNativeRuby) {
-    return !hasNativeRuby;
+  function scanFragmentAllowsRuby(target, hasNativeRuby) {
+    return !omitsInteractiveControlReadings(target.parent, target.decoration) && !hasNativeRuby;
   }
   function targetUsesDetachedReadings(target) {
+    if (omitsInteractiveControlReadings(target.parent, target.decoration)) return false;
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
+  }
+  function omitsInteractiveControlReadings(parent, decoration) {
+    if (decoration !== "interactive-passive") return false;
+    return isYouTubeHost$1() && Boolean(parent.closest('button,[role="button"],[role="tab"],summary'));
   }
   function isInsideOwnedReaderRoot(element) {
     const readerRoot = element.closest(READER_ROOT_SELECTOR);
@@ -41942,7 +41966,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.146".trim() ? "1.6.146".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.147".trim() ? "1.6.147".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

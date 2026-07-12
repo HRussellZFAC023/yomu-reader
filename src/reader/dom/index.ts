@@ -36,6 +36,7 @@ import {
     isConversationTextClass,
     isEllipsisTextRow,
     isInsideRubyFragileConstrainedRow,
+    isYouTubeHost,
     isLikelyProseElement,
     isLikelyProseLink,
     isNavigationChromeContext,
@@ -1638,6 +1639,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         hasNativeRuby: target.hasNativeRuby,
         decoration: target.decoration,
         suppressRuby: target.suppressRuby,
+        detachedReadings: omitsInteractiveControlReadings(target.parent, target.decoration) ? false : undefined,
         proseWrap: target.proseWrap,
         passiveInteraction: target.passiveInteraction,
     });
@@ -1673,11 +1675,10 @@ function renderTokenizedScanText(
             fragment.append(document.createElement('wbr'));
         }
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-            // `suppressRuby` now means "do not put readings in flow", not
-            // "discard readings". Compact controls and clipped rows use the
-            // detached presentation below, which preserves the native line
-            // box while still rendering furigana at rest.
-            allowRuby: !target.hasNativeRuby,
+            // Content in clipped rows uses detached readings; interactive
+            // controls discard the reading channel entirely so their native
+            // centred line box remains invariant on WebKit.
+            allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
             detachedReadings: target.detachedReadings ?? suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
@@ -2035,7 +2036,12 @@ function nonDestructiveMirrorRenderContext(
         : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(
+        host,
+        suppressRuby,
+        safeTokens,
+        !omitsInteractiveControlReadings(host, target.decoration),
+    );
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     // The rendered text depends on the host's LAYOUT (whitespace joints from
     // computed display contexts), not just its source text: a framework can
@@ -2130,11 +2136,10 @@ function mountNonDestructiveTextMirror(
     // A mirrored CONTROL (chip, pill, compact button) must lay out exactly
     // like its host at rest: the ruby-friendly line height pushed the base
     // glyphs out of fixed-height pills on WebKit (iPad 2026-07-11 — chip text
-    // "gone", readings wrapping into neighbours). Readings stay in the DOM
-    // but rest-hidden with display:none (visibility:hidden still reserves
-    // ruby space on WebKit); a fine-pointer hover reveals them, and touch
-    // keeps the long-press popover.
-    const controlMirror = target.decoration === 'interactive-passive' && context.hasRenderedRuby;
+    // "gone", readings wrapping into neighbours). Controls retain lookup and
+    // pitch annotation without any reading lane.
+    const controlMirror = omitsInteractiveControlReadings(host, target.decoration)
+        || (target.decoration === 'interactive-passive' && context.hasRenderedRuby);
     if (controlMirror) mirror.dataset.yomuControlMirror = 'true';
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
@@ -2158,6 +2163,7 @@ function mountNonDestructiveTextMirror(
     );
     try {
         styleTextMirror(mirror, host, mirrorRubyLayout);
+        if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
         // After styleTextMirror (which opens overflow): re-impose the host's
         // clamp on the mirror so it cannot paint past the clip row's box.
         styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
@@ -2198,6 +2204,16 @@ function mountNonDestructiveTextMirror(
         removeTextMirror(host);
         throw error;
     }
+}
+
+// Inline framework labels are often vertically centred inside a taller
+// button by the button's inherited line-height. An absolute mirror anchored
+// to the already-centred 16px label must not inherit that 40px line box again
+// or its glyphs move down by half the difference. Match the mirror lane to the
+// actual host label box when controls intentionally render without readings.
+function stabilizeReadingFreeControlMirror(mirror: HTMLElement, host: HTMLElement): void {
+    const height = host.getBoundingClientRect().height;
+    if (height > 0) mirror.style.setProperty('line-height', `${height}px`, 'important');
 }
 
 function prefersStableClippedMirror(): boolean {
@@ -2331,6 +2347,7 @@ function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | nul
 
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
 const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
 
 // A detached reading may sit a few pixels above its base. Open only compact
@@ -2345,6 +2362,13 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
         if (!current.querySelector('.jpdb-reader-detached-furi')) continue;
+        // Collapsible descriptions and accordions own their overflow. Opening
+        // it for an out-of-flow reading lets annotated paint escape the panel
+        // and overlap neighbouring media after expansion.
+        if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+            restoreDetachedReadingClip(current);
+            continue;
+        }
         const style = safeComputedStyle(current);
         const clips = [style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip');
         if (!clips) continue;
@@ -2453,7 +2477,7 @@ function styleConstrainedTextMirror(
     host.dataset.yomuClipHoverHost = 'true';
 }
 
-function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JPDBToken[]): {
+function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JPDBToken[], allowDetachedReadings = true): {
     clipRow: HTMLElement | null;
     hasRenderedRuby: boolean;
     clipHoverOnly: boolean;
@@ -2461,8 +2485,8 @@ function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JP
 } {
     const clipRow = closestRubyFragileConstrainedRow(host);
     const hasReadings = tokens.some(token => token.rubies.length > 0);
-    const detachedReadings = hasReadings && (suppressRuby || Boolean(clipRow));
-    const hasRenderedRuby = hasReadings && !detachedReadings;
+    const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
+    const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
     return {
         clipRow,
         hasRenderedRuby,
@@ -4356,7 +4380,7 @@ function renderSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
         detachedReadings: targetUsesDetachedReadings(target),
@@ -4439,7 +4463,7 @@ function applyTokenToIndexedFragments(
         scanWord: true,
         proseWrap: target.proseWrap === true,
         passiveInteraction,
-        allowRuby: true,
+        allowRuby: !omitsInteractiveControlReadings(target.parent, target.decoration),
         detachedReadings: targetUsesDetachedReadings(target),
         preserveTokenRubies: true,
         miningInsightKeys,
@@ -4461,7 +4485,7 @@ function insertSplitFragmentTokenPieces(
         if (!surface) continue;
         const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
         const rendered = renderToken(surface, pieceToken, settings, {
-            allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+            allowRuby: scanFragmentAllowsRuby(target, piece.fragment.hasNativeRuby),
             detachedReadings: targetUsesDetachedReadings(target),
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
@@ -4685,7 +4709,7 @@ function insertSingleFragmentToken(
     miningInsightKeys: ReadonlySet<string>,
     passiveInteraction: boolean,
 ): void {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
@@ -4700,12 +4724,18 @@ function insertSingleFragmentToken(
     replaceTextNodeRange(fragment.node, start, end, rendered);
 }
 
-function scanFragmentAllowsRuby(hasNativeRuby: boolean): boolean {
-    return !hasNativeRuby;
+function scanFragmentAllowsRuby(target: FragmentTextTarget, hasNativeRuby: boolean): boolean {
+    return !omitsInteractiveControlReadings(target.parent, target.decoration) && !hasNativeRuby;
 }
 
 function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
+    if (omitsInteractiveControlReadings(target.parent, target.decoration)) return false;
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
+}
+
+function omitsInteractiveControlReadings(parent: HTMLElement, decoration?: DecorationState): boolean {
+    if (decoration !== 'interactive-passive') return false;
+    return isYouTubeHost() && Boolean(parent.closest('button,[role="button"],[role="tab"],summary'));
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {

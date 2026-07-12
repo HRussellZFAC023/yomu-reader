@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.146
+// @version 1.6.147
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.146#sha256=ljyBJAXF6htqFhMA5POoV67K05d+O7h83x6Z7bNAe0A=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.146#sha256=tXrRCPFfG0C6Y/QuIX0I2c76Hfc3elGtKgCmwtrsiJ0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.146#sha256=WEtm5RRRbehO+6h48ZoOUPItXCLiNv0TOgVerbp3X10=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.146#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.146#sha256=Y2r+XLWZOek+KlwzxOg0YxuuR+cNGzcHGiLsMOcg9s0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.146#sha256=NcAmEztR702H7yEX9BNNqNGaP4VM2k0zLpfmME/YU+A=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.146#sha256=ZbY7dUN1Vl20btZlMd8eW7fkvh8Nul60tFg+AYKR6RM=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.147#sha256=ljyBJAXF6htqFhMA5POoV67K05d+O7h83x6Z7bNAe0A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.147#sha256=tXrRCPFfG0C6Y/QuIX0I2c76Hfc3elGtKgCmwtrsiJ0=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.147#sha256=WEtm5RRRbehO+6h48ZoOUPItXCLiNv0TOgVerbp3X10=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.147#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.147#sha256=Y2r+XLWZOek+KlwzxOg0YxuuR+cNGzcHGiLsMOcg9s0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.147#sha256=NcAmEztR702H7yEX9BNNqNGaP4VM2k0zLpfmME/YU+A=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.147#sha256=ZbY7dUN1Vl20btZlMd8eW7fkvh8Nul60tFg+AYKR6RM=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -5730,6 +5730,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
   hasNativeRuby: target.hasNativeRuby,
   decoration: target.decoration,
   suppressRuby: target.suppressRuby,
+  detachedReadings: omitsInteractiveControlReadings(target.parent, target.decoration) ? false : void 0,
   proseWrap: target.proseWrap,
   passiveInteraction: target.passiveInteraction
   });
@@ -5753,7 +5754,7 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
     fragment.append(document.createElement("wbr"));
   }
   fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-    allowRuby: !target.hasNativeRuby,
+    allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
     detachedReadings: target.detachedReadings ?? suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
@@ -5964,7 +5965,12 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(
+  host,
+  suppressRuby,
+  safeTokens,
+  !omitsInteractiveControlReadings(host, target.decoration)
+  );
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
@@ -6022,7 +6028,7 @@ function createNonDestructiveTextMirror(context) {
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
-  const controlMirror = target.decoration === "interactive-passive" && context.hasRenderedRuby;
+  const controlMirror = omitsInteractiveControlReadings(host, target.decoration) || target.decoration === "interactive-passive" && context.hasRenderedRuby;
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
   const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
   const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
@@ -6035,6 +6041,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   );
   try {
   styleTextMirror(mirror, host, mirrorRubyLayout);
+  if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
   styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
   mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
     parent: host,
@@ -6067,6 +6074,10 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   removeTextMirror(host);
   throw error;
   }
+}
+function stabilizeReadingFreeControlMirror(mirror, host) {
+  const height = host.getBoundingClientRect().height;
+  if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
 }
 function prefersStableClippedMirror() {
   return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
@@ -6175,11 +6186,16 @@ function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
 }
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
+const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
 const detachedReadingClipStyles = new WeakMap();
 function openSafeDetachedReadingClips(element2) {
   let current = element2;
   for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
   if (!current.querySelector(".jpdb-reader-detached-furi")) continue;
+  if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+    restoreDetachedReadingClip(current);
+    continue;
+  }
   const style = safeComputedStyle(current);
   const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
   if (!clips) continue;
@@ -6261,11 +6277,11 @@ function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly, detach
   }
   host.dataset.yomuClipHoverHost = "true";
 }
-function textMirrorClipMode(host, suppressRuby, tokens) {
+function textMirrorClipMode(host, suppressRuby, tokens, allowDetachedReadings = true) {
   const clipRow = closestRubyFragileConstrainedRow(host);
   const hasReadings = tokens.some((token) => token.rubies.length > 0);
-  const detachedReadings = hasReadings && (suppressRuby || Boolean(clipRow));
-  const hasRenderedRuby = hasReadings && !detachedReadings;
+  const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
+  const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
   return {
   clipRow,
   hasRenderedRuby,
@@ -7478,7 +7494,7 @@ function wrapDirectFlexGridTextRun(replacement, parent) {
   return fragment;
 }
 function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
-  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
   return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
   allowRuby,
   detachedReadings: targetUsesDetachedReadings(target),
@@ -7548,7 +7564,7 @@ function applyTokenToIndexedFragments(target, indexedFragments, token, tokenWith
   scanWord: true,
   proseWrap: target.proseWrap === true,
   passiveInteraction,
-  allowRuby: true,
+  allowRuby: !omitsInteractiveControlReadings(target.parent, target.decoration),
   detachedReadings: targetUsesDetachedReadings(target),
   preserveTokenRubies: true,
   miningInsightKeys
@@ -7561,7 +7577,7 @@ function insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence
   if (!surface) continue;
   const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
   const rendered = renderToken(surface, pieceToken, settings, {
-    allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+    allowRuby: scanFragmentAllowsRuby(target, piece.fragment.hasNativeRuby),
     detachedReadings: targetUsesDetachedReadings(target),
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
@@ -7712,7 +7728,7 @@ function attachedFragmentBoundary(boundary) {
   return boundary;
 }
 function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
   const surface = fragment.node.data.slice(start, end);
   const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
   allowRuby,
@@ -7726,11 +7742,16 @@ function insertSingleFragmentToken(target, fragment, start, end, token, tokenWit
   });
   replaceTextNodeRange(fragment.node, start, end, rendered);
 }
-function scanFragmentAllowsRuby(hasNativeRuby) {
-  return !hasNativeRuby;
+function scanFragmentAllowsRuby(target, hasNativeRuby) {
+  return !omitsInteractiveControlReadings(target.parent, target.decoration) && !hasNativeRuby;
 }
 function targetUsesDetachedReadings(target) {
+  if (omitsInteractiveControlReadings(target.parent, target.decoration)) return false;
   return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
+}
+function omitsInteractiveControlReadings(parent, decoration) {
+  if (decoration !== "interactive-passive") return false;
+  return isYouTubeHost() && Boolean(parent.closest('button,[role="button"],[role="tab"],summary'));
 }
 function isInsideOwnedReaderRoot(element2) {
   const readerRoot = element2.closest(READER_ROOT_SELECTOR$3);
@@ -28827,9 +28848,8 @@ const SITE_PARSER_PROFILES = [
   ],
   exclude: YOUTUBE_TEXT_EXCLUDE,
   allowUiText: true,
-  visibleOnly: false,
+  visibleOnly: true,
   includeUiChrome: true,
-  singlePassScan: true,
   nonDestructive: true,
   includePassiveInteractionRoots: true,
   matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
@@ -29793,7 +29813,7 @@ function hasVisibleSiteScanTargets() {
   return (collectSiteScanTargets(1)?.length ?? 0) > 0;
 }
 function allowsGenericVisibleAutoScan() {
-  return !isYouTubeHostForAutoScan() && !isBookWalkerReaderPage();
+  return !isBookWalkerReaderPage();
 }
 function shouldAutoScanImageOcr(pageHasJapaneseText) {
   return pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas"));
@@ -35436,8 +35456,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.146"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.146"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.147"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.147"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35551,7 +35571,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.146"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.147"}`;
   } catch {
   return null;
   }
@@ -35761,7 +35781,7 @@ class VisiblePageScanner {
   this.reportVisiblePageCoverage(silent);
   }
   canQueueContinuationScan(targets, silent) {
-  if (canContinueVisibleScan(targets)) return true;
+  if (canContinueVisibleScan(targets)) return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
   return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
   }
   isStaleScan(generation) {

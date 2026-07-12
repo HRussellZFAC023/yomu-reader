@@ -971,9 +971,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
-        visibleOnly: false,
+        // Let the generic viewport collector drive YouTube like every other
+        // dynamic page. Scanning the whole virtualized DOM spent the target
+        // budget on offscreen/recycled cards and left late comments bare.
+        visibleOnly: true,
         includeUiChrome: true,
-        singlePassScan: true,
         nonDestructive: true,
         includePassiveInteractionRoots: true,
         matches: url => url.hostname === 'youtube.com'
