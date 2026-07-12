@@ -60067,7 +60067,7 @@ ${spelling}`);
       this.beginTrackSelection(role);
     }
     isTrackSelectionCurrent(role, requestId, trackId) {
-      return role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId;
+      return !this.destroyed && (role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId);
     }
     resetPrimarySubtitleState() {
       this.invalidateTrackSelection("primary");

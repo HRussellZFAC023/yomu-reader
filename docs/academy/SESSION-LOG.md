@@ -145,9 +145,14 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
   readable userscript at 1,889,000 bytes (111,000 bytes below the Greasy Fork
   limit). Feedback/PDF/Google P0 smokes passed, deterministic QA was 13/13,
   docs accessibility was 66/66 across desktop/iPad/iPhone, and complexity peaked
-  at 29/30. The final Academy revision is `s1-15dd1d7d700f`.
+  at 29/30. The accepted Browser build revision was `s1-15dd1d7d700f`.
+- Committed the reviewed Stage 1 source boundary as `da563e8a4`, leaving every
+  protected Reader/NHK path unstaged. Rebuilt from an isolated checkout of that
+  exact commit, synced hosted Reader assets, built Academy, built VitePress, and
+  verified the userscript. The clean deploy candidate is `s1-bbf9a61f26a3`;
+  verification reported 1,887,405 bytes and 43,451 lines.
 
 ### Remaining action
 
-Commit only Academy plus the explicitly reviewed shared fixes, push and verify
-the Pages deployment/live Academy shell, then close Stage 1 and open Stage 2.
+Commit the isolated hosted outputs, push and verify the Pages deployment/live
+Academy shell, then close Stage 1 and open Stage 2.

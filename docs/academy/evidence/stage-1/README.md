@@ -2,8 +2,9 @@
 
 This evidence was captured from the real hosted Academy at
 `http://127.0.0.1:4178/academy/` after the Reader annotation runtime injected.
-It is not a fixture page. The captured build revision is
-`s1-15dd1d7d700f`.
+It is not a fixture page. The captured Browser build revision is
+`s1-15dd1d7d700f`. The isolated rebuild of the committed Stage 1 source removed
+protected local Reader work and produced deploy candidate `s1-bbf9a61f26a3`.
 
 ## Automated gates
 
@@ -54,8 +55,9 @@ Query namespace: `qa-run=final-stage1-acceptance`.
 
 ### Offline and responsive contracts
 
-- The captured active cache preceded final Reader/docs hardening; the rebuilt
-  release candidate is `yomu-academy-shell-s1-15dd1d7d700f`.
+- The captured active cache preceded the isolated committed-source rebuild. Its
+  deploy candidate is `yomu-academy-shell-s1-bbf9a61f26a3`; the capture itself
+  exercised `yomu-academy-shell-s1-15dd1d7d700f`.
 - With CDP network conditions set offline, the annotated N4 transfer state
   reloaded from the service worker. The DOM retained Reader-injected
   `jpdb-reader-word`/pitch markup, the settings companion, the exact hashed app

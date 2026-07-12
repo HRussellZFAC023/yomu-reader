@@ -46,10 +46,10 @@ The main checkout also contains pre-Academy Reader/NHK work. Do not include it i
 - The faithful slice source is Moodle Level 1 Lesson 1 page 2 item 9, document SHA-256 `1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba`.
 - Rie and Aakash both unlock at bond `★☆☆`; the journal preserves and replays both scenes. Aakash uses the approved rainy-directions CG until standalone likeness approval.
 - Kanji production uses the shared Reader Doodle and sanitised KanjiVG `04e00.svg`; a keyboard learner can produce equivalent, transparently tagged evidence with three rightward steps.
-- The service-worker revision is generated from runtime content, not maintained by hand. Current green build before the Stage 1 close commit is `s1-15dd1d7d700f`.
+- The service-worker revision is generated from runtime content, not maintained by hand. The isolated rebuild of committed Stage 1 source is `s1-bbf9a61f26a3`; the earlier accepted Browser capture used `s1-15dd1d7d700f` before protected local Reader work was excluded from deploy artifacts.
 - Browser evidence at 320, 390, 1024, and 1440 px plus annotated offline resume lives in `docs/academy/evidence/stage-1/`.
 - Definitive `npm run qa` is green: Reader/JPDB/Academy tests, builds, verify, P0 smokes, deterministic QA 13/13, docs a11y 66/66, and complexity 29/30. Final Fable delta review is `PASS`.
 
 ## Resume point
 
-Stage 1 code, Browser acceptance, Fable review, and full QA are green. Commit only Academy paths plus explicitly reviewed shared fixes, preserve the protected Reader files, push/deploy/smoke, then start Stage 2. Do not broaden Stage 1's one-question coverage claim.
+Stage 1 code, Browser acceptance, Fable review, and full QA are green. The source boundary is committed at `da563e8a4`; commit its isolated hosted outputs, preserve the protected Reader files, push/deploy/smoke, then start Stage 2. Do not broaden Stage 1's one-question coverage claim.

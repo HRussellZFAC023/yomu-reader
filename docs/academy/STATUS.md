@@ -1,10 +1,10 @@
 # Yomu Academy status
 
-**Updated:** 2026-07-12 18:51 Europe/London
+**Updated:** 2026-07-12 19:00 Europe/London
 
-**Current stage:** Stage 1 — skeleton and enrollment vertical slice (green; commit/deploy pending)
+**Current stage:** Stage 1 — skeleton and enrollment vertical slice (green; push/deploy pending)
 
-**Canonical branch:** `main` at `3d1624fb3`; `origin/main` is aligned before the pending Stage 1 commit.
+**Canonical branch:** `main` at `da563e8a4`; `origin/main` remains at the Stage 0 close until the generated hosted-assets commit is ready.
 
 ## Gate board
 
@@ -18,7 +18,7 @@
 | Learning/world loop | Green | Lesson forks, Aakash direction repair/unlock, KanjiVG + shared Doodle/keyboard alternative, campus, local Yomu review, journal bonds/replay, reload, and unlocked Lab/Cafe complete end to end. |
 | Reader integration | Green | Hosted Reader bundle injects segmentation, furigana/pitch state, and dictionary behavior into Academy; Japanese mode shows no `未翻訳`; controls remain stable after injection. |
 | Audio lifecycle | Green for slice | One `AudioDirector` owns buses, speech ducking, overlap, cancellation, gesture state, and intentional silence. Cleared location music/source listening remain Stage 6 work. |
-| Offline shell | Green | Content-hashed revision `s1-15dd1d7d700f`; annotated N4 state reloaded with network disabled from the active service-worker cache and displayed explicit offline state. |
+| Offline shell | Green | Annotated N4 state reloaded offline in the accepted Browser build. An isolated rebuild of committed source produced deploy revision `s1-bbf9a61f26a3` and passed Academy build, docs build, and userscript verification. |
 | Responsive/accessibility | Green for slice | Current real app: 320×780 annotated controls stay inside 26–294 px with `scrollWidth=320` and zero duplicate radio inputs; 390×844, 1024×768, and 1440×900 visual evidence is stored under `evidence/stage-1/`. |
 | Academy tests | Green | `npm run typecheck`; 20 Academy files / 61 tests passed. Fresh Browser enrollment and audio-cleanup journeys ended with zero console logs. |
 | Cross-model review | Green | The architecture follow-up passed in session `4308dfa7-1730-450e-b96d-6a22239cd44e`. Final delta session `7e12dfb2-4dbc-4cd4-bb65-9af74ec64bab` found one hover-only contrast blocker, verified its 5.10:1 composed-mirror fix, and returned `PASS`. |
@@ -50,6 +50,6 @@ Safety stashes remain at `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` and `c228c1e
 
 ## Next three actions
 
-1. Commit only Academy-owned paths and the explicitly reviewed shared fixes, preserving protected Reader paths.
+1. Commit the isolated committed-source hosted outputs at revision `s1-bbf9a61f26a3`, preserving protected Reader paths.
 2. Push `main`, watch the Pages deployment, and smoke the live `/academy/` shell and revisioned assets.
 3. Close Stage 1 and begin the Stage 2 source-pipeline census from all 96 Moodle archives.
