@@ -138,10 +138,10 @@ describe('visible pitch hydration', () => {
         }
     });
 
-    it('continues to direct pitch when fallback vocabulary hydration misses', async () => {
+    it('decorates the compound もう一度 when fallback vocabulary hydration misses', async () => {
         vi.useFakeTimers();
         const app = makeApp();
-        const fallback = pitchCard(-7002, 'こんばんは', 'こんばんは');
+        const fallback = pitchCard(-7002, 'もう一度', 'もういちど');
         fallback.source = 'fallback';
         const word = renderedPitchWord(fallback);
         const publicPitch = vi.fn(async () => ['LHHHHH']);
@@ -164,7 +164,7 @@ describe('visible pitch hydration', () => {
             await vi.advanceTimersByTimeAsync(LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS + 1);
             await enrichment;
 
-            expect(publicPitch).toHaveBeenCalledWith('こんばんは', 'こんばんは');
+            expect(publicPitch).toHaveBeenCalledWith('もう一度', 'もういちど');
             expect(word.dataset.pitchClass).toBe('heiban');
             expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);

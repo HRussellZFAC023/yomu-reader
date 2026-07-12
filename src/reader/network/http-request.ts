@@ -1,14 +1,18 @@
 import { fetchWithCorsFallbacks } from './proxy-fetch';
-import { isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
+import { isKnownDirectCorsTarget, isProxySafeRequest, isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
 import type { ReaderHttpOptions } from './http-options';
-import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest } from '../userscript/index';
+import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest, probeUserscriptEventBridge } from '../userscript/index';
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
     // Offline-first: when the browser is offline, skip the cross-origin attempt and
     // let callers fall back to cache or queue the write (keeps an offline study run
     // from firing doomed requests). Same-origin still flows (service worker serves it).
     if (__YOMU_NEWTAB_BUILD__ && !navigator.onLine && !isSameOriginUrl(url)) throw Error('Offline');
-    const userscriptRequest = getUserscriptHttpRequest();
+    let userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+        const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+        if (!bridgeIsAlive) userscriptRequest = undefined;
+    }
     // preferFetch only makes sense same-origin; cross-origin fetch is blocked by
     // strict page CSPs (e.g. jpdb.io), so route it through the userscript request
     // which is exempt from the page's connect-src.
@@ -25,7 +29,7 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
         || ((window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab'
             && options.responseType === 'blob'))) {
         try {
-            return await requestViaFetch(url, options);
+            return await requestViaFetch(url, options, userscriptRequest ?? null);
         } catch (error) {
             if (!userscriptRequest) throw error;
             return await requestViaUserscript(url, options, userscriptRequest);
@@ -36,9 +40,10 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
             return await requestViaUserscript(url, options, userscriptRequest);
         } catch (error) {
             if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+            userscriptRequest = undefined;
         }
     }
-    return requestViaFetch(url, options);
+    return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
 
 function requestViaUserscript(
@@ -132,14 +137,22 @@ function userscriptTextResponse(response: UserscriptHttpResponse): string {
 // "No configured proxy." toast and lookups/captions silently degrade.
 // isSharedPublicProxySafeRequest keeps this to read-only GETs against the
 // dictionary/audio allowlist with no credentials or sensitive headers.
-export function hostedFallbackProxyUrl(url: string, options: ReaderHttpOptions = {}): string {
-    if (getUserscriptHttpRequest()) return '';        // GM bypasses CORS — no proxy needed
+export function hostedFallbackProxyUrl(
+    url: string,
+    options: ReaderHttpOptions = {},
+    userscriptRequest: UserscriptHttpRequest | null = getUserscriptHttpRequest() ?? null,
+): string {
+    if (userscriptRequest) return '';        // GM bypasses CORS — no proxy needed
     if (!isSharedPublicProxySafeRequest(url, options)) return '';
     return YOMU_SHARED_PUBLIC_PROXY_URL;
 }
 
-async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise<unknown> {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? '').trim() || hostedFallbackProxyUrl(url, options), {
+async function requestViaFetch(
+    url: string,
+    options: ReaderHttpOptions,
+    userscriptRequest: UserscriptHttpRequest | null = getUserscriptHttpRequest() ?? null,
+): Promise<unknown> {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? '').trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,
@@ -155,6 +168,19 @@ async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise
     });
     if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
     return readFetchResponseBody(response, options.responseType);
+}
+
+function browserFetchFallbackOptions(
+    url: string,
+    options: ReaderHttpOptions,
+    userscriptRequest: UserscriptHttpRequest | undefined,
+): ReaderHttpOptions {
+    if (userscriptRequest || options.allowDirectCrossOrigin !== undefined) return options;
+    const method = String(options.method ?? 'GET').toUpperCase();
+    if ((method !== 'GET' && method !== 'HEAD')
+        || !isKnownDirectCorsTarget(url)
+        || !isProxySafeRequest(url, options)) return options;
+    return { ...options, allowDirectCrossOrigin: true };
 }
 
 function readFetchResponseBody(response: Response, responseType: ReaderHttpOptions['responseType']): Promise<unknown> {

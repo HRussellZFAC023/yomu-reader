@@ -2,9 +2,13 @@ export type UserscriptHttpRequestOptions = Parameters<UserscriptHttpRequest>[0];
 export type BridgeRequestDetail = { id: string; options: UserscriptHttpRequestOptions };
 export type BridgeResponseDetail = { id: string; kind: 'load' | 'error' | 'timeout'; response?: UserscriptHttpResponse; message?: string };
 
+export function bridgeEventId(event: Event): string | undefined {
+    return safeReadString(normalizedBridgeEventDetail(event), 'id');
+}
+
 export function bridgeRequestDetail(event: Event): BridgeRequestDetail | undefined {
     const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, 'id');
+    const id = bridgeEventId(event);
     const options = safeReadProperty(detail, 'options') as UserscriptHttpRequestOptions | undefined;
     return id && options ? { id, options } : undefined;
 }

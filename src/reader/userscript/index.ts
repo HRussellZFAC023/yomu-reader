@@ -1,6 +1,8 @@
 export {
     getUserscriptHttpRequest,
     isUserscriptEventBridgeRequest,
+    probeUserscriptEventBridge,
+    USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS,
     installUserscriptHttpBridge,
     installUserscriptHttpBridgeWhenReady,
     uninstallUserscriptHttpBridge,

@@ -16,6 +16,10 @@
 - Controls and dynamically revealed panels are rescanned through the same generic decoration policy, so their readings remain visible and passive without stealing taps from the page or opening the dictionary.
 - Compound words and entries with multiple pitch patterns retain every pitch-accent pattern instead of losing later alternatives.
 
+- On tablets, long subtitle side panels now keep scrolling through one continuous touch gesture instead of stopping after a few centimetres and requiring another swipe.
+- Subtitle auto-follow now keeps its place through gaps, glides between nearby lines, and adds newly loaded lines without flashing a large blank spacer in the panel.
+- Hosted reader pages now detect a stale userscript network bridge before a request hangs and safely fall back to browser fetch or Yomu's public proxy, restoring passive pitch decoration for compounds such as もう一度 and KanjiVG stroke diagrams.
+
 ### Testing
 
 - Added Chromium and WebKit release gates for chip fidelity, constrained metadata rows, and Reddit-style compact chrome, including checks for growth, overlap, clipping, and click-through behavior.

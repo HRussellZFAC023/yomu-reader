@@ -594,8 +594,12 @@
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
   const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
+  function bridgeEventId(event) {
+    return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail$1(event);
     const id = safeReadString(detail, "id");
@@ -3224,7 +3228,7 @@
   function isKnownDirectCorsTarget(targetUrl) {
     try {
       const target = new URL(targetUrl, location.href);
-      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
     } catch {
       return false;
     }
@@ -3509,8 +3513,12 @@
   }
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
   const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
   const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
   const BRIDGE_TIMEOUT_MS = 3e4;
+  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+  let eventBridgeProbeInFlight;
   function getUserscriptHttpRequest() {
     for (const candidate of userscriptRequestCandidates()) {
       const request = asUserscriptRequest(candidate.request);
@@ -3523,6 +3531,40 @@
   const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
   function isUserscriptEventBridgeRequest(request) {
     return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
+  function probeUserscriptEventBridge(request) {
+    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+    const probe = new Promise((resolve) => {
+      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      let settled = false;
+      let responseCleanup = noop;
+      let bridgeReadyCleanup = noop;
+      const finish = (alive) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        responseCleanup();
+        bridgeReadyCleanup();
+        if (!alive) {
+          const markerDataset = bridgeMarkerDataset();
+          if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
+        }
+        resolve(alive);
+      };
+      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+      responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+        if (bridgeEventId(event) === id) finish(true);
+      });
+      bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+      dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+    });
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+    });
+    return probe;
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
@@ -3623,10 +3665,14 @@
   function noop() {
   }
   async function requestHttp(url, options = {}) {
-    const userscriptRequest = getUserscriptHttpRequest();
+    let userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+      const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+      if (!bridgeIsAlive) userscriptRequest = void 0;
+    }
     if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
-        return await requestViaFetch(url, options);
+        return await requestViaFetch(url, options, userscriptRequest ?? null);
       } catch (error) {
         if (!userscriptRequest) throw error;
         return await requestViaUserscript(url, options, userscriptRequest);
@@ -3637,9 +3683,10 @@
         return await requestViaUserscript(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+        userscriptRequest = void 0;
       }
     }
-    return requestViaFetch(url, options);
+    return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
   }
   function requestViaUserscript(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
@@ -3716,13 +3763,13 @@
   function userscriptTextResponse(response) {
     return String(response.responseText ?? response.response ?? "");
   }
-  function hostedFallbackProxyUrl(url, options = {}) {
-    if (getUserscriptHttpRequest()) return "";
+  function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    if (userscriptRequest) return "";
     if (!isSharedPublicProxySafeRequest(url, options)) return "";
     return YOMU_SHARED_PUBLIC_PROXY_URL;
   }
-  async function requestViaFetch(url, options) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
+  async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -3738,6 +3785,12 @@
     });
     if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
     return readFetchResponseBody(response, options.responseType);
+  }
+  function browserFetchFallbackOptions(url, options, userscriptRequest) {
+    if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
+    const method = String(options.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
+    return { ...options, allowDirectCrossOrigin: true };
   }
   function readFetchResponseBody(response, responseType) {
     return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
@@ -8980,7 +9033,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           resolve(cues);
           return;
         }
-        window.setTimeout(poll, 50);
+        globalThis.setTimeout(poll, 50);
       };
       poll();
     });
@@ -10734,6 +10787,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
+  const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
+  const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -11027,6 +11082,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     renderSerial = 0;
     panelMode = "lines";
     lastTranscriptSignature = "";
+    // Structure-only signature (see TranscriptPanelRenderState) committed by the
+    // last full render. Lets an append-only cue-list growth be detected as
+    // "only the row count grew" so it can patch the scroller's rows in place
+    // instead of a full setInnerHtml(panel, ...) that would replace the
+    // scroller and briefly paint a spacer-only, whitespace-band frame.
+    lastTranscriptStructureSignature = "";
     // The virtual window actually committed to the DOM by the last full render.
     // Reused while auto-following so consecutive active-line advances keep the
     // same window (stable signature -> cheap class-swap, no list re-render that
@@ -11608,7 +11669,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
       else if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "mine") this.renderBatchMiningPanel();
-      else this.renderTranscriptPanel(true);
+      else this.renderTranscriptPanel();
     }
     observeVideoLayout(video) {
       this.videoResizeObserver?.disconnect();
@@ -15162,6 +15223,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.transcriptPreviewPlayerResizeDeferred = false;
       const state = this.transcriptPanelRenderState();
       if (this.canRefreshTranscriptPanel(force, state)) return;
+      const scroller = panel.querySelector(".jpdb-subtitle-list-scroll");
+      if (scroller && this.patchTranscriptVirtualWindow(state, scroller)) return;
+      this.lastTranscriptStructureSignature = state.structureSignature;
       this.lastTranscriptSignature = state.signature;
       this.renderedVirtualWindow = state.virtual ? { start: state.virtual.start, end: state.virtual.end, rowCount: state.totalRowCount ?? state.rows.length } : void 0;
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
@@ -15565,6 +15629,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         rows: state.rows.slice(previewStart, previewEnd),
         warmupRows: state.warmupRows,
         currentRowIndex: state.currentRowIndex,
+        structureSignature: `preview:${state.structureSignature}`,
+        baseSignature: `preview:${state.baseSignature}`,
         signature: `preview:${state.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
@@ -15601,18 +15667,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const settings = this.options.getSettings();
       const virtual = this.transcriptVirtualWindow(rows.length, currentRowIndex);
       const renderedRows = virtual ? rows.slice(virtual.start, virtual.end) : rows;
-      const signature = [
-        rows.length,
+      const structureSignature = [
         this.selectedTrackId,
         this.tracks.find((track) => track.id === this.selectedTrackId)?.loadingState ?? "",
         !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : "",
-        this.parseCacheKey("", settings),
-        virtual ? `v:${virtual.start}:${virtual.end}` : ""
+        this.parseCacheKey("", settings)
       ].join(":");
+      const baseSignature = [structureSignature, rows.length].join(":");
+      const signature = [baseSignature, virtual ? `v:${virtual.start}:${virtual.end}` : ""].join(":");
       return {
         rows: renderedRows,
         warmupRows: virtual ? renderedRows : void 0,
         currentRowIndex,
+        structureSignature,
+        baseSignature,
         signature,
         rowIndexOffset: virtual?.start,
         totalRowCount: virtual ? rows.length : void 0,
@@ -15828,27 +15896,51 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const activeRows = Array.from(this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active"));
       const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
       if (active && activeRows.length === 1 && activeRows[0] === active) return;
+      const previousIndex = activeRows.length === 1 ? Number(activeRows[0].dataset.rowIndex) : void 0;
       activeRows.forEach((row) => {
         if (row !== active) row.classList.remove("active");
       });
       if (active) active.classList.add("active");
-      this.scrollTranscriptToActive();
+      this.scrollTranscriptToActive({ behavior: this.transcriptActiveLineScrollBehavior(previousIndex, currentIndex) });
+    }
+    // Only a small, nearby move between two already-mounted rows -- e.g. the
+    // ordinary line-by-line advance during playback -- reads well as a smooth
+    // glide. A default/full render, an explicit jump, or a large seek should
+    // land instantly: animating across a big distance (or one the viewer didn't
+    // themselves request) just reads as sluggish, not helpful.
+    transcriptActiveLineScrollBehavior(previousIndex, currentIndex) {
+      if (previousIndex === void 0 || !Number.isFinite(previousIndex) || currentIndex < 0) return "auto";
+      if (this.prefersReducedMotion()) return "auto";
+      const delta = Math.abs(currentIndex - previousIndex);
+      if (delta === 0 || delta > TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS) return "auto";
+      return "smooth";
+    }
+    prefersReducedMotion() {
+      return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     }
     scrollTranscriptToActive(options = {}) {
       if (!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
       if (!options.force && this.isTranscriptAutoScrollPaused()) return;
-      if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
-      this.transcriptScrollFrame = requestAnimationFrame(() => {
+      const behavior = options.behavior ?? "auto";
+      const perform = () => {
         this.transcriptScrollFrame = void 0;
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        this.markTranscriptProgrammaticScroll();
-        active.scrollIntoView?.({ block: "center", inline: "nearest" });
-      });
+        this.markTranscriptProgrammaticScroll(behavior);
+        active.scrollIntoView?.({ block: "center", inline: "nearest", behavior });
+      };
+      if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
+      if (options.sync) {
+        this.transcriptScrollFrame = void 0;
+        perform();
+        return;
+      }
+      this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
-    markTranscriptProgrammaticScroll() {
-      this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+    markTranscriptProgrammaticScroll(behavior = "auto") {
+      const windowMs = behavior === "smooth" ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+      this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
@@ -15897,6 +15989,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptVirtualRender(scroller);
       }, { passive: true });
+      const clearProgrammaticMarker = () => {
+        this.transcriptProgrammaticScrollUntil = 0;
+      };
+      scroller.addEventListener("touchstart", clearProgrammaticMarker, { passive: true });
+      scroller.addEventListener("pointerdown", clearProgrammaticMarker, { passive: true });
+      scroller.addEventListener("wheel", clearProgrammaticMarker, { passive: true });
+      if ("onscrollend" in scroller) scroller.addEventListener("scrollend", clearProgrammaticMarker, { passive: true });
     }
     scheduleTranscriptVirtualRender(scroller) {
       if (!this.isTranscriptVirtualScroller(scroller)) return;
@@ -15907,11 +16006,71 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
         const state = this.transcriptPanelRenderState();
         if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+        if (this.patchTranscriptVirtualWindow(state, scroller)) return;
         this.renderTranscriptPanel(true);
       });
     }
     isTranscriptVirtualScroller(scroller) {
       return scroller.dataset.virtualized === "true";
+    }
+    // A scroll-driven virtual-window shift, or an append-only cue-list growth,
+    // only needs the rows inside the scroller swapped; the scroller element
+    // itself (and everything else in the panel) is unchanged. Patching its
+    // children in place -- instead of routing through renderTranscriptPanel's
+    // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
+    // so a tablet's in-flight native touch scroll gesture (bound to that node)
+    // survives the update instead of stopping dead, and growth never paints a
+    // spacer-only, whitespace-band frame while the new rows mount.
+    // Only safe when the structure hasn't changed and the row count is equal
+    // or grew (append-only); a shrink or a structure change falls back to a
+    // full render.
+    patchTranscriptVirtualWindow(state, scroller) {
+      if (!state.virtual) return false;
+      if (!this.isTranscriptVirtualScroller(scroller)) return false;
+      if (state.structureSignature !== this.lastTranscriptStructureSignature) return false;
+      const previousRowCount = this.renderedVirtualWindow?.rowCount;
+      const rowCount = state.totalRowCount ?? state.rows.length;
+      if (previousRowCount === void 0 || rowCount < previousRowCount) return false;
+      const rowIndexOffset = state.rowIndexOffset ?? 0;
+      const transcriptRows = this.transcriptRows();
+      setInnerHtml(scroller, `
+            ${this.renderTranscriptVirtualSpacer(state.virtual.topSpacer)}
+            ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows)).join("") : this.renderTranscriptWaitingState()}
+            ${this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer)}
+        `);
+      scroller.dataset.totalRows = String(rowCount);
+      this.lastTranscriptStructureSignature = state.structureSignature;
+      this.lastTranscriptSignature = state.signature;
+      this.renderedVirtualWindow = { start: state.virtual.start, end: state.virtual.end, rowCount };
+      this.transcriptVirtualScrollTop = state.virtual.scrollTop;
+      this.indexTranscriptTextTargets();
+      this.updateTranscriptDrawerMeta(rowCount);
+      this.restoreTranscriptVirtualScroll(state);
+      if (this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused()) {
+        this.scrollTranscriptToActive({ behavior: "auto", sync: true });
+      }
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+      this.scheduleTranscriptHydration(hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(state.warmupRows ?? state.rows, hydrationIndex);
+      this.syncPanelState();
+      return true;
+    }
+    updateTranscriptDrawerMeta(rowCount) {
+      const metaEl = this.transcriptPanel?.querySelector(".jpdb-subtitle-drawer-meta");
+      if (!metaEl) return;
+      const language = this.options.getSettings().interfaceLanguage;
+      const metaArgs = {
+        mode: "lines",
+        count: rowCount,
+        tracks: this.tracks,
+        selectedTrackId: this.selectedTrackId,
+        secondaryTrackId: this.secondaryTrackId,
+        language
+      };
+      const meta = subtitleDrawerMetaText(metaArgs);
+      const metaTitle = subtitleDrawerMetaText({ ...metaArgs, compact: false });
+      metaEl.textContent = meta;
+      metaEl.title = metaTitle;
     }
     bindTranscriptResizeHandle() {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -16108,7 +16267,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact = this.currentTranscriptRowIndex(rows);
       if (exact >= 0) return exact;
       if (activeCueIndex >= 0) return rows.findIndex((row) => row.cueIndex === activeCueIndex);
-      return this.cues.length ? -1 : 0;
+      if (this.cues.length) return this.transcriptGapAnchorRowIndex(rows);
+      return 0;
+    }
+    // A real inter-cue gap must still leave overlay/currentCue blank -- but for
+    // the transcript list only, snapping to "no active row" makes the highlight
+    // vanish and reappear a beat later, and forces a virtual-window recompute
+    // for no reason. Anchor instead on the latest row whose cue has already
+    // started: a seek into a gap lands near the seek destination immediately,
+    // and playback running through a gap keeps the previous row highlighted
+    // until the next cue advances it once. Only while auto-follow is enabled --
+    // with it off the previous "no active row" gap behavior is unchanged.
+    transcriptGapAnchorRowIndex(rows) {
+      if (this.currentCue || !this.video) return -1;
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
+      const time = this.video.currentTime;
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        if (rows[index].cue.start <= time) return index;
+      }
+      return -1;
     }
     currentTranscriptRowIndex(rows) {
       return this.currentCue ? rows.findIndex((row) => row.cue === this.currentCue) : -1;
