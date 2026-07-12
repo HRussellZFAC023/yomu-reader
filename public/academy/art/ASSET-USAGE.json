@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-12T12:45:00.000Z",
+  "status": "discovery-baseline",
+  "rules": {
+    "runtimeRequiresExplicitEntry": true,
+    "directoryApprovalForbidden": true,
+    "acceptedGenerationFamilies": [
+      "direct-openai-image-generation",
+      "existing-openai-image-generation-with-explicit-provenance"
+    ],
+    "rejectedGenerationFamilies": [
+      "pollinations-flux",
+      "python-generated-character-art",
+      "parametric-svg-avatar",
+      "unknown-provenance"
+    ]
+  },
+  "assets": [
+    {
+      "id": "calibration-campus-ensemble",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-c8b9e0f2-65b8-4821-8ade-1eb74ad31241.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-reference",
+      "runtimeHome": null,
+      "status": "style-calibration"
+    },
+    {
+      "id": "calibration-rainy-directions",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-reference",
+      "runtimeHome": "scene:first-aakash-directions",
+      "status": "likeness-review-required"
+    },
+    {
+      "id": "calibration-classroom-tutoring",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-47673506-16a5-4045-9dfa-13c590ddf674.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-reference",
+      "runtimeHome": "scene:lesson-zero-classroom",
+      "status": "composition-calibration"
+    },
+    {
+      "id": "calibration-rie-classroom",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-76d267a1-01fb-4224-a61a-3514006abc38.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-reference",
+      "runtimeHome": "scene:opening-rie",
+      "status": "likeness-calibration"
+    },
+    {
+      "id": "rie-neutral-halfbody-v001",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-runtime",
+      "runtimeHome": "character:rie:neutral",
+      "status": "copy-and-hash-pending"
+    },
+    {
+      "id": "protagonist-quality-2",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
+      "provenance": "approved-existing-openai-reference",
+      "verdict": "approved-reference",
+      "runtimeHome": "onboarding:portrait-choice-2",
+      "status": "runtime-normalization-required"
+    },
+    {
+      "id": "protagonist-quality-3",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
+      "provenance": "approved-existing-openai-reference",
+      "verdict": "approved-reference",
+      "runtimeHome": "onboarding:portrait-choice-3",
+      "status": "runtime-normalization-required"
+    },
+    {
+      "id": "protagonist-quality-4",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
+      "provenance": "approved-existing-openai-reference",
+      "verdict": "approved-reference",
+      "runtimeHome": "onboarding:portrait-choice-4",
+      "status": "runtime-normalization-required"
+    },
+    {
+      "id": "protagonist-quality-5",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
+      "provenance": "approved-existing-openai-reference",
+      "verdict": "approved-reference",
+      "runtimeHome": "onboarding:portrait-choice-5",
+      "status": "runtime-normalization-required"
+    },
+    {
+      "id": "codex-production-v1-backgrounds",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/backgrounds/manifest.json",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "review",
+      "runtimeHome": "location-plates",
+      "status": "per-asset-review-required"
+    },
+    {
+      "id": "codex-production-v1-cinematic-events",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/cinematic-events/manifest.json",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "review",
+      "runtimeHome": "event-cg-registry",
+      "status": "likeness-review-required"
+    },
+    {
+      "id": "codex-production-v1-lesson-assets",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "review",
+      "runtimeHome": "source-question-media",
+      "status": "answer-cue-fidelity-review-required"
+    },
+    {
+      "id": "quality-1",
+      "source": "donor-a:public/academy/art/characters/claude-production/refs/quality-1.jpg",
+      "provenance": "excluded-by-owner",
+      "verdict": "reject",
+      "runtimeHome": null,
+      "status": "blocked"
+    },
+    {
+      "id": "claude-production-v3",
+      "source": "donor-a:public/academy/art/claude-production-v3/**",
+      "provenance": "pollinations-flux-and-python-postprocessing",
+      "verdict": "reject",
+      "runtimeHome": null,
+      "status": "blocked"
+    },
+    {
+      "id": "codex-production-v2-sprites",
+      "source": "donor-a:public/academy/art/codex-production-v2/sprites/**",
+      "provenance": "python-driven-v3-pipeline",
+      "verdict": "reject",
+      "runtimeHome": null,
+      "status": "blocked"
+    },
+    {
+      "id": "photoreal-door",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-886a2fdf-6452-497c-8072-1af65575bae4.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "reject",
+      "runtimeHome": null,
+      "status": "wrong-style"
+    }
+  ]
+}

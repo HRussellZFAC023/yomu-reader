@@ -31,3 +31,4 @@ docs/.vitepress/dist/
 /docs/research/
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
+/references/academy-engine/*/

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-12T12:45:00.000Z",
+  "status": "discovery-baseline",
+  "provenance": [
+    "docs/academy/discovery/DISCOVERY-BASELINE.md",
+    "docs/academy/discovery/CONTENT-AND-WORKSHEET-MEDIA.md",
+    "docs/academy/evidence/stage-0/inventory.json"
+  ],
+  "denominators": {
+    "sourceOccurrence": "One placement of a payload in a course section or week.",
+    "uniquePayload": "One byte-deduplicated source file.",
+    "sourceQuestion": "The smallest faithful assessable prompt with an exact source locus.",
+    "playableActivity": "One Academy representation of a source question or authored augmentation.",
+    "conceptCoverage": "The independent knowledge or skill taught or assessed."
+  },
+  "baselineCounts": {
+    "moodleCourses": 3,
+    "moodleSections": 10,
+    "moodleModules": 148,
+    "downloadedFolderArchives": 96,
+    "archiveMemberOccurrences": 916,
+    "uniquePayloads": 688,
+    "uncompressedBytesApproximate": 1470000000,
+    "pdfOccurrences": 716,
+    "uniquePdfPayloads": 527,
+    "audioOccurrences": 185,
+    "uniqueAudioPayloads": 146,
+    "classWeeksIndexed": 73,
+    "classWeeksAuthoredInStrongestAudit": 38,
+    "digitisedDocumentPacks": 44,
+    "digitisedItemsEarlierPass": 879,
+    "genkiLessons": 24,
+    "genkiHtmlExercises": 959,
+    "genkiAudioFiles": 150
+  },
+  "coverage": {
+    "documentsWithVerifiedQuestionCounts": null,
+    "sourceQuestionsAudited": null,
+    "sourceQuestionsPlayable": null,
+    "imageDependentQuestionsAudited": null,
+    "imageDependentQuestionsDelivered": null,
+    "listeningQuestionsAudited": null,
+    "listeningQuestionsPaired": null,
+    "answerKeyRelationsVerified": null,
+    "classWeeksPlayable": 38,
+    "classWeeksTotal": 73
+  },
+  "releaseGate": {
+    "sourceFidelityComplete": false,
+    "mediaFidelityComplete": false,
+    "allClassWeeksReachable": false,
+    "foundationToN1Complete": false
+  },
+  "blockingGaps": [
+    "35 indexed class weeks lack authored payloads in the strongest audit.",
+    "Most unique Moodle PDFs do not yet have lossless source-question records.",
+    "Image-dependent prompt/media relationships are incomplete.",
+    "Audio occurrences, transcripts, question pairing, and rights are not unified.",
+    "Minna 24 and 26 need original bridge units.",
+    "N3-N1 has an outcomes proposal but no release-ready input or calibrated assessment bank."
+  ]
+}
