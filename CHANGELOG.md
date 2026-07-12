@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.145] - 2026-07-12
+
+### Fixed
+
+- On tablets, long subtitle side panels now keep scrolling through one continuous touch gesture instead of stopping after a few centimetres and requiring another swipe.
+- Subtitle auto-follow now keeps its place through gaps, glides between nearby lines, and adds newly loaded lines without flashing a large blank spacer in the panel.
+- Hosted reader pages now detect a stale userscript network bridge before a request hangs and safely fall back to browser fetch or Yomu's public proxy, restoring passive pitch decoration for compounds such as もう一度 and KanjiVG stroke diagrams.
+
 ## [1.6.144] - 2026-07-11
 
 ### Fixed

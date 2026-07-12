@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.144
+// @version 1.6.145
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.144#sha256=5aICQ7dC+CvwxwDvKe76Dy8AHNsZf1FN6lED9e3ywlc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.144#sha256=D9048lgIFmnL/03AwLd+wgmBve2qr577mVE1gXZ+n2A=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.144#sha256=utnXWYkXy327QHPGOI2GL7C2LM8iidJsgmMYWac7m9o=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.144#sha256=fXjTJ7VWm9NGW1Uj3FPb/Ura/KrLh3u05JGjNRqLJD0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.144#sha256=hBfcvEyoi96GMTqz8lagxamOdJnK6nOQ6dJp3Gvio4g=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.144#sha256=RPSmh9g0g1tbVNlh41aZWYKFxO/BgahypUH3AzpywjE=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.144#sha256=0H9sNZB7VyQlqW/USZM7LsdH56Gjd+2T1KBhBdiFV/o=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.145#sha256=APWfBB5sPbs/i8Nz4F0XuxE43pPd3j6OaL4t97vWQ3M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.145#sha256=7RlfiBhEfHRtMVh0W2wvi0bzPa85sNQRIr3VhRKNe+E=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.145#sha256=utnXWYkXy327QHPGOI2GL7C2LM8iidJsgmMYWac7m9o=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.145#sha256=9Ln+BhVQfeN1kZEIomS5YidkHXua2atRQjXVE2XJZlw=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.145#sha256=369Xwqqk4u1WfOgvuv/RwSZyD7i/FqpCYgZDVKS3R2k=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.145#sha256=sd4q60pVMQYl4YDyq0xDn7uHclerLUYPBIWlQZw2HoU=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.145#sha256=0H9sNZB7VyQlqW/USZM7LsdH56Gjd+2T1KBhBdiFV/o=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -1660,9 +1660,12 @@ function isYomuPdfReaderPath(path) {
 function isYomuLocalAppPath(path) {
   return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path) || isYomuPdfReaderPath(path);
 }
+function bridgeEventId(event) {
+  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+}
 function bridgeRequestDetail(event) {
   const detail = normalizedBridgeEventDetail$1(event);
-  const id = safeReadString(detail, "id");
+  const id = bridgeEventId(event);
   const options = safeReadProperty(detail, "options");
   return id && options ? { id, options } : void 0;
 }
@@ -1785,7 +1788,7 @@ const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
 const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
 const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
 const BRIDGE_TIMEOUT_MS$1 = 1e4;
-let bridgeRequestListenerCleanup$1;
+let bridgeRequestListenerCleanup;
 function getUserscriptGmStorage() {
   if (typeof window === "undefined" || typeof document === "undefined") return void 0;
   if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
@@ -1807,10 +1810,10 @@ function installUserscriptGmStorageBridge() {
   dispatchStorageBridgeReady();
   return;
   }
-  bridgeRequestListenerCleanup$1?.();
+  bridgeRequestListenerCleanup?.();
   markerDataset[BRIDGE_MARKER$1] = "true";
   const handledRequestIds = new Set();
-  bridgeRequestListenerCleanup$1 = addBridgeEventListener$1(BRIDGE_REQUEST_EVENT$1, (event) => {
+  bridgeRequestListenerCleanup = addBridgeEventListener$1(BRIDGE_REQUEST_EVENT$1, (event) => {
   const detail = storageBridgeRequestDetail(event);
   if (!detail || handledRequestIds.has(detail.id)) return;
   rememberBridgeRequestId$1(handledRequestIds, detail.id);
@@ -1934,7 +1937,7 @@ function scheduleUserscriptStorageBridgeRetry() {
   }
 }
 function hasInstalledUserscriptStorageBridge(markerDataset = bridgeMarkerDataset$1()) {
-  return Boolean(markerDataset?.[BRIDGE_MARKER$1] === "true" && bridgeRequestListenerCleanup$1);
+  return Boolean(markerDataset?.[BRIDGE_MARKER$1] === "true" && bridgeRequestListenerCleanup);
 }
 function dispatchStorageBridgeReady() {
   dispatchBridgeEvent$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT);
@@ -8958,7 +8961,7 @@ function isYomuPublicProxyUrl(candidateUrl) {
 function isKnownDirectCorsTarget(targetUrl) {
   try {
   const target = new URL(targetUrl, location.href);
-  return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+  return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
   } catch {
   return false;
   }
@@ -9246,9 +9249,13 @@ function readSourceProperty(source, key) {
 }
 const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
 const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
 const BRIDGE_TIMEOUT_MS = 3e4;
-let bridgeRequestListenerCleanup;
+const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let bridgeListenerCleanup;
+let eventBridgeProbeInFlight;
 function getUserscriptHttpRequest() {
   for (const candidate of userscriptRequestCandidates()) {
   const request = asUserscriptRequest(candidate.request);
@@ -9269,12 +9276,12 @@ function installUserscriptHttpBridge() {
   dispatchUserscriptBridgeReady();
   return;
   }
-  bridgeRequestListenerCleanup?.();
-  bridgeRequestListenerCleanup = void 0;
+  bridgeListenerCleanup?.();
+  bridgeListenerCleanup = void 0;
   const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
   const handledRequestIds = new Set();
   markerDataset[BRIDGE_MARKER] = "true";
-  bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
+  const requestCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
   const detail = bridgeRequestDetail(event);
   if (!detail) return;
   if (handledRequestIds.has(detail.id)) return;
@@ -9297,6 +9304,14 @@ function installUserscriptHttpBridge() {
     send("error", void 0, error instanceof Error ? error.message : String(error || "Request failed."));
   }
   });
+  const probeCleanup = addBridgeEventListener(BRIDGE_PROBE_EVENT, (event) => {
+  const id = bridgeEventId(event);
+  if (id) dispatchBridgeEvent(BRIDGE_PROBE_RESPONSE_EVENT, { id });
+  });
+  bridgeListenerCleanup = () => {
+  requestCleanup();
+  probeCleanup();
+  };
   dispatchUserscriptBridgeReady();
 }
 function installUserscriptHttpBridgeWhenReady() {
@@ -9330,7 +9345,7 @@ function scheduleUserscriptHttpBridgeRetry() {
   }
 }
 function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset()) {
-  return Boolean(markerDataset?.[BRIDGE_MARKER] === "true" && bridgeRequestListenerCleanup);
+  return Boolean(markerDataset?.[BRIDGE_MARKER] === "true" && bridgeListenerCleanup);
 }
 function dispatchUserscriptBridgeReady() {
   dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
@@ -9338,6 +9353,40 @@ function dispatchUserscriptBridgeReady() {
 const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
 function isUserscriptEventBridgeRequest(request) {
   return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+}
+function probeUserscriptEventBridge(request) {
+  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+  const probe = new Promise((resolve) => {
+  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  let settled = false;
+  let responseCleanup = noop;
+  let bridgeReadyCleanup = noop;
+  const finish = (alive) => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timeout);
+    responseCleanup();
+    bridgeReadyCleanup();
+    if (!alive) {
+      const markerDataset = bridgeMarkerDataset();
+      if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
+    }
+    resolve(alive);
+  };
+  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+  responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+    if (bridgeEventId(event) === id) finish(true);
+  });
+  bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+  dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+  });
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
 }
 function userscriptHttpEventBridge() {
   if (typeof window === "undefined" || typeof document === "undefined") return void 0;
@@ -9444,10 +9493,14 @@ function rememberBridgeRequestId(ids, id) {
 function noop() {
 }
 async function requestHttp(url, options = {}) {
-  const userscriptRequest = getUserscriptHttpRequest();
+  let userscriptRequest = getUserscriptHttpRequest();
+  if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+  const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+  if (!bridgeIsAlive) userscriptRequest = void 0;
+  }
   if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
   try {
-    return await requestViaFetch(url, options);
+    return await requestViaFetch(url, options, userscriptRequest ?? null);
   } catch (error) {
     if (!userscriptRequest) throw error;
     return await requestViaUserscript(url, options, userscriptRequest);
@@ -9458,9 +9511,10 @@ async function requestHttp(url, options = {}) {
     return await requestViaUserscript(url, options, userscriptRequest);
   } catch (error) {
     if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+    userscriptRequest = void 0;
   }
   }
-  return requestViaFetch(url, options);
+  return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
 function requestViaUserscript(url, options, userscriptRequest) {
   return new Promise((resolve, reject) => {
@@ -9537,13 +9591,13 @@ function userscriptJsonResponse(response) {
 function userscriptTextResponse(response) {
   return String(response.responseText ?? response.response ?? "");
 }
-function hostedFallbackProxyUrl(url, options = {}) {
-  if (getUserscriptHttpRequest()) return "";
+function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+  if (userscriptRequest) return "";
   if (!isSharedPublicProxySafeRequest(url, options)) return "";
   return YOMU_SHARED_PUBLIC_PROXY_URL;
 }
-async function requestViaFetch(url, options) {
-  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
+async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
   method: options.method ?? "GET",
   headers: options.headers,
   body: options.data,
@@ -9559,6 +9613,12 @@ async function requestViaFetch(url, options) {
   });
   if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
   return readFetchResponseBody(response, options.responseType);
+}
+function browserFetchFallbackOptions(url, options, userscriptRequest) {
+  if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
+  const method = String(options.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
+  return { ...options, allowDirectCrossOrigin: true };
 }
 function readFetchResponseBody(response, responseType) {
   return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
@@ -35057,8 +35117,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.144"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.144"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.145"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.145"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35172,7 +35232,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.144"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.145"}`;
   } catch {
   return null;
   }

@@ -232,7 +232,7 @@
   function isKnownDirectCorsTarget(targetUrl) {
     try {
       const target = new URL(targetUrl, location.href);
-      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
     } catch {
       return false;
     }
@@ -484,6 +484,9 @@
   }
   function isRepositoryNewTabPath(path) {
     return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+  }
+  function bridgeEventId(event) {
+    return safeReadString(normalizedBridgeEventDetail$1(event), "id");
   }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail$1(event);
@@ -901,8 +904,12 @@
   }
   const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
   const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
+  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
   const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
   const BRIDGE_TIMEOUT_MS$1 = 3e4;
+  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+  let eventBridgeProbeInFlight;
   function getUserscriptHttpRequest() {
     for (const candidate of userscriptRequestCandidates()) {
       const request = asUserscriptRequest(candidate.request);
@@ -915,6 +922,40 @@
   const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
   function isUserscriptEventBridgeRequest(request) {
     return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
+  function probeUserscriptEventBridge(request) {
+    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+    const probe = new Promise((resolve) => {
+      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      let settled = false;
+      let responseCleanup = noop$1;
+      let bridgeReadyCleanup = noop$1;
+      const finish = (alive) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        responseCleanup();
+        bridgeReadyCleanup();
+        if (!alive) {
+          const markerDataset = bridgeMarkerDataset$1();
+          if (markerDataset?.[BRIDGE_MARKER$1] === "true") delete markerDataset[BRIDGE_MARKER$1];
+        }
+        resolve(alive);
+      };
+      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+      responseCleanup = addBridgeEventListener$1(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+        if (bridgeEventId(event) === id) finish(true);
+      });
+      bridgeReadyCleanup = addBridgeEventListener$1(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+      dispatchBridgeEvent$1(BRIDGE_PROBE_EVENT, { id });
+    });
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+    });
+    return probe;
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
@@ -1148,10 +1189,14 @@
   }
   async function requestHttp(url, options = {}) {
     if (!navigator.onLine && !isSameOriginUrl(url)) throw Error("Offline");
-    const userscriptRequest = getUserscriptHttpRequest();
+    let userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+      const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+      if (!bridgeIsAlive) userscriptRequest = void 0;
+    }
     if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
-        return await requestViaFetch(url, options);
+        return await requestViaFetch(url, options, userscriptRequest ?? null);
       } catch (error) {
         if (!userscriptRequest) throw error;
         return await requestViaUserscript$1(url, options, userscriptRequest);
@@ -1162,9 +1207,10 @@
         return await requestViaUserscript$1(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+        userscriptRequest = void 0;
       }
     }
-    return requestViaFetch(url, options);
+    return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
   }
   function requestViaUserscript$1(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
@@ -1241,13 +1287,13 @@
   function userscriptTextResponse(response) {
     return String(response.responseText ?? response.response ?? "");
   }
-  function hostedFallbackProxyUrl(url, options = {}) {
-    if (getUserscriptHttpRequest()) return "";
+  function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    if (userscriptRequest) return "";
     if (!isSharedPublicProxySafeRequest(url, options)) return "";
     return YOMU_SHARED_PUBLIC_PROXY_URL;
   }
-  async function requestViaFetch(url, options) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
+  async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -1263,6 +1309,12 @@
     });
     if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
     return readFetchResponseBody(response, options.responseType);
+  }
+  function browserFetchFallbackOptions(url, options, userscriptRequest) {
+    if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
+    const method = String(options.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
+    return { ...options, allowDirectCrossOrigin: true };
   }
   function readFetchResponseBody(response, responseType) {
     return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
@@ -41603,7 +41655,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.144".trim() ? "1.6.144".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.145".trim() ? "1.6.145".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -51679,7 +51731,7 @@ ${spelling}`);
           resolve(cues);
           return;
         }
-        window.setTimeout(poll, 50);
+        globalThis.setTimeout(poll, 50);
       };
       poll();
     });
@@ -53786,6 +53838,8 @@ ${spelling}`);
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
+  const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
+  const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -54079,6 +54133,12 @@ ${spelling}`);
     renderSerial = 0;
     panelMode = "lines";
     lastTranscriptSignature = "";
+    // Structure-only signature (see TranscriptPanelRenderState) committed by the
+    // last full render. Lets an append-only cue-list growth be detected as
+    // "only the row count grew" so it can patch the scroller's rows in place
+    // instead of a full setInnerHtml(panel, ...) that would replace the
+    // scroller and briefly paint a spacer-only, whitespace-band frame.
+    lastTranscriptStructureSignature = "";
     // The virtual window actually committed to the DOM by the last full render.
     // Reused while auto-following so consecutive active-line advances keep the
     // same window (stable signature -> cheap class-swap, no list re-render that
@@ -54660,7 +54720,7 @@ ${spelling}`);
       if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
       else if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "mine") this.renderBatchMiningPanel();
-      else this.renderTranscriptPanel(true);
+      else this.renderTranscriptPanel();
     }
     observeVideoLayout(video) {
       this.videoResizeObserver?.disconnect();
@@ -58214,6 +58274,9 @@ ${spelling}`);
       this.transcriptPreviewPlayerResizeDeferred = false;
       const state2 = this.transcriptPanelRenderState();
       if (this.canRefreshTranscriptPanel(force, state2)) return;
+      const scroller = panel.querySelector(".jpdb-subtitle-list-scroll");
+      if (scroller && this.patchTranscriptVirtualWindow(state2, scroller)) return;
+      this.lastTranscriptStructureSignature = state2.structureSignature;
       this.lastTranscriptSignature = state2.signature;
       this.renderedVirtualWindow = state2.virtual ? { start: state2.virtual.start, end: state2.virtual.end, rowCount: state2.totalRowCount ?? state2.rows.length } : void 0;
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
@@ -58617,6 +58680,8 @@ ${spelling}`);
         rows: state2.rows.slice(previewStart, previewEnd),
         warmupRows: state2.warmupRows,
         currentRowIndex: state2.currentRowIndex,
+        structureSignature: `preview:${state2.structureSignature}`,
+        baseSignature: `preview:${state2.baseSignature}`,
         signature: `preview:${state2.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
@@ -58653,18 +58718,20 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const virtual = this.transcriptVirtualWindow(rows.length, currentRowIndex);
       const renderedRows = virtual ? rows.slice(virtual.start, virtual.end) : rows;
-      const signature = [
-        rows.length,
+      const structureSignature = [
         this.selectedTrackId,
         this.tracks.find((track) => track.id === this.selectedTrackId)?.loadingState ?? "",
         !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : "",
-        this.parseCacheKey("", settings),
-        virtual ? `v:${virtual.start}:${virtual.end}` : ""
+        this.parseCacheKey("", settings)
       ].join(":");
+      const baseSignature = [structureSignature, rows.length].join(":");
+      const signature = [baseSignature, virtual ? `v:${virtual.start}:${virtual.end}` : ""].join(":");
       return {
         rows: renderedRows,
         warmupRows: virtual ? renderedRows : void 0,
         currentRowIndex,
+        structureSignature,
+        baseSignature,
         signature,
         rowIndexOffset: virtual?.start,
         totalRowCount: virtual ? rows.length : void 0,
@@ -58880,27 +58947,51 @@ ${spelling}`);
       const activeRows = Array.from(this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active"));
       const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
       if (active && activeRows.length === 1 && activeRows[0] === active) return;
+      const previousIndex = activeRows.length === 1 ? Number(activeRows[0].dataset.rowIndex) : void 0;
       activeRows.forEach((row) => {
         if (row !== active) row.classList.remove("active");
       });
       if (active) active.classList.add("active");
-      this.scrollTranscriptToActive();
+      this.scrollTranscriptToActive({ behavior: this.transcriptActiveLineScrollBehavior(previousIndex, currentIndex) });
+    }
+    // Only a small, nearby move between two already-mounted rows -- e.g. the
+    // ordinary line-by-line advance during playback -- reads well as a smooth
+    // glide. A default/full render, an explicit jump, or a large seek should
+    // land instantly: animating across a big distance (or one the viewer didn't
+    // themselves request) just reads as sluggish, not helpful.
+    transcriptActiveLineScrollBehavior(previousIndex, currentIndex) {
+      if (previousIndex === void 0 || !Number.isFinite(previousIndex) || currentIndex < 0) return "auto";
+      if (this.prefersReducedMotion()) return "auto";
+      const delta = Math.abs(currentIndex - previousIndex);
+      if (delta === 0 || delta > TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS) return "auto";
+      return "smooth";
+    }
+    prefersReducedMotion() {
+      return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     }
     scrollTranscriptToActive(options = {}) {
       if (!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
       if (!options.force && this.isTranscriptAutoScrollPaused()) return;
-      if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
-      this.transcriptScrollFrame = requestAnimationFrame(() => {
+      const behavior = options.behavior ?? "auto";
+      const perform = () => {
         this.transcriptScrollFrame = void 0;
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        this.markTranscriptProgrammaticScroll();
-        active.scrollIntoView?.({ block: "center", inline: "nearest" });
-      });
+        this.markTranscriptProgrammaticScroll(behavior);
+        active.scrollIntoView?.({ block: "center", inline: "nearest", behavior });
+      };
+      if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
+      if (options.sync) {
+        this.transcriptScrollFrame = void 0;
+        perform();
+        return;
+      }
+      this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
-    markTranscriptProgrammaticScroll() {
-      this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+    markTranscriptProgrammaticScroll(behavior = "auto") {
+      const windowMs = behavior === "smooth" ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+      this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
@@ -58949,6 +59040,13 @@ ${spelling}`);
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptVirtualRender(scroller);
       }, { passive: true });
+      const clearProgrammaticMarker = () => {
+        this.transcriptProgrammaticScrollUntil = 0;
+      };
+      scroller.addEventListener("touchstart", clearProgrammaticMarker, { passive: true });
+      scroller.addEventListener("pointerdown", clearProgrammaticMarker, { passive: true });
+      scroller.addEventListener("wheel", clearProgrammaticMarker, { passive: true });
+      if ("onscrollend" in scroller) scroller.addEventListener("scrollend", clearProgrammaticMarker, { passive: true });
     }
     scheduleTranscriptVirtualRender(scroller) {
       if (!this.isTranscriptVirtualScroller(scroller)) return;
@@ -58959,11 +59057,71 @@ ${spelling}`);
         if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
         const state2 = this.transcriptPanelRenderState();
         if (!state2.virtual || state2.signature === this.lastTranscriptSignature) return;
+        if (this.patchTranscriptVirtualWindow(state2, scroller)) return;
         this.renderTranscriptPanel(true);
       });
     }
     isTranscriptVirtualScroller(scroller) {
       return scroller.dataset.virtualized === "true";
+    }
+    // A scroll-driven virtual-window shift, or an append-only cue-list growth,
+    // only needs the rows inside the scroller swapped; the scroller element
+    // itself (and everything else in the panel) is unchanged. Patching its
+    // children in place -- instead of routing through renderTranscriptPanel's
+    // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
+    // so a tablet's in-flight native touch scroll gesture (bound to that node)
+    // survives the update instead of stopping dead, and growth never paints a
+    // spacer-only, whitespace-band frame while the new rows mount.
+    // Only safe when the structure hasn't changed and the row count is equal
+    // or grew (append-only); a shrink or a structure change falls back to a
+    // full render.
+    patchTranscriptVirtualWindow(state2, scroller) {
+      if (!state2.virtual) return false;
+      if (!this.isTranscriptVirtualScroller(scroller)) return false;
+      if (state2.structureSignature !== this.lastTranscriptStructureSignature) return false;
+      const previousRowCount = this.renderedVirtualWindow?.rowCount;
+      const rowCount = state2.totalRowCount ?? state2.rows.length;
+      if (previousRowCount === void 0 || rowCount < previousRowCount) return false;
+      const rowIndexOffset = state2.rowIndexOffset ?? 0;
+      const transcriptRows = this.transcriptRows();
+      setInnerHtml(scroller, `
+            ${this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer)}
+            ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderTranscriptWaitingState()}
+            ${this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer)}
+        `);
+      scroller.dataset.totalRows = String(rowCount);
+      this.lastTranscriptStructureSignature = state2.structureSignature;
+      this.lastTranscriptSignature = state2.signature;
+      this.renderedVirtualWindow = { start: state2.virtual.start, end: state2.virtual.end, rowCount };
+      this.transcriptVirtualScrollTop = state2.virtual.scrollTop;
+      this.indexTranscriptTextTargets();
+      this.updateTranscriptDrawerMeta(rowCount);
+      this.restoreTranscriptVirtualScroll(state2);
+      if (this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused()) {
+        this.scrollTranscriptToActive({ behavior: "auto", sync: true });
+      }
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
+      this.scheduleTranscriptHydration(hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(state2.warmupRows ?? state2.rows, hydrationIndex);
+      this.syncPanelState();
+      return true;
+    }
+    updateTranscriptDrawerMeta(rowCount) {
+      const metaEl = this.transcriptPanel?.querySelector(".jpdb-subtitle-drawer-meta");
+      if (!metaEl) return;
+      const language = this.options.getSettings().interfaceLanguage;
+      const metaArgs = {
+        mode: "lines",
+        count: rowCount,
+        tracks: this.tracks,
+        selectedTrackId: this.selectedTrackId,
+        secondaryTrackId: this.secondaryTrackId,
+        language
+      };
+      const meta = subtitleDrawerMetaText(metaArgs);
+      const metaTitle = subtitleDrawerMetaText({ ...metaArgs, compact: false });
+      metaEl.textContent = meta;
+      metaEl.title = metaTitle;
     }
     bindTranscriptResizeHandle() {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -59160,7 +59318,25 @@ ${spelling}`);
       const exact = this.currentTranscriptRowIndex(rows);
       if (exact >= 0) return exact;
       if (activeCueIndex >= 0) return rows.findIndex((row) => row.cueIndex === activeCueIndex);
-      return this.cues.length ? -1 : 0;
+      if (this.cues.length) return this.transcriptGapAnchorRowIndex(rows);
+      return 0;
+    }
+    // A real inter-cue gap must still leave overlay/currentCue blank -- but for
+    // the transcript list only, snapping to "no active row" makes the highlight
+    // vanish and reappear a beat later, and forces a virtual-window recompute
+    // for no reason. Anchor instead on the latest row whose cue has already
+    // started: a seek into a gap lands near the seek destination immediately,
+    // and playback running through a gap keeps the previous row highlighted
+    // until the next cue advances it once. Only while auto-follow is enabled --
+    // with it off the previous "no active row" gap behavior is unchanged.
+    transcriptGapAnchorRowIndex(rows) {
+      if (this.currentCue || !this.video) return -1;
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
+      const time = this.video.currentTime;
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        if (rows[index].cue.start <= time) return index;
+      }
+      return -1;
     }
     currentTranscriptRowIndex(rows) {
       return this.currentCue ? rows.findIndex((row) => row.cue === this.currentCue) : -1;

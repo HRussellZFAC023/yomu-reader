@@ -9,6 +9,7 @@
   const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
     [167772160, 184549375],
@@ -152,7 +153,7 @@
   function isKnownDirectCorsTarget(targetUrl) {
     try {
       const target = new URL(targetUrl, location.href);
-      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
     } catch {
       return false;
     }
@@ -380,6 +381,9 @@
       window.clearTimeout(timeout);
       signal?.removeEventListener("abort", abort);
     });
+  }
+  function bridgeEventId(event) {
+    return safeReadString(normalizedBridgeEventDetail(event), "id");
   }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail(event);
@@ -775,8 +779,12 @@
   }
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
   const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
   const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
   const BRIDGE_TIMEOUT_MS = 3e4;
+  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+  let eventBridgeProbeInFlight;
   function getUserscriptHttpRequest() {
     for (const candidate of userscriptRequestCandidates()) {
       const request = asUserscriptRequest(candidate.request);
@@ -789,6 +797,40 @@
   const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
   function isUserscriptEventBridgeRequest(request) {
     return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
+  function probeUserscriptEventBridge(request) {
+    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+    const probe = new Promise((resolve) => {
+      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      let settled = false;
+      let responseCleanup = noop;
+      let bridgeReadyCleanup = noop;
+      const finish = (alive) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        responseCleanup();
+        bridgeReadyCleanup();
+        if (!alive) {
+          const markerDataset = bridgeMarkerDataset();
+          if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
+        }
+        resolve(alive);
+      };
+      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+      responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+        if (bridgeEventId(event) === id) finish(true);
+      });
+      bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+      dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+    });
+    eventBridgeProbeInFlight = probe;
+    void probe.then(() => {
+      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+    });
+    return probe;
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
@@ -889,10 +931,14 @@
   function noop() {
   }
   async function requestHttp(url, options = {}) {
-    const userscriptRequest = getUserscriptHttpRequest();
+    let userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+      const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+      if (!bridgeIsAlive) userscriptRequest = void 0;
+    }
     if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
-        return await requestViaFetch(url, options);
+        return await requestViaFetch(url, options, userscriptRequest ?? null);
       } catch (error) {
         if (!userscriptRequest) throw error;
         return await requestViaUserscript(url, options, userscriptRequest);
@@ -903,9 +949,10 @@
         return await requestViaUserscript(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+        userscriptRequest = void 0;
       }
     }
-    return requestViaFetch(url, options);
+    return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
   }
   function requestViaUserscript(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
@@ -982,13 +1029,13 @@
   function userscriptTextResponse(response) {
     return String(response.responseText ?? response.response ?? "");
   }
-  function hostedFallbackProxyUrl(url, options = {}) {
-    if (getUserscriptHttpRequest()) return "";
+  function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    if (userscriptRequest) return "";
     if (!isSharedPublicProxySafeRequest(url, options)) return "";
     return YOMU_SHARED_PUBLIC_PROXY_URL;
   }
-  async function requestViaFetch(url, options) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
+  async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -1004,6 +1051,12 @@
     });
     if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
     return readFetchResponseBody(response, options.responseType);
+  }
+  function browserFetchFallbackOptions(url, options, userscriptRequest) {
+    if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
+    const method = String(options.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
+    return { ...options, allowDirectCrossOrigin: true };
   }
   function readFetchResponseBody(response, responseType) {
     return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
