@@ -242,12 +242,12 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
         background: rgba(0,0,0,0.05); overflow: hidden; }
 #chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; line-height: 20px; }
 </style></head><body class="jpdb-reader-word-underline-pitch">
-<div id="chip"><div id="chip-label"></div></div>
+<div id="chip" role="button"><div id="chip-label"></div></div>
 <div id="tab-row" style="overflow: hidden; height: 32px; margin-top: 24px; background: #f5f5f5;">
-  <div id="tab-label" style="font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+  <div id="tab-label" role="tab" style="font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
 </div>
 <div id="more-row" style="overflow: hidden; height: 22px; margin-top: 24px; background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 8px;">
-  <div id="more" style="font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</div>
+  <div id="more" role="button" style="font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</div>
 </div>
 <mini-guide-probe></mini-guide-probe>
 <script>
@@ -278,8 +278,8 @@ async function runEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
         const page = await browser.newPage();
-        await page.route('https://chip-mirror.example/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
-        await page.goto('https://chip-mirror.example/', { waitUntil: 'domcontentloaded' });
+        await page.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
+        await page.goto('https://www.youtube.com/chip-mirror-smoke', { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runChipMirrorProbe());
