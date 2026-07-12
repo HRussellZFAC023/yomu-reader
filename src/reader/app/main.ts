@@ -332,7 +332,7 @@ import {
 } from '../sources/sections';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
-import { initialReaderCss, loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from '../styles/index';
+import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -1375,7 +1375,7 @@ export class ReaderApp {
         const style = document.createElement('style');
         style.textContent = hasLinkedReaderCss ? '' : initialReaderCss(READER_CSS);
         appendToDocumentHead(style);
-        if (!readerCssNeedsFallback(READER_CSS) || isJsdomRuntime()) return;
+        if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
         void loadReaderCssFallback().then(css => {
             if (!css || this.isDestroyed) return;
             style.textContent = css;

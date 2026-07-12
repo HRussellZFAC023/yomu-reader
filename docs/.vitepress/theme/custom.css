@@ -37,7 +37,12 @@
   --yomu-doc-shot-shadow: rgba(20, 30, 45, 0.12);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.72);
   --yomu-doc-caption: var(--vp-c-text-2);
-  --yomu-doc-accent-ink: #ffffff;
+  /* Match syncHostedAccent's readableTextOn(default accent) result before
+     hydration, so the native CTA and any early Reader mirror never traverse
+     an inaccessible white-to-ink colour transition. */
+  --yomu-doc-accent-ink: #11161d;
+  --yomu-doc-brand-ink: #ffffff;
+  --yomu-doc-brand-hover-ink: #ffffff;
 }
 
 .dark {
@@ -75,7 +80,9 @@
   --yomu-doc-shot-shadow: rgba(0, 0, 0, 0.26);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.04);
   --yomu-doc-caption: #dce4ef;
-  --yomu-doc-accent-ink: #ffffff;
+  --yomu-doc-accent-ink: #11161d;
+  --yomu-doc-brand-ink: #11161d;
+  --yomu-doc-brand-hover-ink: #11161d;
 }
 
 .vp-doc a,
@@ -158,7 +165,7 @@
 .yomu-support-banner-donate {
   padding: 0 12px;
   background: var(--vp-c-brand-1);
-  color: var(--yomu-doc-accent-ink) !important;
+  color: var(--yomu-brand-ink, var(--yomu-doc-brand-ink)) !important;
   text-decoration: none !important;
 }
 
@@ -174,6 +181,7 @@
 .yomu-support-banner-donate:focus-visible {
   background: var(--vp-c-brand-2);
   border-color: var(--vp-c-brand-2);
+  color: var(--yomu-brand-hover-ink, var(--yomu-doc-brand-hover-ink)) !important;
 }
 
 .yomu-support-banner-close:hover,
@@ -1185,6 +1193,13 @@ html[lang="ja"] .yomu-install-steps a {
 .yomu-cta-button.primary:hover {
   border-color: var(--vp-c-brand-2);
   background: var(--vp-c-brand-2);
+  color: var(--yomu-brand-hover-ink, var(--yomu-doc-brand-hover-ink)) !important;
+}
+
+.yomu-cta-button.primary:hover > .jpdb-reader-text-mirror,
+.yomu-cta-button.primary:hover > .jpdb-reader-text-mirror .jpdb-reader-word {
+  color: var(--yomu-brand-hover-ink, var(--yomu-doc-brand-hover-ink)) !important;
+  -webkit-text-fill-color: currentcolor !important;
 }
 
 .yomu-cta-button-main {

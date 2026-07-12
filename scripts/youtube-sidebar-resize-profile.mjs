@@ -1063,6 +1063,15 @@ function compactSnapshot(state) {
 }
 
 function layoutProblems(state, requestedPlacement, stepName) {
+    return [
+        ...layoutUsabilityProblems(state, stepName),
+        ...stableSideLayoutProblems(state),
+        ...viewportLayoutProblems(state),
+        ...placementLayoutProblems(state, requestedPlacement),
+    ];
+}
+
+function layoutUsabilityProblems(state, stepName) {
     const problems = [];
     if (!state.panel || state.panel.width < 120 || state.panel.height < 80) problems.push('missing usable transcript panel');
     if (!state.video || state.video.width < 160 || state.video.height < 90) problems.push('missing usable YouTube video box');
@@ -1071,6 +1080,11 @@ function layoutProblems(state, requestedPlacement, stepName) {
     if (state.panel && state.video && overlaps(state.panel, state.video) && !isExpectedBottomOverlapEvidence(state, stepName)) {
         problems.push('transcript panel overlaps video');
     }
+    return problems;
+}
+
+function stableSideLayoutProblems(state) {
+    const problems = [];
     if (state.video && /jpdb-subtitle-youtube-stable-side/.test(state.rootClasses || '')) {
         for (const [name, box] of [
             ['video container', state.videoContainer],
@@ -1082,9 +1096,19 @@ function layoutProblems(state, requestedPlacement, stepName) {
             if (box.width > state.video.width + 2) problems.push(`${name} is wider than stable player`);
         }
     }
+    return problems;
+}
+
+function viewportLayoutProblems(state) {
+    const problems = [];
     if (state.panel && state.panel.left < -2) problems.push('transcript panel extends past left viewport edge');
     if (state.panel && state.panel.right > state.viewport.width + 2) problems.push('transcript panel extends past right viewport edge');
     if (state.documentWidth > state.viewport.width + 8) problems.push(`document overflows viewport by ${Math.round(state.documentWidth - state.viewport.width)}px`);
+    return problems;
+}
+
+function placementLayoutProblems(state, requestedPlacement) {
+    const problems = [];
     if (state.placement === 'bottom') {
         if (state.panel && Math.abs(state.panel.bottom - state.viewport.height) > 3) problems.push('bottom transcript panel is not flush with the viewport bottom');
     } else if (requestedPlacement !== 'bottom' && state.viewport.width >= 700 && state.placement !== requestedPlacement) {

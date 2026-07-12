@@ -108,7 +108,17 @@ describe('settings CSS', () => {
         const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
 
         expect(puckRule).toContain(`z-index: ${TRANSCRIPT_PANEL_Z_INDEX + 1} !important;`);
+        expect(puckRule).toContain('opacity: 0.72 !important;');
         expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
+    });
+
+    it('keeps every resting puck state above the audited opacity floor', () => {
+        const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
+
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab.jpdb-reader-fab--on { opacity: 0.72 !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab.jpdb-reader-fab--no-furigana { opacity: 0.72 !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab.jpdb-reader-fab--paused { filter: grayscale(1) !important; opacity: 0.68 !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) { opacity: 0.68 !important;');
     });
 
     it('starts review shortcut groups on their own settings-grid row', () => {

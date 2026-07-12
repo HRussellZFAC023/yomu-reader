@@ -22,6 +22,64 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - Pitch Listening Review: A local SRS lane inside New Tab Review that seeds pitch-accent items from the same Anki/Jiten/JPDB/local study pool, orders due pitch items first, and drills perception, recall, and shadowing without sending audio to a remote service.
 - External Source: A network or site dependency Yomu does not own, such as JPDB, YouTube, Google Lens, Immersion Kit, AnkiConnect, Wiktionary, or recommended dictionary URLs.
 
+## Academy Terms
+
+**Source Document**:
+One byte-deduplicated source payload, such as a PDF, worksheet, or listening file.
+_Avoid_: Resource, worksheet file
+
+**Occurrence**:
+One chronological placement of a Source Document in a course section or Week. Duplicate documents retain every Occurrence.
+_Avoid_: Copy, duplicate
+
+**Source Question**:
+The smallest faithful assessable prompt, including its exact Source Document locus and required media.
+_Avoid_: Exercise, activity
+
+**Augmentation**:
+Academy-authored explanation, hint, grading, solo adaptation, repair, extra practice, review seed, or story framing adjacent to a Source Question.
+_Avoid_: Enhanced question, rewritten source
+
+**Concept**:
+A stable piece of language knowledge or skill independent of textbook order, class chronology, or story progress.
+_Avoid_: Topic, lesson objective
+
+**Week**:
+A class-chronology container that references Occurrences and Concepts without owning their source text.
+_Avoid_: Unit, lesson
+
+**Unit**:
+A learner-facing sequence projected from Concepts, Weeks, and activities by one curriculum view.
+_Avoid_: Week
+
+**Learner Event**:
+Immutable evidence that learning, story, relationship, unlock, or profile state changed.
+_Avoid_: Progress flag, save field
+
+**Mastery Projection**:
+The learner's derived current state for Concepts and review work, calculated from Learner Events.
+_Avoid_: Score, progress state
+
+**Story Experience**:
+The canonical scenes the learner has actually played.
+_Avoid_: Story level
+
+**Curriculum Mastery**:
+The language evidence a learner has demonstrated, independent of Story Experience.
+_Avoid_: Player level
+
+**Scene Beat**:
+One narrative action or exchange with a learning, relationship, mystery, or world purpose.
+_Avoid_: Dialogue line
+
+**Bond Beat**:
+A replayable relationship scene unlocked by Learner Events and Story Experience.
+_Avoid_: Affection event
+
+**Asset Home**:
+The exact scene, activity, journal entry, or location that consumes an art or audio asset.
+_Avoid_: Intended use, asset category
+
 ## Module Expectations
 
 - A Module has one Interface and one Implementation. The Interface includes types, ordering, config, error modes, DOM assumptions, storage effects, and performance expectations.

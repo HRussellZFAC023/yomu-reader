@@ -43,3 +43,33 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** Manual/assessed placement may seed known state and curriculum position, but prior story scenes remain unseen until played. Every midstream learner receives an authored arrival bridge and chronological journal access.
 
 **Why:** A learner's language level cannot honestly imply that they experienced relationships or reveals.
+
+## D-008 — Stage 1 access is local proof, never production theatre
+
+**Decision:** `UCL2026` is accepted by a localhost-only adapter for deterministic enrollment QA. Non-local hosts must call the production session boundary and fail closed until Stage 7 deploys it.
+
+**Why:** The vertical slice needs a runnable access seam, but claiming a static client-side code as secure production access would invalidate the release gate.
+
+## D-009 — Missing release audio means intentional silence
+
+**Decision:** Stage 1's release-safe theme catalogue contains silence. Browser Japanese speech is routed through `AudioDirector` for the mock and Language Lab; private Persona/Shinday files are not copied into the public build.
+
+**Why:** A silent authored state is honest and lifecycle-testable. Shipping uncleared prototype media or restoring the rejected synthesised drone is not.
+
+## D-010 — Hosted shell revisions are derived from content
+
+**Decision:** `scripts/sync-academy.cjs` hashes the complete allowlisted Academy runtime plus hosted Reader dependencies and renders that hash into the HTML and service-worker templates.
+
+**Why:** A manual revision reused after a code rebuild caused the active worker to serve stale bytes during Browser QA. A content-derived revision makes that failure non-repeatable and also updates when art, content, or Reader dependencies change.
+
+## D-011 — Use the approved rainy CG until Aakash passes likeness review
+
+**Decision:** Aakash's first bond beat and journal replay use the approved OpenAI rainy-directions CG. No standalone Aakash sprite ships in Stage 1.
+
+**Why:** The existing donor sprites fail the explicit likeness/style gate. A named speaker must remain visible, so the mobile layout includes a responsive crop of the approved event art instead of inventing a placeholder portrait.
+
+## D-012 — Pages rebuilds Academy after hosted Reader assets
+
+**Decision:** The Pages workflow builds and syncs Reader assets first, then runs `build:academy`, then builds VitePress. Academy path changes explicitly trigger the workflow.
+
+**Why:** Academy's content-derived service-worker revision includes the hosted Reader dependencies. Committing a locally rendered revision while CI rebuilt Reader assets afterward would make the cache name describe different bytes than the deployment.

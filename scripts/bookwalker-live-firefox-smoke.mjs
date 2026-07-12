@@ -1647,41 +1647,21 @@ async function waitForZoomGeometry(page, before, target, phase, ratioBefore = ''
     throw new Error(`BookWalker zoom did not produce matching OCR geometry: ${JSON.stringify({ phase, ratioBefore: normalizedRatioBefore, ratioAfter: lastRatio, before, last }, null, 2)}`);
 }
 
-async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths) {
-    await dismissLookupPopover(page);
-    const before = await readerState(page);
-    assertReadyGeometry(before, 'zoom-before');
-    assert(before.counter === target.counter && before.matchingFrame.key === target.contentKey,
-        'Zoom check did not start on the exact revisited page.', { target, before });
-    const beforeNormalized = normalizedLineGeometry(before);
-    assert(beforeNormalized, 'Zoom check has no OCR line geometry.', { before });
-    const checkpoint = {
-        telemetryCursor: await telemetryCursor(page),
-        lensCursor: network.lensStarts.length,
-    };
-    const controls = await revealBookwalkerZoomControls(page, target.counter);
-    const zoomControls = [
-        controls.find(control => control.id === 'zoomInBtn' && control.visible && control.hitTested && !control.disabled),
-        controls.find(control => control.id === 'zoomOutBtn' && control.visible && control.hitTested && !control.disabled),
-    ].filter(Boolean);
-    const programmaticZoomControls = [
-        controls.find(control => control.id === 'zoomInBtn' && control.visible && !control.disabled),
-        controls.find(control => control.id === 'zoomOutBtn' && control.visible && !control.disabled),
-    ].filter(Boolean);
-    const activation = zoomControls.length ? 'user-click' : 'programmatic-host-control';
-    const candidateControls = zoomControls.length ? zoomControls : programmaticZoomControls;
-    const ratioBefore = await page.locator('#zoomRatio').textContent().catch(() => '');
-    if (!candidateControls.length) {
-        const stability = await assertStableCheckpoint(page, network, checkpoint, 'bookwalker-zoom-unavailable');
-        await capturePhase(page, mode, 'zoom-unavailable', screenshotPaths);
-        return {
-            skipped: true,
-            reason: 'zoom-controls-unavailable',
-            ratioBefore: ratioBefore?.trim() || '',
-            controls,
-            stability,
-        };
-    }
+function bookwalkerZoomControlCandidates(controls) {
+    const ids = ['zoomInBtn', 'zoomOutBtn'];
+    const userControls = ids
+        .map(id => controls.find(control => control.id === id && control.visible && control.hitTested && !control.disabled))
+        .filter(Boolean);
+    const programmaticControls = ids
+        .map(id => controls.find(control => control.id === id && control.visible && !control.disabled))
+        .filter(Boolean);
+    return userControls.length
+        ? { activation: 'user-click', candidateControls: userControls }
+        : { activation: 'programmatic-host-control', candidateControls: programmaticControls };
+}
+
+async function attemptBookwalkerZoom(page, mode, target, before, controls, ratioBefore) {
+    const { activation, candidateControls } = bookwalkerZoomControlCandidates(controls);
     let zoomed;
     let usedControl;
     for (const control of candidateControls) {
@@ -1714,6 +1694,42 @@ async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths
                 && Math.abs((rectNow?.height || 0) - before.dominantCanvas.rect.height) < 4;
             if (!inert) throw error;
         }
+    }
+    return { activation, candidateControls, zoomed, usedControl };
+}
+
+async function verifyBookwalkerZoom(page, mode, target, network, screenshotPaths) {
+    await dismissLookupPopover(page);
+    const before = await readerState(page);
+    assertReadyGeometry(before, 'zoom-before');
+    assert(before.counter === target.counter && before.matchingFrame.key === target.contentKey,
+        'Zoom check did not start on the exact revisited page.', { target, before });
+    const beforeNormalized = normalizedLineGeometry(before);
+    assert(beforeNormalized, 'Zoom check has no OCR line geometry.', { before });
+    const checkpoint = {
+        telemetryCursor: await telemetryCursor(page),
+        lensCursor: network.lensStarts.length,
+    };
+    const controls = await revealBookwalkerZoomControls(page, target.counter);
+    const ratioBefore = await page.locator('#zoomRatio').textContent().catch(() => '');
+    const { activation, candidateControls, zoomed, usedControl } = await attemptBookwalkerZoom(
+        page,
+        mode,
+        target,
+        before,
+        controls,
+        ratioBefore,
+    );
+    if (!candidateControls.length) {
+        const stability = await assertStableCheckpoint(page, network, checkpoint, 'bookwalker-zoom-unavailable');
+        await capturePhase(page, mode, 'zoom-unavailable', screenshotPaths);
+        return {
+            skipped: true,
+            reason: 'zoom-controls-unavailable',
+            ratioBefore: ratioBefore?.trim() || '',
+            controls,
+            stability,
+        };
     }
     if (!zoomed) {
         // Neither control changes the zoom ratio or the canvas box for this trial

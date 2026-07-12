@@ -14,9 +14,13 @@ import { subtitleDrawerMetaText } from '../../src/reader/subtitles/subtitle-trac
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
+const installedSubtitleControllers = new Set<SubtitlePlayerController>();
+
 // UT-48 session parse cache: clear between tests so persisted cue html from
 // one test cannot satisfy another test's parse expectations.
 afterEach(() => {
+    for (const controller of installedSubtitleControllers) controller.destroy();
+    installedSubtitleControllers.clear();
     for (const key of Object.keys(sessionStorage)) {
         if (key.startsWith('yomu:subtitle-parse:')) sessionStorage.removeItem(key);
     }
@@ -132,6 +136,7 @@ function createInstalledSubtitleController<TOverrides extends Partial<ReaderSett
     const settings = makeSubtitleSettings(overrides);
     const setup = createSubtitleController(settings, hooks);
     installController(setup.controller);
+    installedSubtitleControllers.add(setup.controller);
     return setup;
 }
 
@@ -7658,6 +7663,35 @@ Watch the cat
         internals.finishYouTubeTrackDiscovery(1, false);
 
         expect(internals.selectedTrackId).toBe('youtube-ja');
+    });
+
+    it('does not apply an empty native cue load after the controller is destroyed', async () => {
+        vi.useFakeTimers();
+        try {
+            const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+            const syncControls = vi.fn();
+            const internals = controllerInternals<{
+                addNativeTrack: (track: TextTrack) => void;
+                syncControls: () => void;
+            }>(controller);
+            internals.syncControls = syncControls;
+            internals.addNativeTrack({
+                label: 'English',
+                language: 'en',
+                kind: 'subtitles',
+                mode: 'disabled',
+                cues: [],
+                addEventListener: () => undefined,
+            } as unknown as TextTrack);
+            syncControls.mockClear();
+
+            controller.destroy();
+            await vi.advanceTimersByTimeAsync(1_000);
+
+            expect(syncControls).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('surfaces a translated Japanese option for English-only native tracks and keeps it across rescans', () => {

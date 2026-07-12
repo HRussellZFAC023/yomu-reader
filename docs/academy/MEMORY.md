@@ -37,3 +37,19 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 ## Current protected local state
 
 The main checkout also contains pre-Academy Reader/NHK work. Do not include it in Academy commits accidentally. See `STATUS.md` for paths and stash `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` for the pre-fast-forward safety copy.
+
+## Implemented Stage 1 truth
+
+- Academy is a separate hosted Vite application at `/academy/`; its readable bundle, art, and content shards do not increase the userscript bundle.
+- `AcademyApp` owns lifetime/shell only. `EnrollmentFlow` owns access/profile/placement/bridges; `WorldFlow` owns campus/review/journal/Lab; `LearnerEvidence` owns append-only learning mutations.
+- IndexedDB appends event batches atomically. Deterministic IDs make milestone and review scheduling idempotent across retries/reloads.
+- The faithful slice source is Moodle Level 1 Lesson 1 page 2 item 9, document SHA-256 `1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba`.
+- Rie and Aakash both unlock at bond `★☆☆`; the journal preserves and replays both scenes. Aakash uses the approved rainy-directions CG until standalone likeness approval.
+- Kanji production uses the shared Reader Doodle and sanitised KanjiVG `04e00.svg`; a keyboard learner can produce equivalent, transparently tagged evidence with three rightward steps.
+- The service-worker revision is generated from runtime content, not maintained by hand. Current green build before the Stage 1 close commit is `s1-15dd1d7d700f`.
+- Browser evidence at 320, 390, 1024, and 1440 px plus annotated offline resume lives in `docs/academy/evidence/stage-1/`.
+- Definitive `npm run qa` is green: Reader/JPDB/Academy tests, builds, verify, P0 smokes, deterministic QA 13/13, docs a11y 66/66, and complexity 29/30. Final Fable delta review is `PASS`.
+
+## Resume point
+
+Stage 1 code, Browser acceptance, Fable review, and full QA are green. Commit only Academy paths plus explicitly reviewed shared fixes, preserve the protected Reader files, push/deploy/smoke, then start Stage 2. Do not broaden Stage 1's one-question coverage claim.

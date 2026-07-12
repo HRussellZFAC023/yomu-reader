@@ -7587,9 +7587,9 @@ export class SubtitlePlayerController {
     }
 
     private isTrackSelectionCurrent(role: 'primary' | 'secondary', requestId: number, trackId: string): boolean {
-        return role === 'primary'
+        return !this.destroyed && (role === 'primary'
             ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId
-            : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId;
+            : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId);
     }
 
     private resetPrimarySubtitleState(): void {

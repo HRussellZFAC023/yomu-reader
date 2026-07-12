@@ -11,6 +11,7 @@ import {
     rememberSupportBannerDismissal,
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
+import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -56,13 +57,6 @@ const HOSTED_DOCS_LOCALE_META: Record<InterfaceLanguage, string> = {
     en: 'en_US',
     ja: 'ja_JP',
 };
-const DOC_COLOR_TOKENS = {
-    black: '#000000',
-    white: '#ffffff',
-    readableInk: '#11161d',
-    pageBgDark: '#181b20',
-    pageBgLight: '#ffffff',
-} as const;
 const HOSTED_OVERFLOW_SELECTOR = '[data-yomu-hosted-overflow]';
 const HOSTED_MOBILE_SETTINGS_SELECTOR = '[data-yomu-hosted-mobile-settings]';
 const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
@@ -3421,10 +3415,14 @@ function syncHostedAccent(source?: unknown): void {
     const brandActive = readableOn(mixHex(accent, DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
     const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
     const accentText = readableTextOn(accent);
+    const brandText = readableTextOn(brandReadable);
+    const brandHoverText = readableTextOn(brandHover);
 
     root.style.setProperty('--yomu-accent', accent);
     root.style.setProperty('--yomu-accent-readable', brandReadable);
     root.style.setProperty('--yomu-accent-ink', accentText);
+    root.style.setProperty('--yomu-brand-ink', brandText);
+    root.style.setProperty('--yomu-brand-hover-ink', brandHoverText);
     root.style.setProperty('--vp-c-brand-1', brandReadable);
     root.style.setProperty('--vp-c-brand-2', brandHover);
     root.style.setProperty('--vp-c-brand-3', accent);
@@ -3457,12 +3455,6 @@ function hostedAccentFromValue(value: unknown): string | undefined {
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
     const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
     return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : undefined;
-}
-
-function readableTextOn(background: string): typeof DOC_COLOR_TOKENS.readableInk | typeof DOC_COLOR_TOKENS.white {
-    return contrastRatio(background, DOC_COLOR_TOKENS.readableInk) >= contrastRatio(background, DOC_COLOR_TOKENS.white)
-        ? DOC_COLOR_TOKENS.readableInk
-        : DOC_COLOR_TOKENS.white;
 }
 
 function readableOn(color: string, background: string, targetContrast: number): string {

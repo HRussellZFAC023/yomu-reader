@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "document:moodle-1e58967e",
+      "sha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+      "mediaType": "application/pdf",
+      "originalName": "private-moodle-classroom-phrases.pdf",
+      "extractionRevision": "academy-extract:2026-07-12:v1"
+    }
+  ],
+  "occurrences": [
+    {
+      "id": "occurrence:ucl-2023-l1-lesson-1",
+      "documentId": "document:moodle-1e58967e",
+      "courseId": "course:ucl-japanese-2023-2024",
+      "sectionId": "section:rie-level-1",
+      "weekId": "week:l1-lesson-1",
+      "sourcePath": "private-moodle-archive:module-5777762/member-payload-1e58967e"
+    }
+  ],
+  "questions": [
+    {
+      "id": "source-question:classroom-phrase-09",
+      "documentId": "document:moodle-1e58967e",
+      "occurrenceIds": [
+        "occurrence:ucl-2023-l1-lesson-1"
+      ],
+      "locus": {
+        "page": 2,
+        "printedNumber": "9",
+        "bbox": {
+          "x": 90.27769,
+          "y": 87.5173,
+          "width": 410.749258,
+          "height": 31.50624
+        }
+      },
+      "instructions": {
+        "en": "Reference-list entry; the source provides no separate instruction.",
+        "ja": "参照リストの項目（原資料に個別の指示文はありません）。"
+      },
+      "prompt": {
+        "en": "Once more/again (Please).",
+        "ja": "９）もう　いちど（おねがいします）。"
+      },
+      "responseKind": "reference-entry",
+      "mediaIds": [],
+      "extractionRevision": "academy-extract:2026-07-12:v1"
+    }
+  ],
+  "media": []
+}

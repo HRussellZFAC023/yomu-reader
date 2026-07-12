@@ -117,6 +117,10 @@ export function readerCssNeedsFallback(css = READER_CSS): boolean {
     return !isFullReaderCss(css);
 }
 
+export function shouldLoadReaderCssFallback(hasLinkedReaderCss: boolean, css = READER_CSS): boolean {
+    return !hasLinkedReaderCss && readerCssNeedsFallback(css);
+}
+
 export function readerCssFallbackUrls(href = safeLocationHref()): string[] {
     const hostedUrl = hostedReaderCssUrl(href);
     return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];

@@ -16,16 +16,16 @@ Acceptance: `main` equals fetched upstream before Academy commits; donor trees a
 
 ## Stage 1 — enrollment vertical slice
 
-- [ ] Add a separate Academy Vite entry and route without increasing the readable userscript bundle with curriculum/art payloads.
-- [ ] Establish deep interfaces for source library, activity runtime, scene runtime, learner event log, media runtime, and Yomu bridge.
-- [ ] Port an abortable scene lifecycle, map navigation model, journal/bonds read model, responsive contract, PWA shell, accessibility harness, SRS adapter, and two-way Doodle card in verified slices.
-- [ ] Implement invite-code entry and a local development session adapter; keep production access behind the Cloudflare interface.
-- [ ] Implement Rie's fiction note, name/reason capture, and the four approved protagonist choices.
-- [ ] Implement three starts: Lesson 0, manual N5–N1 band, or optional evidence-based mock recommendation.
-- [ ] Implement plot-preserving midstream bridges with separate curriculum and story state.
-- [ ] Implement campus, three lesson forks, one faithful source activity, precise repair, Yomu review event, Aakash unlock, journal replay, audio state, save/reload, and offline resume.
-- [ ] Add English and Japanese copy to the canonical translation surface and prove Japanese mode contains no `未翻訳`.
-- [ ] Run unit/conformance checks and real-app desktop/phone Browser acceptance after annotations inject.
+- [x] Add a separate Academy Vite entry and route without increasing the readable userscript bundle with curriculum/art payloads.
+- [x] Establish deep interfaces for source library, activity runtime, scene runtime, learner event log, media runtime, and Yomu bridge.
+- [x] Port an abortable scene lifecycle, map navigation model, journal/bonds read model, responsive contract, PWA shell, accessibility harness, SRS adapter, and two-way Doodle card in verified slices.
+- [x] Implement invite-code entry and a local development session adapter; keep production access behind the Cloudflare interface.
+- [x] Implement Rie's fiction note, name/reason capture, and the four approved protagonist choices.
+- [x] Implement three starts: Lesson 0, manual N5–N1 band, or optional evidence-based mock recommendation.
+- [x] Implement plot-preserving midstream bridges with separate curriculum and story state.
+- [x] Implement campus, three lesson forks, one faithful source activity, precise repair, Yomu review event, Aakash unlock, journal replay, audio state, save/reload, and offline resume.
+- [x] Add English and Japanese copy to the canonical translation surface and prove Japanese mode contains no `未翻訳`.
+- [x] Run unit/conformance checks and real-app desktop/phone Browser acceptance after annotations inject.
 
 Acceptance: the full [`discovery/VERTICAL-SLICE.md`](discovery/VERTICAL-SLICE.md) script works at 320px and desktop with one clear action, approved art, intentional audio, stable annotations, and persistent evidence.
 

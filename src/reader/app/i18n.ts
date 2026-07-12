@@ -2,6 +2,9 @@ import { APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './con
 import { requestJson } from '../network/http';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 
+export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
+export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
+
 type UiLanguage = 'en' | 'ja';
 
 const COPY = {

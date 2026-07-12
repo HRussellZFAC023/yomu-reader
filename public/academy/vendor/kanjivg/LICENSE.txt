@@ -1,0 +1,5 @@
+KanjiVG is licensed under Creative Commons Attribution-ShareAlike 3.0.
+
+Licence summary: https://creativecommons.org/licenses/by-sa/3.0/
+Legal code: https://creativecommons.org/licenses/by-sa/3.0/legalcode
+Attribution and pinned source details are in ATTRIBUTION.md.

@@ -42,3 +42,112 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
 - Pushed `main` from `472375626` to `055bb4eca` on `origin`.
 - No deployment was relevant because Stage 0 introduced no runtime or hosted Academy surface.
 - Stage 1 is now active; protected Reader/NHK work remains isolated until the status-close commit is complete.
+
+## 2026-07-12 — Stage 1 enrollment vertical slice
+
+### Architecture and implementation
+
+- Added a separate readable Vite application at `/academy/` with an allowlisted
+  hosted sync; Academy curriculum/art does not enter the size-limited
+  userscript bundle.
+- Established Source Library, Activity Runtime, Scene Runtime, Learner Record,
+  IndexedDB event store, AudioDirector, access gateway, Yomu bridge, route-flow,
+  and learning-evidence Modules with conformance tests.
+- Split application ownership so `AcademyApp` is 244 lines,
+  `EnrollmentFlow` owns enrollment/placement, `WorldFlow` owns the campus loop,
+  and `LearnerEvidence` owns append-only mutations. Recorded ADRs 0001–0004.
+- Made event batches one IndexedDB transaction. Deterministic milestone/review
+  IDs, payload-equivalence checks, one serial mutation queue, and scheduled
+  review projection make retries and reloads idempotent.
+
+### Product slice
+
+- Implemented localhost `UCL2026` exchange behind the production access
+  interface, Rie's exact fiction note, name/reason capture, four approved
+  protagonist choices, and replayable Rie unlock/bond state.
+- Implemented Lesson 0, manual N5–N1 choice, the optional separate-skill mock,
+  learner override, and five authored transfer tasks after level-specific
+  plot-preserving bridges. Curriculum evidence never marks earlier scenes seen.
+- Extracted Moodle Level 1 Lesson 1 page 2 item 9 into immutable source and
+  occurrence records with exact archive/document hashes. Augmentation supplies
+  deterministic accepted answers, error-specific explanation, smaller repair,
+  nearby example, retry, and Yomu review seed without rewriting the source.
+- Added the Aakash rainy-directions repair/unlock/bond beat, responsive approved
+  event art, class journal/replay, location-first campus, canonical local review,
+  Language Lab listening/shadowing record, and intentional audio silence.
+- Reused Reader KanjiVG, Doodle, stroke assessment, annotation, pitch,
+  dictionary, settings, and localisation surfaces. Added a keyboard-equivalent
+  rightward writing path with an explicit evidence tag.
+
+### Art, source, and offline integrity
+
+- Bound only approved Rie/protagonist/location/event deliveries. The art ledger
+  records provenance, verdict, runtime home, and SHA-256 for every shipped file;
+  a validator rejects unledgered or mistyped runtime art. Donor Flux/Python
+  families remain rejected.
+- Vendored only the required KanjiVG glyph plus CC BY-SA licence/attribution;
+  the browser adapter rebuilds allowlisted SVG/path attributes rather than
+  injecting source markup.
+- Replaced a hand-maintained service-worker revision after Browser QA proved it
+  could serve stale bytes. `sync-academy.cjs` now derives a SHA-256 revision from
+  every allowlisted runtime file and hosted Reader dependency, then renders the
+  HTML/SW templates. Failed navigation responses are never cached.
+
+### Browser evidence
+
+- Fresh actual-app route `qa-run=final-stage1-acceptance` completed:
+  code -> profile -> Rie unlock -> Lesson 0/Sound -> wrong source answer/repair
+  -> source pass -> wrong direction/repair -> Aakash unlock -> handwriting ->
+  campus -> review -> unlocked Lab/Cafe -> journal -> reload. Console was empty.
+- Manual N3 and mock recommendation/override routes reached their correct
+  transfer content and restored after reload.
+- Reader annotations were present before interaction. At 320×780 all annotated
+  answer controls stayed inside the viewport with no duplicate radio controls;
+  390×844, 1024×768, and 1440×900 captures have no horizontal overflow.
+- An annotated N4 route reloaded from the content-hashed service-worker cache
+  under CDP network-offline conditions and exposed the explicit offline state.
+- Evidence and current real-app screenshots are in `evidence/stage-1/`.
+
+### Review and verification
+
+- Initial Claude Fable review returned `BLOCK` for art provenance, direct mock
+  speech, navigation cache poisoning, stale bundle revisions, event atomicity,
+  duplicate review scheduling, keyboard handwriting, and related lifecycle/
+  accessibility/documentation gaps.
+- Resolved every finding with enforcing tests. Follow-up session
+  `4308dfa7-1730-450e-b96d-6a22239cd44e` re-read the diff, re-ran all 61 Academy
+  tests, and returned `PASS`; compact evidence is in
+  `evidence/stage-1/FABLE-REVIEW.md`.
+- The first full `npm run qa` attempt found a separate Reader lifecycle race:
+  an empty native subtitle cue poll could apply after controller destruction and
+  reach viewport code after Vitest teardown. Added a destroyed-state guard,
+  automatic installed-controller cleanup, and a focused regression. Typecheck
+  and the full 241-test subtitle controller file pass.
+- The second full run exposed two genuine hosted accessibility defects. A linked
+  `/yomu.css` was being superseded by a late fallback fetch, so hosted linked CSS
+  is now authoritative. The docs theme also hydrated from inaccessible white
+  accent ink through a transient grey Reader mirror. Synchronous accent/brand
+  ink tokens, a pure contrast selector with black fallback, mirror-aware hover
+  styling, and focused tests now keep rest and hover states at AA contrast.
+- Raised the Reader FAB's resting opacity floor and added a CSS contract after
+  axe found its label below contrast on hosted pages.
+- The complexity gate initially found one Academy validator and two inherited QA
+  script functions above 30. Split them by event contract, layout responsibility,
+  and zoom-attempt lifecycle without changing assertions; the repository maximum
+  is now 29.
+- Final Fable delta session `7e12dfb2-4dbc-4cd4-bb65-9af74ec64bab` first returned
+  `BLOCK` for the primary CTA hover ink, then inspected the real fix and returned
+  `PASS`. Browser evidence after annotation injection measured the visible mirror
+  at `rgb(0,0,0)` over `rgb(77,137,105)`, contrast 5.0978:1.
+- Definitive `npm run qa` passed end to end. Four regular Reader shards passed
+  3,508 tests with one existing skip; eight JPDB shards passed 1,010 tests;
+  Academy passed 20 files / 61 tests. Builds and verification passed with the
+  readable userscript at 1,889,000 bytes (111,000 bytes below the Greasy Fork
+  limit). Feedback/PDF/Google P0 smokes passed, deterministic QA was 13/13,
+  docs accessibility was 66/66 across desktop/iPad/iPhone, and complexity peaked
+  at 29/30. The final Academy revision is `s1-15dd1d7d700f`.
+
+### Remaining action
+
+Commit only Academy plus the explicitly reviewed shared fixes, push and verify
+the Pages deployment/live Academy shell, then close Stage 1 and open Stage 2.

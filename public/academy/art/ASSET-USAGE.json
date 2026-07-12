@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-12T12:45:00.000Z",
-  "status": "discovery-baseline",
+  "generatedAt": "2026-07-12T16:25:00+01:00",
+  "status": "stage-1-runtime",
   "rules": {
     "runtimeRequiresExplicitEntry": true,
     "directoryApprovalForbidden": true,
     "acceptedGenerationFamilies": [
       "direct-openai-image-generation",
-      "existing-openai-image-generation-with-explicit-provenance"
+      "direct-openai-image-edit-from-approved-reference"
     ],
     "rejectedGenerationFamilies": [
       "pollinations-flux",
@@ -16,7 +16,157 @@
       "unknown-provenance"
     ]
   },
+  "counts": {
+    "runtimeAssetHomes": 12,
+    "runtimeFiles": 18,
+    "approvedReferenceOnly": 3,
+    "explicitlyRejectedFamilies": 4
+  },
   "assets": [
+    {
+      "id": "rie-neutral-halfbody-v001",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge"],
+      "deliveries": [{
+        "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+        "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
+      }],
+      "status": "bound-and-browser-reviewed"
+    },
+    {
+      "id": "protagonist-quality-2",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:portrait-choice-2", "journal:player"],
+      "deliveries": [{
+        "path": "/academy/art/protagonists/quality-2__picker__v001.png",
+        "sha256": "897b4cab4a51d96d49837651276d576ecc1e6fa0559c628229ab92d6b926b2d3"
+      }],
+      "status": "clean-alpha-browser-reviewed"
+    },
+    {
+      "id": "protagonist-quality-3",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:portrait-choice-3", "journal:player"],
+      "deliveries": [{
+        "path": "/academy/art/protagonists/quality-3__picker__v001.png",
+        "sha256": "fb518115f98d505a69720087415ec20e871aa3244b66bf7b28d00b0f5ad204f0"
+      }],
+      "status": "clean-alpha-browser-reviewed"
+    },
+    {
+      "id": "protagonist-quality-4",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:portrait-choice-4", "journal:player"],
+      "deliveries": [{
+        "path": "/academy/art/protagonists/quality-4__picker__v001.png",
+        "sha256": "807c9aa1597e6c16c0d09f96fdeadf0e467d751dfd9686e2de68ef6569edfaf8"
+      }],
+      "status": "clean-alpha-browser-reviewed"
+    },
+    {
+      "id": "protagonist-quality-5",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:portrait-choice-5", "journal:player"],
+      "deliveries": [{
+        "path": "/academy/art/protagonists/quality-5__picker__v001.png",
+        "sha256": "7a9868495d942837ff6197c8eb4d80f0eae829047ae3e7c21bd7f321c86adc4a"
+      }],
+      "status": "clean-alpha-browser-reviewed"
+    },
+    {
+      "id": "campus-entrance-blue-hour-arrival",
+      "source": "donor-a:codex-production-v1/backgrounds/campus-entrance__blue-hour-arrival",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["access:entrance", "campus:evening"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp", "sha256": "fbed4f03098ce6bb8f47e211d5c48f29c8861292afb6ed466e4996fd23a9aa45"},
+        {"path": "/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp", "sha256": "5cf8d39dc2abc0ba91a5e0e1bafa830ee6ec07d2a6a04da20a1a5f2b422a57f3"}
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "classroom-evening-lamplit",
+      "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"},
+        {"path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp", "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"}
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "library-rain-evening",
+      "source": "donor-a:codex-production-v1/backgrounds/library__rain-evening",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["location:library", "review:due-queue"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/library__rain-evening--wide.webp", "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"},
+        {"path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp", "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"}
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "cafe-night-rain",
+      "source": "donor-a:codex-production-v1/backgrounds/cafe__night-rain",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["location:cafe"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/cafe__night-rain--wide.webp", "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"},
+        {"path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp", "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"}
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "language-lab-evening-listening",
+      "source": "donor-a:codex-production-v1/backgrounds/japan-office__evening-close",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime-adaptation",
+      "runtimeHome": ["location:language-lab", "activity:listening-shadowing"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp", "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"},
+        {"path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp", "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"}
+      ],
+      "status": "no-readable-work-data-browser-reviewed"
+    },
+    {
+      "id": "writing-studio-rain-night",
+      "source": "donor-a:codex-production-v1/backgrounds/student-room__rain-night",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime-adaptation",
+      "runtimeHome": ["location:writing-studio", "activity:kanji-doodle"],
+      "deliveries": [
+        {"path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp", "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"},
+        {"path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp", "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"}
+      ],
+      "status": "ordinary-room-no-private-data-browser-reviewed"
+    },
+    {
+      "id": "rainy-directions-rie-aakash-v001",
+      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-runtime-anchor",
+      "runtimeHome": ["scene:aakash-rainy-directions", "unlock:aakash", "journal:aakash", "memory:aakash-rainy-directions"],
+      "deliveries": [{
+        "path": "/academy/art/events/rainy-directions__rie-aakash__v001.png",
+        "sha256": "efac4f699510441bc8d33e00cf5d3ea346276c25b09469ab682f9b4e13ec9872"
+      }],
+      "status": "approved-calibration-cg; standalone-aakash-sprite-withheld-pending-neutral-likeness-approval"
+    },
     {
       "id": "calibration-campus-ensemble",
       "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-c8b9e0f2-65b8-4821-8ade-1eb74ad31241.png",
@@ -26,19 +176,11 @@
       "status": "style-calibration"
     },
     {
-      "id": "calibration-rainy-directions",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "approved-reference",
-      "runtimeHome": "scene:first-aakash-directions",
-      "status": "likeness-review-required"
-    },
-    {
       "id": "calibration-classroom-tutoring",
       "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-47673506-16a5-4045-9dfa-13c590ddf674.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-reference",
-      "runtimeHome": "scene:lesson-zero-classroom",
+      "runtimeHome": null,
       "status": "composition-calibration"
     },
     {
@@ -46,72 +188,8 @@
       "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-76d267a1-01fb-4224-a61a-3514006abc38.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-reference",
-      "runtimeHome": "scene:opening-rie",
+      "runtimeHome": null,
       "status": "likeness-calibration"
-    },
-    {
-      "id": "rie-neutral-halfbody-v001",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "approved-runtime",
-      "runtimeHome": "character:rie:neutral",
-      "status": "copy-and-hash-pending"
-    },
-    {
-      "id": "protagonist-quality-2",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
-      "provenance": "approved-existing-openai-reference",
-      "verdict": "approved-reference",
-      "runtimeHome": "onboarding:portrait-choice-2",
-      "status": "runtime-normalization-required"
-    },
-    {
-      "id": "protagonist-quality-3",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
-      "provenance": "approved-existing-openai-reference",
-      "verdict": "approved-reference",
-      "runtimeHome": "onboarding:portrait-choice-3",
-      "status": "runtime-normalization-required"
-    },
-    {
-      "id": "protagonist-quality-4",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
-      "provenance": "approved-existing-openai-reference",
-      "verdict": "approved-reference",
-      "runtimeHome": "onboarding:portrait-choice-4",
-      "status": "runtime-normalization-required"
-    },
-    {
-      "id": "protagonist-quality-5",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
-      "provenance": "approved-existing-openai-reference",
-      "verdict": "approved-reference",
-      "runtimeHome": "onboarding:portrait-choice-5",
-      "status": "runtime-normalization-required"
-    },
-    {
-      "id": "codex-production-v1-backgrounds",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/backgrounds/manifest.json",
-      "provenance": "direct-openai-image-generation-manifest",
-      "verdict": "review",
-      "runtimeHome": "location-plates",
-      "status": "per-asset-review-required"
-    },
-    {
-      "id": "codex-production-v1-cinematic-events",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/cinematic-events/manifest.json",
-      "provenance": "direct-openai-image-generation-manifest",
-      "verdict": "review",
-      "runtimeHome": "event-cg-registry",
-      "status": "likeness-review-required"
-    },
-    {
-      "id": "codex-production-v1-lesson-assets",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/lesson-assets/manifest.json",
-      "provenance": "direct-openai-image-generation-manifest",
-      "verdict": "review",
-      "runtimeHome": "source-question-media",
-      "status": "answer-cue-fidelity-review-required"
     },
     {
       "id": "quality-1",

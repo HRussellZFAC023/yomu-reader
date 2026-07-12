@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-12T12:45:00.000Z",
-  "status": "discovery-baseline",
+  "generatedAt": "2026-07-12T16:25:00+01:00",
+  "status": "stage-1-vertical-slice",
   "provenance": [
     "docs/academy/discovery/DISCOVERY-BASELINE.md",
     "docs/academy/discovery/CONTENT-AND-WORKSHEET-MEDIA.md",
@@ -35,16 +35,36 @@
     "genkiAudioFiles": 150
   },
   "coverage": {
-    "documentsWithVerifiedQuestionCounts": null,
-    "sourceQuestionsAudited": null,
-    "sourceQuestionsPlayable": null,
-    "imageDependentQuestionsAudited": null,
-    "imageDependentQuestionsDelivered": null,
-    "listeningQuestionsAudited": null,
-    "listeningQuestionsPaired": null,
-    "answerKeyRelationsVerified": null,
+    "documentsWithVerifiedQuestionCounts": 0,
+    "sourceQuestionsAudited": 1,
+    "sourceQuestionsPlayable": 1,
+    "imageDependentQuestionsAudited": 0,
+    "imageDependentQuestionsDelivered": 0,
+    "listeningQuestionsAudited": 0,
+    "listeningQuestionsPaired": 0,
+    "answerKeyRelationsVerified": 0,
     "classWeeksPlayable": 38,
     "classWeeksTotal": 73
+  },
+  "stage1VerticalSlice": {
+    "sourceDocumentId": "document:moodle-1e58967e",
+    "sha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+    "occurrenceId": "occurrence:ucl-2023-l1-lesson-1",
+    "sourceQuestionId": "source-question:classroom-phrase-09",
+    "locus": {"page": 2, "printedNumber": "9"},
+    "immutableSourceShard": "/academy/content/vertical-slice/source-library.v1.json",
+    "augmentationShard": "/academy/content/vertical-slice/augmentation.v1.json",
+    "playableRepresentations": [
+      "activity:classroom-repair-repeat",
+      "activity:language-lab-repeat-listening"
+    ],
+    "authoredNonSourceActivities": {
+      "bandEntry": 5,
+      "bondDirection": 1,
+      "kanjiTwoWay": 1,
+      "shadowing": 1
+    },
+    "documentQuestionCountStatus": "not-yet-audited-in-full; Stage 2 remains open"
   },
   "releaseGate": {
     "sourceFidelityComplete": false,

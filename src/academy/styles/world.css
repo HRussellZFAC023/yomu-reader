@@ -1,0 +1,312 @@
+.academy-campus-screen .academy-panel {
+    width: min(1040px, 100%);
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.academy-campus-screen .academy-screen-veil {
+    background:
+        linear-gradient(180deg, rgba(3, 9, 18, 0.12), rgba(3, 9, 18, 0.56)),
+        radial-gradient(circle at 50% 50%, transparent 10%, rgba(3, 9, 18, 0.38) 100%);
+}
+
+.academy-campus-screen .academy-title {
+    text-shadow: 0 3px 22px rgba(0, 0, 0, 0.78);
+}
+
+.academy-objective {
+    width: fit-content;
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--academy-line-strong);
+    border-radius: 999px;
+    color: var(--academy-amber-strong);
+    background: rgba(8, 18, 33, 0.76);
+    font-size: 0.82rem;
+}
+
+.academy-place-map {
+    position: relative;
+    min-height: 330px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 28px;
+    background:
+        linear-gradient(28deg, transparent 47%, rgba(226, 210, 171, 0.23) 48%, rgba(226, 210, 171, 0.23) 49%, transparent 50%),
+        linear-gradient(151deg, transparent 45%, rgba(226, 210, 171, 0.18) 46%, rgba(226, 210, 171, 0.18) 47%, transparent 48%);
+}
+
+.academy-location {
+    position: absolute;
+    display: grid;
+    width: min(210px, 32%);
+    min-height: 66px;
+    align-content: center;
+    justify-items: start;
+    padding: 11px 13px;
+    border: 1px solid var(--academy-line-strong);
+    border-radius: 14px;
+    color: var(--academy-ink);
+    background: rgba(8, 18, 32, 0.86);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+    text-align: left;
+    cursor: pointer;
+}
+
+.academy-location::before {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border: 2px solid var(--academy-night);
+    border-radius: 50%;
+    background: var(--academy-amber);
+    box-shadow: 0 0 0 3px rgba(245, 197, 110, 0.24);
+    content: "";
+}
+
+.academy-location:hover:not(:disabled) {
+    border-color: var(--academy-amber-strong);
+    transform: translateY(-2px);
+}
+
+.academy-location:disabled {
+    cursor: not-allowed;
+    filter: saturate(0.3);
+    opacity: 0.64;
+}
+
+.academy-location-classroom {
+    top: 9%;
+    left: 6%;
+}
+
+.academy-location-library {
+    top: 16%;
+    right: 7%;
+}
+
+.academy-location-lab {
+    bottom: 10%;
+    left: 15%;
+}
+
+.academy-location-cafe {
+    right: 12%;
+    bottom: 8%;
+}
+
+.academy-location-classroom::before,
+.academy-location-lab::before {
+    right: -18px;
+}
+
+.academy-location-library::before,
+.academy-location-cafe::before {
+    left: -18px;
+}
+
+.academy-location-purpose {
+    color: var(--academy-ink-muted);
+    font-size: 0.7rem;
+    font-weight: 450;
+    line-height: 1.35;
+}
+
+.academy-review-host {
+    display: grid;
+    gap: 16px;
+}
+
+.academy-lab-screen .academy-panel {
+    width: min(820px, 100%);
+}
+
+.academy-lab-audio {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.academy-lab-timecode {
+    color: var(--academy-ink-muted);
+    font-size: 0.78rem;
+}
+
+.academy-lab-transcript,
+.academy-lab-shadow {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--academy-line);
+    border-radius: 14px;
+    background: rgba(6, 14, 26, 0.72);
+}
+
+.academy-lab-transcript[hidden],
+.academy-lab-shadow[hidden] {
+    display: none;
+}
+
+.academy-lab-transcript h2,
+.academy-lab-shadow h2,
+.academy-lab-shadow p {
+    margin: 0;
+}
+
+.academy-lab-transcript h2,
+.academy-lab-shadow h2 {
+    font-size: 1rem;
+}
+
+.academy-lab-transcript > p[lang="ja"] {
+    min-height: 2em;
+    margin: 0;
+    padding-top: 0.4em;
+    color: var(--academy-amber-strong);
+    font-size: clamp(1.35rem, 4vw, 2.4rem);
+    line-height: 1.65;
+}
+
+.academy-review-expression {
+    min-height: 2em;
+    margin: 0;
+    padding-top: 0.4em;
+    font-size: clamp(1.8rem, 6vw, 4rem);
+    line-height: 1.45;
+}
+
+.academy-review-answer {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--academy-line);
+    border-radius: 14px;
+    background: rgba(6, 14, 26, 0.6);
+}
+
+.academy-review-answer[hidden] {
+    display: none;
+}
+
+.academy-review-reading,
+.academy-review-meaning {
+    margin: 0;
+    line-height: 1.55;
+}
+
+.academy-review-ratings {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.academy-rating-button {
+    min-height: 44px;
+    border: 1px solid var(--academy-line);
+    border-radius: 10px;
+    color: var(--academy-ink);
+    background: rgba(20, 42, 67, 0.9);
+    cursor: pointer;
+}
+
+.academy-journal-profile {
+    display: grid;
+    grid-template-columns: minmax(120px, 30%) minmax(0, 1fr);
+    gap: 18px;
+    align-items: center;
+    overflow: hidden;
+    padding: 16px;
+    border: 1px solid var(--academy-line);
+    border-radius: 18px;
+    background: rgba(7, 17, 30, 0.78);
+}
+
+.academy-journal-portrait {
+    width: 100%;
+    max-height: 270px;
+    object-fit: contain;
+    object-position: center bottom;
+}
+
+.academy-journal-event-portrait {
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: 38% center;
+}
+
+.academy-journal-locked {
+    margin: 0;
+    padding: 18px;
+    border: 1px dashed var(--academy-line);
+    border-radius: 16px;
+    color: var(--academy-ink-muted);
+    background: rgba(7, 17, 30, 0.56);
+}
+
+.academy-journal-copy {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.academy-journal-copy h2,
+.academy-journal-copy p,
+.academy-journal-copy blockquote {
+    margin: 0;
+}
+
+.academy-journal-copy blockquote {
+    color: var(--academy-ink-muted);
+    line-height: 1.55;
+}
+
+.academy-bond-stars {
+    color: var(--academy-amber);
+    letter-spacing: 0.12em;
+}
+
+@media (max-width: 700px) {
+    .academy-place-map {
+        display: grid;
+        min-height: 0;
+        gap: 9px;
+        padding: 8px;
+        border-radius: 16px;
+        background: rgba(5, 13, 24, 0.62);
+    }
+
+    .academy-campus-screen .academy-panel {
+        padding: 16px;
+        border: 1px solid var(--academy-line);
+        background: rgba(6, 15, 28, 0.7);
+        backdrop-filter: blur(12px);
+    }
+
+    .academy-location {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        min-height: 68px;
+    }
+
+    .academy-location::before {
+        display: none;
+    }
+
+    .academy-review-ratings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .academy-journal-profile {
+        grid-template-columns: 100px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+}

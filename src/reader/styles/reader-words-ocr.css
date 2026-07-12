@@ -2046,9 +2046,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   background: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
   box-shadow: 0 10px 28px var(--jpdb-reader-shadow) !important;
-  /* Recedes at rest so the puck is unobtrusive; hover/focus restores full
-     opacity for a crisp state read. */
-  opacity: 0.5 !important;
+  /* Recedes at rest without blending its label and surface below WCAG text
+     contrast; hover/focus restores full opacity for a crisp state read. */
+  opacity: 0.72 !important;
   font: 700 14px/1 var(--jpdb-reader-font) !important;
   cursor: pointer !important;
   overflow: visible !important;
@@ -2103,7 +2103,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   outline: none !important;
 }
 .jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
-  opacity: 0.28 !important;
+  opacity: 0.68 !important;
   transform: translate3d(0, 6px, 0) scale(0.92) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab-dragging {
@@ -2149,7 +2149,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
    reads instantly, not from a subtle badge alone (1.6.99: "on" and furigana-off
    looked identical). Everything on → vivid GREEN ring + solid green dot. */
 .jpdb-reader-fab.jpdb-reader-fab--on {
-  opacity: 0.55 !important;
+  opacity: 0.72 !important;
   border-color: var(--jpdb-reader-accent) !important;
   box-shadow:
     0 10px 28px var(--jpdb-reader-shadow),
@@ -2172,7 +2172,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
    "on" state) with a struck-through ふ, so "reader live but furigana off" never
    reads as fully on. */
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  opacity: 0.55 !important;
+  opacity: 0.72 !important;
   border-color: var(--jpdb-reader-grade-something) !important;
   box-shadow:
     0 10px 28px var(--jpdb-reader-shadow),
@@ -2196,7 +2196,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
    unmistakable and carries no accent glow. */
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   filter: grayscale(1) !important;
-  opacity: 0.4 !important;
+  opacity: 0.68 !important;
   border-style: dashed !important;
   box-shadow: 0 8px 20px var(--jpdb-reader-shadow) !important;
 }

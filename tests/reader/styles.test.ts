@@ -8,6 +8,7 @@ import {
     readerCssFallbackUrls,
     readerCssNeedsFallback,
     READER_CSS,
+    shouldLoadReaderCssFallback,
 } from '../../src/reader/styles/index';
 
 const FULL_READER_CSS = '.jpdb-reader-popover{} .jpdb-reader-settings{} .jpdb-reader-source-card{} .jpdb-subtitle-player{} .jpdb-ocr-layer{}';
@@ -63,6 +64,12 @@ describe('reader stylesheet loading', () => {
 
     it('uses the full reader CSS when the userscript resource is available', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
+    });
+
+    it('keeps a linked hosted stylesheet authoritative over network fallback CSS', () => {
+        expect(shouldLoadReaderCssFallback(true, '')).toBe(false);
+        expect(shouldLoadReaderCssFallback(false, '')).toBe(true);
+        expect(shouldLoadReaderCssFallback(false, FULL_READER_CSS)).toBe(false);
     });
 
     it('loads and caches the hosted full reader CSS without userscript GM resource APIs', async () => {

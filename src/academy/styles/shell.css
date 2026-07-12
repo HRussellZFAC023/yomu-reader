@@ -1,0 +1,186 @@
+#yomu-academy,
+.academy-root {
+    width: 100%;
+    min-height: 100dvh;
+}
+
+.academy-root {
+    display: grid;
+    grid-template-rows: var(--academy-header-height) minmax(0, 1fr) auto;
+    overflow: hidden;
+    background: var(--academy-night);
+}
+
+/* Reader capability is mounted in-world; its generic launcher would be a
+   duplicate destination over the Academy shell. Dictionary tap still works. */
+body:has(#yomu-academy) > .jpdb-reader-fab {
+    display: none !important;
+}
+
+.academy-header {
+    position: relative;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    padding: 0 max(16px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--academy-line);
+    background: rgba(5, 12, 23, 0.9);
+    backdrop-filter: blur(18px);
+}
+
+.academy-brand {
+    overflow: hidden;
+    color: var(--academy-amber-strong);
+    font-family: var(--academy-japanese-font);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.academy-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+}
+
+.academy-network-state {
+    color: var(--academy-ink-muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.academy-chrome-button,
+.academy-nav-button {
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--academy-ink);
+    background: transparent;
+    cursor: pointer;
+}
+
+.academy-chrome-button {
+    padding: 7px 11px;
+    font-size: 0.76rem;
+}
+
+.academy-chrome-button:hover,
+.academy-nav-button:hover {
+    border-color: var(--academy-line-strong);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.academy-screen-host {
+    position: relative;
+    min-height: 0;
+    overflow: hidden auto;
+    outline: none;
+}
+
+.academy-navigation {
+    position: relative;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    min-height: var(--academy-nav-height);
+    padding: 8px max(12px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--academy-line);
+    background: rgba(5, 12, 23, 0.94);
+    backdrop-filter: blur(18px);
+}
+
+.academy-navigation[hidden] {
+    display: none;
+}
+
+.academy-nav-button {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+}
+
+.academy-nav-button[aria-current="page"] {
+    border-color: var(--academy-line-strong);
+    color: var(--academy-amber-strong);
+    background: rgba(245, 197, 110, 0.12);
+}
+
+.academy-sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+}
+
+.academy-button {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border: 1px solid var(--academy-line-strong);
+    border-radius: 999px;
+    color: var(--academy-ink);
+    background: rgba(18, 34, 55, 0.9);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.academy-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--academy-amber-strong);
+}
+
+.academy-button:disabled {
+    cursor: wait;
+    opacity: 0.62;
+}
+
+.academy-button-primary {
+    border-color: #f2c36b;
+    color: #111827;
+    background: linear-gradient(135deg, #ffe1a7, #e9ad50);
+    font-weight: 800;
+}
+
+.academy-button-secondary {
+    background: rgba(26, 48, 75, 0.92);
+}
+
+.academy-button-quiet {
+    border-color: transparent;
+    box-shadow: none;
+    background: transparent;
+}
+
+@media (max-width: 700px) {
+    :root {
+        --academy-header-height: 54px;
+    }
+
+    .academy-header {
+        gap: 8px;
+        padding-inline: 10px;
+    }
+
+    .academy-network-state {
+        display: none;
+    }
+
+    .academy-chrome-button {
+        min-height: 44px;
+        padding: 5px 8px;
+        font-size: 0.7rem;
+    }
+}

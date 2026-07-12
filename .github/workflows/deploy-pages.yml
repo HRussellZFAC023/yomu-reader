@@ -7,20 +7,24 @@ on:
       - main
     paths:
       - CHANGELOG.md
+      - academy/**
       - docs/**
       - dist/yomu.css
       - dist/yomu.user.js
       - package.json
       - package-lock.json
       - public/newtab/**
+      - public/academy/**
       - public/yomu-icon.svg
       - src/**
       - scripts/annotate-greasyfork-requires.cjs
       - scripts/build-greasyfork-libraries.mjs
       - scripts/lib/greasyfork-libraries.cjs
       - scripts/sync-docs-userscript.cjs
+      - scripts/sync-academy.cjs
       - scripts/lib/userscript-build-utils.cjs
       - vite.config.ts
+      - config/vite/academy.config.ts
       - config/vite/greasyfork-library.config.ts
       - config/vite/newtab.config.ts
       - .github/workflows/deploy-pages.yml
@@ -51,6 +55,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node scripts/sync-docs-userscript.cjs
+      - run: npm run build:academy
       - run: npm run docs:build
         env:
           YOMU_GOOGLE_SITE_VERIFICATION: ${{ secrets.YOMU_GOOGLE_SITE_VERIFICATION }}
