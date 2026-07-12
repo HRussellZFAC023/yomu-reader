@@ -146,10 +146,11 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
   limit). Feedback/PDF/Google P0 smokes passed, deterministic QA was 13/13,
   docs accessibility was 66/66 across desktop/iPad/iPhone, and complexity peaked
   at 29/30. The accepted Browser build revision was `s1-15dd1d7d700f`.
-- Committed the reviewed Stage 1 source boundary as `da563e8a4`, leaving every
+- Committed the reviewed Stage 1 source boundary, then rebased it as `371140513`
+  over upstream's bot-generated hosted-version update, leaving every
   protected Reader/NHK path unstaged. Rebuilt from an isolated checkout of that
-  exact commit, synced hosted Reader assets, built Academy, built VitePress, and
-  verified the userscript. The clean deploy candidate is `s1-bbf9a61f26a3`;
+  exact source tree, synced hosted Reader assets as `c5ef4629d`, built Academy,
+  built VitePress, and verified the userscript. The clean deploy candidate is `s1-bbf9a61f26a3`;
   verification reported 1,887,405 bytes and 43,451 lines.
 
 ### Remaining action

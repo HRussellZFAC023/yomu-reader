@@ -52,4 +52,4 @@ The main checkout also contains pre-Academy Reader/NHK work. Do not include it i
 
 ## Resume point
 
-Stage 1 code, Browser acceptance, Fable review, and full QA are green. The source boundary is committed at `da563e8a4`; commit its isolated hosted outputs, preserve the protected Reader files, push/deploy/smoke, then start Stage 2. Do not broaden Stage 1's one-question coverage claim.
+Stage 1 code, Browser acceptance, Fable review, and full QA are green. The rebased source boundary is `371140513` and its isolated hosted outputs are `c5ef4629d`. Preserve the protected Reader files, push/deploy/smoke, then start Stage 2. Do not broaden Stage 1's one-question coverage claim.

@@ -4,7 +4,7 @@
 
 **Current stage:** Stage 1 — skeleton and enrollment vertical slice (green; push/deploy pending)
 
-**Canonical branch:** `main` at `da563e8a4`; `origin/main` remains at the Stage 0 close until the generated hosted-assets commit is ready.
+**Canonical branch:** `main` contains source commit `371140513` and hosted-assets commit `c5ef4629d`; `origin/main` is integrated and awaits the Stage 1 push.
 
 ## Gate board
 
