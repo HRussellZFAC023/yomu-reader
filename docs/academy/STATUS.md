@@ -1,8 +1,8 @@
 # Yomu Academy status
 
-**Updated:** 2026-07-12 13:45 Europe/London
-**Current stage:** Stage 0 — gate green; commit and push pending
-**Canonical branch:** `main` at `472375626e47643b36abdf510ed79e14b54dba5f` (`origin/main` aligned)
+**Updated:** 2026-07-12 13:56 Europe/London
+**Current stage:** Stage 1 — skeleton and enrollment vertical slice
+**Canonical branch:** `main` at `055bb4eca` (`origin/main` aligned)
 
 ## Gate board
 
@@ -15,6 +15,7 @@
 | Donor/worktree inventory | Green | 16 read-only sources recorded in [`evidence/stage-0/inventory.json`](evidence/stage-0/inventory.json). |
 | Salvage decisions complete | Green | [`SALVAGE-LEDGER.md`](SALVAGE-LEDGER.md) assigns `KEEP`, `ADAPT`, or `REJECT` before runtime ports. |
 | Stage 0 project checks | Green | `npm run check` passed after correcting one dead documentation link: typecheck, all CI shards, builds, docs, and userscript verification. |
+| Stage 0 commit and push | Green | `055bb4eca` (`academy: establish one-shot production baseline`) pushed to `origin/main`. No runtime deploy was relevant. |
 | Browser evidence | Not applicable | Stage 0 changes no Academy runtime. Real-app Browser evidence begins in Stage 1. |
 
 ## Protected local work
@@ -40,6 +41,6 @@ The restored NHK mirror test now passes, but the three probe scripts remain expl
 
 ## Next three actions
 
-1. Commit and push only the green Stage 0 artifacts while excluding protected Reader work.
-2. Port the typed shell/scene/activity/learner-event interfaces and the `AudioDirector` boundary in the first Stage 1 vertical slice.
-3. Bind the approved entrance/Rie/protagonist assets and implement the three-route enrollment flow with conformance tests before adding broader content.
+1. Port the typed shell/scene/activity/learner-event interfaces and the `AudioDirector` boundary in the first Stage 1 vertical slice.
+2. Bind the approved entrance/Rie/protagonist assets and implement the three-route enrollment flow with conformance tests.
+3. Prove the first source activity, repair/SRS event, unlock/journal replay, and offline resume before broader content.

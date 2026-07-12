@@ -10,7 +10,7 @@ This is the ordered execution backlog for [`discovery/PRODUCTION-RUNBOOK.md`](di
 - [x] Generate a lossless inventory for Donor A, Donor B, and 14 dormant worktrees.
 - [x] Classify every donor/worktree payload in `SALVAGE-LEDGER.md`.
 - [x] Run the full project check and record exact output.
-- [ ] Commit and push Stage 0 artifacts without including protected Reader work.
+- [x] Commit and push Stage 0 artifacts without including protected Reader work (`055bb4eca`).
 
 Acceptance: `main` equals fetched upstream before Academy commits; donor trees are unchanged; discovery, pins, inventories, living files, and initial resource/asset ledgers are reproducible.
 

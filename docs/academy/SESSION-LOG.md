@@ -34,4 +34,11 @@
 
 ### Next action
 
-Validate all Stage 0 ledgers, run the full project gate, commit only Stage 0 artifacts, push, then begin the enrollment slice from the authorized salvage list.
+Begin the Stage 1 enrollment slice from the authorized salvage list, starting with deep runtime interfaces and the audio boundary before visual polish.
+
+### Stage close
+
+- Committed the green baseline as `055bb4eca` (`academy: establish one-shot production baseline`).
+- Pushed `main` from `472375626` to `055bb4eca` on `origin`.
+- No deployment was relevant because Stage 0 introduced no runtime or hosted Academy surface.
+- Stage 1 is now active; protected Reader/NHK work remains isolated until the status-close commit is complete.
