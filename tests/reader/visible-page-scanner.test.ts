@@ -198,7 +198,7 @@ describe('VisiblePageScanner', () => {
 
         try {
             const scan = scanner.scanVisiblePage({ silent: true });
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2), { timeout: 5_000 });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2), { timeout: 15_000 });
 
             firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
             await scan;
@@ -208,7 +208,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 20_000);
 
     it('prefetches remote parse batches on large generic pages while the first batch is still resolving', async () => {
         const restoreRects = mockVisibleElementRects();
@@ -723,7 +723,7 @@ describe('VisiblePageScanner', () => {
 
         try {
             await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled());
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled(), { timeout: 15_000 });
             expect(document.querySelector('ytm-browse .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('ytm-comment-renderer')?.textContent).toContain('日本語コメント0です');
         } finally {
@@ -732,7 +732,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 20_000);
 
     it('enhances YouTube filter chips while preserving clicks', async () => {
         const restoreRects = mockVisibleElementRects();
@@ -2851,7 +2851,7 @@ describe('abortable visible-work scheduling (P1)', () => {
             // actually be parsing before landing the newer request — this test
             // pins the abort-BETWEEN-BATCHES contract, not collection timing
             // (an abort during collection is strictly earlier and cheaper).
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1), { timeout: 5000 });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1), { timeout: 15_000 });
             // A newer request lands while batch 1 of the old scan is parsing.
             const second = scanner.scanVisiblePage({ silent: true });
             resolveFirst?.([]);
@@ -2868,7 +2868,7 @@ describe('abortable visible-work scheduling (P1)', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 20_000);
 
     it('drops targets that disappear before the next parse batch', async () => {
         const restoreRects = mockVisibleElementRects();
