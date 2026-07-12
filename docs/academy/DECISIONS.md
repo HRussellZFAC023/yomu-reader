@@ -73,3 +73,9 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** The Pages workflow builds and syncs Reader assets first, then runs `build:academy`, then builds VitePress. Academy path changes explicitly trigger the workflow.
 
 **Why:** Academy's content-derived service-worker revision includes the hosted Reader dependencies. Committing a locally rendered revision while CI rebuilt Reader assets afterward would make the cache name describe different bytes than the deployment.
+
+## D-013 — Source bytes and teacher review stay private; public status is allowlisted metadata
+
+**Decision:** Moodle bytes, filenames, titles, prompts, extracted text, rendered pages, native images, and the teacher comparison surface live only under the ignored private artifact root. Public Stage 2 outputs are constructed field by field from hashes, byte counts, opaque IDs, enums, and aggregate status, then checked both structurally and against tokens harvested from the real private corpus.
+
+**Why:** A denylist cannot anticipate every identifying filename, class title, URL, or worksheet phrase. The public corpus needs auditable coverage and failure states, but publishing source material is neither necessary nor licensed by that need.

@@ -1,6 +1,6 @@
 # Yomu Academy status
 
-**Updated:** 2026-07-12 19:08 Europe/London
+**Updated:** 2026-07-12 (Moodle census green; full Japanese-library census and adversarial review active)
 
 **Current stage:** Stage 2 — source pipeline (active; Stage 1 green and closed)
 
@@ -26,6 +26,12 @@
 | Deployment path | Green | Pages workflow now rebuilds hosted Reader assets, then Academy, then VitePress so the Academy service-worker revision hashes the exact deployed dependencies. |
 | Commit, push, deploy | Green | `main` pushed at `5f759ee5f`; Pages run `29203203144` passed build/deploy. Live `/academy/` serves `s1-bbf9a61f26a3`, owns its service-worker scope, returns 200 for app/CSS/manifest/SW/art/source records, and fails production invite entry closed until Stage 7. |
 | Stage 2 source baseline | In progress | The audited denominator remains 96 Moodle archives, 916 occurrences, 688 unique payloads, 716 PDF occurrences / 527 unique PDFs, and 185 MP3 occurrences / 146 unique audio payloads. Only the single Stage 1 source question is currently claimed playable. |
+| Stage 2 Moodle payload ledger | Green | Manifest SHA `2400b43e…a78`; 96/96 archives, 916 member occurrences, 688 unique member payloads, 3 direct resources / 1 unique direct payload, and 1,466,136,959 uncompressed bytes reconcile exactly. Every tracked payload has an explicit stored/census state. |
+| Stage 2 PDF/media census | Green for Moodle | 527/527 unique PDFs: 1,087 pages, 4,931 native objects extracted, 2,982 positioned media regions, 100,479 text boxes, and 906 vector-review pages; layout/native/vector failures are all zero. 146/146 audio payloads probe successfully. |
+| Stage 2 pack migration | Green as candidates | All 44 donor packs and 879 items survive as 879 immutable source-item candidates plus 879 disjoint augmentation records. The claim guard still reports only 1 verified/playable Source Question; 699 loci and all donor answers/media remain review-required. |
+| Stage 2 private editor | Green | A real three-page kanji source loaded all page images over HTTP 200 with 13 candidates and no `file://` URLs. Its overlay exposed 114 text boxes, four media regions, and two vector pages; screenshots remain in ignored private artifacts because the source is not public. |
+| Stage 2 tests/privacy | Green for Moodle | The four source-pipeline suites pass 32/32 after generation; public validation and `git diff --check` pass. All 96 archives were rescanned under CRC32 validation and all 527 PDF render sets have DPI/page-count sidecars. Fable session `bf7e5f77-af85-495d-b3bc-fdb4777d6ea6` re-ran validation, independently checked public privacy/counts, verified all six follow-up fixes, and returned `PASS`. |
+| Shared Japanese library | In progress | Owner authorized the same harness for `/Users/heru/Documents/Japanese` (42 GB, 13,123 files). It will retain separate denominators and deduplicate against Moodle; no library count may inflate Moodle coverage. |
 
 ## Protected local work
 
@@ -42,7 +48,8 @@ Safety stashes remain at `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` and `c228c1e
 
 ## Open work (not Stage 1 defects)
 
-- Stage 2 must audit all 96 Moodle archives and complete the PDF/media/source-question pipeline. Only one Moodle question is claimed today.
+- Stage 2 has mechanically censused all Moodle payloads; human source-question/media/answer review remains open and only one Moodle question is claimed playable.
+- The newly authorized 42 GB shared Japanese library still needs its separate resumable ledger, PDF/media census, and privacy-safe status output.
 - Stage 3 still owns 73/73 authored and reachable class Weeks, including Minna 24/26 bridges.
 - Stage 4 still owns calibrated Foundation–N1 banks, audited recurring mock forms, and complete four-skill evidence.
 - Stages 5–6 still own the full cast/story/art/audio production. A standalone Aakash sprite remains withheld pending likeness approval.
@@ -51,6 +58,6 @@ Safety stashes remain at `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` and `c228c1e
 
 ## Next three actions
 
-1. Rebuild and reconcile the occurrence/payload ledger from all 96 Moodle archives without mutating donor evidence.
-2. Introduce the resumable PDF page/object/media census and unify question, image, audio, transcript, answer-key, and rights statuses.
-3. Migrate the 44 existing packs through the versioned source/augmentation validators and open the teacher comparison surface.
+1. Commit/push the Fable-approved Moodle census slice without protected Reader or concurrent UI/access work, then verify its deployment.
+2. Extend the same resumable, privacy-safe harness across `/Users/heru/Documents/Japanese`, deduplicating against Moodle while keeping library denominators separate.
+3. Integrate and browser-test the parallel warm/animated UI, diegetic map/navigation, real access/audio/Stripe, cast, and Japanese annotation-coverage fixes before moving into the 73-Week authoring volume.

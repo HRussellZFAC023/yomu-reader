@@ -36,6 +36,14 @@ _Avoid_: Copy, duplicate
 The smallest faithful assessable prompt, including its exact Source Document locus and required media.
 _Avoid_: Exercise, activity
 
+**Source Item Candidate**:
+A machine-extracted or donor-migrated item that may become a Source Question only after its prompt, locus, media, and answer relationship are reviewed against the Source Document.
+_Avoid_: Source Question, playable question
+
+**Media Region Candidate**:
+A positioned raster or vector region detected on a source page. It remains review-required until its semantic role and Source Question relationship are confirmed.
+_Avoid_: Question image, verified media
+
 **Augmentation**:
 Academy-authored explanation, hint, grading, solo adaptation, repair, extra practice, review seed, or story framing adjacent to a Source Question.
 _Avoid_: Enhanced question, rewritten source

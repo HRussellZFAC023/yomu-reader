@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-07-12T16:25:00+01:00",
-  "status": "stage-1-vertical-slice",
+  "status": "stage-2-census-complete",
   "provenance": [
     "docs/academy/discovery/DISCOVERY-BASELINE.md",
     "docs/academy/discovery/CONTENT-AND-WORKSHEET-MEDIA.md",
@@ -21,7 +21,7 @@
     "downloadedFolderArchives": 96,
     "archiveMemberOccurrences": 916,
     "uniquePayloads": 688,
-    "uncompressedBytesApproximate": 1470000000,
+    "uncompressedBytesApproximate": 1466136959,
     "pdfOccurrences": 716,
     "uniquePdfPayloads": 527,
     "audioOccurrences": 185,
@@ -44,14 +44,22 @@
     "listeningQuestionsPaired": 0,
     "answerKeyRelationsVerified": 0,
     "classWeeksPlayable": 38,
-    "classWeeksTotal": 73
+    "classWeeksTotal": 73,
+    "documentsCensused": 527,
+    "sourceItemCandidates": 879,
+    "positionedMediaRegionCandidates": 2982,
+    "vectorReviewPages": 906,
+    "audioPayloadsProbed": 146
   },
   "stage1VerticalSlice": {
     "sourceDocumentId": "document:moodle-1e58967e",
     "sha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
     "occurrenceId": "occurrence:ucl-2023-l1-lesson-1",
     "sourceQuestionId": "source-question:classroom-phrase-09",
-    "locus": {"page": 2, "printedNumber": "9"},
+    "locus": {
+      "page": 2,
+      "printedNumber": "9"
+    },
     "immutableSourceShard": "/academy/content/vertical-slice/source-library.v1.json",
     "augmentationShard": "/academy/content/vertical-slice/augmentation.v1.json",
     "playableRepresentations": [
@@ -70,7 +78,8 @@
     "sourceFidelityComplete": false,
     "mediaFidelityComplete": false,
     "allClassWeeksReachable": false,
-    "foundationToN1Complete": false
+    "foundationToN1Complete": false,
+    "allPayloadsCensused": true
   },
   "blockingGaps": [
     "35 indexed class weeks lack authored payloads in the strongest audit.",
@@ -79,5 +88,42 @@
     "Audio occurrences, transcripts, question pairing, and rights are not unified.",
     "Minna 24 and 26 need original bridge units.",
     "N3-N1 has an outcomes proposal but no release-ready input or calibrated assessment bank."
-  ]
+  ],
+  "stage2SourcePipeline": {
+    "status": "census-complete-review-open",
+    "extractionRevision": "exr-2026-07-12.1",
+    "publicOutputs": [
+      "/academy/content/source-pipeline/catalog.v2.json",
+      "/academy/content/source-pipeline/corpus-status.v1.json",
+      "/academy/content/source-pipeline/pack-migration.v1.json"
+    ],
+    "migratedSourceItemCandidates": 879,
+    "migratedPackCount": 44,
+    "unresolvedLocusCount": 699,
+    "pdfCensus": {
+      "complete": 527,
+      "withoutTextLayer": 2,
+      "failed": 0,
+      "layoutFailed": 0,
+      "nativeImageExtractionFailed": 0,
+      "vectorExtractionFailed": 0,
+      "imageDependencyReviewRequired": 527,
+      "pageCount": 1087,
+      "pagesWithoutTextLayer": 3,
+      "pagesWithoutLayout": 0,
+      "nativeImageObjectCount": 4931,
+      "extractedNativeImageCount": 4931,
+      "positionedMediaRegionCount": 2982,
+      "textBoxCount": 100479,
+      "vectorReviewPageCount": 906,
+      "vectorProbeFailedPageCount": 0,
+      "vectorHeavyPageCount": 824,
+      "vectorContentPageCount": 82
+    },
+    "audioCensus": {
+      "probed": 146,
+      "failed": 0
+    },
+    "note": "All payloads have explicit storage/census states. Donor items remain source-item candidates, not verified or playable source questions."
+  }
 }

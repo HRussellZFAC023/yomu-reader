@@ -18,7 +18,8 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 ## Cast and safety truth
 
 - Real classmates supply wholesome chemistry; high-risk real events become fictional but emotionally equivalent.
-- Rose is canon. Two phone-number-only contacts remain unidentified and outside the cast. Pho is not canon.
+- Rose is canon. Nanako and Karen are named extended cast members, not identities for the two phone-number-only contacts, which remain outside the cast. Pho is not canon.
+- Owner-supplied chat evidence informs concise first-name-only voice and wholesome chemistry, never copied dialogue or private facts. Nanako has a private candidate likeness pair awaiting owner confirmation; Karen needs a clear identified portrait before sprite generation.
 - Every classmate needs meaningful learning appearances, three bond steps, a journal profile, replay, expressions, and bond stars.
 - Aakash defaults to hat-free normal hair. Tom is blond and clean-shaven. Character likeness expands to expressions only after a neutral sample passes review.
 - Pop-culture references arise naturally and create a language task; Academy never copies protected game/anime UI or characters into its own assets.
@@ -52,4 +53,10 @@ The main checkout also contains pre-Academy Reader/NHK work. Do not include it i
 
 ## Resume point
 
-Stage 1 is closed: source `371140513`, hosted assets `c5ef4629d`, branch record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green. Stage 2 is active. Preserve the protected Reader files and begin by reconciling all 96 Moodle archives into occurrence/payload/question/media denominators. Do not broaden the one-question playable claim until the source validators prove it.
+Stage 1 is closed: source `371140513`, hosted assets `c5ef4629d`, branch record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green.
+
+The Stage 2 Moodle mechanical census is green: 96 archives, 916 member occurrences, 688 unique member payloads, 3 direct resources, 527 unique PDFs / 1,087 pages, and 146 unique audio payloads all have explicit states with zero census failures. All 44 donor packs and 879 items survived as review-required candidates; only the one Stage 1 Source Question is still claimed verified/playable. The private teacher surface and public privacy/claim validators are executable evidence.
+
+Stage 2 remains active because the owner additionally authorized the same harness for all 13,123 files / 42 GB under `/Users/heru/Documents/Japanese`. Keep its denominators separate and deduplicate it against Moodle without copying the library into Git or inflating Moodle coverage.
+
+Parallel product feedback is binding: replace dashboard chrome with diegetic navigation and a compact minimap; make the three opening routes consequential; use an original warm Yomu/expressive-angular dialogue system; preserve cosy rain-lit nights while adding time/weather/season colour; reserve “Velvet Hour” for one discrete special place/event; fix Japanese annotation coverage; activate secure live `UCL2026` and Stripe donation access; and deploy the owner-approved Persona/SFX media through hashed R2/Worker routes. Preserve the protected Reader files while integrating these slices.

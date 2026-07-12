@@ -16,6 +16,8 @@ const runtimeSources = [
     ['public/academy/art/locations', 'art/locations'],
     ['public/academy/art/events', 'art/events'],
     ['public/academy/content/vertical-slice', 'content/vertical-slice'],
+    ['public/academy/content/RESOURCE-LEDGER.json', 'content/RESOURCE-LEDGER.json'],
+    ['public/academy/content/source-pipeline', 'content/source-pipeline'],
     ['public/academy/vendor', 'vendor'],
     ['dist/academy/app.js', 'app.js'],
     ['dist/academy/style.css', 'style.css'],

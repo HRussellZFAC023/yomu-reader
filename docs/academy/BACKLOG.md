@@ -33,11 +33,13 @@ Closure: source `371140513`, hosted assets `c5ef4629d`, release-candidate record
 
 ## Stage 2 — source pipeline
 
-- [ ] Rebuild occurrence/payload ledgers from all 96 Moodle archives and local Japanese sources.
-- [ ] Introduce versioned immutable `SourceDocument`/`SourceQuestion` records adjacent to, but never conflated with, augmentation.
-- [ ] Census every unique PDF page/object/media region and pair listening files, transcript states, answer keys, and rights.
-- [ ] Migrate the 44 existing packs and process the remaining documents in resumable batches.
-- [ ] Build teacher/editor source-vs-playable comparison and validators.
+- [x] Rebuild the occurrence/payload ledger from all 96 Moodle archives and three direct Moodle resources; reconcile 96/916/688 exactly.
+- [ ] Rebuild a separate ledger for all 13,123 files in the authorized 42 GB shared Japanese library and deduplicate it against Moodle.
+- [x] Introduce versioned immutable source-item candidates adjacent to, but never conflated with, augmentation; retain the stricter reviewed `SourceQuestion` boundary.
+- [x] Census every unique Moodle PDF page/text box/native image/positioned media/vector region and probe every Moodle audio payload with explicit failure states.
+- [ ] Run the same PDF/media/audio/video/resource-status harness across the shared Japanese library without copying its 42 GB into Git/artifacts.
+- [x] Migrate all 44 existing packs losslessly in resumable batches; preserve all 879 items and donor claims as review-required candidates.
+- [x] Build the private teacher/editor source-vs-candidate comparison, overlay contact sheets, public privacy boundary, claim guard, and validators.
 
 Acceptance: every payload has a status; every processed document has question/media counts; no image/audio task silently degrades to text.
 
@@ -67,6 +69,9 @@ Acceptance: every advertised level has four-skill evidence while JLPT receptive 
 - [ ] Author recognition/friction/support bond steps for every classmate.
 - [ ] Generate one OpenAI neutral sprite per character, obtain likeness/style approval, then expand expressions/poses.
 - [ ] Complete backgrounds, event CGs, props, worksheet media, unlocks, backlog, auto/read-skip, group chat, radio, transitions, and seasonal states.
+- [ ] Build a resumable main-namespace inventory of the Megami Tensei wiki and convert its mechanic/lore/item patterns into original Academy design prompts without copying names, prose, characters, or lore.
+- [ ] Replace dashboard navigation with fixed campus geography, diegetic doors/paths/journal/phone, spatial transitions, and a compact top-right minimap.
+- [ ] Preserve cosy warm-night classes while adding colourful day/weather/season states; keep Velvet Hour as one discrete special place/event.
 - [ ] Enforce asset home, provenance, mobile composition, and excluded-family validators.
 
 Acceptance: every scene advances learning/relationship/mystery/world; every speaker has approved visible art; every shipped asset has a runtime home.

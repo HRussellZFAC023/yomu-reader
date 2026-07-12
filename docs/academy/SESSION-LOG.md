@@ -169,3 +169,97 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
 - Closed Stage 1 and opened Stage 2. Next action is the lossless 96-archive
   occurrence/payload reconciliation; the product still claims exactly one
   faithful playable Moodle question.
+
+## 2026-07-12 — Stage 2 source pipeline authored (execution pending)
+
+### Implementation
+
+- Authored the Stage 2 source pipeline as focused modules under
+  `scripts/academy-source-pipeline/` with a small CLI at
+  `scripts/academy-source-pipeline.mjs`: ZIP central-directory IO (`zip.mjs`,
+  fflate inflate only), manifest verification/mapping (`manifest.mjs`),
+  resumable private occurrence/payload ledger + content-addressed extraction
+  (`ledger.mjs`, `payload-store.mjs`), pure PDF-census parsers
+  (`pdf-census-parse.mjs`) plus the resumable poppler census at 200 DPI with a
+  per-document HTML visual review index (`pdf-census.mjs`), ffprobe audio
+  census (`audio-census.mjs`), donor 44-pack migration into disjoint immutable
+  source candidates vs augmentation (`packs.mjs`), duration-based listening
+  pairing candidates (`pairing.mjs`), the private teacher/editor side-by-side
+  comparison surface (`compare.mjs`), allowlist public serializers
+  (`public-outputs.mjs`), a structural + token privacy boundary
+  (`privacy.mjs`), committed-output validators (`validate.mjs`), and the
+  claim-preserving RESOURCE-LEDGER updater (`resource-ledger.mjs`).
+- Public outputs are metadata-only under
+  `public/academy/content/source-pipeline/` (`catalog.v2.json`,
+  `corpus-status.v1.json`, `pack-migration.v1.json`); private outputs live
+  under Git-ignored `artifacts/yomu-academy/source-pipeline/`. Denominators
+  stay distinct (occurrence / unique payload / item candidate / verified
+  question / playable activity) and the claim guard pins verified/playable at
+  the Stage 1 value of exactly 1.
+- Added five Academy test files covering fixture-ZIP catalog determinism,
+  dedup/hash/size integrity, resumable scan caching, atomic writes, manifest
+  hash refusal, privacy token/structural regression, claim inflation refusal,
+  the committed 96/916/688 baseline (skip-until-generated), pdfinfo/pdfimages/
+  question-signal/image-dependency parsing, pack split disjointness, unresolved
+  locus/media review states, and teacher-comparison root confinement.
+- Wired `academy:source:census` / `academy:source:pipeline` /
+  `academy:source:validate` package scripts and added the cheap public
+  validator to `check:academy`; it warns (not fails) while outputs are absent
+  so ordinary CI never needs the private corpus.
+
+### Verification and blocker
+
+- Verified corpus preconditions with read-only commands: 96 folder ZIPs plus
+  3 direct DOCX resources under the private raw root, manifest present.
+- BLOCKER: this session's permission sandbox denies every process-spawning
+  command (`node scripts/…`, `npm run …`, `npx vitest`, `pdfinfo`, `ffprobe`),
+  so the new tests, `npm run typecheck`, the full private corpus run, and
+  therefore the committed public outputs and RESOURCE-LEDGER update could not
+  be executed. No verification is claimed. Next session must run
+  `npm run test:academy`, `npm run academy:source:pipeline`, and
+  `npm run check:academy`, then commit generated public outputs after the
+  validators pass.
+
+## 2026-07-12 — Stage 2 Moodle corpus executed and verified
+
+The earlier execution blocker was removed in the continuing session; this section supersedes the pending state above.
+
+### Corpus and extraction
+
+- Located and hashed the canonical private capture at `resources/yomu-academy/moodle-raw`; its manifest SHA-256 is `2400b43ef8b022e525272a4e0f2331da09e9ade5f72d7f9a0c70c9e7b1329a78`.
+- Reconciled 96 archive occurrences, 916 member occurrences, 688 unique archive-member payloads, 3 direct resources / 1 unique direct payload, and 1,466,136,959 uncompressed member bytes. Archive/member hashes, sizes, extensions, and duplicate counts match the donor catalog exactly.
+- Stored one private byte file per SHA-256 (689 including the direct-only payload); a resumed ledger run performed zero archive rescans.
+- Censused all 527 unique PDFs at 200 DPI: 1,087 pages, 4,931 listed/extracted native image objects, 2,982 positioned media regions, 100,479 text boxes, and 906 vector-review pages (824 heavy, 82 content). Three pages in two documents lack text layers; none lacks a render or layout. PDF/layout/native/vector failure counts are zero.
+- Probed all 146 unique audio payloads with ffprobe; failure count is zero. External calls are bounded by hard timeouts and explicit, opt-in retry states.
+- Migrated all 44 donor packs: 879 donor items became 879 immutable source-item candidates plus 879 disjoint augmentation records. The migration retains 249 instructions, 180 donor page candidates, 429 image refs, 229 audio refs, and 879 donor answer claims. It refuses any unmapped donor field.
+- Duration matching produced candidates for all 15 pack-level audio references, with only two unique matches; transcript, rights, and review status remain explicit and no pairing is reported complete.
+
+### Public/privacy boundary
+
+- Generated `catalog.v2.json`, `corpus-status.v1.json`, and `pack-migration.v1.json` plus the RESOURCE-LEDGER update. The public set is allowlisted metadata only and is hosted through the Academy sync allowlist.
+- Structural validation, exact 96/916/688 and 716/527/185/146 baseline validation, real-private-token scanning, explicit payload-state checks, aggregate reconciliation, and the source/playable claim guard all pass.
+- `allPayloadsCensused` is honestly true. Source fidelity, media fidelity, and listening pairing remain false. Only the single Stage 1 Source Question remains verified/playable.
+
+### Browser evidence
+
+- Served the ignored private teacher surface over localhost and opened the real `wp-b6446cd4695a` three-page kanji pack.
+- All three 1,654×2,339 page renders returned HTTP 200; 13/13 candidates were present and no element used a `file://` URL after fixing the common-root resolver.
+- The linked page/object/media overlay rendered three pages, 114 text boxes, four positioned media boxes, and two vector-page boxes without horizontal overflow at desktop width.
+- Private screenshots are stored under the ignored teacher/PDF artifact roots; they are not committed because they contain source material.
+
+### Verification
+
+- `npm run test:academy` — 24 files, 86 passed, one pre-generation skip.
+- `npm run typecheck` — passed.
+- `npm run academy:source:pipeline` — passed repeatedly from cache.
+- `npm run academy:source:validate` — passed.
+- `git diff --check` on the Stage 2 slice — passed.
+- The newly authorized 42 GB shared Japanese-library pass remains Stage 2 work and will keep separate denominators.
+
+### Adversarial closure
+
+- Fable session `bf7e5f77-af85-495d-b3bc-fdb4777d6ea6` first returned `PASS` with six non-gating robustness findings. All six were fixed: render reuse now requires a DPI/page-count sidecar; ZIP member CRC32 is verified; the archive scan reads one buffer and invalidates pre-CRC caches; PDF/audio denominators derive from the ledger; donor page renders are copied into the private HTTP-served root; and escaped privacy tokens are detected.
+- Re-ran the real pipeline. All 96 archives were rescanned through CRC32 validation, 527/527 PDF render sets received explicit sidecars without unnecessary re-rendering, and the public validator remained green with the exact audited counts and 1/1 verified/playable claim.
+- Added real regressions for unchanged-length ZIP corruption, render-DPI/page-count mismatch, empty-census denominator honesty, private render copying, and quote/backslash token escaping. The four focused suites pass 32/32.
+- Rechecked the teacher comparison at the browser tool's 500 px minimum: document `clientWidth` and `scrollWidth` are both 485 px. The private mobile screenshot remains under the ignored artifact root.
+- Resumed the same Fable session after quota refresh. It inspected every fix and test, re-ran public validation, independently rescanned the three public outputs plus RESOURCE-LEDGER for private material and count drift, and returned final `PASS` with no release-blocking defects.
