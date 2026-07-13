@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Chip-mirror fidelity smoke: small fixed-height chips/labels decorated via the
-// text mirror must not (a) open intra-word gaps when a reading is wider than
-// its base (新しい順 rendering as "新 しい 順"), or (b) clip the reading at the
-// TOP of the fixed-height chip. Real layout, Chromium AND WebKit.
+// Compact-control fidelity smoke: fixed-height chips/labels must keep their
+// authored width and height while detached furigana remains visible. A reading
+// wider than its base must not open intra-word gaps (新しい順 rendering as
+// "新 しい 順") or reintroduce an in-flow ruby lane. Chromium AND WebKit.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -155,18 +155,24 @@ writeFileSync(entryPath, `
             removeNonDestructiveScanMirrors(document);
             const host = document.getElementById('more')!;
             host.textContent = MORE_TEXT;
+            const before = host.getBoundingClientRect();
             paintMore(host);
             const rt = host.querySelector<HTMLElement>('rt,.jpdb-reader-detached-furi');
             if (!rt) return { rtCount: 0, rtTopClip: 0, mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')) };
             const clipBox = document.getElementById('more-row')!;
             const rtRect = rt.getBoundingClientRect();
+            const after = host.getBoundingClientRect();
             return {
                 rtCount: host.querySelectorAll('rt,.jpdb-reader-detached-furi').length,
+                inlineRubyCount: host.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
+                detachedReadingCount: host.querySelectorAll('.jpdb-reader-detached-furi').length,
                 mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')),
                 rtTopClip: clipBox.getBoundingClientRect().top - rtRect.top,
                 rtHeight: rtRect.height,
                 readingClipped: readingIsClipped(rt),
                 readingBaseOverlap: readingBaseOverlap(host),
+                widthGrowth: after.width - before.width,
+                heightGrowth: after.height - before.height,
             };
         },
         // A tab-style label whose line-height equals the fixed row height puts
@@ -179,17 +185,23 @@ writeFileSync(entryPath, `
             const row = document.getElementById('tab-row')!;
             const label = document.getElementById('tab-label')!;
             label.textContent = TEXT;
+            const before = label.getBoundingClientRect();
             paintLabel(label);
             const scope = label.querySelector('.jpdb-reader-text-mirror') ?? label;
             const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
             if (!rts.length) return { rtCount: 0, rtTopClip: 0 };
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
+            const after = label.getBoundingClientRect();
             return {
                 rtCount: rts.length,
+                inlineRubyCount: scope.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
+                detachedReadingCount: scope.querySelectorAll('.jpdb-reader-detached-furi').length,
                 rtTopClip: row.getBoundingClientRect().top - rtTop,
                 readingClipped: rts.some(readingIsClipped),
                 readingClipAncestors: rts.flatMap(readingClipAncestors),
                 readingBaseOverlap: readingBaseOverlap(scope),
+                widthGrowth: after.width - before.width,
+                heightGrowth: after.height - before.height,
             };
         },
         runChipMirrorProbe() {
@@ -198,6 +210,7 @@ writeFileSync(entryPath, `
             const chip = document.getElementById('chip')!;
             const label = document.getElementById('chip-label')!;
             label.textContent = TEXT;
+            const chipBefore = chip.getBoundingClientRect();
             const plainWidth = label.getBoundingClientRect().width;
             paintLabel(label);
             const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
@@ -213,6 +226,7 @@ writeFileSync(entryPath, `
             const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
             const decoratedWidth = (mirror ?? label).getBoundingClientRect().width;
+            const chipAfter = chip.getBoundingClientRect();
             return {
                 mirror: Boolean(mirror),
                 intraWordGap: rectShii.left - rectShin.right,
@@ -222,9 +236,13 @@ writeFileSync(entryPath, `
                 plainWidth,
                 words: words.length,
                 rtCount: rts.length,
+                inlineRubyCount: scope.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
+                detachedReadingCount: scope.querySelectorAll('.jpdb-reader-detached-furi').length,
                 readingClipped: rts.some(readingIsClipped),
                 readingClipAncestors: rts.flatMap(readingClipAncestors),
                 readingBaseOverlap: readingBaseOverlap(scope),
+                chipWidthGrowth: chipAfter.width - chipBefore.width,
+                chipHeightGrowth: chipAfter.height - chipBefore.height,
                 visiblePitchUnderlines: words.filter(word => {
                     const color = getComputedStyle(word, '::after').borderBottomColor;
                     return color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)';
@@ -270,9 +288,7 @@ function fail(message, details) {
 // base before the label visibly reads as "新 しい 順" (a plain 14px CJK glyph
 // gap is 14px; anything beyond a couple px is a visible split).
 const MAX_GAP_PX = 2.5;
-const MAX_TOP_CLIP_PX = 1;
-// Readings need real breathing room at a clip edge; flush-at-edge renders shaved.
-const MIN_TOP_CLEARANCE_PX = 0.5;
+const MAX_GEOMETRY_DELTA_PX = 0.5;
 
 async function runEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
@@ -284,16 +300,28 @@ async function runEngine(name, browserType) {
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runChipMirrorProbe());
         console.log(`${name} chip:`, JSON.stringify(result));
-        if (result.rtCount !== 0) fail(`${name}: compact control reserved a reading lane`, result);
+        if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
+        if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
+        if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
+        if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
+        if (result.readingBaseOverlap > 0) fail(`${name}: compact control reading overlaps base text`, result);
         if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
         if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
         if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
         const more = await page.evaluate(() => window.runShowMoreProbe());
         console.log(`${name} show-more:`, JSON.stringify(more));
-        if (more.rtCount !== 0) fail(`${name}: show-more control reserved a reading lane`, more);
+        if (more.detachedReadingCount < 1) fail(`${name}: show-more reading missing`, more);
+        if (more.inlineRubyCount !== 0) fail(`${name}: show-more used an in-flow ruby lane`, more);
+        if (Math.abs(more.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(more.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: show-more geometry changed`, more);
+        if (more.readingClipped) fail(`${name}: show-more reading is clipped`, more);
+        if (more.readingBaseOverlap > 0) fail(`${name}: show-more reading overlaps base text`, more);
         const tab = await page.evaluate(() => window.runTabProbe());
         console.log(`${name} tab:`, JSON.stringify(tab));
-        if (tab.rtCount !== 0) fail(`${name}: tab control reserved a reading lane`, tab);
+        if (tab.detachedReadingCount < 1) fail(`${name}: tab reading missing`, tab);
+        if (tab.inlineRubyCount !== 0) fail(`${name}: tab used an in-flow ruby lane`, tab);
+        if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
+        if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
+        if (tab.readingBaseOverlap > 0) fail(`${name}: tab reading overlaps base text`, tab);
         const mini = await page.evaluate(() => window.runMiniGuideProbe());
         console.log(`${name} mini-guide:`, JSON.stringify(mini));
         if (!mini.mirror || mini.readingCount < 1) fail(`${name}: mini-guide reading missing`, mini);
