@@ -43,7 +43,7 @@
     "listeningQuestionsAudited": 0,
     "listeningQuestionsPaired": 0,
     "answerKeyRelationsVerified": 0,
-    "classWeeksPlayable": 38,
+    "classWeeksPlayable": 0,
     "classWeeksTotal": 73,
     "documentsCensused": 527,
     "sourceItemCandidates": 879,
@@ -125,5 +125,43 @@
       "failed": 0
     },
     "note": "All payloads have explicit storage/census states. Donor items remain source-item candidates, not verified or playable source questions."
+  },
+  "stage2LibraryCensus": {
+    "status": "mechanical-census-complete-review-open",
+    "scanRevision": "yomu-academy.library.scan/v1",
+    "publicOutput": "/academy/content/source-pipeline/library-status.v1.json",
+    "denominators": {
+      "entryCount": 15790,
+      "regularFileCount": 13123,
+      "regularFileBytes": 44588237342,
+      "uniquePayloadCount": 11081,
+      "duplicateOccurrenceCount": 72
+    },
+    "moodleOverlapPayloadCount": 68,
+    "archives": {
+      "containerPayloadCount": 89,
+      "censused": 84,
+      "failed": 5,
+      "byFailureReason": [
+        {
+          "archiveFailureCode": "failed:zip64-unsupported",
+          "containerCount": 5
+        }
+      ]
+    },
+    "pdf": {
+      "documentCount": 450,
+      "complete": 450,
+      "reusedMoodleCensus": 44,
+      "failed": 0,
+      "pageCount": 70983
+    },
+    "media": {
+      "payloadCount": 5090,
+      "probed": 5090,
+      "reusedMoodleProbeCount": 23,
+      "failed": 0
+    },
+    "note": "Separate denominator universe from the Moodle corpus. Mechanical filesystem/archive/PDF/media census only; contributes no verified or playable source questions."
   }
 }

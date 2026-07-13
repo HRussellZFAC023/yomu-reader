@@ -6,6 +6,8 @@
 
 The original Zero-to-N1 plan still stands. This document corrects how it reaches the learner.
 
+The accepted route, lesson, grounded-content, living-paper, and usability rules are specified in [`LESSON-EXPERIENCE-CONTRACT.md`](LESSON-EXPERIENCE-CONTRACT.md). That contract was adversarially reviewed before Slice 1 resumed.
+
 ## Concept boards
 
 These boards make the contract concrete. They are composition and interaction references, not production UI or canonical content: generated Japanese copy, exact source wording, faces other than approved references, and control details must be replaced by validated runtime data.
@@ -120,7 +122,7 @@ Each Week declares one lead, one or two supporting classmates, and only the back
 
 Suggested early ownership demonstrates the rotation: Lesson 0 Sound uses Xingyu/Mika; Text uses Sophie/Ruparna; Speaking uses Aakash/Sam. The following introduction Week rotates to Henry/Jenny/Tom; food and directions Weeks rotate to Robert/Shin/Rose; routines rotate to Christian/Jodi/Mika. Later N3–N1 arcs widen and recombine the ensemble rather than repeating the same four faces.
 
-Nanako and Karen are canonical extended members only once their evidence and dossiers are complete. Their names, likenesses, interests, and lesson roles are never inferred from another person or invented to fill a scene.
+Nanako and Mira are canonical extended members only once their evidence and dossiers are complete. Their names, likenesses, interests, and lesson roles are never inferred from another person or invented to fill a scene.
 
 ### A ten-minute proof slice
 

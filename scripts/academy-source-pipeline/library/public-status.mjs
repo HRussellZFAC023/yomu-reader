@@ -1,6 +1,23 @@
 import { LIBRARY_SCHEMA_VERSIONS, LIBRARY_SCAN_REVISION } from './paths.mjs';
 import { compareUtf8, readJson, writeJsonAtomic } from '../io.mjs';
-import { findLeakedTokens } from '../privacy.mjs';
+import { findLeakedTokens, validatePublicValue } from '../privacy.mjs';
+
+// These exact basenames are generic tool/output vocabulary, not identifying
+// source labels. Each collides with a controlled public schema token or enum
+// (`.cargo-lock`, `build-artifact`, `compiler-build-output`, `included`,
+// `audio`). Full relative paths containing them remain guarded. Keep this
+// deliberately narrow: every other basename, including Japanese, titles,
+// usernames and distinctive source-derived names, is still a private token.
+const GENERIC_PUBLIC_VOCABULARY_BASENAMES = new Set([
+    '.cargo-lock', 'audio', 'build', 'include', 'output',
+]);
+
+const PUBLIC_ARCHIVE_FAILURE_REASONS = new Set([
+    'failed:read',
+    'failed:source-bytes-changed-since-scan',
+    'failed:zip64-unsupported',
+    'failed:corrupt-or-unsupported',
+]);
 
 /**
  * ALLOWLIST serializer for the single public library artifact. Aggregate
@@ -24,6 +41,13 @@ export function buildLibraryPublicStatus(ledger, archiveCensus, pdfCensus, media
         byExtension.set(extension, (byExtension.get(extension) ?? 0) + 1);
     }
     const archives = archiveCensus.archives;
+    const archiveFailureReasons = {};
+    for (const archive of archives.filter(entry => entry.status?.startsWith('failed:'))) {
+        const reason = PUBLIC_ARCHIVE_FAILURE_REASONS.has(archive.status)
+            ? archive.status
+            : 'failed:other';
+        archiveFailureReasons[reason] = (archiveFailureReasons[reason] ?? 0) + 1;
+    }
     const encryptedMemberCount = archives.reduce((total, archive) =>
         total + (archive.members ?? []).filter(member => member.status === 'failed:encrypted-member').length, 0);
     const mediaProbed = mediaCensus.payloads.filter(entry => entry.status === 'probed');
@@ -48,6 +72,7 @@ export function buildLibraryPublicStatus(ledger, archiveCensus, pdfCensus, media
             uniqueMemberPayloadCount: sum(archives, 'uniqueMemberPayloadCount'),
             failedMemberCount: sum(archives, 'failedMemberCount'),
             encryptedMemberCount,
+            byFailureReason: rows(archiveFailureReasons, 'archiveFailureCode', 'containerCount'),
         },
         pdf: { ...pdfCensus.summary },
         media: {
@@ -79,8 +104,11 @@ export function collectLibraryPrivateTokens(ledger) {
     add(ledger.libraryRoot);
     for (const entry of ledger.entries) {
         add(entry.relativePath);
-        add(entry.relativePath.split('/').pop());
+        add(entry.sha256);
+        const basename = entry.relativePath.split('/').pop();
+        if (!GENERIC_PUBLIC_VOCABULARY_BASENAMES.has(basename)) add(basename);
     }
+    for (const payload of ledger.uniquePayloads ?? []) add(payload.sha256);
     return tokens;
 }
 
@@ -88,6 +116,10 @@ export function writeLibraryPublicStatus(roots, ledger, status) {
     const leaks = findLeakedTokens(JSON.stringify(status), collectLibraryPrivateTokens(ledger));
     if (leaks.length > 0) {
         throw new Error(`Refusing to publish library status: private tokens would leak: ${leaks.slice(0, 5).join(', ')}`);
+    }
+    const structuralViolations = validatePublicValue(status, { label: 'library-status' });
+    if (structuralViolations.length > 0) {
+        throw new Error(`Refusing to publish library status: public allowlist violations: ${structuralViolations.slice(0, 5).join(', ')}`);
     }
     writeJsonAtomic(roots.publicStatusPath, status);
     return roots.publicStatusPath;
@@ -109,6 +141,25 @@ export function updateResourceLedgerLibrarySection(roots, status) {
         publicOutput: '/academy/content/source-pipeline/library-status.v1.json',
         denominators: { ...status.denominators },
         moodleOverlapPayloadCount: status.moodleOverlap.overlapPayloadCount,
+        archives: {
+            containerPayloadCount: status.archives.containerPayloadCount,
+            censused: status.archives.censused,
+            failed: status.archives.failed,
+            byFailureReason: status.archives.byFailureReason,
+        },
+        pdf: {
+            documentCount: status.pdf.documentCount,
+            complete: status.pdf.complete,
+            reusedMoodleCensus: status.pdf.reusedMoodleCensus,
+            failed: status.pdf.failed,
+            pageCount: status.pdf.pageCount,
+        },
+        media: {
+            payloadCount: status.media.payloadCount,
+            probed: status.media.probed,
+            reusedMoodleProbeCount: status.media.reusedMoodleProbeCount,
+            failed: status.media.failed,
+        },
         note: 'Separate denominator universe from the Moodle corpus. Mechanical filesystem/archive/PDF/media census only; contributes no verified or playable source questions.',
     };
     writeJsonAtomic(roots.resourceLedgerPath, ledger);

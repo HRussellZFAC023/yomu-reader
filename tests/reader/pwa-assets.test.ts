@@ -32,7 +32,7 @@ describe('hosted PWA assets', () => {
             scope: '/',
         });
         expect(manifest.shortcuts).toEqual(expect.arrayContaining([
-            expect.objectContaining({ url: '/newtab/index.html' }),
+            expect.objectContaining({ url: '/study/' }),
             expect.objectContaining({ url: '/video-player/index.html' }),
             expect.objectContaining({ url: '/pdf-reader/' }),
         ]));
@@ -46,6 +46,7 @@ describe('hosted PWA assets', () => {
         expect(html).toContain('<link rel="manifest" href="./manifest.webmanifest">');
         expect(html).toContain("navigator.serviceWorker.register('./sw.js')");
         expect(serviceWorker).toContain("const CACHE_NAME = `yomu-newtab-${APP_HASH}`;");
+        expect(serviceWorker).toContain('new URL(self.registration.scope).pathname');
         expect(serviceWorker).toContain("'./manifest.webmanifest'");
         expect(serviceWorker).toContain("'/manifest.webmanifest'");
         expect(manifest).toMatchObject({
@@ -96,10 +97,12 @@ describe('hosted PWA assets', () => {
         const extensionBuild = readText('scripts/build-extension.mjs');
         const verifier = readText('scripts/verify-userscript.cjs');
 
+        expect(syncScript).toContain("function writeStudyManifest()");
         expect(syncScript).toContain("public', 'newtab', 'manifest.webmanifest'");
-        expect(syncScript).toContain("dist', 'newtab', 'manifest.webmanifest'");
+        expect(syncScript).toContain("join(STUDY_BUILD_DIRECTORY, 'manifest.webmanifest')");
         expect(extensionBuild).toContain('stageNewTabWebManifest');
         expect(extensionBuild).toContain("'newtab/manifest.webmanifest'");
-        expect(verifier).toContain("['dist/newtab/manifest.webmanifest', 'docs/public/newtab/manifest.webmanifest']");
+        expect(verifier).toContain("['dist/newtab/manifest.webmanifest', 'docs/public/study/manifest.webmanifest']");
+        expect(verifier).toContain("assertLightweightNewTabAlias('docs/public/newtab')");
     });
 });

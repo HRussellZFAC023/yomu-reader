@@ -129,9 +129,9 @@ If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, k
 
 If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary lookup still work without it.
 
-## New Tab Study Page
+## Study Page
 
-Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale.
+Make the [Study page](/study/) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. The old `/newtab/` URL remains a compatibility route.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 

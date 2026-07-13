@@ -28,13 +28,13 @@ describe('new-tab source orchestration', () => {
 
     it('dedupes JPDB and Anki without dropping Bunpro or local source results', () => {
         const results = autoReviewSourceResults(
-            { sourceLabel: 'Yomu', reviewCountMode: true, cards: [card({ source: 'yomu-local', reviewSource: 'yomu-local', spelling: '図鑑', reading: 'ずかん' })] },
+            { sourceLabel: 'Academy', reviewCountMode: true, cards: [card({ source: 'yomu-local', reviewSource: 'yomu-local', spelling: '図鑑', reading: 'ずかん' })] },
             { sourceLabel: 'JPDB', reviewCountMode: true, cards: [card({ source: 'jpdb', reviewSource: 'jpdb-api', spelling: '読む', reading: 'よむ' })] },
             { sourceLabel: 'Bunpro', reviewCountMode: true, cards: [card({ source: 'bunpro', reviewSource: 'bunpro-api', spelling: '〜ている', reading: 'ている' })] },
             { sourceLabel: 'Anki', reviewCountMode: true, cards: [card({ source: 'anki', reviewSource: 'anki', spelling: '読む', reading: 'よむ', ankiCardId: 42 })] },
         );
 
-        expect(results.map(result => result.sourceLabel)).toEqual(['Yomu', 'JPDB', 'Bunpro', 'Anki']);
+        expect(results.map(result => result.sourceLabel)).toEqual(['Academy', 'JPDB', 'Bunpro', 'Anki']);
         expect(results[1]?.cards[0]?.ankiCardId).toBe(42);
         expect(results[3]?.cards).toEqual([]);
         expect(results[0]?.cards[0]?.spelling).toBe('図鑑');

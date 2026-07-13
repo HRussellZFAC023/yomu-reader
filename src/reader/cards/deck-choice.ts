@@ -1,5 +1,6 @@
 import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
+import { ACADEMY_SRS_LABEL } from '../app/constants';
 import type { ApiDeck, JPDBDeck, ReaderSettings } from '../app/types';
 
 type SrsDeckSource = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
@@ -23,7 +24,7 @@ export function renderDeckChoiceOptions(
     if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
     if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
     if (renderOptions.includeBunpro) addDeckChoiceOption(options, 'bunpro', 'bunpro', 'Bunpro');
-    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, 'yomu-local', 'yomu-local', 'Yomu');
+    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, 'yomu-local', 'yomu-local', ACADEMY_SRS_LABEL);
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return '';
     return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join('');

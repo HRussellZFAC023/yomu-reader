@@ -27,6 +27,7 @@ These captures come from the real Vite Academy at `127.0.0.1:5181`, after the Yo
 | `14-journal-aakash-sprite.png` | `e2eb5a7a4cd1c53b93b4e340eb98ede465a9c50be23eb01e9a5bde881025a2d2` | current app; Aakash uses the transparent sprite rather than repeating the rainy event CG |
 | `15-day-end-vn.png` | `ea5f7c22b8ce1ba9ea437e64bc10cb74912c37aae131c1128f0c3f38e6fd4d4a` | current app; learner can pause the day in a full-bleed Rie VN scene and return without false completion evidence |
 | `16-donation-letter.png` | `68903a91be8003f1be402dc412ad4831f94ba1346543d8ebe457a5bc18d48253` | current app; one-time support uses a concise accessible living-paper dialog and validated amount choices |
+| `17-class-path-overview.png` | `95ec7a8ede8104d31bb5180025dc949a2af28659de3acc94fec6417aa9f04954` | current app; five-level syllabus spine with only the current level expanded and planning-only Weeks visibly unavailable |
 
 ## Character review evidence
 

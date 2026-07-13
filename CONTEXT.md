@@ -60,6 +60,14 @@ _Avoid_: Unit, lesson
 A learner-facing sequence projected from Concepts, Weeks, and activities by one curriculum view.
 _Avoid_: Week
 
+**Grounded Lesson**:
+A complete learner-facing lesson whose validator resolves source or reviewed-authored input, curriculum prerequisites and outcomes, instruction before assessment, answer concealment, required media, grading, repair, canonical review evidence, equivalent access, and guided-to-transfer production. Any unresolved proof keeps the whole lesson review-blocked.
+_Avoid_: Routed lesson, source-backed lesson, implemented lesson
+
+**Lesson Delivery State**:
+The derived Class status for a Week: planning-only, review-blocked, or grounded-playable. Only a complete Grounded Lesson with no blockers can be grounded-playable.
+_Avoid_: Authored, ready, source-backed
+
 **Learner Event**:
 Immutable evidence that learning, story, relationship, unlock, or profile state changed.
 _Avoid_: Progress flag, save field
@@ -67,6 +75,10 @@ _Avoid_: Progress flag, save field
 **Mastery Projection**:
 The learner's derived current state for Concepts and review work, calculated from Learner Events.
 _Avoid_: Score, progress state
+
+**Review Schedule Neutralization**:
+An append-only Learner Event that supersedes one known ungrounded review schedule while preserving the original schedule and generic Study rating history for audit and continuity.
+_Avoid_: Review deletion, history cleanup
 
 **Story Experience**:
 The canonical scenes the learner has actually played.
@@ -95,6 +107,10 @@ _Avoid_: Lesson cast, finished scene roster
 **Review-required Appearance**:
 A Week entry whose available source metadata cannot yet justify a classmate assignment. It preserves the gap without inventing a host.
 _Avoid_: Placeholder cast, best guess
+
+**Canonical Cast Identity**:
+The owner-confirmed first-name-only identity used for one Academy character. A superseded or private name is not a public alias.
+_Avoid_: Contact name, display name, nickname
 
 ## Module Expectations
 

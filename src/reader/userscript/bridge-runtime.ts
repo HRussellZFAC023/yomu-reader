@@ -1,4 +1,4 @@
-import { isYomuHostedAppUrl } from '../app/pages';
+import { isYomuPrivilegedHostedAppUrl } from '../app/pages';
 import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import {
     bridgeEventId,
@@ -106,7 +106,7 @@ export function uninstallUserscriptHttpBridge(): void {
 
 function shouldInstallUserscriptHttpBridge(): boolean {
     try {
-        return typeof location !== 'undefined' && isYomuHostedAppUrl(location.href);
+        return typeof location !== 'undefined' && isYomuPrivilegedHostedAppUrl(location.href);
     } catch {
         return false;
     }

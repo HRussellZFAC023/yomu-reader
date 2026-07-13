@@ -33,7 +33,7 @@
   },
   "scripts": {
     "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
-    "build:academy": "vite build --config config/vite/academy.config.ts && node scripts/sync-academy.cjs",
+    "build:academy": "npm run academy:lessons:validate && vite build --config config/vite/academy.config.ts && node scripts/sync-academy.cjs",
     "build": "npm run build:userscript",
     "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",
     "build:gaming": "npm run build:gaming:renderer && npm run build:gaming:main",
@@ -51,6 +51,7 @@
     "academy:library:census": "node scripts/academy-library-pipeline.mjs census",
     "academy:library:pipeline": "node scripts/academy-library-pipeline.mjs all",
     "academy:library:validate": "node scripts/academy-library-pipeline.mjs validate",
+    "academy:lessons:validate": "vitest run --config config/vite/academy.config.ts tests/academy/all-lessons-grounded.test.ts tests/academy/resource-ledger-honesty.test.ts",
     "dev": "node scripts/dev-userscript.mjs",
     "dev:gaming": "node scripts/dev-gaming-app.mjs",
     "dev:academy": "vite --config config/vite/academy.config.ts",

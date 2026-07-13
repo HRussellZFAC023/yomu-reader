@@ -1,4 +1,4 @@
-import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
@@ -281,7 +281,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${input('apiCredentialBunpro', `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
@@ -358,8 +358,8 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${runningAsBrowserExtension() ? checkbox('newTabEnabled', 'Set Study as the new tab', settings.newTabEnabled) : ''}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: Yomu, accounts, then study words'], ['yomu-local', 'Yomu local SRS'], ['jpdb', 'API SRS (Jiten / JPDB)'], ['bunpro', 'Bunpro'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
-                        ${checkbox('yomuLocalSrsEnabled', 'Enable local Yomu SRS', settings.yomuLocalSrsEnabled)}
+                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`], ['yomu-local', ACADEMY_SRS_LABEL], ['jpdb', 'API SRS (Jiten / JPDB)'], ['bunpro', 'Bunpro'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${checkbox('yomuLocalSrsEnabled', `Enable ${ACADEMY_SRS_LABEL}`, settings.yomuLocalSrsEnabled)}
                         ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                             ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}

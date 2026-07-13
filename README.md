@@ -26,7 +26,8 @@
   <a href="https://yomureader.com/features">Features</a> ·
   <a href="https://yomureader.com/tools/yomu-gaming">Yomu Gaming</a> ·
   <a href="https://yomureader.com/video-player/index.html">Video reader</a> ·
-  <a href="https://yomureader.com/newtab/">Study app</a> ·
+  <a href="https://yomureader.com/study/">Study app</a> ·
+  <a href="https://yomureader.com/academy/">Academy</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
 </p>
 
@@ -82,7 +83,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
-- [Study page](https://yomureader.com/newtab/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut.
+- [Study page](https://yomureader.com/study/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 

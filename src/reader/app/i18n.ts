@@ -1,4 +1,4 @@
-import { APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
+import { ACADEMY_SRS_LABEL, APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { requestJson } from '../network/http';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 
@@ -81,7 +81,7 @@ const COPY = {
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.',
+        apiAccessHelp: 'Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         bunproSettings: 'Bunpro settings',
@@ -101,7 +101,7 @@ const COPY = {
         disabledControlDescription: 'Controlled by another setting.',
         jpdbMiningEnabled: 'Allow API review/deck changes',
         bunproMiningEnabled: 'Allow Bunpro review/mining',
-        yomuLocalSrsEnabled: 'Enable local Yomu SRS',
+        yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
         reviewRatingScale: 'Review rating scale',
@@ -110,12 +110,12 @@ const COPY = {
         gradeTargetJpdb: 'Grades JPDB',
         gradeTargetJiten: 'Grades Jiten',
         gradeTargetBunpro: 'Grades Bunpro',
-        gradeTargetYomuLocal: 'Grades Yomu',
+        gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
         gradeTargetJitenAndAnki: 'Grades Jiten + Anki card: {target}',
         gradeTargetBunproAndAnki: 'Grades Bunpro + Anki card: {target}',
-        gradeTargetYomuLocalAndAnki: 'Grades Yomu + Anki card: {target}',
+        gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
         missingAnkiCardId: 'Missing Anki card id.',
         jpdbPageEnhancements: 'Dictionary site enhancements',
         jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
@@ -166,10 +166,10 @@ const COPY = {
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'Study review source',
-        newTabAuto: 'Auto: Yomu, accounts, then study words',
+        newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
         newTabApiSrs: 'API SRS (Jiten / JPDB)',
         newTabBunpro: 'Bunpro',
-        newTabYomuLocal: 'Yomu local SRS',
+        newTabYomuLocal: ACADEMY_SRS_LABEL,
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
@@ -1090,11 +1090,11 @@ const COPY = {
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
         jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
         bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
-        yomuLocalSrsDisabled: 'Enable local Yomu SRS in Settings first.',
+        yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
         addedToBunpro: 'Added to Bunpro.',
-        addedToYomuLocal: 'Added to Yomu.',
+        addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
         sourceSingular: 'source',
@@ -1749,11 +1749,11 @@ addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
-yomuLocalSrsDisabled	先に設定でローカルよむSRSを有効にしてください。
+yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
-addedToYomuLocal	よむに追加しました。
+addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
@@ -1839,7 +1839,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -1858,7 +1858,7 @@ statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
 bunproMiningEnabled	Bunproの復習・採掘を許可
-yomuLocalSrsEnabled	ローカルよむSRSを有効化
+yomuLocalSrsEnabled	Academyを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -1867,12 +1867,12 @@ gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
-gradeTargetYomuLocal	よむを採点
+gradeTargetYomuLocal	Academyに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	よむ + Ankiカードを採点: {target}
+gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
@@ -1918,10 +1918,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: よむ・アカウント後に学習語
+newTabAuto	自動: Academy・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
-newTabYomuLocal	ローカルよむSRS
+newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙

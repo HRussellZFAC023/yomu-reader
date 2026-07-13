@@ -1,9 +1,10 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { academyText } from '../../reader/app/academy-copy';
 import { OPEN_SETTINGS_EVENT } from '../../reader/app/constants';
+import type { AcademyPresentationMode } from '../routing/route-history';
 import { copyButton, element, setCopy } from './dom';
 
-export type AcademyNavigation = 'campus' | 'review' | 'journal';
+export type AcademyNavigation = 'campus' | 'class' | 'review' | 'journal';
 export type AcademyClassBoardAccess = 'account-required' | 'available';
 
 export interface AcademyShell {
@@ -13,7 +14,7 @@ export interface AcademyShell {
     setNavigation(visible: boolean, active?: AcademyNavigation): void;
     setLearnerActionsVisible(visible: boolean): void;
     setClassBoardAccess(access: AcademyClassBoardAccess): void;
-    setNetwork(online: boolean): void;
+    setPresentationMode(mode: AcademyPresentationMode): void;
     setMuted(muted: boolean): void;
     announce(message: string): void;
     dispose(): void;
@@ -24,7 +25,7 @@ export interface AcademyShellOptions {
     readonly onLanguage: () => void;
     readonly onMute: () => void;
     readonly onNavigate: (route: AcademyNavigation) => void;
-    readonly onChooseLesson?: () => void;
+    readonly onPresentationMode: (mode: AcademyPresentationMode) => void;
     readonly onEndForToday?: () => void;
     readonly onSettings?: () => void;
     readonly onClassBoard?: (access: AcademyClassBoardAccess) => void;
@@ -59,14 +60,14 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     });
     const learnerActions = element('div', 'academy-learner-actions');
     learnerActions.hidden = true;
-    const chooseLesson = copyButton(options.language, 'navChooseLesson', 'academy-nav-button academy-choose-lesson-button');
+    const classPath = copyButton(options.language, 'navClass', 'academy-nav-button academy-class-path-button');
     const endForToday = copyButton(options.language, 'navEndToday', 'academy-nav-button academy-end-today-button');
-    learnerActions.append(chooseLesson, endForToday);
-    const achievements = copyButton(options.language, 'navAchievementsSoon', 'academy-nav-button academy-achievements-button');
-    achievements.disabled = true;
+    const presentation = copyButton(options.language, 'navPresentationStory', 'academy-nav-button academy-presentation-button');
+    learnerActions.append(classPath, endForToday, presentation);
+    navButtons.set('class', classPath);
     const classBoard = copyButton(options.language, 'navClassBoardAccount', 'academy-nav-button academy-class-board-button');
     const settings = copyButton(options.language, 'navSettings', 'academy-nav-button academy-settings-button');
-    actions.append(learnerActions, navigation, achievements, classBoard, settings, audioButton, languageButton);
+    actions.append(learnerActions, navigation, classBoard, settings, audioButton, languageButton);
     const live = element('div', 'academy-sr-only');
     live.setAttribute('aria-live', 'polite');
     root.append(header, screen, live);
@@ -75,24 +76,37 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     let language = options.language;
     let muted = false;
     let classBoardAccess: AcademyClassBoardAccess = 'account-required';
+    let presentationMode: AcademyPresentationMode = 'story';
     const refreshCopy = () => {
         utilityToggle.setAttribute('aria-label', academyText(language, 'utilityMenu'));
         setCopy(languageButton, language, 'languageToggle');
         setCopy(audioButton, language, muted ? 'navAudioMuted' : 'navAudioOn');
-        setCopy(achievements, language, 'navAchievementsSoon');
         setCopy(classBoard, language, classBoardAccess === 'available' ? 'navClassBoard' : 'navClassBoardAccount');
         classBoard.dataset.access = classBoardAccess;
-        classBoard.disabled = !options.onClassBoard;
+        classBoard.hidden = !options.onClassBoard;
         setCopy(settings, language, 'navSettings');
-        setCopy(chooseLesson, language, 'navChooseLesson');
+        setCopy(classPath, language, 'navClass');
         setCopy(endForToday, language, 'navEndToday');
-        ([['campus', 'navCampus'], ['review', 'navReview'], ['journal', 'navJournal']] as const)
+        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationCourse' : 'navPresentationStory');
+        presentation.dataset.presentationMode = presentationMode;
+        root.dataset.presentationMode = presentationMode;
+        presentation.setAttribute('aria-pressed', String(presentationMode === 'course'));
+        const presentationAction = academyText(
+            language,
+            presentationMode === 'course' ? 'navSwitchToStory' : 'navSwitchToCourse',
+        );
+        presentation.setAttribute('aria-label', `${presentation.textContent}. ${presentationAction}`);
+        ([['campus', 'navCampus'], ['class', 'navClass'], ['review', 'navReview'], ['journal', 'navJournal']] as const)
             .forEach(([route, key]) => { const button = navButtons.get(route); if (button) setCopy(button, language, key); });
     };
     languageButton.addEventListener('click', () => { utility.open = false; options.onLanguage(); }, { signal: lifecycle.signal });
     audioButton.addEventListener('click', () => { utility.open = false; options.onMute(); }, { signal: lifecycle.signal });
-    chooseLesson.addEventListener('click', () => { utility.open = false; options.onChooseLesson?.(); }, { signal: lifecycle.signal });
+    classPath.addEventListener('click', () => { utility.open = false; options.onNavigate('class'); }, { signal: lifecycle.signal });
     endForToday.addEventListener('click', () => { utility.open = false; options.onEndForToday?.(); }, { signal: lifecycle.signal });
+    presentation.addEventListener('click', () => {
+        utility.open = false;
+        options.onPresentationMode(presentationMode === 'story' ? 'course' : 'story');
+    }, { signal: lifecycle.signal });
     settings.addEventListener('click', () => {
         utility.open = false;
         if (options.onSettings) options.onSettings();
@@ -130,7 +144,7 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         },
         setLearnerActionsVisible(visible) { learnerActions.hidden = !visible; },
         setClassBoardAccess(next) { classBoardAccess = next; refreshCopy(); },
-        setNetwork() {},
+        setPresentationMode(next) { presentationMode = next; refreshCopy(); },
         setMuted(next) { muted = next; refreshCopy(); },
         announce(message) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = message; }); },
         dispose() { lifecycle.abort(); document.documentElement.lang = previousDocumentLanguage; root.remove(); },

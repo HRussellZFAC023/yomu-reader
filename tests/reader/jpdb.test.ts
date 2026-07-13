@@ -6857,7 +6857,7 @@ describe('reader helpers', () => {
         expect(readerMetaText()).not.toContain('Yomu');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'yomu-local')).toBe(true);
-        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Yomu');
+        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Academy');
         const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
         expect(addButton?.dataset.deckSource).toBe('yomu-local');
     });
@@ -7097,7 +7097,7 @@ describe('reader helpers', () => {
             srsAdapters: {
                 'yomu-local': {
                     id: 'yomu-local',
-                    label: 'Yomu',
+                    label: 'Academy',
                     capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
                     hasCredential: () => true,
                     verify: vi.fn(),
@@ -7139,7 +7139,7 @@ describe('reader helpers', () => {
             }),
         }));
         expect(addToDeck).not.toHaveBeenCalled();
-        expect(toast).toHaveBeenCalledWith('Added to Yomu.');
+        expect(toast).toHaveBeenCalledWith('Added to Academy.');
         expect(toast).toHaveBeenCalledWith('Added to deck and reviewed.');
     });
 
@@ -8459,7 +8459,7 @@ describe('reader helpers', () => {
 
     it('recognizes the Yomu new tab URL and adjusts accent colors for contrast', () => {
         expect(isYomuNewTabUrl('https://hrussellzfac023.github.io/yomu-reader/newtab/')).toBe(true);
-        expect(isYomuNewTabUrl('https://example.com/?yomu-newtab=1')).toBe(true);
+        expect(isYomuNewTabUrl('https://example.com/?yomu-newtab=1')).toBe(false);
         expect(isYomuNewTabUrl('https://example.com/reader')).toBe(false);
         expect(resolveNewTabBrandAssets('https://hrussellzfac023.github.io/yomu-reader/newtab/')).toEqual({
             homeHref: '/yomu-reader/',

@@ -1,22 +1,19 @@
-import type { AcademyLanguage } from '../../reader/app/academy-copy';
+import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
+import { newTabText } from '../../reader/newtab/i18n';
+import {
+    createStudySessionClock,
+    formatStudySessionRemaining,
+    mountStudySessionClockControl,
+    type StudySessionClock,
+    type StudySessionClockSnapshot,
+} from '../../reader/newtab/session-clock';
+import { DEFAULT_STUDY_DURATION_MS } from '../../reader/srs/shared';
 import type { Disposable } from './yomu-bridge';
 
-export const DEFAULT_ACADEMY_STUDY_DURATION_MS = 15 * 60 * 1_000;
-const MIN_STUDY_DURATION_MS = 60 * 1_000;
-const MAX_STUDY_DURATION_MS = 3 * 60 * 60 * 1_000;
+export const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 
-export interface AcademyStudyCountdownSnapshot {
-    readonly durationMs: number;
-    readonly remainingMs: number;
-    readonly label: string;
-    readonly complete: boolean;
-}
-
-export interface AcademyStudyCountdown {
-    readonly mode: 'countdown';
-    readonly durationMs: number;
-    snapshot(): AcademyStudyCountdownSnapshot;
-}
+export type AcademyStudyCountdownSnapshot = StudySessionClockSnapshot;
+export type AcademyStudyCountdown = StudySessionClock;
 
 export interface AcademyStudySurface {
     readonly id: 'academy';
@@ -26,6 +23,7 @@ export interface AcademyStudySurface {
 export interface AcademyStudyMountContext {
     readonly language: AcademyLanguage;
     readonly surface: AcademyStudySurface;
+    /** The canonical Study clock; Academy and Reader controls share this instance. */
     readonly countdown: AcademyStudyCountdown;
     readonly onExit: () => void;
 }
@@ -43,26 +41,35 @@ export interface AcademyStudyMountOptions {
     readonly onSessionComplete?: () => void;
 }
 
+interface CanonicalStudyRuntimeModule {
+    mountNewTabStudySurface(host: HTMLElement, options: {
+        readonly language: AcademyLanguage;
+        readonly sessionClock: StudySessionClock;
+    }): Promise<Disposable>;
+}
+
+type CanonicalStudyRuntimeLoader = () => Promise<CanonicalStudyRuntimeModule>;
+
+/** Production Adapter: lazily mounts the real Reader Study composition root. */
+export function createCanonicalAcademyStudyModule(
+    loadRuntime: CanonicalStudyRuntimeLoader = () => import('../../reader/newtab/runtime'),
+): AcademyStudyModule {
+    return {
+        async mount(host, context) {
+            const runtime = await loadRuntime();
+            return runtime.mountNewTabStudySurface(host, {
+                language: context.language,
+                sessionClock: context.countdown,
+            });
+        },
+    };
+}
+
 export function createAcademyStudyCountdown(
     durationMs = DEFAULT_ACADEMY_STUDY_DURATION_MS,
     now: () => number = Date.now,
 ): AcademyStudyCountdown {
-    const safeDuration = academyStudyDuration(durationMs);
-    const startedAt = now();
-    return {
-        mode: 'countdown',
-        durationMs: safeDuration,
-        snapshot() {
-            const elapsedMs = Math.max(0, now() - startedAt);
-            const remainingMs = Math.max(0, safeDuration - elapsedMs);
-            return {
-                durationMs: safeDuration,
-                remainingMs,
-                label: formatAcademyStudyCountdown(remainingMs),
-                complete: remainingMs === 0,
-            };
-        },
-    };
+    return createStudySessionClock({ durationMs, now });
 }
 
 export async function mountAcademyStudyModule(
@@ -70,13 +77,20 @@ export async function mountAcademyStudyModule(
     module: AcademyStudyModule,
     options: AcademyStudyMountOptions,
 ): Promise<Disposable> {
-    const countdown = createAcademyStudyCountdown(options.durationMs, options.now);
-    const timer = document.createElement('output');
-    timer.className = 'academy-study-countdown';
-    timer.dataset.studyClock = 'countdown';
-    timer.dataset.jpdbReaderSurfaceIgnore = '';
-    timer.setAttribute('role', 'timer');
-    timer.setAttribute('aria-live', 'off');
+    const countdown = createStudySessionClock({
+        durationMs: options.durationMs ?? DEFAULT_ACADEMY_STUDY_DURATION_MS,
+        now: options.now,
+        visibility: document,
+    });
+    const chrome = document.createElement('div');
+    chrome.className = 'academy-study-chrome';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'academy-study-back';
+    back.textContent = academyText(options.language, 'back');
+    const clockHost = document.createElement('div');
+    clockHost.className = 'academy-study-clock-host';
+    chrome.append(back, clockHost);
     const completionStatus = document.createElement('span');
     completionStatus.className = 'academy-sr-only';
     completionStatus.setAttribute('role', 'status');
@@ -88,30 +102,24 @@ export async function mountAcademyStudyModule(
     host.dataset.studySurface = 'academy';
     host.dataset.studyTheme = 'living-paper';
     host.dataset.studySessionMode = countdown.mode;
-    host.replaceChildren(timer, completionStatus, moduleHost);
+    host.replaceChildren(chrome, completionStatus, moduleHost);
 
-    let completionAnnounced = false;
-    let interval: number | undefined;
-    const renderCountdown = (): boolean => {
-        const snapshot = countdown.snapshot();
-        timer.value = snapshot.label;
-        timer.textContent = snapshot.label;
-        timer.dataset.remainingMs = String(snapshot.remainingMs);
-        timer.setAttribute('aria-label', options.language === 'ja'
-            ? `残り${snapshot.label}`
-            : `${snapshot.label} remaining`);
-        if (snapshot.complete && !completionAnnounced) {
-            completionAnnounced = true;
-            completionStatus.textContent = options.language === 'ja' ? '学習時間が終わりました。' : 'Study time complete.';
-            if (interval !== undefined) {
-                window.clearInterval(interval);
-                interval = undefined;
-            }
+    const onExit = (): void => options.onExit();
+    back.addEventListener('click', onExit);
+    const clockControl = mountStudySessionClockControl(clockHost, countdown, {
+        labels: {
+            pause: newTabText(options.language, 'sessionPause'),
+            resume: newTabText(options.language, 'sessionResume'),
+        },
+        className: 'academy-study-clock',
+        outputClassName: 'academy-study-countdown',
+        buttonClassName: 'academy-study-clock-toggle',
+        onComplete: () => {
+            completionStatus.textContent = newTabText(options.language, 'sessionComplete');
             options.onSessionComplete?.();
-        }
-        return snapshot.complete;
-    };
-    if (!renderCountdown()) interval = window.setInterval(renderCountdown, 1_000);
+        },
+    });
+
     let mounted: Disposable;
     try {
         mounted = await module.mount(moduleHost, {
@@ -121,14 +129,18 @@ export async function mountAcademyStudyModule(
             onExit: options.onExit,
         });
     } catch (error) {
-        if (interval !== undefined) window.clearInterval(interval);
+        back.removeEventListener('click', onExit);
+        clockControl.dispose();
+        countdown.dispose();
         host.replaceChildren();
         throw error;
     }
     return {
         dispose() {
-            if (interval !== undefined) window.clearInterval(interval);
+            back.removeEventListener('click', onExit);
             mounted.dispose();
+            clockControl.dispose();
+            countdown.dispose();
             host.replaceChildren();
             host.classList.remove('academy-study-mount');
             delete host.dataset.studySurface;
@@ -138,23 +150,4 @@ export async function mountAcademyStudyModule(
     };
 }
 
-export function formatAcademyStudyCountdown(remainingMs: number): string {
-    const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
-    const hours = Math.floor(seconds / 3_600);
-    const minutes = Math.floor((seconds % 3_600) / 60);
-    const displaySeconds = seconds % 60;
-    return hours > 0
-        ? `${hours}:${pad(minutes)}:${pad(displaySeconds)}`
-        : `${pad(minutes)}:${pad(displaySeconds)}`;
-}
-
-function academyStudyDuration(value: number): number {
-    if (!Number.isSafeInteger(value) || value < MIN_STUDY_DURATION_MS || value > MAX_STUDY_DURATION_MS) {
-        throw new TypeError('Academy Study duration must be a whole number of milliseconds from 1 minute to 3 hours.');
-    }
-    return value;
-}
-
-function pad(value: number): string {
-    return String(value).padStart(2, '0');
-}
+export const formatAcademyStudyCountdown = formatStudySessionRemaining;

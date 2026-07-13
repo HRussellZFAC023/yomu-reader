@@ -31,7 +31,7 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
@@ -233,7 +233,6 @@ import {
 import {
     addNewTabDailyStudyTimeMs,
     formatNewTabDailyGoalLabel,
-    formatNewTabSessionElapsed,
     formatNewTabSessionProgressLabel,
     newTabDailyStudyTimeMs,
     newTabLocalDateKey,
@@ -241,6 +240,12 @@ import {
     NewTabSessionProgressTracker,
     type NewTabSessionProgressSnapshot,
 } from './session-progress';
+import {
+    createStudySessionClock,
+    mountStudySessionClockControl,
+    type StudySessionClock,
+    type StudySessionClockSnapshot,
+} from './session-clock';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import {
     applyJitenDailyStats,
@@ -471,6 +476,15 @@ export interface NewTabControllerDependencies {
     showSettings: (tab?: string) => void;
     dismissLookup?: () => void;
     dismiss: (options?: { suppressHoverTarget?: boolean }) => void;
+}
+
+export interface NewTabControllerOptions {
+    /** Existing host for an embedded Study surface; standalone Study owns body. */
+    readonly host?: HTMLElement;
+    readonly surface?: 'standalone' | 'academy';
+    readonly sessionClock?: StudySessionClock;
+    /** Academy mounts the shared clock control in its location chrome. */
+    readonly showSessionClockControl?: boolean;
 }
 
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
@@ -811,9 +825,14 @@ export class NewTabController {
     private readonly immersionAudioPlayer: NewTabImmersionAudioPlayer;
     private reviewCountMode = false;
     private reviewHistoryCards: JPDBCard[] = [];
-    private readonly sessionProgress = new NewTabSessionProgressTracker();
-    private sessionClockTimer?: number;
+    private readonly sessionClock: StudySessionClock;
+    private readonly ownsSessionClock: boolean;
+    private readonly sessionProgress: NewTabSessionProgressTracker;
+    private sessionClockSubscription?: { dispose(): void };
+    private sessionClockControl?: { dispose(): void };
     private sessionClockRoot: HTMLElement | null = null;
+    private destroyed = false;
+    private lastDailyGoalElapsedMs = 0;
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private fallbackStudyNotice = false;
     private deckSelectorDecks?: { key: string; promise: Promise<JPDBDeck[]> };
@@ -948,7 +967,16 @@ export class NewTabController {
     private statsDeckPrefsLoaded = false;
     private statsDisabledAnkiDecks = new Set<string>();
 
-    constructor(private readonly dependencies: NewTabControllerDependencies) {
+    constructor(
+        private readonly dependencies: NewTabControllerDependencies,
+        private readonly options: NewTabControllerOptions = {},
+    ) {
+        this.ownsSessionClock = !options.sessionClock;
+        this.sessionClock = options.sessionClock ?? createStudySessionClock({
+            visibility: typeof document === 'undefined' ? undefined : document,
+        });
+        this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
+        this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
         const saved = loadNewTabUiState();
         const routeMode = newTabRouteMode();
         const routeSearchQuery = routeMode === 'search' ? newTabRouteSearchQueryFromLocation() : '';
@@ -982,13 +1010,15 @@ export class NewTabController {
     }
 
     isCurrentPage(): boolean {
-        return isYomuNewTabUrl(location.href);
+        return Boolean(this.options.host) || isYomuNewTabUrl(location.href);
     }
 
     async renderPage(): Promise<void> {
-        document.title = `${APP_NAME} ${this.text('newTabPage')}`;
-        document.documentElement.lang = this.resolvedLanguage();
-        document.documentElement.classList.add('jpdb-reader-newtab-document');
+        if (!this.options.host) {
+            document.title = `${APP_NAME} ${this.text('newTabPage')}`;
+            document.documentElement.lang = this.resolvedLanguage();
+            document.documentElement.classList.add('jpdb-reader-newtab-document');
+        }
         const settings = this.dependencies.getSettings();
         this.syncSourceFromSettings(settings);
         this.applyPalette();
@@ -1012,11 +1042,15 @@ export class NewTabController {
         delete root.dataset.newtabOptout;
         const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
         if (shouldRenderContent) {
+            this.sessionClockControl?.dispose();
+            this.sessionClockControl = undefined;
             delete root.dataset.standaloneNewtab;
             root.dataset.newtabLanguage = this.resolvedLanguage();
+            root.dataset.studySurface = this.options.surface ?? 'standalone';
             root.replaceChildren(this.renderEnabledContent());
             this.syncMode(root);
         }
+        this.ensureSessionClock(root);
         this.syncThemeToggle(root);
         this.syncInstallAppButton(root);
         void this.syncSupportBanner(root);
@@ -1077,14 +1111,21 @@ export class NewTabController {
     }
 
     private ensureNewTabRoot(): { root: HTMLElement; isNew: boolean } {
-        const root = document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
+        const root = this.currentRoot();
         if (root) return { root, isNew: false };
 
         const created = document.createElement('main');
         created.className = 'jpdb-reader-newtab';
         created.dataset.jpdbReaderRoot = 'true';
-        document.body.replaceChildren(created);
+        if (this.options.host) this.options.host.replaceChildren(created);
+        else document.body.replaceChildren(created);
         return { root: created, isNew: true };
+    }
+
+    private currentRoot(): HTMLElement | null {
+        return this.options.host
+            ? this.options.host.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]')
+            : document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
     }
 
     private shouldRenderEnabledContent(root: HTMLElement, isNew: boolean): boolean {
@@ -1095,7 +1136,10 @@ export class NewTabController {
     }
 
     destroy(): void {
+        if (this.destroyed) return;
+        this.destroyed = true;
         this.stopSessionClock();
+        if (this.ownsSessionClock) this.sessionClock.dispose();
         this.clearListenRecording();
         this.pitchSrs.flushSync();
         this.stateChannel.close();
@@ -1106,12 +1150,12 @@ export class NewTabController {
         this.frontSentenceCache.clear();
         this.parsedSentenceCache.clear();
         this.rootEventController = undefined;
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (root) delete root.dataset.newtabBound;
     }
 
     async refreshExternalData(): Promise<void> {
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (!root) return;
         this.dependencies.dictionaries.invalidateCaches?.();
         this.clearSourceResultCache();
@@ -1129,7 +1173,7 @@ export class NewTabController {
         const configuredSourceCanLoadBunpro = this.state.source === 'bunpro'
             || this.state.source === 'auto' && this.canUseBunproSource();
         if (!configuredSourceCanLoadBunpro && !this.allWords.some(isBunproReview)) return;
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (!root) return;
         this.gradeSubmissionInFlight = true;
         // Another Study tab may have consumed any session id in this queue.
@@ -1258,7 +1302,7 @@ export class NewTabController {
         return fragment(
             el('div', { class: 'jpdb-reader-newtab-shell' },
                 el('header', { class: 'jpdb-reader-newtab-topbar' },
-                    el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
+                    this.options.surface === 'academy' ? null : el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
                         el('a', {
                             class: 'title',
                             href: brand.homeHref,
@@ -1275,6 +1319,10 @@ export class NewTabController {
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-theme-controls' },
+                        this.options.showSessionClockControl === false ? null : el('div', {
+                            class: 'jpdb-reader-newtab-session-clock-host',
+                            dataset: { newtabSessionClockHost: true },
+                        }),
                         el('details', { class: 'jpdb-reader-newtab-more' },
                             el('summary', {
                                 class: 'jpdb-reader-newtab-overflow',
@@ -1888,6 +1936,7 @@ export class NewTabController {
     }
 
     private shouldRequestSupportBanner(): boolean {
+        if (this.options.surface === 'academy') return false;
         try {
             return location.origin === new URL(DOCS_BASE_URL).origin;
         } catch {
@@ -2050,7 +2099,7 @@ export class NewTabController {
     }
 
     private navigateStudyStep(direction: PointerNavigationDirection): boolean {
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         const card = this.visibleWords[this.index];
         if (!root || !card || this.state.mode === 'search' || this.state.mode === 'stats') return false;
         const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
@@ -3009,7 +3058,7 @@ export class NewTabController {
             jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup'),
             jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup'),
             bunpro: this.canUseBunproSource() ? this.loadingStatsSource(this.statsSnapshot.bunpro) : emptyStatsSource('bunpro', 'Bunpro', this.text('statsApiKeyMissing'), 'setup'),
-            yomuLocal: settings.yomuLocalSrsEnabled ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource('yomu-local', 'Yomu', this.text('statsNoData'), 'setup'),
+            yomuLocal: settings.yomuLocalSrsEnabled ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.text('statsNoData'), 'setup'),
             anki: this.shouldLoadAnkiStats(settings) ? this.loadingStatsSource(this.statsSnapshot.anki) : emptyStatsSource('anki', 'Anki', this.text('statsConnectAnki'), 'setup'),
             combined: this.loadingStatsSource(this.statsSnapshot.combined),
         };
@@ -4358,7 +4407,7 @@ export class NewTabController {
         if (source === 'anki') return false;
         if (source === 'jpdb') return result.sourceLabel.startsWith('JPDB') || result.sourceLabel.startsWith('Jiten');
         if (source === 'bunpro') return result.sourceLabel.startsWith('Bunpro');
-        if (source === 'yomu-local') return result.sourceLabel.startsWith('Yomu');
+        if (source === 'yomu-local') return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
         return result.sourceLabel === this.text('dictionary');
     }
 
@@ -4407,7 +4456,7 @@ export class NewTabController {
         const preferredCardKey = this.currentVisibleWordKey();
         const sourceChanged = this.state.source !== state.source;
         this.state = state;
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (!root) return;
         this.syncMode(root);
         if (sourceChanged) {
@@ -4674,7 +4723,7 @@ export class NewTabController {
     private showPreviousWord(): void {
         // UT-58: stepping back right after grading IS the undo gesture.
         if (this.canUndoLastReview()) {
-            const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+            const root = this.currentRoot();
             if (root) {
                 void this.undoLastReview(root);
                 return;
@@ -4685,7 +4734,7 @@ export class NewTabController {
     }
 
     private navigateStudyWord(direction: 1 | -1): void {
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
         this.navigationGeneration++;
@@ -5017,7 +5066,7 @@ export class NewTabController {
     // ----- Listen mode: audio-first pitch-accent drills over a local pitch SRS -----
 
     private listenRootEl(): HTMLElement | null {
-        return document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        return this.currentRoot();
     }
 
     private renderListenPrompt(slots: NewTabStudySlots, card: JPDBCard): void {
@@ -5415,7 +5464,7 @@ export class NewTabController {
                 completed: this.text('sessionDone'),
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
-            }) : this.sessionElapsedLabel(),
+            }) : this.sessionProgress.snapshot([]).remainingSessionLabel,
             snapshot ? this.offlineCacheSegment() : '',
             snapshot ? this.syncStatusSegment() : '',
             this.dailyGoalLabel(),
@@ -5426,13 +5475,6 @@ export class NewTabController {
             return;
         }
         this.renderCount(slots.count, labels.join(' · '), snapshot);
-    }
-
-    // The session stopwatch was previously only stamped at render time, so it
-    // looked frozen (user-reported "session timer missing"); a 1s clock keeps
-    // it ticking and accumulates visible-tab time into the daily goal.
-    private sessionElapsedLabel(): string {
-        return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
     }
 
     // "cached N/M" — how many of the session's review cards are warmed for offline
@@ -5540,36 +5582,46 @@ export class NewTabController {
     }
 
     private ensureSessionClock(root: HTMLElement): void {
-        this.sessionClockRoot = root;
-        if (this.sessionClockTimer !== undefined || typeof window === 'undefined') return;
-        this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1000);
+        // Async provider work may settle after its Study surface has unmounted.
+        // A destroyed controller must never subscribe to its disposed owned clock.
+        if (this.destroyed) return;
+        if (this.sessionClockRoot !== root) {
+            this.stopSessionClock();
+            this.sessionClockRoot = root;
+            this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
+            this.sessionClockSubscription = this.sessionClock.subscribe(snapshot => this.tickSessionClock(snapshot));
+        }
+        if (this.options.showSessionClockControl === false || this.sessionClockControl) return;
+        const host = root.querySelector<HTMLElement>('[data-newtab-session-clock-host]');
+        if (!host) return;
+        this.sessionClockControl = mountStudySessionClockControl(host, this.sessionClock, {
+            labels: {
+                pause: this.text('sessionPause'),
+                resume: this.text('sessionResume'),
+            },
+            className: 'jpdb-reader-newtab-session-clock',
+        });
     }
 
     private stopSessionClock(): void {
-        if (this.sessionClockTimer === undefined) return;
-        if (typeof window !== 'undefined') window.clearInterval(this.sessionClockTimer);
-        this.sessionClockTimer = undefined;
+        this.sessionClockSubscription?.dispose();
+        this.sessionClockSubscription = undefined;
+        this.sessionClockControl?.dispose();
+        this.sessionClockControl = undefined;
         this.sessionClockRoot = null;
     }
 
-    private tickSessionClock(): void {
-        // Snow Leopard: no idle timers — the clock only runs while the Word
-        // tab is actually studying (renderSessionProgress restarts it), and
-        // goal time only accrues for visible word-study seconds.
-        // The document guard stops the clock when the environment is being
-        // torn down (jsdom test teardown) instead of throwing from the timer.
-        if (typeof document === 'undefined' || !this.isVocabularyStudyMode(this.state.mode)) {
-            this.stopSessionClock();
-            return;
-        }
-        if (document.hidden) return;
-        addNewTabDailyStudyTimeMs(1000, newTabLocalDateKey());
+    private tickSessionClock(snapshot: StudySessionClockSnapshot): void {
+        const studiedMs = Math.max(0, snapshot.elapsedMs - this.lastDailyGoalElapsedMs);
+        this.lastDailyGoalElapsedMs = snapshot.elapsedMs;
+        if (studiedMs > 0) addNewTabDailyStudyTimeMs(studiedMs, newTabLocalDateKey());
         const root = this.sessionClockRoot;
         const card = this.visibleWords[this.index];
-        if (!root?.isConnected || !card) {
+        if (!root?.isConnected) {
             this.stopSessionClock();
             return;
         }
+        if (!card || !this.isVocabularyStudyMode(this.state.mode)) return;
         this.renderSessionProgress(this.studySlots(root), card, root);
     }
 
@@ -5638,7 +5690,7 @@ export class NewTabController {
         if (summary.hasJiten) add('Jiten');
         if (summary.hasJpdb) add('JPDB');
         if (summary.hasBunpro) add('Bunpro');
-        if (summary.hasYomuLocal) add('Yomu');
+        if (summary.hasYomuLocal) add(ACADEMY_SRS_LABEL);
         if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten || summary.hasBunpro || summary.hasYomuLocal ? 'Anki' : this.ankiReviewSourceLabel(card));
         return labels;
     }
@@ -5728,7 +5780,8 @@ export class NewTabController {
 
     private sourceSelectForStatus(statusSlot: HTMLElement | null): HTMLSelectElement | null {
         return statusSlot?.parentElement?.querySelector<HTMLSelectElement>('[data-newtab-source-select]')
-            ?? document.querySelector<HTMLSelectElement>('[data-jpdb-reader-root] [data-newtab-source-select]');
+            ?? this.currentRoot()?.querySelector<HTMLSelectElement>('[data-newtab-source-select]')
+            ?? null;
     }
 
     private clearSourceSelector(statusSlot: HTMLElement | null): void {
@@ -5853,7 +5906,7 @@ export class NewTabController {
         return this.unifyStarterSourceToggle(sources, card, context);
     }
 
-    // Keyless, "Yomu" (yomu-local SRS) and "Dictionary" both resolve to the same
+    // Keyless, "Academy" (yomu-local SRS) and "Dictionary" both resolve to the same
     // built-in starter-word queue — no reviews are due and no dictionary is
     // imported, so both flags are on-by-default yet neither carries distinct
     // content. Offering both in the dropdown reads as a meaningless duplicate
@@ -6056,7 +6109,7 @@ export class NewTabController {
     private sourceToggleLabel(source: ConcreteNewTabWordSource): string {
         if (source === 'jpdb') return this.jpdbSourceToggleLabel();
         if (source === 'bunpro') return 'Bunpro';
-        if (source === 'yomu-local') return 'Yomu';
+        if (source === 'yomu-local') return ACADEMY_SRS_LABEL;
         if (source === 'anki') return 'Anki';
         return this.text('dictionary');
     }
@@ -6103,8 +6156,11 @@ export class NewTabController {
         clearSessionProgressDataset(countSlot.dataset);
         if (!progress) return;
         countSlot.dataset.sessionCompletedReviews = String(progress.completedReviews);
-        countSlot.dataset.sessionElapsed = progress.elapsedLabel;
         countSlot.dataset.sessionElapsedMs = String(progress.elapsedMs);
+        countSlot.dataset.sessionRemaining = progress.remainingSessionLabel;
+        countSlot.dataset.sessionRemainingMs = String(progress.remainingSessionMs);
+        countSlot.dataset.sessionClockState = progress.sessionState;
+        countSlot.dataset.sessionComplete = String(progress.sessionComplete);
         countSlot.dataset.sessionRemainingCards = String(progress.remainingCards);
         countSlot.dataset.sessionRemainingDueCards = String(progress.remainingDueCards);
         for (const source of progress.sources) {
@@ -9579,7 +9635,7 @@ export class NewTabController {
     }
 
     refreshBrowseAfterCardMutation(_card?: JPDBCard): void {
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         if (!root || this.state.mode !== 'search') return;
         this.invalidateBrowsePool();
         void this.renderBrowseInto(root);
@@ -9640,7 +9696,7 @@ export class NewTabController {
                 jpdb: 'JPDB',
                 jiten: 'Jiten',
                 bunpro: 'Bunpro',
-                yomuLocal: 'Yomu',
+                yomuLocal: ACADEMY_SRS_LABEL,
                 anki: 'Anki',
             }),
             renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
@@ -10215,9 +10271,10 @@ export class NewTabController {
         if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
         if (this.gradeSubmissionInFlight) return false;
         this.gradeSubmissionInFlight = true;
-        const gradeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(
-            '[data-jpdb-reader-root].jpdb-reader-newtab [data-newtab-action="grade"], button[data-action="grade"][data-grade]',
-        ));
+        const gradeButtons = [
+            ...Array.from(this.currentRoot()?.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]') ?? []),
+            ...Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-action="grade"][data-grade]')),
+        ];
         gradeButtons.forEach(button => { button.disabled = true; });
         try {
             return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
@@ -10337,7 +10394,7 @@ export class NewTabController {
     }
 
     private currentGradeTarget(): NewTabGradeTarget | null {
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const root = this.currentRoot();
         const card = this.visibleWords[this.index];
         return root && card ? { root, card } : null;
     }
@@ -10523,7 +10580,7 @@ export class NewTabController {
         this.renderPromptSlot(slots.prompt, this.text('batchComplete'), resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en');
         setOptionalText(slots.answer, '');
         const snapshot = this.sessionProgress.snapshot([]);
-        setOptionalText(slots.meaning, `${this.text('sessionDone')} ${snapshot.completedReviews} · ${snapshot.elapsedLabel}`);
+        setOptionalText(slots.meaning, `${this.text('sessionDone')} ${snapshot.completedReviews}`);
         this.renderCount(slots.count, '');
         setOptionalText(slots.status, '');
         if (slots.controls) {
@@ -10900,7 +10957,7 @@ export class NewTabController {
 
     private jpdbBridgeRoot(): HTMLElement | null {
         if (this.state.source !== 'jpdb' && this.state.source !== 'auto') return null;
-        return document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        return this.currentRoot();
     }
 
     private upsertLiveJpdbCard(card: JPDBCard): void {

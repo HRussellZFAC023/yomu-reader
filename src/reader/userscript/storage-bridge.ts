@@ -1,4 +1,4 @@
-import { isYomuHostedAppUrl } from '../app/pages';
+import { isYomuPrivilegedHostedAppUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { isManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail } from './bridge-detail';
@@ -208,7 +208,7 @@ function directGmListValues(): GmListValues | null {
 
 function shouldInstallUserscriptStorageBridge(): boolean {
     try {
-        return typeof location !== 'undefined' && isYomuHostedAppUrl(location.href);
+        return typeof location !== 'undefined' && isYomuPrivilegedHostedAppUrl(location.href);
     } catch {
         return false;
     }

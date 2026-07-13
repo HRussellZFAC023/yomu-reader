@@ -29,7 +29,7 @@ describe('Academy canonical cast registry', () => {
             ['rose', 'Rose'],
             ['peter', 'Peter'],
             ['nanako', 'Nanako'],
-            ['karen', 'Karen'],
+            ['mira', 'Mira'],
             ['miller', 'Miller'],
             ['tawapon', 'Tawapon'],
             ['mary', 'Mary'],
@@ -61,10 +61,10 @@ describe('Academy canonical cast registry', () => {
             visualEvidence: 'candidate-needs-owner',
             eligibility: { story: true, lessons: true, likenessRuntime: false },
         });
-        expect(getAcademyCastMember('karen')).toMatchObject({
-            firstName: 'Karen',
+        expect(getAcademyCastMember('mira')).toMatchObject({
+            firstName: 'Mira',
             category: 'extended-member',
-            visualEvidence: 'missing',
+            visualEvidence: 'reference-confirmed-neutral-pending',
             eligibility: { story: true, lessons: true, likenessRuntime: false },
         });
     });

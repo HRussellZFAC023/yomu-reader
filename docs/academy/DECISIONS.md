@@ -109,3 +109,21 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** Stripe returns only its Checkout session proof. Academy removes `checkout` and `session_id` from history immediately, polls the same-origin claim endpoint with the HttpOnly claim cookie, then pre-fills/copies the validated code in memory. It never stores or places the generated code in a URL.
 
 **Why:** The two-proof claim preserves payment recovery without turning browser history, analytics, storage, D1, or logs into plaintext credential stores.
+
+## D-019 — One course, two presentation hosts
+
+**Decision:** Story view and Course view use one route tree, curriculum graph, activity runtime, learner event log, and Study collection. The mode swaps the host only. Class uses a collapsed level spine that opens a compact lesson overview; every activity returns there through persisted route history. The ten living-paper types and grounded-lesson gate in [`LESSON-EXPERIENCE-CONTRACT.md`](LESSON-EXPERIENCE-CONTRACT.md) are binding before content volume resumes.
+
+**Why:** A second course-first implementation would duplicate progress and grading, while a game-only shell would exclude learners who want direct study. Predictable syllabus → lesson → activity → feedback navigation follows familiar learning software without sacrificing the world.
+
+## D-020 — Presentation cannot make a lesson playable
+
+**Decision:** Every advertised lesson must pass one deep grounding validator proving input provenance, curriculum resolution, relevant teaching, media, guided/independent/transfer production, grading, concealment, repair, canonical review evidence, construct-preserving access, source fidelity, and honest blockers. Story, art, cast, rewards, and layout are outside that interface.
+
+**Why:** Scaling an attractive but academically thin template across 73 Weeks and the shared library would make later coverage claims meaningless. The validator keeps learning substance testable at one seam.
+
+## D-021 — Shipped lesson bytes authorize learner writes
+
+**Decision:** A learner write names a lesson; it never supplies that lesson's grounding verdict. The runtime resolves the complete lesson from the registry, verifies the shipped bytes against the pinned SHA-256 and content revision, re-runs the audit, and permits the write only for a grounded-playable lesson and activity with matching concepts, source scope, and canonical Yomu review identity. Answer concealment is valid only through a resolvable surface-audit definition whose recorded facts match the claim. Legacy ungrounded routes are removed from current state and Back history.
+
+**Why:** Build-time validation alone cannot stop a stale route or caller-created contract from writing false evidence. One byte-pinned resolver and one normalized review identity make the same academic decision govern navigation, attempts, review scheduling, and the derived Week ledger.

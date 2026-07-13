@@ -74,6 +74,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
+import type { StudySessionClock } from './session-clock';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
@@ -227,6 +228,34 @@ export function bootNewTabRuntime(): void {
         throw error;
     });
     addWindowEventListener('pagehide', () => app.destroy(), { once: true });
+}
+
+export interface NewTabRuntimeOptions {
+    readonly mountHost?: HTMLElement;
+    readonly sessionClock?: StudySessionClock;
+    readonly interfaceLanguage?: 'en' | 'ja';
+}
+
+/** Mounts the production Study runtime without replacing the Academy document. */
+export async function mountNewTabStudySurface(
+    host: HTMLElement,
+    options: {
+        readonly language: 'en' | 'ja';
+        readonly sessionClock: StudySessionClock;
+    },
+): Promise<{ dispose(): void }> {
+    const runtime = new NewTabRuntime({
+        mountHost: host,
+        sessionClock: options.sessionClock,
+        interfaceLanguage: options.language,
+    });
+    await runtime.init();
+    return {
+        dispose() {
+            runtime.destroy();
+            host.replaceChildren();
+        },
+    };
 }
 
 export class NewTabRuntime {
@@ -426,13 +455,18 @@ export class NewTabRuntime {
         },
     });
 
+    constructor(private readonly options: NewTabRuntimeOptions = {}) {}
+
     async init(): Promise<void> {
         this.isDestroyed = false;
-        markNewTabRuntime();
+        if (!this.options.mountHost) markNewTabRuntime();
         this.installExternalRefreshListener();
         configureLogger({ settingsProvider: () => this.settings });
         this.factoryReset.bind();
         this.settings = await loadSettings();
+        if (this.options.interfaceLanguage) {
+            this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
+        }
         configureLogger({ forceEnabled: this.settings.enableLogging });
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
         this.applyTheme();
@@ -663,6 +697,11 @@ export class NewTabRuntime {
             showSettings: panel => this.showSettings(panel),
             dismissLookup: () => this.dismissLookupPopover(),
             dismiss: () => this.dismiss(),
+        }, {
+            host: this.options.mountHost,
+            surface: this.options.mountHost ? 'academy' : 'standalone',
+            sessionClock: this.options.sessionClock,
+            showSessionClockControl: !this.options.mountHost,
         });
     }
 

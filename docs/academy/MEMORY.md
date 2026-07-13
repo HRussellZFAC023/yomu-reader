@@ -18,6 +18,17 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 ## Direction-reset truth
 
 - Read [`DIRECTION-RESET.md`](DIRECTION-RESET.md) before changing Academy product surfaces. Stage 1 engineering proof remains valid, but learner-experience acceptance is reopened.
+- [`LESSON-EXPERIENCE-CONTRACT.md`](LESSON-EXPERIENCE-CONTRACT.md) is the binding route and lesson interface. Story and Course views are two hosts over one curriculum, activity runtime, event log, and Study collection; they never fork learning state.
+- Class is a collapsed level spine. Only genuinely runtime-bound Weeks open a compact lesson overview; planning-only Weeks remain visibly unavailable and never route to generic placeholder content.
+- Every lesson must pass the grounded-lesson seam. Provenance, curriculum resolution, relevant teaching, media, guided/independent/changed-context production, real grading, concealment, repair, canonical review keys, construct-preserving access, source fidelity, and honest blockers are mandatory. Art and story are outside that interface.
+- Grounding is a build preflight, not optional author guidance. Every JSON in the public lesson directory must be registered as a complete lesson or an explicitly owned support shard; only complete lessons with zero proved blockers may contribute to playable-Week counts or routes.
+- Learner writes resolve the complete lesson from shipped bytes. The registry pins the lesson ID, content revision, and SHA-256; the runtime hashes and audits those bytes before accepting an attempt or review event. A caller cannot supply a playable verdict.
+- Review identity has one canonical normalizer shared by lesson validation, learner evidence, and scheduling. A lesson may emit only its audited review allow-list; one canonical card cannot silently represent different concepts across activities.
+- Answer concealment is a resolvable surface audit, not a boolean promise. The audit record must match the claim; Lesson 0 remains blocked on `blocker:lesson-zero-answer-concealment-surface-audit` until real surfaces pass.
+- Legacy ungrounded activity routes are classified centrally and removed from current state and Back history. Enrollment/session state never bypasses route normalization.
+- Known pre-grounding Study cards retain genuine review history, but their Academy provenance is removed, retained cards carry `legacy-academy`, and their old schedule claims are superseded by append-only neutralization events. They cannot contribute an ungrounded Academy schedule or concept claim.
+- The current delivery truth is 0/73 grounded-playable class Weeks: orientation is review-blocked and the other 72 are planning-only. The ledger is derived from lesson audits, never edited to promote a Week.
+- Living paper has ten predictable types at most. `…`, position, reading-support placement, commit, in-place repair, Back, event emission, keyboard semantics, and reduced-motion behaviour remain stable across assessed types.
 - The opening classroom-phrases PDF contains fourteen useful expressions; it is one survival-language activity inside a complete 60–90 minute Lesson 0, not the whole lesson.
 - Lesson 0 also owns greetings, sound/script orientation, first sentence frames, useful vocabulary, real multi-speaker input, reading, matched writing/speaking, transfer, and a reversible close.
 - Sound, Text, and Speaking change the first mission, cast/place, activity balance, story result, and adaptive evidence. They are not identical content reordered.
@@ -31,8 +42,8 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 ## Cast and safety truth
 
 - Real classmates supply wholesome chemistry; high-risk real events become fictional but emotionally equivalent.
-- Rose is canon. Nanako and Karen are named extended cast members, not identities for the two phone-number-only contacts, which remain outside the cast. Pho is not canon.
-- Owner-supplied chat evidence informs concise first-name-only voice and wholesome chemistry, never copied dialogue or private facts. Nanako has a private candidate likeness pair awaiting owner confirmation; Karen needs a clear identified portrait before sprite generation.
+- Rose is canon. Nanako and Mira are named extended cast members, not identities for the two phone-number-only contacts, which remain outside the cast. Pho is not canon.
+- Owner-supplied chat evidence informs concise first-name-only voice and wholesome chemistry, never copied dialogue or private facts. Nanako has a private candidate likeness pair, and Mira now has an owner-confirmed private portrait; each still requires a neutral OpenAI likeness review before runtime use.
 - Every classmate needs meaningful learning appearances, three bond steps, a journal profile, replay, expressions, and bond stars.
 - Authored lesson casts resolve through the canonical cast registry. Visible names must be exact, hosts must fit documented learning specialties, and a small peer pair cannot dominate the chronology. Rie is excluded from peer-rotation concentration because teacher recurrence is expected.
 - Aakash defaults to hat-free normal hair. Tom is blond and clean-shaven. Character likeness expands to expressions only after a neutral sample passes review.
@@ -53,6 +64,7 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 - `UCL2026` is now a real Cloudflare/D1 session path. The approved Persona and Shinday files stream only through authenticated R2 routes; anonymous media is 401 and the service worker never caches protected media.
 - Stripe Checkout is live and owner-authorized. The browser receives only a validated `checkout.stripe.com` URL; payment return proof is scrubbed from history before bounded claim polling; a generated code is never put in URLs, storage, logs, source, or D1 plaintext.
 - The 73-week classmate plan is planning data, not authorship. Sixty-seven assignments are backed by donor topic metadata and six are review-required; runtime weeks must still be faithfully authored and source-bound before any appearance is claimed delivered.
+- Academy mounts the canonical Reader Study implementation rather than recreating it. Its living-paper host supplies a 15-minute countdown and route-history return; Reader retains cards, grading, Doodle, queues, and stats.
 - Completed work is pushed and relevant deployment triggered. User-facing releases require a non-draft latest GitHub Release with built `yomu.user.js`.
 
 ## Current protected local state
@@ -77,6 +89,8 @@ Stage 1 is closed: source `371140513`, hosted assets `c5ef4629d`, branch record 
 
 The Stage 2 Moodle mechanical census is green: 96 archives, 916 member occurrences, 688 unique member payloads, 3 direct resources, 527 unique PDFs / 1,087 pages, and 146 unique audio payloads all have explicit states with zero census failures. All 44 donor packs and 879 items survived as review-required candidates; only the one Stage 1 Source Question is still claimed verified/playable. The private teacher surface and public privacy/claim validators are executable evidence.
 
-Stage 2 remains active because the owner additionally authorized the same harness for all 13,123 files / 42 GB under `/Users/heru/Documents/Japanese`. Keep its denominators separate and deduplicate it against Moodle without copying the library into Git or inflating Moodle coverage.
+Stage 2 remains active. The authorized shared-library mechanical census and privacy-safe public status account for 15,790 filesystem entries / 13,123 regular files / 11,081 unique payloads in the 42 GB tree, including 68 Moodle-overlap hashes, 89 archive containers, 450 PDFs, and 5,090 media payloads. The five ZIP64 archive failures remain explicit. These are separate denominators and contribute no Moodle or verified-question coverage; all source-question review, rights decisions, transcripts, and media-to-activity pairing remain open.
 
-Parallel product feedback is binding: replace dashboard chrome with diegetic navigation and a compact minimap; make the three opening routes consequential; use an original warm Yomu/expressive-angular dialogue system; preserve cosy rain-lit nights while adding time/weather/season colour; reserve “Velvet Hour” for one discrete special place/event; fix Japanese annotation coverage; activate secure live `UCL2026` and Stripe donation access; and deploy the owner-approved Persona/SFX media through hashed R2/Worker routes. Preserve the protected Reader files while integrating these slices.
+The hard grounding/write gate and route quarantine are implemented. Current-app Browser proof reaches the honest blocked Lesson 0 overview, the correct manual-N3 Class group, and canonical Study with a live 15-minute countdown and Back to Class. The equal Course host and curated Library video/PDF shelf remain open.
+
+No class Week is playable yet. Lesson 0 can move only by closing its named proofs, with its surface-concealment audit still explicit. [`evidence/next-grounded-week/REPORT.md`](evidence/next-grounded-week/REPORT.md) selects `l3-2-l04` for the next source-review slice, but it remains no-go until its question census, loci, media/audio, answers, teaching, production, runtime, accessibility, and Browser evidence pass. Preserve the protected Reader files while integrating these slices.

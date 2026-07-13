@@ -1,35 +1,27 @@
 import type { InviteSession } from '../access/gateway';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
+import {
+    isAcademyPresentationMode,
+    isAcademyRoute,
+    type AcademyRoute,
+    type AcademyRouteHistoryState,
+} from '../routing/route-history';
 
-export type AcademyRoute =
-    | 'access'
-    | 'profile'
-    | 'rie-unlock'
-    | 'start'
-    | 'manual-band'
-    | 'placement-mock'
-    | 'placement-result'
-    | 'arrival-bridge'
-    | 'band-entry'
-    | 'lesson-fork'
-    | 'source-activity'
-    | 'aakash-meet'
-    | 'writing-practice'
-    | 'campus'
-    | 'lab'
-    | 'review'
-    | 'journal'
-    | 'day-end';
+export type { AcademyPresentationMode, AcademyRoute } from '../routing/route-history';
 
-export interface AcademyCheckpoint {
-    readonly schemaVersion: 1;
-    readonly route: AcademyRoute;
+export interface AcademyCheckpoint extends AcademyRouteHistoryState {
+    readonly schemaVersion: 2;
     readonly session?: InviteSession;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
     readonly updatedAt: number;
 }
+
+export type AcademyCheckpointUpdate = Partial<Omit<
+    AcademyCheckpoint,
+    'schemaVersion' | 'route' | 'routeHistory' | 'presentationMode' | 'updatedAt'
+>>;
 
 export interface AcademyCheckpointStore {
     load(): Promise<AcademyCheckpoint | null>;
@@ -61,13 +53,13 @@ export async function openAcademyPersistence(
         checkpoint: {
             async load() {
                 const record = await request<MetaRecord | undefined>(database.transaction(META_STORE).objectStore(META_STORE).get(CHECKPOINT_ID));
-                return record?.value ? structuredClone(record.value) : null;
+                if (!record) return null;
+                const checkpoint = migrateAcademyCheckpoint(record.value);
+                if (checkpoint.schemaVersion !== checkpointSchemaVersion(record.value)) await writeCheckpoint(database, checkpoint);
+                return structuredClone(checkpoint);
             },
             async save(checkpoint) {
-                validateCheckpoint(checkpoint);
-                const transaction = database.transaction(META_STORE, 'readwrite');
-                transaction.objectStore(META_STORE).put({ id: CHECKPOINT_ID, value: structuredClone(checkpoint) } satisfies MetaRecord);
-                await transactionComplete(transaction);
+                await writeCheckpoint(database, checkpoint);
             },
         },
         close() { database.close(); },
@@ -98,7 +90,7 @@ export function createMemoryAcademyPersistence(): AcademyPersistence {
 
 interface MetaRecord {
     readonly id: string;
-    readonly value: AcademyCheckpoint;
+    readonly value: unknown;
 }
 
 function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
@@ -173,13 +165,96 @@ function uniqueEvents(candidates: readonly LearnerEvent[]): LearnerEvent[] {
     return [...events.values()];
 }
 
+export function migrateAcademyCheckpoint(value: unknown): AcademyCheckpoint {
+    if (!value || typeof value !== 'object') throw new TypeError('Academy checkpoint must be an object.');
+    const record = value as Record<string, unknown>;
+    if (record.schemaVersion === 1) {
+        const checkpoint: AcademyCheckpoint = {
+            schemaVersion: 2,
+            route: record.route as AcademyRoute,
+            routeHistory: [],
+            presentationMode: 'story',
+            ...(record.session === undefined ? {} : { session: structuredClone(record.session) as InviteSession }),
+            ...(record.selectedBand === undefined ? {} : { selectedBand: record.selectedBand as JlptBand }),
+            ...(record.selectedFork === undefined ? {} : { selectedFork: record.selectedFork as AcademyCheckpoint['selectedFork'] }),
+            ...(record.placementOverride === undefined ? {} : { placementOverride: record.placementOverride as boolean }),
+            updatedAt: record.updatedAt as number,
+        };
+        validateCheckpoint(checkpoint);
+        return checkpoint;
+    }
+    if (record.schemaVersion !== 2) throw new TypeError('Academy checkpoint schemaVersion must be 1 or 2.');
+    const checkpoint = structuredClone(value) as AcademyCheckpoint;
+    validateCheckpoint(checkpoint);
+    return checkpoint;
+}
+
 function validateCheckpoint(value: AcademyCheckpoint): void {
-    if (value.schemaVersion !== 1) throw new TypeError('Academy checkpoint schemaVersion must be 1.');
+    if (value.schemaVersion !== 2) throw new TypeError('Academy checkpoint schemaVersion must be 2.');
     if (!Number.isSafeInteger(value.updatedAt) || value.updatedAt < 0) throw new TypeError('Academy checkpoint needs a valid timestamp.');
-    if (![
-        'access', 'profile', 'rie-unlock', 'start', 'manual-band', 'placement-mock', 'placement-result',
-        'arrival-bridge', 'band-entry', 'lesson-fork', 'source-activity', 'aakash-meet', 'writing-practice', 'campus', 'lab', 'review', 'journal', 'day-end',
-    ].includes(value.route)) throw new TypeError('Academy checkpoint has an invalid route.');
+    if (!isAcademyRoute(value.route)) throw new TypeError('Academy checkpoint has an invalid route.');
+    if (!Array.isArray(value.routeHistory) || value.routeHistory.some(frame => !routeFrameIsValid(frame))) {
+        throw new TypeError('Academy checkpoint has an invalid route history.');
+    }
+    if (!isAcademyPresentationMode(value.presentationMode)) throw new TypeError('Academy checkpoint has an invalid presentation mode.');
+    validateRouteContext(value);
+}
+
+function routeFrameIsValid(value: unknown): boolean {
+    if (!value || typeof value !== 'object' || !isAcademyRoute((value as { route?: unknown }).route)) return false;
+    const allowedKeys = new Set([
+        'route',
+        'selectedBand',
+        'selectedFork',
+        'placementOverride',
+        'lessonId',
+        'sectionId',
+        'activityId',
+    ]);
+    if (Object.keys(value).some(key => !allowedKeys.has(key))) return false;
+    try {
+        validateRouteContext(value as AcademyCheckpoint);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function validateRouteContext(value: Pick<
+    AcademyCheckpoint,
+    'selectedBand' | 'selectedFork' | 'placementOverride' | 'lessonId' | 'sectionId' | 'activityId'
+>): void {
+    if (value.selectedBand !== undefined && !['n5', 'n4', 'n3', 'n2', 'n1'].includes(value.selectedBand)) {
+        throw new TypeError('Academy checkpoint has an invalid selected band.');
+    }
+    if (value.selectedFork !== undefined && !['sound', 'text', 'speaking'].includes(value.selectedFork)) {
+        throw new TypeError('Academy checkpoint has an invalid selected fork.');
+    }
+    if (value.placementOverride !== undefined && typeof value.placementOverride !== 'boolean') {
+        throw new TypeError('Academy checkpoint has an invalid placement override.');
+    }
+    if (value.lessonId !== undefined && (typeof value.lessonId !== 'string' || value.lessonId.length === 0)) {
+        throw new TypeError('Academy checkpoint has an invalid lesson id.');
+    }
+    if (value.sectionId !== undefined && (typeof value.sectionId !== 'string' || value.sectionId.length === 0)) {
+        throw new TypeError('Academy checkpoint has an invalid section id.');
+    }
+    if (value.activityId !== undefined && (typeof value.activityId !== 'string' || value.activityId.length === 0)) {
+        throw new TypeError('Academy checkpoint has an invalid activity id.');
+    }
+}
+
+async function writeCheckpoint(database: IDBDatabase, checkpoint: AcademyCheckpoint): Promise<void> {
+    validateCheckpoint(checkpoint);
+    const transaction = database.transaction(META_STORE, 'readwrite');
+    transaction.objectStore(META_STORE).put({ id: CHECKPOINT_ID, value: structuredClone(checkpoint) } satisfies MetaRecord);
+    await transactionComplete(transaction);
+}
+
+function checkpointSchemaVersion(value: unknown): number | undefined {
+    return value && typeof value === 'object' && 'schemaVersion' in value
+        ? Number((value as { schemaVersion?: unknown }).schemaVersion)
+        : undefined;
 }
 
 function request<T>(pending: IDBRequest<T>): Promise<T> {

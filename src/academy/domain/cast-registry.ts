@@ -1,5 +1,9 @@
 export type CastCategory = 'teacher' | 'classmate' | 'extended-member' | 'textbook-legend';
-export type VisualEvidenceStatus = 'approved' | 'candidate-needs-owner' | 'missing';
+export type VisualEvidenceStatus =
+    | 'approved'
+    | 'candidate-needs-owner'
+    | 'reference-confirmed-neutral-pending'
+    | 'missing';
 
 export interface CastEligibility {
     readonly story: boolean;
@@ -76,10 +80,10 @@ export const ACADEMY_CAST = [
         eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
     },
     {
-        id: 'karen',
-        firstName: 'Karen',
+        id: 'mira',
+        firstName: 'Mira',
         category: 'extended-member',
-        visualEvidence: 'missing',
+        visualEvidence: 'reference-confirmed-neutral-pending',
         eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
     },
     {

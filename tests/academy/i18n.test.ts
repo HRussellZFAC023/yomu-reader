@@ -7,6 +7,13 @@ describe('Academy interface copy', () => {
         expect(academyText('ja', 'fictionNote')).toContain('フィクション');
         expect(academyText('en', 'rieUnlockEyebrow')).toBe('Your teacher');
         expect(academyText('ja', 'rieUnlockEyebrow')).toBe('先生');
+        expect(academyText('en', 'navClass')).toBe('Class');
+        expect(academyText('ja', 'classPathWeeks')).toBe('道のり');
+        expect(academyText('en', 'navPresentationCourse')).toBe('Course view');
+        expect(academyText('ja', 'navPresentationStory')).toBe('物語ビュー');
+        expect(academyText('en', 'navReview')).toBe('Study');
+        expect(academyText('ja', 'navReview')).toBe('学習');
+        expect(academyText('en', 'navSwitchToCourse')).toBe('Switch to course view');
     });
 
     it('uses the confirmed Latin display name for Aakash in Japanese copy', () => {

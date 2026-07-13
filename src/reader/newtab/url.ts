@@ -1,33 +1,29 @@
 import { APP_REPOSITORY_NAME } from '../app/constants';
+import {
+    normalizeYomuHostedPath,
+    readTrustedYomuUrl,
+    type TrustedYomuUrl,
+} from '../app/trusted-hosted-url';
 
 export function isYomuNewTabUrl(value: string): boolean {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
+    const appUrl = readTrustedYomuUrl(value);
+    return appUrl ? isTrustedStudyRoute(appUrl) : false;
 }
 
-function parseNewTabUrl(value: string): URL | null {
-    try {
-        return new URL(value);
-    } catch {
-        return null;
-    }
+/** Route-shape check for callers that do not need privileged origin access. */
+export function isYomuStudyRoutePath(pathname: string): boolean {
+    const path = normalizeYomuHostedPath(pathname);
+    return path === '/study/' || path === '/newtab/';
 }
 
-function isYomuNewTabUrlObject(url: URL): boolean {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has('yomu-newtab')
-        || isLocalNewTabPath(url, path)
-        || isRepositoryNewTabPath(path);
+function isTrustedStudyRoute(appUrl: TrustedYomuUrl): boolean {
+    const { originKind, path } = appUrl;
+    if (originKind === 'docs' || originKind === 'extension') return isYomuStudyRoutePath(path);
+    if (originKind === 'github-pages') return isRepositoryStudyRoutePath(path);
+    return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
 }
 
-function normalizedNewTabPath(url: URL): string {
-    return url.pathname.replace(/\/index\.html$/, '/');
-}
-
-function isLocalNewTabPath(url: URL, path: string): boolean {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith('/newtab/');
-}
-
-function isRepositoryNewTabPath(path: string): boolean {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith('/newtab/');
+function isRepositoryStudyRoutePath(path: string): boolean {
+    return path === `/${APP_REPOSITORY_NAME}/study/`
+        || path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }

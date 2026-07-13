@@ -18,7 +18,7 @@ export function screenFrame(options: ScreenFrameOptions): { screen: HTMLElement;
     screen.dataset.screen = options.className;
     if (options.plate) {
         screen.dataset.plate = options.plate;
-        screen.prepend(backgroundPicture(options.plate));
+        screen.prepend(academyBackgroundPicture(options.plate));
     }
     const veil = element('div', 'academy-screen-veil');
     const panel = element('div', 'academy-panel');
@@ -96,7 +96,8 @@ export function fieldError(message: string): HTMLParagraphElement {
     return error;
 }
 
-function backgroundPicture(plateId: AcademyPlateId): HTMLPictureElement {
+/** Shared non-VN place plate. VN scenes use the stage's parallax plate stack. */
+export function academyBackgroundPicture(plateId: AcademyPlateId): HTMLPictureElement {
     const plate = ACADEMY_ASSETS.locations[plateId];
     const picture = element('picture', 'academy-background');
     picture.setAttribute('aria-hidden', 'true');

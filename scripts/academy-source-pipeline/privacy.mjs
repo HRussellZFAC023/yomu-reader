@@ -44,7 +44,8 @@ const PUBLIC_KEY_ALLOWLIST = new Set([
     'scanRevision', 'entryCount', 'regularFileCount', 'regularFileBytes', 'uniquePayloadCount',
     'duplicateOccurrenceCount', 'byState', 'state', 'byKind', 'byExtension', 'archives',
     'containerPayloadCount', 'censused', 'uniqueMemberPayloadCount', 'failedMemberCount',
-    'encryptedMemberCount', 'media', 'payloadCount', 'reusedMoodleProbeCount', 'totalDurationSeconds',
+    'encryptedMemberCount', 'byFailureReason', 'archiveFailureCode', 'containerCount',
+    'media', 'payloadCount', 'reusedMoodleProbeCount', 'totalDurationSeconds',
     'documentCount', 'reusedMoodleCensus', 'moodleOverlap', 'moodleLedgerPresent',
     'overlapPayloadCount', 'contributesToMoodleCounts', 'humanAuthoredCoverage',
 ]);
@@ -113,10 +114,30 @@ export function collectPrivateTokens({ ledger, manifest, packCandidates }) {
 export function findLeakedTokens(serializedText, tokens) {
     const leaks = [];
     for (const token of tokens) {
-        const escapedToken = JSON.stringify(token).slice(1, -1);
-        if (serializedText.includes(token) || serializedText.includes(escapedToken)) leaks.push(token);
+        if (privateTokenVariants(token).some(variant => serializedText.includes(variant))) leaks.push(token);
     }
     return leaks;
+}
+
+/**
+ * Public JSON may later be placed in a URL, copied through a JSON encoder, or
+ * embedded in another manifest. Treat those representations as the same
+ * private token. Percent escapes are checked with both URI path semantics
+ * (slashes retained) and component semantics (slashes escaped); lower-case
+ * hex is included because URL encoders are not required to preserve case.
+ */
+function privateTokenVariants(token) {
+    const variants = new Set([token, JSON.stringify(token).slice(1, -1)]);
+    try {
+        for (const encoded of [encodeURI(token), encodeURIComponent(token)]) {
+            variants.add(encoded);
+            variants.add(encoded.replace(/%[0-9A-F]{2}/g, match => match.toLowerCase()));
+        }
+    } catch {
+        // A filesystem string may contain an unpaired surrogate. Raw and JSON
+        // escaped variants above still fail closed; URI encoding is undefined.
+    }
+    return [...variants].filter(Boolean);
 }
 
 /**

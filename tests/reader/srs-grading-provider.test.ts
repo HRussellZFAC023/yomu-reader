@@ -124,7 +124,7 @@ describe('apiSrsProviderViewForCard', () => {
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: 'jpdb-key' }), isJpdbBackedCard)?.hasApiKey).toBe(true);
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '' }), isJpdbBackedCard)).toMatchObject({
             id: 'yomu-local',
-            label: 'Yomu',
+            label: 'Academy',
             hasApiKey: true,
         });
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '', yomuLocalSrsEnabled: false }), isJpdbBackedCard)).toMatchObject({

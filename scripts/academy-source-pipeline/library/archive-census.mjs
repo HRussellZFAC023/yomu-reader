@@ -17,9 +17,7 @@ const ENCRYPTED_FLAG = 0x0001;
  * SHA-256, so re-runs only parse new bytes.
  */
 export function runArchiveCensus(roots, ledger, { log = () => {} } = {}) {
-    const archives = ledger.uniquePayloads
-        .filter(payload => payload.censusFamily === 'archive')
-        .sort((a, b) => compareUtf8(a.sha256, b.sha256));
+    const archives = archivePayloads(ledger);
 
     const results = archives.map(payload => {
         const cachePath = insideRoot(roots.archiveCensusRoot, `${payload.sha256}.json`);
@@ -31,6 +29,29 @@ export function runArchiveCensus(roots, ledger, { log = () => {} } = {}) {
         return record;
     });
     return { schema: LIBRARY_SCHEMA_VERSIONS.archiveCensus, archives: results };
+}
+
+/**
+ * Publish-only reader. Unlike `runArchiveCensus`, this never falls through to
+ * source bytes: a missing/stale record is an instruction to run `census`, not
+ * an excuse for a supposedly cheap publish to reopen a multi-gigabyte ZIP.
+ */
+export function loadCachedArchiveCensus(roots, ledger) {
+    const archives = archivePayloads(ledger).map(payload => {
+        const cachePath = insideRoot(roots.archiveCensusRoot, `${payload.sha256}.json`);
+        const cached = readJsonIfPresent(cachePath);
+        if (cached?.schema !== LIBRARY_SCHEMA_VERSIONS.archiveCensus) {
+            throw new Error(`Archive census cache missing or stale for ${payload.sha256}; run the census phase first.`);
+        }
+        return cached;
+    });
+    return { schema: LIBRARY_SCHEMA_VERSIONS.archiveCensus, archives };
+}
+
+function archivePayloads(ledger) {
+    return ledger.uniquePayloads
+        .filter(payload => payload.censusFamily === 'archive')
+        .sort((a, b) => compareUtf8(a.sha256, b.sha256));
 }
 
 function censusOneArchive(roots, payload) {

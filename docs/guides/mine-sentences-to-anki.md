@@ -64,7 +64,7 @@ You can trim fields to taste in your Anki note type; Yomu just fills what your c
 
 - **One unknown word per card.** If you find yourself adding glosses for two words, the sentence isn't i+1 yet.
 - **Don't over-mine.** Ten to twenty good cards from a session beats fifty you'll dread. The bottleneck is reviews, not collection.
-- **Review daily.** Mining without review just makes a backlog. Even ten minutes a day keeps the queue honest — the [new-tab study page](/newtab/index.html) is a low-friction place to do it.
+- **Review daily.** Mining without review just makes a backlog. Even ten minutes a day keeps the queue honest — the [Study page](/study/) is a low-friction place to do it.
 - **Keep cards short.** Long sentences with multiple clauses are harder to recall than the single line that taught you the word.
 
 Yomu keeps the subtitle-to-card loop in your browser, with Jiten, JPDB, and Anki as optional targets. Start with the free flow, then connect only the study tools you actually use.

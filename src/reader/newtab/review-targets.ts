@@ -1,4 +1,5 @@
 import { uiText } from '../app/i18n';
+import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
@@ -44,7 +45,7 @@ function isJitenGradableCard(card: JPDBCard): boolean {
 export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
-    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'Yomu';
+    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return ACADEMY_SRS_LABEL;
     // Built-in starter/practice words belong to Yomu, not an imported
     // dictionary — labeling them "Dictionary" made the keyless surface look
     // like it was reviewing a dictionary the user never added. Genuine local

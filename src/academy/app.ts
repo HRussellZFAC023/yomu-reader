@@ -1,31 +1,35 @@
 import type { AcademyLanguage } from '../reader/app/academy-copy';
-import { ACADEMY_ASSETS } from './assets';
 import { createAccessGateway, type AccessGateway } from './access/gateway';
 import { BrowserSpeechPronunciationService } from './audio/browser-speech';
 import { AudioDirector } from './audio/director';
 import { createAuthorizedAcademyAudioDirector } from './audio/runtime';
-import { AAKASH_RAINY_DIRECTIONS_SCENE_ID, createAakashDirectionsActivity } from './content/aakash-meet';
-import { loadLessonZeroContent } from './content/lesson-zero';
-import { loadVerticalSliceContent, type LessonFork } from './content/vertical-slice';
-import type { ActivityEvaluation } from './domain/activity-runtime';
 import { createLearnerEvidence, type LearnerEvidence } from './evidence/learner-evidence';
 import { createYomuLocalReviewService } from './integration/yomu-local-review';
-import { createCanonicalKanjiWritingService } from './integration/yomu-kanji-writing';
+import { quarantineLegacyUngroundedReviews } from './integration/legacy-review-quarantine';
 import type { KanjiWritingService, PronunciationService, ReviewQueueService } from './integration/yomu-bridge';
 import {
     createMemoryAcademyPersistence,
     openAcademyPersistence,
     type AcademyCheckpoint,
+    type AcademyCheckpointUpdate,
     type AcademyPersistence,
     type AcademyRoute,
 } from './persistence/indexeddb';
-import { AAKASH_CONTINUATION_ROUTE, navigationForRoute, normalizeResumeCheckpoint, themeForRoute } from './routing/contract';
+import {
+    globalNavigationIsAvailable,
+    navigationForRoute,
+    normalizeResumeCheckpoint,
+    themeForRoute,
+} from './routing/contract';
 import { createEnrollmentFlow } from './routing/enrollment-flow';
+import { createLessonFlow } from './routing/lesson-flow';
+import {
+    transitionAcademyRoute,
+    type AcademyRouteContextState,
+    type AcademyRouteTransition,
+} from './routing/route-history';
 import type { AcademyRouteContext, AcademyRouteFlow } from './routing/types';
 import { createWorldFlow } from './routing/world-flow';
-import { renderAakashMeetScreen } from './ui/character-scenes';
-import { renderKanjiDeskScreen, renderLessonFork, renderSourceActivityScreen } from './ui/lesson-screen';
-import { createLessonZeroProof } from './ui/lesson-zero-proof';
 import { renderLoadingScreen } from './ui/loading-screen';
 import { createAcademyShell, type AcademyClassBoardAccess, type AcademyShell } from './ui/shell';
 
@@ -47,7 +51,6 @@ export class AcademyApp {
     private readonly access: AccessGateway;
     private readonly suppliedPersistence?: AcademyPersistence;
     private readonly review: ReviewQueueService;
-    private readonly kanjiWriting: KanjiWritingService;
     private readonly pronunciation: PronunciationService;
     private readonly databaseName?: string;
     private readonly audio: AudioDirector;
@@ -57,8 +60,15 @@ export class AcademyApp {
     private persistence!: AcademyPersistence;
     private evidence!: LearnerEvidence;
     private enrollment!: AcademyRouteFlow;
+    private lesson!: AcademyRouteFlow;
     private world!: AcademyRouteFlow;
-    private checkpoint: AcademyCheckpoint = { schemaVersion: 1, route: 'access', updatedAt: Date.now() };
+    private checkpoint: AcademyCheckpoint = {
+        schemaVersion: 2,
+        route: 'access',
+        routeHistory: [],
+        presentationMode: 'story',
+        updatedAt: Date.now(),
+    };
 
     private get projection() { return this.evidence.projection; }
 
@@ -66,7 +76,6 @@ export class AcademyApp {
         this.access = options.access ?? createAccessGateway();
         this.suppliedPersistence = options.persistence;
         this.review = options.review ?? createYomuLocalReviewService();
-        this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
         this.databaseName = options.databaseName;
         this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
         this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
@@ -74,8 +83,8 @@ export class AcademyApp {
             language: this.language,
             onLanguage: () => this.toggleLanguage(),
             onMute: () => this.toggleMuted(),
-            onNavigate: route => void this.go(route),
-            onChooseLesson: () => void this.go('start'),
+            onNavigate: route => void this.go(route, {}, true),
+            onPresentationMode: mode => void this.setPresentationMode(mode),
             onEndForToday: () => void this.go('day-end'),
             onClassBoard: options.onClassBoard,
         });
@@ -87,6 +96,7 @@ export class AcademyApp {
         this.shell.replace(renderLoadingScreen(this.language, navigator.onLine));
         this.persistence = this.suppliedPersistence
             ?? await openAcademyPersistence(indexedDB, this.databaseName).catch(() => createMemoryAcademyPersistence());
+        await quarantineLegacyUngroundedReviews({ learnerEvents: this.persistence.events });
         this.evidence = createLearnerEvidence(this.persistence.events, this.review);
         await this.evidence.initialize();
         this.enrollment = createEnrollmentFlow({
@@ -94,13 +104,21 @@ export class AcademyApp {
             evidence: this.evidence,
             pronunciation: this.pronunciation,
         });
+        this.lesson = createLessonFlow();
         this.world = createWorldFlow({
             evidence: this.evidence,
             pronunciation: this.pronunciation,
             audio: this.audio,
         });
-        this.checkpoint = await this.persistence.checkpoint.load() ?? this.checkpoint;
-        this.normalizeResumeRoute();
+        const restoredCheckpoint = await this.persistence.checkpoint.load() ?? this.checkpoint;
+        this.checkpoint = normalizeResumeCheckpoint(
+            restoredCheckpoint,
+            this.projection,
+            Date.now(),
+            navigator.onLine,
+        );
+        if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
+        this.shell.setPresentationMode(this.checkpoint.presentationMode);
         this.bindLifecycle();
         await this.render();
     }
@@ -116,139 +134,71 @@ export class AcademyApp {
         const unlock = () => { void this.audio.unlock(); };
         window.addEventListener('pointerdown', unlock, { once: true, capture: true, signal: this.lifecycle.signal });
         window.addEventListener('keydown', unlock, { once: true, capture: true, signal: this.lifecycle.signal });
-        window.addEventListener('online', () => this.shell.setNetwork(true), { signal: this.lifecycle.signal });
-        window.addEventListener('offline', () => this.shell.setNetwork(false), { signal: this.lifecycle.signal });
         document.addEventListener('visibilitychange', () => void this.audio.handleVisibility(document.hidden), { signal: this.lifecycle.signal });
-        this.shell.setNetwork(navigator.onLine);
-    }
-
-    private normalizeResumeRoute(): void {
-        this.checkpoint = normalizeResumeCheckpoint(this.checkpoint, this.projection, Date.now(), navigator.onLine);
     }
 
     private async render(): Promise<void> {
         const route = this.checkpoint.route;
         await this.audio.setTheme(themeForRoute(route));
         const navigation = navigationForRoute(route);
-        this.shell.setNavigation(Boolean(navigation), navigation);
-        this.shell.setLearnerActionsVisible(Boolean(this.projection.profile));
+        const globalNavigationAvailable = globalNavigationIsAvailable(this.checkpoint, Boolean(this.projection.profile));
+        this.shell.setNavigation(globalNavigationAvailable, navigation);
+        this.shell.setLearnerActionsVisible(globalNavigationAvailable);
+        this.shell.setPresentationMode(this.checkpoint.presentationMode);
         const context = {
             language: this.language,
             checkpoint: this.checkpoint,
             projection: this.projection,
             shell: this.shell,
             go: (next, update) => this.go(next, update),
+            back: () => this.back(),
         } satisfies AcademyRouteContext;
         if (await this.enrollment.render(route, context)) return;
+        if (await this.lesson.render(route, context)) return;
         if (await this.world.render(route, context)) return;
-        switch (route) {
-            case 'lesson-fork':
-                this.shell.replace(renderLessonFork(this.language, this.checkpoint.selectedFork, fork => void this.go('source-activity', { selectedFork: fork })));
-                break;
-            case 'source-activity':
-                await this.renderSourceActivity();
-                break;
-            case 'aakash-meet':
-                this.renderAakashMeet();
-                break;
-            case 'writing-practice':
-                await this.renderWritingPractice();
-                break;
-        }
+        await this.commitNavigation({ kind: 'replace', route: 'class' });
     }
 
-    private async renderSourceActivity(): Promise<void> {
-        this.shell.replace(renderLoadingScreen(this.language, navigator.onLine));
-        const fork = this.checkpoint.selectedFork ?? 'text';
-        const returning = this.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
-        if (fork === 'text') {
-            const proof = await createLessonZeroProof({
-                language: this.language,
-                content: await loadLessonZeroContent(),
-                rieExpressions: {
-                    neutral: { still: ACADEMY_ASSETS.rie },
-                    encouraging: { still: ACADEMY_ASSETS.rieExpressions.encouraging },
-                    happy: { still: ACADEMY_ASSETS.rieExpressions.happy },
-                    repair: { still: ACADEMY_ASSETS.rieExpressions.repair },
-                },
-                onEvaluation: evaluation => this.recordTextProofActivity(evaluation),
-                onSupportUse: support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
-                onComplete: () => void this.go(returning ? 'campus' : 'aakash-meet'),
-            });
-            proof.element.dataset.academyScreen = 'lesson-zero-text-proof';
-            proof.element.dataset.academyRoute = 'source-activity';
-            proof.element.addEventListener('academy:dispose', () => proof.dispose(), { once: true });
-            this.shell.replace(proof.element);
-            return;
-        }
-        const content = await loadVerticalSliceContent();
-        this.shell.replace(renderSourceActivityScreen(
-            this.language,
-            content,
-            fork,
-            this.pronunciation,
-            evaluation => this.recordSourceActivity(evaluation, fork),
-            () => void this.go(returning ? 'campus' : 'aakash-meet'),
-            returning,
-            support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
-        ));
+    private async go(
+        requestedRoute: AcademyRoute,
+        update: AcademyCheckpointUpdate = {},
+        explicitDestination = false,
+    ): Promise<void> {
+        const route = !explicitDestination && requestedRoute === 'campus' && this.checkpoint.presentationMode === 'course'
+            ? 'class'
+            : requestedRoute;
+        const establishesSession = this.checkpoint.route === 'access' && route !== 'access' && update.session !== undefined;
+        await this.commitNavigation(
+            {
+                kind: establishesSession ? 'reset' : 'push',
+                route,
+                context: routeContextUpdate(update),
+            },
+            update,
+        );
     }
 
-    private async recordTextProofActivity(evaluation: ActivityEvaluation): Promise<void> {
-        await this.evidence.recordActivity(evaluation, {
-            id: 'lesson-zero-text-proof',
-            sceneId: 'scene:lesson-zero-first-repair',
-        });
+    private async back(): Promise<void> {
+        await this.commitNavigation({ kind: 'back' });
     }
 
-    private async recordSourceActivity(evaluation: ActivityEvaluation, fork: LessonFork): Promise<void> {
-        await this.evidence.recordActivity(evaluation, {
-            id: `lesson-zero-first-repair:${fork}`,
-            sceneId: 'scene:lesson-zero-first-repair',
-        });
+    private async setPresentationMode(mode: AcademyCheckpoint['presentationMode']): Promise<void> {
+        await this.commitNavigation({ kind: 'presentation', mode });
     }
 
-    private renderAakashMeet(): void {
-        this.shell.replace(renderAakashMeetScreen({
-            language: this.language,
-            activity: createAakashDirectionsActivity(),
-            completed: this.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID),
-            onEvaluation: evaluation => this.recordAakashActivity(evaluation),
-            onSupportUse: support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
-            onContinue: () => void this.go(AAKASH_CONTINUATION_ROUTE),
-        }));
-    }
-
-    private async recordAakashActivity(evaluation: ActivityEvaluation): Promise<void> {
-        await this.evidence.recordActivity(evaluation, {
-            id: 'aakash-rainy-directions',
-            sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
-            unlock: { assetId: 'character:aakash', characterId: 'aakash', bondDelta: 1 },
-        });
-    }
-
-    private async renderWritingPractice(): Promise<void> {
-        this.shell.replace(renderLoadingScreen(this.language, navigator.onLine));
-        const trace = await this.kanjiWriting.lookup('一');
-        if (!trace) throw new Error('The pinned KanjiVG writing trace is unavailable.');
-        this.shell.replace(renderKanjiDeskScreen(
-            this.language,
-            trace,
-            evaluation => this.recordWritingActivity(evaluation),
-            () => void this.go('campus'),
-        ));
-    }
-
-    private async recordWritingActivity(evaluation: ActivityEvaluation): Promise<void> {
-        await this.evidence.recordActivity(evaluation, {
-            id: 'lesson-zero-writing-desk',
-            sceneId: 'scene:lesson-zero-writing-desk',
-            requiredErrorTag: 'kanji-writing-complete',
-        });
-    }
-
-    private async go(route: AcademyRoute, update: Partial<AcademyCheckpoint> = {}): Promise<void> {
-        this.checkpoint = { ...this.checkpoint, ...update, schemaVersion: 1, route, updatedAt: Date.now() };
+    private async commitNavigation(
+        transition: AcademyRouteTransition,
+        update: AcademyCheckpointUpdate = {},
+    ): Promise<void> {
+        const navigation = transitionAcademyRoute(this.checkpoint, transition);
+        const now = Date.now();
+        const candidate: AcademyCheckpoint = {
+            ...navigation,
+            ...update,
+            schemaVersion: 2,
+            updatedAt: now,
+        };
+        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine);
         await this.persistence.checkpoint.save(this.checkpoint);
         await this.render();
     }
@@ -276,4 +226,13 @@ function loadLanguage(): AcademyLanguage {
 
 function safeLocalStorage(): Storage | null {
     try { return localStorage; } catch { return null; }
+}
+
+function routeContextUpdate(update: AcademyCheckpointUpdate): Partial<AcademyRouteContextState> {
+    const context: Partial<AcademyRouteContextState> = {};
+    const keys = ['selectedBand', 'selectedFork', 'placementOverride', 'lessonId', 'sectionId', 'activityId'] as const;
+    for (const key of keys) {
+        if (Object.hasOwn(update, key)) Object.assign(context, { [key]: update[key] });
+    }
+    return context;
 }

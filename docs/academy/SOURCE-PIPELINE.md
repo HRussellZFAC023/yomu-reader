@@ -27,6 +27,17 @@ ACADEMY_SOURCE_RETRY_FAILURES=1 npm run academy:source:pipeline
 
 Poppler and ffprobe calls have hard timeouts. A timeout becomes an explicit `failed:*` state rather than a skipped source.
 
+The authorized shared Japanese library is a separate denominator universe:
+
+```bash
+npm run academy:library:scan
+npm run academy:library:census
+node scripts/academy-library-pipeline.mjs publish
+npm run academy:library:validate
+```
+
+`publish` reads only completed private caches and fails if a ledger or census denominator is missing; it never reopens source archives. Its public artifact contains aggregate allowlisted fields only. The current mechanical baseline is 15,790 filesystem entries, 13,123 regular files, 11,081 unique payloads, and 68 hashes overlapping Moodle. Archive census is 84/89, with five `failed:zip64-unsupported` containers recorded by reason; PDF census is 450/450 and media probe census is 5,090/5,090. These counts do not imply reviewed questions, cleared rights, transcripts, pairings, or playable activities.
+
 ## Private outputs
 
 Ignored artifacts live under `artifacts/yomu-academy/source-pipeline/`:
@@ -46,6 +57,7 @@ Only privacy-allowlisted metadata is committed:
 - `public/academy/content/source-pipeline/catalog.v2.json`;
 - `public/academy/content/source-pipeline/corpus-status.v1.json`;
 - `public/academy/content/source-pipeline/pack-migration.v1.json`;
+- `public/academy/content/source-pipeline/library-status.v1.json` (separate shared-library aggregates only);
 - the updated `public/academy/content/RESOURCE-LEDGER.json`.
 
 The validator pins the 96/916/688 baseline, reconciles every count, checks explicit payload states, rejects private keys/non-ASCII source strings, scans for tokens from the actual private corpus, and prevents machine candidates from being reported as verified or playable questions.

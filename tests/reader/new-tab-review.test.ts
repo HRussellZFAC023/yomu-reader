@@ -2108,7 +2108,7 @@ describe('new tab review helpers', () => {
             jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
             srsAdapters: {
                 bunpro: { label: 'Bunpro', hasCredential: () => true, queue: bunproQueue, stats: vi.fn(), review: vi.fn() },
-                'yomu-local': { label: 'Yomu', hasCredential: () => true, queue: yomuQueue, stats: vi.fn(), review: vi.fn() },
+                'yomu-local': { label: 'Academy', hasCredential: () => true, queue: yomuQueue, stats: vi.fn(), review: vi.fn() },
             } as never,
         });
         try {
@@ -2122,7 +2122,7 @@ describe('new tab review helpers', () => {
                 expect(text).toContain('文法');
                 expect(text).toContain('自習');
                 expect(root.querySelector('[data-browse-source-filter="bunpro"]')?.textContent).toBe('Bunpro 1');
-                expect(root.querySelector('[data-browse-source-filter="yomu-local"]')?.textContent).toBe('Yomu 1');
+                expect(root.querySelector('[data-browse-source-filter="yomu-local"]')?.textContent).toBe('Academy 1');
             });
         } finally {
             controller.destroy();
@@ -4061,7 +4061,7 @@ describe('new tab review helpers', () => {
             expect(progress.dataset.sessionCompletedReviews).toBe('0');
             expect(progress.dataset.sessionRemainingCards).toBe('2');
             expect(progress.dataset.sessionRemainingDueCards).toBe('2');
-            expect(progress.dataset.sessionElapsed).toMatch(/^\d\d:\d\d$/);
+            expect(progress.dataset.sessionRemaining).toMatch(/^\d\d:\d\d$/);
             expect(progress.dataset.sessionJpdbAvailable).toBe('true');
             expect(progress.dataset.sessionJpdbRemainingCards).toBe('2');
 

@@ -7,8 +7,8 @@ const base = '/';
 const origin = 'https://yomureader.com';
 const siteUrl = `${origin}${base}`;
 const socialImage = `${siteUrl}og-image.png`;
-const newTabLink = '/newtab/index.html';
-const statsLink = '/newtab/index.html?mode=stats';
+const newTabLink = '/study/';
+const statsLink = '/study/?mode=stats';
 const videoPlayerLink = '/video-player/index.html';
 const pdfReaderLink = '/pdf-reader/index.html';
 
@@ -216,6 +216,7 @@ export default defineConfig({
             { text: 'Tools', link: '/tools/' },
             { text: 'Learn', link: '/guides/' },
             { text: 'Study', link: newTabLink, target: '_self' },
+            { text: 'Academy', link: '/academy/', target: '_self' },
             { text: 'Support', link: '/support' },
             {
                 text: 'More',

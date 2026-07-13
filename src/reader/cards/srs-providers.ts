@@ -6,6 +6,7 @@ import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
 import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
+import { ACADEMY_SRS_LABEL } from '../app/constants';
 
 export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local';
 export type ApiSrsDeckSource = ApiSrsProviderId;
@@ -117,7 +118,7 @@ function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): Api
     if (id === 'yomu-local') {
         return {
             id: 'yomu-local',
-            label: 'Yomu',
+            label: ACADEMY_SRS_LABEL,
             deckSource: 'yomu-local',
             hasApiKey: settings.yomuLocalSrsEnabled,
         };
@@ -295,7 +296,7 @@ function applyBunproReviewableToCard(card: JPDBCard, reviewable: YomuSrsReviewab
 function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
     return {
         id: 'yomu-local',
-        label: 'Yomu',
+        label: ACADEMY_SRS_LABEL,
         deckSource: 'yomu-local',
         hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
         addApiKeyRequiredKey: 'yomuLocalSrsDisabled',
@@ -305,7 +306,7 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         supportsCard: card => Boolean(card.spelling.trim()),
         supportsDeckState: () => false,
         selectedDeckId: () => 'yomu-local',
-        selectedDeckLabel: () => 'Yomu',
+        selectedDeckLabel: () => ACADEMY_SRS_LABEL,
         addToDeck: async (_deckId, card, sentence, context) => {
             await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
         },

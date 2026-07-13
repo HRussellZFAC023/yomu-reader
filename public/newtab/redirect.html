@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Yomu Study</title>
+    <meta name="robots" content="noindex">
+    <link rel="canonical" href="https://yomureader.com/study/">
+    <style>
+      html { color-scheme: light dark; font: 16px/1.5 system-ui, sans-serif; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; }
+      a { color: inherit; text-underline-offset: .2em; }
+    </style>
+  </head>
+  <body>
+    <p>Opening <a href="../study/">Yomu Study</a>…</p>
+    <script>
+      (() => {
+        const current = new URL(location.href);
+        const target = new URL('../study/', current);
+        const modes = new Set(['word', 'recall', 'kanji', 'search', 'stats', 'listen']);
+        const copyText = (key, maxLength) => {
+          const value = current.searchParams.get(key);
+          if (value && value.length <= maxLength) target.searchParams.set(key, value);
+        };
+        const mode = current.searchParams.get('mode');
+        const view = current.searchParams.get('view');
+        if (mode && modes.has(mode)) target.searchParams.set('mode', mode);
+        else if (view && modes.has(view)) target.searchParams.set('view', view);
+        for (const key of ['q', 'query', 'search']) copyText(key, 200);
+        if (current.searchParams.get('return') === 'academy') {
+          target.searchParams.set('return', 'academy');
+          copyText('card', 512);
+          copyText('context', 128);
+        }
+
+        const rawHash = current.hash.replace(/^#/, '');
+        if (modes.has(rawHash)) {
+          target.hash = rawHash;
+        } else if (rawHash.length <= 1024) {
+          const sourceHash = new URLSearchParams(rawHash);
+          const hashKeys = [...sourceHash.keys()];
+          if (sourceHash.has('card') && hashKeys.every(key => ['card', 'w', 'r'].includes(key))) {
+            const safeHash = new URLSearchParams();
+            for (const [key, maxLength] of [['card', 512], ['w', 200], ['r', 200]]) {
+              const value = sourceHash.get(key);
+              if (value && value.length <= maxLength) safeHash.set(key, value);
+            }
+            if (safeHash.has('card')) target.hash = safeHash.toString();
+          }
+        }
+
+        const retireAliasWorker = 'serviceWorker' in navigator
+          ? navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(registrations
+            .filter(registration => new URL(registration.scope).pathname.endsWith('/newtab/'))
+            .map(registration => registration.unregister())))
+          : Promise.resolve();
+        retireAliasWorker.catch(() => undefined).finally(() => location.replace(target.href));
+      })();
+    </script>
+    <noscript><p><a href="../study/">Open Yomu Study</a></p></noscript>
+  </body>
+</html>

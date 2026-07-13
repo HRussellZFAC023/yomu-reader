@@ -31,8 +31,8 @@ export function resolveNewTabBrandAssets(value: string): { homeHref: string; ico
         const extensionAssets = extensionNewTabBrandAssets();
         if (/^(?:moz|chrome|safari-web)-extension:$/u.test(url.protocol) && extensionAssets) return extensionAssets;
         const path = url.pathname.replace(/\/index\.html$/, '/');
-        const newTabIndex = path.lastIndexOf('/newtab/');
-        const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : '/';
+        const routeIndex = Math.max(path.lastIndexOf('/study/'), path.lastIndexOf('/newtab/'));
+        const basePath = routeIndex >= 0 ? path.slice(0, routeIndex + 1) : '/';
         return {
             homeHref: `${basePath}`,
             iconSrc: `${basePath}yomu-icon.svg`,

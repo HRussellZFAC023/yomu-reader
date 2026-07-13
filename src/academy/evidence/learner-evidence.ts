@@ -1,5 +1,14 @@
 import type { OrientationMockResult } from '../placement/orientation';
-import type { ActivityEvaluation } from '../domain/activity-runtime';
+import type { ActivityEvaluation, ReviewSeed } from '../domain/activity-runtime';
+import type { GroundedLessonContract } from '../domain/grounded-lesson';
+import {
+    canonicalGroundedConceptReviewKey,
+    canonicalGroundedReviewKey,
+} from '../domain/review-identity';
+import {
+    createGroundedLessonResolver,
+    type GroundedLessonResolver,
+} from '../content/grounded-lesson-resolver';
 import {
     createLearnerRecord,
     type JlptBand,
@@ -38,8 +47,11 @@ export interface LearnerEvidence {
     saveProfile(profile: LearnerProfileSnapshot): Promise<{ firstIntroduction: boolean }>;
     chooseCurriculumEntry(choice: CurriculumEntryChoice): Promise<void>;
     savePlacement(result: OrientationMockResult): Promise<void>;
-    recordActivity(evaluation: ActivityEvaluation, milestone?: ActivityMilestone): Promise<void>;
-    recordShadowing(): Promise<void>;
+    recordActivity(
+        evaluation: ActivityEvaluation,
+        lessonId: string,
+        milestone?: ActivityMilestone,
+    ): Promise<void>;
     recordSupportUse(activityId: string, supportKind: SupportKind, choiceId?: string): Promise<void>;
     dueReviews(limit: number): Promise<readonly ReviewQueueItem[]>;
     rateReview(itemId: string, rating: ReviewRating): Promise<void>;
@@ -48,8 +60,9 @@ export interface LearnerEvidence {
 export function createLearnerEvidence(
     repository: LearnerEventRepository,
     review: ReviewQueueService,
+    groundedLessons: GroundedLessonResolver = createGroundedLessonResolver(),
 ): LearnerEvidence {
-    return new DefaultLearnerEvidence(createLearnerRecord({ repository }), review);
+    return new DefaultLearnerEvidence(createLearnerRecord({ repository }), review, groundedLessons);
 }
 
 class DefaultLearnerEvidence implements LearnerEvidence {
@@ -59,6 +72,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
     constructor(
         private readonly record: LearnerRecord,
         private readonly review: ReviewQueueService,
+        private readonly groundedLessons: GroundedLessonResolver,
     ) {}
 
     get projection(): LearnerProjection {
@@ -108,15 +122,27 @@ class DefaultLearnerEvidence implements LearnerEvidence {
         });
     }
 
-    recordActivity(evaluation: ActivityEvaluation, milestone?: ActivityMilestone): Promise<void> {
+    recordActivity(
+        evaluation: ActivityEvaluation,
+        lessonId: string,
+        milestone?: ActivityMilestone,
+    ): Promise<void> {
         return this.enqueue(async () => {
+            const lesson = await this.groundedLessons.resolve(lessonId);
+            assertGroundedEvaluation(evaluation, lesson);
             await this.record.record(evaluation.attempt);
             await this.review.ingest(evaluation.reviewSeeds);
-            const unscheduled = evaluation.reviewSeeds.filter(seed => !this.projection.scheduledReviews[`yomu-local:${seed.id}`]);
-            await this.record.recordMany(unscheduled.map(seed => ({
+            const unscheduled = new Map<string, ReviewSeed>();
+            for (const seed of evaluation.reviewSeeds) {
+                const itemId = reviewItemId(seed);
+                const legacyItemId = `yomu-local:${seed.id}`;
+                if (this.projection.scheduledReviews[itemId] || this.projection.scheduledReviews[legacyItemId]) continue;
+                unscheduled.set(itemId, unscheduled.get(itemId) ?? seed);
+            }
+            await this.record.recordMany([...unscheduled].map(([itemId, seed]) => ({
                 kind: 'review-scheduled' as const,
                 eventId: `review-scheduled:yomu-local:${seed.id}`,
-                reviewItemId: `yomu-local:${seed.id}`,
+                reviewItemId: itemId,
                 conceptId: seed.conceptId,
                 dueAt: Date.now(),
                 provenance: {
@@ -136,24 +162,6 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 ] : []),
                 { kind: 'scene-completed', eventId: `milestone:${milestone.id}:scene`, sceneId: milestone.sceneId },
             ]);
-            await this.refreshNow();
-        });
-    }
-
-    recordShadowing(): Promise<void> {
-        return this.enqueue(async () => {
-            const existing = this.projection.activities['activity:language-lab-repeat-shadowing'];
-            if (existing?.lastOutcome === 'pass') return;
-            await this.record.record({
-                kind: 'attempt-recorded',
-                eventId: 'milestone:language-lab-repeat-shadowing:attempt',
-                activityId: 'activity:language-lab-repeat-shadowing',
-                sourceQuestionId: 'source-question:classroom-phrase-09',
-                conceptIds: ['concept:classroom-repair-repeat'],
-                responseKind: 'speaking-self-assessment',
-                outcome: 'pass',
-                score: 1,
-            });
             await this.refreshNow();
         });
     }
@@ -191,4 +199,58 @@ class DefaultLearnerEvidence implements LearnerEvidence {
         this.pending = result.then(() => undefined, () => undefined);
         return result;
     }
+}
+
+function reviewItemId(seed: ReviewSeed): string {
+    return canonicalGroundedReviewKey(seed.content.expression, seed.content.reading);
+}
+
+function assertGroundedEvaluation(
+    evaluation: ActivityEvaluation,
+    lesson: GroundedLessonContract,
+): void {
+    if (lesson.status !== 'playable') {
+        throw new Error(`Lesson ${lesson.lessonId} is not grounded-playable.`);
+    }
+    const activity = lesson.activities.find(item => item.id === evaluation.attempt.activityId);
+    if (!activity || activity.status !== 'playable') {
+        throw new Error(`Activity ${evaluation.attempt.activityId} is not grounded-playable.`);
+    }
+
+    const curriculum = activity.proofs.curriculum;
+    if (curriculum.state !== 'ready') throw new Error('Grounded activity has no curriculum proof.');
+    if (!sameStrings(curriculum.evidence.conceptIds, evaluation.attempt.conceptIds)) {
+        throw new Error(`Activity ${activity.id} emitted concepts outside its grounding contract.`);
+    }
+
+    const input = activity.proofs.input;
+    if (input.state !== 'ready') throw new Error('Grounded activity has no input proof.');
+    if (input.evidence.kind === 'source') {
+        const sourceQuestionId = evaluation.attempt.sourceQuestionId;
+        if (!sourceQuestionId || !input.evidence.sourceQuestionIds.includes(sourceQuestionId)) {
+            throw new Error(`Activity ${activity.id} emitted an ungrounded Source Question.`);
+        }
+    }
+
+    const learner = activity.proofs.learnerEvidence;
+    if (learner.state !== 'ready') throw new Error('Grounded activity has no learner-evidence proof.');
+    const allowed = new Set(learner.evidence.reviewItems.map(item => canonicalGroundedConceptReviewKey(
+        item.expressionKey,
+        item.readingKey,
+        item.conceptId,
+    )));
+    for (const seed of evaluation.reviewSeeds) {
+        const key = canonicalGroundedConceptReviewKey(
+            seed.content.expression,
+            seed.content.reading,
+            seed.conceptId,
+        );
+        if (!allowed.has(key)) {
+            throw new Error(`Activity ${activity.id} emitted an ungrounded review item.`);
+        }
+    }
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+    return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
 }

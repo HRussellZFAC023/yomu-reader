@@ -1,0 +1,22 @@
+{
+  "assetId": "mira__neutral__halfbody__v001",
+  "characterId": "mira",
+  "verdict": "reference-confirmed-neutral-sample-pending",
+  "runtimeBinding": false,
+  "generated": false,
+  "identityEvidence": {
+    "provenance": "owner-identified private reference supplied 2026-07-13",
+    "sourceSha256": "69cdbe8bf0ff2ab74e87b83e5495cd658a82b70b391245256f8538bfc875febe",
+    "sourceStoredInRepository": false
+  },
+  "fixedLocks": [
+    "adult woman with fair skin",
+    "shoulder-length warm-blond hair",
+    "black cap",
+    "oversized blue hoodie",
+    "cream wide-leg trousers",
+    "clear umbrella"
+  ],
+  "releaseGate": "Generate one neutral OpenAI sample from the private reference, then obtain owner likeness approval and equal-stage cast-scale approval before any runtime binding or expression expansion.",
+  "privacy": "Only the digest, owner-confirmed identity, and non-sensitive visual locks are recorded. The source image, its temporary path, embedded signage, and location details remain outside the repository."
+}

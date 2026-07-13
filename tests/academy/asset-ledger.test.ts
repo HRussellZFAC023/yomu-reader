@@ -13,6 +13,7 @@ interface AssetEntry {
     readonly verdict: string;
     readonly runtimeHome?: readonly string[] | null;
     readonly deliveries?: readonly AssetDelivery[];
+    readonly sourceSha256?: string;
     readonly status?: string;
 }
 
@@ -102,6 +103,17 @@ describe('Academy runtime asset ledger', () => {
         expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
             '/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png',
         ]);
+    });
+
+    it('records Mira only as private reference evidence until a neutral sample passes review', () => {
+        const reference = ledger.assets.find(asset => asset.id === 'mira-private-likeness-reference');
+        expect(reference).toMatchObject({
+            verdict: 'reference-only',
+            runtimeHome: null,
+            sourceSha256: '69cdbe8bf0ff2ab74e87b83e5495cd658a82b70b391245256f8538bfc875febe',
+            status: 'release-blocked-neutral-sample-not-generated',
+        });
+        expect(reference?.deliveries).toBeUndefined();
     });
 });
 

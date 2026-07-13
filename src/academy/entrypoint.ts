@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import '../reader/styles.css';
 import './styles/tokens.css';
 import './styles/shell.css';
 import './styles/screens.css';
@@ -8,6 +9,8 @@ import './styles/world.css';
 import './styles/vn-stage.css';
 import './styles/lesson-zero-proof.css';
 import './styles/aakash-directions.css';
+import './styles/class-path.css';
+import './styles/lesson-overview.css';
 import { AcademyApp } from './app';
 import { initYomuReaderRuntime } from './integration/yomu-runtime';
 

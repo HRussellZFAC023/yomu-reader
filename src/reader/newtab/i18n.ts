@@ -1,4 +1,4 @@
-import { APP_NAME } from '../app/constants';
+import { ACADEMY_SRS_LABEL, APP_NAME } from '../app/constants';
 import type { InterfaceLanguage } from '../app/types';
 
 type NewTabLanguage = 'en' | 'ja';
@@ -144,6 +144,9 @@ const NEW_TAB_COPY = {
         sessionDone: 'Done',
         sessionLeft: 'Left',
         sessionCached: 'Cached',
+        sessionPause: 'Pause',
+        sessionResume: 'Resume',
+        sessionComplete: 'Study time complete',
         syncPending: '⟳ To sync',
         syncSynced: '✓ Synced',
         dailyGoalUnit: 'min',
@@ -207,7 +210,7 @@ const NEW_TAB_COPY = {
         gradeTargetJpdb: 'Grades JPDB',
         gradeTargetJiten: 'Grades Jiten',
         gradeTargetBunpro: 'Grades Bunpro',
-        gradeTargetYomuLocal: 'Grades Yomu',
+        gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
         gradeTargetJitenAndAnki: 'Grades Jiten + Anki card: {target}',
@@ -414,6 +417,9 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     sessionDone: '完了',
     sessionLeft: '残り',
     sessionCached: 'キャッシュ',
+    sessionPause: '一時停止',
+    sessionResume: '再開',
+    sessionComplete: '学習時間が終わりました',
     syncPending: '⟳ 同期待ち',
     syncSynced: '✓ 同期済み',
     dailyGoalUnit: '分',
@@ -477,7 +483,7 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     gradeTargetJpdb: 'JPDBを採点',
     gradeTargetJiten: 'Jitenを採点',
     gradeTargetBunpro: 'Bunproを採点',
-    gradeTargetYomuLocal: 'よむを採点',
+    gradeTargetYomuLocal: 'Academyに記録',
     gradeTargetAnki: 'Ankiカードを採点: {target}',
     gradeTargetJpdbAndAnki: 'JPDB + Ankiカードを採点: {target}',
     gradeTargetJitenAndAnki: 'Jiten + Ankiカードを採点: {target}',

@@ -16,8 +16,8 @@ description: Get help with よむ — report a bug, join the Discord, view the s
     <strong>PDF Reader</strong>
     <span>Open PDFs in the hosted reader and use よむ lookup, mining, and OCR where supported.</span>
   </a>
-  <a class="yomu-link-card" href="newtab/index.html">
-    <strong>New Tab</strong>
+  <a class="yomu-link-card" href="/study/">
+    <strong>Study</strong>
     <span>Use the よむ study screen for Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>
 </div>

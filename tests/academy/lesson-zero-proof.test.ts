@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createSourceLibrary } from '../../src/academy/domain/source-library';
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
+import { validateLessonZeroGrounding } from '../../src/academy/content/lesson-zero-grounding';
 import type { LessonZeroContent } from '../../src/academy/content/lesson-zero';
 import { createLessonZeroProof } from '../../src/academy/ui/lesson-zero-proof';
 
@@ -18,7 +19,11 @@ function lessonZeroContent(): LessonZeroContent {
         'utf8',
     ));
     const data = validateLessonZeroPackage(raw);
-    return { sourceLibrary: createSourceLibrary(data.sourceLibrary), lesson: data.lesson };
+    return {
+        sourceLibrary: createSourceLibrary(data.sourceLibrary),
+        lesson: data.lesson,
+        grounding: validateLessonZeroGrounding(data),
+    };
 }
 
 function flush(): Promise<void> {

@@ -21,7 +21,7 @@ hero:
       link: https://yomureader.com/yomu.user.js
     - theme: alt
       text: Study
-      link: /newtab/index.html
+      link: /study/
       target: _self
     - theme: alt
       text: Watch
@@ -105,9 +105,13 @@ hero:
     <strong>Install</strong>
     <span>Choose desktop, iPhone, or iPad and get the userscript running.</span>
   </a>
-  <a class="yomu-link-card" href="/newtab/index.html" target="_self">
+  <a class="yomu-link-card" href="/study/" target="_self">
     <strong>Study</strong>
     <span>Review saved words, stats, and Anki-backed queues.</span>
+  </a>
+  <a class="yomu-link-card" href="/academy/" target="_self">
+    <strong>Academy</strong>
+    <span>Learn through the guided course with the same vocabulary collection and review history.</span>
   </a>
   <a class="yomu-link-card" href="/video-player/index.html" target="_self">
     <strong>Watch</strong>

@@ -1,5 +1,6 @@
 export const APP_NAME = 'よむ';
 export const APP_PUCK = 'よむ';
+export const ACADEMY_SRS_LABEL = 'Academy';
 const APP_SLUG = 'yomu';
 export const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 export const SETTINGS_TITLE = `${APP_NAME} Settings`;
@@ -14,7 +15,8 @@ export const DONATE_URL = 'https://support.yomureader.com/donate';
 export const SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 export const YOMU_HOSTED_AUDIO_URL = 'https://audio.yomureader.com/?term={term}&reading={reading}';
 export const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
-export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+/** Canonical hosted Study route. `/newtab/` remains a compatibility route. */
+export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 export const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
 export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
 export const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;

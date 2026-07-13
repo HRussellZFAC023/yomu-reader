@@ -1,5 +1,17 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import type { CardState, JPDBMeaning } from '../app/types';
+import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { canonicalStudyCardIdentity } from './shared';
+import {
+    mergeStoredYomuSrsCards,
+    normalizeStoredYomuSrsDeck,
+    removeAcademyVocabularyProvenance as removeAcademyProvenanceFromDeck,
+    upsertAcademyVocabulary,
+    type AcademyVocabularyInput,
+    type AcademyVocabularyRetentionReason,
+    type StoredYomuSrsCard,
+    type StoredYomuSrsDeck,
+} from './local-yomu-deck';
 import type {
     YomuSrsAdapter,
     YomuSrsImportBatch,
@@ -13,66 +25,86 @@ import type {
     YomuSrsStatsSnapshot,
 } from './types';
 
+export type {
+    AcademyVocabularyInput,
+    AcademyVocabularyProvenance,
+    AcademyVocabularyProvenanceKind,
+    AcademyVocabularyRetentionReason,
+} from './local-yomu-deck';
+
 const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
+let localDeckMutation = Promise.resolve();
 
-interface StoredYomuSrsDeck {
-    version: 1;
-    cards: Record<string, StoredYomuSrsCard>;
+export interface AcademyVocabularyCollectionResult {
+    readonly cardId: string;
+    readonly cardCreated: boolean;
+    readonly provenanceAdded: boolean;
+    readonly provenanceCount: number;
+    readonly card: YomuSrsReviewable;
 }
 
-interface StoredYomuSrsCard {
-    id: string;
-    expression: string;
-    reading: string;
-    meanings: string[];
-    sentence?: string;
-    sourceProviderId?: string;
-    sourceCardId?: string;
-    sourceUrl?: string;
-    tags?: string[];
-    dueAt: number;
-    lastReviewAt: number | null;
-    createdAt: number;
-    updatedAt: number;
-    reviews: number;
-    lapses: number;
-    intervalDays: number;
-    ease: number;
+export interface AcademyVocabularyProvenanceRemovalResult {
+    readonly provenanceRemoved: boolean;
+    readonly cardDeleted: boolean;
+    readonly reason: AcademyVocabularyRetentionReason;
+    readonly card?: YomuSrsReviewable;
 }
-
-const EMPTY_DECK: StoredYomuSrsDeck = { version: 1, cards: {} };
 
 export class LocalYomuSrsRepository {
     constructor(private readonly now: () => number = () => Date.now()) {}
 
     async importBatch(batch: YomuSrsImportBatch): Promise<{ imported: number; skipped: number }> {
-        const deck = await this.readDeck();
-        let imported = 0;
-        let skipped = 0;
-        for (const item of batch.items) {
-            const card = this.cardFromImportItem(item, batch.importedAt);
-            if (!card) {
-                skipped++;
-                continue;
+        return this.mutateDeck(deck => {
+            let imported = 0;
+            let skipped = 0;
+            for (const item of batch.items) {
+                const card = this.cardFromImportItem(item, batch.importedAt);
+                if (!card) {
+                    skipped++;
+                    continue;
+                }
+                const existing = deck.cards[card.id];
+                deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
+                if (existing) skipped++;
+                else imported++;
             }
-            const existing = deck.cards[card.id];
-            if (existing) {
-                deck.cards[card.id] = {
-                    ...existing,
-                    meanings: uniqueStrings([...existing.meanings, ...card.meanings]),
-                    sentence: existing.sentence || card.sentence,
-                    sourceUrl: existing.sourceUrl || card.sourceUrl,
-                    tags: uniqueStrings([...(existing.tags ?? []), ...(card.tags ?? [])]),
-                    updatedAt: batch.importedAt,
-                };
-                skipped++;
-            } else {
-                deck.cards[card.id] = card;
-                imported++;
-            }
-        }
-        await this.writeDeck(deck);
-        return { imported, skipped };
+            return { imported, skipped };
+        });
+    }
+
+    /** Atomically upserts one semantic card and one idempotent Academy provenance. */
+    async collectAcademyVocabulary(input: AcademyVocabularyInput): Promise<AcademyVocabularyCollectionResult> {
+        return this.mutateDeck(deck => {
+            const now = this.now();
+            const result = upsertAcademyVocabulary(deck, input, now);
+            return {
+                cardId: result.card.id,
+                cardCreated: result.cardCreated,
+                provenanceAdded: result.provenanceAdded,
+                provenanceCount: result.provenanceCount,
+                card: this.toReviewable(result.card, now),
+            };
+        });
+    }
+
+    /**
+     * Removes only the requested provenance. Independent, multiply-sourced,
+     * or reviewed cards are retained even when their final Academy source is undone.
+     */
+    async removeAcademyVocabularyProvenance(
+        cardId: string,
+        provenanceId: string,
+    ): Promise<AcademyVocabularyProvenanceRemovalResult> {
+        return this.mutateDeck(deck => {
+            const now = this.now();
+            const result = removeAcademyProvenanceFromDeck(deck, cardId, provenanceId, now);
+            return {
+                provenanceRemoved: result.provenanceRemoved,
+                cardDeleted: result.cardDeleted,
+                reason: result.reason,
+                ...(result.card ? { card: this.toReviewable(result.card, now) } : {}),
+            };
+        });
     }
 
     // fallow-ignore-next-line unused-class-member
@@ -118,13 +150,17 @@ export class LocalYomuSrsRepository {
 
     // fallow-ignore-next-line unused-class-member
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
-        const deck = await this.readDeck();
-        const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
-        const existing = deck.cards[id] ?? this.cardFromReviewable(request.card, this.now());
-        const updated = scheduleReviewedCard(existing, request.grade, this.now());
-        deck.cards[id] = updated;
-        await this.writeDeck(deck);
-        return { card: this.toReviewable(updated, this.now()), raw: updated };
+        return this.mutateDeck(deck => {
+            const now = this.now();
+            const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+            const existing = deck.cards[request.card.providerCardId]
+                ?? deck.cards[identity.key]
+                ?? this.cardFromReviewable(request.card, now);
+            const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
+            if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+            deck.cards[identity.key] = updated;
+            return { card: this.toReviewable(updated, now), raw: updated };
+        });
     }
 
     // fallow-ignore-next-line unused-class-member
@@ -145,24 +181,43 @@ export class LocalYomuSrsRepository {
         return { card, raw };
     }
 
-    private async readDeck(): Promise<StoredYomuSrsDeck> {
-        const stored = await gmStorageGet<StoredYomuSrsDeck | null>(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-        if (!stored || stored.version !== 1 || !stored.cards || typeof stored.cards !== 'object') return { ...EMPTY_DECK, cards: {} };
-        return { version: 1, cards: normalizeStoredCards(stored.cards) };
+    private readDeck(): Promise<StoredYomuSrsDeck> {
+        const result = localDeckMutation.then(() => this.readDeckUncoordinated());
+        localDeckMutation = result.then(() => undefined, () => undefined);
+        return result;
+    }
+
+    private async readDeckUncoordinated(): Promise<StoredYomuSrsDeck> {
+        const stored = await gmStorageGet<unknown>(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
+        return normalizeStoredYomuSrsDeck(stored);
     }
 
     private writeDeck(deck: StoredYomuSrsDeck): Promise<void> {
         return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
     }
 
+    private mutateDeck<Result>(operation: (deck: StoredYomuSrsDeck) => Result): Promise<Result> {
+        const result = localDeckMutation.then(async () => {
+            const deck = await this.readDeckUncoordinated();
+            const value = operation(deck);
+            await this.writeDeck(deck);
+            return value;
+        });
+        localDeckMutation = result.then(() => undefined, () => undefined);
+        return result;
+    }
+
     private cardFromImportItem(item: YomuSrsImportItem, now: number): StoredYomuSrsCard | null {
-        const expression = item.expression.trim();
-        if (!expression) return null;
-        const reading = item.reading?.trim() || expression;
+        let identity: ReturnType<typeof canonicalStudyCardIdentity>;
+        try {
+            identity = canonicalStudyCardIdentity(item.expression, item.reading);
+        } catch {
+            return null;
+        }
         return {
-            id: item.sourceProviderId && item.sourceCardId ? `${item.sourceProviderId}:${item.sourceCardId}` : localCardId(expression, reading),
-            expression,
-            reading,
+            id: identity.key,
+            expression: identity.expression,
+            reading: identity.reading,
             meanings: uniqueStrings(item.meanings ?? []),
             sentence: item.sentence?.trim() || undefined,
             sourceProviderId: item.sourceProviderId,
@@ -177,14 +232,17 @@ export class LocalYomuSrsRepository {
             lapses: 0,
             intervalDays: 0,
             ease: 2.5,
+            retainWithoutAcademyProvenance: true,
+            academyProvenance: {},
         };
     }
 
     private cardFromReviewable(card: YomuSrsReviewable, now: number): StoredYomuSrsCard {
+        const identity = canonicalStudyCardIdentity(card.expression, card.reading);
         return {
-            id: card.providerCardId || localCardId(card.expression, card.reading),
-            expression: card.expression,
-            reading: card.reading || card.expression,
+            id: identity.key,
+            expression: identity.expression,
+            reading: identity.reading,
             meanings: card.meanings.flatMap(meaning => meaning.glosses),
             sourceProviderId: card.providerId,
             sourceCardId: card.providerCardId,
@@ -197,6 +255,8 @@ export class LocalYomuSrsRepository {
             lapses: 0,
             intervalDays: 0,
             ease: 2.5,
+            retainWithoutAcademyProvenance: true,
+            academyProvenance: {},
         };
     }
 
@@ -222,7 +282,8 @@ export class LocalYomuSrsRepository {
 export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()): YomuSrsAdapter {
     return {
         id: 'yomu-local',
-        label: 'Yomu',
+        // The stored provider id stays yomu-local for migration compatibility.
+        label: ACADEMY_SRS_LABEL,
         capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
         hasCredential: () => true,
         verify: async () => true,
@@ -267,29 +328,20 @@ function easeDelta(grade: YomuSrsReviewRequest['grade']): number {
 }
 
 function reviewableFromMiningRequest(request: YomuSrsMiningRequest, now: number): YomuSrsReviewable {
-    const expression = request.expression.trim();
-    const reading = request.reading?.trim() || expression;
+    const identity = canonicalStudyCardIdentity(request.expression, request.reading);
     return {
         providerId: 'yomu-local',
-        providerCardId: localCardId(expression, reading),
-        providerReviewId: localCardId(expression, reading),
+        providerCardId: identity.key,
+        providerReviewId: identity.key,
         kind: request.kind ?? 'vocabulary',
-        expression,
-        reading,
+        expression: identity.expression,
+        reading: identity.reading,
         meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
         state: ['new'],
         dueAt: now,
         lastReviewAt: null,
         sourceUrl: request.sourceUrl,
     };
-}
-
-function normalizeStoredCards(cards: Record<string, StoredYomuSrsCard>): Record<string, StoredYomuSrsCard> {
-    return Object.fromEntries(Object.entries(cards).filter(([, card]) => Boolean(card?.id && card.expression)));
-}
-
-function localCardId(expression: string, reading: string): string {
-    return `${expression.trim()}\u0000${reading.trim() || expression.trim()}`;
 }
 
 function meaningsFromGlosses(glosses: string[]): JPDBMeaning[] {

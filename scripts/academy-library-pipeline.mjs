@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
-import { resolveLibraryRoots } from './academy-source-pipeline/library/paths.mjs';
+import { LIBRARY_SCHEMA_VERSIONS, resolveLibraryRoots } from './academy-source-pipeline/library/paths.mjs';
 import { buildLibraryLedger } from './academy-source-pipeline/library/ledger.mjs';
-import { runArchiveCensus } from './academy-source-pipeline/library/archive-census.mjs';
+import { loadCachedArchiveCensus, runArchiveCensus } from './academy-source-pipeline/library/archive-census.mjs';
 import { runLibraryPdfCensus } from './academy-source-pipeline/library/pdf-census.mjs';
 import { runLibraryMediaCensus } from './academy-source-pipeline/library/media-census.mjs';
 import { createPayloadResolver } from './academy-source-pipeline/library/payload-resolver.mjs';
@@ -10,6 +10,7 @@ import {
     buildLibraryPublicStatus, writeLibraryPublicStatus, updateResourceLedgerLibrarySection,
 } from './academy-source-pipeline/library/public-status.mjs';
 import { libraryStatusPresent, validateLibraryStatus } from './academy-source-pipeline/library/validate.mjs';
+import { readJsonIfPresent } from './academy-source-pipeline/io.mjs';
 
 const COMMANDS = new Set(['scan', 'census', 'publish', 'validate', 'all']);
 
@@ -41,6 +42,16 @@ async function main() {
         return;
     }
 
+    if (command === 'publish') {
+        const ledger = requireCached(roots.ledgerPath, LIBRARY_SCHEMA_VERSIONS.ledger, 'library ledger');
+        const archiveCensus = loadCachedArchiveCensus(roots, ledger);
+        const pdfCensus = requireCached(roots.pdfCensusPath, LIBRARY_SCHEMA_VERSIONS.pdfCensus, 'PDF census');
+        const mediaCensus = requireCached(roots.mediaCensusPath, LIBRARY_SCHEMA_VERSIONS.mediaCensus, 'media census');
+        assertCachedDenominators(ledger, archiveCensus, pdfCensus, mediaCensus);
+        publish(roots, ledger, archiveCensus, pdfCensus, mediaCensus, log);
+        return;
+    }
+
     if (!existsSync(roots.libraryRoot)) {
         throw new Error(`Library root not found: ${roots.libraryRoot} (set ACADEMY_LIBRARY_ROOT)`);
     }
@@ -64,11 +75,36 @@ async function main() {
         + `${mediaCensus.payloads.filter(entry => entry.status === 'probed').length} probed`);
     if (command === 'census') return;
 
+    publish(roots, ledger, archiveCensus, pdfCensus, mediaCensus, log);
+}
+
+function publish(roots, ledger, archiveCensus, pdfCensus, mediaCensus, log) {
     const status = buildLibraryPublicStatus(ledger, archiveCensus, pdfCensus, mediaCensus);
     const written = writeLibraryPublicStatus(roots, ledger, status);
     updateResourceLedgerLibrarySection(roots, status);
     log(`public status written: ${written}`);
     report('post-publish validation', validateLibraryStatus(roots.publicStatusPath));
+}
+
+function requireCached(filePath, expectedSchema, label) {
+    const value = readJsonIfPresent(filePath);
+    if (value?.schema !== expectedSchema) {
+        throw new Error(`${label} cache missing or stale at ${filePath}; run the scan/census phase first.`);
+    }
+    return value;
+}
+
+function assertCachedDenominators(ledger, archiveCensus, pdfCensus, mediaCensus) {
+    const expected = family => ledger.uniquePayloads.filter(payload => payload.censusFamily === family).length;
+    for (const [label, actual, wanted] of [
+        ['archive', archiveCensus.archives.length, expected('archive')],
+        ['PDF', pdfCensus.documents.length, expected('pdf')],
+        ['media', mediaCensus.payloads.length, expected('media')],
+    ]) {
+        if (actual !== wanted) {
+            throw new Error(`${label} census cache has ${actual} rows; expected ${wanted}. Run the census phase first.`);
+        }
+    }
 }
 
 function report(label, violations) {

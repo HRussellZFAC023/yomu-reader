@@ -1,18 +1,24 @@
 import type { AudioDirector } from '../audio/director';
-import type { ReviewRating } from '../domain/learner-record';
+import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
+import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
+import type { JlptBand } from '../domain/learner-record';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
+import {
+    createCanonicalAcademyStudyModule,
+    mountAcademyStudyModule,
+    type AcademyStudyModule,
+} from '../integration/study-module';
 import type { PronunciationService } from '../integration/yomu-bridge';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAakashMemory } from '../ui/character-scenes';
+import { renderClassPathScreen } from '../ui/class-path-screen';
 import { renderDayEndScene } from '../ui/day-end-scene';
 import { renderOpeningMemory } from '../ui/lesson-screen';
 import { renderLoadingScreen } from '../ui/loading-screen';
 import {
     renderCampusScreen,
     renderJournalScreen,
-    renderLanguageLabScreen,
     renderLocationScreen,
-    renderReviewScreen,
     type CampusLocation,
 } from '../ui/world-screen';
 import type { AcademyRouteContext, AcademyRouteFlow } from './types';
@@ -21,6 +27,7 @@ export interface WorldFlowOptions {
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
     readonly audio: AudioDirector;
+    readonly study?: AcademyStudyModule;
 }
 
 export function createWorldFlow(options: WorldFlowOptions): AcademyRouteFlow {
@@ -38,10 +45,11 @@ class WorldFlow implements AcademyRouteFlow {
                     Object.keys(context.projection.reviewRatings).length > 0,
                     location => void this.enterLocation(location, context),
                     context.checkpoint.selectedFork,
+                    new Set(['lab']),
                 ));
                 return true;
-            case 'lab':
-                this.renderLanguageLab(context);
+            case 'class':
+                await this.renderClassPath(context);
                 return true;
             case 'review':
                 await this.renderReview(context);
@@ -64,61 +72,58 @@ class WorldFlow implements AcademyRouteFlow {
         if (location === 'library') return context.go('review');
         if (location === 'classroom') {
             return context.projection.curriculumEntry?.band
-                ? context.go('band-entry', { selectedBand: context.projection.curriculumEntry.band })
-                : context.go('lesson-fork');
+                ? context.go('class', { selectedBand: context.projection.curriculumEntry.band })
+                : context.go('lesson-overview', { lessonId: 'lesson:foundation-00' });
         }
-        if (location === 'lab') return context.go('lab');
+        if (location === 'lab') return;
         await this.options.audio.setTheme('cafe.social');
         context.shell.setNavigation(true, 'campus');
         context.shell.replace(renderLocationScreen(context.language, location, () => void context.go('campus')));
     }
 
-    private renderLanguageLab(context: AcademyRouteContext): void {
-        const listening = context.projection.activities['activity:language-lab-repeat-listening'];
-        const shadowing = context.projection.activities['activity:language-lab-repeat-shadowing'];
-        context.shell.replace(renderLanguageLabScreen(
-            context.language,
-            this.options.pronunciation,
-            {
-                transcriptRevealed: Boolean(listening?.attemptCount),
-                listeningPassed: context.projection.completedScenes.includes('scene:language-lab-repeat-listening'),
-                shadowed: shadowing?.lastOutcome === 'pass',
+    private async renderClassPath(context: AcademyRouteContext): Promise<void> {
+        context.shell.replace(renderLoadingScreen(context.language, navigator.onLine));
+        const plan = await loadClassWeekCastPlan();
+        const delivery = await loadClassWeekDeliveryCatalog(plan);
+        const currentOrder = classOrderForBand(context.projection.curriculumEntry?.band);
+        context.shell.replace(renderClassPathScreen({
+            language: context.language,
+            plan,
+            currentOrder,
+            playableWeekIds: new Set(delivery.weeks
+                .filter(week => week.state === 'grounded-playable')
+                .map(week => week.weekId)),
+            onOpenWeek: weekId => {
+                const lesson = delivery.weeks.find(entry => entry.weekId === weekId);
+                if (!lesson || lesson.state !== 'grounded-playable') return;
+                void context.go('lesson-overview', { lessonId: lesson.lessonId });
             },
-            evaluation => this.recordLabEvaluation(evaluation, context),
-            () => this.recordShadowing(context),
-            () => void context.go('campus'),
-        ));
-    }
-
-    private async recordLabEvaluation(
-        evaluation: Parameters<LearnerEvidence['recordActivity']>[0],
-        context: AcademyRouteContext,
-    ): Promise<void> {
-        await this.options.evidence.recordActivity(evaluation, {
-            id: 'language-lab-repeat-listening',
-            sceneId: 'scene:language-lab-repeat-listening',
-        });
-        await context.go('lab');
-    }
-
-    private async recordShadowing(context: AcademyRouteContext): Promise<void> {
-        await this.options.evidence.recordShadowing();
-        await context.go('lab');
+        }));
     }
 
     private async renderReview(context: AcademyRouteContext): Promise<void> {
         context.shell.replace(renderLoadingScreen(context.language, navigator.onLine));
-        const items = await this.options.evidence.dueReviews(10);
-        context.shell.replace(renderReviewScreen(
-            context.language,
-            items,
-            (item, rating) => this.rateReview(item.id, rating),
-            () => void this.refreshAndGo(context, 'campus'),
-        ));
-    }
-
-    private rateReview(itemId: string, rating: ReviewRating): Promise<void> {
-        return this.options.evidence.rateReview(itemId, rating);
+        const screen = document.createElement('section');
+        screen.className = 'academy-study-screen';
+        screen.dataset.academyScreen = 'study';
+        screen.dataset.academyRoute = 'review';
+        context.shell.replace(screen);
+        let lifecycle: { dispose(): void } | undefined;
+        let disposed = false;
+        screen.addEventListener('academy:dispose', () => {
+            disposed = true;
+            lifecycle?.dispose();
+        }, { once: true });
+        const mounted = await mountAcademyStudyModule(
+            screen,
+            this.options.study ?? createCanonicalAcademyStudyModule(),
+            {
+                language: context.language,
+                onExit: () => void context.back(),
+            },
+        );
+        if (disposed) mounted.dispose();
+        else lifecycle = mounted;
     }
 
     private async renderJournal(context: AcademyRouteContext): Promise<void> {
@@ -145,19 +150,23 @@ class WorldFlow implements AcademyRouteFlow {
     }
 
     private replayOpening(context: AcademyRouteContext): void {
-        context.shell.setNavigation(false);
+        context.shell.setNavigation(true, 'journal');
         context.shell.replace(renderOpeningMemory(context.language, () => void context.go('journal')));
     }
 
     private replayAakash(context: AcademyRouteContext): void {
-        context.shell.setNavigation(false);
+        context.shell.setNavigation(true, 'journal');
         context.shell.replace(renderAakashMemory(context.language, () => void context.go('journal')));
     }
 
-    private async refreshAndGo(context: AcademyRouteContext, route: AcademyRoute): Promise<void> {
-        await this.options.evidence.refresh();
-        await context.go(route);
-    }
+}
+
+function classOrderForBand(band: JlptBand | undefined): number {
+    return band === 'n5' ? 19
+        : band === 'n4' ? 36
+            : band === 'n3' ? 48
+                : band === 'n2' || band === 'n1' ? 62
+                    : 0;
 }
 
 function legacyRelationshipChapters(bond: number | undefined): readonly number[] {

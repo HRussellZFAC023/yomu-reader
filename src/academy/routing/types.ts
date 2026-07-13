@@ -1,6 +1,6 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { LearnerProjection } from '../domain/learner-record';
-import type { AcademyCheckpoint, AcademyRoute } from '../persistence/indexeddb';
+import type { AcademyCheckpoint, AcademyCheckpointUpdate, AcademyRoute } from '../persistence/indexeddb';
 import type { AcademyShell } from '../ui/shell';
 
 export interface AcademyRouteContext {
@@ -8,7 +8,8 @@ export interface AcademyRouteContext {
     readonly checkpoint: AcademyCheckpoint;
     readonly projection: LearnerProjection;
     readonly shell: AcademyShell;
-    go(route: AcademyRoute, update?: Partial<AcademyCheckpoint>): Promise<void>;
+    go(route: AcademyRoute, update?: AcademyCheckpointUpdate): Promise<void>;
+    back(): Promise<void>;
 }
 
 export interface AcademyRouteFlow {

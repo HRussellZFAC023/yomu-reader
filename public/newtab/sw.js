@@ -70,14 +70,13 @@ function shouldStoreNetworkResponse(request, response) {
 
 async function cachedResponseFallback(request) {
   return await caches.match(request, { ignoreSearch: true })
-    || await caches.match('./index.html')
     || Response.error();
 }
 
 function shouldCacheRequest(request) {
   if (!isSameOrigin(request)) return false;
   const url = new URL(request.url);
-  return isNewTabPath(url.pathname)
+  return isStudyScopePath(url.pathname)
     || CACHEABLE_PATH_SUFFIXES.some(suffix => url.pathname.endsWith(suffix));
 }
 
@@ -85,6 +84,7 @@ function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
 }
 
-function isNewTabPath(pathname) {
-  return pathname.includes('/newtab/');
+function isStudyScopePath(pathname) {
+  const scopePath = new URL(self.registration.scope).pathname;
+  return pathname.startsWith(scopePath);
 }

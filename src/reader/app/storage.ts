@@ -597,7 +597,8 @@ function isHostedYomuOrigin(): boolean {
         const path = location.pathname;
         if (location.origin === DOCS_ORIGIN) return true;
         if (host === 'hrussellzfac023.github.io') return path.startsWith('/yomu-reader/');
-        return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes('/newtab/');
+        return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host)
+            && (path.includes('/study/') || path.includes('/newtab/'));
     } catch {
         return false;
     }
@@ -628,11 +629,13 @@ function hasManagedYomuServiceWorkerPath(value: string | undefined): boolean {
         if (!isManagedServiceWorkerOrigin(url)) return false;
         return url.pathname === '/sw.js'
             || url.pathname.endsWith('/sw.js')
+            || url.pathname.includes('/study/')
             || url.pathname.includes('/newtab/')
             || url.pathname.includes('/pdf-reader/')
             || url.pathname.includes('/video-player/');
     } catch {
-        return value.includes('/newtab/')
+        return value.includes('/study/')
+            || value.includes('/newtab/')
             || value.includes('/pdf-reader/')
             || value.includes('/video-player/')
             || value.endsWith('/sw.js');

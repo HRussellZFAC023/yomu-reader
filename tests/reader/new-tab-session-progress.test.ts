@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import {
-    formatNewTabSessionElapsed,
     NewTabSessionProgressTracker,
     sessionProgressSourcesForCard,
 } from '../../src/reader/newtab/session-progress';
+import { createStudySessionClock, formatStudySessionRemaining } from '../../src/reader/newtab/session-clock';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 // These tests assert English UI copy; pin the interface language since the
@@ -31,7 +31,10 @@ function progressCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
-function progressController(overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {}): NewTabController {
+function progressController(
+    overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {},
+    options: ConstructorParameters<typeof NewTabController>[1] = {},
+): NewTabController {
     return new NewTabController({
         getSettings: () => ({
             ...DEFAULT_SETTINGS,
@@ -55,7 +58,7 @@ function progressController(overrides: Partial<ConstructorParameters<typeof NewT
         showSettings: vi.fn(),
         dismiss: vi.fn(),
         ...overrides,
-    });
+    }, options);
 }
 
 function renderProgressRoot(controller: NewTabController): HTMLElement {
@@ -76,14 +79,14 @@ afterEach(() => {
 });
 
 describe('new-tab session progress', () => {
-    it('formats elapsed time like a stopwatch', () => {
-        expect(formatNewTabSessionElapsed(-500)).toBe('00:00');
-        expect(formatNewTabSessionElapsed(5_000)).toBe('00:05');
-        expect(formatNewTabSessionElapsed(185_000)).toBe('03:05');
-        expect(formatNewTabSessionElapsed(3_723_000)).toBe('1:02:03');
+    it('formats remaining time as a countdown', () => {
+        expect(formatStudySessionRemaining(-500)).toBe('00:00');
+        expect(formatStudySessionRemaining(5_000)).toBe('00:05');
+        expect(formatStudySessionRemaining(185_000)).toBe('03:05');
+        expect(formatStudySessionRemaining(3_723_000)).toBe('1:02:03');
     });
 
-    it('tracks completed reviews, elapsed time, and remaining review cards by source', () => {
+    it('tracks completed reviews, remaining session time, and review cards by source', () => {
         let now = 1_000;
         const tracker = new NewTabSessionProgressTracker({ now: () => now });
         const jpdb = progressCard({ vid: 10, sid: 1, spelling: '復習', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
@@ -96,7 +99,8 @@ describe('new-tab session progress', () => {
         const snapshot = tracker.snapshot([jpdb, jiten, anki, dictionary]);
 
         expect(snapshot.completedReviews).toBe(1);
-        expect(snapshot.elapsedLabel).toBe('02:05');
+        expect(snapshot.remainingSessionLabel).toBe('12:55');
+        expect(snapshot.elapsedMs).toBe(125_000);
         expect(snapshot.remainingCards).toBe(3);
         expect(snapshot.remainingDueCards).toBe(2);
         expect(snapshot.sources).toEqual([
@@ -123,8 +127,8 @@ describe('new-tab session progress', () => {
         const reviewCard = vi.fn(async () => {});
         const controller = progressController({ jpdb: { reviewCard } as never });
         const root = renderProgressRoot(controller);
-        const jpdb = progressCard({ vid: 10, sid: 1, spelling: '復習', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
-        const anki = progressCard({ vid: -3, sid: 0, rid: 404, spelling: '暗記', source: 'anki', reviewSource: 'anki', ankiCardId: 404, cardState: ['learning'] });
+        const jpdb = progressCard({ vid: 10, sid: 1, spelling: 'ふくしゅう', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const anki = progressCard({ vid: -3, sid: 0, rid: 404, spelling: 'あんき', source: 'anki', reviewSource: 'anki', ankiCardId: 404, cardState: ['learning'] });
 
         Object.assign(controller as unknown as {
             allWords: JPDBCard[];
@@ -147,7 +151,9 @@ describe('new-tab session progress', () => {
         vi.setSystemTime(new Date('2026-06-06T12:01:05Z'));
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, jpdb);
         const count = root.querySelector<HTMLElement>('[data-newtab-count]')!;
-        expect(count.textContent).toBe('Done 0 · Left 2 · Due 2 · 01:05 · 0/60 min');
+        expect(count.textContent).toBe('Done 0 · Left 2 · Due 2 · 13:55 · 0/60 min');
+        expect(root.querySelector('[data-study-clock="countdown"]')?.textContent).toBe('13:55');
+        expect(count.dataset.sessionRemaining).toBe('13:55');
         expect(count.dataset.sessionRemainingCards).toBe('2');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('1');
         expect(count.dataset.sessionAnkiRemainingCards).toBe('1');
@@ -155,11 +161,80 @@ describe('new-tab session progress', () => {
         await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
         expect(reviewCard).toHaveBeenCalledWith(jpdb, 'okay');
-        expect(count.textContent).toBe('Done 1 · Left 1 · Due 1 · 01:05 · 0/60 min');
+        expect(count.textContent).toBe('Done 1 · Left 1 · Due 1 · 13:55 · 0/60 min');
         expect(count.dataset.sessionCompletedReviews).toBe('1');
         expect(count.dataset.sessionRemainingCards).toBe('1');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('0');
         expect(count.dataset.sessionAnkiRemainingCards).toBe('1');
+        controller.destroy();
+    });
+
+    it('does not reattach its owned clock when a grade settles after unmount', async () => {
+        let finishReview: (() => void) | undefined;
+        const reviewCard = vi.fn(() => new Promise<void>(resolve => { finishReview = resolve; }));
+        const controller = progressController({ jpdb: { reviewCard } as never });
+        const root = renderProgressRoot(controller);
+        const current = progressCard({ vid: 21, spelling: 'ふくしゅう', reading: 'ふくしゅう', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const next = progressCard({ vid: 22, spelling: 'つぎ', reading: 'つぎ', reviewSource: 'jpdb-api', cardState: ['due'] });
+
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            allWords: [current, next],
+            visibleWords: [current, next],
+            index: 0,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+        });
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, current);
+
+        const grading = (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<boolean> }).gradeCurrentCard('okay');
+        await vi.waitFor(() => expect(reviewCard).toHaveBeenCalledWith(current, 'okay'));
+        controller.destroy();
+        finishReview?.();
+
+        await expect(grading).resolves.toBe(true);
+        expect(root.querySelector('[data-study-clock="countdown"]')).toBeNull();
+    });
+
+    it('mounts the real Study controller inside an Academy host without replacing the document', async () => {
+        const outside = document.createElement('aside');
+        outside.dataset.outsideAcademyStudy = '';
+        const host = document.createElement('section');
+        document.body.append(outside, host);
+        const clock = createStudySessionClock({
+            now: () => 0,
+            schedule: () => 1,
+            cancel() {},
+        });
+        const controller = progressController({}, {
+            host,
+            surface: 'academy',
+            sessionClock: clock,
+            showSessionClockControl: false,
+        });
+        Object.assign(controller as unknown as {
+            loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options?: unknown): Promise<void>;
+        }, { loadWordsInto: vi.fn(async () => {}) });
+
+        await controller.renderPage();
+
+        const root = host.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
+        expect(root?.dataset.studySurface).toBe('academy');
+        expect(root?.querySelector('[data-newtab-study]')).not.toBeNull();
+        expect(root?.querySelectorAll('.jpdb-reader-newtab-mode > [data-newtab-action="mode"]')).toHaveLength(3);
+        expect(root?.querySelector('.jpdb-reader-newtab-brand')).toBeNull();
+        expect(root?.querySelector('[data-newtab-session-clock-host]')).toBeNull();
+        expect(document.body.firstElementChild).toBe(outside);
+
+        controller.destroy();
+        clock.dispose();
     });
 });
 
@@ -283,7 +358,7 @@ describe('stop at end of batch (community ask)', () => {
             internals.renderBatchComplete(root);
 
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Batch complete');
-            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toMatch(/^Done 0 · /);
+            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('Done 0');
             expect(root.querySelector('[data-newtab-action="continue-batch"]')?.textContent).toBe('Continue');
         } finally {
             controller.destroy();

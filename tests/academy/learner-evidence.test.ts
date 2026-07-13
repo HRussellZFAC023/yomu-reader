@@ -4,6 +4,7 @@ import { createActivityRuntime } from '../../src/academy/domain/activity-runtime
 import { createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
 import type { ReviewQueueService } from '../../src/academy/integration/yomu-bridge';
+import { groundedLessonForEvaluation, staticGroundedLessonResolver } from './fixtures/grounded-lesson';
 
 function reviewService(): ReviewQueueService {
     return {
@@ -36,18 +37,19 @@ describe('learner evidence deep module', () => {
 
     it('schedules one review and awards one bond when a milestone evaluation is retried', async () => {
         const repository = createMemoryLearnerEventRepository();
-        const evidence = createLearnerEvidence(repository, reviewService());
-        await evidence.initialize();
         const runtime = createActivityRuntime([constructedResponseActivityPlugin]);
         const evaluation = runtime.evaluate(createAakashDirectionsActivity(), 'この道をまっすぐ行って、右です。');
+        const lesson = groundedLessonForEvaluation(evaluation);
+        const evidence = createLearnerEvidence(repository, reviewService(), staticGroundedLessonResolver(lesson));
+        await evidence.initialize();
         const milestone = {
             id: 'aakash-rainy-directions',
             sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
             unlock: { assetId: 'character:aakash', characterId: 'aakash', bondDelta: 1 },
         } as const;
 
-        await evidence.recordActivity(evaluation, milestone);
-        await evidence.recordActivity(evaluation, milestone);
+        await evidence.recordActivity(evaluation, lesson.lessonId, milestone);
+        await evidence.recordActivity(evaluation, lesson.lessonId, milestone);
 
         expect(evidence.projection.bonds.aakash).toBe(1);
         expect(evidence.projection.relationshipJournal.aakash).toEqual({

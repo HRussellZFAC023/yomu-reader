@@ -19,7 +19,7 @@ Most review apps you have to remember to open. The よむ study page flips that:
   <strong>In one line:</strong> a clean study screen for Jiten, Bunpro, JPDB, Anki, imported-dictionary, and pitch-accent Listen practice, designed to live on your new-tab page or iPad Home Screen.
 </div>
 
-[Open the study page →](/newtab/index.html){target="_self"}
+[Open the Study page →](/study/){target="_self"}
 
 ## Studies whatever you have connected
 
@@ -63,7 +63,7 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 ## Set it up
 
 1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
-2. Open the [study page](/newtab/index.html) and import a dictionary in **Settings → Dictionaries**.
+2. Open the [Study page](/study/) and import a dictionary in **Settings → Dictionaries**.
 3. Optionally connect Jiten, [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), or Anki, then set the page as your new-tab or Home Screen shortcut.
 
 When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an **Offline cache** status, and Jiten, JPDB, Anki, and local-Yomu grades can be saved locally and retried when the provider reconnects. Bunpro grades require a live queue session and are intentionally unavailable offline because its session and ghost-review ids can change.
@@ -79,7 +79,7 @@ Open **Settings → Study** to choose a review source and switch the general rat
 **How does it study Anki on a phone?** Keep desktop AnkiConnect reachable over a LAN or Tailscale URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="/newtab/index.html" target="_self">Open study page</a>
+  <a class="yomu-cta-button primary" href="/study/" target="_self">Open Study page</a>
   <a class="yomu-cta-button" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

@@ -57,6 +57,27 @@ describe('complete Lesson 0 content package', () => {
         expect(lesson.inputScripts.every(script => new Set(script.lines.map(line => line.speakerId)).size >= 2)).toBe(true);
     });
 
+    it('gives the lesson overview concrete goals, people, places, and honest materials', async () => {
+        const { lesson } = await loadLessonZeroContent(lessonFetcher());
+
+        expect(lesson.overview.title).toEqual({ en: 'Lesson 0', ja: 'レッスン0' });
+        expect(lesson.overview.goals).toHaveLength(5);
+        expect(lesson.overview.peopleIds).toEqual([
+            'rie', 'xingyu', 'mika', 'sophie', 'ruparna', 'aakash', 'sam',
+        ]);
+        expect(lesson.overview.locationIds).toEqual([
+            'location:classroom', 'location:language-lab', 'location:library', 'location:classroom-entrance',
+        ]);
+        const handout = lesson.overview.materials.find(material => material.kind === 'source-handout');
+        expect(handout?.state).toBe('ready');
+        expect(handout?.sourceQuestionIds).toHaveLength(14);
+        const dialogue = lesson.overview.materials.find(material => material.kind === 'dialogue-audio');
+        expect(dialogue).toMatchObject({
+            state: 'release-blocked',
+            blockerId: 'blocker:lesson-zero-verified-dialogue-audio',
+        });
+    });
+
     it('preserves all fourteen immutable source records with the audited document and page loci', async () => {
         const { sourceLibrary, lesson } = await loadLessonZeroContent(lessonFetcher());
         const questions = [];
@@ -217,5 +238,13 @@ describe('complete Lesson 0 content package', () => {
         };
         candidate.lesson.audioAssets[0]!.browserTtsAllowed = true;
         expect(() => validateLessonZeroPackage(candidate)).toThrow(/fake or learner-visible fallback/i);
+    });
+
+    it('rejects overview material that is detached from the authored lesson', () => {
+        const candidate = packageJson() as {
+            lesson: { overview: { materials: Array<{ activityIds: string[] }> } };
+        };
+        candidate.lesson.overview.materials[0]!.activityIds = ['activity:invented'];
+        expect(() => validateLessonZeroPackage(candidate)).toThrow(/references unknown activity/i);
     });
 });

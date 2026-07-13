@@ -31,6 +31,23 @@ export interface LessonZeroSection {
     readonly resumableAfter: boolean;
 }
 
+export interface LessonZeroOverview {
+    readonly title: LocalizedText;
+    readonly summary: LocalizedText;
+    readonly goals: readonly LocalizedText[];
+    readonly peopleIds: readonly LessonZeroCharacterId[];
+    readonly locationIds: readonly string[];
+    readonly materials: readonly Readonly<{
+        id: string;
+        kind: 'source-handout' | 'writing-surface' | 'kana-surface' | 'dialogue-audio';
+        title: LocalizedText;
+        state: 'ready' | 'release-blocked';
+        activityIds: readonly string[];
+        sourceQuestionIds?: readonly string[];
+        blockerId?: string;
+    }>[];
+}
+
 export interface LessonZeroActivity {
     readonly id: string;
     readonly sectionId: string;
@@ -96,6 +113,7 @@ export interface LessonZeroDefinition {
     readonly contentVersion: string;
     readonly levelBand: 'foundation';
     readonly estimatedMinutes: Readonly<{ minimum: number; maximum: number }>;
+    readonly overview: LessonZeroOverview;
     readonly sectionIds: readonly string[];
     readonly sections: readonly LessonZeroSection[];
     readonly sentenceFrames: readonly string[];

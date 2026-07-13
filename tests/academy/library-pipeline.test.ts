@@ -15,9 +15,11 @@ import { runLibraryMediaCensus } from '../../scripts/academy-source-pipeline/lib
 // @ts-expect-error Plain-JS pipeline tooling is exercised directly.
 import { createPayloadResolver } from '../../scripts/academy-source-pipeline/library/payload-resolver.mjs';
 // @ts-expect-error Plain-JS pipeline tooling is exercised directly.
-import { buildLibraryPublicStatus, writeLibraryPublicStatus, updateResourceLedgerLibrarySection } from '../../scripts/academy-source-pipeline/library/public-status.mjs';
+import { buildLibraryPublicStatus, collectLibraryPrivateTokens, writeLibraryPublicStatus, updateResourceLedgerLibrarySection } from '../../scripts/academy-source-pipeline/library/public-status.mjs';
 // @ts-expect-error Plain-JS pipeline tooling is exercised directly.
 import { validateLibraryStatus } from '../../scripts/academy-source-pipeline/library/validate.mjs';
+// @ts-expect-error Plain-JS pipeline tooling is exercised directly.
+import { findLeakedTokens } from '../../scripts/academy-source-pipeline/privacy.mjs';
 // @ts-expect-error Plain-JS pipeline tooling is exercised directly.
 import { sha256Hex } from '../../scripts/academy-source-pipeline/io.mjs';
 import {
@@ -205,10 +207,70 @@ describe('library public status', () => {
         expect(serialized.includes('.zzz')).toBe(false);
     });
 
+    it('allows only the five documented generic basename/schema collisions', () => {
+        const generic = ['.cargo-lock', 'build', 'output', 'include', 'audio'];
+        const ledger = {
+            libraryRoot: '/private/Japanese',
+            entries: generic.map(name => ({ relativePath: `Tool cache/private-parent/${name}` })),
+        };
+        const tokens = collectLibraryPrivateTokens(ledger);
+        for (const name of generic) expect(tokens.has(name)).toBe(false);
+        // The containing path is still private even though its generic final
+        // component is allowed to collide with a controlled aggregate term.
+        for (const name of generic) expect(tokens.has(`Tool cache/private-parent/${name}`)).toBe(true);
+        const safeAggregateVocabulary = JSON.stringify({
+            extension: '.cargo-lock', kind: 'audio', states: ['build-artifact', 'compiler-build-output', 'included'],
+        });
+        expect(findLeakedTokens(safeAggregateVocabulary, tokens)).toEqual([]);
+    });
+
+    it('still catches private paths, titles, escaped names, encoded paths and distinctive source tokens', () => {
+        const privatePath = 'Courses/Student A/秘密教材/Week 3 "Kanji" \\ review.pdf';
+        const distinctive = 'JLPT-N2-listening-key-2026.mp3';
+        const distinctiveWithGenericSubstrings = 'private-audio-output-build.pdf';
+        const privateHash = 'a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef0123';
+        const tokens = collectLibraryPrivateTokens({
+            libraryRoot: '/Users/private/Documents/Japanese',
+            entries: [
+                { relativePath: privatePath, sha256: privateHash },
+                { relativePath: `Assessments/${distinctive}` },
+                { relativePath: `Assessments/${distinctiveWithGenericSubstrings}` },
+                { relativePath: 'Courses/Student A/秘密教材' },
+                { relativePath: 'Users/AakashPrivate' },
+            ],
+            uniquePayloads: [{ sha256: privateHash }],
+        });
+        expect(findLeakedTokens(JSON.stringify({ value: privatePath }), tokens)).toContain(privatePath);
+        expect(findLeakedTokens(JSON.stringify({ value: encodeURI(privatePath) }), tokens)).toContain(privatePath);
+        expect(findLeakedTokens(JSON.stringify({ value: encodeURIComponent(privatePath) }), tokens)).toContain(privatePath);
+        expect(findLeakedTokens(JSON.stringify({ value: distinctive }), tokens)).toContain(distinctive);
+        expect(findLeakedTokens(JSON.stringify({ value: distinctiveWithGenericSubstrings }), tokens))
+            .toContain(distinctiveWithGenericSubstrings);
+        expect(findLeakedTokens(JSON.stringify({ value: '秘密教材' }), tokens)).toContain('秘密教材');
+        expect(findLeakedTokens(JSON.stringify({ value: 'AakashPrivate' }), tokens)).toContain('AakashPrivate');
+        expect(findLeakedTokens(JSON.stringify({ value: privateHash }), tokens)).toContain(privateHash);
+        expect(findLeakedTokens(JSON.stringify({ value: '/Users/private/Documents/Japanese' }), tokens))
+            .toContain('/Users/private/Documents/Japanese');
+    });
+
     it('refuses to publish when a private token would leak', () => {
         const { roots, ledger, status } = fullRun();
         const poisoned = { ...status, scanRevision: 'Lessons/秘密の教科書' };
         expect(() => writeLibraryPublicStatus(roots, ledger, poisoned)).toThrow(/private tokens/);
+    });
+
+    it('refuses keys outside the aggregate public allowlist', () => {
+        const { roots, ledger, status } = fullRun();
+        expect(() => writeLibraryPublicStatus(roots, ledger, { ...status, title: 'not public' }))
+            .toThrow(/public allowlist violations/);
+    });
+
+    it('reports every failed archive under a controlled aggregate reason', () => {
+        const { status } = fullRun();
+        expect(status.archives.failed).toBe(1);
+        expect(status.archives.byFailureReason).toEqual([
+            { archiveFailureCode: 'failed:corrupt-or-unsupported', containerCount: 1 },
+        ]);
     });
 
     it('never inflates Moodle claims and pins the mechanical-census claims false', () => {
@@ -227,6 +289,14 @@ describe('library public status', () => {
         expect(updated.coverage.sourceQuestionsAudited).toBe(1);
         expect(updated.baselineCounts.uniquePayloads).toBe(688);
         expect(updated.stage2LibraryCensus.denominators.entryCount).toBe(status.denominators.entryCount);
+        expect(updated.stage2LibraryCensus.archives).toEqual({
+            containerPayloadCount: 2,
+            censused: 1,
+            failed: 1,
+            byFailureReason: [{ archiveFailureCode: 'failed:corrupt-or-unsupported', containerCount: 1 }],
+        });
+        expect(updated.stage2LibraryCensus.pdf.documentCount).toBe(status.pdf.documentCount);
+        expect(updated.stage2LibraryCensus.media.payloadCount).toBe(status.media.payloadCount);
 
         writeFileSync(ledgerPath, JSON.stringify({
             coverage: { sourceQuestionsAudited: 5, sourceQuestionsPlayable: 1 },

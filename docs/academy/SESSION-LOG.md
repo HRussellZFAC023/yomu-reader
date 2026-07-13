@@ -336,3 +336,56 @@ The earlier execution blocker was removed in the continuing session; this sectio
 - Added the post-checkout claim flow: sensitive return parameters are removed from history immediately; polling is bounded and abortable; the generated code is validated, prefilled, and copyable without storage or URL leakage; pending/unavailable states have one concise retry.
 - Added a versioned 73-week classmate appearance plan pinned to the donor index. Sixty-seven assignments have source-topic evidence; orientation and five outline-only kickoffs remain review-required. All 19 documented classmates receive primary appearances under exact-name, specialty, and concentration validators. This is explicitly planning-only, not authored/playable content.
 - Browser evidence `16` records the real living-paper donation letter. Focused donation/i18n/human suites pass 27/27, live access/audio/Worker contracts 38/38, and cast planning 14/14. TypeScript and Academy build pass at `s1-63d201aec2dc`.
+
+## 2026-07-13 — Authorized shared Japanese-library census
+
+- Ran `/usr/bin/time -p env ACADEMY_LIBRARY_ROOT=/Users/heru/Documents/Japanese npm run academy:library:pipeline` against the authorized 42 GB tree. The initial uncached pass took 9,295.95 seconds (2h 34m 55.95s); its per-file/per-payload records remain under ignored `artifacts/yomu-academy/source-pipeline/library/` and no source byte was copied into Git.
+- The private ledger accounts for 15,790 filesystem entries, 13,123 regular files, 44,588,237,342 bytes, 11,081 unique payloads, 72 resource duplicate occurrences, and 68 payload hashes also known to Moodle. Library and Moodle remain separate denominator universes.
+- Archive states cover 89/89 unique containers: 84 censused and five explicit `failed:zip64-unsupported` records. Their aggregate member counts are 64,560 occurrences and 64,558 per-container unique member payloads; no member extraction failed and none was encrypted.
+- PDF census covers 450/450 unique payloads, including 44 Moodle-census reuses and zero failures: 70,983 pages, 35,641 without a text layer, 320,534 native image objects, 271 positioned media regions, 5,221,967 text boxes, 34,222 mechanical question-signal candidates, and 66,420 vector-review pages. Candidates are not verified questions or playable coverage.
+- Media census covers 5,090/5,090 unique payloads, including 23 Moodle-probe reuses and zero failures, with 439,732 aggregate duration seconds where duration exists.
+- Private terminal-state assertions pass, the public-schema structural allowlist has zero violations, and the existing Moodle `catalog.v2.json`, `corpus-status.v1.json`, and `pack-migration.v1.json` hashes remain unchanged.
+- Aggregate publication stopped safely before writing because private basenames `.cargo-lock`, `build`, `output`, `include`, and `audio` collide with legitimate aggregate extension/state/kind strings. `npm run academy:library:validate` therefore still reports that status has not been generated. The guard needs a tested collision-safe fix; bypassing it or marking the public gate green would be incorrect.
+
+### Privacy-safe publish closure
+
+- Narrowed the basename exception to exactly those five generic schema-vocabulary collisions. Their full relative paths remain private tokens; every other basename plus payload hashes and the library root remain guarded. Token matching now also catches JSON escaping, URI-path encoding, URI-component encoding, and lower-case percent escapes.
+- Made `publish` cache-only. It validates ledger/census schema versions and archive/PDF/media row denominators, then refuses missing or stale caches instead of reopening the 42 GB source tree.
+- Added an allowlisted archive failure-reason aggregate. The public status records 89 containers as 84 censused plus five `failed:zip64-unsupported`; it does not publish a filename, path, title, source string, or hash.
+- Published `library-status.v1.json` and the separate `stage2LibraryCensus` resource-ledger section from cache in 0.966 seconds. Focused library/source-privacy tests pass 21/21; TypeScript, combined Moodle/library public validation, script syntax checks, and diff checks pass.
+- Mechanical completion is not content completion. Five ZIP64 archives, 2,073 unknown-extension files, 34,222 question-signal candidates, human question/media review, rights, transcripts, and activity pairing remain open; the public claims stay false for verified coverage.
+
+## 2026-07-13 — Fable-reviewed route and grounded-lesson reset
+
+- Ran two read-only Fable 5 reviews at the owner's required low effort in session `665dfc90-1169-4bc7-ad70-1e2b61172438`. The review accepted the full-bleed VN stage, shared Study seam, source privacy boundary, and classroom-expression content contract, while rejecting hard-coded campus Back, planning-only Week links, repeated journal cards, dead menu controls, and surface inconsistency.
+- Added [`LESSON-EXPERIENCE-CONTRACT.md`](LESSON-EXPERIENCE-CONTRACT.md): one route tree, equal Story/Course hosts, collapsed Class spine, compact lesson overview, focused activity/repair/return, ten predictable paper types, private on-demand library delivery, and explicit Nielsen/Jakob usability checks.
+- Added the deep grounded-lesson validator. Lesson 0 remains honestly blocked where teaching, audio, grading definitions, repair, review keys, accessibility mappings, or other academic proofs are missing; story and art cannot change that status.
+- Replaced the 73-Week horizontal Class rails and dead summary action with five collapsed level chapters. Only the current level expands; only runtime-bound Lesson 0 is interactive; People and Events follow the selected level. Focused Class tests pass 4/4.
+- Captured the revised real-app Class path as `evidence/direction-reset/17-class-path-overview.png`. Persisted route history and Story/Course presentation state are the active Slice 1 implementation.
+- Made grounding a production-build prerequisite. `npm run build:academy` now runs the complete lesson-directory registry and resource-ledger honesty gates first; focused validation passes 4/4. A new JSON lesson cannot enter the public lesson directory anonymously, and a review-blocked lesson cannot inflate the playable-Week denominator.
+
+## 2026-07-13 — Hard grounding, route quarantine, and shared Study proof
+
+### Academic write boundary
+
+- Replaced caller-supplied grounding authority with a registry-backed resolver. Each complete lesson registration pins its filename, lesson ID, content revision, and SHA-256. The resolver hashes the shipped bytes before parsing, re-runs the lesson audit, and rejects an ID or revision mismatch.
+- Made `LearnerEvidence.recordActivity` resolve that registered lesson before appending an attempt or scheduling review. It rejects a blocked lesson/activity, mismatched concepts, an ungrounded Source Question, or a review item outside the lesson's canonical allow-list.
+- Added one resolvable definition registry for instruction, grading, prerequisite, repair, review, and answer-concealment proofs. Canonical review identity is normalized once across validation, runtime evidence, and scheduling; cross-activity reuse of one card for different concepts fails.
+- Replaced the old self-asserted concealment flag with a surface-audit definition whose facts must match the claim. Lesson 0 remains honestly blocked on `blocker:lesson-zero-answer-concealment-surface-audit` until the real rendered surfaces pass that audit.
+- Added six bilingual teaching blocks for all fourteen classroom expressions and deterministic graders only where the response construct supports them. Missing audio, accessibility, transfer, scene-action assessment, and other proofs remain named blockers rather than optimistic defaults.
+
+### Delivery and navigation truth
+
+- Derived the 73-Week delivery catalogue from the complete-lesson registry: orientation is `review-blocked`, the other 72 Weeks are `planning-only`, and zero are `grounded-playable`. The public ledger records `classWeeksPlayable: 0`.
+- Classified the legacy band-entry, lesson-fork, source, Aakash, writing, and Lab activities as ungrounded routes. Current state and persisted Back history normalize them to safe destinations; a valid invite session no longer bypasses that normalization.
+- Removed the legacy activity render/write paths. Known old Academy review provenance is quarantined conservatively: untouched Academy-only cards may be removed; reviewed cards remain as Study history with `legacy-academy`; their former Academy schedules are superseded by idempotent append-only neutralization events and disappear from the active learner/review-health projections.
+- Added [`evidence/next-grounded-week/REPORT.md`](evidence/next-grounded-week/REPORT.md). `l3-2-l04` is the strongest next slice, but remains **NO-GO**: five PDFs and three MP3s are byte-matched, while 137 donor records still contain zero verified Source Questions, 114 unresolved loci, 28 media reviews, and no verified audio transcripts/timecodes/pairing.
+
+### Real-app evidence and verification
+
+- Current-app Browser acceptance used the live `UCL2026` local proxy. A fresh learner reached the blocked Lesson 0 overview with injected annotations and no false start action. Manual N3 placement crossed the concise arrival bridge and opened the correct Level 3.2 Class group.
+- Academy mounted the canonical Reader Study implementation in living paper. The real countdown decreased from 15 minutes, Pause worked, Reader Study/Doodle content rendered with its own styles, and Back returned to Class without leaving the timer behind. Phone and 1280×720 Class views were exercised.
+- Fable session `7796e6c9-3b8c-49b0-910d-1198fb711679` found and then cleared the fake-write-gate, review-identity, concealment, route-drift, catalogue, and byte-pinning defects. Its final read-only run passed 73 Academy files / 395 tests with no major or medium finding. The focused grounding closure passes 8 files / 49 tests.
+- Fable session `cd7fe7bf-7928-456a-9575-d28c39c64da1` independently confirmed the `l3-2-l04` no-go and rejected audio probing or an authored donor shell as grounding evidence.
+- Post-visual verification is green: `npm run test:academy` passes 74 files / 400 tests; TypeScript, grounded build preflight, the 377-module production build, and `git diff --check` pass. The focused legacy quarantine group passes 4 files / 15 tests.
+- Fable session `608bc2f5-2bd5-4fd4-9bfa-8422349a67e1` found one medium learner-schedule leak, verified the append-only neutralization and retained-card audit tag, and returned `PASS` with no remaining major or medium issue. Commit, upstream integration, regenerated-hosted-assets proof, push, and deploy verification remain.

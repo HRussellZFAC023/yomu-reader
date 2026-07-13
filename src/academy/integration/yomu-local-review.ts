@@ -22,11 +22,19 @@ export function createYomuLocalReviewService(
         },
         async ingest(seeds) {
             if (!seeds.length) return;
-            await repository.importBatch({
-                source: 'academy-activity-runtime:v1',
-                importedAt: now(),
-                items: seeds.map(toImportItem),
-            });
+            await Promise.all(seeds.map(seed => repository.collectAcademyVocabulary({
+                expression: seed.content.expression,
+                reading: seed.content.reading,
+                meanings: seed.content.meanings,
+                sentence: seed.content.sentence,
+                provenance: {
+                    id: reviewSeedProvenanceId(seed),
+                    kind: 'review-seed',
+                    conceptId: seed.conceptId,
+                    sourceId: seed.sourceQuestionId,
+                    reason: seed.reason,
+                },
+            })));
         },
         async rate(itemId, rating) {
             let card = cards.get(itemId);
@@ -40,21 +48,8 @@ export function createYomuLocalReviewService(
     };
 }
 
-function toImportItem(seed: ReviewSeed) {
-    return {
-        expression: seed.content.expression,
-        reading: seed.content.reading,
-        meanings: [...seed.content.meanings],
-        sentence: seed.content.sentence,
-        sourceProviderId: 'yomu-local' as const,
-        sourceCardId: seed.id,
-        tags: [
-            'academy',
-            `academy:concept:${seed.conceptId}`,
-            `academy:reason:${seed.reason}`,
-            ...(seed.sourceQuestionId ? [`academy:source-question:${seed.sourceQuestionId}`] : []),
-        ],
-    };
+function reviewSeedProvenanceId(seed: ReviewSeed): string {
+    return `academy:review-seed:${seed.id}`;
 }
 
 function toQueueItem(card: YomuSrsReviewable): ReviewQueueItem {

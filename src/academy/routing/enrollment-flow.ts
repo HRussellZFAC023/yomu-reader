@@ -1,14 +1,11 @@
 import type { AccessGateway } from '../access/gateway';
 import { createDonationClaimService, type DonationClaimService } from '../access/donation-claim';
-import { bandEntrySceneId, createBandEntryActivity } from '../content/band-entry';
-import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
 import type { OrientationMockResult } from '../placement/orientation';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAccessScreen } from '../ui/access-screen';
-import { renderBandEntryScreen } from '../ui/band-entry-screen';
 import { renderRieUnlockScreen } from '../ui/character-scenes';
 import { renderArrivalBridge } from '../ui/lesson-screen';
 import { renderPlacementMockScreen, renderPlacementResultScreen } from '../ui/placement-screen';
@@ -60,7 +57,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 context.shell.replace(renderManualBandScreen(
                     context.language,
                     band => void this.chooseBand(band, context),
-                    () => void context.go('start', { placementOverride: false }),
+                    () => void context.back(),
                 ));
                 return true;
             case 'placement-mock':
@@ -68,7 +65,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     language: context.language,
                     pronunciation: this.options.pronunciation,
                     onResult: result => void this.savePlacement(result, context),
-                    onBack: () => void context.go('start'),
+                    onBack: () => void context.back(),
                 }));
                 return true;
             case 'placement-result':
@@ -78,11 +75,8 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 context.shell.replace(renderArrivalBridge(
                     context.language,
                     requiredBand(context),
-                    () => void context.go('band-entry'),
+                    () => void context.go('class'),
                 ));
-                return true;
-            case 'band-entry':
-                this.renderBandEntry(context);
                 return true;
             default:
                 return false;
@@ -103,7 +97,12 @@ class EnrollmentFlow implements AcademyRouteFlow {
         if (route === 'manual-band') return context.go('manual-band', { placementOverride: false });
         if (route === 'placement-mock') return context.go('placement-mock', { placementOverride: false });
         await this.options.evidence.chooseCurriculumEntry({ route: 'lesson-zero' });
-        await context.go('lesson-fork', { selectedBand: undefined });
+        await context.go('lesson-overview', {
+            selectedBand: undefined,
+            lessonId: 'lesson:foundation-00',
+            sectionId: undefined,
+            activityId: undefined,
+        });
     }
 
     private async chooseBand(band: JlptBand, context: AcademyRouteContext): Promise<void> {
@@ -152,24 +151,6 @@ class EnrollmentFlow implements AcademyRouteFlow {
         await context.go('arrival-bridge', { selectedBand: result.recommendedBand, placementOverride: false });
     }
 
-    private renderBandEntry(context: AcademyRouteContext): void {
-        const band = requiredBand(context);
-        context.shell.replace(renderBandEntryScreen({
-            language: context.language,
-            band,
-            activity: createBandEntryActivity(band),
-            completed: context.projection.completedScenes.includes(bandEntrySceneId(band)),
-            onEvaluation: evaluation => this.recordBandEntryActivity(band, evaluation),
-            onContinue: () => void context.go('campus'),
-        }));
-    }
-
-    private recordBandEntryActivity(band: JlptBand, evaluation: ActivityEvaluation): Promise<void> {
-        return this.options.evidence.recordActivity(evaluation, {
-            id: `band-entry:${band}`,
-            sceneId: bandEntrySceneId(band),
-        });
-    }
 }
 
 function requiredBand(context: AcademyRouteContext): JlptBand {

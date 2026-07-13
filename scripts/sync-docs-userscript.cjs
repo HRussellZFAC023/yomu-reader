@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const { dirname, join } = require('node:path');
 const {
@@ -11,120 +11,108 @@ const {
 } = require('./lib/userscript-build-utils.cjs');
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
 
-const source = DIST_USERSCRIPT_PATH;
-const target = DOCS_USERSCRIPT_PATH;
+const STUDY_BUILD_DIRECTORY = join(root, 'dist', 'newtab');
+const STUDY_HOST_DIRECTORY = join(root, 'docs', 'public', 'study');
+const NEW_TAB_ALIAS_DIRECTORY = join(root, 'docs', 'public', 'newtab');
+const STUDY_HOST_FILES = [
+  'app.js',
+  'styles.css',
+  'index.html',
+  'manifest.webmanifest',
+  'sw.js',
+  'version.json',
+];
 
-copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
-copyBuiltAsset('dist/newtab/styles.css', 'docs/public/newtab/styles.css');
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
 for (const library of GREASY_FORK_LIBRARIES) {
   const libraryPath = greasyForkLibraryPath(library.fileName);
   copyBuiltAsset(`dist/${libraryPath}`, `docs/public/${libraryPath}`);
 }
-syncNewTabIndex();
+prepareStudyBuild();
+syncCanonicalStudyRoute();
+syncNewTabCompatibilityAlias();
 syncUserscript();
 
 function syncUserscript() {
-  if (!existsSync(source)) {
-    fail(`Missing built userscript: ${source}`);
-  }
+  if (!existsSync(DIST_USERSCRIPT_PATH)) fail(`Missing built userscript: ${DIST_USERSCRIPT_PATH}`);
+  mkdirSync(dirname(DOCS_USERSCRIPT_PATH), { recursive: true });
+  copyFileSync(DIST_USERSCRIPT_PATH, DOCS_USERSCRIPT_PATH);
+  console.log(`Synced ${DOCS_USERSCRIPT_PATH}`);
+}
 
-  mkdirSync(dirname(target), { recursive: true });
-  copyFileSync(source, target);
-  console.log(`Synced ${target}`);
+function prepareStudyBuild() {
+  const appSource = join(STUDY_BUILD_DIRECTORY, 'app.js');
+  const cssSource = join(STUDY_BUILD_DIRECTORY, 'styles.css');
+  const indexSource = join(root, 'public', 'newtab', 'index.html');
+  const indexDist = join(STUDY_BUILD_DIRECTORY, 'index.html');
+  if (!existsSync(appSource)) fail(`Missing built Study app: ${appSource}`);
+  if (!existsSync(cssSource)) fail(`Missing built Study stylesheet: ${cssSource}`);
+  if (!existsSync(indexSource)) fail(`Missing Study HTML template: ${indexSource}`);
+
+  const appHash = fileHash(appSource);
+  const cssHash = fileHash(cssSource);
+  const buildId = `${packageVersion()}-${appHash}`;
+  const html = readFileSync(indexSource, 'utf8')
+    .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
+    .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
+    .replaceAll('__YOMU_NEW_TAB_CSS_HASH__', cssHash)
+    .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
+  mkdirSync(STUDY_BUILD_DIRECTORY, { recursive: true });
+  writeFileSync(indexDist, html);
+  writeStudyVersion(appHash, buildId);
+  writeStudyManifest();
+  writeStudyServiceWorker(appHash);
+}
+
+function syncCanonicalStudyRoute() {
+  rmSync(STUDY_HOST_DIRECTORY, { recursive: true, force: true });
+  mkdirSync(STUDY_HOST_DIRECTORY, { recursive: true });
+  for (const fileName of STUDY_HOST_FILES) {
+    const source = join(STUDY_BUILD_DIRECTORY, fileName);
+    if (!existsSync(source)) fail(`Missing built Study asset: ${source}`);
+    copyFileSync(source, join(STUDY_HOST_DIRECTORY, fileName));
+  }
+  console.log(`Synced canonical Study route ${STUDY_HOST_DIRECTORY}`);
+}
+
+function syncNewTabCompatibilityAlias() {
+  const aliasSource = join(root, 'public', 'newtab', 'redirect.html');
+  if (!existsSync(aliasSource)) fail(`Missing Study compatibility redirect: ${aliasSource}`);
+  rmSync(NEW_TAB_ALIAS_DIRECTORY, { recursive: true, force: true });
+  mkdirSync(NEW_TAB_ALIAS_DIRECTORY, { recursive: true });
+  copyFileSync(aliasSource, join(NEW_TAB_ALIAS_DIRECTORY, 'index.html'));
+  console.log(`Synced lightweight /newtab/ compatibility alias ${NEW_TAB_ALIAS_DIRECTORY}`);
+}
+
+function writeStudyVersion(appHash, buildId) {
+  const version = `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`;
+  writeFileSync(join(STUDY_BUILD_DIRECTORY, 'version.json'), version);
+}
+
+function writeStudyServiceWorker(appHash) {
+  const source = join(root, 'public', 'newtab', 'sw.js');
+  if (!existsSync(source)) fail(`Missing Study service worker template: ${source}`);
+  writeFileSync(
+    join(STUDY_BUILD_DIRECTORY, 'sw.js'),
+    readFileSync(source, 'utf8').replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash),
+  );
+}
+
+function writeStudyManifest() {
+  const source = join(root, 'public', 'newtab', 'manifest.webmanifest');
+  if (!existsSync(source)) fail(`Missing Study web manifest: ${source}`);
+  copyFileSync(source, join(STUDY_BUILD_DIRECTORY, 'manifest.webmanifest'));
 }
 
 function copyBuiltAsset(sourcePath, targetPath) {
   const assetSource = join(root, sourcePath);
   const assetTarget = join(root, targetPath);
-  if (!existsSync(assetSource)) {
-    fail(`Missing built asset: ${assetSource}`);
-  }
+  if (!existsSync(assetSource)) fail(`Missing built asset: ${assetSource}`);
   mkdirSync(dirname(assetTarget), { recursive: true });
   copyFileSync(assetSource, assetTarget);
   console.log(`Synced ${assetTarget}`);
 }
 
-function syncNewTabIndex() {
-  const appSource = join(root, 'dist', 'newtab', 'app.js');
-  const cssSource = join(root, 'dist', 'newtab', 'styles.css');
-  const indexSource = join(root, 'public', 'newtab', 'index.html');
-  const indexDist = join(root, 'dist', 'newtab', 'index.html');
-  const indexTarget = join(root, 'docs', 'public', 'newtab', 'index.html');
-  if (!existsSync(appSource)) {
-    fail(`Missing built new-tab app: ${appSource}`);
-  }
-  if (!existsSync(indexSource)) {
-    fail(`Missing new-tab HTML template: ${indexSource}`);
-  }
-  if (!existsSync(cssSource)) {
-    fail(`Missing built new-tab CSS: ${cssSource}`);
-  }
-  const hash = createHash('sha256').update(readFileSync(appSource)).digest('hex').slice(0, 12);
-  const cssHash = createHash('sha256').update(readFileSync(cssSource)).digest('hex').slice(0, 12);
-  const buildId = `${packageVersion()}-${hash}`;
-  const html = readFileSync(indexSource, 'utf8')
-    .replaceAll('__YOMU_NEW_TAB_APP_HASH__', hash)
-    .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
-    .replaceAll('__YOMU_NEW_TAB_CSS_HASH__', cssHash)
-    .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${hash}"></script>`);
-  mkdirSync(dirname(indexDist), { recursive: true });
-  writeFileSync(indexDist, html);
-  mkdirSync(dirname(indexTarget), { recursive: true });
-  writeFileSync(indexTarget, html);
-  syncNewTabVersion(hash, buildId);
-  console.log(`Synced ${indexTarget}`);
-  syncNewTabManifest();
-  syncNewTabServiceWorker(hash);
-}
-
-function syncNewTabVersion(hash, buildId) {
-  const version = `${JSON.stringify({ appHash: hash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`;
-  const versionDist = join(root, 'dist', 'newtab', 'version.json');
-  const versionTarget = join(root, 'docs', 'public', 'newtab', 'version.json');
-  mkdirSync(dirname(versionDist), { recursive: true });
-  writeFileSync(versionDist, version);
-  mkdirSync(dirname(versionTarget), { recursive: true });
-  writeFileSync(versionTarget, version);
-  console.log(`Synced ${versionTarget}`);
-}
-
-function syncNewTabServiceWorker(hash) {
-  const swSource = join(root, 'public', 'newtab', 'sw.js');
-  const swDist = join(root, 'dist', 'newtab', 'sw.js');
-  const swTarget = join(root, 'docs', 'public', 'newtab', 'sw.js');
-  if (!existsSync(swSource)) return;
-  const js = readFileSync(swSource, 'utf8')
-    .replaceAll('__YOMU_NEW_TAB_APP_HASH__', hash);
-  mkdirSync(dirname(swDist), { recursive: true });
-  writeFileSync(swDist, js);
-  mkdirSync(dirname(swTarget), { recursive: true });
-  writeFileSync(swTarget, js);
-  console.log(`Synced ${swTarget}`);
-  syncNewTabManifest();
-}
-
-function syncNewTabManifest() {
-  const manifestSource = join(root, 'public', 'newtab', 'manifest.webmanifest');
-  const manifestDist = join(root, 'dist', 'newtab', 'manifest.webmanifest');
-  const manifestTarget = join(root, 'docs', 'public', 'newtab', 'manifest.webmanifest');
-  if (!existsSync(manifestSource)) return;
-  mkdirSync(dirname(manifestDist), { recursive: true });
-  copyFileSync(manifestSource, manifestDist);
-  mkdirSync(dirname(manifestTarget), { recursive: true });
-  copyFileSync(manifestSource, manifestTarget);
-  console.log(`Synced ${manifestTarget}`);
-}
-
-function syncNewTabManifest() {
-  const manifestSource = join(root, 'public', 'newtab', 'manifest.webmanifest');
-  const manifestDist = join(root, 'dist', 'newtab', 'manifest.webmanifest');
-  const manifestTarget = join(root, 'docs', 'public', 'newtab', 'manifest.webmanifest');
-  if (!existsSync(manifestSource)) return;
-  const manifest = readFileSync(manifestSource, 'utf8');
-  mkdirSync(dirname(manifestDist), { recursive: true });
-  writeFileSync(manifestDist, manifest);
-  mkdirSync(dirname(manifestTarget), { recursive: true });
-  writeFileSync(manifestTarget, manifest);
-  console.log(`Synced ${manifestTarget}`);
+function fileHash(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12);
 }

@@ -222,12 +222,13 @@ function assertSyncedDocsAssets() {
   for (const [sourcePath, targetPath] of [
     ['dist/yomu.user.js', 'docs/public/yomu.user.js'],
     ['dist/yomu.css', 'docs/public/yomu.css'],
-    ['dist/newtab/app.js', 'docs/public/newtab/app.js'],
-    ['dist/newtab/styles.css', 'docs/public/newtab/styles.css'],
-    ['dist/newtab/index.html', 'docs/public/newtab/index.html'],
-    ['dist/newtab/manifest.webmanifest', 'docs/public/newtab/manifest.webmanifest'],
-    ['dist/newtab/sw.js', 'docs/public/newtab/sw.js'],
-    ['dist/newtab/version.json', 'docs/public/newtab/version.json'],
+    ['public/newtab/redirect.html', 'docs/public/newtab/index.html'],
+    ['dist/newtab/app.js', 'docs/public/study/app.js'],
+    ['dist/newtab/styles.css', 'docs/public/study/styles.css'],
+    ['dist/newtab/index.html', 'docs/public/study/index.html'],
+    ['dist/newtab/manifest.webmanifest', 'docs/public/study/manifest.webmanifest'],
+    ['dist/newtab/sw.js', 'docs/public/study/sw.js'],
+    ['dist/newtab/version.json', 'docs/public/study/version.json'],
     ...GREASY_FORK_LIBRARIES.map(library => {
       const libraryPath = greasyForkLibraryPath(library.fileName);
       return [`dist/${libraryPath}`, `docs/public/${libraryPath}`];
@@ -235,23 +236,44 @@ function assertSyncedDocsAssets() {
   ]) {
     assertSameTextFile(sourcePath, targetPath);
   }
+  assertLightweightNewTabAlias('docs/public/newtab');
 
   if (!fileExists(join(ROOT, 'docs/.vitepress/dist/index.html'))) return;
   for (const [sourcePath, targetPath] of [
     ['docs/public/yomu.user.js', 'docs/.vitepress/dist/yomu.user.js'],
     ['docs/public/yomu.css', 'docs/.vitepress/dist/yomu.css'],
-    ['docs/public/newtab/app.js', 'docs/.vitepress/dist/newtab/app.js'],
-    ['docs/public/newtab/styles.css', 'docs/.vitepress/dist/newtab/styles.css'],
     ['docs/public/newtab/index.html', 'docs/.vitepress/dist/newtab/index.html'],
-    ['docs/public/newtab/manifest.webmanifest', 'docs/.vitepress/dist/newtab/manifest.webmanifest'],
-    ['docs/public/newtab/sw.js', 'docs/.vitepress/dist/newtab/sw.js'],
-    ['docs/public/newtab/version.json', 'docs/.vitepress/dist/newtab/version.json'],
+    ['docs/public/study/app.js', 'docs/.vitepress/dist/study/app.js'],
+    ['docs/public/study/styles.css', 'docs/.vitepress/dist/study/styles.css'],
+    ['docs/public/study/index.html', 'docs/.vitepress/dist/study/index.html'],
+    ['docs/public/study/manifest.webmanifest', 'docs/.vitepress/dist/study/manifest.webmanifest'],
+    ['docs/public/study/sw.js', 'docs/.vitepress/dist/study/sw.js'],
+    ['docs/public/study/version.json', 'docs/.vitepress/dist/study/version.json'],
     ...GREASY_FORK_LIBRARIES.map(library => {
       const libraryPath = greasyForkLibraryPath(library.fileName);
       return [`docs/public/${libraryPath}`, `docs/.vitepress/dist/${libraryPath}`];
     }),
   ]) {
     assertSameTextFile(sourcePath, targetPath);
+  }
+  assertLightweightNewTabAlias('docs/.vitepress/dist/newtab');
+}
+
+function assertLightweightNewTabAlias(relativeDirectory) {
+  const indexPath = join(ROOT, relativeDirectory, 'index.html');
+  if (!fileExists(indexPath)) fail(`${relativeDirectory}/index.html is missing.`);
+  const index = readText(indexPath);
+  if (!index.includes('<link rel="canonical" href="https://yomureader.com/study/">')) {
+    fail(`${relativeDirectory}/index.html must declare /study/ as canonical.`);
+  }
+  if (!index.includes("new URL('../study/', current)")) {
+    fail(`${relativeDirectory}/index.html is missing the safe relative Study redirect.`);
+  }
+  if (byteLengthUtf8(index) > 8_192) fail(`${relativeDirectory}/index.html is not a lightweight compatibility alias.`);
+  for (const fileName of ['app.js', 'styles.css', 'manifest.webmanifest', 'sw.js', 'version.json']) {
+    if (fileExists(join(ROOT, relativeDirectory, fileName))) {
+      fail(`${relativeDirectory}/${fileName} duplicates the canonical Study asset set.`);
+    }
   }
 }
 
@@ -274,32 +296,32 @@ function assertNewTabCacheBusting() {
 }
 
 function assertNewTabIndexCacheBusting(appHash, cssHash) {
-  const index = readText(join(ROOT, 'docs/public/newtab/index.html'));
+  const index = readText(join(ROOT, 'docs/public/study/index.html'));
   if (!index.includes(`./app.js?v=${appHash}`)) {
-    fail('docs/public/newtab/index.html does not reference the current new-tab app hash.');
+    fail('docs/public/study/index.html does not reference the current Study app hash.');
   }
   if (!index.includes(`./styles.css?v=${cssHash}`)) {
-    fail('docs/public/newtab/index.html does not reference the current new-tab stylesheet hash.');
+    fail('docs/public/study/index.html does not reference the current Study stylesheet hash.');
   }
   if (!index.includes("navigator.serviceWorker.register('./sw.js')")) {
-    fail('docs/public/newtab/index.html does not register the new-tab service worker.');
+    fail('docs/public/study/index.html does not register the canonical Study service worker.');
   }
 }
 
 function assertNewTabVersionCacheBusting(appHash) {
-  const version = JSON.parse(readText(join(ROOT, 'docs/public/newtab/version.json')));
+  const version = JSON.parse(readText(join(ROOT, 'docs/public/study/version.json')));
   if (version.appHash !== appHash) {
-    fail(`docs/public/newtab/version.json appHash ${version.appHash} does not match current app hash ${appHash}.`);
+    fail(`docs/public/study/version.json appHash ${version.appHash} does not match current app hash ${appHash}.`);
   }
   if (version.buildId !== `${packageJson.version}-${appHash}`) {
-    fail(`docs/public/newtab/version.json buildId ${version.buildId} does not match package version and current app hash.`);
+    fail(`docs/public/study/version.json buildId ${version.buildId} does not match package version and current app hash.`);
   }
 }
 
 function assertNewTabServiceWorkerCacheBusting(appHash) {
-  const serviceWorker = readText(join(ROOT, 'docs/public/newtab/sw.js'));
+  const serviceWorker = readText(join(ROOT, 'docs/public/study/sw.js'));
   if (!serviceWorker.includes(appHash)) {
-    fail('docs/public/newtab/sw.js does not include the current new-tab app hash for cache cleanup.');
+    fail('docs/public/study/sw.js does not include the current Study app hash for cache cleanup.');
   }
 }
 

@@ -49,7 +49,7 @@ function controllerWithAdapters(settings: Partial<ReaderSettings>, adapters: Par
         dictionaries: {} as never,
         srsAdapters: {
             bunpro: { label: 'Bunpro', hasCredential: () => true, stats: vi.fn(), queue: vi.fn(), review: vi.fn(), ...adapters.bunpro } as never,
-            'yomu-local': { label: 'Yomu', hasCredential: () => true, stats: vi.fn(), queue: vi.fn(), review: vi.fn(), ...adapters['yomu-local'] } as never,
+            'yomu-local': { label: 'Academy', hasCredential: () => true, stats: vi.fn(), queue: vi.fn(), review: vi.fn(), ...adapters['yomu-local'] } as never,
         },
         onSettingsChange: vi.fn(),
         applyTheme: vi.fn(),

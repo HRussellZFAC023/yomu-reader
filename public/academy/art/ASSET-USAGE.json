@@ -265,6 +265,15 @@
       "status": "likeness-calibration"
     },
     {
+      "id": "mira-private-likeness-reference",
+      "source": "owner-supplied-private-reference",
+      "sourceSha256": "69cdbe8bf0ff2ab74e87b83e5495cd658a82b70b391245256f8538bfc875febe",
+      "provenance": "owner-identified-private-reference",
+      "verdict": "reference-only",
+      "runtimeHome": null,
+      "status": "release-blocked-neutral-sample-not-generated"
+    },
+    {
       "id": "quality-1",
       "source": "donor-a:public/academy/art/characters/claude-production/refs/quality-1.jpg",
       "provenance": "excluded-by-owner",

@@ -41,6 +41,11 @@ export function validateLibraryStatus(publicStatusPath) {
     if ((archives.censused ?? 0) + (archives.failed ?? 0) !== archives.containerPayloadCount) {
         violations.push('archive censused+failed must cover every container payload');
     }
+    const archiveFailureReasonTotal = (archives.byFailureReason ?? [])
+        .reduce((total, row) => total + row.containerCount, 0);
+    if (archiveFailureReasonTotal !== (archives.failed ?? 0)) {
+        violations.push(`archive failure reasons (${archiveFailureReasonTotal}) must account for every failed container (${archives.failed ?? 0})`);
+    }
     const pdf = status.pdf ?? {};
     if ((pdf.complete ?? 0) + (pdf.failed ?? 0) !== pdf.documentCount) {
         violations.push('pdf complete+failed must cover every unique PDF payload');

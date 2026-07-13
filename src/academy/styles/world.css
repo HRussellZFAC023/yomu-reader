@@ -333,11 +333,17 @@
 }
 
 .academy-journal-profile {
+    --academy-journal-portrait-height: clamp(330px, 42vw, 390px);
+
+    position: relative;
+    isolation: isolate;
     display: grid;
-    grid-template-columns: minmax(120px, 30%) minmax(0, 1fr);
+    grid-template-columns: minmax(230px, 39%) minmax(0, 1fr);
     gap: 18px;
     align-items: center;
-    overflow: hidden;
+    min-height: 286px;
+    margin-block: 62px 16px;
+    overflow: visible;
     padding: 16px;
     border: 1px solid var(--academy-line);
     border-radius: 6px 16px 8px 12px;
@@ -346,30 +352,26 @@
 }
 
 .academy-journal-portrait {
-    width: 100%;
-    max-height: 270px;
+    z-index: 1;
+    align-self: end;
+    justify-self: center;
+    width: auto;
+    height: var(--academy-journal-portrait-height);
+    max-width: none;
+    max-height: none;
+    margin: -62px auto -20px -8px;
     object-fit: contain;
     object-position: center bottom;
+    filter: drop-shadow(5px 8px 5px rgba(43, 35, 24, 0.2));
+    pointer-events: none;
 }
 
 .academy-journal-rie {
-    position: relative;
-    isolation: isolate;
-    grid-template-columns: minmax(230px, 39%) minmax(0, 1fr);
-    min-height: 300px;
-    margin-block: 76px 16px;
     overflow: visible;
 }
 
 .academy-journal-rie .academy-journal-portrait {
-    z-index: 1;
-    align-self: end;
-    width: clamp(300px, 32vw, 350px);
-    max-width: none;
-    max-height: none;
-    margin: -82px 0 -28px -42px;
-    filter: drop-shadow(5px 8px 5px rgba(43, 35, 24, 0.2));
-    pointer-events: none;
+    margin-left: -24px;
 }
 
 .academy-journal-rie .academy-journal-copy {
@@ -378,24 +380,11 @@
 }
 
 .academy-journal-aakash {
-    position: relative;
-    isolation: isolate;
-    grid-template-columns: minmax(190px, 32%) minmax(0, 1fr);
-    min-height: 286px;
-    margin-block: 38px 16px;
     overflow: visible;
 }
 
 .academy-journal-aakash .academy-journal-aakash-portrait {
-    z-index: 1;
-    align-self: end;
-    width: auto;
-    height: clamp(330px, 42vw, 390px);
-    max-width: none;
-    max-height: none;
-    margin: -62px auto -20px -8px;
-    filter: drop-shadow(5px 8px 5px rgba(43, 35, 24, 0.2));
-    pointer-events: none;
+    margin-left: -8px;
 }
 
 .academy-journal-aakash .academy-journal-copy {
@@ -524,30 +513,16 @@
     }
 
     .academy-journal-profile {
-        grid-template-columns: 100px minmax(0, 1fr);
+        --academy-journal-portrait-height: clamp(292px, 48vw, 330px);
+
+        grid-template-columns: minmax(158px, 38%) minmax(0, 1fr);
         gap: 12px;
+        min-height: 250px;
+        margin-block: 48px 14px;
         padding: 12px;
     }
 
-    .academy-journal-rie {
-        grid-template-columns: minmax(158px, 38%) minmax(0, 1fr);
-        min-height: 250px;
-        margin-block: 64px 14px;
-    }
-
-    .academy-journal-rie .academy-journal-portrait {
-        width: clamp(238px, 39vw, 272px);
-        margin: -68px 0 -22px -30px;
-    }
-
-    .academy-journal-aakash {
-        grid-template-columns: minmax(132px, 33%) minmax(0, 1fr);
-        min-height: 250px;
-        margin-block: 32px 14px;
-    }
-
-    .academy-journal-aakash .academy-journal-aakash-portrait {
-        height: clamp(292px, 48vw, 330px);
+    .academy-journal-portrait {
         margin: -44px auto -16px -10px;
     }
 }
@@ -576,39 +551,32 @@
         white-space: normal;
     }
 
-    .academy-player-profile {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 10px;
-        justify-items: stretch;
-        overflow: visible;
-    }
-
-    .academy-player-profile .academy-journal-portrait {
-        width: min(158px, 52vw);
-        max-height: 190px;
-        justify-self: center;
-    }
-
     .academy-player-profile .academy-journal-copy {
         width: 100%;
         text-align: left;
     }
 
-    .academy-journal-rie {
+    .academy-player-profile,
+    .academy-journal-rie,
+    .academy-journal-aakash {
         display: block;
         min-height: 0;
-        margin-top: 90px;
+        margin-top: 70px;
         padding: 14px;
     }
 
-    .academy-journal-rie .academy-journal-portrait {
+    .academy-player-profile .academy-journal-portrait,
+    .academy-journal-rie .academy-journal-portrait,
+    .academy-journal-aakash .academy-journal-aakash-portrait {
         position: absolute;
-        top: -82px;
-        left: -28px;
-        width: clamp(174px, 48vw, 196px);
+        top: -62px;
+        left: -12px;
+        width: auto;
+        height: clamp(228px, 61vw, 244px);
         margin: 0;
     }
 
+    .academy-player-profile .academy-journal-copy h2,
     .academy-journal-rie .academy-journal-copy h2,
     .academy-journal-aakash .academy-journal-copy h2 {
         display: flex;
@@ -621,32 +589,8 @@
         line-height: 1.15;
         overflow-wrap: anywhere;
         white-space: normal;
-    }
-
-    .academy-journal-rie .academy-journal-copy h2 {
-        min-height: 174px;
-        padding: 8px 0 0 clamp(138px, 38vw, 158px);
-    }
-
-    .academy-journal-aakash {
-        display: block;
-        min-height: 0;
-        margin-top: 70px;
-        padding: 14px;
-    }
-
-    .academy-journal-aakash .academy-journal-aakash-portrait {
-        position: absolute;
-        top: -62px;
-        left: -12px;
-        width: auto;
-        height: clamp(228px, 61vw, 244px);
-        margin: 0;
-    }
-
-    .academy-journal-aakash .academy-journal-copy h2 {
         min-height: 146px;
-        padding: 8px 0 0 clamp(94px, 28vw, 112px);
+        padding: 8px 0 0 clamp(132px, 40vw, 160px);
     }
 
     .academy-journal-rie .academy-journal-copy > .academy-button,

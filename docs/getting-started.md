@@ -82,7 +82,7 @@ To update later, open the same link again and let Tampermonkey replace the old v
 
 ## Prefer a browser extension? (Chrome and Firefox)
 
-On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, and it also turns your new-tab page into the [study page](/newtab/index.html). The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
+On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, and it also turns your new-tab page into the [Study page](/study/). The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
 
 Grab the latest packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 
@@ -160,7 +160,7 @@ Open よむ settings with the floating よむ button to switch these on when you
 - **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards with one tap: cards carry the word, reading, meaning, the sentence you found it in, and pitch and audio when available (see [mining guide](/guides/mine-sentences-to-anki)). Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — Yomu hosted audio is on by default. Add [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) or a local server only if you want another source.
-- **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.
+- **Study page** — open the [Study app](/study/) for daily review. Existing `/newtab/` links continue to work.
 
 ## What to read
 
@@ -211,7 +211,7 @@ For more, use [Learn Natively](https://learnnatively.com/) to find books near yo
 
 ## Using よむ on a phone or tablet
 
-On mobile, よむ can still do lookup, local dictionaries, Jiten/JPDB, OCR, subtitles, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). The floating よむ button stays reachable so you can always open settings.
+On mobile, よむ can still do lookup, local dictionaries, Jiten/JPDB, OCR, subtitles, the [video player](/video-player/index.html), and the [Study page](/study/). The floating よむ button stays reachable so you can always open settings.
 
 The only tricky part is any helper app running on your computer: AnkiConnect, a self-hosted audio server, or a local OCR app. A phone cannot reach your computer through `localhost`; use the computer's LAN or Tailscale address in よむ settings instead. The easy mobile paths — public lookup, imported dictionaries, hosted audio, the study page — don't need any of that.
 
@@ -264,6 +264,6 @@ The usual fixes:
 - **AnkiConnect is unreachable on mobile** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale URL in よむ. `localhost` and `127.0.0.1` on a phone mean the phone itself, not your computer.
 - **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://yomureader.com`.
 
-If the hosted study page or a Home Screen shortcut still looks like an old version after an update, open [the new-tab page](https://yomureader.com/newtab/index.html) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `yomureader.com` and sign in again.
+If the hosted Study page or a Home Screen shortcut still looks like an old version after an update, open [Study](https://yomureader.com/study/) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `yomureader.com`.
 
 If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and bug-report options.

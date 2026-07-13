@@ -1,9 +1,11 @@
 import {
+    createCanonicalAcademyStudyModule,
     createAcademyStudyCountdown,
     DEFAULT_ACADEMY_STUDY_DURATION_MS,
     mountAcademyStudyModule,
     type AcademyStudyMountContext,
 } from '../../src/academy/integration/study-module';
+import { newTabText } from '../../src/reader/newtab/i18n';
 
 afterEach(() => {
     vi.useRealTimers();
@@ -11,6 +13,37 @@ afterEach(() => {
 });
 
 describe('Academy shared Study contract', () => {
+    it('ships explicit English and Japanese clock controls and completion copy', () => {
+        expect(newTabText('en', 'sessionPause')).toBe('Pause');
+        expect(newTabText('ja', 'sessionPause')).toBe('一時停止');
+        expect(newTabText('en', 'sessionComplete')).toBe('Study time complete');
+        expect(newTabText('ja', 'sessionComplete')).toBe('学習時間が終わりました');
+        expect(newTabText('ja', 'sessionComplete')).not.toBe('未翻訳');
+    });
+
+    it('adapts the production Reader Study mount without copying its queue or grading UI', async () => {
+        const dispose = vi.fn();
+        const mountNewTabStudySurface = vi.fn(async () => ({ dispose }));
+        const module = createCanonicalAcademyStudyModule(async () => ({ mountNewTabStudySurface }));
+        const host = document.createElement('section');
+        const countdown = createAcademyStudyCountdown();
+
+        const mounted = await module.mount(host, {
+            language: 'ja',
+            surface: { id: 'academy', theme: 'living-paper' },
+            countdown,
+            onExit() {},
+        });
+
+        expect(mountNewTabStudySurface).toHaveBeenCalledWith(host, {
+            language: 'ja',
+            sessionClock: countdown,
+        });
+        mounted.dispose();
+        expect(dispose).toHaveBeenCalledOnce();
+        countdown.dispose();
+    });
+
     it('defaults to a 15:00 countdown and never exposes count-up time', () => {
         let now = 1_000;
         const countdown = createAcademyStudyCountdown(undefined, () => now);
@@ -64,7 +97,7 @@ describe('Academy shared Study contract', () => {
         now += 120_000;
         vi.advanceTimersByTime(120_000);
         expect(host.querySelector('.academy-study-countdown')?.textContent).toBe('00:00');
-        expect(host.querySelector('[role="status"]')?.textContent).toBe('Study time complete.');
+        expect(host.querySelector('[role="status"]')?.textContent).toBe('Study time complete');
         expect(onComplete).toHaveBeenCalledTimes(1);
         expect(vi.getTimerCount()).toBe(0);
 

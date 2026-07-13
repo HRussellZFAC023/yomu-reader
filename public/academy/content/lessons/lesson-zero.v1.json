@@ -184,6 +184,93 @@
     "contentVersion": "2026-07-13.lesson-zero.v1",
     "levelBand": "foundation",
     "estimatedMinutes": { "minimum": 60, "maximum": 90 },
+    "overview": {
+      "title": { "en": "Lesson 0", "ja": "レッスン0" },
+      "summary": {
+        "en": "Greetings, classroom Japanese, kana, and a short introduction.",
+        "ja": "あいさつ、教室の日本語、かな、短い自己紹介。"
+      },
+      "goals": [
+        { "en": "Greet someone and say your name.", "ja": "あいさつして、自分の名前を言う。" },
+        {
+          "en": "Follow basic classroom instructions and ask for repetition.",
+          "ja": "基本的な教室の指示に従い、聞き返す。"
+        },
+        { "en": "Hear and write あ・い・う・え・お.", "ja": "あ・い・う・え・おを聞いて書く。" },
+        { "en": "Make simple identity sentences with です.", "ja": "「です」を使って簡単な文を作る。" },
+        { "en": "Introduce yourself in speech and writing.", "ja": "話す・書く自己紹介をする。" }
+      ],
+      "peopleIds": ["rie", "xingyu", "mika", "sophie", "ruparna", "aakash", "sam"],
+      "locationIds": [
+        "location:classroom",
+        "location:language-lab",
+        "location:library",
+        "location:classroom-entrance"
+      ],
+      "materials": [
+        {
+          "id": "material:lesson-zero-classroom-handout",
+          "kind": "source-handout",
+          "title": { "en": "Classroom language handout", "ja": "教室のことばプリント" },
+          "state": "ready",
+          "activityIds": [
+            "activity:lesson-zero-follow-instructions",
+            "activity:lesson-zero-reconstruct-repair",
+            "activity:lesson-zero-desk-language"
+          ],
+          "sourceQuestionIds": [
+            "source-question:classroom-phrase-01",
+            "source-question:classroom-phrase-02",
+            "source-question:classroom-phrase-03",
+            "source-question:classroom-phrase-04",
+            "source-question:classroom-phrase-05",
+            "source-question:classroom-phrase-06",
+            "source-question:classroom-phrase-07",
+            "source-question:classroom-phrase-08",
+            "source-question:classroom-phrase-09",
+            "source-question:classroom-phrase-10",
+            "source-question:classroom-phrase-11",
+            "source-question:classroom-phrase-12",
+            "source-question:classroom-phrase-13",
+            "source-question:classroom-phrase-14"
+          ]
+        },
+        {
+          "id": "material:lesson-zero-name-card",
+          "kind": "writing-surface",
+          "title": { "en": "Name card", "ja": "名札" },
+          "state": "ready",
+          "activityIds": [
+            "activity:lesson-zero-name-card-draft",
+            "activity:lesson-zero-read-name-cards",
+            "activity:lesson-zero-write-name-card"
+          ]
+        },
+        {
+          "id": "material:lesson-zero-kana-pad",
+          "kind": "kana-surface",
+          "title": { "en": "Kana practice pad", "ja": "かな練習帳" },
+          "state": "ready",
+          "activityIds": ["activity:lesson-zero-vowel-doodle"]
+        },
+        {
+          "id": "material:lesson-zero-dialogue-audio",
+          "kind": "dialogue-audio",
+          "title": { "en": "Class introductions", "ja": "クラスの自己紹介" },
+          "state": "release-blocked",
+          "activityIds": [
+            "activity:lesson-zero-vowel-listen",
+            "activity:lesson-zero-sound-input",
+            "activity:lesson-zero-text-input",
+            "activity:lesson-zero-speaking-input",
+            "activity:lesson-zero-sound-transfer",
+            "activity:lesson-zero-text-transfer",
+            "activity:lesson-zero-speaking-transfer"
+          ],
+          "blockerId": "blocker:lesson-zero-verified-dialogue-audio"
+        }
+      ]
+    },
     "sectionIds": [
       "arrival-greetings",
       "sound-script-map",

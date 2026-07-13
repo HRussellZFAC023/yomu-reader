@@ -28,9 +28,9 @@ describe('shouldShowReaderOnboarding — browser-extension gating', () => {
         expect(shouldShowReaderOnboarding(true, 'https://yomureader.com/newtab/')).toBe(true);
     });
 
-    it('shows onboarding on a query-flagged new-tab page in a browser extension', () => {
+    it('does not trust a query-flagged page on an arbitrary origin', () => {
         asExtension();
-        expect(shouldShowReaderOnboarding(true, 'https://example.com/newtab.html?yomu-newtab')).toBe(true);
+        expect(shouldShowReaderOnboarding(true, 'https://example.com/newtab.html?yomu-newtab')).toBe(false);
     });
 
     it('keeps first-run onboarding on content pages for userscript builds (no extension runtime)', () => {

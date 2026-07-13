@@ -75,6 +75,11 @@ type LearnerEventData =
         readonly provenance: Readonly<Record<string, string>>;
     }
     | {
+        readonly kind: 'review-schedule-neutralized';
+        readonly scheduledEventId: string;
+        readonly reason: 'legacy-ungrounded-academy';
+    }
+    | {
         readonly kind: 'learning-evidence-recorded';
         readonly activityId: string;
         readonly modeId: string;
@@ -267,6 +272,7 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
     const seenAchievementCeremonies = new Set<string>();
     const relationshipJournal: Record<string, { chapters: Set<number>; majorTurns: Set<'recognition' | 'friction' | 'support'> }> = {};
     const supportUses: Extract<LearnerEvent, { kind: 'support-used' }>[] = [];
+    const neutralizedReviewScheduleIds = reviewScheduleNeutralizations(events);
     let lastEventAt: number | null = null;
 
     for (const event of events.map(validateEvent)) {
@@ -310,7 +316,11 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
                 curriculumEntry = clone(event);
                 break;
             case 'review-scheduled':
-                scheduledReviews[event.reviewItemId] = clone(event);
+                if (!neutralizedReviewScheduleIds.has(event.eventId)) {
+                    scheduledReviews[event.reviewItemId] = clone(event);
+                }
+                break;
+            case 'review-schedule-neutralized':
                 break;
             case 'learning-evidence-recorded':
                 break;
@@ -362,6 +372,24 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
         }])),
         supportUses,
     };
+}
+
+/**
+ * Returns only schedules that still make an Academy grounding claim. A later
+ * neutralization supersedes one historical schedule without deleting either
+ * the schedule or any generic Study rating history.
+ */
+export function activeReviewSchedules(
+    events: readonly LearnerEvent[],
+): readonly Extract<LearnerEvent, { kind: 'review-scheduled' }>[] {
+    const neutralized = reviewScheduleNeutralizations(events);
+    return events.filter((event): event is Extract<LearnerEvent, { kind: 'review-scheduled' }> =>
+        event.kind === 'review-scheduled' && !neutralized.has(event.eventId));
+}
+
+function reviewScheduleNeutralizations(events: readonly LearnerEvent[]): ReadonlySet<string> {
+    return new Set(events.flatMap(event =>
+        event.kind === 'review-schedule-neutralized' ? [event.scheduledEventId] : []));
 }
 
 function normalizeEvent(
@@ -421,6 +449,12 @@ function validateEventPayload(event: LearnerEvent): void {
             break;
         case 'review-scheduled':
             validateReviewScheduled(event);
+            break;
+        case 'review-schedule-neutralized':
+            requireText(event.scheduledEventId, 'scheduledEventId');
+            if (event.reason !== 'legacy-ungrounded-academy') {
+                throw new TypeError('Invalid review schedule neutralization reason.');
+            }
             break;
         case 'learning-evidence-recorded':
             validateLearningEvidence(event);

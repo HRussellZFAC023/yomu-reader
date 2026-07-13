@@ -1,4 +1,5 @@
 import { el } from '../dom/builder';
+import { ACADEMY_SRS_LABEL } from '../app/constants';
 import type { JPDBGrade } from '../app/types';
 import type { NewTabReviewTarget } from './review-targets';
 
@@ -86,7 +87,7 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
 
 export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
     if (summary.hasBunpro) return 'Bunpro';
-    if (summary.hasYomuLocal) return 'Yomu';
+    if (summary.hasYomuLocal) return ACADEMY_SRS_LABEL;
     if (summary.hasJpdb && summary.hasJiten) return 'Jiten + JPDB';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }

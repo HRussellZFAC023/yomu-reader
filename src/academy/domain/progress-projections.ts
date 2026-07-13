@@ -1,4 +1,4 @@
-import type { LearnerEvent, LearningSkill } from './learner-record';
+import { activeReviewSchedules, type LearnerEvent, type LearningSkill } from './learner-record';
 
 export interface TodayProgress {
     readonly goalMinutes: number;
@@ -153,8 +153,8 @@ export function projectSourceCompletion(events: readonly LearnerEvent[]): readon
 export function projectReviewHealth(events: readonly LearnerEvent[], now: number): ReviewHealth {
     const scheduled = new Map<string, Extract<LearnerEvent, { kind: 'review-scheduled' }>>();
     const latestRating = new Map<string, Extract<LearnerEvent, { kind: 'review-rated' }>>();
+    activeReviewSchedules(events).forEach(event => scheduled.set(event.reviewItemId, event));
     events.forEach(event => {
-        if (event.kind === 'review-scheduled') scheduled.set(event.reviewItemId, event);
         if (event.kind === 'review-rated') latestRating.set(event.reviewItemId, event);
     });
     const ratings = { again: 0, hard: 0, good: 0, easy: 0 };

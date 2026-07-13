@@ -75,16 +75,17 @@ describe('Academy human interface', () => {
         document.body.append(host);
         const onSettings = vi.fn();
         const onClassBoard = vi.fn();
-        const onChooseLesson = vi.fn();
         const onEndForToday = vi.fn();
+        const onPresentationMode = vi.fn();
+        const onNavigate = vi.fn();
         const shell = createAcademyShell(host, {
             language: 'en',
             onLanguage: vi.fn(),
             onMute: vi.fn(),
-            onNavigate: vi.fn(),
+            onNavigate,
+            onPresentationMode,
             onSettings,
             onClassBoard,
-            onChooseLesson,
             onEndForToday,
         });
 
@@ -95,14 +96,44 @@ describe('Academy human interface', () => {
         expect(learnerActions.hidden).toBe(true);
         shell.setLearnerActionsVisible(true);
         expect(learnerActions.hidden).toBe(false);
-        host.querySelector<HTMLButtonElement>('.academy-choose-lesson-button')?.click();
+        host.querySelector<HTMLButtonElement>('.academy-class-path-button')?.click();
         host.querySelector<HTMLButtonElement>('.academy-end-today-button')?.click();
-        expect(onChooseLesson).toHaveBeenCalledOnce();
+        expect(onNavigate).toHaveBeenCalledWith('class');
         expect(onEndForToday).toHaveBeenCalledOnce();
         shell.setNavigation(true, 'campus');
         expect(host.querySelector('.academy-header-actions > .academy-navigation')).not.toBeNull();
-        expect(host.querySelector<HTMLButtonElement>('.academy-achievements-button')?.disabled).toBe(true);
-        expect(host.querySelector('.academy-achievements-button')?.textContent).toContain('Achievements');
+        expect([...host.querySelectorAll<HTMLButtonElement>('.academy-nav-button')].map(button => button.textContent)).toEqual(
+            expect.arrayContaining(['Class', 'End for today', 'Campus', 'Study', 'Class journal']),
+        );
+        expect(host.querySelector('.academy-achievements-button')).toBeNull();
+        expect(host.querySelector('.academy-choose-lesson-button')).toBeNull();
+        expect('setNetwork' in shell).toBe(false);
+        const menuOrder = [...host.querySelectorAll<HTMLButtonElement>('.academy-header-actions button')]
+            .map(button => button.className);
+        expect(menuOrder).toEqual([
+            'academy-nav-button academy-class-path-button',
+            'academy-nav-button academy-end-today-button',
+            'academy-nav-button academy-presentation-button',
+            'academy-nav-button',
+            'academy-nav-button',
+            'academy-nav-button',
+            'academy-nav-button academy-class-board-button',
+            'academy-nav-button academy-settings-button',
+            'academy-chrome-button',
+            'academy-chrome-button',
+        ]);
+        const presentation = host.querySelector<HTMLButtonElement>('.academy-presentation-button')!;
+        expect(presentation.textContent).toBe('Story view');
+        expect(presentation.getAttribute('aria-pressed')).toBe('false');
+        expect(presentation.getAttribute('aria-label')).toBe('Story view. Switch to course view');
+        expect(host.querySelector('.academy-root')?.getAttribute('data-presentation-mode')).toBe('story');
+        presentation.click();
+        expect(onPresentationMode).toHaveBeenCalledWith('course');
+        shell.setPresentationMode('course');
+        expect(presentation.textContent).toBe('Course view');
+        expect(presentation.getAttribute('aria-pressed')).toBe('true');
+        expect(presentation.getAttribute('aria-label')).toBe('Course view. Switch to story view');
+        expect(host.querySelector('.academy-root')?.getAttribute('data-presentation-mode')).toBe('course');
         const classBoard = host.querySelector<HTMLButtonElement>('.academy-class-board-button')!;
         expect(classBoard.dataset.access).toBe('account-required');
         expect(classBoard.textContent).toBe('Class board · account');
@@ -116,8 +147,8 @@ describe('Academy human interface', () => {
         expect(shellStyles).toMatch(/\.academy-chrome-button\s*\{[^}]*width:\s*100%[^}]*border-radius:\s*5px 10px 6px 8px[^}]*text-align:\s*left/s);
         expect(shellStyles).toMatch(/\.academy-nav-button\s*\{[^}]*width:\s*100%[^}]*border-radius:\s*5px 10px 6px 8px[^}]*text-align:\s*left/s);
         shell.setLanguage('ja');
-        expect(host.querySelector('.academy-choose-lesson-button')?.textContent).toBe('レッスンを選ぶ');
         expect(host.querySelector('.academy-end-today-button')?.textContent).toBe('今日はここまで');
+        expect(host.querySelector('.academy-presentation-button')?.textContent).toBe('コースビュー');
         const utility = host.querySelector<HTMLDetailsElement>('.academy-utility')!;
         utility.open = true;
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -134,8 +165,10 @@ describe('Academy human interface', () => {
             onLanguage: vi.fn(),
             onMute: vi.fn(),
             onNavigate: vi.fn(),
+            onPresentationMode: vi.fn(),
         });
         const audio = host.querySelector<HTMLButtonElement>('.academy-chrome-button');
+        expect(host.querySelector<HTMLButtonElement>('.academy-class-board-button')?.hidden).toBe(true);
         expect(audio?.dataset.jpdbReaderSurfaceIgnore).toBe('');
 
         shell.setLanguage('ja');
@@ -226,7 +259,7 @@ describe('Academy human interface', () => {
         expect(speaking.querySelectorAll('.academy-location')).toHaveLength(4);
     });
 
-    it('lets Rie break the journal paper edge without changing the other profiles', () => {
+    it('puts every journal cutout on one visual-height rail while preserving Rie paper overlap', () => {
         const screen = renderJournalScreen(
             'en',
             { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
@@ -240,11 +273,11 @@ describe('Academy human interface', () => {
         expect(screen.querySelector('.academy-player-profile.academy-journal-rie')).toBeNull();
 
         const styles = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
+        expect(styles).toMatch(/\.academy-journal-profile\s*\{[^}]*--academy-journal-portrait-height:\s*clamp\(330px, 42vw, 390px\)[^}]*grid-template-columns:\s*minmax\(230px, 39%\)[^}]*min-height:\s*286px[^}]*overflow:\s*visible/s);
+        expect(styles).toMatch(/\.academy-journal-portrait\s*\{[^}]*height:\s*var\(--academy-journal-portrait-height\)[^}]*margin:\s*-62px auto -20px -8px/s);
         expect(styles).toMatch(/\.academy-journal-rie\s*\{[^}]*overflow:\s*visible/s);
-        expect(styles).toMatch(/\.academy-journal-rie\s*\{[^}]*grid-template-columns:\s*minmax\(230px, 39%\)[^}]*margin-block:\s*76px 16px/s);
-        expect(styles).toMatch(/\.academy-journal-rie \.academy-journal-portrait\s*\{[^}]*width:\s*clamp\(300px, 32vw, 350px\)[^}]*margin:\s*-82px 0 -28px -42px/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-rie \.academy-journal-portrait\s*\{[^}]*position:\s*absolute[^}]*top:\s*-82px[^}]*width:\s*clamp\(174px, 48vw, 196px\)/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-rie \.academy-journal-copy h2\s*\{[^}]*min-height:\s*174px/s);
+        expect(styles).toMatch(/\.academy-journal-rie \.academy-journal-portrait\s*\{[^}]*margin-left:\s*-24px/s);
+        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile \.academy-journal-portrait,[\s\S]*\.academy-journal-rie \.academy-journal-portrait,[\s\S]*\.academy-journal-aakash \.academy-journal-aakash-portrait\s*\{[^}]*position:\s*absolute[^}]*top:\s*-62px[^}]*height:\s*clamp\(228px, 61vw, 244px\)/s);
     });
 
     it('uses the Aakash sprite as a release-blocked journal cutout in both languages', () => {
@@ -266,18 +299,15 @@ describe('Academy human interface', () => {
 
         const styles = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
         expect(styles).toMatch(/\.academy-journal-aakash\s*\{[^}]*overflow:\s*visible/s);
-        expect(styles).toMatch(/\.academy-journal-aakash \.academy-journal-aakash-portrait\s*\{[^}]*height:\s*clamp\(330px, 42vw, 390px\)[^}]*margin:\s*-62px auto -20px -8px/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-aakash \.academy-journal-aakash-portrait\s*\{[^}]*position:\s*absolute[^}]*top:\s*-62px/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-aakash \.academy-journal-copy h2\s*\{[^}]*min-height:\s*146px/s);
+        expect(styles).toMatch(/\.academy-journal-aakash \.academy-journal-aakash-portrait\s*\{[^}]*margin-left:\s*-8px/s);
     });
 
     it('recomposes every journal heading and profile inside the phone paper width', () => {
         const styles = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
 
         expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-screen \.academy-title\s*\{[^}]*max-width:\s*100%[^}]*font-size:\s*clamp\(1\.5rem, 7\.5vw, 2rem\)[^}]*overflow-wrap:\s*anywhere[^}]*padding-left:\s*clamp\(38px, 11vw, 46px\)/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*overflow:\s*visible/s);
         expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile \.academy-journal-copy\s*\{[^}]*width:\s*100%/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-rie \.academy-journal-copy h2,[\s\S]*\.academy-journal-aakash \.academy-journal-copy h2\s*\{[^}]*box-sizing:\s*border-box[^}]*max-width:\s*100%[^}]*overflow-wrap:\s*anywhere/s);
+        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile \.academy-journal-copy h2,[\s\S]*\.academy-journal-rie \.academy-journal-copy h2,[\s\S]*\.academy-journal-aakash \.academy-journal-copy h2\s*\{[^}]*box-sizing:\s*border-box[^}]*max-width:\s*100%[^}]*overflow-wrap:\s*anywhere[^}]*min-height:\s*146px/s);
         expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-rie \.academy-journal-copy > \.academy-button,[\s\S]*\.academy-journal-aakash \.academy-journal-copy > \.academy-button\s*\{[^}]*width:\s*100%[^}]*white-space:\s*normal/s);
     });
 

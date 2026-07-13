@@ -1,5 +1,7 @@
 import { createSourceLibrary, type SourceLibrary } from '../domain/source-library';
+import type { GroundedLessonContract } from '../domain/grounded-lesson';
 import { LESSON_ZERO_CONTENT_URL, type LessonZeroDefinition } from './lesson-zero-schema';
+import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { validateLessonZeroPackage } from './lesson-zero-validator';
 
 export {
@@ -25,6 +27,7 @@ export { validateLessonZeroPackage } from './lesson-zero-validator';
 export interface LessonZeroContent {
     readonly sourceLibrary: SourceLibrary;
     readonly lesson: LessonZeroDefinition;
+    readonly grounding: GroundedLessonContract;
 }
 
 let defaultLoad: Promise<LessonZeroContent> | null = null;
@@ -48,5 +51,6 @@ async function load(fetcher: typeof fetch): Promise<LessonZeroContent> {
     return {
         sourceLibrary: createSourceLibrary(data.sourceLibrary),
         lesson: structuredClone(data.lesson),
+        grounding: validateLessonZeroGrounding(data),
     };
 }

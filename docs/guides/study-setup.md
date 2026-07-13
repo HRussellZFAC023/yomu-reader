@@ -84,7 +84,7 @@ From a single lookup popup, よむ lets you:
 All in one popup, so you adopt the tools gradually: read with the dictionary first, add Jiten, Bunpro, or JPDB for structured reviews, and bring in Anki for cards you own.
 
 <div class="yomu-callout">
-  <strong>Tip:</strong> the hosted <a href="/newtab/index.html">new-tab study page</a> reviews Anki, Jiten, Bunpro, JPDB, and local words from one source switcher — a single daily-review surface for whatever you have connected.
+  <strong>Tip:</strong> the hosted <a href="/study/">Study page</a> reviews Anki, Jiten, Bunpro, JPDB, and local words from one source switcher — a single daily-review surface for whatever you have connected.
 </div>
 
 A reasonable starting point for most people: import a dictionary so reading is comfortable, then pick **one** study target — Jiten or JPDB for word-focused speed, Bunpro for contextual grammar/vocabulary, or Anki for control — and only add another later if you actually miss it.

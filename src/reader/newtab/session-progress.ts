@@ -1,6 +1,11 @@
 import { primaryCardState } from '../cards/state';
 import { isJitenSrsCard, isPositiveJpdbCard, isReviewSource } from './review-targets';
 import type { JPDBCard } from '../app/types';
+import {
+    createStudySessionClock,
+    type StudySessionClock,
+    type StudySessionClockState,
+} from './session-clock';
 
 export type NewTabSessionProgressSource = 'jiten' | 'jpdb' | 'anki';
 
@@ -14,7 +19,10 @@ export interface NewTabSessionProgressSourceSnapshot {
 export interface NewTabSessionProgressSnapshot {
     completedReviews: number;
     elapsedMs: number;
-    elapsedLabel: string;
+    remainingSessionMs: number;
+    remainingSessionLabel: string;
+    sessionState: StudySessionClockState;
+    sessionComplete: boolean;
     remainingCards: number;
     remainingDueCards: number;
     sources: NewTabSessionProgressSourceSnapshot[];
@@ -28,6 +36,7 @@ export interface NewTabSessionProgressLabels {
 
 export interface NewTabSessionProgressTrackerOptions {
     now?: () => number;
+    clock?: StudySessionClock;
 }
 
 const SESSION_PROGRESS_SOURCES: NewTabSessionProgressSource[] = ['jiten', 'jpdb', 'anki'];
@@ -40,12 +49,10 @@ const DEFAULT_SESSION_PROGRESS_LABELS: NewTabSessionProgressLabels = {
 
 export class NewTabSessionProgressTracker {
     private completedReviews = 0;
-    private readonly startedAt: number;
-    private readonly now: () => number;
+    private readonly clock: StudySessionClock;
 
     constructor(options: NewTabSessionProgressTrackerOptions = {}) {
-        this.now = options.now ?? (() => Date.now());
-        this.startedAt = this.now();
+        this.clock = options.clock ?? createStudySessionClock({ now: options.now });
     }
 
     // UT-57: local undo walks one completed review back.
@@ -59,28 +66,20 @@ export class NewTabSessionProgressTracker {
     }
 
     snapshot(cards: readonly JPDBCard[] = []): NewTabSessionProgressSnapshot {
-        const elapsedMs = Math.max(0, this.now() - this.startedAt);
+        const clock = this.clock.snapshot();
         const sources = SESSION_PROGRESS_SOURCES.map(source => sessionProgressSourceSnapshot(source, cards));
         return {
             completedReviews: this.completedReviews,
-            elapsedMs,
-            elapsedLabel: formatNewTabSessionElapsed(elapsedMs),
+            elapsedMs: clock.elapsedMs,
+            remainingSessionMs: clock.remainingMs,
+            remainingSessionLabel: clock.label,
+            sessionState: clock.state,
+            sessionComplete: clock.complete,
             remainingCards: countUniqueSessionProgressCards(cards),
             remainingDueCards: countUniqueSessionProgressCards(cards.filter(isDueSessionProgressCard)),
             sources,
         };
     }
-}
-
-export function formatNewTabSessionElapsed(elapsedMs: number): string {
-    const seconds = Math.max(0, Math.floor(elapsedMs / 1000));
-    const wholeMinutes = Math.floor(seconds / 60);
-    const displaySeconds = seconds % 60;
-    const hours = Math.floor(wholeMinutes / 60);
-    const displayMinutes = wholeMinutes % 60;
-    return hours > 0
-        ? `${hours}:${padStopwatchPart(displayMinutes)}:${padStopwatchPart(displaySeconds)}`
-        : `${padStopwatchPart(displayMinutes)}:${padStopwatchPart(displaySeconds)}`;
 }
 
 export function formatNewTabSessionProgressLabel(
@@ -91,7 +90,7 @@ export function formatNewTabSessionProgressLabel(
         `${labels.completed} ${snapshot.completedReviews}`,
         `${labels.left} ${snapshot.remainingCards}`,
         `${labels.due} ${snapshot.remainingDueCards}`,
-        snapshot.elapsedLabel,
+        snapshot.remainingSessionLabel,
     ].join(' · ');
 }
 
@@ -175,10 +174,6 @@ function sessionProgressJpdbKey(card: JPDBCard): string | null {
 
 function sessionProgressFallbackKey(card: JPDBCard): string {
     return `${card.source ?? ''}:${card.reviewSource ?? ''}:${card.spelling}:${card.reading}`;
-}
-
-function padStopwatchPart(value: number): string {
-    return String(value).padStart(2, '0');
 }
 
 // ---------------------------------------------------------------------------

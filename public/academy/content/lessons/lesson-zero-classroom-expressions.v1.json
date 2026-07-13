@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 1,
+  "id": "session:lesson-zero-classroom-expressions",
+  "contentVersion": "2026-07-13.classroom-expressions.v1",
+  "responseKind": "constructed-japanese",
+  "inputMode": "ime",
+  "completionPolicy": "all-probes-pass",
+  "navigationPolicy": "free-with-resume",
+  "answerSupport": {
+    "id": "academy-assessed-v1",
+    "englishUiPreCommit": {
+      "assessedJapanese": "hidden",
+      "transcripts": "hidden",
+      "translations": "hidden",
+      "definitions": "hidden",
+      "exampleGlosses": "hidden",
+      "modelAnswers": "hidden"
+    },
+    "earnedHintPolicy": "explicit-after-attempt",
+    "preCommitChoiceStyle": "neutral",
+    "evidenceRequires": "learner-commitment",
+    "animatedReactions": "presentation-only"
+  },
+  "teachingBlocks": [
+    {
+      "id": "teaching:classroom-shared-action",
+      "conceptId": "concept:classroom-start-stop-break",
+      "expressionIds": ["expression:classroom-01", "expression:classroom-02", "expression:classroom-03"],
+      "explanation": {
+        "en": "Use 〜ましょう for an action the group will do together.",
+        "ja": "「〜ましょう」は、みんなで一緒にする行動を誘う形です。"
+      },
+      "workedExample": {
+        "context": { "en": "The class opens its books together.", "ja": "クラス全員で本を開きます。" },
+        "japanese": "本を開きましょう。",
+        "reading": "ほんをひらきましょう。",
+        "meaning": { "en": "Let's open our books.", "ja": "みんなで本を開く誘いです。" }
+      }
+    },
+    {
+      "id": "teaching:classroom-instruction",
+      "conceptId": "concept:classroom-look-say-listen-write",
+      "expressionIds": ["expression:classroom-04", "expression:classroom-05", "expression:classroom-06", "expression:classroom-07"],
+      "explanation": {
+        "en": "Use the verb's て-form plus ください for a polite instruction.",
+        "ja": "動詞のて形に「ください」を付けると、丁寧な指示になります。"
+      },
+      "workedExample": {
+        "context": { "en": "Rie asks the class to open page three.", "ja": "りえ先生が三ページを開くよう頼みます。" },
+        "japanese": "三ページを開けてください。",
+        "reading": "さんページをあけてください。",
+        "meaning": { "en": "Please open page three.", "ja": "三ページを開く丁寧な指示です。" }
+      }
+    },
+    {
+      "id": "teaching:classroom-understanding",
+      "conceptId": "concept:classroom-understanding",
+      "expressionIds": ["expression:classroom-08"],
+      "explanation": {
+        "en": "A question ending in か checks understanding; the reply keeps the verb positive or negative.",
+        "ja": "「か」で理解を確認し、返事では動詞を肯定形か否定形にします。"
+      },
+      "workedExample": {
+        "context": { "en": "A partner checks whether the page is clear.", "ja": "相手がページの内容を確認します。" },
+        "japanese": "大丈夫ですか。はい、大丈夫です。",
+        "reading": "だいじょうぶですか。はい、だいじょうぶです。",
+        "meaning": { "en": "Is it all right? Yes, it is.", "ja": "質問と肯定の返事です。" }
+      }
+    },
+    {
+      "id": "teaching:classroom-repeat",
+      "conceptId": "concept:classroom-repair-repeat",
+      "expressionIds": ["expression:classroom-09"],
+      "explanation": {
+        "en": "Name what you need, then add お願いします to make a polite request.",
+        "ja": "必要なことを言い、「お願いします」を付けると丁寧な依頼になります。"
+      },
+      "workedExample": {
+        "context": { "en": "The explanation was too fast.", "ja": "説明が速すぎました。" },
+        "japanese": "ゆっくりお願いします。",
+        "reading": "ゆっくりおねがいします。",
+        "meaning": { "en": "More slowly, please.", "ja": "ゆっくり話すよう頼む表現です。" }
+      }
+    },
+    {
+      "id": "teaching:classroom-feedback",
+      "conceptId": "concept:classroom-feedback",
+      "expressionIds": ["expression:classroom-10", "expression:classroom-11", "expression:classroom-12"],
+      "explanation": {
+        "en": "Classroom feedback can praise the result, confirm a match, or mark a mismatch.",
+        "ja": "教室のフィードバックでは、出来を褒める、一致を確認する、不一致を示す言い方を使い分けます。"
+      },
+      "workedExample": {
+        "context": { "en": "A learner gives Tuesday, but the timetable says Wednesday.", "ja": "学習者は火曜日と答えましたが、時間割は水曜日です。" },
+        "japanese": "火曜日ではありません。水曜日です。",
+        "reading": "かようびではありません。すいようびです。",
+        "meaning": { "en": "It isn't Tuesday. It's Wednesday.", "ja": "誤りを示して正しい内容を伝えます。" }
+      }
+    },
+    {
+      "id": "teaching:classroom-desk-nouns",
+      "conceptId": "concept:classroom-desk-nouns",
+      "expressionIds": ["expression:classroom-13", "expression:classroom-14"],
+      "explanation": {
+        "en": "Short nouns often label what a worksheet item is for.",
+        "ja": "プリントでは、短い名詞が項目の役割を示す見出しになります。"
+      },
+      "workedExample": {
+        "context": { "en": "A worksheet separates a question from its answer.", "ja": "プリントで問題と答えを分けます。" },
+        "japanese": "問題／答え",
+        "reading": "もんだい／こたえ",
+        "meaning": { "en": "question / answer", "ja": "二つの見出しです。" }
+      }
+    }
+  ],
+  "phaseIds": ["room-rhythm", "understanding-and-repair", "feedback", "desk-language"],
+  "phases": [
+    {
+      "id": "room-rhythm",
+      "order": 1,
+      "title": { "en": "Running the room", "ja": "教室を進める" },
+      "expressionIds": [
+        "expression:classroom-01", "expression:classroom-02", "expression:classroom-03",
+        "expression:classroom-04", "expression:classroom-05", "expression:classroom-06",
+        "expression:classroom-07"
+      ]
+    },
+    {
+      "id": "understanding-and-repair",
+      "order": 2,
+      "title": { "en": "Understanding and repair", "ja": "理解と聞き返し" },
+      "expressionIds": ["expression:classroom-08", "expression:classroom-09"]
+    },
+    {
+      "id": "feedback",
+      "order": 3,
+      "title": { "en": "Classroom feedback", "ja": "教室のフィードバック" },
+      "expressionIds": ["expression:classroom-10", "expression:classroom-11", "expression:classroom-12"]
+    },
+    {
+      "id": "desk-language",
+      "order": 4,
+      "title": { "en": "On the desk", "ja": "机の上のことば" },
+      "expressionIds": ["expression:classroom-13", "expression:classroom-14"]
+    }
+  ],
+  "expressions": [
+    {
+      "id": "expression:classroom-01",
+      "sourceQuestionId": "source-question:classroom-phrase-01",
+      "phaseId": "room-rhythm",
+      "order": 1,
+      "conceptIds": ["concept:classroom-start"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-01-start",
+        "prompt": {
+          "en": "Everyone is seated and the papers are ready. Start the lesson together.",
+          "ja": "全員が席に着き、プリントも準備できました。クラスを一緒に開始してください。"
+        },
+        "acceptedAnswers": ["はじめましょう", "始めましょう"],
+        "modelAnswer": "はじめましょう",
+        "repair": {
+          "errorTag": "classroom-start-form",
+          "contrast": { "en": "Use an invitation that includes the speaker and the class.", "ja": "話し手もクラスも含む誘いの形が必要です。" },
+          "retryPrompt": { "en": "Use the verb for beginning with 〜ましょう.", "ja": "開始を表す動詞を「〜ましょう」の形にしてください。" },
+          "nearbyExample": { "en": "A shared action closes with 〜ましょう.", "ja": "一緒にする行動は「〜ましょう」で結びます。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-02",
+      "sourceQuestionId": "source-question:classroom-phrase-02",
+      "phaseId": "room-rhythm",
+      "order": 2,
+      "conceptIds": ["concept:classroom-finish"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-02-finish",
+        "prompt": {
+          "en": "The final task is complete. Close the lesson together.",
+          "ja": "最後の課題が完了しました。クラスを一緒に締めてください。"
+        },
+        "acceptedAnswers": ["おわりましょう", "終わりましょう"],
+        "modelAnswer": "おわりましょう",
+        "repair": {
+          "errorTag": "classroom-finish-form",
+          "contrast": { "en": "This closes a shared activity; it is not a report about the past.", "ja": "一緒の活動を締める形です。過去の報告ではありません。" },
+          "retryPrompt": { "en": "Put the verb for ending into 〜ましょう.", "ja": "終了を表す動詞を「〜ましょう」にしてください。" },
+          "nearbyExample": { "en": "Keep the same shared-action ending used to begin class.", "ja": "授業開始と同じ、共同の行動を表す語尾を使います。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-03",
+      "sourceQuestionId": "source-question:classroom-phrase-03",
+      "phaseId": "room-rhythm",
+      "order": 3,
+      "conceptIds": ["concept:classroom-break"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-03-break",
+        "prompt": {
+          "en": "The room has worked for forty minutes. Suggest pausing together.",
+          "ja": "四十分集中しました。全員で少し休憩する提案をしてください。"
+        },
+        "acceptedAnswers": ["やすみましょう", "休みましょう"],
+        "modelAnswer": "やすみましょう",
+        "repair": {
+          "errorTag": "classroom-break-form",
+          "contrast": { "en": "Pause the activity; do not end the lesson.", "ja": "授業を終えるのではなく、活動を一度止めます。" },
+          "retryPrompt": { "en": "Use the verb for resting with 〜ましょう.", "ja": "休憩を表す動詞を「〜ましょう」にしてください。" },
+          "nearbyExample": { "en": "Beginning, ending, and pausing share the same invitation ending.", "ja": "開始・終了・休憩は同じ誘いの語尾を使えます。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-04",
+      "sourceQuestionId": "source-question:classroom-phrase-04",
+      "phaseId": "room-rhythm",
+      "order": 4,
+      "conceptIds": ["concept:classroom-look-instruction"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-04-look",
+        "prompt": {
+          "en": "Rie circles line four. Direct everyone's attention to it.",
+          "ja": "りえ先生が四行目を丸で囲みました。全員の目をそこへ向ける指示を出してください。"
+        },
+        "acceptedAnswers": ["みてください", "見てください"],
+        "modelAnswer": "みてください",
+        "repair": {
+          "errorTag": "classroom-look-request",
+          "contrast": { "en": "Ask for an action with the polite 〜てください form.", "ja": "丁寧な「〜てください」で動作を頼みます。" },
+          "retryPrompt": { "en": "Use the verb for directing your eyes to something.", "ja": "目を向ける動詞を使ってください。" },
+          "nearbyExample": { "en": "The same request pattern works for listening and writing.", "ja": "聞く指示や記入の指示にも同じ依頼形を使います。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-05",
+      "sourceQuestionId": "source-question:classroom-phrase-05",
+      "phaseId": "room-rhythm",
+      "order": 5,
+      "conceptIds": ["concept:classroom-say-together"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-05-say",
+        "prompt": {
+          "en": "The line is on the board. Ask the whole class to say it aloud.",
+          "ja": "文が黒板にあります。クラス全員が声に出すよう指示してください。"
+        },
+        "acceptedAnswers": ["みなさんでいってください", "みなさんで言ってください", "いってください", "言ってください"],
+        "modelAnswer": "みなさんでいってください",
+        "repair": {
+          "errorTag": "classroom-say-request",
+          "contrast": { "en": "This asks the class to speak, not to listen.", "ja": "聞くのではなく、クラスが発話する指示です。" },
+          "retryPrompt": { "en": "Add the group marker if you can, then use 〜てください.", "ja": "できれば全員を示す語を加え、「〜てください」にしてください。" },
+          "nearbyExample": { "en": "The actor is the class; the teacher supplies the instruction.", "ja": "動作するのはクラスで、先生は指示を出します。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-06",
+      "sourceQuestionId": "source-question:classroom-phrase-06",
+      "phaseId": "room-rhythm",
+      "order": 6,
+      "conceptIds": ["concept:classroom-listen-instruction"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-06-listen",
+        "prompt": {
+          "en": "You are about to model a new line. Ask the room for their attention.",
+          "ja": "これから新しい文を発音します。全員の耳をこちらへ向ける指示を出してください。"
+        },
+        "acceptedAnswers": ["きいてください", "聞いてください", "聴いてください"],
+        "modelAnswer": "きいてください",
+        "repair": {
+          "errorTag": "classroom-listen-request",
+          "contrast": { "en": "The class receives sound; they are not the speakers yet.", "ja": "まだクラスが話す番ではなく、音を受け取る番です。" },
+          "retryPrompt": { "en": "Use the perception verb for sound with 〜てください.", "ja": "音を受け取る動詞を「〜てください」にしてください。" },
+          "nearbyExample": { "en": "Compare this with the previous instruction, where the class spoke.", "ja": "クラスが発話した直前の指示と比べてください。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-07",
+      "sourceQuestionId": "source-question:classroom-phrase-07",
+      "phaseId": "room-rhythm",
+      "order": 7,
+      "conceptIds": ["concept:classroom-write-instruction"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-07-write",
+        "prompt": {
+          "en": "The new expression needs to go in everyone's notes. Give the instruction.",
+          "ja": "新しい表現を全員のノートに残す必要があります。その動作を指示してください。"
+        },
+        "acceptedAnswers": ["かいてください", "書いてください"],
+        "modelAnswer": "かいてください",
+        "repair": {
+          "errorTag": "classroom-write-request",
+          "contrast": { "en": "Ask for a written action, not another spoken repetition.", "ja": "もう一度発話するのではなく、記録する動作を頼みます。" },
+          "retryPrompt": { "en": "Use the verb for putting words on paper with 〜てください.", "ja": "紙に文字を残す動詞を「〜てください」にしてください。" },
+          "nearbyExample": { "en": "It follows the same instruction shape as looking and listening.", "ja": "見る指示や聞く指示と同じ形です。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-08",
+      "sourceQuestionId": "source-question:classroom-phrase-08",
+      "phaseId": "understanding-and-repair",
+      "order": 8,
+      "conceptIds": ["concept:classroom-understanding-check", "concept:classroom-understanding-response"],
+      "skill": "repair",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [
+        {
+          "id": "probe:classroom-08-check",
+          "prompt": { "en": "Your partner has heard the explanation. Check whether they understand.", "ja": "相手が説明を聞き終えました。理解できたか確認してください。" },
+          "acceptedAnswers": ["わかりますか", "分かりますか"],
+          "modelAnswer": "わかりますか",
+          "repair": {
+            "errorTag": "understanding-check-question",
+            "contrast": { "en": "This must be a question about the listener's understanding.", "ja": "相手の理解を確認する質問が必要です。" },
+            "retryPrompt": { "en": "Use the understanding verb and the question particle.", "ja": "理解を表す動詞と疑問の助詞を使ってください。" },
+            "nearbyExample": { "en": "A statement reports understanding; adding か asks about it.", "ja": "理解の文に「か」を加えると確認の質問になります。" }
+          }
+        },
+        {
+          "id": "probe:classroom-08-yes",
+          "prompt": { "en": "Rie checks your understanding. You followed the explanation; answer her.", "ja": "りえ先生が理解を確認しました。説明についていけたので、肯定して答えてください。" },
+          "acceptedAnswers": ["はい、わかります", "はい、分かります"],
+          "modelAnswer": "はい、わかります",
+          "repair": {
+            "errorTag": "understanding-affirmative-response",
+            "contrast": { "en": "Give both the affirmative reply and the understanding statement.", "ja": "肯定の返事と理解できることの両方を伝えます。" },
+            "retryPrompt": { "en": "Begin with the affirmative reply, then state that you understand.", "ja": "肯定の返事から始め、理解できることを続けてください。" },
+            "nearbyExample": { "en": "A bare yes is clear socially, but the source practises the full response.", "ja": "返事だけでも通じますが、原資料では完全な応答を練習します。" }
+          }
+        },
+        {
+          "id": "probe:classroom-08-no",
+          "prompt": { "en": "This time the explanation did not land. Answer Rie's check honestly.", "ja": "今回は説明を理解できませんでした。りえ先生の確認に正直に答えてください。" },
+          "acceptedAnswers": ["いいえ、わかりません", "いいえ、分かりません"],
+          "modelAnswer": "いいえ、わかりません",
+          "repair": {
+            "errorTag": "understanding-negative-response",
+            "contrast": { "en": "Do not claim understanding when it is missing.", "ja": "理解できていないときに、理解できるとは答えません。" },
+            "retryPrompt": { "en": "Begin with the negative reply, then negate the understanding verb.", "ja": "否定の返事から始め、理解を表す動詞も否定してください。" },
+            "nearbyExample": { "en": "The negative response creates the opening for a repair request.", "ja": "否定の応答は、その次の聞き返しにつながります。" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "expression:classroom-09",
+      "sourceQuestionId": "source-question:classroom-phrase-09",
+      "phaseId": "understanding-and-repair",
+      "order": 9,
+      "conceptIds": ["concept:classroom-repair-repeat", "concept:polite-request"],
+      "skill": "repair",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-09-repeat",
+        "prompt": { "en": "You missed the instruction. Ask Rie to repeat it politely.", "ja": "指示を聞き逃しました。りえ先生に丁寧に繰り返してもらってください。" },
+        "acceptedAnswers": ["もういちどおねがいします", "もう一度お願いします"],
+        "modelAnswer": "もう一度お願いします",
+        "repair": {
+          "errorTag": "classroom-repeat-request",
+          "contrast": { "en": "State the repetition request; do not pretend you understood.", "ja": "理解したふりをせず、繰り返しを頼みます。" },
+          "retryPrompt": { "en": "Combine 'one more time' with the polite request ending.", "ja": "再度を表す語と、丁寧な依頼の結びを組み合わせてください。" },
+          "nearbyExample": { "en": "The same polite ending closes a first introduction.", "ja": "同じ丁寧な結びは、初対面のあいさつにも現れます。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-10",
+      "sourceQuestionId": "source-question:classroom-phrase-10",
+      "phaseId": "feedback",
+      "order": 10,
+      "conceptIds": ["concept:classroom-positive-feedback"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-10-good",
+        "prompt": { "en": "A classmate's sentence works well. Give brief positive feedback.", "ja": "クラスメイトの文が上手にできました。短く肯定的に評価してください。" },
+        "acceptedAnswers": ["いいです", "とてもいいです", "とても良いです", "良いです"],
+        "modelAnswer": "いいです",
+        "repair": {
+          "errorTag": "classroom-positive-feedback",
+          "contrast": { "en": "Evaluate the result positively rather than confirming its factual correctness.", "ja": "事実として正しいと確認するより、出来を肯定的に評価します。" },
+          "retryPrompt": { "en": "Use the short classroom evaluation for a good result.", "ja": "出来がよいときの短い教室評価を使ってください。" },
+          "nearbyExample": { "en": "Adding an intensifier makes the praise stronger but keeps the same form.", "ja": "強調語を加えると、同じ形のまま評価を強められます。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-11",
+      "sourceQuestionId": "source-question:classroom-phrase-11",
+      "phaseId": "feedback",
+      "order": 11,
+      "conceptIds": ["concept:classroom-confirm-correct"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [
+        {
+          "id": "probe:classroom-11-so",
+          "prompt": { "en": "A learner identifies the right person. Confirm their inference.", "ja": "学習者が正しい人を特定しました。その推測を確認してください。" },
+          "acceptedAnswers": ["そうです"],
+          "modelAnswer": "そうです",
+          "repair": {
+            "errorTag": "classroom-confirmation-so",
+            "contrast": { "en": "Confirm that what they said is the case.", "ja": "相手が言った内容がそのとおりだと確認します。" },
+            "retryPrompt": { "en": "Use the short confirmation that points back to their statement.", "ja": "相手の発言を受ける短い確認表現を使ってください。" },
+            "nearbyExample": { "en": "This confirms a statement; the next source variant checks a match.", "ja": "これは発言の確認です。次の原資料の言い方は一致を確認します。" }
+          }
+        },
+        {
+          "id": "probe:classroom-11-match",
+          "prompt": { "en": "Their written answer matches the key. Confirm the match conversationally.", "ja": "書いた答えが解答と一致しています。会話的な言い方で一致を確認してください。" },
+          "acceptedAnswers": ["あってます", "合ってます", "あっています", "合っています"],
+          "modelAnswer": "あってます",
+          "repair": {
+            "errorTag": "classroom-confirmation-match",
+            "contrast": { "en": "Confirm that two things match, not merely that the work is good.", "ja": "出来がよいという評価ではなく、二つが一致すると確認します。" },
+            "retryPrompt": { "en": "Use the conversational form of the verb meaning 'to match'.", "ja": "一致を表す動詞の会話的な形を使ってください。" },
+            "nearbyExample": { "en": "The fuller polite form is also accepted.", "ja": "省略しない丁寧な形でも構いません。" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "expression:classroom-12",
+      "sourceQuestionId": "source-question:classroom-phrase-12",
+      "phaseId": "feedback",
+      "order": 12,
+      "conceptIds": ["concept:classroom-correct-error"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-12-wrong",
+        "prompt": { "en": "The answer does not match the example. Correct it briefly.", "ja": "答えが見本と一致していません。短く訂正してください。" },
+        "acceptedAnswers": ["ちがいます", "違います"],
+        "modelAnswer": "ちがいます",
+        "repair": {
+          "errorTag": "classroom-correction",
+          "contrast": { "en": "Mark a mismatch; do not praise or confirm it.", "ja": "肯定や称賛ではなく、不一致を示します。" },
+          "retryPrompt": { "en": "Use the polite form of the verb for being different.", "ja": "異なることを表す動詞の丁寧形を使ってください。" },
+          "nearbyExample": { "en": "It contrasts directly with both confirmation forms.", "ja": "二つの確認表現と直接対比できます。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-13",
+      "sourceQuestionId": "source-question:classroom-phrase-13",
+      "phaseId": "desk-language",
+      "order": 13,
+      "conceptIds": ["concept:classroom-homework-noun"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-13-homework",
+        "prompt": { "en": "Rie points to the work due next class. Write the Japanese heading.", "ja": "りえ先生が次回までの課題を指しました。日本語の見出しを入力してください。" },
+        "acceptedAnswers": ["しゅくだい", "宿題"],
+        "modelAnswer": "しゅくだい",
+        "repair": {
+          "errorTag": "classroom-homework-label",
+          "contrast": { "en": "Label the assigned work, not the sample beside it.", "ja": "横の見本ではなく、出された課題に見出しを付けます。" },
+          "retryPrompt": { "en": "Recall the classroom noun for work assigned for later.", "ja": "あとでするよう出された課題を表す教室名詞を思い出してください。" },
+          "nearbyExample": { "en": "This label often appears beside a due date or page range.", "ja": "この見出しは締切やページ範囲のそばによくあります。" }
+        }
+      }]
+    },
+    {
+      "id": "expression:classroom-14",
+      "sourceQuestionId": "source-question:classroom-phrase-14",
+      "phaseId": "desk-language",
+      "order": 14,
+      "conceptIds": ["concept:classroom-example-noun"],
+      "skill": "writing",
+      "responseKind": "constructed-japanese",
+      "inputMode": "ime",
+      "probes": [{
+        "id": "probe:classroom-14-example",
+        "prompt": { "en": "Label the sample sentence printed beside the rule.", "ja": "規則の横に印刷された見本の文へ、日本語の見出しを付けてください。" },
+        "acceptedAnswers": ["れい", "例"],
+        "modelAnswer": "れい",
+        "repair": {
+          "errorTag": "classroom-example-label",
+          "contrast": { "en": "This is the sample to follow, not work assigned for later.", "ja": "あとでする課題ではなく、参考にする見本です。" },
+          "retryPrompt": { "en": "Recall the short classroom noun used before a model sentence.", "ja": "モデル文の前に置く短い教室名詞を思い出してください。" },
+          "nearbyExample": { "en": "It can head a sentence, diagram, or worked solution.", "ja": "文・図・解き方の見本にも同じ見出しを使えます。" }
+        }
+      }]
+    }
+  ]
+}

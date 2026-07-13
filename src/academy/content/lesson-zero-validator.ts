@@ -52,11 +52,63 @@ export function validateLessonZeroPackage(value: unknown): LessonZeroPackageData
     validateLessonIdentity(lesson);
     const sectionById = validateSections(lesson);
     const activityById = validateActivities(lesson, sectionById, questionIds);
+    validateOverview(lesson, activityById, questionIds);
     const scripts = validateScripts(lesson);
     validateAudio(lesson.audioAssets, lesson.releaseBlockers, scripts);
     validateMissions(lesson.missions, activityById);
     validateLessonZeroCastUsage(lesson.missions, scripts);
     return structuredClone(data);
+}
+
+function validateOverview(
+    lesson: LessonZeroDefinition,
+    activities: ReadonlyMap<string, LessonZeroActivity>,
+    questionIds: ReadonlySet<string>,
+): void {
+    const overview = record(lesson.overview, 'lesson.overview') as unknown as LessonZeroDefinition['overview'];
+    localized(overview.title, 'lesson.overview.title');
+    localized(overview.summary, 'lesson.overview.summary');
+    const goals = array(overview.goals, 'lesson.overview.goals');
+    if (goals.length < 3) fail('Lesson 0 overview needs concrete learning goals.');
+    goals.forEach((goal, index) => localized(goal, `lesson.overview.goals.${index}`));
+    nonEmpty(overview.peopleIds, 'lesson.overview.peopleIds');
+    for (const personId of overview.peopleIds) {
+        if (!isAcademyCastMemberId(personId)) fail(`Lesson 0 overview invents cast id ${personId}.`);
+    }
+    if (new Set(overview.peopleIds).size !== overview.peopleIds.length) fail('Lesson 0 overview repeats a person.');
+    nonEmpty(overview.locationIds, 'lesson.overview.locationIds');
+    if (new Set(overview.locationIds).size !== overview.locationIds.length) fail('Lesson 0 overview repeats a location.');
+    const materials = array(overview.materials, 'lesson.overview.materials') as LessonZeroDefinition['overview']['materials'];
+    const materialIds = new Set<string>();
+    for (const material of materials) {
+        text(material.id, 'lesson.overview.material.id');
+        if (materialIds.has(material.id)) fail(`Lesson 0 overview repeats material ${material.id}.`);
+        materialIds.add(material.id);
+        localized(material.title, `lesson.overview material ${material.id}`);
+        if (!['source-handout', 'writing-surface', 'kana-surface', 'dialogue-audio'].includes(material.kind)) {
+            fail(`Lesson 0 overview material ${material.id} has an invalid kind.`);
+        }
+        if (!['ready', 'release-blocked'].includes(material.state)) {
+            fail(`Lesson 0 overview material ${material.id} has an invalid state.`);
+        }
+        nonEmpty(material.activityIds, `lesson.overview material ${material.id} activityIds`);
+        for (const activityId of material.activityIds) {
+            if (!activities.has(activityId)) {
+                fail(`Lesson 0 overview material ${material.id} references unknown activity ${activityId}.`);
+            }
+        }
+        for (const questionId of material.sourceQuestionIds ?? []) {
+            if (!questionIds.has(questionId)) {
+                fail(`Lesson 0 overview material ${material.id} references unknown source question ${questionId}.`);
+            }
+        }
+        if (material.state === 'release-blocked' && !material.blockerId) {
+            fail(`Blocked material ${material.id} needs a blocker.`);
+        }
+        if (material.state === 'ready' && material.blockerId) {
+            fail(`Ready material ${material.id} cannot retain a blocker.`);
+        }
+    }
 }
 
 function validateLessonIdentity(lesson: LessonZeroDefinition): void {
@@ -276,6 +328,12 @@ function record(value: unknown, label: string): Readonly<Record<string, unknown>
 function text(value: unknown, label: string): string {
     if (typeof value !== 'string' || !value.trim()) fail(`${label} must be non-empty.`);
     return value.trim();
+}
+
+function localized(value: unknown, label: string): void {
+    const copy = record(value, label) as Readonly<Record<'en' | 'ja', unknown>>;
+    text(copy.en, `${label}.en`);
+    text(copy.ja, `${label}.ja`);
 }
 
 function fail(message: string): never {

@@ -53,11 +53,11 @@ Its generated sprite files are not approved.
 | Character | Visual lock | Interests and voice | Story and learning home | Reference confidence |
 | --- | --- | --- | --- | --- |
 | Nanako | private contextual group-photo candidate; do not publish the source or expand expressions before owner confirmation | concise bilingual warmth, natural social Japanese, considerate timing, gentle corrections and humour | pragmatic messages, social repair, invitations, returning-friend scenes | candidate likeness pair recorded by hash in the ignored private ledger; owner confirmation required |
-| Karen | no verified face image in the supplied archives; do not borrow an unrelated person or invent a likeness | friendly, direct and playful; language meetups, game-based learning, a modest daily study habit, practical plans | beginner conversation, habit design, game-vocabulary limits, personal-corpus review, return-after-absence scenes | blocked pending a clear owner-identified portrait |
+| Mira | fair-skinned adult woman; shoulder-length warm-blond hair, black cap, oversized blue hoodie, cream wide-leg trousers, clear umbrella | friendly, direct and playful; language meetups, game-based learning, a modest daily study habit, practical plans | beginner conversation, habit design, game-vocabulary limits, personal-corpus review, return-after-absence scenes | owner-confirmed private reference (`SHA-256 69cdbe8bf0ff2ab74e87b83e5495cd658a82b70b391245256f8538bfc875febe`); neutral sample not generated; release-blocked pending likeness and equal-stage cast approval |
 
 ## Unresolved people
 
-Nanako and Karen are named independently and do not resolve either unknown contact. Two phone-number-only contacts may correspond to Rose and another Chinese classmate. They remain outside the named cast and art queue until a photo and name match is established. No placeholder identity is invented.
+Nanako and Mira are named independently and do not resolve either unknown contact. Two phone-number-only contacts may correspond to Rose and another Chinese classmate. They remain outside the named cast and art queue until a photo and name match is established. No placeholder identity is invented.
 
 ## Textbook legends
 

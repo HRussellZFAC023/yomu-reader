@@ -22,6 +22,7 @@ export function renderCampusScreen(
     reviewComplete: boolean,
     onEnter: (location: CampusLocation) => void,
     preference?: LessonFork,
+    unavailableLocations: ReadonlySet<CampusLocation> = new Set(),
 ): HTMLElement {
     const { screen, content } = screenFrame({
         language,
@@ -49,11 +50,18 @@ export function renderCampusScreen(
     const minimap = createMinimap(language, 'mapEntrance', 'mapChoose');
     let travelTimer = 0;
     LOCATIONS.forEach(([location, title, body]) => {
-        const locked = !reviewComplete && (location === 'lab' || location === 'cafe') && location !== preferredLocation;
+        const unavailable = unavailableLocations.has(location);
+        const locked = unavailable
+            || !reviewComplete && (location === 'lab' || location === 'cafe') && location !== preferredLocation;
         const button = copyButton(language, title, `academy-location academy-location-${location}`);
         button.dataset.location = location;
         button.disabled = locked;
-        button.append(copyElement('span', 'academy-location-purpose', language, locked ? 'locationUnavailable' : body));
+        button.append(copyElement(
+            'span',
+            'academy-location-purpose',
+            language,
+            unavailable ? 'locationNotOpen' : locked ? 'locationUnavailable' : body,
+        ));
         const showDestination = () => {
             minimap.destination.textContent = academyText(language, title);
             minimap.root.dataset.destination = location;

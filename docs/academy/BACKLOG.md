@@ -38,7 +38,15 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [x] Freeze concurrent implementation and the 42 GB census at resumable boundaries.
 - [x] Reconstruct the product direction from all feedback, Donor A's stronger lesson structure, the real opening source, Yomu workflows, and the original runbook.
 - [x] Generate and record concept boards for the complete first class, VN/source flow, expanded world map, and 42 GB content journey.
-- [ ] Receive scheduled Fable adversarial review of the direction and incorporate warranted changes.
+- [x] Receive two low-effort Fable architecture/usability reviews and bind the accepted one-route, Course-view, grounded-lesson, living-paper, and usability corrections.
+- [x] Make learner writes resolve a complete lesson from shipped bytes: typed registry entry, pinned lesson ID/revision/SHA-256, full grounding audit, playable lesson/activity check, source scope, and canonical review allow-list.
+- [x] Resolve grading, instruction, prerequisite, repair, review, and surface-audit references through one definition registry; reject dangling definitions, divergent review identities, and self-asserted answer-concealment claims.
+- [x] Derive all 73 Week delivery states from the lesson audit: orientation review-blocked, 72 planning-only, zero grounded-playable.
+- [x] Classify and sanitize every legacy ungrounded activity route from current navigation and Back history; remove known legacy provenance, retain reviewed cards with an audit tag, and append-only neutralize their former Academy schedules without deleting Study history.
+- [x] Mount the canonical Reader Study surface inside Academy with living-paper tokens, a real 15-minute countdown, Pause, and route-history Back.
+- [ ] Complete Slice 1: persisted Back history, equal Story/Course presentation hosts, one stable `…` menu, and no dead/duplicate navigation.
+- [ ] Complete Slice 2: collapsed Class spine → Lesson 0 overview → focused activities → repair/return, with no pre-commit answer in the DOM.
+- [ ] Complete Slice 3: one curated library shelf using the existing Yomu video/subtitle player plus one source-PDF view.
 - [ ] Author the complete 60–90 minute Lesson 0: greetings, sound/script, the fourteen-expression survival handout, first sentence frame, useful vocabulary, real listening/reading, matched writing/speaking, transfer, and close.
 - [ ] Make Sound, Text, and Speaking distinct first missions with different early cast/place, activity balance, story result, and adaptive evidence.
 - [ ] Replace the current giveaway choice and unrelated `一` route with one production-quality ten-minute proof drawn from the complete lesson.
@@ -58,10 +66,10 @@ Acceptance: a Japanese teacher can identify what the learner was taught, practis
 ## Stage 2 — source pipeline
 
 - [x] Rebuild the occurrence/payload ledger from all 96 Moodle archives and three direct Moodle resources; reconcile 96/916/688 exactly.
-- [ ] Rebuild a separate ledger for all 13,123 files in the authorized 42 GB shared Japanese library and deduplicate it against Moodle.
+- [x] Rebuild a separate private ledger for all 13,123 regular files in the authorized 42 GB shared Japanese library; retain 15,790 filesystem-entry and 11,081 unique-payload denominators, with 68 overlap hashes recorded only on the library side.
 - [x] Introduce versioned immutable source-item candidates adjacent to, but never conflated with, augmentation; retain the stricter reviewed `SourceQuestion` boundary.
 - [x] Census every unique Moodle PDF page/text box/native image/positioned media/vector region and probe every Moodle audio payload with explicit failure states.
-- [ ] Run the same PDF/media/audio/video/resource-status harness across the shared Japanese library without copying its 42 GB into Git/artifacts.
+- [x] Publish and validate the separate shared-library mechanical census without copying source bytes into Git: 89 archive containers (84 censused / five explicit ZIP64 failures), 450 PDFs, and 5,090 media payloads. The cache-only publisher is structurally allowlisted and private-token clean; human source/media review remains open.
 - [x] Migrate all 44 existing packs losslessly in resumable batches; preserve all 879 items and donor claims as review-required candidates.
 - [x] Build the private teacher/editor source-vs-candidate comparison, overlay contact sheets, public privacy boundary, claim guard, and validators.
 
@@ -69,6 +77,7 @@ Acceptance: every payload has a status; every processed document has question/me
 
 ## Stage 3 — all 73 class weeks
 
+- [x] Select the next grounding candidate without inflating delivery: [`l3-2-l04`](evidence/next-grounded-week/REPORT.md) is the smallest closed source surface and remains an explicit no-go pending source-question, locus, media, audio, answer, teaching, production, runtime, and browser proof.
 - [ ] Author and expose every week while preserving all source occurrences/questions.
 - [ ] Add original Minna 24/26 bridges.
 - [ ] Add explanations, faithful solo adaptations, deterministic grading, model-answer gating, and cumulative review.

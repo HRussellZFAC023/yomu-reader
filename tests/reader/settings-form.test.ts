@@ -565,7 +565,7 @@ describe('settings form localization', () => {
         expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Yomu, accounts, then study words');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Academy, accounts, then study words');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
@@ -662,7 +662,7 @@ describe('settings form localization', () => {
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('import it from Bunpro settings');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('treat it like a password');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('saved before it is verified');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Local Yomu SRS works without an account');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Academy reviews work locally without an account');
 
         jpdbInput.value = '  next-jpdb  ';
         jitenInput.value = '';
@@ -2096,11 +2096,11 @@ describe('settings form localization', () => {
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: よむ・アカウント後に学習語');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: Academy・アカウント後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunproに必要なのはフロントエンドトークンだけです');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('ローカルよむSRSはアカウントなしで使えます');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Academyの復習はアカウントなしでも使えます');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro設定から取り込み');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('パスワードと同様に扱ってください');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('保存時点では未確認');

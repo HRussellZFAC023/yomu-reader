@@ -1,4 +1,4 @@
-import { ANKI_SOURCE_ID } from '../app/constants';
+import { ACADEMY_SRS_LABEL, ANKI_SOURCE_ID } from '../app/constants';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
 import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons, reviewButtonGrades } from '../anki/render';
 import { normalizeCardStates, primaryCardState } from './state';
@@ -371,7 +371,7 @@ export class CardPopoverRenderer {
         if (target.kind === 'jpdb') return { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: true };
         if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
         if (target.kind === 'bunpro') return { id: 'bunpro', label: 'Bunpro', deckSource: 'bunpro', hasApiKey: true };
-        if (target.kind === 'yomu-local') return { id: 'yomu-local', label: 'Yomu', deckSource: 'yomu-local', hasApiKey: true };
+        if (target.kind === 'yomu-local') return { id: 'yomu-local', label: ACADEMY_SRS_LABEL, deckSource: 'yomu-local', hasApiKey: true };
         return fallback;
     }
 
