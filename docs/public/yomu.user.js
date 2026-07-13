@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.148#sha256=LnXglxXJMWaqFp7nsNmFTIobLYfONqsIjPYYb1U4DmI=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.148#sha256=GkkmcM7en4Fz+z9BBcF0wCq31NTP9cuXngCrsRdYev8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.148#sha256=IE7f8sUqmwODfWsPPzyUJbp2Xc28zQamXZnouXQprlU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.148#sha256=qU3ZCgqlpnBNjiVu81iSGfw3Xo7poK3MBQP1GLlUFoo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.148#sha256=80vB3ufW2XjGJcNxnCFKVGYfjYnONATfFlh+CCHv6vI=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.148#sha256=hK9pzZFB/GL6ksmWAO1to4ERxV+ajIEXI2/cl7mOpyM=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.148#sha256=jtpYGh4WbUq11+wpgCRKrYqL8ik0xFh5t4ivdxG5U4Y=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.148#sha256=NTzXLFoGSYsLYEaLiQ5bJ1vutJOgoiNWR3RxZKC0qPc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.148#sha256=BmSnrkEYlg0hMSWRkxGOTKb4LlEd+HiYp0XGx/EcyyA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.148#sha256=lKJvUK/I/9SmzjQ4iCDvhy4Mr7WOBsBzUeHnNmBvyAk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.148#sha256=jIj7rzJb/tCSHM2o2A4Kue69HcUURiQTIAVauigTGZE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.148#sha256=v6hK9dh2ZjZG4KzBxm0wu+fsQU4xu/jmFPVeRosf0XE=
 // @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.148#sha256=a/BoO/290cbXtvQUssBCLIidCX7/vS4lGLKJZuwCGLw=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1610,6 +1610,7 @@ function isManagedStorageKey(key) {
 }
 const APP_NAME = "よむ";
 const APP_PUCK = "よむ";
+const ACADEMY_SRS_LABEL = "Academy";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -1617,7 +1618,7 @@ const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
-const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
@@ -1631,54 +1632,75 @@ const ANKI_SOURCE_ID = "__anki__";
 const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
 const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
 const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-function isYomuNewTabUrl(value) {
-  const url = parseNewTabUrl(value);
-  return url ? isYomuNewTabUrlObject(url) : false;
-}
-function parseNewTabUrl(value) {
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+function readTrustedYomuUrl(value) {
+  let url;
   try {
-  return new URL(value);
+  url = new URL(value);
   } catch {
   return null;
   }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
 }
-function isYomuNewTabUrlObject(url) {
-  const path = normalizedNewTabPath(url);
-  return url.searchParams.has("yomu-newtab") || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
 }
-function normalizedNewTabPath(url) {
-  return url.pathname.replace(/\/index\.html$/, "/");
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
 }
-function isLocalNewTabPath(url, path) {
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
+function trustedYomuOriginKind(url, path) {
+  if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
+  if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
+  return "github-pages";
+  }
+  if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
+  return "loopback";
+  }
+  if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
+  return null;
 }
-function isRepositoryNewTabPath(path) {
-  return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
 }
-const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
+  if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
 function isYomuHostedAppUrl(value) {
-  const appUrl = readYomuAppUrl(value);
+  const appUrl = readTrustedYomuUrl(value);
   return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
 }
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl || appUrl.originKind === "extension") return false;
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
 function isYomuHostedPassivePage(value) {
-  const appUrl = readYomuAppUrl(value);
+  const appUrl = readTrustedYomuUrl(value);
   return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
 }
 function isYomuHostedVideoPlayerPage(value) {
-  const appUrl = readYomuAppUrl(value);
-  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "video-player") : false;
 }
 function isYomuHostedPdfReaderPage(value) {
-  const appUrl = readYomuAppUrl(value);
-  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuPdfReaderPath(appUrl.path) : false;
-}
-function readYomuAppUrl(value) {
-  try {
-  const url = new URL(value);
-  return { url, path: normalizedPath(url.pathname) };
-  } catch {
-  return null;
-  }
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "pdf-reader") : false;
 }
 function isYomuHostedAppRoute(value, appUrl) {
   return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
@@ -1687,29 +1709,22 @@ function isPassiveYomuRepositoryPage(value, appUrl) {
   return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
 }
 function isYomuActiveAppRoute(value, appUrl) {
-  return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path) || isYomuPdfReaderPath(appUrl.path);
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
 }
 function isYomuRepositoryAppUrl(appUrl) {
-  return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
+  if (appUrl.originKind === "docs") return true;
+  if (appUrl.originKind === "github-pages") return isYomuRepositoryPath(appUrl.path);
+  if (appUrl.originKind === "extension") return isYomuNewTabUrl(appUrl.url.href);
+  return isYomuLocalAppPath(appUrl.path);
 }
-function isHostedRepositoryAppUrl(appUrl) {
-  if (appUrl.url.origin === DOCS_ORIGIN) return true;
-  return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-}
-function isLocalRepositoryAppUrl(appUrl) {
-  return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
-}
-function normalizedPath(pathname) {
-  return pathname.replace(/\/index\.html$/, "/");
-}
-function isYomuVideoPlayerPath(path) {
-  return path.endsWith("/video-player/");
-}
-function isYomuPdfReaderPath(path) {
-  return path.endsWith("/pdf-reader/");
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+  return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
 }
 function isYomuLocalAppPath(path) {
-  return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path) || isYomuPdfReaderPath(path);
+  return path === "/" || isYomuRepositoryPath(path) || path === "/study/" || path === "/newtab/" || path === "/video-player/" || path === "/pdf-reader/" || path === "/academy/";
 }
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail$1(event), "id");
@@ -1966,7 +1981,7 @@ function directGmListValues() {
 }
 function shouldInstallUserscriptStorageBridge() {
   try {
-  return typeof location !== "undefined" && isYomuHostedAppUrl(location.href);
+  return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
   } catch {
   return false;
   }
@@ -2509,7 +2524,7 @@ function isHostedYomuOrigin() {
   const path = location.pathname;
   if (location.origin === DOCS_ORIGIN) return true;
   if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
+  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
   } catch {
   return false;
   }
@@ -2533,9 +2548,9 @@ function hasManagedYomuServiceWorkerPath(value) {
   try {
   const url = new URL(value, location.href);
   if (!isManagedServiceWorkerOrigin(url)) return false;
-  return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
+  return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/study/") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
   } catch {
-  return value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
+  return value.includes("/study/") || value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
   }
 }
 function isManagedServiceWorkerOrigin(url) {
@@ -2903,7 +2918,7 @@ function trimmedText(value) {
 function stringValue$1(value) {
   return typeof value === "string" ? value : "";
 }
-function finiteNumber(value, fallback) {
+function finiteNumber$1(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
@@ -3097,7 +3112,7 @@ function normalizeDictionaryPreference(item, index) {
   name,
   alias: alias.trim() ? alias : name,
   enabled: booleanValue(record.enabled, true),
-  priority: finiteNumber(record.priority, index),
+  priority: finiteNumber$1(record.priority, index),
   allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
   type: normalizeDictionaryType(record.type, name)
   };
@@ -3212,7 +3227,7 @@ function normalizeDictionaryLookupLink(value) {
   urlTemplate,
   enabled: normalizedLookupLinkEnabled(record),
   action,
-  priority: finiteNumber(record.priority, Number.MAX_SAFE_INTEGER)
+  priority: finiteNumber$1(record.priority, Number.MAX_SAFE_INTEGER)
   };
 }
 function normalizedLookupLinkUrlTemplate(record) {
@@ -9802,7 +9817,7 @@ function installUserscriptHttpBridgeWhenReady() {
 }
 function shouldInstallUserscriptHttpBridge() {
   try {
-  return typeof location !== "undefined" && isYomuHostedAppUrl(location.href);
+  return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
   } catch {
   return false;
   }
@@ -12839,7 +12854,7 @@ function renderDeckChoiceOptions(settings, jpdbDecks, ankiDecks, optionsOrInclud
   if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
   if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
   if (renderOptions.includeBunpro) addDeckChoiceOption(options, "bunpro", "bunpro", "Bunpro");
-  if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", "Yomu");
+  if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", ACADEMY_SRS_LABEL);
   if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
   if (!options.length) return "";
   return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join("");
@@ -12907,7 +12922,7 @@ function apiSrsProviderView(id, settings) {
   if (id === "yomu-local") {
   return {
     id: "yomu-local",
-    label: "Yomu",
+    label: ACADEMY_SRS_LABEL,
     deckSource: "yomu-local",
     hasApiKey: settings.yomuLocalSrsEnabled
   };
@@ -13046,7 +13061,7 @@ function applyBunproReviewableToCard(card, reviewable) {
 function createYomuLocalSrsProviderAdapter(adapter, settings) {
   return {
   id: "yomu-local",
-  label: "Yomu",
+  label: ACADEMY_SRS_LABEL,
   deckSource: "yomu-local",
   hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
   addApiKeyRequiredKey: "yomuLocalSrsDisabled",
@@ -13056,7 +13071,7 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   supportsCard: (card) => Boolean(card.spelling.trim()),
   supportsDeckState: () => false,
   selectedDeckId: () => "yomu-local",
-  selectedDeckLabel: () => "Yomu",
+  selectedDeckLabel: () => ACADEMY_SRS_LABEL,
   addToDeck: async (_deckId, card, sentence, context) => {
     await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
   },
@@ -14876,7 +14891,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord$5(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$6(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -14907,7 +14922,7 @@ function glossaryRecordTextValues(record, options) {
 function shouldReadRecordTextKey(key, options) {
   return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
 }
-function isRecord$5(value) {
+function isRecord$6(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 const STRUCTURED_CONTENT_TAGS = new Set([
@@ -14973,7 +14988,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$4(value)) return "";
+  if (!isRecord$5(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -15273,7 +15288,7 @@ function locationOrigin() {
 function camelToKebabCase(value) {
   return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
 }
-function isRecord$4(value) {
+function isRecord$5(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function escapeHtml(value) {
@@ -16578,7 +16593,7 @@ class CardPopoverRenderer {
   if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: true };
   if (target.kind === "jiten") return { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: true };
   if (target.kind === "bunpro") return { id: "bunpro", label: "Bunpro", deckSource: "bunpro", hasApiKey: true };
-  if (target.kind === "yomu-local") return { id: "yomu-local", label: "Yomu", deckSource: "yomu-local", hasApiKey: true };
+  if (target.kind === "yomu-local") return { id: "yomu-local", label: ACADEMY_SRS_LABEL, deckSource: "yomu-local", hasApiKey: true };
   return fallback;
   }
   apiReviewTarget(provider, language, card) {
@@ -17512,15 +17527,22 @@ class CardRenderDataLoader {
   if (components.length < 2) return [];
   const pitches = [];
   for (const component of components) {
-    const jitenWord = jitenInfo?.composedOf.find((word) => word.matchSurface.trim() === component.text && (!word.reading.trim() || word.reading.trim() === component.reading));
+    const jitenWord = jitenInfo?.composedOf.find((word) => {
+      const candidate = jitenExpressionComponent(word);
+      return candidate?.text === component.text && candidate.reading === component.reading;
+    });
     const jitenPitch = jitenWord?.pitchAccents?.map((position) => pitchPatternFromPosition(component.reading, position)).find(Boolean);
     if (jitenPitch) {
       pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
       continue;
     }
-    if (!settings.localDictionariesEnabled) continue;
-    const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []);
-    const pitch = localPitchPatternFromMeta(component.reading, meta);
+    const meta = settings.localDictionariesEnabled ? await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []) : [];
+    const localPitch = localPitchPatternFromMeta(component.reading, meta);
+    if (localPitch) {
+      pitches.push({ text: component.text, reading: component.reading, pitch: localPitch });
+      continue;
+    }
+    const pitch = await this.dependencies.jpdbPublicPitch.lookup(component.text, component.reading).then((patterns) => patterns[0] ?? "").catch(() => "");
     if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
   }
   return pitches;
@@ -17678,14 +17700,29 @@ function looksComposableExpression(spelling) {
 function jitenExpressionComponents(info) {
   const seen = new Set();
   return (info?.composedOf ?? []).flatMap((word) => {
-  const text2 = word.matchSurface.trim();
-  const reading = word.reading.trim() || text2;
-  const key = `${text2}
-${reading}`;
-  if (!text2 || seen.has(key)) return [];
+  const component = jitenExpressionComponent(word);
+  if (!component) return [];
+  const key = `${component.text}
+${component.reading}`;
+  if (seen.has(key)) return [];
   seen.add(key);
-  return [{ text: text2, reading }];
+  return [component];
   });
+}
+function jitenExpressionComponent(word) {
+  const annotated = word.readingFurigana.trim();
+  const text2 = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling$1(annotated) || cleanJitenAnnotatedSpelling$1(word.reading)).trim();
+  if (!text2) return null;
+  const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text2).trim();
+  return { text: text2, reading };
+}
+function cleanJitenAnnotatedSpelling$1(value) {
+  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
+}
+function jitenAnnotatedReading(value) {
+  const source = value.trim();
+  const reading = source.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)]/g, "$2").trim();
+  return reading === source ? "" : reading;
 }
 function delay$2(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -19365,7 +19402,7 @@ function isSearchExampleSurfaceMatch(example, query) {
   return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
 }
 function normalizeExample(value, provider = "immersion-kit") {
-  return isRecord$3(value) ? normalizeExampleRecord(value, provider) : null;
+  return isRecord$4(value) ? normalizeExampleRecord(value, provider) : null;
 }
 function normalizeExampleRecord(record, provider = "immersion-kit") {
   const id = text(record.id);
@@ -19406,18 +19443,18 @@ function nadeshikoSearchPayload(query, settings, minLength) {
 }
 function nadeshikoResponseRecord(data) {
   if (Array.isArray(data)) return { segments: data };
-  return isRecord$3(data) ? data : null;
+  return isRecord$4(data) ? data : null;
 }
 function nadeshikoSegments(response) {
   return firstArrayField(response, ["segments", "examples", "results", "data"]);
 }
 function nadeshikoMediaMap(response) {
   const includes = response.includes;
-  const media = isRecord$3(includes) ? includes.media : void 0;
-  return isRecord$3(media) ? media : {};
+  const media = isRecord$4(includes) ? includes.media : void 0;
+  return isRecord$4(media) ? media : {};
 }
 function normalizeNadeshikoExample(value, mediaById) {
-  if (!isRecord$3(value)) return null;
+  if (!isRecord$4(value)) return null;
   const sentence = nadeshikoSentence(value);
   if (!sentence) return null;
   const ids = nadeshikoExampleIds(value);
@@ -19454,7 +19491,7 @@ function nadeshikoMediaRecord(mediaById, mediaPublicId) {
   return recordField(mediaById[mediaPublicId]);
 }
 function recordField(value) {
-  return isRecord$3(value) ? value : {};
+  return isRecord$4(value) ? value : {};
 }
 function nadeshikoSourceTitle(record, media) {
   return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -19473,7 +19510,7 @@ function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
 }
 function nestedText(record, key, fields) {
   const value = record[key];
-  return isRecord$3(value) ? firstText(value, fields) : "";
+  return isRecord$4(value) ? firstText(value, fields) : "";
 }
 function directMediaUrl(example, kind) {
   return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -19511,7 +19548,7 @@ function firstText(record, keys) {
 function text(value) {
   return typeof value === "string" ? value.trim() : "";
 }
-function isRecord$3(value) {
+function isRecord$4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function titleSlugFromId(id) {
@@ -21500,8 +21537,8 @@ ${spelling}`);
     ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
     ...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
   ];
-  const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
-  const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap(fallback.start, fallback.end, token.start, token.end))) : tokens;
+  const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
+  const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end))) : tokens;
   return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
   }
   async localRubySegments(surface, reading, start, end) {
@@ -21622,7 +21659,7 @@ ${spelling}`);
     const start = match.index ?? -1;
     if (start < 0) continue;
     const end = start + match[0].length;
-    const overlapping = tokens.filter((token) => rangesOverlap(start, end, token.start, token.end));
+    const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
     const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
     const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
     if (alreadyCovered && !hasBrokenMetricToken) continue;
@@ -21635,7 +21672,7 @@ ${spelling}`);
   }
   if (!replacements.length) return tokens;
   return [
-    ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap(range.start, range.end, token.start, token.end))),
+    ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap$1(range.start, range.end, token.start, token.end))),
     ...replacements
   ].sort(compareTokensByOffset);
   }
@@ -21748,7 +21785,7 @@ function fallbackLookupRangeAtOffset(text2, offset) {
 function offsetInsideFallbackMatch(start, end, offset) {
   return start <= offset && offset < end;
 }
-function rangesOverlap(start, end, otherStart, otherEnd) {
+function rangesOverlap$1(start, end, otherStart, otherEnd) {
   return start < otherEnd && otherStart < end;
 }
 function tokenInsideRange(token, start, end) {
@@ -21756,7 +21793,7 @@ function tokenInsideRange(token, start, end) {
 }
 function preferInflectedFallback(fallback, tokens) {
   if (!fallback.card.fallbackLookupTerms?.length) return false;
-  const overlapping = tokens.filter((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
+  const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
   return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
 }
 function isBroadPublic(token) {
@@ -21773,11 +21810,11 @@ function fallbackRepairTokens(text2, fallbackTokens, tokens) {
 function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
   if (!isCompleteFallbackRepairCandidate(fallback)) return null;
   if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
-  const overlapping = tokens.filter((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
+  const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
   if (!overlapping.length) return null;
   const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
   const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
-  if (!tokens.every((token) => !rangesOverlap(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
+  if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
   return fallbackTokensCoveringRange(fallbackTokens, start, end);
 }
 function isCompleteFallbackRepairCandidate(fallback) {
@@ -25147,9 +25184,9 @@ class JitenPublicVocabularyClient {
   }
 }
 function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
-  if (!isRecord$2(payload)) return null;
+  if (!isRecord$3(payload)) return null;
   const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
-  const mainReading = isRecord$2(payload.mainReading) ? payload.mainReading : {};
+  const mainReading = isRecord$3(payload.mainReading) ? payload.mainReading : {};
   const annotatedReading = stringValue(mainReading.text) || requestedTerm;
   const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
   const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
@@ -25160,10 +25197,10 @@ function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
   spelling,
   reading,
   frequencyRank: nullableInteger(mainReading.frequencyRank),
-  partOfSpeech: stringArray(payload.partsOfSpeech),
+  partOfSpeech: stringArray$1(payload.partsOfSpeech),
   meanings: arrayRecords(payload.definitions).map((definition) => ({
-    glosses: stringArray(definition.meanings ?? definition.englishMeanings).slice(0, 8),
-    partOfSpeech: stringArray(definition.partsOfSpeech ?? definition.pos)
+    glosses: stringArray$1(definition.meanings ?? definition.englishMeanings).slice(0, 8),
+    partOfSpeech: stringArray$1(definition.partsOfSpeech ?? definition.pos)
   })).filter((meaning) => meaning.glosses.length),
   cardState: ["not-in-deck"],
   pitchAccent: pitchPatterns(payload.pitchAccents, reading),
@@ -25204,7 +25241,7 @@ function publicParseWordFromCard(card) {
   };
 }
 function normalizePublicParseWord(value) {
-  if (!isRecord$2(value)) return null;
+  if (!isRecord$3(value)) return null;
   const wordId = finiteInteger(value.wordId);
   const readingIndex = finiteInteger(value.readingIndex);
   const originalText = stringValue(value.originalText);
@@ -25343,13 +25380,13 @@ function normalizeLookupText(value) {
 function endpointUrl(baseUrl, endpoint) {
   return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, "")}/${endpoint.replace(/^\/+/u, "")}`;
 }
-function isRecord$2(value) {
+function isRecord$3(value) {
   return Boolean(value && typeof value === "object");
 }
 function arrayRecords(value) {
-  return Array.isArray(value) ? value.filter(isRecord$2) : [];
+  return Array.isArray(value) ? value.filter(isRecord$3) : [];
 }
-function stringArray(value) {
+function stringArray$1(value) {
   if (typeof value === "string") return [value];
   return Array.isArray(value) ? value.filter((item) => typeof item === "string" && Boolean(item.trim())) : [];
 }
@@ -25372,11 +25409,11 @@ function logPublicJitenFailure(message, context, error) {
   log$9.warn(message, context, error);
 }
 function errorName(error) {
-  return isRecord$2(error) && typeof error.name === "string" ? error.name : "";
+  return isRecord$3(error) && typeof error.name === "string" ? error.name : "";
 }
 function errorMessage(error) {
   if (error instanceof Error) return error.message;
-  return isRecord$2(error) && typeof error.message === "string" ? error.message : "";
+  return isRecord$3(error) && typeof error.message === "string" ? error.message : "";
 }
 const JITEN_KANJI_WORD_PAGE_SIZE = 9;
 const CARD_STATES = new Set([
@@ -34341,7 +34378,7 @@ async function fetchBunproWordStates(client) {
   return states;
 }
 function collectBunproWordStates(response, tier, states) {
-  const reviews = objectAt$1(response, "reviews") ?? (isRecord$1(response) ? response : null);
+  const reviews = objectAt$1(response, "reviews") ?? (isRecord$2(response) ? response : null);
   if (!reviews) return;
   const titles = reviewableTitlesById(arrayAt(reviews, "included"));
   for (const review of arrayAt(reviews, "data")) {
@@ -34349,7 +34386,7 @@ function collectBunproWordStates(response, tier, states) {
   }
 }
 function addBunproWordState(review, tier, titles, states) {
-  const attributes = objectAt$1(review, "attributes") ?? (isRecord$1(review) ? review : null);
+  const attributes = objectAt$1(review, "attributes") ?? (isRecord$2(review) ? review : null);
   if (!attributes) return;
   const title = titles.get(String(attributes.reviewable_id ?? ""));
   if (!title) return;
@@ -34388,10 +34425,10 @@ function pageCount(response) {
   return numberAt(objectAt$1(response, "pagy"), "pages") ?? 1;
 }
 function restoreBunproWordStates(stored) {
-  if (!stored || !isRecord$1(stored.states)) return null;
+  if (!stored || !isRecord$2(stored.states)) return null;
   const states = new Map();
   for (const [expression, entry] of Object.entries(stored.states)) {
-  if (!isRecord$1(entry) || typeof entry.s !== "string") continue;
+  if (!isRecord$2(entry) || typeof entry.s !== "string") continue;
   states.set(expression, {
     state: entry.s,
     dueAt: typeof entry.d === "number" ? entry.d : null
@@ -34412,20 +34449,20 @@ function parseEpoch(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 function numberAt(value, key) {
-  if (!isRecord$1(value)) return null;
+  if (!isRecord$2(value)) return null;
   const raw = Number(value[key]);
   return Number.isFinite(raw) ? raw : null;
 }
 function arrayAt(value, key) {
-  if (!isRecord$1(value)) return [];
+  if (!isRecord$2(value)) return [];
   const raw = value[key];
   return Array.isArray(raw) ? raw : [];
 }
 function objectAt$1(value, key) {
-  const nested = isRecord$1(value) ? value[key] : null;
-  return isRecord$1(nested) && !Array.isArray(nested) ? nested : null;
+  const nested = isRecord$2(value) ? value[key] : null;
+  return isRecord$2(nested) && !Array.isArray(nested) ? nested : null;
 }
-function isRecord$1(value) {
+function isRecord$2(value) {
   return typeof value === "object" && value !== null;
 }
 const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
@@ -34713,7 +34750,7 @@ function normalizeBunproQueueResponse(raw, limit = 50) {
   };
 }
 function normalizeBunproStatsResponse(raw, due) {
-  const source = isRecord(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
+  const source = isRecord$1(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
   return {
   providerId: "bunpro",
   fetchedAt: Date.now(),
@@ -34832,12 +34869,12 @@ function collectBunproReviewables(raw) {
   return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
 }
 function collectBunproQuizIndexEntries(raw) {
-  if (!isRecord(raw)) return [];
+  if (!isRecord$1(raw)) return [];
   const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
   return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
 }
 function flattenBunproQuizIndexEntry(entry) {
-  if (!isRecord(entry)) return null;
+  if (!isRecord$1(entry)) return null;
   const review = objectAt(entry, "data");
   if (!review) return null;
   const attributes = objectAt(review, "attributes") ?? {};
@@ -34871,14 +34908,14 @@ function bunproQuizIndexReviewable(entry, reviewAttributes) {
   const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
   const included = readArray(entry, ["included"]);
   for (const item of included) {
-  if (!isRecord(item) || readString(item, ["type"]) !== wantedKind) continue;
+  if (!isRecord$1(item) || readString(item, ["type"]) !== wantedKind) continue;
   const attributes = objectAt(item, "attributes");
   if (attributes) return attributes;
   }
   return {};
 }
 function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
-  const record = isRecord(raw) ? raw : {};
+  const record = isRecord$1(raw) ? raw : {};
   const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
   const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
   if (!hits.length) return null;
@@ -34903,18 +34940,18 @@ function positiveIntegerString(value) {
 }
 function reviewableRecord(raw) {
   const unwrapped = unwrapBunproData(raw);
-  if (!isRecord(unwrapped)) return null;
+  if (!isRecord$1(unwrapped)) return null;
   const attributes = objectAt(unwrapped, "attributes");
   return attributes ? { ...unwrapped, ...attributes } : unwrapped;
 }
 function unwrapBunproData(value) {
-  if (!isRecord(value)) return value;
+  if (!isRecord$1(value)) return value;
   const data = value.data;
-  if (isRecord(data) && !Array.isArray(data)) return data;
+  if (isRecord$1(data) && !Array.isArray(data)) return data;
   const review = value.review;
-  if (isRecord(review)) return review;
+  if (isRecord$1(review)) return review;
   const item = value.item;
-  if (isRecord(item)) return item;
+  if (isRecord$1(item)) return item;
   return value;
 }
 function normalizeBunproKind(value, fallback) {
@@ -34969,19 +35006,19 @@ function readFirstDate(value, keys) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 function readFirstNumber(value, keys) {
-  const record = isRecord(value) ? value : null;
+  const record = isRecord$1(value) ? value : null;
   if (!record) return void 0;
   for (const key of keys) {
   const number = Number(record[key]);
   if (Number.isFinite(number)) return number;
   }
   const data = record.data;
-  if (isRecord(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
+  if (isRecord$1(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
   const attributes = objectAt(record, "attributes");
   return attributes ? readFirstNumber(attributes, keys) : void 0;
 }
 function readBoolean(value, keys) {
-  const record = isRecord(value) ? value : null;
+  const record = isRecord$1(value) ? value : null;
   if (!record) return false;
   for (const key of keys) {
   const raw = record[key];
@@ -34989,12 +35026,12 @@ function readBoolean(value, keys) {
   if (raw === 1 || raw === "1" || raw === "true") return true;
   }
   const data = record.data;
-  if (isRecord(data) && !Array.isArray(data)) return readBoolean(data, keys);
+  if (isRecord$1(data) && !Array.isArray(data)) return readBoolean(data, keys);
   const attributes = objectAt(record, "attributes");
   return attributes ? readBoolean(attributes, keys) : false;
 }
 function readString(value, keys) {
-  const record = isRecord(value) ? value : null;
+  const record = isRecord$1(value) ? value : null;
   if (!record) return "";
   for (const key of keys) {
   const raw = record[key];
@@ -35002,11 +35039,11 @@ function readString(value, keys) {
   if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
   }
   const data = record.data;
-  if (isRecord(data) && !Array.isArray(data)) return readString(data, keys);
+  if (isRecord$1(data) && !Array.isArray(data)) return readString(data, keys);
   return "";
 }
 function readStringList(value, keys) {
-  const record = isRecord(value) ? value : null;
+  const record = isRecord$1(value) ? value : null;
   if (!record) return [];
   for (const key of keys) {
   const raw = record[key];
@@ -35016,58 +35053,290 @@ function readStringList(value, keys) {
   return [];
 }
 function readArray(value, keys) {
-  const record = isRecord(value) ? value : null;
+  const record = isRecord$1(value) ? value : null;
   if (!record) return [];
   for (const key of keys) {
   const raw = record[key];
   if (Array.isArray(raw)) return raw;
   }
   const data = record.data;
-  if (isRecord(data) && !Array.isArray(data)) return readArray(data, keys);
+  if (isRecord$1(data) && !Array.isArray(data)) return readArray(data, keys);
   return [];
 }
 function objectAt(value, key) {
-  if (!isRecord(value)) return null;
+  if (!isRecord$1(value)) return null;
   const nested = value[key];
-  return isRecord(nested) && !Array.isArray(nested) ? nested : null;
+  return isRecord$1(nested) && !Array.isArray(nested) ? nested : null;
 }
-function isRecord(value) {
+function isRecord$1(value) {
   return Boolean(value && typeof value === "object");
 }
+function canonicalStudyCardIdentity(expression, reading = "") {
+  const normalizedExpression = expression.normalize("NFKC").trim();
+  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
+  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+  return {
+  key: `${normalizedExpression}\0${normalizedReading}`,
+  expression: normalizedExpression,
+  reading: normalizedReading
+  };
+}
+function normalizeStoredYomuSrsDeck(value) {
+  if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
+  const cards = {};
+  for (const candidate of Object.values(value.cards)) {
+  const normalized = normalizeStoredCard(candidate);
+  if (!normalized) continue;
+  cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
+  }
+  return { version: 1, cards };
+}
+function mergeStoredYomuSrsCards(existing, incoming) {
+  const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
+  const schedule = preferredSchedule(existing, incoming);
+  return {
+  ...schedule,
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
+  sentence: existing.sentence || incoming.sentence,
+  sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
+  sourceCardId: existing.sourceCardId || incoming.sourceCardId,
+  sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+  tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
+  createdAt: Math.min(existing.createdAt, incoming.createdAt),
+  updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
+  reviews: Math.max(existing.reviews, incoming.reviews),
+  lapses: Math.max(existing.lapses, incoming.lapses),
+  retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
+  academyProvenance: {
+    ...incoming.academyProvenance ?? {},
+    ...existing.academyProvenance ?? {}
+  }
+  };
+}
+function upsertAcademyVocabulary(deck, input, now) {
+  const identity = canonicalStudyCardIdentity(input.expression, input.reading);
+  const meanings = uniqueText(input.meanings);
+  if (!meanings.length) throw new TypeError("Academy vocabulary needs at least one meaning.");
+  const provenance = normalizeProvenance(input.provenance, now);
+  const existing = deck.cards[identity.key];
+  const previousProvenance = existing?.academyProvenance?.[provenance.id];
+  if (previousProvenance && !sameProvenance(previousProvenance, provenance)) {
+  throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance.id}`);
+  }
+  const incoming = {
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  meanings,
+  sentence: cleanOptional(input.sentence),
+  tags: ["academy"],
+  dueAt: now,
+  lastReviewAt: null,
+  createdAt: now,
+  updatedAt: now,
+  reviews: 0,
+  lapses: 0,
+  intervalDays: 0,
+  ease: 2.5,
+  retainWithoutAcademyProvenance: false,
+  academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
+  };
+  const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+  deck.cards[identity.key] = card;
+  return {
+  card,
+  cardCreated: !existing,
+  provenanceAdded: !previousProvenance,
+  provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+  };
+}
+function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
+  const direct = deck.cards[cardId];
+  const card = direct ?? Object.values(deck.cards).find((candidate) => candidate.academyProvenance?.[provenanceId]);
+  if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
+  if (!card.academyProvenance?.[provenanceId]) {
+  return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
+  }
+  const academyProvenance = { ...card.academyProvenance };
+  delete academyProvenance[provenanceId];
+  const remaining = Object.keys(academyProvenance).length;
+  if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
+  delete deck.cards[card.id];
+  return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
+  }
+  const updated = {
+  ...card,
+  updatedAt: now,
+  tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
+  academyProvenance
+  };
+  deck.cards[card.id] = updated;
+  const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
+  return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
+}
+function normalizeStoredCard(value) {
+  if (!isRecord(value) || typeof value.expression !== "string") return null;
+  let identity;
+  try {
+  identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
+  } catch {
+  return null;
+  }
+  const createdAt = finiteNumber(value.createdAt, 0);
+  const updatedAt = finiteNumber(value.updatedAt, createdAt);
+  return {
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  meanings: stringArray(value.meanings),
+  ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
+  ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
+  ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
+  ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+  tags: stringArray(value.tags),
+  dueAt: finiteNumber(value.dueAt, createdAt),
+  lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
+  createdAt,
+  updatedAt,
+  reviews: nonNegativeInteger(value.reviews),
+  lapses: nonNegativeInteger(value.lapses),
+  intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
+  ease: finiteNumber(value.ease, 2.5),
+  retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
+  academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+  };
+}
+function preferredSchedule(left, right) {
+  if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
+  const leftReviewed = left.lastReviewAt ?? -1;
+  const rightReviewed = right.lastReviewAt ?? -1;
+  if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
+  if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
+  return left.updatedAt >= right.updatedAt ? left : right;
+}
+function normalizeProvenance(value, addedAt) {
+  const id = requiredText(value.id, "Academy vocabulary provenance id");
+  if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
+  throw new TypeError("Academy vocabulary provenance kind is invalid.");
+  }
+  return {
+  id,
+  kind: value.kind,
+  addedAt,
+  ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
+  ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
+  ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
+  ...value.reason ? { reason: value.reason } : {}
+  };
+}
+function normalizeProvenanceRecord(value, fallbackAt) {
+  if (!isRecord(value)) return {};
+  const result = {};
+  for (const candidate of Object.values(value)) {
+  if (!isRecord(candidate)) continue;
+  try {
+    const normalized = normalizeProvenance({
+      id: String(candidate.id ?? ""),
+      kind: candidate.kind,
+      ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
+      ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
+      ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
+      ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+    }, finiteNumber(candidate.addedAt, fallbackAt));
+    result[normalized.id] = normalized;
+  } catch {
+  }
+  }
+  return result;
+}
+function sameProvenance(left, right) {
+  return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId && left.reason === right.reason;
+}
+function retainsWithoutAcademy(card) {
+  return card.retainWithoutAcademyProvenance !== false;
+}
+function hasStudyHistory(card) {
+  return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
+}
+function requiredText(value, label) {
+  const normalized = value.trim();
+  if (!normalized) throw new TypeError(`${label} is required.`);
+  return normalized;
+}
+function cleanOptional(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function stringArray(value) {
+  return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
+}
+function uniqueText(values) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+function finiteNumber(value, fallback) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+function nonNegativeInteger(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
-const EMPTY_DECK = { version: 1, cards: {} };
+let localDeckMutation = Promise.resolve();
 class LocalYomuSrsRepository {
   constructor(now = () => Date.now()) {
   this.now = now;
   }
   async importBatch(batch) {
-  const deck = await this.readDeck();
-  let imported = 0;
-  let skipped = 0;
-  for (const item of batch.items) {
-    const card = this.cardFromImportItem(item, batch.importedAt);
-    if (!card) {
-      skipped++;
-      continue;
+  return this.mutateDeck((deck) => {
+    let imported = 0;
+    let skipped = 0;
+    for (const item of batch.items) {
+      const card = this.cardFromImportItem(item, batch.importedAt);
+      if (!card) {
+        skipped++;
+        continue;
+      }
+      const existing = deck.cards[card.id];
+      deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
+      if (existing) skipped++;
+      else imported++;
     }
-    const existing = deck.cards[card.id];
-    if (existing) {
-      deck.cards[card.id] = {
-        ...existing,
-        meanings: uniqueStrings([...existing.meanings, ...card.meanings]),
-        sentence: existing.sentence || card.sentence,
-        sourceUrl: existing.sourceUrl || card.sourceUrl,
-        tags: uniqueStrings([...existing.tags ?? [], ...card.tags ?? []]),
-        updatedAt: batch.importedAt
-      };
-      skipped++;
-    } else {
-      deck.cards[card.id] = card;
-      imported++;
-    }
+    return { imported, skipped };
+  });
   }
-  await this.writeDeck(deck);
-  return { imported, skipped };
+  /** Atomically upserts one semantic card and one idempotent Academy provenance. */
+  async collectAcademyVocabulary(input) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const result = upsertAcademyVocabulary(deck, input, now);
+    return {
+      cardId: result.card.id,
+      cardCreated: result.cardCreated,
+      provenanceAdded: result.provenanceAdded,
+      provenanceCount: result.provenanceCount,
+      card: this.toReviewable(result.card, now)
+    };
+  });
+  }
+  /**
+   * Removes only the requested provenance. Independent, multiply-sourced,
+   * or reviewed cards are retained even when their final Academy source is undone.
+   */
+  async removeAcademyVocabularyProvenance(cardId, provenanceId) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const result = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
+    return {
+      provenanceRemoved: result.provenanceRemoved,
+      cardDeleted: result.cardDeleted,
+      reason: result.reason,
+      ...result.card ? { card: this.toReviewable(result.card, now) } : {}
+    };
+  });
   }
   async queue(limit = 50) {
   const now = this.now();
@@ -35104,13 +35373,15 @@ class LocalYomuSrsRepository {
   };
   }
   async review(request) {
-  const deck = await this.readDeck();
-  const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
-  const existing = deck.cards[id] ?? this.cardFromReviewable(request.card, this.now());
-  const updated = scheduleReviewedCard(existing, request.grade, this.now());
-  deck.cards[id] = updated;
-  await this.writeDeck(deck);
-  return { card: this.toReviewable(updated, this.now()), raw: updated };
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+    const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
+    const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
+    if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+    deck.cards[identity.key] = updated;
+    return { card: this.toReviewable(updated, now), raw: updated };
+  });
   }
   async mine(request) {
   const now = this.now();
@@ -35128,22 +35399,39 @@ class LocalYomuSrsRepository {
   });
   return { card, raw };
   }
-  async readDeck() {
+  readDeck() {
+  const result = localDeckMutation.then(() => this.readDeckUncoordinated());
+  localDeckMutation = result.then(() => void 0, () => void 0);
+  return result;
+  }
+  async readDeckUncoordinated() {
   const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-  if (!stored || stored.version !== 1 || !stored.cards || typeof stored.cards !== "object") return { ...EMPTY_DECK, cards: {} };
-  return { version: 1, cards: normalizeStoredCards(stored.cards) };
+  return normalizeStoredYomuSrsDeck(stored);
   }
   writeDeck(deck) {
   return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
   }
+  mutateDeck(operation) {
+  const result = localDeckMutation.then(async () => {
+    const deck = await this.readDeckUncoordinated();
+    const value = operation(deck);
+    await this.writeDeck(deck);
+    return value;
+  });
+  localDeckMutation = result.then(() => void 0, () => void 0);
+  return result;
+  }
   cardFromImportItem(item, now) {
-  const expression = item.expression.trim();
-  if (!expression) return null;
-  const reading = item.reading?.trim() || expression;
+  let identity;
+  try {
+    identity = canonicalStudyCardIdentity(item.expression, item.reading);
+  } catch {
+    return null;
+  }
   return {
-    id: item.sourceProviderId && item.sourceCardId ? `${item.sourceProviderId}:${item.sourceCardId}` : localCardId(expression, reading),
-    expression,
-    reading,
+    id: identity.key,
+    expression: identity.expression,
+    reading: identity.reading,
     meanings: uniqueStrings(item.meanings ?? []),
     sentence: item.sentence?.trim() || void 0,
     sourceProviderId: item.sourceProviderId,
@@ -35157,14 +35445,17 @@ class LocalYomuSrsRepository {
     reviews: 0,
     lapses: 0,
     intervalDays: 0,
-    ease: 2.5
+    ease: 2.5,
+    retainWithoutAcademyProvenance: true,
+    academyProvenance: {}
   };
   }
   cardFromReviewable(card, now) {
+  const identity = canonicalStudyCardIdentity(card.expression, card.reading);
   return {
-    id: card.providerCardId || localCardId(card.expression, card.reading),
-    expression: card.expression,
-    reading: card.reading || card.expression,
+    id: identity.key,
+    expression: identity.expression,
+    reading: identity.reading,
     meanings: card.meanings.flatMap((meaning) => meaning.glosses),
     sourceProviderId: card.providerId,
     sourceCardId: card.providerCardId,
@@ -35176,7 +35467,9 @@ class LocalYomuSrsRepository {
     reviews: 0,
     lapses: 0,
     intervalDays: 0,
-    ease: 2.5
+    ease: 2.5,
+    retainWithoutAcademyProvenance: true,
+    academyProvenance: {}
   };
   }
   toReviewable(card, now) {
@@ -35200,7 +35493,7 @@ class LocalYomuSrsRepository {
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   return {
   id: "yomu-local",
-  label: "Yomu",
+  label: ACADEMY_SRS_LABEL,
   capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
   hasCredential: () => true,
   verify: async () => true,
@@ -35237,27 +35530,20 @@ function easeDelta(grade) {
   return 0;
 }
 function reviewableFromMiningRequest(request, now) {
-  const expression = request.expression.trim();
-  const reading = request.reading?.trim() || expression;
+  const identity = canonicalStudyCardIdentity(request.expression, request.reading);
   return {
   providerId: "yomu-local",
-  providerCardId: localCardId(expression, reading),
-  providerReviewId: localCardId(expression, reading),
+  providerCardId: identity.key,
+  providerReviewId: identity.key,
   kind: request.kind ?? "vocabulary",
-  expression,
-  reading,
+  expression: identity.expression,
+  reading: identity.reading,
   meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
   state: ["new"],
   dueAt: now,
   lastReviewAt: null,
   sourceUrl: request.sourceUrl
   };
-}
-function normalizeStoredCards(cards) {
-  return Object.fromEntries(Object.entries(cards).filter(([, card]) => Boolean(card?.id && card.expression)));
-}
-function localCardId(expression, reading) {
-  return `${expression.trim()}\0${reading.trim() || expression.trim()}`;
 }
 function meaningsFromGlosses(glosses) {
   const normalized = uniqueStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
@@ -35804,6 +36090,106 @@ const CompanionBackedStudySourceController = class {
   return Controller ? new Controller(dependencies) : new DisabledStudySourceController();
   }
 };
+const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
+function applyAuthoredVocabularyOverrides(target, tokens) {
+  const annotations = readAuthoredVocabularyAnnotations(target.parent);
+  if (!annotations.length) return [...tokens];
+  const replacements = authoredVocabularyReplacements(target.text, annotations);
+  if (!replacements.length) return [...tokens];
+  const kept = tokens.filter((token) => !replacements.some((replacement) => rangesOverlap(token, replacement)));
+  return [...kept, ...replacements].sort((left, right) => left.start - right.start || right.length - left.length);
+}
+function readAuthoredVocabularyAnnotations(parent) {
+  const owner = authoredVocabularyOwner(parent);
+  const raw = owner?.getAttribute(AUTHORED_VOCABULARY_ATTRIBUTE);
+  if (!raw || raw.length > 8e3) return [];
+  try {
+  const value = JSON.parse(raw);
+  return Array.isArray(value) ? value.slice(0, 24).map(normalizeAnnotation).filter((item) => item !== null) : [];
+  } catch {
+  return [];
+  }
+}
+function authoredVocabularyOwner(parent) {
+  const element2 = parent instanceof HTMLElement ? parent : parent.parentElement;
+  if (!element2) return null;
+  if (element2.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) return element2;
+  return element2.closest(`[${AUTHORED_VOCABULARY_ATTRIBUTE}]`);
+}
+function normalizeAnnotation(value) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  const surface = normalizedJapaneseText(record.surface);
+  const lemma = normalizedJapaneseText(record.lemma);
+  const reading = normalizedJapaneseText(record.reading);
+  if (!surface || !lemma || !reading || !isKanaReading(reading)) return null;
+  const pitch = normalizePitch(record.pitch, reading);
+  return { surface, lemma, reading, ...pitch ? { pitch } : {} };
+}
+function normalizePitch(value, reading) {
+  if (!value || typeof value !== "object") return void 0;
+  const record = value;
+  const pattern = typeof record.pattern === "string" ? record.pattern.trim() : "";
+  const source = typeof record.source === "string" ? record.source.trim().slice(0, 120) : "";
+  if (!pattern || !source || !pitchClassNameForPattern(pattern, reading)) return void 0;
+  return { pattern, source };
+}
+function normalizedJapaneseText(value) {
+  if (typeof value !== "string") return "";
+  const text2 = value.normalize("NFKC").trim();
+  if (!text2 || text2.length > 80 || /[\u0000-\u001f\u007f]/u.test(text2)) return "";
+  return text2;
+}
+function isKanaReading(value) {
+  return /^[\u3040-\u30ffー]+$/u.test(value);
+}
+function authoredVocabularyReplacements(text2, annotations) {
+  const replacements = [];
+  for (const annotation of annotations) {
+  let start = text2.indexOf(annotation.surface);
+  while (start >= 0) {
+    const end = start + annotation.surface.length;
+    if (!replacements.some((token) => rangesOverlap(token, { start, end }))) {
+      replacements.push(authoredVocabularyToken(annotation, start, end, text2));
+    }
+    start = text2.indexOf(annotation.surface, end);
+  }
+  }
+  return replacements;
+}
+function authoredVocabularyToken(annotation, start, end, sentence) {
+  const id = -stablePositiveHashId(`authored-vocabulary
+${annotation.surface}
+${annotation.lemma}
+${annotation.reading}`);
+  const card = {
+  vid: id,
+  sid: id,
+  rid: 0,
+  spelling: annotation.surface,
+  reading: annotation.reading,
+  frequencyRank: null,
+  partOfSpeech: [],
+  meanings: [],
+  cardState: ["not-in-deck"],
+  pitchAccent: [],
+  wordWithReading: null,
+  source: "fallback",
+  fallbackLookupTerms: [annotation.lemma]
+  };
+  return {
+  card,
+  start,
+  end,
+  length: end - start,
+  rubies: annotation.reading === annotation.surface ? [] : [{ text: annotation.reading, start, end, length: end - start }],
+  pitchClass: annotation.pitch ? pitchClassNameForPattern(annotation.pitch.pattern, annotation.reading) : "",
+  sentence
+  };
+}
+function rangesOverlap(first, second) {
+  return first.start < second.end && second.start < first.end;
+}
 const log$1 = Logger.scope("VisiblePageScanner");
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
@@ -36025,18 +36411,9 @@ class VisiblePageScanner {
     if (!next.batch.length) continue;
     const batch = next.batch;
     const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-    if (parsed.some((tokens2) => tokens2.length > 0)) parsedAnyTokens = true;
+    if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
     if (this.isStaleScan(generation)) return parsedAnyTokens;
-    const tokens = parsed.flat();
-    const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
-    if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
-    const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
-    const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
-    applyAnkiColors?.(changedRoots);
-    this.preloadParsed(parsed, changedRoots, {
-      skipAnki: Boolean(applyAnkiColors),
-      skipPitch: pitchStartedBeforeApply
-    });
+    await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
     if (cursor < targets.length) await waitForVisibleScanTurn();
   }
   return parsedAnyTokens;
@@ -36080,13 +36457,14 @@ class VisiblePageScanner {
   return parsedAnyTokens;
   }
   async applyParsedBatch(batch, parsed, scanStartSettings, generation) {
-  const tokens = parsed.flat();
+  const resolved = applyAuthoredVocabularyToBatch(batch, parsed);
+  const tokens = resolved.flat();
   const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
   if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
   const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
-  const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
+  const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, generation);
   applyAnkiColors?.(changedRoots);
-  this.preloadParsed(parsed, changedRoots, {
+  this.preloadParsed(resolved, changedRoots, {
     skipAnki: Boolean(applyAnkiColors),
     skipPitch: pitchStartedBeforeApply
   });
@@ -36200,6 +36578,9 @@ class VisiblePageScanner {
     document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
   }
   }
+}
+function applyAuthoredVocabularyToBatch(targets, parsed) {
+  return targets.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
 }
 function waitForVisibleScanTurn() {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -43330,7 +43711,67 @@ class ReaderApp {
   showReaderToast(message);
   }
 }
-const RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
+const READER_RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
+const READER_RUNTIME_HEALTH_VERSION = 1;
+const READER_RUNTIME_SERVICES = [
+  "localization",
+  "local-dictionary",
+  "jiten",
+  "yomu-srs",
+  "jpdb",
+  "bunpro",
+  "translation",
+  "grammar",
+  "mining",
+  "anki",
+  "pitch",
+  "audio",
+  "nested-lookup"
+];
+function currentReaderRuntimeHealth() {
+  const available = new Set([
+  "jiten",
+  "yomu-srs",
+  "jpdb",
+  "bunpro",
+  "pitch",
+  "audio",
+  "nested-lookup"
+  ]);
+  const copy2 = yomuI18nCompanion();
+  if (typeof copy2?.uiText === "function") available.add("localization");
+  if (typeof yomuLocalDictionaries()?.YomitanDictionaryStore === "function") available.add("local-dictionary");
+  const study = yomuKanjiStudyCompanion();
+  if (typeof study?.translateJapaneseSentence === "function") available.add("translation");
+  if (typeof study?.detectGrammarHints === "function" && typeof study?.listLocalGrammarRules === "function") available.add("grammar");
+  if (typeof study?.normalizeMiningSentence === "function" && typeof study?.StudySourceController === "function") available.add("mining");
+  if (typeof yomuAnkiCompanion()?.AnkiConnectClient === "function") available.add("anki");
+  const services = READER_RUNTIME_SERVICES.filter((service) => available.has(service));
+  const missing = READER_RUNTIME_SERVICES.filter((service) => !available.has(service));
+  return {
+  version: READER_RUNTIME_HEALTH_VERSION,
+  state: missing.length ? "degraded" : "ready",
+  services,
+  missing
+  };
+}
+function publishReaderRuntimeHealth(ownerId, root = document) {
+  const marker = root.querySelector(`#${READER_RUNTIME_MARKER_ID}`);
+  if (!marker || marker.dataset.yomuRuntimeOwner !== ownerId) return null;
+  const health = currentReaderRuntimeHealth();
+  marker.dataset.yomuRuntimeHealth = health.state;
+  marker.dataset.yomuRuntimeHealthVersion = String(health.version);
+  marker.dataset.yomuRuntimeServices = health.services.join(",");
+  marker.dataset.yomuRuntimeMissingServices = health.missing.join(",");
+  return health;
+}
+function clearReaderRuntimeHealth(marker) {
+  delete marker.dataset.yomuRuntimeHealth;
+  delete marker.dataset.yomuRuntimeHealthVersion;
+  delete marker.dataset.yomuRuntimeServices;
+  delete marker.dataset.yomuRuntimeMissingServices;
+}
+const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
 const RUNTIME_MARKER_OBSERVER_OPTIONS = {
   attributes: true,
   attributeFilter: ["data-yomu-runtime-kind", "data-yomu-runtime-owner"]
@@ -43417,6 +43858,8 @@ function startRuntime(app, ownerId, runtimeKind, embeddedFrame) {
   void app.init({
   embeddedFrame,
   showWelcome: runtimeKind === "userscript" || runtimeKind === "extension"
+  }).then(() => {
+  publishReaderRuntimeHealth(ownerId);
   }).catch((error) => {
   releaseRuntime(ownerId);
   throw error;
@@ -43483,6 +43926,7 @@ function claimRuntime(kind) {
   dispatchWindowEvent(createWindowCustomEvent("yomu-reader-runtime-claim", { ownerId, kind, priority: priority(kind) }));
   const marker = existing ?? document.createElement("meta");
   marker.id = RUNTIME_MARKER_ID;
+  clearReaderRuntimeHealth(marker);
   marker.dataset.yomuRuntimeKind = kind;
   marker.dataset.yomuRuntimeOwner = ownerId;
   if (!marker.isConnected) appendToDocumentHead(marker);
