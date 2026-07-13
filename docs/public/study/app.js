@@ -66010,15 +66010,22 @@ ${component.reading}`;
       if (components2.length < 2) return [];
       const pitches = [];
       for (const component of components2) {
-        const jitenWord = jitenInfo?.composedOf.find((word) => word.matchSurface.trim() === component.text && (!word.reading.trim() || word.reading.trim() === component.reading));
+        const jitenWord = jitenInfo?.composedOf.find((word) => {
+          const candidate = jitenExpressionComponent(word);
+          return candidate?.text === component.text && candidate.reading === component.reading;
+        });
         const jitenPitch = jitenWord?.pitchAccents?.map((position) => pitchPatternFromPosition(component.reading, position)).find(Boolean);
         if (jitenPitch) {
           pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
           continue;
         }
-        if (!settings.localDictionariesEnabled) continue;
-        const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []);
-        const pitch = localPitchPatternFromMeta(component.reading, meta);
+        const meta = settings.localDictionariesEnabled ? await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []) : [];
+        const localPitch = localPitchPatternFromMeta(component.reading, meta);
+        if (localPitch) {
+          pitches.push({ text: component.text, reading: component.reading, pitch: localPitch });
+          continue;
+        }
+        const pitch = await this.dependencies.jpdbPublicPitch.lookup(component.text, component.reading).then((patterns) => patterns[0] ?? "").catch(() => "");
         if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
       }
       return pitches;
@@ -66176,14 +66183,29 @@ ${component.reading}`;
   function jitenExpressionComponents(info) {
     const seen = /* @__PURE__ */ new Set();
     return (info?.composedOf ?? []).flatMap((word) => {
-      const text2 = word.matchSurface.trim();
-      const reading = word.reading.trim() || text2;
-      const key = `${text2}
-${reading}`;
-      if (!text2 || seen.has(key)) return [];
+      const component = jitenExpressionComponent(word);
+      if (!component) return [];
+      const key = `${component.text}
+${component.reading}`;
+      if (seen.has(key)) return [];
       seen.add(key);
-      return [{ text: text2, reading }];
+      return [component];
     });
+  }
+  function jitenExpressionComponent(word) {
+    const annotated = word.readingFurigana.trim();
+    const text2 = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling$1(annotated) || cleanJitenAnnotatedSpelling$1(word.reading)).trim();
+    if (!text2) return null;
+    const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text2).trim();
+    return { text: text2, reading };
+  }
+  function cleanJitenAnnotatedSpelling$1(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
+  }
+  function jitenAnnotatedReading(value) {
+    const source = value.trim();
+    const reading = source.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)]/g, "$2").trim();
+    return reading === source ? "" : reading;
   }
   function delay$2(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));

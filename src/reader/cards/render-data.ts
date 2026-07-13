@@ -2,7 +2,7 @@ import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLook
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './render-state';
 import { cardKey } from './utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
-import type { JitenApiClient, JitenVocabularyInfo } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenVocabularyInfo, JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -454,8 +454,10 @@ export class CardRenderDataLoader {
         if (components.length < 2) return [];
         const pitches: ExpressionComponentPitch[] = [];
         for (const component of components) {
-            const jitenWord = jitenInfo?.composedOf.find(word => word.matchSurface.trim() === component.text
-                && (!word.reading.trim() || word.reading.trim() === component.reading));
+            const jitenWord = jitenInfo?.composedOf.find(word => {
+                const candidate = jitenExpressionComponent(word);
+                return candidate?.text === component.text && candidate.reading === component.reading;
+            });
             const jitenPitch = jitenWord?.pitchAccents
                 ?.map(position => pitchPatternFromPosition(component.reading, position))
                 .find(Boolean);
@@ -463,10 +465,18 @@ export class CardRenderDataLoader {
                 pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
                 continue;
             }
-            if (!settings.localDictionariesEnabled) continue;
-            const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
-                .catch(() => [] as YomitanMetaEntry[]);
-            const pitch = localPitchPatternFromMeta(component.reading, meta);
+            const meta = settings.localDictionariesEnabled
+                ? await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
+                    .catch(() => [] as YomitanMetaEntry[])
+                : [];
+            const localPitch = localPitchPatternFromMeta(component.reading, meta);
+            if (localPitch) {
+                pitches.push({ text: component.text, reading: component.reading, pitch: localPitch });
+                continue;
+            }
+            const pitch = await this.dependencies.jpdbPublicPitch.lookup(component.text, component.reading)
+                .then(patterns => patterns[0] ?? '')
+                .catch(() => '');
             if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
         }
         return pitches;
@@ -657,13 +667,31 @@ function looksComposableExpression(spelling: string): boolean {
 function jitenExpressionComponents(info: JitenVocabularyInfo | null): ExpressionComponentLookup[] {
     const seen = new Set<string>();
     return (info?.composedOf ?? []).flatMap(word => {
-        const text = word.matchSurface.trim();
-        const reading = word.reading.trim() || text;
-        const key = `${text}\n${reading}`;
-        if (!text || seen.has(key)) return [];
+        const component = jitenExpressionComponent(word);
+        if (!component) return [];
+        const key = `${component.text}\n${component.reading}`;
+        if (seen.has(key)) return [];
         seen.add(key);
-        return [{ text, reading }];
+        return [component];
     });
+}
+
+function jitenExpressionComponent(word: JitenVocabularyWordSummary): ExpressionComponentLookup | null {
+    const annotated = word.readingFurigana.trim();
+    const text = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling(annotated) || cleanJitenAnnotatedSpelling(word.reading)).trim();
+    if (!text) return null;
+    const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text).trim();
+    return { text, reading };
+}
+
+function cleanJitenAnnotatedSpelling(value: string): string {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, '$1');
+}
+
+function jitenAnnotatedReading(value: string): string {
+    const source = value.trim();
+    const reading = source.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)]/g, '$2').trim();
+    return reading === source ? '' : reading;
 }
 
 function delay(ms: number): Promise<void> {
