@@ -853,7 +853,10 @@ function visibleProofTargets() {
 function auditProofTarget(element, vocabulary) {
     const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
     const expectedSurfaces = tokensForText(label, vocabulary).map(token => token.card.spelling);
-    const words = renderedWordDetails(element);
+    // Audit every word inside an admitted visible target. Words on a later
+    // native-clamped line can have no painted box yet still need complete
+    // metadata for a later reveal or reflow.
+    const words = renderedWordDetails(element, true);
     const failures = [];
     const missingSurfaces = missingExpectedSurfaces(expectedSurfaces, words.map(word => word.surface));
     const clipped = isBoxClipped(element);
@@ -873,6 +876,16 @@ function auditProofTarget(element, vocabulary) {
     const rubyRoomHeight = Number(element.dataset.yomuRubyRoomHeight || 0);
     const initialHeight = Number(element.dataset.proofInitialHeight || 0);
     const currentHeight = element.getBoundingClientRect().height;
+    const detachedReadings = Array.from(element.querySelectorAll('.jpdb-reader-detached-furi'));
+    const detachedReadingCount = detachedReadings.length;
+    const detachedReadingClipped = detachedReadings.some(isReadingClipped);
+    // A native line clamp intentionally clips paint outside its authored box.
+    // The detached-reading contract for that surface is structural: preserve
+    // every reading for reveal/reflow and keep it out of line layout. Compact
+    // controls with genuine spare leading are covered separately by the chip
+    // fidelity proof, which requires their readings to be painted unclipped.
+    const layoutNeutralDetached = detachedReadingCount > 0
+        && (initialHeight <= 0 || currentHeight <= initialHeight + 1);
     const clipMirrorHiddenAtRest = !clipMirror || getComputedStyle(clipMirror).visibility === 'hidden';
     const nativeHostVisibleAtRest = !clipMirror || Boolean(clipMirror.parentElement && isVisibleElement(clipMirror.parentElement));
     const nativeHostGlyphsPaintedAtRest = !clipMirror || (() => {
@@ -892,7 +905,7 @@ function auditProofTarget(element, vocabulary) {
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
-    if (clipped && !rubySuppressed && !clipConstrained) {
+    if (clipped && !rubySuppressed && !clipConstrained && !layoutNeutralDetached) {
         // Environment-sensitive (font metrics decide wrap); carry the numbers
         // so a CI-only failure is diagnosable from the log alone.
         failures.push('target still has scroll clipping after ruby room sweep '
@@ -908,8 +921,8 @@ function auditProofTarget(element, vocabulary) {
     }
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
     if (clipConstrained && rubyRoomOwner) failures.push('clip-constrained target received forbidden ruby-room growth');
-    if (expectedClipInvariant && !clipConstrained) failures.push('expected clipped target to use the clip-constrained render path');
-    if (expectedClipInvariant && !clipMirror) failures.push('expected clipped target to retain an annotated hover mirror');
+    if (expectedClipInvariant && !clipConstrained && !layoutNeutralDetached) failures.push('expected clipped target to use a layout-neutral render path');
+    if (expectedClipInvariant && !clipMirror && !layoutNeutralDetached) failures.push('expected clipped target to retain either detached readings or an annotated hover mirror');
     if (clipMirror && !clipMirrorHiddenAtRest) failures.push('clip-constrained hover mirror is visible at rest');
     if (clipMirror && !nativeHostVisibleAtRest) failures.push('clip-constrained native host text is hidden at rest');
     if (clipMirror && !nativeHostGlyphsPaintedAtRest) failures.push('clip-constrained native host glyphs are transparent at rest');
@@ -950,6 +963,9 @@ function auditProofTarget(element, vocabulary) {
         clipMirrorMaxHeight,
         initialHeight,
         currentHeight,
+        detachedReadingCount,
+        detachedReadingClipped,
+        layoutNeutralDetached,
         scanSuppressRuby,
         renderedSuppressRuby,
         rubySuppressed,
@@ -962,7 +978,8 @@ function auditProofTarget(element, vocabulary) {
 }
 
 function isVisibleProofTarget(element) {
-    return isVisibleElement(element) || Boolean(visibleTextMirror(element));
+    return isViewportVisibleElement(element)
+        || Boolean(Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isViewportVisibleElement));
 }
 
 // Bare-until-hover suppression forces every decoration channel transparent, so
@@ -983,23 +1000,25 @@ function visibleTextMirror(element) {
     return Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isVisibleElement) ?? null;
 }
 
-function renderedWordDetails(root) {
-    return Array.from(root.querySelectorAll('.jpdb-reader-word')).filter(isAuditableReaderWord).map(word => ({
+function renderedWordDetails(root, includeClampedTail = false) {
+    const candidates = Array.from(root.querySelectorAll('.jpdb-reader-word'));
+    const words = includeClampedTail ? candidates : candidates.filter(isAuditableReaderWord);
+    return words.map(word => ({
         surface: readerWordSurfaceText(word).trim(),
         text: compactText(word.textContent || ''),
         requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
-        hasRuby: Boolean(word.querySelector('rt')),
-        rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
+        hasRuby: Boolean(word.querySelector('rt, .jpdb-reader-detached-furi')),
+        rt: Array.from(word.querySelectorAll('rt, .jpdb-reader-detached-furi')).map(rt => rt.textContent || '').join('|'),
         atRestVisible: isVisibleElement(word),
         inClipHoverMirror: Boolean(word.closest('.jpdb-reader-clip-hover-mirror')),
         passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
-        // A word may lack in-place rt ONLY when its target's scan plan says
+        // A word may lack a reading ONLY when its target's scan plan says
         // suppression fired, or a visible text mirror carries the reading for
         // its host. "passive word without rt" alone is NOT suppression — that
         // circular reading made the furigana check vacuous for passive words.
         rubySuppressed: closestProofTargetSuppressesRuby(word)
             || decorationSuppressesReaderWordRuby(word)
-            || (!word.querySelector('rt') && hostMirrorCarriesReading(word)),
+            || (!word.querySelector('rt, .jpdb-reader-detached-furi') && hostMirrorCarriesReading(word)),
         decoration: word.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') || '',
         source: word.dataset.cardSource || '',
         pitchClass: word.dataset.pitchClass || '',
@@ -1031,10 +1050,10 @@ function decorationSuppressesReaderWordRuby(word) {
 // replacement for in-place ruby.
 function hostMirrorCarriesReading(word) {
     const mirror = word.closest('.jpdb-reader-text-mirror');
-    if (mirror) return Boolean(mirror.querySelector('rt')) && isVisibleElement(mirror);
+    if (mirror) return Boolean(mirror.querySelector('rt, .jpdb-reader-detached-furi')) && isVisibleElement(mirror);
     const host = word.parentElement?.closest?.('[data-proof-target]') ?? word.parentElement;
     const hostMirror = host ? visibleTextMirror(host) : null;
-    return Boolean(hostMirror?.querySelector('rt'));
+    return Boolean(hostMirror?.querySelector('rt, .jpdb-reader-detached-furi'));
 }
 
 function missingExpectedSurfaces(expected, actual) {
@@ -1099,6 +1118,35 @@ function isVisibleElement(element) {
     if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) <= 0.01) return false;
     const rect = element.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
+}
+
+function isViewportVisibleElement(element) {
+    if (!isVisibleElement(element)) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.bottom >= 0
+        && rect.top <= window.innerHeight
+        && rect.right >= 0
+        && rect.left <= window.innerWidth;
+}
+
+function isReadingClipped(reading) {
+    if (!(reading instanceof HTMLElement) || !isVisibleElement(reading)) return true;
+    const readingRect = reading.getBoundingClientRect();
+    let ancestor = reading.parentElement;
+    while (ancestor && ancestor !== document.documentElement) {
+        const style = getComputedStyle(ancestor);
+        const crops = [style.overflow, style.overflowX, style.overflowY]
+            .some(value => /hidden|clip/.test(value));
+        if (crops) {
+            const rect = ancestor.getBoundingClientRect();
+            if (readingRect.top < rect.top - 0.5
+                || readingRect.bottom > rect.bottom + 0.5
+                || readingRect.left < rect.left - 0.5
+                || readingRect.right > rect.right + 0.5) return true;
+        }
+        ancestor = ancestor.parentElement;
+    }
+    return false;
 }
 
 function isBoxClipped(element) {
