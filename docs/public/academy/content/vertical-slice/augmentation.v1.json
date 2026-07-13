@@ -50,6 +50,10 @@
             "ja": "もう いちど おねがいします。"
           },
           "correct": true,
+          "readingHint": {
+            "reading": "もういちどおねがいします。",
+            "pitch": "もういちど⓪ · おねがいします⑥"
+          },
           "explanation": {
             "en": "Yes. Item 9 in the source handout is the polite classroom phrase for “once more”.",
             "ja": "はい。原資料の9番は「もう一度」を丁寧に頼む教室表現です。"
@@ -62,6 +66,10 @@
             "ja": "わかりました。"
           },
           "correct": false,
+          "readingHint": {
+            "reading": "わかりました。",
+            "pitch": "わかりました④"
+          },
           "errorTag": "meaning-opposite-of-repair",
           "explanation": {
             "en": "わかりました says that you understood. It closes the repair instead of asking Rie to repeat.",
@@ -83,6 +91,10 @@
             "ja": "おわりましょう。"
           },
           "correct": false,
+          "readingHint": {
+            "reading": "おわりましょう。",
+            "pitch": "おわりましょう⑤"
+          },
           "errorTag": "classroom-command-not-repair",
           "explanation": {
             "en": "おわりましょう is a classroom instruction meaning “let’s finish”. It does not ask for repetition.",

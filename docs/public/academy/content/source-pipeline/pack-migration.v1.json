@@ -1,0 +1,861 @@
+{
+  "schema": "yomu-academy.source-pipeline.pack-migration-summary/v1",
+  "extractionRevision": "exr-2026-07-12.1",
+  "totals": {
+    "packCount": 44,
+    "donorItemCount": 879,
+    "instructionCount": 249,
+    "sourceCandidateCount": 879,
+    "augmentationRecordCount": 879,
+    "candidatePageCount": 180,
+    "unresolvedLocusCount": 699,
+    "mediaReviewRequiredCount": 406,
+    "audioMediaRefCount": 229,
+    "imageMediaRefCount": 429,
+    "donorAnswerClaimCount": 879,
+    "packsInMoodleCorpus": 44
+  },
+  "pairing": {
+    "audioRefCount": 15,
+    "withCandidates": 15,
+    "uniqueMatches": 2
+  },
+  "packs": [
+    {
+      "packRef": "wp-0db539c444b6",
+      "sourceSha256": "0db539c444b66c4e83424da858d8206c2dfa0e34f80c3d4342605a20ff9ecada",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 13,
+        "instructionCount": 12,
+        "sourceCandidateCount": 13,
+        "augmentationRecordCount": 13,
+        "candidatePageCount": 9,
+        "unresolvedLocusCount": 4,
+        "mediaReviewRequiredCount": 9,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 9,
+        "donorAnswerClaimCount": 13
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-114e30bfdeab",
+      "sourceSha256": "114e30bfdeab6d33cdde8509bb484413ccb742567744beb6194dc7afcde8b540",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 20,
+        "instructionCount": 5,
+        "sourceCandidateCount": 20,
+        "augmentationRecordCount": 20,
+        "candidatePageCount": 5,
+        "unresolvedLocusCount": 15,
+        "mediaReviewRequiredCount": 20,
+        "audioMediaRefCount": 20,
+        "imageMediaRefCount": 10,
+        "donorAnswerClaimCount": 20
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-16525189dd80",
+      "sourceSha256": "16525189dd80228ac12cd25654fd5240a963d26b836cc98b716425eb774dec0d",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 22,
+        "instructionCount": 8,
+        "sourceCandidateCount": 22,
+        "augmentationRecordCount": 22,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 22,
+        "mediaReviewRequiredCount": 22,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 30,
+        "donorAnswerClaimCount": 22
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-1bbab7f1d57f",
+      "sourceSha256": "1bbab7f1d57fe82b5ef9402ce242b1ad9183590599d5be628c1805c1f37a4da4",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 5,
+        "instructionCount": 4,
+        "sourceCandidateCount": 5,
+        "augmentationRecordCount": 5,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 5,
+        "mediaReviewRequiredCount": 1,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 1,
+        "donorAnswerClaimCount": 5
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-1c3abd70bbd7",
+      "sourceSha256": "1c3abd70bbd7971c9bdb119d400634d088356bb22c68495daf9a722b46ed9cf9",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 36,
+        "instructionCount": 11,
+        "sourceCandidateCount": 36,
+        "augmentationRecordCount": 36,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 36,
+        "mediaReviewRequiredCount": 32,
+        "audioMediaRefCount": 12,
+        "imageMediaRefCount": 32,
+        "donorAnswerClaimCount": 36
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-3023ab51a23a",
+      "sourceSha256": "3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 7,
+        "instructionCount": 3,
+        "sourceCandidateCount": 7,
+        "augmentationRecordCount": 7,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 7,
+        "mediaReviewRequiredCount": 7,
+        "audioMediaRefCount": 35,
+        "imageMediaRefCount": 3,
+        "donorAnswerClaimCount": 7
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-35c2a9a99a79",
+      "sourceSha256": "35c2a9a99a796b88868a77f4e977d40a770921f025df25ccd1821a0fd2384732",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 15,
+        "instructionCount": 3,
+        "sourceCandidateCount": 15,
+        "augmentationRecordCount": 15,
+        "candidatePageCount": 2,
+        "unresolvedLocusCount": 13,
+        "mediaReviewRequiredCount": 2,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 2,
+        "donorAnswerClaimCount": 15
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-3b6d33916d8d",
+      "sourceSha256": "3b6d33916d8db01f3aa529f0d908f32cdff051c259f7e3c53f0e90f54e685605",
+      "inMoodleCorpus": true,
+      "pageCount": 4,
+      "counts": {
+        "donorItemCount": 35,
+        "instructionCount": 15,
+        "sourceCandidateCount": 35,
+        "augmentationRecordCount": 35,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 35,
+        "mediaReviewRequiredCount": 23,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 23,
+        "donorAnswerClaimCount": 35
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-3f50e72c599d",
+      "sourceSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 13,
+        "instructionCount": 6,
+        "sourceCandidateCount": 13,
+        "augmentationRecordCount": 13,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 13,
+        "mediaReviewRequiredCount": 13,
+        "audioMediaRefCount": 13,
+        "imageMediaRefCount": 4,
+        "donorAnswerClaimCount": 13
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-40568a1fe04d",
+      "sourceSha256": "40568a1fe04d69eb9454ad6718e1f1b33a9d0e0036bcc5c3c6970532d4a28707",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 31,
+        "instructionCount": 3,
+        "sourceCandidateCount": 31,
+        "augmentationRecordCount": 31,
+        "candidatePageCount": 31,
+        "unresolvedLocusCount": 0,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 31
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-46a2d4445826",
+      "sourceSha256": "46a2d4445826046b564660774854fa065595dc103c2baaa2f2aa3ec3c5646bb6",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 10,
+        "instructionCount": 3,
+        "sourceCandidateCount": 10,
+        "augmentationRecordCount": 10,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 10,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 8,
+        "donorAnswerClaimCount": 10
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-48aff6c487f4",
+      "sourceSha256": "48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 11,
+        "instructionCount": 5,
+        "sourceCandidateCount": 11,
+        "augmentationRecordCount": 11,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 11,
+        "mediaReviewRequiredCount": 6,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 6,
+        "donorAnswerClaimCount": 11
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-72ca90caa4a5",
+      "sourceSha256": "72ca90caa4a5e1ab06bed128fd03eb13dc574d9264267b0bb8af7fb6be6c9e9b",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 14,
+        "instructionCount": 1,
+        "sourceCandidateCount": 14,
+        "augmentationRecordCount": 14,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 14,
+        "mediaReviewRequiredCount": 14,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 14,
+        "donorAnswerClaimCount": 14
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-8153eb5216e5",
+      "sourceSha256": "8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 8,
+        "instructionCount": 2,
+        "sourceCandidateCount": 8,
+        "augmentationRecordCount": 8,
+        "candidatePageCount": 8,
+        "unresolvedLocusCount": 0,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 16,
+        "imageMediaRefCount": 18,
+        "donorAnswerClaimCount": 8
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-8881424ea800",
+      "sourceSha256": "8881424ea8009aec174aee22a0b404d89fc177e1422cd6986ff51ad7e4426eb4",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 32,
+        "instructionCount": 3,
+        "sourceCandidateCount": 32,
+        "augmentationRecordCount": 32,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 32,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 32
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-90b589e71a04",
+      "sourceSha256": "90b589e71a04e270602824c2c12497ca171baa8a347b251dc0ce9f1ec4e32eb3",
+      "inMoodleCorpus": true,
+      "pageCount": 5,
+      "counts": {
+        "donorItemCount": 39,
+        "instructionCount": 15,
+        "sourceCandidateCount": 39,
+        "augmentationRecordCount": 39,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 39,
+        "mediaReviewRequiredCount": 11,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 11,
+        "donorAnswerClaimCount": 39
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-9348540f4b1e",
+      "sourceSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 19,
+        "instructionCount": 6,
+        "sourceCandidateCount": 19,
+        "augmentationRecordCount": 19,
+        "candidatePageCount": 19,
+        "unresolvedLocusCount": 0,
+        "mediaReviewRequiredCount": 19,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 19,
+        "donorAnswerClaimCount": 19
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-97ee88634196",
+      "sourceSha256": "97ee8863419693af22c40f7a6bd00f35e039cd6d9e5bb4b691f7f5efd17dd886",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 10,
+        "instructionCount": 4,
+        "sourceCandidateCount": 10,
+        "augmentationRecordCount": 10,
+        "candidatePageCount": 5,
+        "unresolvedLocusCount": 5,
+        "mediaReviewRequiredCount": 10,
+        "audioMediaRefCount": 10,
+        "imageMediaRefCount": 15,
+        "donorAnswerClaimCount": 10
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-9c762b7bb300",
+      "sourceSha256": "9c762b7bb3006aecea3042a03543cea7ada22a84609eaca4ddc231ec1ace3691",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 12,
+        "instructionCount": 4,
+        "sourceCandidateCount": 12,
+        "augmentationRecordCount": 12,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 12,
+        "mediaReviewRequiredCount": 12,
+        "audioMediaRefCount": 48,
+        "imageMediaRefCount": 13,
+        "donorAnswerClaimCount": 12
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-a17f77170c30",
+      "sourceSha256": "a17f77170c30fa222ac3fbe19bfa1083bd96aa1c11443b5e8e2842623f4d5135",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 21,
+        "instructionCount": 7,
+        "sourceCandidateCount": 21,
+        "augmentationRecordCount": 21,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 21,
+        "mediaReviewRequiredCount": 20,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 20,
+        "donorAnswerClaimCount": 21
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-a2198ef675e4",
+      "sourceSha256": "a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 8,
+        "instructionCount": 2,
+        "sourceCandidateCount": 8,
+        "augmentationRecordCount": 8,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 8,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 8,
+        "imageMediaRefCount": 16,
+        "donorAnswerClaimCount": 8
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-a24f5e14a09e",
+      "sourceSha256": "a24f5e14a09ee74f45855296fa1a0df00775a7e9037c0ec6fc350e6b98a26db8",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 34,
+        "instructionCount": 3,
+        "sourceCandidateCount": 34,
+        "augmentationRecordCount": 34,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 34,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 34
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-a435698fa042",
+      "sourceSha256": "a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 4,
+        "instructionCount": 3,
+        "sourceCandidateCount": 4,
+        "augmentationRecordCount": 4,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 4,
+        "mediaReviewRequiredCount": 2,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 5,
+        "donorAnswerClaimCount": 4
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-a8c105a88404",
+      "sourceSha256": "a8c105a884046ca4acf9599724cf92137c243d4a9136f198e9823e290f3919ee",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 42,
+        "instructionCount": 11,
+        "sourceCandidateCount": 42,
+        "augmentationRecordCount": 42,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 42,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 5,
+        "imageMediaRefCount": 6,
+        "donorAnswerClaimCount": 42
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-ab7787233e5c",
+      "sourceSha256": "ab7787233e5c075a7eaacde989434f8b4df12efb580639606533d670a6334714",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 6,
+        "instructionCount": 6,
+        "sourceCandidateCount": 6,
+        "augmentationRecordCount": 6,
+        "candidatePageCount": 5,
+        "unresolvedLocusCount": 1,
+        "mediaReviewRequiredCount": 6,
+        "audioMediaRefCount": 4,
+        "imageMediaRefCount": 6,
+        "donorAnswerClaimCount": 6
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-b0a1787aef4f",
+      "sourceSha256": "b0a1787aef4f8fdc1205948a25d9781555849c54cb45fdde256cb2ae187c77cc",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 12,
+        "instructionCount": 8,
+        "sourceCandidateCount": 12,
+        "augmentationRecordCount": 12,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 12,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 11,
+        "donorAnswerClaimCount": 12
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-b4cb5c109d98",
+      "sourceSha256": "b4cb5c109d9891d6e58f15f9e32032002cbcb701cd6d9c7e3b0b58f9bf0113b8",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 25,
+        "instructionCount": 6,
+        "sourceCandidateCount": 25,
+        "augmentationRecordCount": 25,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 25,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 25
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-b5a1d39c3306",
+      "sourceSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 28,
+        "instructionCount": 7,
+        "sourceCandidateCount": 28,
+        "augmentationRecordCount": 28,
+        "candidatePageCount": 8,
+        "unresolvedLocusCount": 20,
+        "mediaReviewRequiredCount": 8,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 8,
+        "donorAnswerClaimCount": 28
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-b6446cd4695a",
+      "sourceSha256": "b6446cd4695a506e9ff357f64b6f471496fb30690c42836f2480b13857c4b7aa",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 13,
+        "instructionCount": 5,
+        "sourceCandidateCount": 13,
+        "augmentationRecordCount": 13,
+        "candidatePageCount": 12,
+        "unresolvedLocusCount": 1,
+        "mediaReviewRequiredCount": 13,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 14,
+        "donorAnswerClaimCount": 13
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-c41bd1a9ea5c",
+      "sourceSha256": "c41bd1a9ea5c4429c257de75a7210cb89577083963572d4da901bda2d38b8f5d",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 32,
+        "instructionCount": 1,
+        "sourceCandidateCount": 32,
+        "augmentationRecordCount": 32,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 32,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 32
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-c41e4dd83224",
+      "sourceSha256": "c41e4dd83224a8c29a3e6eb07e7e7955a086e3fccbf4a93a5260efaedcf4e3b8",
+      "inMoodleCorpus": true,
+      "pageCount": 5,
+      "counts": {
+        "donorItemCount": 59,
+        "instructionCount": 17,
+        "sourceCandidateCount": 59,
+        "augmentationRecordCount": 59,
+        "candidatePageCount": 15,
+        "unresolvedLocusCount": 44,
+        "mediaReviewRequiredCount": 15,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 15,
+        "donorAnswerClaimCount": 59
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-cc1cf8bba5ff",
+      "sourceSha256": "cc1cf8bba5ffcc456060d75b802fc09977ed0797cca2e4a50b158699ae897fe8",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 29,
+        "instructionCount": 7,
+        "sourceCandidateCount": 29,
+        "augmentationRecordCount": 29,
+        "candidatePageCount": 3,
+        "unresolvedLocusCount": 26,
+        "mediaReviewRequiredCount": 11,
+        "audioMediaRefCount": 9,
+        "imageMediaRefCount": 3,
+        "donorAnswerClaimCount": 29
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-d499d23a38de",
+      "sourceSha256": "d499d23a38de00c939d7746e4536e9de5db1823e6c577ba896b102a97149134a",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 16,
+        "instructionCount": 5,
+        "sourceCandidateCount": 16,
+        "augmentationRecordCount": 16,
+        "candidatePageCount": 16,
+        "unresolvedLocusCount": 0,
+        "mediaReviewRequiredCount": 16,
+        "audioMediaRefCount": 16,
+        "imageMediaRefCount": 9,
+        "donorAnswerClaimCount": 16
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-d6849a3ac202",
+      "sourceSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+      "inMoodleCorpus": true,
+      "pageCount": 3,
+      "counts": {
+        "donorItemCount": 19,
+        "instructionCount": 9,
+        "sourceCandidateCount": 19,
+        "augmentationRecordCount": 19,
+        "candidatePageCount": 2,
+        "unresolvedLocusCount": 17,
+        "mediaReviewRequiredCount": 2,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 3,
+        "donorAnswerClaimCount": 19
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-da0333f58010",
+      "sourceSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 24,
+        "instructionCount": 0,
+        "sourceCandidateCount": 24,
+        "augmentationRecordCount": 24,
+        "candidatePageCount": 24,
+        "unresolvedLocusCount": 0,
+        "mediaReviewRequiredCount": 24,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 24,
+        "donorAnswerClaimCount": 24
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-dba35855b643",
+      "sourceSha256": "dba35855b6438b4496bbec2690092103e1756e1a08e0dc5dd52fca03aba6bae9",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 18,
+        "instructionCount": 4,
+        "sourceCandidateCount": 18,
+        "augmentationRecordCount": 18,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 18,
+        "mediaReviewRequiredCount": 18,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 18,
+        "donorAnswerClaimCount": 18
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-e241f0cead09",
+      "sourceSha256": "e241f0cead09659bab29ad9acb6fdb5f37cea8fafebc07a0bf6c906d353d0df8",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 11,
+        "instructionCount": 6,
+        "sourceCandidateCount": 11,
+        "augmentationRecordCount": 11,
+        "candidatePageCount": 3,
+        "unresolvedLocusCount": 8,
+        "mediaReviewRequiredCount": 3,
+        "audioMediaRefCount": 3,
+        "imageMediaRefCount": 3,
+        "donorAnswerClaimCount": 11
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-e79fd045af74",
+      "sourceSha256": "e79fd045af744b01827b8bb12cf72e90e06dde48435f3bbc357e2c3698fed2ff",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 31,
+        "instructionCount": 3,
+        "sourceCandidateCount": 31,
+        "augmentationRecordCount": 31,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 31,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 31
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-ec9736ce5fe4",
+      "sourceSha256": "ec9736ce5fe4c09b825ad9d47cf216821f7ac96ac461b05f5ab5a85f63ac898e",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 4,
+        "instructionCount": 3,
+        "sourceCandidateCount": 4,
+        "augmentationRecordCount": 4,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 4,
+        "mediaReviewRequiredCount": 4,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 4,
+        "donorAnswerClaimCount": 4
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-f04f3f4e3e7f",
+      "sourceSha256": "f04f3f4e3e7fa483f5fa8f5fedc5a33c3d3be2b48eaa028de084b7c137362125",
+      "inMoodleCorpus": true,
+      "pageCount": 4,
+      "counts": {
+        "donorItemCount": 33,
+        "instructionCount": 10,
+        "sourceCandidateCount": 33,
+        "augmentationRecordCount": 33,
+        "candidatePageCount": 10,
+        "unresolvedLocusCount": 23,
+        "mediaReviewRequiredCount": 10,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 10,
+        "donorAnswerClaimCount": 33
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-f301f31d455d",
+      "sourceSha256": "f301f31d455dbade8348ef2ee571bca354ee1dcbc9c5e8d79e7a5ecb14fcab56",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 5,
+        "instructionCount": 1,
+        "sourceCandidateCount": 5,
+        "augmentationRecordCount": 5,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 5,
+        "mediaReviewRequiredCount": 5,
+        "audioMediaRefCount": 25,
+        "imageMediaRefCount": 5,
+        "donorAnswerClaimCount": 5
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-f538a0325f60",
+      "sourceSha256": "f538a0325f609e599dca2247f15ba9c0e3bd170f5c580e1d4963beaa64ea9ab5",
+      "inMoodleCorpus": true,
+      "pageCount": 1,
+      "counts": {
+        "donorItemCount": 5,
+        "instructionCount": 3,
+        "sourceCandidateCount": 5,
+        "augmentationRecordCount": 5,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 5,
+        "mediaReviewRequiredCount": 5,
+        "audioMediaRefCount": 5,
+        "imageMediaRefCount": 24,
+        "donorAnswerClaimCount": 5
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-f69d392828ff",
+      "sourceSha256": "f69d392828ffd3274b4df814665d32279fd5679d001b15f0779c241f37010fe6",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 16,
+        "instructionCount": 8,
+        "sourceCandidateCount": 16,
+        "augmentationRecordCount": 16,
+        "candidatePageCount": 3,
+        "unresolvedLocusCount": 13,
+        "mediaReviewRequiredCount": 3,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 7,
+        "donorAnswerClaimCount": 16
+      },
+      "status": "candidates-review-required"
+    },
+    {
+      "packRef": "wp-fc585caf40f2",
+      "sourceSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+      "inMoodleCorpus": true,
+      "pageCount": 2,
+      "counts": {
+        "donorItemCount": 32,
+        "instructionCount": 1,
+        "sourceCandidateCount": 32,
+        "augmentationRecordCount": 32,
+        "candidatePageCount": 0,
+        "unresolvedLocusCount": 32,
+        "mediaReviewRequiredCount": 0,
+        "audioMediaRefCount": 0,
+        "imageMediaRefCount": 0,
+        "donorAnswerClaimCount": 32
+      },
+      "status": "candidates-review-required"
+    }
+  ]
+}

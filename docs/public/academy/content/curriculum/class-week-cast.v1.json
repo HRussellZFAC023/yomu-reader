@@ -1,0 +1,2550 @@
+{
+  "schema": "yomu-academy.class-week-cast-plan.v1",
+  "contentVersion": "1.0.0",
+  "scope": "appearance-planning",
+  "runtimeStatus": "not-bound",
+  "authorshipStatus": "planning-only",
+  "sourceIndex": {
+    "donor": "academy-rebuild-20260711",
+    "file": "public/academy/content/weeks/index.json",
+    "weekCount": 73,
+    "sha256": "966519845a8048229e8d6e158b9d620fb8c9cf0aba11db53690ef10e479a343b"
+  },
+  "concentrationPolicy": {
+    "maximumPrimaryShare": 0.18,
+    "maximumAppearanceShare": 0.16,
+    "maximumTopTwoAppearanceShare": 0.25,
+    "maximumConsecutivePrimaryWeeks": 2
+  },
+  "weeks": [
+    {
+      "order": 0,
+      "weekId": "orientation",
+      "weekKind": "orientation",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/000-orientation.json",
+        "title": {
+          "en": "Welcome — the first evening",
+          "ja": "ようこそ、はじめての よる"
+        },
+        "topicEvidence": [],
+        "sha256": "000a197d1bff9cc4cd36e101ae25b3840e8fa3674ebd74c6731ff4abd0ea2a64"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "no-source-topic-metadata"
+    },
+    {
+      "order": 1,
+      "weekId": "l1-kickoff",
+      "weekKind": "term-kickoff",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/001-l1-kickoff.json",
+        "title": {
+          "en": "The first evening",
+          "ja": "はじめまして"
+        },
+        "topicEvidence": [
+          "Course outline Level 1"
+        ],
+        "sha256": "7fb8e6a48eeb29883ae2d60e2e28c1def45c5243dd1056c909ca808cff162f8c"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "course-outline-only"
+    },
+    {
+      "order": 2,
+      "weekId": "l1-l01",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/002-l1-l01.json",
+        "title": {
+          "en": "Nice to meet you",
+          "ja": "はじめまして"
+        },
+        "topicEvidence": [
+          "Chapter 1 Numbers 1-100 Romaji",
+          "Chapter 1 self introduction Grammar and Exercise",
+          "Chapter 1 Classroom phrases"
+        ],
+        "sha256": "ce092980f5e5676bb997d7f790dabe15ab0efed5cf7b2a6538e826266c1ee0f8"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "personal-expression",
+        "speaking-confidence"
+      ],
+      "primary": {
+        "id": "stasi",
+        "firstName": "Stasi",
+        "matchedSpecialty": "personal-expression"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "speaking-confidence"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "weekId": "l1-l02",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/003-l1-l02.json",
+        "title": {
+          "en": "This is my friend",
+          "ja": "こちらは、ともだちです"
+        },
+        "topicEvidence": [
+          "Chapter 1 Country nationality language",
+          "Chapter 1-2 introducing someone to others and self-introduction",
+          "Chapter 1-2 Grammar Exercise nationality and occupation"
+        ],
+        "sha256": "8f6dd9709fc12e41bdda7045cfd84c52115ae473c921db100fe19e5ea8cc5fec"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "work-language",
+        "clarification"
+      ],
+      "primary": {
+        "id": "jenny",
+        "firstName": "Jenny",
+        "matchedSpecialty": "work-language"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "clarification"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "weekId": "l1-l03",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/004-l1-l03.json",
+        "title": {
+          "en": "Where are you from?",
+          "ja": "おくには どちらですか"
+        },
+        "topicEvidence": [
+          "Chapter 1 listening",
+          "Chapter 1 age asking someones age",
+          "Chapter 1 Conversation listening script jp en"
+        ],
+        "sha256": "db0c28b0c31c656917edcbc03b002d9582aea23abad30d38d223361aef662978"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "listening",
+        "questions"
+      ],
+      "primary": {
+        "id": "xingyu",
+        "firstName": "Xingyu",
+        "matchedSpecialty": "listening"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "weekId": "l1-l04",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/005-l1-l04.json",
+        "title": {
+          "en": "Who I am, and what this is",
+          "ja": "はじめまして、これは なんですか"
+        },
+        "topicEvidence": [
+          "Chapter 2 listening",
+          "Chapter 2 Conversation listening script jp en",
+          "Chapter 2 pics for vocabulary"
+        ],
+        "sha256": "325a25a8da1f83f752b599a083cfddbd396f9c4448c7dc2361c1898e0a951caf"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "questions",
+        "description"
+      ],
+      "primary": {
+        "id": "peter",
+        "firstName": "Peter",
+        "matchedSpecialty": "questions"
+      },
+      "supporting": [
+        {
+          "id": "jenny",
+          "firstName": "Jenny",
+          "matchedSpecialty": "description"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "weekId": "l1-l05",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/006-l1-l05.json",
+        "title": {
+          "en": "Whose is this?",
+          "ja": "これは だれの？"
+        },
+        "topicEvidence": [
+          "Chapter 2 listening",
+          "Chapter 2-2 Grammar Exercise-1 What the object is about",
+          "Chapter 2-2 Grammar Exercise-2 Whose belongings the object is"
+        ],
+        "sha256": "d553242c9855edb64e4dff7f717282b0603a57c0ea42872969c13c539f4de37f"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "grammar",
+        "description"
+      ],
+      "primary": {
+        "id": "sophie",
+        "firstName": "Sophie",
+        "matchedSpecialty": "grammar"
+      },
+      "supporting": [
+        {
+          "id": "jenny",
+          "firstName": "Jenny",
+          "matchedSpecialty": "description"
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "weekId": "l1-l06",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/007-l1-l06.json",
+        "title": {
+          "en": "This one, please",
+          "ja": "これを ください"
+        },
+        "topicEvidence": [
+          "Chapter 3 Counting floors",
+          "Chapter 3 listening",
+          "Chapter 3 Vocabulary Department stors"
+        ],
+        "sha256": "fc0810c65423e05fd6d1445f4b411f7555cc00db152d1b48d04a04ad7a3f2038"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "city-language",
+        "description"
+      ],
+      "primary": {
+        "id": "aakash",
+        "firstName": "Aakash",
+        "matchedSpecialty": "city-language"
+      },
+      "supporting": [
+        {
+          "id": "jenny",
+          "firstName": "Jenny",
+          "matchedSpecialty": "description"
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "weekId": "l1-l07",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/008-l1-l07.json",
+        "title": {
+          "en": "This one, please",
+          "ja": "これを ください"
+        },
+        "topicEvidence": [
+          "Chapter 3 Big Numbers 1,000~100,000 completed",
+          "Chapter 3 Conversation listening script en",
+          "Chapter 3 Conversation listening speaking"
+        ],
+        "sha256": "c1c1f5b447ca0c33fd27b1f52c637431c4f1264ab9ce643b8d2ef168f331761e"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "city-language",
+        "description"
+      ],
+      "primary": {
+        "id": "aakash",
+        "firstName": "Aakash",
+        "matchedSpecialty": "city-language"
+      },
+      "supporting": [
+        {
+          "id": "jenny",
+          "firstName": "Jenny",
+          "matchedSpecialty": "description"
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "weekId": "l1-l08",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/009-l1-l08.json",
+        "title": {
+          "en": "What time do we start?",
+          "ja": "なんじから ですか"
+        },
+        "topicEvidence": [
+          "Chapter 3 listening",
+          "Chapter 4-1 time Grammar Exercise",
+          "Hiragana long vowels writing system"
+        ],
+        "sha256": "5391f57258bafa8188946b5511c2ee5bf4acee613ad0b00c577144d704168a07"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "routines",
+        "questions"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "routines"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "weekId": "l1-l09",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/010-l1-l09.json",
+        "title": {
+          "en": "What time do we start?",
+          "ja": "なんじからですか"
+        },
+        "topicEvidence": [
+          "Chapter 4 Conversation listening script jp en",
+          "Chapter 4-2 asking phone numbers",
+          "Chapter 4-2 from-to info gap exercise Answer"
+        ],
+        "sha256": "5fb237c8768ba2e84a7ab7c94d7679f6c42265b0a3b14b6c3059fb9bc02291d9"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "planning",
+        "routines"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "planning"
+      },
+      "supporting": [
+        {
+          "id": "sam",
+          "firstName": "Sam",
+          "matchedSpecialty": "routines"
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "weekId": "l1-l10",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/011-l1-l10.json",
+        "title": {
+          "en": "From morning till night",
+          "ja": "あさから ばんまで"
+        },
+        "topicEvidence": [
+          "New Chapter 4 listening",
+          "New Chapter 4-3 Vocabulary Sheet",
+          "New Chapter 4-3 Grammar Exercise Everyday life and Habit using verb ます non Past"
+        ],
+        "sha256": "28813eb90da42ad9c8834fbfb0184211df508c453db99228edc58ca6c666c6ab"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "routines"
+      ],
+      "primary": {
+        "id": "sam",
+        "firstName": "Sam",
+        "matchedSpecialty": "routines"
+      },
+      "supporting": [
+        {
+          "id": "christian",
+          "firstName": "Christian",
+          "matchedSpecialty": "routines"
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "weekId": "l1-hiragana-1",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/012-l1-hiragana-1.json",
+        "title": {
+          "en": "Your first letters: あ, か, が",
+          "ja": "はじめての ひらがな"
+        },
+        "topicEvidence": [
+          "Hiragana writing practice あ、か",
+          "Hiragana worksheets あ、か、が"
+        ],
+        "sha256": "48df14ae9662cf057da076e3c579a65cb22f09000d76f67ceb1b8576f9390159"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "writing",
+        "reading"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "writing"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "reading"
+        }
+      ]
+    },
+    {
+      "order": 13,
+      "weekId": "l1-hiragana-2",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/013-l1-hiragana-2.json",
+        "title": {
+          "en": "Two more lines, and two little dots",
+          "ja": "さ・た・ざ・だ"
+        },
+        "topicEvidence": [
+          "Hiragana writing practice さ、た",
+          "Hiragana worksheets さ、た、ざ、だ"
+        ],
+        "sha256": "5dc95160b4b592c3f530864341f25e407069e1481bacedae74a242edfe52b713"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "pronunciation",
+        "writing"
+      ],
+      "primary": {
+        "id": "mika",
+        "firstName": "Mika",
+        "matchedSpecialty": "pronunciation"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 14,
+      "weekId": "l1-hiragana-3",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/014-l1-hiragana-3.json",
+        "title": {
+          "en": "Two new rows: な and は",
+          "ja": "な行と は行"
+        },
+        "topicEvidence": [
+          "Hiragana writing practice な、は",
+          "Homework-3 Hiragana worksheets な、は、ば、ぱ"
+        ],
+        "sha256": "1237f122d73b53a08601ed43f4d4c2ffe7103c759cfe22d0c0a2cdbc044513b3"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "writing",
+        "reading"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "writing"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "reading"
+        }
+      ]
+    },
+    {
+      "order": 15,
+      "weekId": "l1-hiragana-4",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/015-l1-hiragana-4.json",
+        "title": {
+          "en": "The last row of hiragana",
+          "ja": "ひらがな、これで ぜんぶ"
+        },
+        "topicEvidence": [
+          "Hiragana writing practice ま、や、ら、わ",
+          "Homework-2 Hiragana worksheets ま、や、ら、わ"
+        ],
+        "sha256": "6757a4079baf0335be6003e999490a0f5bc34e9529e661972e6e6ddf8ecf7819"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "pronunciation",
+        "writing"
+      ],
+      "primary": {
+        "id": "mika",
+        "firstName": "Mika",
+        "matchedSpecialty": "pronunciation"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 16,
+      "weekId": "l1-hiragana-5",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/016-l1-hiragana-5.json",
+        "title": {
+          "en": "When little marks change the word",
+          "ja": "ちいさい しるしで ことばが かわる"
+        },
+        "topicEvidence": [
+          "Hiragana modified syllables and double consonants Writing system",
+          "Hiragana writing practice 拗音、促音",
+          "Hiragana long vowels writing system"
+        ],
+        "sha256": "0f044ffdb1a788f395af7744933bb8c1b0ddfab8148fc4ee18c3f34296f87542"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "pronunciation",
+        "writing"
+      ],
+      "primary": {
+        "id": "mika",
+        "firstName": "Mika",
+        "matchedSpecialty": "pronunciation"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 17,
+      "weekId": "l1-hiragana-6",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/017-l1-hiragana-6.json",
+        "title": {
+          "en": "Hiragana that look alike",
+          "ja": "にている ひらがな"
+        },
+        "topicEvidence": [
+          "Look-alike hiragana reading practice",
+          "Looks alike hiragana writing practice"
+        ],
+        "sha256": "21308b7768ef593d8484e92391ed6b5001f64ae5f2738df73fd20427f6fa4cfe"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "reading",
+        "pronunciation"
+      ],
+      "primary": {
+        "id": "sophie",
+        "firstName": "Sophie",
+        "matchedSpecialty": "reading"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "pronunciation"
+        }
+      ]
+    },
+    {
+      "order": 18,
+      "weekId": "l1-hiragana-7",
+      "weekKind": "script-hiragana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/018-l1-hiragana-7.json",
+        "title": {
+          "en": "The finishing marks",
+          "ja": "ひらがなの しあげ"
+        },
+        "topicEvidence": [
+          "Hiragana writing practice double consonants modified and other syllables",
+          "Hiragana writing practice modified syllables",
+          "Hiragana writing practice voiced-semivoiced"
+        ],
+        "sha256": "fbe1e3b83ecd3d8ede624d3623eaa7b7d6e1ed74d79f14443c96733f7b8d2b74"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "writing",
+        "reading"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "writing"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "reading"
+        }
+      ]
+    },
+    {
+      "order": 19,
+      "weekId": "l1plus-kickoff",
+      "weekKind": "term-kickoff",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/019-l1plus-kickoff.json",
+        "title": {
+          "en": "Where the sentences get colour",
+          "ja": "ことばに いろが つく"
+        },
+        "topicEvidence": [
+          "Japanese course outline Level 1+"
+        ],
+        "sha256": "4788e47be61da8c7eaa738e92066d3e6fef8b05b8908a8cd309b424199349ffe"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "course-outline-only"
+    },
+    {
+      "order": 20,
+      "weekId": "l1plus-l01",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/020-l1plus-l01.json",
+        "title": {
+          "en": "What kind of place is it?",
+          "ja": "どんな ところですか"
+        },
+        "topicEvidence": [
+          "Chapter 8 listening",
+          "Chapter 8 Speaking Practice",
+          "Chapter 8 そして が speaking"
+        ],
+        "sha256": "448207d92a9e2058de9c96c3c8882099e9e24451583125948368c0d2039169cc"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "description",
+        "city-language"
+      ],
+      "primary": {
+        "id": "jenny",
+        "firstName": "Jenny",
+        "matchedSpecialty": "description"
+      },
+      "supporting": [
+        {
+          "id": "aakash",
+          "firstName": "Aakash",
+          "matchedSpecialty": "city-language"
+        }
+      ]
+    },
+    {
+      "order": 21,
+      "weekId": "l1plus-l02",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/021-l1plus-l02.json",
+        "title": {
+          "en": "What you like, what you're good at",
+          "ja": "すきな もの、じょうずな こと"
+        },
+        "topicEvidence": [
+          "Chapter 9-1 Grammar Exercise Adjectives describing preference using どんな",
+          "Chapter 9-1 Grammar Exercise Adjectives describing preference",
+          "New Chapter 9-1 Vocabulary Sheet"
+        ],
+        "sha256": "b0b942ac5ff977bdcd4a1ad073e0131e2ba72a09d8ce65db214f05fe03a060df"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "media",
+        "personal-expression"
+      ],
+      "primary": {
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "media"
+      },
+      "supporting": [
+        {
+          "id": "stasi",
+          "firstName": "Stasi",
+          "matchedSpecialty": "personal-expression"
+        }
+      ]
+    },
+    {
+      "order": 22,
+      "weekId": "l1plus-l03",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/022-l1plus-l03.json",
+        "title": {
+          "en": "What you love, and who's coming",
+          "ja": "すきなこと、さそいましょう"
+        },
+        "topicEvidence": [
+          "Chapter 9-1 Grammar Exercise Adjectives describing preference using どんな",
+          "Chapter 9-1 Grammar Exercise describing skilles",
+          "Chapter 9-1 listening-1"
+        ],
+        "sha256": "e1e9652c46e6cce0d31a114e4766264ec0df0b7b442199ac49dd39f4bf3aa774"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "personal-expression",
+        "speaking-confidence"
+      ],
+      "primary": {
+        "id": "stasi",
+        "firstName": "Stasi",
+        "matchedSpecialty": "personal-expression"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "speaking-confidence"
+        }
+      ]
+    },
+    {
+      "order": 23,
+      "weekId": "l1plus-l04",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/023-l1plus-l04.json",
+        "title": {
+          "en": "What you love, and why",
+          "ja": "すきなものと そのわけ"
+        },
+        "topicEvidence": [
+          "Chapter 9 Conversation listening script",
+          "Chapter 9-2 Grammar Exercise 〜ですから",
+          "Chapter 9-2 Grammar Exercise Describing possessions things to do, etc and the degree"
+        ],
+        "sha256": "dbdd08b1b5a33bc1b5ada39d44e6d9b4ac373d4908d15971ee033bf613e6b971"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "opinions",
+        "questions"
+      ],
+      "primary": {
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "opinions"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 24,
+      "weekId": "l1plus-l05",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/024-l1plus-l05.json",
+        "title": {
+          "en": "A little get-together",
+          "ja": "ちいさな パーティー"
+        },
+        "topicEvidence": [
+          "Chapter 9-3 Grammar Exercise どうして",
+          "Chapter 9-3 listening-2",
+          "New HW Chapter 9 10 reading よっつ の きせつ"
+        ],
+        "sha256": "1e3faa27f2b8637ad7566d91bd687aa8470dc192d8deb11dff4c8f87c4298d60"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "invitations",
+        "nature"
+      ],
+      "primary": {
+        "id": "sam",
+        "firstName": "Sam",
+        "matchedSpecialty": "invitations"
+      },
+      "supporting": [
+        {
+          "id": "rose",
+          "firstName": "Rose",
+          "matchedSpecialty": "nature"
+        }
+      ]
+    },
+    {
+      "order": 25,
+      "weekId": "l1plus-l06",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/025-l1plus-l06.json",
+        "title": {
+          "en": "Where is it?",
+          "ja": "どこに ありますか"
+        },
+        "topicEvidence": [
+          "Chapter 10-1 Grammar exceise",
+          "Homework pre-study Chapter 10 Vocabularies",
+          "Chapter 10 Grammar Exercise 〜や〜"
+        ],
+        "sha256": "fb2401924bce6e680a3092ca8a95e46715a5a740515960edb28c896e4352e348"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "directions",
+        "description"
+      ],
+      "primary": {
+        "id": "aakash",
+        "firstName": "Aakash",
+        "matchedSpecialty": "directions"
+      },
+      "supporting": [
+        {
+          "id": "jenny",
+          "firstName": "Jenny",
+          "matchedSpecialty": "description"
+        }
+      ]
+    },
+    {
+      "order": 26,
+      "weekId": "l1plus-l07",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/026-l1plus-l07.json",
+        "title": {
+          "en": "What is in the museum?",
+          "ja": "びじゅつかんに 何が ありますか"
+        },
+        "topicEvidence": [
+          "Chapter 10-1 listening-1",
+          "Homework pre-study Chapter 10 Vocabularies-2",
+          "New Chapter 10-2 Vocabulary Sheet"
+        ],
+        "sha256": "e6968080f05ccd1206aac0274305722b8ac1bb93ca1f425e0c30db139fbaf639"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "art",
+        "directions"
+      ],
+      "primary": {
+        "id": "stasi",
+        "firstName": "Stasi",
+        "matchedSpecialty": "art"
+      },
+      "supporting": [
+        {
+          "id": "aakash",
+          "firstName": "Aakash",
+          "matchedSpecialty": "directions"
+        }
+      ]
+    },
+    {
+      "order": 27,
+      "weekId": "l1plus-l08",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/027-l1plus-l08.json",
+        "title": {
+          "en": "How many do we need?",
+          "ja": "いくつ いりますか"
+        },
+        "topicEvidence": [
+          "Chapter 10-2 〜は Placeに あります います Speaking exercise",
+          "Chapter 11 Counter Suffixes summery",
+          "Name of ingredients reference"
+        ],
+        "sha256": "22fd6143a097e1d8f0f35cee09bc82b1684ff2bd7a99e929a5cab0493f82ca2d"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "menus",
+        "questions"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "menus"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 28,
+      "weekId": "l1plus-l09",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/028-l1plus-l09.json",
+        "title": {
+          "en": "How often, and for how long?",
+          "ja": "何回、何時間"
+        },
+        "topicEvidence": [
+          "Chapter 11-2 numbers+verb find order buy things",
+          "New Chapter 11-1 Vocabulary Sheet",
+          "Chapter 11 period of time summery"
+        ],
+        "sha256": "4f5b6cb24863d9b5ea101e88685c31bbd4521ff473682ae04ab0930637a3ab57"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "restaurants",
+        "menus"
+      ],
+      "primary": {
+        "id": "robert",
+        "firstName": "Robert",
+        "matchedSpecialty": "restaurants"
+      },
+      "supporting": [
+        {
+          "id": "shin",
+          "firstName": "Shin",
+          "matchedSpecialty": "menus"
+        }
+      ]
+    },
+    {
+      "order": 29,
+      "weekId": "l1plus-l10",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/029-l1plus-l10.json",
+        "title": {
+          "en": "Which one is better?",
+          "ja": "どちらが いいですか"
+        },
+        "topicEvidence": [
+          "Chapter 11 listening",
+          "Chapter 11-2,3 Vocabulary Sheet",
+          "Chapter 11-3 time period how many times how long"
+        ],
+        "sha256": "ed55cf480626664366faba632ec2034bb34a059314e796c6904162a701296e9f"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "comparison",
+        "questions"
+      ],
+      "primary": {
+        "id": "jodi",
+        "firstName": "Jodi",
+        "matchedSpecialty": "comparison"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 30,
+      "weekId": "l1plus-summer-homework",
+      "weekKind": "consolidation",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/030-l1plus-summer-homework.json",
+        "title": {
+          "en": "A useful number notebook",
+          "ja": "数の ノート"
+        },
+        "topicEvidence": [
+          "Chapter 11 listening",
+          "Chapter 11-4 time period how long does it take"
+        ],
+        "sha256": "d54e68701e86d4042d17a328d56c19e26e1d2b90b7518fe539a7898fa9af8418"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "review",
+        "writing"
+      ],
+      "primary": {
+        "id": "peter",
+        "firstName": "Peter",
+        "matchedSpecialty": "review"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 31,
+      "weekId": "l1plus-katakana-1",
+      "weekKind": "script-katakana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/031-l1plus-katakana-1.json",
+        "title": {
+          "en": "Katakana has a new shape",
+          "ja": "カタカナの はじめ"
+        },
+        "topicEvidence": [
+          "katakana list with Hiragana + Romanji",
+          "Katakana writing system completed"
+        ],
+        "sha256": "fd5876b9e1ec7b1ac69d0b652bf92da831e11e674558c17661579d2ed3ca5e12"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "art",
+        "pronunciation"
+      ],
+      "primary": {
+        "id": "stasi",
+        "firstName": "Stasi",
+        "matchedSpecialty": "art"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "pronunciation"
+        }
+      ]
+    },
+    {
+      "order": 32,
+      "weekId": "l1plus-katakana-2",
+      "weekKind": "script-katakana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/032-l1plus-katakana-2.json",
+        "title": {
+          "en": "A and K in katakana",
+          "ja": "ア行と カ行"
+        },
+        "topicEvidence": [
+          "Katakana worksheets ア、カ、ガ",
+          "Katakana writing practice ア、カ"
+        ],
+        "sha256": "f3225e0a8e86d5eb80ca7dedbb9023018be6165fb799fc1c62e6e6157ce32d17"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "writing",
+        "reading"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "writing"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "reading"
+        }
+      ]
+    },
+    {
+      "order": 33,
+      "weekId": "l1plus-katakana-3",
+      "weekKind": "script-katakana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/033-l1plus-katakana-3.json",
+        "title": {
+          "en": "S and T in katakana",
+          "ja": "サ行と タ行"
+        },
+        "topicEvidence": [
+          "Katakana worksheets サ、ザ、タ、ダ",
+          "Katakana writing practice サ、タ"
+        ],
+        "sha256": "2e3767cc239be453081f9ba2b887167590e54cca3366130b298de7dc72ed9540"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "pronunciation",
+        "writing"
+      ],
+      "primary": {
+        "id": "mika",
+        "firstName": "Mika",
+        "matchedSpecialty": "pronunciation"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 34,
+      "weekId": "l1plus-katakana-4",
+      "weekKind": "script-katakana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/034-l1plus-katakana-4.json",
+        "title": {
+          "en": "N and H in katakana",
+          "ja": "ナ行と ハ行"
+        },
+        "topicEvidence": [
+          "Katakana worksheets ナ、ハ、パ、バ",
+          "Katakana writing practice ナ、ハ"
+        ],
+        "sha256": "8bb47cf6b749562fda83eb3729da1a0518e59281d4a2c86851cfe9df676bafa9"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "writing",
+        "pronunciation"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "writing"
+      },
+      "supporting": [
+        {
+          "id": "mika",
+          "firstName": "Mika",
+          "matchedSpecialty": "pronunciation"
+        }
+      ]
+    },
+    {
+      "order": 35,
+      "weekId": "l1plus-katakana-5",
+      "weekKind": "script-katakana",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/035-l1plus-katakana-5.json",
+        "title": {
+          "en": "The last katakana rows",
+          "ja": "カタカナを さいごまで"
+        },
+        "topicEvidence": [
+          "Katakana worksheets マ、ヤ、ラ、ワ",
+          "Katakana writing practice マ、ヤ",
+          "Katakana writing practice ラ、ワ"
+        ],
+        "sha256": "9315e12dfb85885765d607907909a479975dd6e8f1d4a41c7d42765ff2a2cf85"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "pronunciation",
+        "writing"
+      ],
+      "primary": {
+        "id": "mika",
+        "firstName": "Mika",
+        "matchedSpecialty": "pronunciation"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 36,
+      "weekId": "l2plus-kickoff",
+      "weekKind": "term-kickoff",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/036-l2plus-kickoff.json",
+        "title": {
+          "en": "Open the next notebook",
+          "ja": "つぎの ノートを ひらく"
+        },
+        "topicEvidence": [
+          "Japanese syllabus Level 2+"
+        ],
+        "sha256": "08d0d81139b69511c822e638e03532a2e830122097bbb786daa80230b72ebfc6"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "course-outline-only"
+    },
+    {
+      "order": 37,
+      "weekId": "l2plus-l01",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/037-l2plus-l01.json",
+        "title": {
+          "en": "Have you ever?",
+          "ja": "やったこと、ありますか"
+        },
+        "topicEvidence": [
+          "Chapter 19 listening",
+          "Chapter 19 Verb た form",
+          "Chapter 19-1 〜ことがあります Grammar exercise"
+        ],
+        "sha256": "eb7c3989b5b792baa9595848a72610f585b365240f62af8eb1606bd7c4b9cda3"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "experience",
+        "lived-memory"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "experience"
+      },
+      "supporting": [
+        {
+          "id": "jodi",
+          "firstName": "Jodi",
+          "matchedSpecialty": "lived-memory"
+        }
+      ]
+    },
+    {
+      "order": 38,
+      "weekId": "l2plus-l02",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/038-l2plus-l02.json",
+        "title": {
+          "en": "Then and now",
+          "ja": "前と 今、どう 変わった？"
+        },
+        "topicEvidence": [
+          "Chapter 19 listening",
+          "Chapter 19-2 〜たり、〜たり Grammar exercise",
+          "Chapter 19-2,3 Vocabulary Sheet"
+        ],
+        "sha256": "bf8ce99dcaa6faa22ef9948dd61a8fe4acce2c3be83cfe1b9ca12281f9355d99"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "comparison",
+        "experience"
+      ],
+      "primary": {
+        "id": "jodi",
+        "firstName": "Jodi",
+        "matchedSpecialty": "comparison"
+      },
+      "supporting": [
+        {
+          "id": "alex",
+          "firstName": "Alex",
+          "matchedSpecialty": "experience"
+        }
+      ]
+    },
+    {
+      "order": 39,
+      "weekId": "l2plus-l03",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/039-l2plus-l03.json",
+        "title": {
+          "en": "What do you think?",
+          "ja": "どう 思う？"
+        },
+        "topicEvidence": [
+          "Chapter 20-1 plain style verb Grammar exercise",
+          "Chapter 20-1 polite style and plain style",
+          "Chapter 20-1 Vocabulary Sheet"
+        ],
+        "sha256": "240bac8e7c3fe19c1678e1bf969129ad639fd2c8a5283d29a304c546ab89ec9b"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "casual-speech",
+        "opinions"
+      ],
+      "primary": {
+        "id": "tom",
+        "firstName": "Tom",
+        "matchedSpecialty": "casual-speech"
+      },
+      "supporting": [
+        {
+          "id": "francis",
+          "firstName": "Francis",
+          "matchedSpecialty": "opinions"
+        }
+      ]
+    },
+    {
+      "order": 40,
+      "weekId": "l2plus-l04",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/040-l2plus-l04.json",
+        "title": {
+          "en": "Want to go somewhere?",
+          "ja": "どこか 行く？"
+        },
+        "topicEvidence": [
+          "Chapter 20-2 plain style Adj noun Grammar exercise",
+          "Chapter 20 listening",
+          "Chapter 20 Speaking practice Where do you go and what to do"
+        ],
+        "sha256": "5df521c1678cff264660bdddd3c0bd4d524ea6fd34ab49e0687a0c93a0ad5971"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "travel",
+        "casual-speech"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "travel"
+      },
+      "supporting": [
+        {
+          "id": "tom",
+          "firstName": "Tom",
+          "matchedSpecialty": "casual-speech"
+        }
+      ]
+    },
+    {
+      "order": 41,
+      "weekId": "l2plus-l05",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/041-l2plus-l05.json",
+        "title": {
+          "en": "What did they say?",
+          "ja": "何と 言いましたか"
+        },
+        "topicEvidence": [
+          "Chapter 21 Grammar Exercise 〜とおもいます",
+          "Chapter 21 grammar point Conversation listening Script",
+          "Chapter 21 Conversation listening"
+        ],
+        "sha256": "660fd7aaf634ca4201decd2951ee20e2e108a833b7b705dbe0cc3ce3a1db6a9c"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "nuance",
+        "grammar"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "nuance"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "grammar"
+        }
+      ]
+    },
+    {
+      "order": 42,
+      "weekId": "l2plus-l06",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/042-l2plus-l06.json",
+        "title": {
+          "en": "You agree, right?",
+          "ja": "そう 思うでしょう？"
+        },
+        "topicEvidence": [
+          "New Chapter 21 Grammar Exercise 〜とおもいます",
+          "Chapter 21 Grammar Exercise 〜といいます",
+          "Chapter 21 listening-1"
+        ],
+        "sha256": "2319f8601ffebc0080c92a40fc36cb8979631188a45f7dfeb46b6ba49c1bf03c"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "opinions",
+        "listening"
+      ],
+      "primary": {
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "opinions"
+      },
+      "supporting": [
+        {
+          "id": "xingyu",
+          "firstName": "Xingyu",
+          "matchedSpecialty": "listening"
+        }
+      ]
+    },
+    {
+      "order": 43,
+      "weekId": "l2plus-l07",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/043-l2plus-l07.json",
+        "title": {
+          "en": "The person wearing the red coat",
+          "ja": "赤い コートを 着ている 人"
+        },
+        "topicEvidence": [
+          "Chapter 22 listening-1",
+          "Chapter 22 Noun modification",
+          "Reference Chapter 22 Vocabulary Clothes"
+        ],
+        "sha256": "9a970e2cf3575a8077f19109dc70ab3ef662e5819b46f976abf379251e1cd593"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "description",
+        "personal-expression"
+      ],
+      "primary": {
+        "id": "jenny",
+        "firstName": "Jenny",
+        "matchedSpecialty": "description"
+      },
+      "supporting": [
+        {
+          "id": "stasi",
+          "firstName": "Stasi",
+          "matchedSpecialty": "personal-expression"
+        }
+      ]
+    },
+    {
+      "order": 44,
+      "weekId": "l2plus-l08",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/044-l2plus-l08.json",
+        "title": {
+          "en": "The programme I want to watch",
+          "ja": "見たい 番組"
+        },
+        "topicEvidence": [
+          "Chapter 22-1 modifying clauses grammar exercise 1-2",
+          "Chapter 22 review info gap AB answer",
+          "Chapter 22-2 modifying clauses-2 grammar exercise"
+        ],
+        "sha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "media",
+        "reading"
+      ],
+      "primary": {
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "media"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "reading"
+        }
+      ]
+    },
+    {
+      "order": 45,
+      "weekId": "l2plus-l09",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/045-l2plus-l09.json",
+        "title": {
+          "en": "When you press this button",
+          "ja": "この ボタンを 押すと"
+        },
+        "topicEvidence": [
+          "22-listening 3,4 script",
+          "Chapter 22-2 modifying clauses-2 grammar exercise",
+          "Chapter 22-2 Vocabulary Sheet"
+        ],
+        "sha256": "837ea222a3ae5105f7ca78f40395cc4325f96f840c355fd34f856c6229c911b1"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "instructions",
+        "directions"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "instructions"
+      },
+      "supporting": [
+        {
+          "id": "aakash",
+          "firstName": "Aakash",
+          "matchedSpecialty": "directions"
+        }
+      ]
+    },
+    {
+      "order": 46,
+      "weekId": "l2plus-l10",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/046-l2plus-l10.json",
+        "title": {
+          "en": "If the plan changes",
+          "ja": "予定が 変わったら"
+        },
+        "topicEvidence": [
+          "Reference Chapter 23 Vocabulary Roads and Traffic",
+          "New Chapter 23-1 〜とき time and occasion",
+          "New Chapter 23-1 Vocabulary Sheet"
+        ],
+        "sha256": "7dafeaa59f7ad02e9d3cec25012383ddaaa77d37d3c90f94798fa10e69cdde70"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "planning",
+        "formal-plans"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "planning"
+      },
+      "supporting": [
+        {
+          "id": "alex",
+          "firstName": "Alex",
+          "matchedSpecialty": "formal-plans"
+        }
+      ]
+    },
+    {
+      "order": 47,
+      "weekId": "l2plus-kanji-4",
+      "weekKind": "kanji-set",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/047-l2plus-kanji-4.json",
+        "title": {
+          "en": "Read the place, write the name",
+          "ja": "場所を 読んで、名前を 書く"
+        },
+        "topicEvidence": [
+          "Homework kanji 4 exerise",
+          "Kanji 4-東、京、名、前、国、男、女、区、市 worksheets",
+          "kanji-4"
+        ],
+        "sha256": "c492ea3afefb4c486da93e25e347851d2ffa593589df7a1910188abda594f86e"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "kanji"
+      ],
+      "primary": {
+        "id": "tom",
+        "firstName": "Tom",
+        "matchedSpecialty": "kanji"
+      },
+      "supporting": [
+        {
+          "id": "shin",
+          "firstName": "Shin",
+          "matchedSpecialty": "kanji"
+        }
+      ]
+    },
+    {
+      "order": 48,
+      "weekId": "l3-2-kickoff",
+      "weekKind": "term-kickoff",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/048-l3-2-kickoff.json",
+        "title": {
+          "en": "A clear start, in your own words",
+          "ja": "自分のことばで はじめよう"
+        },
+        "topicEvidence": [
+          "Course Outline Level 3",
+          "Course outline Level 3+",
+          "Our online classroom Ground Rule"
+        ],
+        "sha256": "de1cff8c601c1293305c9f6dd78ea40db6a5f666d246ac148fbc6d60dc565011"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "course-outline-only"
+    },
+    {
+      "order": 49,
+      "weekId": "l3-2-selfstudy-ch27",
+      "weekKind": "self-study",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/049-l3-2-selfstudy-ch27.json",
+        "title": {
+          "en": "Only this much — and that is enough",
+          "ja": "これしか ない。でも、十分。"
+        },
+        "topicEvidence": [
+          "Self study Chapter 27-〜しか Nは making contrast",
+          "Chapter 27-3 〜しか Nは contrast grammar exercise",
+          "HW Chapter 27 〜しか contrast Nは grammar check"
+        ],
+        "sha256": "53ca8822e125cfc0942b901ac7950fd574ce8a224ec4469575165157491cf72e"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "independent-study",
+        "grammar"
+      ],
+      "primary": {
+        "id": "henry",
+        "firstName": "Henry",
+        "matchedSpecialty": "independent-study"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "grammar"
+        }
+      ]
+    },
+    {
+      "order": 50,
+      "weekId": "l3-2-l01",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/050-l3-2-l01.json",
+        "title": {
+          "en": "Two things at once",
+          "ja": "〜ながらの 習慣"
+        },
+        "topicEvidence": [
+          "〜ながら word card",
+          "9-A-9",
+          "Chapter 28 listening-1"
+        ],
+        "sha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "routines",
+        "listening"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "routines"
+      },
+      "supporting": [
+        {
+          "id": "xingyu",
+          "firstName": "Xingyu",
+          "matchedSpecialty": "listening"
+        }
+      ]
+    },
+    {
+      "order": 51,
+      "weekId": "l3-2-l02",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/051-l3-2-l02.json",
+        "title": {
+          "en": "More than one good reason",
+          "ja": "理由を 〜しで つなぐ"
+        },
+        "topicEvidence": [
+          "Chapter 28 listening-2",
+          "Chapter 28 Conversation refuse someones request using many reason",
+          "Chapter 28-2 〜し、〜し adding similar information giving reasons with result"
+        ],
+        "sha256": "d5f0b79722f460a4204a1eedb996ca903e1418521c5b992e02e8a79bee3b5a79"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "opinions",
+        "invitations"
+      ],
+      "primary": {
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "opinions"
+      },
+      "supporting": [
+        {
+          "id": "sam",
+          "firstName": "Sam",
+          "matchedSpecialty": "invitations"
+        }
+      ]
+    },
+    {
+      "order": 52,
+      "weekId": "l3-2-l03",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/052-l3-2-l03.json",
+        "title": {
+          "en": "What the room tells you",
+          "ja": "部屋の 状態を 読む"
+        },
+        "topicEvidence": [
+          "Chapter 29 listening-1",
+          "New Chapter 29-1〜ている-4 intransitive verbs States in Effect grammar exercise",
+          "Kanji 6-今、来、帰、会、社、聞、読、書、話 worksheets"
+        ],
+        "sha256": "d6a37d2efc7509cb418be828093f7002f1538057d0d19e1ed6b3b8100e512c22"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "description",
+        "writing"
+      ],
+      "primary": {
+        "id": "jenny",
+        "firstName": "Jenny",
+        "matchedSpecialty": "description"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "writing"
+        }
+      ]
+    },
+    {
+      "order": 53,
+      "weekId": "l3-2-l04",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/053-l3-2-l04.json",
+        "title": {
+          "en": "The day it all went wrong",
+          "ja": "やってしまった日"
+        },
+        "topicEvidence": [
+          "Chapter 29 listening-2",
+          "Chapter 29-2 〜てしまいます しまいました grammar exercise",
+          "Chapter 29-2 Vocabulary Sheet"
+        ],
+        "sha256": "fe17666e4c4fee2fb6f191113bf0590c161cbb9cb7e48fbfab69dc30a9756533"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "experience",
+        "lived-memory"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "experience"
+      },
+      "supporting": [
+        {
+          "id": "jodi",
+          "firstName": "Jodi",
+          "matchedSpecialty": "lived-memory"
+        }
+      ]
+    },
+    {
+      "order": 54,
+      "weekId": "l3-2-l05",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/054-l3-2-l05.json",
+        "title": {
+          "en": "Ready before anyone arrives",
+          "ja": "もう 準備してあります"
+        },
+        "topicEvidence": [
+          "Chapter 30 〜てある information gap exercise completed",
+          "Chapter 30 〜てある listening-1",
+          "Chapter 30-1 〜てある-1 Grammar exercise"
+        ],
+        "sha256": "611ca9523e574ab8868ef375cc231988699b826ad485a62ad71c45afa3a0744c"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "planning",
+        "instructions"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "planning"
+      },
+      "supporting": [
+        {
+          "id": "christian",
+          "firstName": "Christian",
+          "matchedSpecialty": "instructions"
+        }
+      ]
+    },
+    {
+      "order": 55,
+      "weekId": "l3-2-l06",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/055-l3-2-l06.json",
+        "title": {
+          "en": "Do it now, thank yourself later",
+          "ja": "先に しておこう"
+        },
+        "topicEvidence": [
+          "Chapter 30-2 〜ておきますGrammar Speaking exercise",
+          "Chapter 30-2 listening-3 〜ておきます",
+          "Homework listeningバスのたび 〜ている 〜てある 〜ておく"
+        ],
+        "sha256": "86080f2f7e15013a010c73c5ad6517faac5fcfe6208d6a18b3117cf29a6691cc"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "travel",
+        "planning"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "travel"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "planning"
+        }
+      ]
+    },
+    {
+      "order": 56,
+      "weekId": "l3-2-l07",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/056-l3-2-l07.json",
+        "title": {
+          "en": "Say enough, not everything",
+          "ja": "例は 〜とかで"
+        },
+        "topicEvidence": [
+          "Chapter 30 quiz あります います おきます answer",
+          "Chapter 30 reading and speaking 伝言メモ",
+          "Chapter 30 Conversation listening script"
+        ],
+        "sha256": "b8c0647c776e8e80f2c3db7ceb86a53d754e63d164f59073e1b50cad7aa61c7b"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "inference",
+        "nuance"
+      ],
+      "primary": {
+        "id": "ruparna",
+        "firstName": "Ruparna",
+        "matchedSpecialty": "inference"
+      },
+      "supporting": [
+        {
+          "id": "shin",
+          "firstName": "Shin",
+          "matchedSpecialty": "nuance"
+        }
+      ]
+    },
+    {
+      "order": 57,
+      "weekId": "l3-2-prestudy-volitional",
+      "weekKind": "pre-study",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/057-l3-2-prestudy-volitional.json",
+        "title": {
+          "en": "A small plan begins with one verb",
+          "ja": "一つの 動詞から 計画へ"
+        },
+        "topicEvidence": [
+          "Chapter 31 volitional form",
+          "New HW Chapter 31 Creating volitional form"
+        ],
+        "sha256": "c120ba29a612f611ffbc07b4f60bbc398ec4000514c81c214350243c1f8cc321"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "planning",
+        "grammar"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "planning"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "grammar"
+        }
+      ]
+    },
+    {
+      "order": 58,
+      "weekId": "l3-2-l08",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/058-l3-2-l08.json",
+        "title": {
+          "en": "A plan you have been carrying",
+          "ja": "考えてきた 計画"
+        },
+        "topicEvidence": [
+          "Chapter 31 volitional form",
+          "Chapter 31 listening ようと思っています つもり 予定です",
+          "Chapter 31-1 〜ようと思っています grammar exercise"
+        ],
+        "sha256": "bd8a6ac37d0e8fd884f18ac3a216a395c175ba4cfe8ffea9e0ed235569abcf9d"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "formal-plans",
+        "planning"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "formal-plans"
+      },
+      "supporting": [
+        {
+          "id": "angel",
+          "firstName": "Angel",
+          "matchedSpecialty": "planning"
+        }
+      ]
+    },
+    {
+      "order": 59,
+      "weekId": "l3-2-l09",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/059-l3-2-l09.json",
+        "title": {
+          "en": "Intentions, arrangements, and one honest change",
+          "ja": "つもり・予定・変更"
+        },
+        "topicEvidence": [
+          "28 Lesson 7 - Speaking Practice Making Excuses",
+          "Chapter 31 listening ようと思っています つもり 予定です",
+          "Chapter 31 Can you make a good excuse speaking exercise"
+        ],
+        "sha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "formal-plans",
+        "ambiguity"
+      ],
+      "primary": {
+        "id": "alex",
+        "firstName": "Alex",
+        "matchedSpecialty": "formal-plans"
+      },
+      "supporting": [
+        {
+          "id": "ruparna",
+          "firstName": "Ruparna",
+          "matchedSpecialty": "ambiguity"
+        }
+      ]
+    },
+    {
+      "order": 60,
+      "weekId": "l3-2-l10",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/060-l3-2-l10.json",
+        "title": {
+          "en": "What will probably happen — and what should we do?",
+          "ja": "予報から 助言へ"
+        },
+        "topicEvidence": [
+          "Chapter 32 listening",
+          "Chapter 32 Vocabulary Weather Forcast",
+          "Chapter 32-1 〜た ない ほうがいい grammar exercise"
+        ],
+        "sha256": "ea51b6b7893cc8160109c980d7b696f91717108e36a2e1ad309fb427bc302a8e"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "nature",
+        "inference"
+      ],
+      "primary": {
+        "id": "rose",
+        "firstName": "Rose",
+        "matchedSpecialty": "nature"
+      },
+      "supporting": [
+        {
+          "id": "ruparna",
+          "firstName": "Ruparna",
+          "matchedSpecialty": "inference"
+        }
+      ]
+    },
+    {
+      "order": 61,
+      "weekId": "l3-2-kanji-6",
+      "weekKind": "kanji-set",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/061-l3-2-kanji-6.json",
+        "title": {
+          "en": "Nine kanji, one useful message",
+          "ja": "九字で 一つの 伝言"
+        },
+        "topicEvidence": [
+          "Homework kanji 6 exerise-1",
+          "Homework kanji 6 exerise-2",
+          "Kanji 6-今、来、帰、会、社、聞、読、書、話 worksheets"
+        ],
+        "sha256": "a880819b25a9c4466170fda6d8b1ebe9b0e3c5b181395d7e8e4a7c18d5977ab7"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "kanji"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "kanji"
+      },
+      "supporting": [
+        {
+          "id": "tom",
+          "firstName": "Tom",
+          "matchedSpecialty": "kanji"
+        }
+      ]
+    },
+    {
+      "order": 62,
+      "weekId": "l3plus-kickoff",
+      "weekKind": "term-kickoff",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/062-l3plus-kickoff.json",
+        "title": {
+          "en": "Back at the table, voices ready",
+          "ja": "また話せる、また聞ける"
+        },
+        "topicEvidence": [
+          "Course outline Level 3+",
+          "Our online classroom Ground Rule"
+        ],
+        "sha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0"
+      },
+      "status": "review-required",
+      "learningSpecialties": [],
+      "primary": null,
+      "supporting": [],
+      "reviewReason": "course-outline-only"
+    },
+    {
+      "order": 63,
+      "weekId": "l3plus-l01",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/063-l3plus-l01.json",
+        "title": {
+          "en": "Advice with room to breathe",
+          "ja": "やさしい助言と予想"
+        },
+        "topicEvidence": [
+          "Chapter 32-2 Vocabulary Sheet",
+          "New Chapter 32-2 〜でしょう grammar exercise",
+          "HW Chapter 32 Reading practice「桜とお花見」"
+        ],
+        "sha256": "6ceba59f6cf631736d53843b26a44a2fc0d051b8eb28721040b2773bf700e082"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "instructions",
+        "nature"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "instructions"
+      },
+      "supporting": [
+        {
+          "id": "rose",
+          "firstName": "Rose",
+          "matchedSpecialty": "nature"
+        }
+      ]
+    },
+    {
+      "order": 64,
+      "weekId": "l3plus-l02",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/064-l3plus-l02.json",
+        "title": {
+          "en": "When a sign means business",
+          "ja": "標識の強いことば"
+        },
+        "topicEvidence": [
+          "Chapter 32 listening",
+          "Chapter 32-3 Vocabulary Sheet",
+          "HW Chapter 32 Reading practice-2「お花見」"
+        ],
+        "sha256": "74e6eb6afb43d1461395f1404c2dc32c8a843b227b7e888eb97ddbb38d80cc12"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "instructions",
+        "listening"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "instructions"
+      },
+      "supporting": [
+        {
+          "id": "xingyu",
+          "firstName": "Xingyu",
+          "matchedSpecialty": "listening"
+        }
+      ]
+    },
+    {
+      "order": 65,
+      "weekId": "l3plus-l03",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/065-l3plus-l03.json",
+        "title": {
+          "en": "Pass the message, keep the meaning",
+          "ja": "意味を変えずに伝える"
+        },
+        "topicEvidence": [
+          "Chapter 33-1 Imperative and Prohibitive form exercise",
+          "Chapter 33-1 Vocabulary Sheet",
+          "Chapter 33 listening"
+        ],
+        "sha256": "d9464fe3f659a5e20f79f448c5032553b261e64439eb6e900f31ba260603bab2"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "nuance",
+        "inference"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "nuance"
+      },
+      "supporting": [
+        {
+          "id": "ruparna",
+          "firstName": "Ruparna",
+          "matchedSpecialty": "inference"
+        }
+      ]
+    },
+    {
+      "order": 66,
+      "weekId": "l3plus-l04",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/066-l3plus-l04.json",
+        "title": {
+          "en": "As shown, then one step more",
+          "ja": "見たとおりに、そのあとで"
+        },
+        "topicEvidence": [
+          "Chapter 34-1 言った・聞いたとおりに書いてください-Answer",
+          "Chapter 34-1 〜たとおりexercise Answer",
+          "Origami kabuto"
+        ],
+        "sha256": "a2bebce782344e78230ad408c4d78f2a40c2711241acd49340ca64774cee14d9"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "instructions",
+        "art"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "instructions"
+      },
+      "supporting": [
+        {
+          "id": "stasi",
+          "firstName": "Stasi",
+          "matchedSpecialty": "art"
+        }
+      ]
+    },
+    {
+      "order": 67,
+      "weekId": "l3plus-l05",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/067-l3plus-l05.json",
+        "title": {
+          "en": "With this, without that",
+          "ja": "〜て、〜ないで行う"
+        },
+        "topicEvidence": [
+          "Chapter 34 〜ないで-2 exercise speaking practice",
+          "Chapter 34 Reference Vocabulary Cooking",
+          "Chapter 34 listening"
+        ],
+        "sha256": "b1eca22fac57646ada08ec4ec6c4e9be5cf506cf98c3c0ff9111eafffa6938d9"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "menus",
+        "instructions"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "menus"
+      },
+      "supporting": [
+        {
+          "id": "christian",
+          "firstName": "Christian",
+          "matchedSpecialty": "instructions"
+        }
+      ]
+    },
+    {
+      "order": 68,
+      "weekId": "l3plus-l06",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/068-l3plus-l06.json",
+        "title": {
+          "en": "If the condition changes",
+          "ja": "条件が変われば"
+        },
+        "topicEvidence": [
+          "Chapter 35 Verb 〜ば・〜と・〜たら summary",
+          "Chapter 35 conditional form",
+          "Chapter 35 Reference Vocabulary Proverbs"
+        ],
+        "sha256": "fbac93dc4426efdb4c3b5c58deeee3f96bfcdd997367bb5ec506461866624025"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "grammar",
+        "nuance"
+      ],
+      "primary": {
+        "id": "sophie",
+        "firstName": "Sophie",
+        "matchedSpecialty": "grammar"
+      },
+      "supporting": [
+        {
+          "id": "shin",
+          "firstName": "Shin",
+          "matchedSpecialty": "nuance"
+        }
+      ]
+    },
+    {
+      "order": 69,
+      "weekId": "l3plus-l07",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/069-l3plus-l07.json",
+        "title": {
+          "en": "If that is the plan",
+          "ja": "その予定なら"
+        },
+        "topicEvidence": [
+          "Chapter 35 listening-1",
+          "Chapter 35 Verb 〜ば・〜と・〜たら summary",
+          "Chapter 35-2 Vocabulary Sheet"
+        ],
+        "sha256": "159632672b4b80d8dcfd782f163c2863ca1b245765f14035bff384f75c1e4674"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "planning",
+        "grammar"
+      ],
+      "primary": {
+        "id": "angel",
+        "firstName": "Angel",
+        "matchedSpecialty": "planning"
+      },
+      "supporting": [
+        {
+          "id": "sophie",
+          "firstName": "Sophie",
+          "matchedSpecialty": "grammar"
+        }
+      ]
+    },
+    {
+      "order": 70,
+      "weekId": "l3plus-l08",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/070-l3plus-l08.json",
+        "title": {
+          "en": "If health is the goal",
+          "ja": "健康のことなら"
+        },
+        "topicEvidence": [
+          "Chapter 35 listening-1",
+          "Chapter 35-2 Vocabulary Sheet",
+          "Chapter 35-2 adj noun conditional form 〜ければ 〜なら grammar exercise"
+        ],
+        "sha256": "add840816dd441239a0c1cc0fbb5a844a9ebe729b803a25db7aae931702df169"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "routines",
+        "questions"
+      ],
+      "primary": {
+        "id": "christian",
+        "firstName": "Christian",
+        "matchedSpecialty": "routines"
+      },
+      "supporting": [
+        {
+          "id": "peter",
+          "firstName": "Peter",
+          "matchedSpecialty": "questions"
+        }
+      ]
+    },
+    {
+      "order": 71,
+      "weekId": "l3plus-l09",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/071-l3plus-l09.json",
+        "title": {
+          "en": "So that the next words can come",
+          "ja": "次の言葉が出るように"
+        },
+        "topicEvidence": [
+          "Chapter 35 listening-2",
+          "Chapter 35-2 Vocabulary Sheet",
+          "Chapter 35-3 noun〜なら making suggestions grammar exercise"
+        ],
+        "sha256": "1a74487e02d890d8885a93468c779fb9f7b811d364f0a1e84808d6ae7e5a831e"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "grammar",
+        "listening"
+      ],
+      "primary": {
+        "id": "sophie",
+        "firstName": "Sophie",
+        "matchedSpecialty": "grammar"
+      },
+      "supporting": [
+        {
+          "id": "xingyu",
+          "firstName": "Xingyu",
+          "matchedSpecialty": "listening"
+        }
+      ]
+    },
+    {
+      "order": 72,
+      "weekId": "l3plus-kanji-7",
+      "weekKind": "kanji-set",
+      "source": {
+        "donor": "academy-rebuild-20260711",
+        "file": "public/academy/content/weeks/072-l3plus-kanji-7.json",
+        "title": {
+          "en": "A whole menu in seven kanji",
+          "ja": "七つの漢字で読むメニュー"
+        },
+        "topicEvidence": [
+          "Kanji 7-肉、料、理、野、半、大、小 worksheets"
+        ],
+        "sha256": "89a78af8ea030adc366b5024ded9426b6a7e6c8027fccd00ab24211a032793ea"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "menus",
+        "kanji"
+      ],
+      "primary": {
+        "id": "shin",
+        "firstName": "Shin",
+        "matchedSpecialty": "menus"
+      },
+      "supporting": [
+        {
+          "id": "tom",
+          "firstName": "Tom",
+          "matchedSpecialty": "kanji"
+        }
+      ]
+    }
+  ]
+}

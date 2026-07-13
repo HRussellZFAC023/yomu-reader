@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Yomu Study — Jiten, Anki &amp; dictionary review on every new tab</title>
+    <meta name="description" content="A free Japanese study page for your browser's new tab. Review your Jiten, Anki, or imported-dictionary cards every time you open a tab. Works on desktop, iPad, and Android — no account needed.">
+    <link rel="canonical" href="https://yomureader.com/study/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="よむ">
+    <meta property="og:title" content="Yomu Study — Jiten &amp; Anki review on every new tab">
+    <meta property="og:description" content="Review your Jiten, Anki, or imported-dictionary cards every time you open a browser tab. Free, no account needed.">
+    <meta property="og:url" content="https://yomureader.com/study/">
+    <meta property="og:image" content="https://hrussellzfac023.github.io/yomu-reader/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Yomu Study — Jiten &amp; Anki review on every new tab">
+    <meta name="twitter:description" content="Review your Jiten, Anki, or imported-dictionary cards every time you open a browser tab. Free, no account needed.">
+    <meta name="twitter:image" content="https://hrussellzfac023.github.io/yomu-reader/og-image.png">
+    <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#181b20">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="./styles.css?v=c33de92fed47">
+    <meta name="apple-mobile-web-app-title" content="よむ">
+    <meta name="color-scheme" content="light dark">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #5ea780;
+        --bg: #181b20;
+        --ink: #f2f4f8;
+        --muted: #aab2c0;
+        --faint: #6f7a89;
+        --surface: #20242b;
+        --surface-2: #282e37;
+        --border: rgba(255, 255, 255, .12);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      :root.jpdb-reader-theme-light {
+        color-scheme: light;
+        --bg: #ffffff;
+        --ink: #171a1f;
+        --muted: #596272;
+        --faint: #7b8493;
+        --surface: #f7f8fa;
+        --surface-2: #eef1f4;
+        --border: rgba(20, 30, 45, .16);
+      }
+
+      :root.jpdb-reader-theme-dark {
+        color-scheme: dark;
+        --bg: #181b20;
+        --ink: #f2f4f8;
+        --muted: #aab2c0;
+        --faint: #6f7a89;
+        --surface: #20242b;
+        --surface-2: #282e37;
+        --border: rgba(255, 255, 255, .12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .jpdb-reader-newtab {
+        min-height: 100dvh;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .jpdb-reader-newtab-shell {
+        width: min(760px, calc(100vw - 28px));
+        min-height: 100dvh;
+        margin: 0 auto;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        gap: clamp(12px, 2.4vh, 22px);
+        padding: max(18px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
+      }
+
+      .jpdb-reader-newtab-topbar {
+        min-height: 42px;
+        min-width: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+        align-items: center;
+        gap: 6px;
+      }
+
+      .jpdb-reader-newtab-theme-controls {
+        justify-self: end;
+        min-width: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .jpdb-reader-newtab-brand,
+      .jpdb-reader-newtab-overflow {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        min-height: 44px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .jpdb-reader-newtab-brand {
+        margin-left: clamp(4px, 1vw, 10px);
+      }
+
+      .jpdb-reader-newtab-overflow {
+        padding: 0 0 4px;
+        font-size: 18px;
+        line-height: 1;
+        font-weight: 900;
+      }
+
+      .jpdb-reader-newtab-brand img {
+        display: block;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+      }
+
+      .jpdb-reader-newtab-mode {
+        justify-self: center;
+        min-width: 0;
+        width: clamp(260px, 36vw, 372px);
+        max-width: 100%;
+        display: inline-grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 3px;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--surface) 78%, transparent);
+      }
+
+      .jpdb-reader-newtab-mode button,
+      .jpdb-reader-newtab-controls button {
+        border: 0;
+        border-radius: 7px;
+        color: inherit;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 820;
+      }
+
+      .jpdb-reader-newtab-mode button {
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        min-height: 32px;
+        padding: 0 12px;
+        background: transparent;
+        color: var(--muted);
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .jpdb-reader-theme-appearance {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        min-width: 48px;
+        height: 38px;
+      }
+
+      .jpdb-reader-theme-switch {
+        position: relative;
+        display: block;
+        width: 44px;
+        min-width: 44px;
+        height: 24px;
+        min-height: 24px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--surface) 86%, transparent);
+        cursor: pointer;
+        transition: border-color .18s ease, background .18s ease;
+      }
+
+      .jpdb-reader-theme-switch:hover,
+      .jpdb-reader-theme-switch:focus-visible {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+        outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+        outline-offset: 3px;
+      }
+
+      .jpdb-reader-theme-switch .check {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: var(--bg);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .28);
+        transition: transform .18s ease, background .18s ease;
+      }
+
+      .jpdb-reader-theme-switch[aria-checked="true"] .check {
+        transform: translateX(20px);
+      }
+
+      .jpdb-reader-theme-switch .icon {
+        position: relative;
+        display: block;
+        width: 14px;
+        height: 14px;
+        color: var(--muted);
+      }
+
+      .jpdb-reader-theme-switch .sun,
+      .jpdb-reader-theme-switch .moon {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        line-height: 1;
+        transition: opacity .18s ease;
+      }
+
+      .jpdb-reader-theme-switch .sun::before {
+        content: "☀";
+      }
+
+      .jpdb-reader-theme-switch .moon::before {
+        content: "☾";
+      }
+
+      .jpdb-reader-theme-switch[aria-checked="false"] .sun,
+      .jpdb-reader-theme-switch[aria-checked="true"] .moon {
+        opacity: 0;
+      }
+
+      .jpdb-reader-theme-switch[aria-checked="true"] .sun,
+      .jpdb-reader-theme-switch[aria-checked="false"] .moon {
+        opacity: 1;
+      }
+
+      .jpdb-reader-newtab-mode button[data-active="true"] {
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 18%, var(--surface-2));
+        color: var(--ink);
+      }
+
+      .jpdb-reader-newtab-study {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        align-content: start;
+        align-items: start;
+        justify-items: center;
+        gap: clamp(9px, 1.9vh, 17px);
+        cursor: pointer;
+        user-select: none;
+        padding-top: clamp(16px, 3vh, 32px);
+        transition: background .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-study:hover {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+      }
+
+      .jpdb-reader-newtab-study:active {
+        filter: brightness(.985);
+      }
+
+      .jpdb-reader-newtab-study.jpdb-reader-newtab-study-anki-card {
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        align-content: stretch;
+      }
+
+      .jpdb-reader-newtab-count,
+      .jpdb-reader-newtab-status {
+        color: var(--ink);
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 760;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-prompt {
+        max-width: min(100%, 720px);
+        margin: 0;
+        padding: 0 clamp(8px, 3vw, 22px);
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        font-size: clamp(2.25rem, 7vw, 5.2rem);
+        font-weight: 900;
+        line-height: 1.06;
+        text-align: center;
+        overflow-wrap: anywhere;
+        text-wrap: balance;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+      }
+
+      .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+        font-family: inherit;
+        font-size: clamp(2.6rem, 8vw, 5.8rem);
+        font-weight: 900;
+        line-height: 1.02;
+      }
+
+      .jpdb-reader-newtab-answer {
+        min-height: clamp(68px, 11vh, 124px);
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        transition: opacity .16s ease, transform .16s ease, filter .16s ease;
+      }
+
+      /* Must mirror new-tab.css: kanji + recall steps show their answer UI
+         (doodle canvas / typed input) pre-reveal. This inline first-paint copy
+         loads after the linked sheet, so a missing exception here clobbers the
+         mode rule and left the recall input invisible at opacity 0. */
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode):not(.jpdb-reader-newtab-recall-mode) .jpdb-reader-newtab-answer {
+        min-height: 0;
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(4px);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+          scroll-behavior: auto !important;
+        }
+
+        .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+          filter: none;
+          transform: none;
+        }
+      }
+
+      .jpdb-reader-newtab-reading {
+        font-size: clamp(1.2rem, 3.2vw, 2.05rem);
+        font-weight: 780;
+        line-height: 1.1;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-meaning {
+        max-width: min(520px, 100%);
+        color: var(--muted);
+        font-size: clamp(14px, 2.1vw, 18px);
+        font-weight: 650;
+        line-height: 1.42;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-controls {
+        justify-self: center;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(88px, 1fr));
+        gap: 9px;
+        width: min(100%, 680px);
+      }
+
+      .jpdb-reader-newtab-controls button {
+        display: grid;
+        place-items: center;
+        min-height: 42px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--surface) 82%, transparent);
+        line-height: 1.1;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
+        background: var(--ink);
+        border-color: transparent;
+        color: var(--bg);
+      }
+
+      .jpdb-reader-newtab-sentence .jpdb-reader-word {
+        padding: 0 .08em;
+        border-radius: .12em;
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 16%, transparent);
+      }
+
+      .jpdb-reader-newtab-install {
+        justify-self: end;
+        color: var(--faint);
+        font-size: 11px;
+        font-weight: 760;
+        text-decoration: none;
+      }
+
+      @media (pointer: coarse) and (min-width: 700px) {
+        .jpdb-reader-newtab-shell {
+          padding-top: max(84px, calc(env(safe-area-inset-top) + 72px));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .jpdb-reader-newtab-shell {
+          width: min(100vw - 18px, 560px);
+        }
+
+        .jpdb-reader-newtab-prompt {
+          padding-inline: 16px;
+          font-size: 2.35rem;
+        }
+
+        .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+          font-size: 2.7rem;
+        }
+
+        .jpdb-reader-newtab-controls {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .jpdb-reader-newtab-controls button {
+          padding: 0 8px;
+          font-size: 11px;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .jpdb-reader-newtab-topbar {
+          grid-template-columns: minmax(0, 1fr) auto;
+          grid-template-areas:
+            "brand controls"
+            "mode mode";
+          row-gap: 8px;
+        }
+
+        .jpdb-reader-newtab-brand {
+          grid-area: brand;
+          justify-self: start;
+        }
+
+        .jpdb-reader-newtab-theme-controls {
+          grid-area: controls;
+          justify-self: end;
+          min-width: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .jpdb-reader-newtab-mode {
+          grid-area: mode;
+          width: 100%;
+          max-width: none;
+          justify-self: stretch;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .jpdb-reader-newtab-mode button {
+          min-width: 0;
+          overflow-wrap: anywhere;
+          white-space: normal;
+        }
+
+        .jpdb-reader-newtab-status {
+          max-width: 100%;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
+    <script>
+      (() => {
+        const appHash = '830c2454278f';
+        const buildId = '1.6.148-830c2454278f';
+        window.yomuNewTabAppHash = appHash;
+        window.yomuNewTabBuildId = buildId;
+        if (appHash.startsWith('__') || buildId.startsWith('__')) return;
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+          }, { once: true });
+        }
+        const current = new URL(location.href);
+        if (current.searchParams.get('build') === buildId) return;
+        fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })
+          .then(response => response.ok ? response.json() : null)
+          .then(version => {
+            if (!version || version.buildId === buildId) return;
+            const next = new URL('./index.html', location.href);
+            next.searchParams.set('app', version.appHash);
+            next.searchParams.set('build', version.buildId);
+            Promise.all([
+              'serviceWorker' in navigator
+                ? navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+                : Promise.resolve(),
+              'caches' in window
+                ? caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('yomu-newtab-')).map(key => caches.delete(key))))
+                : Promise.resolve(),
+            ]).finally(() => location.replace(next.href));
+          })
+          .catch(() => undefined);
+      })();
+    </script>
+    <script>
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+        }, { once: true });
+      }
+    </script>
+    <script src="./app.js?v=830c2454278f"></script>
+  </body>
+
+</html>

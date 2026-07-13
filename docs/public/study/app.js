@@ -56,6 +56,7 @@
     return chunks2;
   }
   const APP_NAME = "よむ";
+  const ACADEMY_SRS_LABEL = "Academy";
   const APP_SLUG = "yomu";
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
@@ -70,7 +71,7 @@
   const SUPPORT_STATUS_URL = "https://support.yomureader.com/status";
   const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
   const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
-  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
   const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
   const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
@@ -461,29 +462,54 @@
       signal?.removeEventListener("abort", abort);
     });
   }
-  function isYomuNewTabUrl(value) {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
-  }
-  function parseNewTabUrl(value) {
+  const LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["127.0.0.1", "localhost", "[::1]"]);
+  const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+  function readTrustedYomuUrl(value) {
+    let url;
     try {
-      return new URL(value);
+      url = new URL(value);
     } catch {
       return null;
     }
+    if (url.username || url.password) return null;
+    const path = normalizeYomuHostedPath(url.pathname);
+    const originKind = trustedYomuOriginKind(url, path);
+    return originKind ? { url, path, originKind } : null;
   }
-  function isYomuNewTabUrlObject(url) {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+  function normalizeYomuHostedPath(pathname) {
+    const normalized = pathname.replace(/\/index\.html$/u, "/");
+    return normalized.endsWith("/") ? normalized : `${normalized}/`;
   }
-  function normalizedNewTabPath(url) {
-    return url.pathname.replace(/\/index\.html$/, "/");
+  function isYomuRepositoryPath(path) {
+    return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
   }
-  function isLocalNewTabPath(url, path) {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
+  function trustedYomuOriginKind(url, path) {
+    if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
+    if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
+      return "github-pages";
+    }
+    if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
+      return "loopback";
+    }
+    if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
+    return null;
   }
-  function isRepositoryNewTabPath(path) {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+  function isYomuNewTabUrl(value) {
+    const appUrl = readTrustedYomuUrl(value);
+    return appUrl ? isTrustedStudyRoute(appUrl) : false;
+  }
+  function isYomuStudyRoutePath(pathname) {
+    const path = normalizeYomuHostedPath(pathname);
+    return path === "/study/" || path === "/newtab/";
+  }
+  function isTrustedStudyRoute(appUrl) {
+    const { originKind, path } = appUrl;
+    if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
+    if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
+    return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+  }
+  function isRepositoryStudyRoutePath(path) {
+    return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
   }
   function bridgeEventId(event) {
     return safeReadString(normalizedBridgeEventDetail$1(event), "id");
@@ -1447,7 +1473,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -1467,7 +1493,7 @@
       disabledControlDescription: "Controlled by another setting.",
       jpdbMiningEnabled: "Allow API review/deck changes",
       bunproMiningEnabled: "Allow Bunpro review/mining",
-      yomuLocalSrsEnabled: "Enable local Yomu SRS",
+      yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
@@ -1476,12 +1502,12 @@
       gradeTargetJpdb: "Grades JPDB",
       gradeTargetJiten: "Grades Jiten",
       gradeTargetBunpro: "Grades Bunpro",
-      gradeTargetYomuLocal: "Grades Yomu",
+      gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
       gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-      gradeTargetYomuLocalAndAnki: "Grades Yomu + Anki card: {target}",
+      gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
       missingAnkiCardId: "Missing Anki card id.",
       jpdbPageEnhancements: "Dictionary site enhancements",
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
@@ -1532,10 +1558,10 @@
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
       newTabSource: "Study review source",
-      newTabAuto: "Auto: Yomu, accounts, then study words",
+      newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
       newTabApiSrs: "API SRS (Jiten / JPDB)",
       newTabBunpro: "Bunpro",
-      newTabYomuLocal: "Yomu local SRS",
+      newTabYomuLocal: ACADEMY_SRS_LABEL,
       dictionaryFallback: "Dictionary fallback",
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
@@ -2456,11 +2482,11 @@
       jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
       jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
       bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
-      yomuLocalSrsDisabled: "Enable local Yomu SRS in Settings first.",
+      yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
       chooseJitenStudyDeck: "Choose a Jiten study deck first.",
       addedToJiten: "Added to Jiten.",
       addedToBunpro: "Added to Bunpro.",
-      addedToYomuLocal: "Added to Yomu.",
+      addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
       loadingDictionaryDetails: "Loading dictionary details...",
       sourceSingular: "source",
@@ -3110,11 +3136,11 @@ addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
-yomuLocalSrsDisabled	先に設定でローカルよむSRSを有効にしてください。
+yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
-addedToYomuLocal	よむに追加しました。
+addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
@@ -3199,7 +3225,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -3218,7 +3244,7 @@ statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
 bunproMiningEnabled	Bunproの復習・採掘を許可
-yomuLocalSrsEnabled	ローカルよむSRSを有効化
+yomuLocalSrsEnabled	Academyを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -3227,18 +3253,17 @@ gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
-gradeTargetYomuLocal	よむを採点
+gradeTargetYomuLocal	Academyに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	よむ + Ankiカードを採点: {target}
+gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-jpdbPageEnhancementsHelp
 fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -3278,10 +3303,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: よむ・アカウント後に学習語
+newTabAuto	自動: Academy・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
-newTabYomuLocal	ローカルよむSRS
+newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
@@ -3351,7 +3376,6 @@ colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
-colorChannelsHelp
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
@@ -3415,7 +3439,6 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -3622,7 +3645,6 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
-noScannedFields
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -4342,20 +4364,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...importedCard,
       ...existingCard,
       meanings: uniquePrimitiveStrings([
-        ...stringArray$2(importedCard.meanings),
-        ...stringArray$2(existingCard.meanings)
+        ...stringArray$3(importedCard.meanings),
+        ...stringArray$3(existingCard.meanings)
       ]),
       sentence: existingCard.sentence || importedCard.sentence,
       sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
       tags: uniquePrimitiveStrings([
-        ...stringArray$2(importedCard.tags),
-        ...stringArray$2(existingCard.tags)
+        ...stringArray$3(importedCard.tags),
+        ...stringArray$3(existingCard.tags)
       ]),
       createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
       updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
     };
   }
-  function stringArray$2(value) {
+  function stringArray$3(value) {
     return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim().length > 0) : [];
   }
   function uniquePrimitiveStrings(values) {
@@ -4632,7 +4654,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const path = location.pathname;
       if (location.origin === DOCS_ORIGIN) return true;
       if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
     } catch {
       return false;
     }
@@ -4656,9 +4678,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     try {
       const url = new URL(value, location.href);
       if (!isManagedServiceWorkerOrigin(url)) return false;
-      return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
+      return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/study/") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
     } catch {
-      return value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
+      return value.includes("/study/") || value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
     }
   }
   function isManagedServiceWorkerOrigin(url) {
@@ -6852,7 +6874,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function stringValue$3(value) {
     return typeof value === "string" ? value : "";
   }
-  function finiteNumber(value, fallback) {
+  function finiteNumber$1(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
@@ -7049,7 +7071,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       name,
       alias: alias.trim() ? alias : name,
       enabled: booleanValue(record.enabled, true),
-      priority: finiteNumber(record.priority, index),
+      priority: finiteNumber$1(record.priority, index),
       allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
       type: normalizeDictionaryType(record.type, name)
     };
@@ -7164,7 +7186,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       urlTemplate,
       enabled: normalizedLookupLinkEnabled(record),
       action,
-      priority: finiteNumber(record.priority, Number.MAX_SAFE_INTEGER)
+      priority: finiteNumber$1(record.priority, Number.MAX_SAFE_INTEGER)
     };
   }
   function normalizedLookupLinkUrlTemplate(record) {
@@ -13202,7 +13224,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$9(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$a(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -13233,7 +13255,7 @@ ${item.sequence ?? ""}`;
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
-  function isRecord$9(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
@@ -13299,7 +13321,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$8(value)) return "";
+    if (!isRecord$9(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -13599,7 +13621,7 @@ ${item.sequence ?? ""}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
@@ -22919,12 +22941,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function readKanjiMapReadings(kanjiAlive, jisho) {
     return {
-      kunyomi: stringArray$1(jisho?.kunyomi, stringValue$2(kanjiAlive?.kunyomi_ja) || stringValue$2(kanjiAlive?.kunyomi)),
-      onyomi: stringArray$1(jisho?.onyomi, stringValue$2(kanjiAlive?.onyomi_ja) || stringValue$2(kanjiAlive?.onyomi))
+      kunyomi: stringArray$2(jisho?.kunyomi, stringValue$2(kanjiAlive?.kunyomi_ja) || stringValue$2(kanjiAlive?.kunyomi)),
+      onyomi: stringArray$2(jisho?.onyomi, stringValue$2(kanjiAlive?.onyomi_ja) || stringValue$2(kanjiAlive?.onyomi))
     };
   }
   function readKanjiMapParts(jisho, kanji) {
-    return stringArray$1(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE$1.test(part)).slice(0, 10);
+    return stringArray$2(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE$1.test(part)).slice(0, 10);
   }
   function stripHtml(value) {
     return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
@@ -23039,7 +23061,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!hasKanjiMapRadical(basics)) return void 0;
     return {
       symbol: basics.symbol,
-      forms: stringArray$1(context.jishoRadical?.forms),
+      forms: stringArray$2(context.jishoRadical?.forms),
       ...readKanjiMapRadicalNames(context),
       meaning: basics.meaning,
       strokes: readKanjiMapRadicalStrokes(context),
@@ -23244,7 +23266,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const number = normalizeNumber(value);
     return number ? `#${number}` : "";
   }
-  function stringArray$1(value, fallback = "") {
+  function stringArray$2(value, fallback = "") {
     const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
     return values.map((item) => stringValue$2(item)).map((item) => item.trim()).filter(Boolean);
   }
@@ -32140,7 +32162,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return context;
   }
   function storedMiningContextRecord(value, expectedTerm) {
-    if (!isRecord$7(value)) return null;
+    if (!isRecord$8(value)) return null;
     return text$1(value.term) === expectedTerm ? value : null;
   }
   function storedMiningSourceKind(value) {
@@ -32159,7 +32181,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isMiningSourceKind(value) {
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return Boolean(value && typeof value === "object");
   }
   function optionalText(value) {
@@ -43604,9 +43626,9 @@ ${spelling}`);
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord$6(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord$7(body) && Array.isArray(body.files) ? body.files : [];
     const first2 = files[0];
-    return isRecord$6(first2) && typeof first2.id === "string" ? first2 : null;
+    return isRecord$7(first2) && typeof first2.id === "string" ? first2 : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -43748,7 +43770,7 @@ ${spelling}`);
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord$6(parsed) ? parsed : null;
+      return isRecord$7(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -43758,7 +43780,7 @@ ${spelling}`);
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord$6(parsed) ? parsed : null;
+      return isRecord$7(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -43838,12 +43860,12 @@ ${spelling}`);
     } catch {
       return null;
     }
-    if (!isRecord$6(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord$6(parsed.settings)) return null;
+    if (!isRecord$7(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord$7(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord$6(value) && typeof value.id === "string") return value;
+    if (isRecord$7(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -43855,7 +43877,7 @@ ${spelling}`);
   function randomBoundary() {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function renderAnkiTagsEditor(value, language) {
@@ -44492,7 +44514,7 @@ ${spelling}`);
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
@@ -44565,8 +44587,8 @@ ${spelling}`);
                         ${runningAsBrowserExtension() ? checkbox("newTabEnabled", "Set Study as the new tab", settings.newTabEnabled) : ""}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: Yomu, accounts, then study words"], ["yomu-local", "Yomu local SRS"], ["jpdb", "API SRS (Jiten / JPDB)"], ["bunpro", "Bunpro"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
-                        ${checkbox("yomuLocalSrsEnabled", "Enable local Yomu SRS", settings.yomuLocalSrsEnabled)}
+                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`], ["yomu-local", ACADEMY_SRS_LABEL], ["jpdb", "API SRS (Jiten / JPDB)"], ["bunpro", "Bunpro"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${checkbox("yomuLocalSrsEnabled", `Enable ${ACADEMY_SRS_LABEL}`, settings.yomuLocalSrsEnabled)}
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
                             ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
@@ -51557,7 +51579,7 @@ ${spelling}`);
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord$5(source)) return track.youtubeTrack ?? source;
+    if (!isRecord$6(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -51565,7 +51587,7 @@ ${spelling}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord$5(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isRecord$6(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -51575,10 +51597,10 @@ ${spelling}`);
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord$5(raw)) return null;
+    if (!isRecord$6(raw)) return null;
     return raw.source ?? null;
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
@@ -53173,7 +53195,7 @@ ${spelling}`);
     if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
     if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
     if (renderOptions.includeBunpro) addDeckChoiceOption(options, "bunpro", "bunpro", "Bunpro");
-    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", "Yomu");
+    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", ACADEMY_SRS_LABEL);
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return "";
     return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join("");
@@ -53241,7 +53263,7 @@ ${spelling}`);
     if (id === "yomu-local") {
       return {
         id: "yomu-local",
-        label: "Yomu",
+        label: ACADEMY_SRS_LABEL,
         deckSource: "yomu-local",
         hasApiKey: settings.yomuLocalSrsEnabled
       };
@@ -53380,7 +53402,7 @@ ${spelling}`);
   function createYomuLocalSrsProviderAdapter(adapter, settings) {
     return {
       id: "yomu-local",
-      label: "Yomu",
+      label: ACADEMY_SRS_LABEL,
       deckSource: "yomu-local",
       hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
       addApiKeyRequiredKey: "yomuLocalSrsDisabled",
@@ -53390,7 +53412,7 @@ ${spelling}`);
       supportsCard: (card) => Boolean(card.spelling.trim()),
       supportsDeckState: () => false,
       selectedDeckId: () => "yomu-local",
-      selectedDeckLabel: () => "Yomu",
+      selectedDeckLabel: () => ACADEMY_SRS_LABEL,
       addToDeck: async (_deckId, card, sentence, context) => {
         await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
       },
@@ -54649,7 +54671,7 @@ ${spelling}`);
   }
   function subtitleFilesFromHostEvent(event) {
     const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
-    const detail = isRecord$4(rawDetail) ? rawDetail : {};
+    const detail = isRecord$5(rawDetail) ? rawDetail : {};
     const explicitJobs = [
       ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
       ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
@@ -54735,7 +54757,7 @@ ${spelling}`);
     if (suffix === "weight") output.textContent = String(Math.round(value));
     else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return Boolean(value && typeof value === "object");
   }
   class SubtitlePlayerController {
@@ -65051,7 +65073,7 @@ ${spelling}`);
       if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: true };
       if (target.kind === "jiten") return { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: true };
       if (target.kind === "bunpro") return { id: "bunpro", label: "Bunpro", deckSource: "bunpro", hasApiKey: true };
-      if (target.kind === "yomu-local") return { id: "yomu-local", label: "Yomu", deckSource: "yomu-local", hasApiKey: true };
+      if (target.kind === "yomu-local") return { id: "yomu-local", label: ACADEMY_SRS_LABEL, deckSource: "yomu-local", hasApiKey: true };
       return fallback;
     }
     apiReviewTarget(provider, language, card) {
@@ -67536,7 +67558,7 @@ ${reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$3(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$4(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record, provider = "immersion-kit") {
     const id = text(record.id);
@@ -67577,18 +67599,18 @@ ${reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$3(data) ? data : null;
+    return isRecord$4(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$3(includes) ? includes.media : void 0;
-    return isRecord$3(media) ? media : {};
+    const media = isRecord$4(includes) ? includes.media : void 0;
+    return isRecord$4(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$3(value)) return null;
+    if (!isRecord$4(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids = nadeshikoExampleIds(value);
@@ -67625,7 +67647,7 @@ ${reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$3(value) ? value : {};
+    return isRecord$4(value) ? value : {};
   }
   function nadeshikoSourceTitle(record, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -67644,7 +67666,7 @@ ${reading}`;
   }
   function nestedText(record, key, fields) {
     const value = record[key];
-    return isRecord$3(value) ? firstText(value, fields) : "";
+    return isRecord$4(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -67682,7 +67704,7 @@ ${reading}`;
   function text(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function titleSlugFromId(id) {
@@ -69276,6 +69298,9 @@ ${reading}`;
       sessionDone: "Done",
       sessionLeft: "Left",
       sessionCached: "Cached",
+      sessionPause: "Pause",
+      sessionResume: "Resume",
+      sessionComplete: "Study time complete",
       syncPending: "⟳ To sync",
       syncSynced: "✓ Synced",
       dailyGoalUnit: "min",
@@ -69339,7 +69364,7 @@ ${reading}`;
       gradeTargetJpdb: "Grades JPDB",
       gradeTargetJiten: "Grades Jiten",
       gradeTargetBunpro: "Grades Bunpro",
-      gradeTargetYomuLocal: "Grades Yomu",
+      gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
@@ -69543,6 +69568,9 @@ ${reading}`;
     sessionDone: "完了",
     sessionLeft: "残り",
     sessionCached: "キャッシュ",
+    sessionPause: "一時停止",
+    sessionResume: "再開",
+    sessionComplete: "学習時間が終わりました",
     syncPending: "⟳ 同期待ち",
     syncSynced: "✓ 同期済み",
     dailyGoalUnit: "分",
@@ -69606,7 +69634,7 @@ ${reading}`;
     gradeTargetJpdb: "JPDBを採点",
     gradeTargetJiten: "Jitenを採点",
     gradeTargetBunpro: "Bunproを採点",
-    gradeTargetYomuLocal: "よむを採点",
+    gradeTargetYomuLocal: "Academyに記録",
     gradeTargetAnki: "Ankiカードを採点: {target}",
     gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
     gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
@@ -72183,9 +72211,9 @@ ${key}`] = { t: now, v: value };
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
-    if (!isRecord$2(payload)) return null;
+    if (!isRecord$3(payload)) return null;
     const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
-    const mainReading = isRecord$2(payload.mainReading) ? payload.mainReading : {};
+    const mainReading = isRecord$3(payload.mainReading) ? payload.mainReading : {};
     const annotatedReading = stringValue(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
@@ -72196,10 +72224,10 @@ ${key}`] = { t: now, v: value };
       spelling,
       reading,
       frequencyRank: nullableInteger(mainReading.frequencyRank),
-      partOfSpeech: stringArray(payload.partsOfSpeech),
+      partOfSpeech: stringArray$1(payload.partsOfSpeech),
       meanings: arrayRecords(payload.definitions).map((definition) => ({
-        glosses: stringArray(definition.meanings ?? definition.englishMeanings).slice(0, 8),
-        partOfSpeech: stringArray(definition.partsOfSpeech ?? definition.pos)
+        glosses: stringArray$1(definition.meanings ?? definition.englishMeanings).slice(0, 8),
+        partOfSpeech: stringArray$1(definition.partsOfSpeech ?? definition.pos)
       })).filter((meaning) => meaning.glosses.length),
       cardState: ["not-in-deck"],
       pitchAccent: pitchPatterns(payload.pitchAccents, reading),
@@ -72240,7 +72268,7 @@ ${key}`] = { t: now, v: value };
     };
   }
   function normalizePublicParseWord(value) {
-    if (!isRecord$2(value)) return null;
+    if (!isRecord$3(value)) return null;
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
@@ -72379,13 +72407,13 @@ ${key}`] = { t: now, v: value };
   function endpointUrl(baseUrl, endpoint) {
     return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, "")}/${endpoint.replace(/^\/+/u, "")}`;
   }
-  function isRecord$2(value) {
+  function isRecord$3(value) {
     return Boolean(value && typeof value === "object");
   }
   function arrayRecords(value) {
-    return Array.isArray(value) ? value.filter(isRecord$2) : [];
+    return Array.isArray(value) ? value.filter(isRecord$3) : [];
   }
-  function stringArray(value) {
+  function stringArray$1(value) {
     if (typeof value === "string") return [value];
     return Array.isArray(value) ? value.filter((item) => typeof item === "string" && Boolean(item.trim())) : [];
   }
@@ -72408,11 +72436,11 @@ ${key}`] = { t: now, v: value };
     log$7.warn(message, context, error);
   }
   function errorName(error) {
-    return isRecord$2(error) && typeof error.name === "string" ? error.name : "";
+    return isRecord$3(error) && typeof error.name === "string" ? error.name : "";
   }
   function errorMessage(error) {
     if (error instanceof Error) return error.message;
-    return isRecord$2(error) && typeof error.message === "string" ? error.message : "";
+    return isRecord$3(error) && typeof error.message === "string" ? error.message : "";
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
   const CARD_STATES = /* @__PURE__ */ new Set([
@@ -74411,8 +74439,8 @@ ${reading}`);
       const extensionAssets = extensionNewTabBrandAssets();
       if (/^(?:moz|chrome|safari-web)-extension:$/u.test(url.protocol) && extensionAssets) return extensionAssets;
       const path = url.pathname.replace(/\/index\.html$/, "/");
-      const newTabIndex = path.lastIndexOf("/newtab/");
-      const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : "/";
+      const routeIndex = Math.max(path.lastIndexOf("/study/"), path.lastIndexOf("/newtab/"));
+      const basePath = routeIndex >= 0 ? path.slice(0, routeIndex + 1) : "/";
       return {
         homeHref: `${basePath}`,
         iconSrc: `${basePath}yomu-icon.svg`
@@ -74916,7 +74944,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function newTabCardSourceLabel(card, language) {
     if (card.source === "anki" || card.reviewSource === "anki") return ankiReviewSourceLabel(card, language);
     if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "Bunpro";
-    if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "Yomu";
+    if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return ACADEMY_SRS_LABEL;
     if (card.source === "fallback") return "Yomu";
     if (card.source === "local" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
     if (isJitenSrsCard(card)) return "Jiten";
@@ -75196,7 +75224,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_SOURCE_LABELS = {
     jpdb: "JPDB",
     bunpro: "Bunpro",
-    "yomu-local": "Yomu",
+    "yomu-local": ACADEMY_SRS_LABEL,
     anki: "Anki",
     dictionary: "Dictionary"
   };
@@ -75591,8 +75619,8 @@ ${options.version}`;
       if (!parsed || parsed.version !== version) return freshSupportBannerPolicyState(version);
       return {
         version,
-        visits: nonNegativeInteger(parsed.visits),
-        nextEligibleVisit: nonNegativeInteger(parsed.nextEligibleVisit),
+        visits: nonNegativeInteger$1(parsed.visits),
+        nextEligibleVisit: nonNegativeInteger$1(parsed.nextEligibleVisit),
         hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
         dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
         lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
@@ -75619,7 +75647,7 @@ ${options.version}`;
       lastShownAt: 0
     };
   }
-  function nonNegativeInteger(value) {
+  function nonNegativeInteger$1(value) {
     return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
   }
   function nonNegativeTimestamp(value) {
@@ -75919,7 +75947,7 @@ ${options.version}`;
     const jpdb = emptyStatsSource("jpdb", "JPDB", "Add JPDB data to see stats.");
     const jiten = emptyStatsSource("jiten", "Jiten", "Add Jiten data to see stats.");
     const bunpro = emptyStatsSource("bunpro", "Bunpro", "Connect Bunpro to see stats.");
-    const yomuLocal = emptyStatsSource("yomu-local", "Yomu", "Local Yomu SRS is ready.");
+    const yomuLocal = emptyStatsSource("yomu-local", ACADEMY_SRS_LABEL, "Academy reviews are ready.");
     const anki = emptyStatsSource("anki", "Anki", "Connect Anki to see stats.");
     return {
       jpdb,
@@ -76389,13 +76417,13 @@ ${options.version}`;
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$1(value)) return [];
+    if (!isRecord$2(value)) return [];
     const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$1(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$2(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review) => review !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -76408,7 +76436,7 @@ ${options.version}`;
         minutes: numberValue(value[5]) / 6e4
       };
     }
-    if (!isRecord$1(value)) return null;
+    if (!isRecord$2(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -76515,7 +76543,7 @@ ${options.version}`;
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
   }
-  function isRecord$1(value) {
+  function isRecord$2(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function renderNewTabStatsContent(options) {
@@ -76901,7 +76929,7 @@ ${options.version}`;
     if (source === "jpdb") return "JPDB";
     if (source === "jiten") return "Jiten";
     if (source === "bunpro") return "Bunpro";
-    if (source === "yomu-local") return "Yomu";
+    if (source === "yomu-local") return ACADEMY_SRS_LABEL;
     return "Anki";
   }
   function renderStatsAnkiDeckToggles(source, text2) {
@@ -77057,7 +77085,7 @@ ${options.version}`;
   }
   function newTabApiGradeTargetShortLabel(summary) {
     if (summary.hasBunpro) return "Bunpro";
-    if (summary.hasYomuLocal) return "Yomu";
+    if (summary.hasYomuLocal) return ACADEMY_SRS_LABEL;
     if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
@@ -78822,6 +78850,206 @@ ${entry.url}`),
       this.key = "";
     }
   }
+  function canonicalStudyCardIdentity(expression, reading = "") {
+    const normalizedExpression = expression.normalize("NFKC").trim();
+    if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
+    const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+    return {
+      key: `${normalizedExpression}\0${normalizedReading}`,
+      expression: normalizedExpression,
+      reading: normalizedReading
+    };
+  }
+  const DEFAULT_STUDY_DURATION_MS = 15 * 60 * 1e3;
+  const MIN_STUDY_DURATION_MS = 60 * 1e3;
+  const MAX_STUDY_DURATION_MS = 3 * 60 * 60 * 1e3;
+  function createStudySessionClock(options = {}) {
+    const durationMs = studySessionDuration(options.durationMs ?? DEFAULT_STUDY_DURATION_MS);
+    const now = options.now ?? (() => Date.now());
+    const tickEveryMs = options.tickEveryMs ?? 1e3;
+    const schedule = options.schedule ?? defaultSchedule;
+    const cancel = options.cancel ?? defaultCancel;
+    const pauseReasons = /* @__PURE__ */ new Set();
+    const listeners = /* @__PURE__ */ new Set();
+    let accumulatedMs = 0;
+    let runningSince = now();
+    let ticker;
+    let disposed = false;
+    const elapsedAt = (time) => {
+      const runningMs = runningSince === null ? 0 : Math.max(0, time - runningSince);
+      return Math.min(durationMs, accumulatedMs + runningMs);
+    };
+    const stopTicker = () => {
+      if (ticker === void 0) return;
+      cancel(ticker);
+      ticker = void 0;
+    };
+    const stateAt = (elapsedMs) => {
+      if (elapsedMs >= durationMs) return "complete";
+      return pauseReasons.size ? "paused" : "running";
+    };
+    const snapshotAt = (time) => {
+      const elapsedMs = elapsedAt(time);
+      const remainingMs = Math.max(0, durationMs - elapsedMs);
+      const state2 = stateAt(elapsedMs);
+      if (state2 === "complete") {
+        accumulatedMs = durationMs;
+        runningSince = null;
+        stopTicker();
+      }
+      return {
+        mode: "countdown",
+        durationMs,
+        elapsedMs,
+        remainingMs,
+        label: formatStudySessionRemaining(remainingMs),
+        state: state2,
+        complete: state2 === "complete",
+        pausedByUser: pauseReasons.has("user"),
+        pausedByVisibility: pauseReasons.has("visibility")
+      };
+    };
+    const notify = () => {
+      const snapshot = snapshotAt(now());
+      listeners.forEach((listener) => listener(snapshot));
+      return snapshot;
+    };
+    const startTicker = () => {
+      if (disposed || ticker !== void 0 || !listeners.size) return;
+      const snapshot = snapshotAt(now());
+      if (snapshot.complete) return;
+      ticker = schedule(notify, tickEveryMs);
+    };
+    const pause = (reason) => {
+      if (disposed) return snapshotAt(now());
+      const time = now();
+      const before = snapshotAt(time);
+      if (before.complete || pauseReasons.has(reason)) return before;
+      if (!pauseReasons.size) {
+        accumulatedMs = before.elapsedMs;
+        runningSince = null;
+      }
+      pauseReasons.add(reason);
+      return notify();
+    };
+    const resume = (reason) => {
+      if (disposed || !pauseReasons.has(reason)) return snapshotAt(now());
+      pauseReasons.delete(reason);
+      if (!pauseReasons.size && accumulatedMs < durationMs) runningSince = now();
+      const snapshot = notify();
+      startTicker();
+      return snapshot;
+    };
+    const visibility = options.visibility;
+    const onVisibilityChange = () => {
+      if (visibility?.hidden) pause("visibility");
+      else resume("visibility");
+    };
+    if (visibility) {
+      visibility.addEventListener("visibilitychange", onVisibilityChange);
+      if (visibility.hidden) {
+        accumulatedMs = 0;
+        runningSince = null;
+        pauseReasons.add("visibility");
+      }
+    }
+    return {
+      mode: "countdown",
+      durationMs,
+      snapshot: () => snapshotAt(now()),
+      pause: (reason = "user") => pause(reason),
+      resume: (reason = "user") => resume(reason),
+      toggleUserPause: () => pauseReasons.has("user") ? resume("user") : pause("user"),
+      setVisible: (visible) => visible ? resume("visibility") : pause("visibility"),
+      subscribe(listener) {
+        if (disposed) throw new Error("Study session clock is disposed.");
+        listeners.add(listener);
+        const snapshot = snapshotAt(now());
+        listener(snapshot);
+        startTicker();
+        return {
+          dispose() {
+            listeners.delete(listener);
+            if (!listeners.size) stopTicker();
+          }
+        };
+      },
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        stopTicker();
+        listeners.clear();
+        visibility?.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+    };
+  }
+  function mountStudySessionClockControl(host, clock, options) {
+    const root = document.createElement("div");
+    root.className = ["jpdb-reader-study-clock", options.className].filter(Boolean).join(" ");
+    root.dataset.studySessionClock = "";
+    const output = document.createElement("output");
+    output.className = ["jpdb-reader-study-clock-output", options.outputClassName].filter(Boolean).join(" ");
+    output.dataset.studyClock = "countdown";
+    output.setAttribute("role", "timer");
+    output.setAttribute("aria-live", "off");
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = ["jpdb-reader-study-clock-toggle", options.buttonClassName].filter(Boolean).join(" ");
+    toggle.dataset.studyClockAction = "toggle";
+    root.append(output, toggle);
+    host.replaceChildren(root);
+    let completeAnnounced = false;
+    const render = (snapshot) => {
+      output.value = snapshot.label;
+      output.textContent = snapshot.label;
+      output.dataset.remainingMs = String(snapshot.remainingMs);
+      output.dataset.elapsedMs = String(snapshot.elapsedMs);
+      output.dataset.clockState = snapshot.state;
+      output.setAttribute("aria-label", snapshot.label);
+      toggle.textContent = snapshot.pausedByUser ? options.labels.resume : options.labels.pause;
+      toggle.setAttribute("aria-label", toggle.textContent);
+      toggle.setAttribute("aria-pressed", String(snapshot.pausedByUser));
+      toggle.disabled = snapshot.complete;
+      if (snapshot.complete && !completeAnnounced) {
+        completeAnnounced = true;
+        options.onComplete?.();
+      }
+    };
+    const subscription = clock.subscribe(render);
+    const onToggle = () => {
+      clock.toggleUserPause();
+    };
+    toggle.addEventListener("click", onToggle);
+    return {
+      dispose() {
+        toggle.removeEventListener("click", onToggle);
+        subscription.dispose();
+        host.replaceChildren();
+      }
+    };
+  }
+  function formatStudySessionRemaining(remainingMs) {
+    const seconds = Math.max(0, Math.ceil(remainingMs / 1e3));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    const displaySeconds = seconds % 60;
+    return hours > 0 ? `${hours}:${padClockPart(minutes)}:${padClockPart(displaySeconds)}` : `${padClockPart(minutes)}:${padClockPart(displaySeconds)}`;
+  }
+  function studySessionDuration(value) {
+    if (!Number.isSafeInteger(value) || value < MIN_STUDY_DURATION_MS || value > MAX_STUDY_DURATION_MS) {
+      throw new TypeError("Study duration must be a whole number of milliseconds from 1 minute to 3 hours.");
+    }
+    return value;
+  }
+  function defaultSchedule(listener, intervalMs) {
+    return typeof window === "undefined" ? -1 : window.setInterval(listener, intervalMs);
+  }
+  function defaultCancel(handle) {
+    if (typeof window !== "undefined" && handle >= 0) window.clearInterval(handle);
+  }
+  function padClockPart(value) {
+    return String(value).padStart(2, "0");
+  }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
   const DEFAULT_SESSION_PROGRESS_LABELS = {
@@ -78831,11 +79059,9 @@ ${entry.url}`),
   };
   class NewTabSessionProgressTracker {
     completedReviews = 0;
-    startedAt;
-    now;
+    clock;
     constructor(options = {}) {
-      this.now = options.now ?? (() => Date.now());
-      this.startedAt = this.now();
+      this.clock = options.clock ?? createStudySessionClock({ now: options.now });
     }
     // UT-57: local undo walks one completed review back.
     recordReviewUndone() {
@@ -78846,32 +79072,27 @@ ${entry.url}`),
       return this.snapshot();
     }
     snapshot(cards = []) {
-      const elapsedMs = Math.max(0, this.now() - this.startedAt);
+      const clock = this.clock.snapshot();
       const sources = SESSION_PROGRESS_SOURCES.map((source) => sessionProgressSourceSnapshot(source, cards));
       return {
         completedReviews: this.completedReviews,
-        elapsedMs,
-        elapsedLabel: formatNewTabSessionElapsed(elapsedMs),
+        elapsedMs: clock.elapsedMs,
+        remainingSessionMs: clock.remainingMs,
+        remainingSessionLabel: clock.label,
+        sessionState: clock.state,
+        sessionComplete: clock.complete,
         remainingCards: countUniqueSessionProgressCards(cards),
         remainingDueCards: countUniqueSessionProgressCards(cards.filter(isDueSessionProgressCard)),
         sources
       };
     }
   }
-  function formatNewTabSessionElapsed(elapsedMs) {
-    const seconds = Math.max(0, Math.floor(elapsedMs / 1e3));
-    const wholeMinutes = Math.floor(seconds / 60);
-    const displaySeconds = seconds % 60;
-    const hours = Math.floor(wholeMinutes / 60);
-    const displayMinutes = wholeMinutes % 60;
-    return hours > 0 ? `${hours}:${padStopwatchPart(displayMinutes)}:${padStopwatchPart(displaySeconds)}` : `${padStopwatchPart(displayMinutes)}:${padStopwatchPart(displaySeconds)}`;
-  }
   function formatNewTabSessionProgressLabel(snapshot, labels = DEFAULT_SESSION_PROGRESS_LABELS) {
     return [
       `${labels.completed} ${snapshot.completedReviews}`,
       `${labels.left} ${snapshot.remainingCards}`,
       `${labels.due} ${snapshot.remainingDueCards}`,
-      snapshot.elapsedLabel
+      snapshot.remainingSessionLabel
     ].join(" · ");
   }
   function newTabSessionProgressRatio(progress) {
@@ -78930,9 +79151,6 @@ ${entry.url}`),
   }
   function sessionProgressFallbackKey(card) {
     return `${card.source ?? ""}:${card.reviewSource ?? ""}:${card.spelling}:${card.reading}`;
-  }
-  function padStopwatchPart(value) {
-    return String(value).padStart(2, "0");
   }
   const NEW_TAB_DAILY_STUDY_TIME_KEY = "jpdb-reader-newtab-daily-study-time";
   function newTabDailyStudyTimeMs(today) {
@@ -79127,8 +79345,15 @@ ${entry.url}`),
     return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
   }
   class NewTabController {
-    constructor(dependencies) {
+    constructor(dependencies, options = {}) {
       this.dependencies = dependencies;
+      this.options = options;
+      this.ownsSessionClock = !options.sessionClock;
+      this.sessionClock = options.sessionClock ?? createStudySessionClock({
+        visibility: typeof document === "undefined" ? void 0 : document
+      });
+      this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
+      this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
       const saved = loadNewTabUiState();
       const routeMode = newTabRouteMode();
       const routeSearchQuery = routeMode === "search" ? newTabRouteSearchQueryFromLocation() : "";
@@ -79205,9 +79430,14 @@ ${entry.url}`),
     immersionAudioPlayer;
     reviewCountMode = false;
     reviewHistoryCards = [];
-    sessionProgress = new NewTabSessionProgressTracker();
-    sessionClockTimer;
+    sessionClock;
+    ownsSessionClock;
+    sessionProgress;
+    sessionClockSubscription;
+    sessionClockControl;
     sessionClockRoot = null;
+    destroyed = false;
+    lastDailyGoalElapsedMs = 0;
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
     deckSelectorDecks;
@@ -79360,12 +79590,14 @@ ${entry.url}`),
     statsDeckPrefsLoaded = false;
     statsDisabledAnkiDecks = /* @__PURE__ */ new Set();
     isCurrentPage() {
-      return isYomuNewTabUrl(location.href);
+      return Boolean(this.options.host) || isYomuNewTabUrl(location.href);
     }
     async renderPage() {
-      document.title = `${APP_NAME} ${this.text("newTabPage")}`;
-      document.documentElement.lang = this.resolvedLanguage();
-      document.documentElement.classList.add("jpdb-reader-newtab-document");
+      if (!this.options.host) {
+        document.title = `${APP_NAME} ${this.text("newTabPage")}`;
+        document.documentElement.lang = this.resolvedLanguage();
+        document.documentElement.classList.add("jpdb-reader-newtab-document");
+      }
       const settings = this.dependencies.getSettings();
       this.syncSourceFromSettings(settings);
       this.applyPalette();
@@ -79379,11 +79611,15 @@ ${entry.url}`),
       delete root.dataset.newtabOptout;
       const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
       if (shouldRenderContent) {
+        this.sessionClockControl?.dispose();
+        this.sessionClockControl = void 0;
         delete root.dataset.standaloneNewtab;
         root.dataset.newtabLanguage = this.resolvedLanguage();
+        root.dataset.studySurface = this.options.surface ?? "standalone";
         root.replaceChildren(this.renderEnabledContent());
         this.syncMode(root);
       }
+      this.ensureSessionClock(root);
       this.syncThemeToggle(root);
       this.syncInstallAppButton(root);
       void this.syncSupportBanner(root);
@@ -79443,19 +79679,26 @@ ${entry.url}`),
       await this.renderPage();
     }
     ensureNewTabRoot() {
-      const root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
+      const root = this.currentRoot();
       if (root) return { root, isNew: false };
       const created = document.createElement("main");
       created.className = "jpdb-reader-newtab";
       created.dataset.jpdbReaderRoot = "true";
-      document.body.replaceChildren(created);
+      if (this.options.host) this.options.host.replaceChildren(created);
+      else document.body.replaceChildren(created);
       return { root: created, isNew: true };
+    }
+    currentRoot() {
+      return this.options.host ? this.options.host.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]") : document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
     }
     shouldRenderEnabledContent(root, isNew) {
       return isNew || !root.querySelector("[data-newtab-study]") || root.dataset.newtabLanguage !== this.resolvedLanguage() || root.dataset.standaloneNewtab === "true";
     }
     destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
       this.stopSessionClock();
+      if (this.ownsSessionClock) this.sessionClock.dispose();
       this.clearListenRecording();
       this.pitchSrs.flushSync();
       this.stateChannel.close();
@@ -79466,11 +79709,11 @@ ${entry.url}`),
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
       this.rootEventController = void 0;
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (root) delete root.dataset.newtabBound;
     }
     async refreshExternalData() {
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (!root) return;
       this.dependencies.dictionaries.invalidateCaches?.();
       this.clearSourceResultCache();
@@ -79486,7 +79729,7 @@ ${entry.url}`),
       const isBunproReview = (card) => card.source === "bunpro" || card.reviewSource === "bunpro-api";
       const configuredSourceCanLoadBunpro = this.state.source === "bunpro" || this.state.source === "auto" && this.canUseBunproSource();
       if (!configuredSourceCanLoadBunpro && !this.allWords.some(isBunproReview)) return;
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (!root) return;
       this.gradeSubmissionInFlight = true;
       root.querySelectorAll('[data-newtab-action="grade"], button[data-action="grade"][data-grade]').forEach((button) => {
@@ -79602,7 +79845,7 @@ ${entry.url}`),
           el(
             "header",
             { class: "jpdb-reader-newtab-topbar" },
-            el(
+            this.options.surface === "academy" ? null : el(
               "div",
               { class: "VPNavBarTitle jpdb-reader-newtab-brand", "data-v-6aa21345": "", "data-v-1168a8e4": "" },
               el(
@@ -79627,6 +79870,10 @@ ${entry.url}`),
             el(
               "div",
               { class: "jpdb-reader-newtab-theme-controls" },
+              this.options.showSessionClockControl === false ? null : el("div", {
+                class: "jpdb-reader-newtab-session-clock-host",
+                dataset: { newtabSessionClockHost: true }
+              }),
               el(
                 "details",
                 { class: "jpdb-reader-newtab-more" },
@@ -80177,6 +80424,7 @@ ${entry.url}`),
       }
     }
     shouldRequestSupportBanner() {
+      if (this.options.surface === "academy") return false;
       try {
         return location.origin === new URL(DOCS_BASE_URL).origin;
       } catch {
@@ -80319,7 +80567,7 @@ ${entry.url}`),
       else this.showPreviousWord();
     }
     navigateStudyStep(direction) {
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       const card = this.visibleWords[this.index];
       if (!root || !card || this.state.mode === "search" || this.state.mode === "stats") return false;
       const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
@@ -81091,7 +81339,7 @@ ${entry.url}`),
         jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource("jpdb", "JPDB", this.text("statsApiKeyMissing"), "setup"),
         jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource("jiten", "Jiten", this.text("statsApiKeyMissing"), "setup"),
         bunpro: this.canUseBunproSource() ? this.loadingStatsSource(this.statsSnapshot.bunpro) : emptyStatsSource("bunpro", "Bunpro", this.text("statsApiKeyMissing"), "setup"),
-        yomuLocal: settings.yomuLocalSrsEnabled ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource("yomu-local", "Yomu", this.text("statsNoData"), "setup"),
+        yomuLocal: settings.yomuLocalSrsEnabled ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource("yomu-local", ACADEMY_SRS_LABEL, this.text("statsNoData"), "setup"),
         anki: this.shouldLoadAnkiStats(settings) ? this.loadingStatsSource(this.statsSnapshot.anki) : emptyStatsSource("anki", "Anki", this.text("statsConnectAnki"), "setup"),
         combined: this.loadingStatsSource(this.statsSnapshot.combined)
       };
@@ -82230,7 +82478,7 @@ ${entry.url}`),
       if (source === "anki") return false;
       if (source === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
       if (source === "bunpro") return result.sourceLabel.startsWith("Bunpro");
-      if (source === "yomu-local") return result.sourceLabel.startsWith("Yomu");
+      if (source === "yomu-local") return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
       return result.sourceLabel === this.text("dictionary");
     }
     cardPrimaryNewTabSource(card) {
@@ -82264,7 +82512,7 @@ ${entry.url}`),
       const preferredCardKey = this.currentVisibleWordKey();
       const sourceChanged = this.state.source !== state2.source;
       this.state = state2;
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (!root) return;
       this.syncMode(root);
       if (sourceChanged) {
@@ -82490,7 +82738,7 @@ ${entry.url}`),
     }
     showPreviousWord() {
       if (this.canUndoLastReview()) {
-        const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+        const root = this.currentRoot();
         if (root) {
           void this.undoLastReview(root);
           return;
@@ -82500,7 +82748,7 @@ ${entry.url}`),
       this.navigateStudyWord(-1);
     }
     navigateStudyWord(direction) {
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (!root || !this.visibleWords.length) return;
       this.dependencies.dismiss({ suppressHoverTarget: false });
       this.navigationGeneration++;
@@ -82796,7 +83044,7 @@ ${entry.url}`),
     }
     // ----- Listen mode: audio-first pitch-accent drills over a local pitch SRS -----
     listenRootEl() {
-      return document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      return this.currentRoot();
     }
     renderListenPrompt(slots, card) {
       const prompt = slots.prompt;
@@ -83156,7 +83404,7 @@ ${entry.url}`),
           completed: this.text("sessionDone"),
           left: this.text("sessionLeft"),
           due: this.text("statsDue")
-        }) : this.sessionElapsedLabel(),
+        }) : this.sessionProgress.snapshot([]).remainingSessionLabel,
         snapshot ? this.offlineCacheSegment() : "",
         snapshot ? this.syncStatusSegment() : "",
         this.dailyGoalLabel()
@@ -83167,12 +83415,6 @@ ${entry.url}`),
         return;
       }
       this.renderCount(slots.count, labels.join(" · "), snapshot);
-    }
-    // The session stopwatch was previously only stamped at render time, so it
-    // looked frozen (user-reported "session timer missing"); a 1s clock keeps
-    // it ticking and accumulates visible-tab time into the daily goal.
-    sessionElapsedLabel() {
-      return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
     }
     // "cached N/M" — how many of the session's review cards are warmed for offline
     // study (definition + meta + pitch) out of the warm target. Collapses to a
@@ -83269,29 +83511,42 @@ ${entry.url}`),
       });
     }
     ensureSessionClock(root) {
-      this.sessionClockRoot = root;
-      if (this.sessionClockTimer !== void 0 || typeof window === "undefined") return;
-      this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1e3);
+      if (this.destroyed) return;
+      if (this.sessionClockRoot !== root) {
+        this.stopSessionClock();
+        this.sessionClockRoot = root;
+        this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
+        this.sessionClockSubscription = this.sessionClock.subscribe((snapshot) => this.tickSessionClock(snapshot));
+      }
+      if (this.options.showSessionClockControl === false || this.sessionClockControl) return;
+      const host = root.querySelector("[data-newtab-session-clock-host]");
+      if (!host) return;
+      this.sessionClockControl = mountStudySessionClockControl(host, this.sessionClock, {
+        labels: {
+          pause: this.text("sessionPause"),
+          resume: this.text("sessionResume")
+        },
+        className: "jpdb-reader-newtab-session-clock"
+      });
     }
     stopSessionClock() {
-      if (this.sessionClockTimer === void 0) return;
-      if (typeof window !== "undefined") window.clearInterval(this.sessionClockTimer);
-      this.sessionClockTimer = void 0;
+      this.sessionClockSubscription?.dispose();
+      this.sessionClockSubscription = void 0;
+      this.sessionClockControl?.dispose();
+      this.sessionClockControl = void 0;
       this.sessionClockRoot = null;
     }
-    tickSessionClock() {
-      if (typeof document === "undefined" || !this.isVocabularyStudyMode(this.state.mode)) {
-        this.stopSessionClock();
-        return;
-      }
-      if (document.hidden) return;
-      addNewTabDailyStudyTimeMs(1e3, newTabLocalDateKey());
+    tickSessionClock(snapshot) {
+      const studiedMs = Math.max(0, snapshot.elapsedMs - this.lastDailyGoalElapsedMs);
+      this.lastDailyGoalElapsedMs = snapshot.elapsedMs;
+      if (studiedMs > 0) addNewTabDailyStudyTimeMs(studiedMs, newTabLocalDateKey());
       const root = this.sessionClockRoot;
       const card = this.visibleWords[this.index];
-      if (!root?.isConnected || !card) {
+      if (!root?.isConnected) {
         this.stopSessionClock();
         return;
       }
+      if (!card || !this.isVocabularyStudyMode(this.state.mode)) return;
       this.renderSessionProgress(this.studySlots(root), card, root);
     }
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
@@ -83343,7 +83598,7 @@ ${entry.url}`),
       if (summary.hasJiten) add("Jiten");
       if (summary.hasJpdb) add("JPDB");
       if (summary.hasBunpro) add("Bunpro");
-      if (summary.hasYomuLocal) add("Yomu");
+      if (summary.hasYomuLocal) add(ACADEMY_SRS_LABEL);
       if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten || summary.hasBunpro || summary.hasYomuLocal ? "Anki" : this.ankiReviewSourceLabel(card));
       return labels;
     }
@@ -83411,7 +83666,7 @@ ${entry.url}`),
       return true;
     }
     sourceSelectForStatus(statusSlot) {
-      return statusSlot?.parentElement?.querySelector("[data-newtab-source-select]") ?? document.querySelector("[data-jpdb-reader-root] [data-newtab-source-select]");
+      return statusSlot?.parentElement?.querySelector("[data-newtab-source-select]") ?? this.currentRoot()?.querySelector("[data-newtab-source-select]") ?? null;
     }
     clearSourceSelector(statusSlot) {
       const select2 = this.sourceSelectForStatus(statusSlot);
@@ -83514,7 +83769,7 @@ ${entry.url}`),
       if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push("dictionary");
       return this.unifyStarterSourceToggle(sources, card, context);
     }
-    // Keyless, "Yomu" (yomu-local SRS) and "Dictionary" both resolve to the same
+    // Keyless, "Academy" (yomu-local SRS) and "Dictionary" both resolve to the same
     // built-in starter-word queue — no reviews are due and no dictionary is
     // imported, so both flags are on-by-default yet neither carries distinct
     // content. Offering both in the dropdown reads as a meaningless duplicate
@@ -83656,7 +83911,7 @@ ${entry.url}`),
     sourceToggleLabel(source) {
       if (source === "jpdb") return this.jpdbSourceToggleLabel();
       if (source === "bunpro") return "Bunpro";
-      if (source === "yomu-local") return "Yomu";
+      if (source === "yomu-local") return ACADEMY_SRS_LABEL;
       if (source === "anki") return "Anki";
       return this.text("dictionary");
     }
@@ -83694,8 +83949,11 @@ ${entry.url}`),
       clearSessionProgressDataset(countSlot.dataset);
       if (!progress) return;
       countSlot.dataset.sessionCompletedReviews = String(progress.completedReviews);
-      countSlot.dataset.sessionElapsed = progress.elapsedLabel;
       countSlot.dataset.sessionElapsedMs = String(progress.elapsedMs);
+      countSlot.dataset.sessionRemaining = progress.remainingSessionLabel;
+      countSlot.dataset.sessionRemainingMs = String(progress.remainingSessionMs);
+      countSlot.dataset.sessionClockState = progress.sessionState;
+      countSlot.dataset.sessionComplete = String(progress.sessionComplete);
       countSlot.dataset.sessionRemainingCards = String(progress.remainingCards);
       countSlot.dataset.sessionRemainingDueCards = String(progress.remainingDueCards);
       for (const source of progress.sources) {
@@ -86690,7 +86948,7 @@ ${entry.url}`),
       this.renderBrowseResults(mount);
     }
     refreshBrowseAfterCardMutation(_card) {
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       if (!root || this.state.mode !== "search") return;
       this.invalidateBrowsePool();
       void this.renderBrowseInto(root);
@@ -86746,7 +87004,7 @@ ${entry.url}`),
           jpdb: "JPDB",
           jiten: "Jiten",
           bunpro: "Bunpro",
-          yomuLocal: "Yomu",
+          yomuLocal: ACADEMY_SRS_LABEL,
           anki: "Anki"
         }),
         renderBrowseChips(cards, this.browseFilters, language, this.text("browseAllChip")),
@@ -87275,9 +87533,10 @@ ${entry.url}`),
       if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
       if (this.gradeSubmissionInFlight) return false;
       this.gradeSubmissionInFlight = true;
-      const gradeButtons = Array.from(document.querySelectorAll(
-        '[data-jpdb-reader-root].jpdb-reader-newtab [data-newtab-action="grade"], button[data-action="grade"][data-grade]'
-      ));
+      const gradeButtons = [
+        ...Array.from(this.currentRoot()?.querySelectorAll('[data-newtab-action="grade"]') ?? []),
+        ...Array.from(document.querySelectorAll('button[data-action="grade"][data-grade]'))
+      ];
       gradeButtons.forEach((button) => {
         button.disabled = true;
       });
@@ -87374,7 +87633,7 @@ ${entry.url}`),
       return queueableNewTabReviewTargets(error.failures.map((failure) => failure.target));
     }
     currentGradeTarget() {
-      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const root = this.currentRoot();
       const card = this.visibleWords[this.index];
       return root && card ? { root, card } : null;
     }
@@ -87539,7 +87798,7 @@ ${entry.url}`),
       this.renderPromptSlot(slots.prompt, this.text("batchComplete"), resolveUiLanguage(this.language()) === "ja" ? "ja" : "en");
       setOptionalText(slots.answer, "");
       const snapshot = this.sessionProgress.snapshot([]);
-      setOptionalText(slots.meaning, `${this.text("sessionDone")} ${snapshot.completedReviews} · ${snapshot.elapsedLabel}`);
+      setOptionalText(slots.meaning, `${this.text("sessionDone")} ${snapshot.completedReviews}`);
       this.renderCount(slots.count, "");
       setOptionalText(slots.status, "");
       if (slots.controls) {
@@ -87855,7 +88114,7 @@ ${entry.url}`),
     }
     jpdbBridgeRoot() {
       if (this.state.source !== "jpdb" && this.state.source !== "auto") return null;
-      return document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      return this.currentRoot();
     }
     upsertLiveJpdbCard(card) {
       const existingIndex = this.allWords.findIndex((item) => item.reviewSource === "jpdb-live");
@@ -90049,7 +90308,7 @@ ${entry.url}`),
     };
   }
   function normalizeBunproStatsResponse(raw, due) {
-    const source = isRecord(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
+    const source = isRecord$1(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
     return {
       providerId: "bunpro",
       fetchedAt: Date.now(),
@@ -90168,12 +90427,12 @@ ${entry.url}`),
     return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
   }
   function collectBunproQuizIndexEntries(raw) {
-    if (!isRecord(raw)) return [];
+    if (!isRecord$1(raw)) return [];
     const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
     return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
   }
   function flattenBunproQuizIndexEntry(entry) {
-    if (!isRecord(entry)) return null;
+    if (!isRecord$1(entry)) return null;
     const review = objectAt(entry, "data");
     if (!review) return null;
     const attributes = objectAt(review, "attributes") ?? {};
@@ -90210,14 +90469,14 @@ ${entry.url}`),
     const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
     const included = readArray(entry, ["included"]);
     for (const item of included) {
-      if (!isRecord(item) || readString(item, ["type"]) !== wantedKind) continue;
+      if (!isRecord$1(item) || readString(item, ["type"]) !== wantedKind) continue;
       const attributes = objectAt(item, "attributes");
       if (attributes) return attributes;
     }
     return {};
   }
   function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
-    const record = isRecord(raw) ? raw : {};
+    const record = isRecord$1(raw) ? raw : {};
     const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
     const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
     if (!hits.length) return null;
@@ -90242,18 +90501,18 @@ ${entry.url}`),
   }
   function reviewableRecord(raw) {
     const unwrapped = unwrapBunproData(raw);
-    if (!isRecord(unwrapped)) return null;
+    if (!isRecord$1(unwrapped)) return null;
     const attributes = objectAt(unwrapped, "attributes");
     return attributes ? { ...unwrapped, ...attributes } : unwrapped;
   }
   function unwrapBunproData(value) {
-    if (!isRecord(value)) return value;
+    if (!isRecord$1(value)) return value;
     const data = value.data;
-    if (isRecord(data) && !Array.isArray(data)) return data;
+    if (isRecord$1(data) && !Array.isArray(data)) return data;
     const review = value.review;
-    if (isRecord(review)) return review;
+    if (isRecord$1(review)) return review;
     const item = value.item;
-    if (isRecord(item)) return item;
+    if (isRecord$1(item)) return item;
     return value;
   }
   function normalizeBunproKind(value, fallback) {
@@ -90308,19 +90567,19 @@ ${entry.url}`),
     return Number.isFinite(parsed) ? parsed : null;
   }
   function readFirstNumber(value, keys) {
-    const record = isRecord(value) ? value : null;
+    const record = isRecord$1(value) ? value : null;
     if (!record) return void 0;
     for (const key of keys) {
       const number = Number(record[key]);
       if (Number.isFinite(number)) return number;
     }
     const data = record.data;
-    if (isRecord(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
+    if (isRecord$1(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
     const attributes = objectAt(record, "attributes");
     return attributes ? readFirstNumber(attributes, keys) : void 0;
   }
   function readBoolean(value, keys) {
-    const record = isRecord(value) ? value : null;
+    const record = isRecord$1(value) ? value : null;
     if (!record) return false;
     for (const key of keys) {
       const raw = record[key];
@@ -90328,12 +90587,12 @@ ${entry.url}`),
       if (raw === 1 || raw === "1" || raw === "true") return true;
     }
     const data = record.data;
-    if (isRecord(data) && !Array.isArray(data)) return readBoolean(data, keys);
+    if (isRecord$1(data) && !Array.isArray(data)) return readBoolean(data, keys);
     const attributes = objectAt(record, "attributes");
     return attributes ? readBoolean(attributes, keys) : false;
   }
   function readString(value, keys) {
-    const record = isRecord(value) ? value : null;
+    const record = isRecord$1(value) ? value : null;
     if (!record) return "";
     for (const key of keys) {
       const raw = record[key];
@@ -90341,11 +90600,11 @@ ${entry.url}`),
       if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
     }
     const data = record.data;
-    if (isRecord(data) && !Array.isArray(data)) return readString(data, keys);
+    if (isRecord$1(data) && !Array.isArray(data)) return readString(data, keys);
     return "";
   }
   function readStringList(value, keys) {
-    const record = isRecord(value) ? value : null;
+    const record = isRecord$1(value) ? value : null;
     if (!record) return [];
     for (const key of keys) {
       const raw = record[key];
@@ -90355,58 +90614,280 @@ ${entry.url}`),
     return [];
   }
   function readArray(value, keys) {
-    const record = isRecord(value) ? value : null;
+    const record = isRecord$1(value) ? value : null;
     if (!record) return [];
     for (const key of keys) {
       const raw = record[key];
       if (Array.isArray(raw)) return raw;
     }
     const data = record.data;
-    if (isRecord(data) && !Array.isArray(data)) return readArray(data, keys);
+    if (isRecord$1(data) && !Array.isArray(data)) return readArray(data, keys);
     return [];
   }
   function objectAt(value, key) {
-    if (!isRecord(value)) return null;
+    if (!isRecord$1(value)) return null;
     const nested = value[key];
-    return isRecord(nested) && !Array.isArray(nested) ? nested : null;
+    return isRecord$1(nested) && !Array.isArray(nested) ? nested : null;
   }
-  function isRecord(value) {
+  function isRecord$1(value) {
     return Boolean(value && typeof value === "object");
   }
+  function normalizeStoredYomuSrsDeck(value) {
+    if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
+    const cards = {};
+    for (const candidate of Object.values(value.cards)) {
+      const normalized = normalizeStoredCard(candidate);
+      if (!normalized) continue;
+      cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
+    }
+    return { version: 1, cards };
+  }
+  function mergeStoredYomuSrsCards(existing, incoming) {
+    const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
+    const schedule = preferredSchedule(existing, incoming);
+    return {
+      ...schedule,
+      id: identity.key,
+      expression: identity.expression,
+      reading: identity.reading,
+      meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
+      sentence: existing.sentence || incoming.sentence,
+      sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
+      sourceCardId: existing.sourceCardId || incoming.sourceCardId,
+      sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+      tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
+      createdAt: Math.min(existing.createdAt, incoming.createdAt),
+      updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
+      reviews: Math.max(existing.reviews, incoming.reviews),
+      lapses: Math.max(existing.lapses, incoming.lapses),
+      retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
+      academyProvenance: {
+        ...incoming.academyProvenance ?? {},
+        ...existing.academyProvenance ?? {}
+      }
+    };
+  }
+  function upsertAcademyVocabulary(deck, input2, now) {
+    const identity = canonicalStudyCardIdentity(input2.expression, input2.reading);
+    const meanings = uniqueText(input2.meanings);
+    if (!meanings.length) throw new TypeError("Academy vocabulary needs at least one meaning.");
+    const provenance = normalizeProvenance(input2.provenance, now);
+    const existing = deck.cards[identity.key];
+    const previousProvenance = existing?.academyProvenance?.[provenance.id];
+    if (previousProvenance && !sameProvenance(previousProvenance, provenance)) {
+      throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance.id}`);
+    }
+    const incoming = {
+      id: identity.key,
+      expression: identity.expression,
+      reading: identity.reading,
+      meanings,
+      sentence: cleanOptional(input2.sentence),
+      tags: ["academy"],
+      dueAt: now,
+      lastReviewAt: null,
+      createdAt: now,
+      updatedAt: now,
+      reviews: 0,
+      lapses: 0,
+      intervalDays: 0,
+      ease: 2.5,
+      retainWithoutAcademyProvenance: false,
+      academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
+    };
+    const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+    deck.cards[identity.key] = card;
+    return {
+      card,
+      cardCreated: !existing,
+      provenanceAdded: !previousProvenance,
+      provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+    };
+  }
+  function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
+    const direct = deck.cards[cardId];
+    const card = direct ?? Object.values(deck.cards).find((candidate) => candidate.academyProvenance?.[provenanceId]);
+    if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
+    if (!card.academyProvenance?.[provenanceId]) {
+      return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
+    }
+    const academyProvenance = { ...card.academyProvenance };
+    delete academyProvenance[provenanceId];
+    const remaining = Object.keys(academyProvenance).length;
+    if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
+      delete deck.cards[card.id];
+      return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
+    }
+    const updated = {
+      ...card,
+      updatedAt: now,
+      tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
+      academyProvenance
+    };
+    deck.cards[card.id] = updated;
+    const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
+    return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
+  }
+  function normalizeStoredCard(value) {
+    if (!isRecord(value) || typeof value.expression !== "string") return null;
+    let identity;
+    try {
+      identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
+    } catch {
+      return null;
+    }
+    const createdAt = finiteNumber(value.createdAt, 0);
+    const updatedAt = finiteNumber(value.updatedAt, createdAt);
+    return {
+      id: identity.key,
+      expression: identity.expression,
+      reading: identity.reading,
+      meanings: stringArray(value.meanings),
+      ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
+      ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
+      ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
+      ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+      tags: stringArray(value.tags),
+      dueAt: finiteNumber(value.dueAt, createdAt),
+      lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
+      createdAt,
+      updatedAt,
+      reviews: nonNegativeInteger(value.reviews),
+      lapses: nonNegativeInteger(value.lapses),
+      intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
+      ease: finiteNumber(value.ease, 2.5),
+      retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
+      academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+    };
+  }
+  function preferredSchedule(left, right) {
+    if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
+    const leftReviewed = left.lastReviewAt ?? -1;
+    const rightReviewed = right.lastReviewAt ?? -1;
+    if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
+    if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
+    return left.updatedAt >= right.updatedAt ? left : right;
+  }
+  function normalizeProvenance(value, addedAt) {
+    const id = requiredText(value.id, "Academy vocabulary provenance id");
+    if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
+      throw new TypeError("Academy vocabulary provenance kind is invalid.");
+    }
+    return {
+      id,
+      kind: value.kind,
+      addedAt,
+      ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
+      ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
+      ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
+      ...value.reason ? { reason: value.reason } : {}
+    };
+  }
+  function normalizeProvenanceRecord(value, fallbackAt) {
+    if (!isRecord(value)) return {};
+    const result = {};
+    for (const candidate of Object.values(value)) {
+      if (!isRecord(candidate)) continue;
+      try {
+        const normalized = normalizeProvenance({
+          id: String(candidate.id ?? ""),
+          kind: candidate.kind,
+          ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
+          ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
+          ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
+          ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+        }, finiteNumber(candidate.addedAt, fallbackAt));
+        result[normalized.id] = normalized;
+      } catch {
+      }
+    }
+    return result;
+  }
+  function sameProvenance(left, right) {
+    return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId && left.reason === right.reason;
+  }
+  function retainsWithoutAcademy(card) {
+    return card.retainWithoutAcademyProvenance !== false;
+  }
+  function hasStudyHistory(card) {
+    return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
+  }
+  function requiredText(value, label) {
+    const normalized = value.trim();
+    if (!normalized) throw new TypeError(`${label} is required.`);
+    return normalized;
+  }
+  function cleanOptional(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : void 0;
+  }
+  function stringArray(value) {
+    return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
+  }
+  function uniqueText(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
+  function finiteNumber(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  }
+  function nonNegativeInteger(value) {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  }
+  function isRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
-  const EMPTY_DECK = { version: 1, cards: {} };
+  let localDeckMutation = Promise.resolve();
   class LocalYomuSrsRepository {
     constructor(now = () => Date.now()) {
       this.now = now;
     }
     async importBatch(batch) {
-      const deck = await this.readDeck();
-      let imported = 0;
-      let skipped = 0;
-      for (const item of batch.items) {
-        const card = this.cardFromImportItem(item, batch.importedAt);
-        if (!card) {
-          skipped++;
-          continue;
+      return this.mutateDeck((deck) => {
+        let imported = 0;
+        let skipped = 0;
+        for (const item of batch.items) {
+          const card = this.cardFromImportItem(item, batch.importedAt);
+          if (!card) {
+            skipped++;
+            continue;
+          }
+          const existing = deck.cards[card.id];
+          deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
+          if (existing) skipped++;
+          else imported++;
         }
-        const existing = deck.cards[card.id];
-        if (existing) {
-          deck.cards[card.id] = {
-            ...existing,
-            meanings: uniqueStrings([...existing.meanings, ...card.meanings]),
-            sentence: existing.sentence || card.sentence,
-            sourceUrl: existing.sourceUrl || card.sourceUrl,
-            tags: uniqueStrings([...existing.tags ?? [], ...card.tags ?? []]),
-            updatedAt: batch.importedAt
-          };
-          skipped++;
-        } else {
-          deck.cards[card.id] = card;
-          imported++;
-        }
-      }
-      await this.writeDeck(deck);
-      return { imported, skipped };
+        return { imported, skipped };
+      });
+    }
+    /** Atomically upserts one semantic card and one idempotent Academy provenance. */
+    async collectAcademyVocabulary(input2) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const result = upsertAcademyVocabulary(deck, input2, now);
+        return {
+          cardId: result.card.id,
+          cardCreated: result.cardCreated,
+          provenanceAdded: result.provenanceAdded,
+          provenanceCount: result.provenanceCount,
+          card: this.toReviewable(result.card, now)
+        };
+      });
+    }
+    /**
+     * Removes only the requested provenance. Independent, multiply-sourced,
+     * or reviewed cards are retained even when their final Academy source is undone.
+     */
+    async removeAcademyVocabularyProvenance(cardId, provenanceId) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const result = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
+        return {
+          provenanceRemoved: result.provenanceRemoved,
+          cardDeleted: result.cardDeleted,
+          reason: result.reason,
+          ...result.card ? { card: this.toReviewable(result.card, now) } : {}
+        };
+      });
     }
     // fallow-ignore-next-line unused-class-member
     async queue(limit = 50) {
@@ -90446,13 +90927,15 @@ ${entry.url}`),
     }
     // fallow-ignore-next-line unused-class-member
     async review(request) {
-      const deck = await this.readDeck();
-      const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
-      const existing = deck.cards[id] ?? this.cardFromReviewable(request.card, this.now());
-      const updated = scheduleReviewedCard(existing, request.grade, this.now());
-      deck.cards[id] = updated;
-      await this.writeDeck(deck);
-      return { card: this.toReviewable(updated, this.now()), raw: updated };
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+        const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
+        const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
+        if (request.card.providerCardId !== identity.key) delete deck.cards[request.card.providerCardId];
+        deck.cards[identity.key] = updated;
+        return { card: this.toReviewable(updated, now), raw: updated };
+      });
     }
     // fallow-ignore-next-line unused-class-member
     async mine(request) {
@@ -90471,22 +90954,39 @@ ${entry.url}`),
       });
       return { card, raw };
     }
-    async readDeck() {
+    readDeck() {
+      const result = localDeckMutation.then(() => this.readDeckUncoordinated());
+      localDeckMutation = result.then(() => void 0, () => void 0);
+      return result;
+    }
+    async readDeckUncoordinated() {
       const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-      if (!stored || stored.version !== 1 || !stored.cards || typeof stored.cards !== "object") return { ...EMPTY_DECK, cards: {} };
-      return { version: 1, cards: normalizeStoredCards(stored.cards) };
+      return normalizeStoredYomuSrsDeck(stored);
     }
     writeDeck(deck) {
       return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
     }
+    mutateDeck(operation) {
+      const result = localDeckMutation.then(async () => {
+        const deck = await this.readDeckUncoordinated();
+        const value = operation(deck);
+        await this.writeDeck(deck);
+        return value;
+      });
+      localDeckMutation = result.then(() => void 0, () => void 0);
+      return result;
+    }
     cardFromImportItem(item, now) {
-      const expression = item.expression.trim();
-      if (!expression) return null;
-      const reading = item.reading?.trim() || expression;
+      let identity;
+      try {
+        identity = canonicalStudyCardIdentity(item.expression, item.reading);
+      } catch {
+        return null;
+      }
       return {
-        id: item.sourceProviderId && item.sourceCardId ? `${item.sourceProviderId}:${item.sourceCardId}` : localCardId(expression, reading),
-        expression,
-        reading,
+        id: identity.key,
+        expression: identity.expression,
+        reading: identity.reading,
         meanings: uniqueStrings(item.meanings ?? []),
         sentence: item.sentence?.trim() || void 0,
         sourceProviderId: item.sourceProviderId,
@@ -90500,14 +91000,17 @@ ${entry.url}`),
         reviews: 0,
         lapses: 0,
         intervalDays: 0,
-        ease: 2.5
+        ease: 2.5,
+        retainWithoutAcademyProvenance: true,
+        academyProvenance: {}
       };
     }
     cardFromReviewable(card, now) {
+      const identity = canonicalStudyCardIdentity(card.expression, card.reading);
       return {
-        id: card.providerCardId || localCardId(card.expression, card.reading),
-        expression: card.expression,
-        reading: card.reading || card.expression,
+        id: identity.key,
+        expression: identity.expression,
+        reading: identity.reading,
         meanings: card.meanings.flatMap((meaning) => meaning.glosses),
         sourceProviderId: card.providerId,
         sourceCardId: card.providerCardId,
@@ -90519,7 +91022,9 @@ ${entry.url}`),
         reviews: 0,
         lapses: 0,
         intervalDays: 0,
-        ease: 2.5
+        ease: 2.5,
+        retainWithoutAcademyProvenance: true,
+        academyProvenance: {}
       };
     }
     toReviewable(card, now) {
@@ -90543,7 +91048,8 @@ ${entry.url}`),
   function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
     return {
       id: "yomu-local",
-      label: "Yomu",
+      // The stored provider id stays yomu-local for migration compatibility.
+      label: ACADEMY_SRS_LABEL,
       capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
       hasCredential: () => true,
       verify: async () => true,
@@ -90580,27 +91086,20 @@ ${entry.url}`),
     return 0;
   }
   function reviewableFromMiningRequest(request, now) {
-    const expression = request.expression.trim();
-    const reading = request.reading?.trim() || expression;
+    const identity = canonicalStudyCardIdentity(request.expression, request.reading);
     return {
       providerId: "yomu-local",
-      providerCardId: localCardId(expression, reading),
-      providerReviewId: localCardId(expression, reading),
+      providerCardId: identity.key,
+      providerReviewId: identity.key,
       kind: request.kind ?? "vocabulary",
-      expression,
-      reading,
+      expression: identity.expression,
+      reading: identity.reading,
       meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
       state: ["new"],
       dueAt: now,
       lastReviewAt: null,
       sourceUrl: request.sourceUrl
     };
-  }
-  function normalizeStoredCards(cards) {
-    return Object.fromEntries(Object.entries(cards).filter(([, card]) => Boolean(card?.id && card.expression)));
-  }
-  function localCardId(expression, reading) {
-    return `${expression.trim()}\0${reading.trim() || expression.trim()}`;
   }
   function meaningsFromGlosses(glosses) {
     const normalized = uniqueStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
@@ -90667,6 +91166,9 @@ ${entry.url}`),
     addWindowEventListener("pagehide", () => app.destroy(), { once: true });
   }
   class NewTabRuntime {
+    constructor(options = {}) {
+      this.options = options;
+    }
     unsubscribeCardStateSignals;
     unsubscribeSettingsStorageChanges;
     settings = DEFAULT_SETTINGS;
@@ -90862,11 +91364,14 @@ ${entry.url}`),
     });
     async init() {
       this.isDestroyed = false;
-      markNewTabRuntime();
+      if (!this.options.mountHost) markNewTabRuntime();
       this.installExternalRefreshListener();
       configureLogger({ settingsProvider: () => this.settings });
       this.factoryReset.bind();
       this.settings = await loadSettings();
+      if (this.options.interfaceLanguage) {
+        this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
+      }
       configureLogger({ forceEnabled: this.settings.enableLogging });
       log.info("Settings loaded", loggingSettingsSummary(this.settings));
       this.applyTheme();
@@ -91086,6 +91591,11 @@ ${entry.url}`),
         showSettings: (panel) => this.showSettings(panel),
         dismissLookup: () => this.dismissLookupPopover(),
         dismiss: () => this.dismiss()
+      }, {
+        host: this.options.mountHost,
+        surface: this.options.mountHost ? "academy" : "standalone",
+        sessionClock: this.options.sessionClock,
+        showSessionClockControl: !this.options.mountHost
       });
     }
     setImmersionTranslationBlurred(blurred) {
