@@ -1296,7 +1296,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow-wrap: normal !important;
-  transform: translate(-50%, var(--jpdb-reader-detached-lift, 0px)) !important;
+  transform: translateX(-50%) !important;
   pointer-events: none;
   text-decoration: none !important;
 }

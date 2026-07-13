@@ -36,6 +36,10 @@ const VOCABULARY = [
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
+    ['並べ替え', '並べ替え', 'ならべかえ', 'sort', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['注目順', '注目順', 'ちゅうもくじゅん', 'hot', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['新しい順', '新しい順', 'あたらしいじゅん', 'new', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['賛成票数順', '賛成票数順', 'さんせいひょうすうじゅん', 'most votes', ['noun'], 100, ['not-in-deck'], ['LHHHHHH']],
     ['告知', '告知', 'こくち', 'announcement', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['賛成票', '賛成票', 'さんせいひょう', 'upvote', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['コメント', 'コメント', 'コメント', 'comment', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
@@ -83,6 +87,8 @@ body { display: grid; place-items: start center; }
 .post-meta time { display: inline-block; height: 20px; max-height: 20px; overflow: hidden; }
 .post-actions { margin-top: 18px; }
 #subreddit, #punctuation { display: inline-block; margin-right: 10px; }
+.foreign-stack { margin-top: 12px; }
+.foreign-row { box-sizing: border-box; height: 28px; font: 600 28px/28px system-ui, sans-serif; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -93,6 +99,7 @@ body { display: grid; place-items: start center; }
       <button id="create-post" class="safe-control" type="button">＋ 投稿を作成</button>
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
+    <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><div id="foreign-jp" class="foreign-row" role="menuitem">共有</div></div>
     <div class="feed-tools"><span>フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
     <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
@@ -133,8 +140,12 @@ class RedditSortControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}</style><button id="sort" type="button">賛成票率順⌄</button>';
-    root.getElementById('sort').addEventListener('click', () => { window.__redditSmokeClicks.sort += 1; });
+    root.innerHTML = '<style>:host{position:relative}.menu{position:absolute;inset-inline-end:0;z-index:3;width:320px;padding:8px 14px;background:#111a1d;border:1px solid #343d42;border-radius:14px}button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}.menu[hidden]{display:none}.menu-heading,.menu-option{box-sizing:border-box;height:28px;font:600 28px/28px system-ui;white-space:nowrap}</style><button id="sort" type="button" aria-haspopup="menu" aria-expanded="false">賛成票率順⌄</button><div id="sort-menu" class="menu" role="menu" hidden><div id="menu-heading" class="menu-heading">並べ替え</div><div id="menu-hot" class="menu-option" role="menuitem">注目順</div><div id="menu-new" class="menu-option" role="menuitem">新しい順</div><div id="menu-votes" class="menu-option" role="menuitem">賛成票数順</div></div>';
+    root.getElementById('sort').addEventListener('click', () => {
+      window.__redditSmokeClicks.sort += 1;
+      root.getElementById('sort-menu').hidden = false;
+      root.getElementById('sort').setAttribute('aria-expanded', 'true');
+    });
   }
 }
 customElements.define('reddit-sort-control', RedditSortControl);
@@ -227,6 +238,9 @@ async function runEngine(engineName, browser) {
             join.click();
             sort.click();
         });
+        await page.locator('#menu-heading .jpdb-reader-word').waitFor({ timeout: 20_000 });
+        await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
+        await page.waitForTimeout(400);
 
         const snapshot = await snapshotRedditRegression(page);
         const touchHover = await snapshotTouchHoverSafety(page);
@@ -300,15 +314,21 @@ async function snapshotRedditRegression(page) {
         metadata: ['#card-metadata', '賛成票・コメント'],
         time: ['#post-meta', '時間前'],
         share: ['#share', '共有'],
+        foreign: ['#foreign-jp', '共有'],
+        menuHeading: ['#menu-heading', '並べ替え'],
+        menuHot: ['#menu-hot', '注目順'],
+        menuNew: ['#menu-new', '新しい順'],
+        menuVotes: ['#menu-votes', '賛成票数順'],
     };
     const labelEntries = await Promise.all(Object.entries(specs).map(async ([name, [selector, expected]]) => [
         name,
         await page.locator(selector).evaluate(snapshotRedditElement, expected),
     ]));
-    const [subreddit, punctuation, summary] = await Promise.all([
+    const [subreddit, punctuation, summary, menuSafety] = await Promise.all([
         page.locator('#subreddit').evaluate(snapshotRedditElement, null),
         page.locator('#punctuation').evaluate(snapshotRedditElement, null),
         page.evaluate(snapshotRedditPageSummary),
+        page.locator('reddit-sort-control').evaluate(snapshotSortMenuSafety),
     ]);
     return {
         labels: Object.fromEntries(labelEntries),
@@ -318,6 +338,7 @@ async function snapshotRedditRegression(page) {
             subredditText: subreddit.visibleText,
             punctuationText: punctuation.visibleText,
         },
+        menuSafety,
         ...summary,
     };
 }
@@ -338,13 +359,22 @@ function snapshotRedditElement(element, expected) {
         return [style.visibility !== 'hidden', style.opacity !== '0', wordRect.width > 0, wordRect.height > 0].every(Boolean);
     }).every(Boolean);
     const readings = [...element.querySelectorAll('rt,.jpdb-reader-detached-furi')];
+    const visibleReadings = readings.filter(reading => {
+        const style = getComputedStyle(reading);
+        const box = reading.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
+    });
     return {
         expected,
         visibleText,
         height: rect.height,
         wordCount: words.length,
+        pitchWordCount: words.filter(word => Boolean(word.dataset.pitchClass && word.dataset.pitchClass !== 'unknown')).length,
         expressions: words.map(word => word.getAttribute('data-expression')),
         readingCount: readings.length,
+        visibleReadingCount: visibleReadings.length,
+        hiddenReadingCount: readings.length - visibleReadings.length,
+        readingTexts: readings.map(reading => reading.textContent ?? ''),
         nativeRubyCount: element.querySelectorAll('rt').length,
         readingClipped: readings.some(readingIsClipped),
         readingClipAncestors: readings.flatMap(readingClipAncestors),
@@ -374,6 +404,7 @@ function snapshotRedditElement(element, expected) {
 
     function readingIsClipped(reading) {
         const readingRect = reading.getBoundingClientRect();
+        if (readingRect.width <= 0 || readingRect.height <= 0) return false;
         for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
             const style = getComputedStyle(ancestor);
             if (![style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) continue;
@@ -386,6 +417,7 @@ function snapshotRedditElement(element, expected) {
 
     function readingClipAncestors(reading) {
         const readingRect = reading.getBoundingClientRect();
+        if (readingRect.width <= 0 || readingRect.height <= 0) return [];
         const clipped = [];
         for (let ancestor = reading.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
             const style = getComputedStyle(ancestor);
@@ -410,6 +442,50 @@ function snapshotRedditElement(element, expected) {
             }
         }
         return overlaps;
+    }
+}
+
+function snapshotSortMenuSafety(host) {
+    const menu = host.shadowRoot.querySelector('#sort-menu');
+    const readings = [...menu.querySelectorAll('.jpdb-reader-detached-furi')];
+    const visible = readings.filter(reading => {
+        const style = getComputedStyle(reading);
+        const rect = reading.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    });
+    const bases = [...menu.querySelectorAll('.jpdb-reader-ruby-base')]
+        .filter(base => getComputedStyle(base).visibility !== 'hidden');
+    let readingBaseOverlap = 0;
+    let readingReadingOverlap = 0;
+    for (const reading of visible) {
+        const readingRect = reading.getBoundingClientRect();
+        for (const base of bases) {
+            if (rectanglesOverlap(readingRect, base.getBoundingClientRect())) readingBaseOverlap += 1;
+        }
+    }
+    for (let index = 0; index < visible.length; index += 1) {
+        for (let other = index + 1; other < visible.length; other += 1) {
+            if (rectanglesOverlap(visible[index].getBoundingClientRect(), visible[other].getBoundingClientRect())) {
+                readingReadingOverlap += 1;
+            }
+        }
+    }
+    const hidden = readings.filter(reading => !visible.includes(reading));
+    return {
+        wordCount: menu.querySelectorAll('.jpdb-reader-word').length,
+        readingCount: readings.length,
+        visibleReadingCount: visible.length,
+        hiddenReadingCount: hidden.length,
+        hiddenReadingsKeepWord: hidden.every(reading => Boolean(reading.closest('.jpdb-reader-word'))),
+        hiddenReadingsKeepPitch: hidden.every(reading => Boolean(reading.closest('.jpdb-reader-word')?.dataset.pitchClass)),
+        readingTexts: readings.map(reading => reading.textContent ?? ''),
+        readingBaseOverlap,
+        readingReadingOverlap,
+    };
+
+    function rectanglesOverlap(left, right) {
+        return Math.min(left.right, right.right) - Math.max(left.left, right.left) > 0.5
+            && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
     }
 }
 
@@ -495,6 +571,18 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assert(snapshot.layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout: snapshot.layout });
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, snapshot.layout);
+    assert(snapshot.menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, snapshot.menuSafety);
+    assert(snapshot.menuSafety.hiddenReadingCount > 0, `${engineName}: tight menu did not exercise the no-safe-lane fallback`, snapshot.menuSafety);
+    assert(snapshot.menuSafety.hiddenReadingsKeepWord && snapshot.menuSafety.hiddenReadingsKeepPitch,
+        `${engineName}: hiding unsafe furigana removed the word or pitch annotation`, snapshot.menuSafety);
+    assert(snapshot.menuSafety.readingBaseOverlap === 0 && snapshot.menuSafety.readingReadingOverlap === 0,
+        `${engineName}: visible menu furigana overlaps another reading or base line`, snapshot.menuSafety);
+    assert(snapshot.menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
+        `${engineName}: unsafe furigana was truncated instead of preserved in full`, snapshot.menuSafety);
+    assert(snapshot.labels.foreign.hiddenReadingCount > 0,
+        `${engineName}: furigana covered an ordinary unannotated line above it`, snapshot.labels.foreign);
+    assert(snapshot.labels.foreign.pitchWordCount > 0,
+        `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, snapshot.labels.foreign);
     assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);
     assert(Math.abs(snapshot.labels.join.wordCenterOffset - baseline.joinTextCenterOffset) <= 2,
         `${engineName}: mirrored Join label moved away from its native vertical alignment`, { baseline, join: snapshot.labels.join });

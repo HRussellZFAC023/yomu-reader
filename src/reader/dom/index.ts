@@ -2313,7 +2313,7 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         reading.style.setProperty('white-space', 'nowrap', 'important');
         reading.style.setProperty('word-break', 'keep-all', 'important');
         reading.style.setProperty('overflow-wrap', 'normal', 'important');
-        reading.style.setProperty('transform', 'translate(-50%, var(--jpdb-reader-detached-lift, 0px))', 'important');
+        reading.style.setProperty('transform', 'translateX(-50%)', 'important');
         reading.style.setProperty('pointer-events', 'none');
         reading.style.setProperty('text-decoration', 'none', 'important');
         reading.style.setProperty('user-select', 'none');
@@ -2342,10 +2342,11 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
 }
 
 // Detached readings are geometry overlays, not ruby layout boxes. Keep only
-// words whose BASE intersects the authored clamp, then lift each reading far
-// enough that it cannot cover any rendered base glyph on the same horizontal
-// track. The page's native text remains underneath, so this pass can only add
-// information; a failed/removed overlay never removes the label.
+// words whose BASE intersects the authored clamp, then show a reading only in
+// its natural lane immediately above that base. Moving a reading farther up can
+// make it cover the previous row (and moving neighboring readings independently
+// can make their kana cover each other), so an unsafe lane hides only the kana
+// overlay. The annotated base, pitch decoration, and lookup hit area remain.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
     const clipRect = clipRow?.getBoundingClientRect();
     const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
@@ -2361,27 +2362,155 @@ function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | nul
         }
     }
 
-    const bases = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'));
-    const baseRects = bases.map(base => ({ base, rect: base.getBoundingClientRect() }));
+    settleDetachedReadingLanes(
+        Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')),
+        Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base')),
+    );
+    if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+}
+
+const DETACHED_READING_COLLISION_SLOP = 0.5;
+const pendingDetachedReadingSurfaces = new Set<HTMLElement>();
+
+function detachedReadingCollisionSurface(root: HTMLElement): HTMLElement {
+    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR)
+        ? composedParentElement(root) ?? root
+        : root;
+    return composedParentElement(owner) ?? owner;
+}
+
+function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[]): void {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
-        const readingRect = reading.getBoundingClientRect();
-        if (readingRect.width <= 0 || readingRect.height <= 0) continue;
-        let lift = 0;
-        for (const { rect } of baseRects) {
-            const horizontalOverlap = Math.min(readingRect.right, rect.right) - Math.max(readingRect.left, rect.left);
-            const verticalOverlap = Math.min(readingRect.bottom - lift, rect.bottom) - Math.max(readingRect.top - lift, rect.top);
-            if (horizontalOverlap <= 0.5 || verticalOverlap <= 0.5) continue;
-            lift = Math.max(lift, readingRect.bottom - rect.top + 1);
-        }
-        if (lift > 0) reading.style.setProperty('--jpdb-reader-detached-lift', `${-Math.ceil(lift)}px`);
-        if (viewportWidth > 0) {
-            const leftShift = readingRect.left < 1 ? 1 - readingRect.left : 0;
-            const rightShift = readingRect.right > viewportWidth - 1 ? viewportWidth - 1 - readingRect.right : 0;
-            const shift = leftShift || rightShift;
-            if (shift) reading.style.setProperty('margin-left', `${Math.round(shift)}px`);
+    for (const reading of readings) {
+        restoreUnsafeDetachedReading(reading);
+        reading.style.removeProperty('--jpdb-reader-detached-lift');
+        reading.style.removeProperty('margin-left');
+    }
+    const viewportShifts = readings.map(reading => {
+        const rect = reading.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || viewportWidth <= 0) return { reading, shift: 0 };
+        const leftShift = rect.left < 1 ? 1 - rect.left : 0;
+        const rightShift = rect.right > viewportWidth - 1 ? viewportWidth - 1 - rect.right : 0;
+        return { reading, shift: leftShift || rightShift };
+    });
+    for (const { reading, shift } of viewportShifts) {
+        if (shift) reading.style.setProperty('margin-left', `${Math.round(shift)}px`);
+    }
+
+    const readingRects = readings
+        .map(reading => ({ element: reading, rect: reading.getBoundingClientRect() }))
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0)
+        .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+    const baseRects = bases
+        .map(base => ({ element: base, rect: base.getBoundingClientRect() }))
+        .filter(({ element, rect }) => rect.width > 0 && rect.height > 0
+            && safeComputedStyle(element).visibility !== 'hidden')
+        .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+    const unsafe = new Set<HTMLElement>();
+
+    for (const reading of readingRects) {
+        if (detachedReadingIsClipped(reading.element, reading.rect)
+            || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
+        for (const base of baseRects) {
+            if (base.rect.top >= reading.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
+            if (base.rect.bottom <= reading.rect.top + DETACHED_READING_COLLISION_SLOP) continue;
+            if (rectanglesOverlap(reading.rect, base.rect)) unsafe.add(reading.element);
         }
     }
+    for (let index = 0; index < readingRects.length; index += 1) {
+        const current = readingRects[index];
+        for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
+            const other = readingRects[otherIndex];
+            if (other.rect.top >= current.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
+            if (!rectanglesOverlap(current.rect, other.rect)) continue;
+            unsafe.add(current.element);
+            unsafe.add(other.element);
+        }
+    }
+    unsafe.forEach(hideUnsafeDetachedReading);
+}
+
+function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): boolean {
+    const ownWord = reading.closest('.jpdb-reader-word');
+    const root = reading.getRootNode();
+    const hitRoots: Array<Document | ShadowRoot> = [document];
+    if (root instanceof ShadowRoot) hitRoots.push(root);
+    const inset = Math.min(2, rect.width / 4);
+    const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
+    const hits = uniqueElements(hitRoots.flatMap(hitRoot => {
+        const elementsFromPoint = hitRoot.elementsFromPoint;
+        if (typeof elementsFromPoint !== 'function') return [];
+        return points.flatMap(x => elementsFromPoint.call(hitRoot, x, (rect.top + rect.bottom) / 2)
+            .filter((element): element is HTMLElement => element instanceof HTMLElement));
+    }));
+    for (const hit of hits) {
+        if (ownWord && hit.closest('.jpdb-reader-word') === ownWord) continue;
+        for (const node of hit.childNodes) {
+            if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            if (Array.from(range.getClientRects()).some(textRect => rectanglesOverlap(rect, textRect))) return true;
+        }
+    }
+    return false;
+}
+
+function rectanglesOverlap(left: DOMRect, right: DOMRect): boolean {
+    return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP
+        && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+}
+
+function detachedReadingIsClipped(reading: HTMLElement, rect: DOMRect): boolean {
+    let ancestor = composedParentElement(reading);
+    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedParentElement(ancestor)) {
+        const style = safeComputedStyle(ancestor);
+        const clips = [style.overflow, style.overflowX, style.overflowY]
+            .some(value => value === 'hidden' || value === 'clip');
+        if (!clips) continue;
+        const box = ancestor.getBoundingClientRect();
+        if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP
+            || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP
+            || rect.left < box.left - DETACHED_READING_COLLISION_SLOP
+            || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
+    }
+    return false;
+}
+
+function composedParentElement(element: HTMLElement): HTMLElement | null {
+    if (element.assignedSlot) return element.assignedSlot;
+    if (element.parentElement) return element.parentElement;
+    const root = element.getRootNode();
+    return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+
+function hideUnsafeDetachedReading(reading: HTMLElement): void {
+    reading.dataset.yomuDetachedReadingHidden = 'unsafe-lane';
+    reading.style.setProperty('display', 'none', 'important');
+}
+
+function restoreUnsafeDetachedReading(reading: HTMLElement): void {
+    if (reading.dataset.yomuDetachedReadingHidden !== 'unsafe-lane') return;
+    delete reading.dataset.yomuDetachedReadingHidden;
+    reading.style.setProperty('display', 'block', 'important');
+}
+
+// Individual targets are applied one at a time, but neighboring menu rows and
+// compact labels are often separate targets. Reconcile once at the end of the
+// guarded batch so readings cannot collide across target or open-shadow-root
+// boundaries. The vertical sweep keeps the comparison bounded to nearby rows.
+function reconcilePendingDetachedReadingLanes(): void {
+    const surfaces = [...pendingDetachedReadingSurfaces];
+    pendingDetachedReadingSurfaces.clear();
+    const readings = uniqueElements(surfaces.flatMap(surface => queryAllPiercingShadow(surface, '.jpdb-reader-detached-furi')));
+    if (!readings.length) return;
+    settleDetachedReadingLanes(
+        readings,
+        uniqueElements(surfaces.flatMap(surface => queryAllPiercingShadow(surface, '.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'))),
+    );
+}
+
+function uniqueElements(elements: HTMLElement[]): HTMLElement[] {
+    return [...new Set(elements)];
 }
 
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
@@ -3614,7 +3743,10 @@ export function withMirrorTokenApply<T>(callback: () => T): T {
         mirrorTokenApplyDepth -= 1;
         // Only drain once the outermost apply block completes, so a nested
         // apply does not clear records the outer block still needs to ignore.
-        if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
+        if (mirrorTokenApplyDepth === 0) {
+            reconcilePendingDetachedReadingLanes();
+            sweepAndDrainTextMirrorObservers();
+        }
     }
 }
 

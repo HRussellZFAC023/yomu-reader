@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.148#sha256=qU3ZCgqlpnBNjiVu81iSGfw3Xo7poK3MBQP1GLlUFoo=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.148#sha256=80vB3ufW2XjGJcNxnCFKVGYfjYnONATfFlh+CCHv6vI=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.148#sha256=hK9pzZFB/GL6ksmWAO1to4ERxV+ajIEXI2/cl7mOpyM=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.148#sha256=/HHYvgPfjRNL/YxFfdg63gVWeGfiPNRXHCHIAXxRh4U=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.148#sha256=a/BoO/290cbXtvQUssBCLIidCX7/vS4lGLKJZuwCGLw=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -6145,7 +6145,7 @@ function styleDetachedReadingElements(root, host) {
   reading.style.setProperty("white-space", "nowrap", "important");
   reading.style.setProperty("word-break", "keep-all", "important");
   reading.style.setProperty("overflow-wrap", "normal", "important");
-  reading.style.setProperty("transform", "translate(-50%, var(--jpdb-reader-detached-lift, 0px))", "important");
+  reading.style.setProperty("transform", "translateX(-50%)", "important");
   reading.style.setProperty("pointer-events", "none");
   reading.style.setProperty("text-decoration", "none", "important");
   reading.style.setProperty("user-select", "none");
@@ -6176,33 +6176,128 @@ function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
   if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
   for (const word of words) {
-    const bases2 = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
-    const rects = (bases2.length ? bases2 : [word]).map((base) => base.getBoundingClientRect());
+    const bases = Array.from(word.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
+    const rects = (bases.length ? bases : [word]).map((base) => base.getBoundingClientRect());
     const visible = rects.some((rect) => rect.bottom > clipRect.top + 0.5 && rect.top < clipRect.bottom - 0.5 && rect.right > clipRect.left + 0.5 && rect.left < clipRect.right - 0.5);
     if (!visible) word.style.setProperty("visibility", "hidden", "important");
   }
   }
-  const bases = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"));
-  const baseRects = bases.map((base) => ({ base, rect: base.getBoundingClientRect() }));
+  settleDetachedReadingLanes(
+  Array.from(root.querySelectorAll(".jpdb-reader-detached-furi")),
+  Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby .jpdb-reader-ruby-base"))
+  );
+  if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+}
+const DETACHED_READING_COLLISION_SLOP = 0.5;
+const pendingDetachedReadingSurfaces = new Set();
+function detachedReadingCollisionSurface(root) {
+  const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedParentElement(root) ?? root : root;
+  return composedParentElement(owner) ?? owner;
+}
+function settleDetachedReadingLanes(readings, bases) {
   const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-  const readingRect = reading.getBoundingClientRect();
-  if (readingRect.width <= 0 || readingRect.height <= 0) continue;
-  let lift = 0;
-  for (const { rect } of baseRects) {
-    const horizontalOverlap = Math.min(readingRect.right, rect.right) - Math.max(readingRect.left, rect.left);
-    const verticalOverlap = Math.min(readingRect.bottom - lift, rect.bottom) - Math.max(readingRect.top - lift, rect.top);
-    if (horizontalOverlap <= 0.5 || verticalOverlap <= 0.5) continue;
-    lift = Math.max(lift, readingRect.bottom - rect.top + 1);
+  for (const reading of readings) {
+  restoreUnsafeDetachedReading(reading);
+  reading.style.removeProperty("--jpdb-reader-detached-lift");
+  reading.style.removeProperty("margin-left");
   }
-  if (lift > 0) reading.style.setProperty("--jpdb-reader-detached-lift", `${-Math.ceil(lift)}px`);
-  if (viewportWidth > 0) {
-    const leftShift = readingRect.left < 1 ? 1 - readingRect.left : 0;
-    const rightShift = readingRect.right > viewportWidth - 1 ? viewportWidth - 1 - readingRect.right : 0;
-    const shift = leftShift || rightShift;
-    if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
+  const viewportShifts = readings.map((reading) => {
+  const rect = reading.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || viewportWidth <= 0) return { reading, shift: 0 };
+  const leftShift = rect.left < 1 ? 1 - rect.left : 0;
+  const rightShift = rect.right > viewportWidth - 1 ? viewportWidth - 1 - rect.right : 0;
+  return { reading, shift: leftShift || rightShift };
+  });
+  for (const { reading, shift } of viewportShifts) {
+  if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
+  }
+  const readingRects = readings.map((reading) => ({ element: reading, rect: reading.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0).sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+  const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element: element2, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element2).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+  const unsafe = new Set();
+  for (const reading of readingRects) {
+  if (detachedReadingIsClipped(reading.element, reading.rect) || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
+  for (const base of baseRects) {
+    if (base.rect.top >= reading.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
+    if (base.rect.bottom <= reading.rect.top + DETACHED_READING_COLLISION_SLOP) continue;
+    if (rectanglesOverlap(reading.rect, base.rect)) unsafe.add(reading.element);
   }
   }
+  for (let index = 0; index < readingRects.length; index += 1) {
+  const current = readingRects[index];
+  for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
+    const other = readingRects[otherIndex];
+    if (other.rect.top >= current.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
+    if (!rectanglesOverlap(current.rect, other.rect)) continue;
+    unsafe.add(current.element);
+    unsafe.add(other.element);
+  }
+  }
+  unsafe.forEach(hideUnsafeDetachedReading);
+}
+function detachedReadingCoversForeignText(reading, rect) {
+  const ownWord = reading.closest(".jpdb-reader-word");
+  const root = reading.getRootNode();
+  const hitRoots = [document];
+  if (root instanceof ShadowRoot) hitRoots.push(root);
+  const inset = Math.min(2, rect.width / 4);
+  const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
+  const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
+  const elementsFromPoint = hitRoot.elementsFromPoint;
+  if (typeof elementsFromPoint !== "function") return [];
+  return points.flatMap((x) => elementsFromPoint.call(hitRoot, x, (rect.top + rect.bottom) / 2).filter((element2) => element2 instanceof HTMLElement));
+  }));
+  for (const hit of hits) {
+  if (ownWord && hit.closest(".jpdb-reader-word") === ownWord) continue;
+  for (const node of hit.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    if (Array.from(range.getClientRects()).some((textRect) => rectanglesOverlap(rect, textRect))) return true;
+  }
+  }
+  return false;
+}
+function rectanglesOverlap(left, right) {
+  return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+}
+function detachedReadingIsClipped(reading, rect) {
+  let ancestor = composedParentElement(reading);
+  for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedParentElement(ancestor)) {
+  const style = safeComputedStyle(ancestor);
+  const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
+  if (!clips) continue;
+  const box = ancestor.getBoundingClientRect();
+  if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP || rect.left < box.left - DETACHED_READING_COLLISION_SLOP || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
+  }
+  return false;
+}
+function composedParentElement(element2) {
+  if (element2.assignedSlot) return element2.assignedSlot;
+  if (element2.parentElement) return element2.parentElement;
+  const root = element2.getRootNode();
+  return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function hideUnsafeDetachedReading(reading) {
+  reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
+  reading.style.setProperty("display", "none", "important");
+}
+function restoreUnsafeDetachedReading(reading) {
+  if (reading.dataset.yomuDetachedReadingHidden !== "unsafe-lane") return;
+  delete reading.dataset.yomuDetachedReadingHidden;
+  reading.style.setProperty("display", "block", "important");
+}
+function reconcilePendingDetachedReadingLanes() {
+  const surfaces = [...pendingDetachedReadingSurfaces];
+  pendingDetachedReadingSurfaces.clear();
+  const readings = uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-furi")));
+  if (!readings.length) return;
+  settleDetachedReadingLanes(
+  readings,
+  uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
+  );
+}
+function uniqueElements(elements) {
+  return [...new Set(elements)];
 }
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
@@ -7012,7 +7107,10 @@ function withMirrorTokenApply(callback) {
   return callback();
   } finally {
   mirrorTokenApplyDepth -= 1;
-  if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
+  if (mirrorTokenApplyDepth === 0) {
+    reconcilePendingDetachedReadingLanes();
+    sweepAndDrainTextMirrorObservers();
+  }
   }
 }
 function sweepAndDrainTextMirrorObservers() {
@@ -31012,10 +31110,14 @@ function mutationTouchesAsbPlayer(mutation) {
 function mutationInsideReaderRoot(mutation) {
   return mutationInsideClosest(mutation, READER_ROOT_SELECTOR$1);
 }
-function clickMayRevealDynamicUiText(target) {
-  if (!(target instanceof Element)) return false;
-  if (target.closest(READER_ROOT_SELECTOR$1)) return false;
-  return Boolean(target.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR));
+function clickMayRevealDynamicUiText(eventOrTarget) {
+  const elements = dynamicUiClickElements(eventOrTarget);
+  if (elements.some((element2) => element2.closest(READER_ROOT_SELECTOR$1))) return false;
+  return elements.some((element2) => Boolean(element2.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+}
+function dynamicUiClickElements(eventOrTarget) {
+  const path = eventOrTarget instanceof Event ? eventOrTarget.composedPath() : [eventOrTarget];
+  return path.filter((target) => target instanceof Element);
 }
 function mutationMayContainJapaneseText(mutation) {
   if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
@@ -37987,9 +38089,9 @@ class ReaderApp {
     }
   }, { passive: true, signal: abortSignal });
   document.addEventListener("click", (event) => {
-    if (!this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event.target)) return;
+    if (!this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event)) return;
     this.noteVisibleAutoScanWorkObserved();
-    this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
+    this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
   }, { capture: true, signal: abortSignal });
   window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
   if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());

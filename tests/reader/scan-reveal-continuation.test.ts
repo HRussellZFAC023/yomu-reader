@@ -82,6 +82,22 @@ describe('post-click dynamic UI reveal detection', () => {
         expect(clickMayRevealDynamicUiText(document.querySelector('#tab'))).toBe(true);
     });
 
+    it('recognizes a disclosure inside an open shadow tree from its composed click path', () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        shadow.innerHTML = '<button id="disclosure" aria-haspopup="menu">並べ替え</button>';
+        document.body.append(host);
+
+        let mayReveal = false;
+        document.addEventListener('click', event => {
+            mayReveal = clickMayRevealDynamicUiText(event);
+        }, { capture: true, once: true });
+        shadow.querySelector<HTMLButtonElement>('#disclosure')!.click();
+
+        expect(mayReveal).toBe(true);
+        expect(clickMayRevealDynamicUiText(host), 'the retargeted outer host alone carries no disclosure semantics').toBe(false);
+    });
+
     it('ignores ordinary content clicks and reader-owned controls', () => {
         document.body.innerHTML = `
             <article><a id="story" href="/story">記事を読む</a></article>

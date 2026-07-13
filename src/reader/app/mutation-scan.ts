@@ -72,10 +72,22 @@ export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 // mutation. A click on an explicit disclosure/menu/tab control is the stable
 // semantic signal. The caller schedules one debounced post-click scan, not a
 // scan for every style frame.
-export function clickMayRevealDynamicUiText(target: EventTarget | null): boolean {
-    if (!(target instanceof Element)) return false;
-    if (target.closest(READER_ROOT_SELECTOR)) return false;
-    return Boolean(target.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR));
+export function clickMayRevealDynamicUiText(eventOrTarget: Event | EventTarget | null): boolean {
+    const elements = dynamicUiClickElements(eventOrTarget);
+    if (elements.some(element => element.closest(READER_ROOT_SELECTOR))) return false;
+    return elements.some(element => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+}
+
+// A document capture listener sees a click from an open shadow tree retargeted
+// to the outer custom-element host. The actual disclosure button remains in
+// the composed path, so inspect that path while the event is dispatching. This
+// keeps newly revealed menus/sheets scannable across component libraries
+// without naming any site or custom-element tag.
+function dynamicUiClickElements(eventOrTarget: Event | EventTarget | null): Element[] {
+    const path = eventOrTarget instanceof Event
+        ? eventOrTarget.composedPath()
+        : [eventOrTarget];
+    return path.filter((target): target is Element => target instanceof Element);
 }
 
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {

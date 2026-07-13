@@ -2200,12 +2200,12 @@ export class ReaderApp {
         document.addEventListener('click', event => {
             if (!this.canParseJapanese()
                 || !allowsFrequentVisibleAutoScan()
-                || !clickMayRevealDynamicUiText(event.target)) return;
+                || !clickMayRevealDynamicUiText(event)) return;
             this.noteVisibleAutoScanWorkObserved();
             // Capture runs before the site's click handler. The delayed scan
             // therefore sees the newly selected panel after its transition,
             // and debounce collapses nested menu events into one pass.
-            this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
+            this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
         }, { capture: true, signal: abortSignal });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
