@@ -1,0 +1,141 @@
+.academy-aakash-directions-vn .academy-vn-plate img {
+    filter: saturate(1.16) brightness(1.08);
+}
+
+.academy-aakash-directions-vn .academy-vn-atmosphere {
+    background:
+        linear-gradient(180deg, rgba(22, 25, 22, 0.01) 0%, rgba(24, 22, 17, 0.12) 52%, rgba(21, 18, 13, 0.5) 100%),
+        radial-gradient(circle at 74% 40%, rgba(255, 190, 102, 0.09), transparent 36%);
+}
+
+.academy-aakash-directions-vn .academy-vn-sprite-slot[data-character="aakash"] {
+    left: clamp(-76px, -3vw, -12px);
+    width: min(46vw, 620px);
+}
+
+.academy-aakash-response-host .academy-activity {
+    --academy-ink: var(--academy-paper-ink, #29271f);
+    --academy-ink-muted: #615b4e;
+    display: grid;
+    gap: 7px;
+    color: var(--academy-paper-ink, #29271f);
+}
+
+.academy-aakash-response-host .academy-activity h2 {
+    display: flex;
+    gap: 5px 12px;
+    align-items: baseline;
+    margin: 0;
+    font-size: clamp(0.84rem, 1.4vw, 1rem);
+    font-weight: 680;
+}
+
+.academy-aakash-response-host .academy-constructed-response-prompt,
+.academy-aakash-response-host .academy-constructed-response-support {
+    display: inline;
+}
+
+.academy-aakash-response-host .academy-constructed-response-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.academy-aakash-response-host .academy-constructed-response-input {
+    min-width: 0;
+    min-height: 44px;
+    padding: 7px 11px;
+    border: 0;
+    border-bottom: 2px solid var(--academy-accent, #5ea780);
+    border-radius: 0;
+    color: var(--academy-paper-ink, #29271f);
+    background: rgba(255, 255, 255, 0.44);
+    font-family: var(--academy-japanese-font, "Hiragino Sans", "Yu Gothic", sans-serif);
+    font-size: 1.04rem;
+}
+
+.academy-aakash-response-host .academy-constructed-response-commit {
+    min-height: 44px;
+    padding: 8px 18px;
+    border: 0;
+    color: var(--academy-paper, #f1ead9);
+    background: #302d27;
+    clip-path: polygon(0 8%, 96% 0, 100% 78%, 94% 100%, 3% 94%);
+    font-weight: 760;
+    cursor: pointer;
+}
+
+.academy-aakash-response-host .academy-constructed-prompt-support {
+    position: absolute;
+    right: clamp(22px, 4vw, 50px);
+    top: 26px;
+}
+
+.academy-aakash-response-host .academy-constructed-prompt-support-toggle {
+    padding: 2px 0;
+    border: 0;
+    border-bottom: 2px solid var(--academy-accent, #5ea780);
+    border-radius: 0;
+    color: #4d493e;
+    background: transparent;
+    font-weight: 720;
+    cursor: pointer;
+}
+
+.academy-aakash-response-host .academy-constructed-response-feedback {
+    display: grid;
+    gap: 3px;
+    font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+    line-height: 1.35;
+}
+
+.academy-aakash-response-host .academy-constructed-response-feedback p {
+    margin: 0;
+}
+
+.academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > h2,
+.academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > .academy-constructed-prompt-support,
+.academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > form {
+    display: none;
+}
+
+.academy-aakash-response-host > .academy-aakash-continue {
+    margin-top: 6px;
+}
+
+@media (max-width: 700px) {
+    .academy-aakash-directions-vn .academy-vn-sprite-slot[data-character="aakash"] {
+        left: -23vw;
+        width: min(82vw, 430px);
+    }
+
+    .academy-aakash-response-host {
+        max-height: 36dvh;
+        padding-right: 3px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .academy-aakash-response-host .academy-activity h2 {
+        display: grid;
+        padding-right: 72px;
+    }
+
+    .academy-aakash-response-host .academy-constructed-response-form {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 390px) {
+    .academy-aakash-response-host .academy-constructed-response-support {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-aakash-directions-vn .academy-vn-sprite-slot,
+    .academy-aakash-response-host button {
+        animation: none;
+        transition: none;
+    }
+}

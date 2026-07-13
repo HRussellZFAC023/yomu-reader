@@ -1,0 +1,25 @@
+{
+  "assetId": "mika__neutral__halfbody__v001",
+  "characterId": "mika",
+  "verdict": "blocked-no-defensible-identity-match",
+  "runtimeBinding": false,
+  "generated": false,
+  "fixedLocks": [
+    "adult blond White/European man",
+    "thin glasses",
+    "shy expression"
+  ],
+  "evidenceReviewed": [
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-01.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-02.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-03.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-04.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-06.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/docs/academy/discovery/CHARACTER-ASSET-DOSSIER.md",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v2/sprites/source-map.json"
+  ],
+  "reason": "No person can be mapped to all Mika locks without colliding with better-supported identities. The blond clean-shaven man in class-group-01 aligns with the dedicated Tom evidence; the brown-haired square-glasses classmate across class-group-02 through class-group-04 aligns with Robert; the short light-haired round-glasses classmate in class-group-05 aligns with Xingyu and the approved campus ensemble. Text-only donor sprites do not establish likeness.",
+  "requiredNextEvidence": "A confirmed photo-to-first-name match for Mika, or owner confirmation of an exact crop from an existing class photo.",
+  "privacy": "No private chat material, surnames, phone numbers, or unverified identities were used."
+}

@@ -1,0 +1,80 @@
+import {
+    ACADEMY_CAST,
+    getAcademyCastMember,
+    isAcademyCastMemberId,
+    validateAcademyCastReference,
+} from '../../src/academy/domain/cast-registry';
+
+describe('Academy canonical cast registry', () => {
+    it('contains only the named canonical ensemble and retained textbook legends', () => {
+        expect(ACADEMY_CAST.map(member => [member.id, member.firstName])).toEqual([
+            ['rie', 'Rie'],
+            ['henry', 'Henry'],
+            ['aakash', 'Aakash'],
+            ['alex', 'Alex'],
+            ['tom', 'Tom'],
+            ['sam', 'Sam'],
+            ['francis', 'Francis'],
+            ['shin', 'Shin'],
+            ['jodi', 'Jodi'],
+            ['christian', 'Christian'],
+            ['jenny', 'Jenny'],
+            ['robert', 'Robert'],
+            ['mika', 'Mika'],
+            ['sophie', 'Sophie'],
+            ['xingyu', 'Xingyu'],
+            ['angel', 'Angel'],
+            ['stasi', 'Stasi'],
+            ['ruparna', 'Ruparna'],
+            ['rose', 'Rose'],
+            ['peter', 'Peter'],
+            ['nanako', 'Nanako'],
+            ['karen', 'Karen'],
+            ['miller', 'Miller'],
+            ['tawapon', 'Tawapon'],
+            ['mary', 'Mary'],
+            ['takeshi', 'Takeshi'],
+        ]);
+
+        expect(getAcademyCastMember('aakash').firstName).toBe('Aakash');
+        expect(ACADEMY_CAST.some(member => member.id === ('pho' as string))).toBe(false);
+        expect(ACADEMY_CAST.some(member => /unknown|unidentified|contact/i.test(member.id))).toBe(false);
+    });
+
+    it('keeps ids and exact first-name labels unique', () => {
+        expect(new Set(ACADEMY_CAST.map(member => member.id)).size).toBe(ACADEMY_CAST.length);
+        expect(new Set(ACADEMY_CAST.map(member => member.firstName)).size).toBe(ACADEMY_CAST.length);
+        expect(ACADEMY_CAST.every(member => Object.keys(member).every(key =>
+            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation'].includes(key),
+        ))).toBe(true);
+        expect(validateAcademyCastReference({ id: 'aakash', firstName: 'Aakash' }).id).toBe('aakash');
+        expect(() => validateAcademyCastReference({ id: 'aakash', firstName: 'Akash' })).toThrow('expected Aakash');
+        expect(() => getAcademyCastMember('pho')).toThrow('Unknown Academy cast id');
+        expect(isAcademyCastMemberId('rie')).toBe(true);
+        expect(isAcademyCastMemberId('unidentified-contact')).toBe(false);
+    });
+
+    it('keeps extended members useful while withholding unapproved likenesses', () => {
+        expect(getAcademyCastMember('nanako')).toMatchObject({
+            firstName: 'Nanako',
+            category: 'extended-member',
+            visualEvidence: 'candidate-needs-owner',
+            eligibility: { story: true, lessons: true, likenessRuntime: false },
+        });
+        expect(getAcademyCastMember('karen')).toMatchObject({
+            firstName: 'Karen',
+            category: 'extended-member',
+            visualEvidence: 'missing',
+            eligibility: { story: true, lessons: true, likenessRuntime: false },
+        });
+    });
+
+    it('never stores guessed kana aliases', () => {
+        expect(ACADEMY_CAST.every(member => !('kanaAlias' in member))).toBe(true);
+        expect(getAcademyCastMember('rie').teacherSalutation).toEqual({
+            en: 'Rie-sensei',
+            ja: 'りえ先生',
+        });
+        expect(ACADEMY_CAST.filter(member => member.id !== 'rie').every(member => !('teacherSalutation' in member))).toBe(true);
+    });
+});

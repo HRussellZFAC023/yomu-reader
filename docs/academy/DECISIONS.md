@@ -79,3 +79,33 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** Moodle bytes, filenames, titles, prompts, extracted text, rendered pages, native images, and the teacher comparison surface live only under the ignored private artifact root. Public Stage 2 outputs are constructed field by field from hashes, byte counts, opaque IDs, enums, and aggregate status, then checked both structurally and against tokens harvested from the real private corpus.
 
 **Why:** A denylist cannot anticipate every identifying filename, class title, URL, or worksheet phrase. The public corpus needs auditable coverage and failure states, but publishing source material is neither necessary nor licensed by that need.
+
+## D-014 — Reopen product acceptance before content volume
+
+**Decision:** Stage 1's engineering closure remains evidence for access, persistence, source separation, annotations, responsive behavior, and offline restore, but it is not the product template. Further source-volume implementation is paused until a rebuilt Lesson 0 proof passes [`DIRECTION-RESET.md`](DIRECTION-RESET.md). The fourteen-expression handout is one section of a complete 60–90 minute class; full-bleed VN scenes, literal learning objects, skill-matched production, three consequential opening missions, coherent spatial navigation, and reversible learner freedom are mandatory.
+
+**Why:** A technically green route currently makes one source item playable through an answer-leaking choice, then jumps to an unrelated single-kanji task. Scaling that pattern across 73 weeks and 42 GB would create a polished archive browser rather than a serious Japanese course.
+
+## D-015 — Protected audio begins only after the invite session
+
+**Decision:** This supersedes D-008/D-009 for the live infrastructure boundary. `UCL2026` exchanges through the Cloudflare Worker/D1. Owner-approved Persona and Shinday files remain private R2 objects behind that session. The access route is silent; the authenticated Rie route begins the opening theme. Local Vite acceptance proxies the live boundary and rewrites only Academy's Secure `__Host-` cookies on its HTTP leg.
+
+**Why:** Starting protected media before the session caused avoidable 401s and connection pressure. A local-only fake session could not prove the real cookie/range/audio behavior.
+
+## D-016 — Review-candidate sprites may appear only as explicit blocked previews
+
+**Decision:** This supersedes D-011 for current direction-reset QA. Aakash, Xingyu, and Rie's new expressions are individually ledgered as release-blocked previews with provenance and prospective homes. No expression expansion or release approval occurs before owner likeness and equal-stage cast review.
+
+**Why:** The current app needs to test composition with real cutouts, while presence in `public/academy/art` must never silently become likeness approval.
+
+## D-017 — Classmate rotation is source-backed planning before scene authorship
+
+**Decision:** The 73-week appearance plan is a versioned, planning-only package pinned to the donor week index. A classmate assignment requires source-topic evidence plus a documented learning specialty; outline-only weeks stay review-required. Exact names, full-class reach, and concentration limits are validated.
+
+**Why:** Rotating names arbitrarily would be cosmetic and unsafe. Waiting until all scenes are written would make accidental cast concentration expensive to repair.
+
+## D-018 — Paid codes are claimed, never carried through URLs or storage
+
+**Decision:** Stripe returns only its Checkout session proof. Academy removes `checkout` and `session_id` from history immediately, polls the same-origin claim endpoint with the HttpOnly claim cookie, then pre-fills/copies the validated code in memory. It never stores or places the generated code in a URL.
+
+**Why:** The two-proof claim preserves payment recovery without turning browser history, analytics, storage, D1, or logs into plaintext credential stores.

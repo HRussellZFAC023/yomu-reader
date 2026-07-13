@@ -5,12 +5,16 @@
     "config/vite/newtab.config.ts",
     "config/vite/greasyfork-library.config.ts",
     "config/vite/gaming.config.ts",
+    "config/vite/academy.config.ts",
     "config/vite/size.config.ts",
     "src/reader/userscript/entry.ts",
     "src/reader/newtab/entrypoint.ts",
     "src/gaming/main.ts",
     "src/gaming/preload.ts",
     "src/gaming/renderer/app.ts",
+    "src/academy/entrypoint.ts",
+    "scripts/academy-baseline-inventory.mjs",
+    "scripts/academy-source-pipeline.mjs",
     "scripts/qa-audit.mjs",
     "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",
@@ -24,7 +28,8 @@
     "scripts/study-shots-real.mjs",
     "scripts/study-flow-stability-smoke.mjs",
     "scripts/bookwalker-live-firefox-smoke.mjs",
-    "tests/reader/**/*.test.ts"
+    "tests/reader/**/*.test.ts",
+    "tests/academy/**/*.test.ts"
   ],
   "dynamicallyLoaded": [
     "src/reader/styles-reader.css",
@@ -52,9 +57,11 @@
     "docs/public/greasyfork/**",
     "docs/public/newtab/**",
     "docs/public/pdf-reader/**",
+    "docs/public/academy/**",
     "docs/public/yomu.css",
     "docs/public/yomu.user.js",
-    "tests/reader/.vitest-*/**"
+    "tests/reader/.vitest-*/**",
+    "public/academy/**"
   ],
   "ignoreUnresolvedImports": [
     "./app.js",

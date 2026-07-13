@@ -1,0 +1,612 @@
+{
+  "schemaVersion": 1,
+  "sourceLibrary": {
+    "schemaVersion": 1,
+    "documents": [
+      {
+        "id": "document:moodle-1e58967e",
+        "sha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+        "mediaType": "application/pdf",
+        "originalName": "private-moodle-classroom-phrases.pdf",
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      }
+    ],
+    "occurrences": [
+      {
+        "id": "occurrence:ucl-2023-l1-lesson-1",
+        "documentId": "document:moodle-1e58967e",
+        "courseId": "course:ucl-japanese-2023-2024",
+        "sectionId": "section:rie-level-1",
+        "weekId": "week:l1-lesson-1",
+        "sourcePath": "private-moodle-archive:module-5777762/member-payload-1e58967e"
+      }
+    ],
+    "questions": [
+      {
+        "id": "source-question:classroom-phrase-01",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "1" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Let's start / Let's begin.", "ja": "１）はじめましょう。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-02",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "2" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Let's finish (the lesson).", "ja": "２）おわりましょう。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-03",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "3" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Let's have a break.", "ja": "３）やすみましょう。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-04",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "4" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Please look at...", "ja": "４）みてください。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-05",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "5" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Please say it (all together).", "ja": "５）（みなさんで）いってください。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-06",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "6" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Please listen to me.", "ja": "６）きいてください。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-07",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "7" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Please write it down.", "ja": "７）書いてください。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-08",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 1, "printedNumber": "8" },
+        "instructions": { "en": "Reference-list entry with question and two source responses.", "ja": "質問と二つの応答を含む参照リストの項目です。" },
+        "prompt": { "en": "Do you understand? / Yes, I do. / No, I don't.", "ja": "８）Q：わかりますか？ A：はい、わかります。 A：いいえ、わかりません。" },
+        "responseKind": "reference-entry-with-responses",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-09",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "9" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "Once more/again (Please).", "ja": "９）もう いちど（おねがいします）。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-10",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "10" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "(very) good. Fine", "ja": "１０）（とても）いいです。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-11",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "11" },
+        "instructions": { "en": "Reference-list entry with two source variants.", "ja": "二つの原資料の言い方を含む参照リストの項目です。" },
+        "prompt": { "en": "That's right / It's correct.", "ja": "１１）そうです／あってます。" },
+        "responseKind": "reference-entry-with-variants",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-12",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "12" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "That's wrong.", "ja": "１２）ちがいます。" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-13",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "13" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "homework", "ja": "１３）しゅくだい" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      },
+      {
+        "id": "source-question:classroom-phrase-14",
+        "documentId": "document:moodle-1e58967e",
+        "occurrenceIds": ["occurrence:ucl-2023-l1-lesson-1"],
+        "locus": { "page": 2, "printedNumber": "14" },
+        "instructions": { "en": "Reference-list entry; the source provides no separate instruction.", "ja": "参照リストの項目（原資料に個別の指示文はありません）。" },
+        "prompt": { "en": "example", "ja": "１４）れい" },
+        "responseKind": "reference-entry",
+        "mediaIds": [],
+        "extractionRevision": "academy-extract:2026-07-13:lesson-zero-v1"
+      }
+    ],
+    "media": []
+  },
+  "lesson": {
+    "id": "lesson:foundation-00",
+    "contentVersion": "2026-07-13.lesson-zero.v1",
+    "levelBand": "foundation",
+    "estimatedMinutes": { "minimum": 60, "maximum": 90 },
+    "sectionIds": [
+      "arrival-greetings",
+      "sound-script-map",
+      "classroom-survival",
+      "sentence-frames",
+      "useful-vocabulary",
+      "multi-speaker-input",
+      "reading-writing",
+      "transfer",
+      "close"
+    ],
+    "sections": [
+      {
+        "id": "arrival-greetings",
+        "order": 1,
+        "title": { "en": "Arrival and greetings", "ja": "あいさつ" },
+        "outcomeIds": ["outcome:greet-first-meeting", "outcome:say-own-name"],
+        "activityIds": ["activity:lesson-zero-greet-rie"],
+        "resumableAfter": true
+      },
+      {
+        "id": "sound-script-map",
+        "order": 2,
+        "title": { "en": "Sound and script", "ja": "おとと文字" },
+        "outcomeIds": ["outcome:hear-five-vowels", "outcome:recognise-script-roles", "outcome:write-vowel-kana"],
+        "activityIds": ["activity:lesson-zero-vowel-listen", "activity:lesson-zero-vowel-doodle"],
+        "resumableAfter": true
+      },
+      {
+        "id": "classroom-survival",
+        "order": 3,
+        "title": { "en": "Classroom language", "ja": "教室のことば" },
+        "outcomeIds": ["outcome:follow-classroom-instruction", "outcome:request-repetition", "outcome:understand-feedback"],
+        "activityIds": ["activity:lesson-zero-follow-instructions", "activity:lesson-zero-reconstruct-repair", "activity:lesson-zero-desk-language"],
+        "resumableAfter": true
+      },
+      {
+        "id": "sentence-frames",
+        "order": 4,
+        "title": { "en": "First sentences", "ja": "はじめての文" },
+        "outcomeIds": ["outcome:state-identity", "outcome:negate-identity", "outcome:ask-identity", "outcome:link-nouns", "outcome:add-parallel-fact"],
+        "activityIds": ["activity:lesson-zero-build-sentence-frames"],
+        "resumableAfter": true
+      },
+      {
+        "id": "useful-vocabulary",
+        "order": 5,
+        "title": { "en": "People and language", "ja": "人とことば" },
+        "outcomeIds": ["outcome:use-first-class-vocabulary", "outcome:write-personal-facts"],
+        "activityIds": ["activity:lesson-zero-name-card-draft"],
+        "resumableAfter": true
+      },
+      {
+        "id": "multi-speaker-input",
+        "order": 6,
+        "title": { "en": "Meet the class", "ja": "クラスのみなさん" },
+        "outcomeIds": ["outcome:identify-speaker", "outcome:understand-introduction-detail"],
+        "activityIds": ["activity:lesson-zero-sound-input", "activity:lesson-zero-text-input", "activity:lesson-zero-speaking-input"],
+        "resumableAfter": true
+      },
+      {
+        "id": "reading-writing",
+        "order": 7,
+        "title": { "en": "Name cards and class notes", "ja": "名札とメモ" },
+        "outcomeIds": ["outcome:read-name-card", "outcome:write-name-card", "outcome:write-first-kana"],
+        "activityIds": ["activity:lesson-zero-read-name-cards", "activity:lesson-zero-write-name-card"],
+        "resumableAfter": true
+      },
+      {
+        "id": "transfer",
+        "order": 8,
+        "title": { "en": "Use it in the room", "ja": "教室で使う" },
+        "outcomeIds": ["outcome:spoken-self-introduction", "outcome:written-self-introduction", "outcome:repair-missed-language"],
+        "activityIds": ["activity:lesson-zero-sound-transfer", "activity:lesson-zero-text-transfer", "activity:lesson-zero-speaking-transfer", "activity:lesson-zero-written-transfer"],
+        "resumableAfter": true
+      },
+      {
+        "id": "close",
+        "order": 9,
+        "title": { "en": "Close", "ja": "おわり" },
+        "outcomeIds": ["outcome:follow-class-close", "outcome:choose-next-action"],
+        "activityIds": ["activity:lesson-zero-close-room"],
+        "resumableAfter": true
+      }
+    ],
+    "sentenceFrames": ["N は N です", "N は N じゃありません", "N は N ですか", "N の N", "N も N です"],
+    "vocabulary": [
+      { "id": "vocab:konbanwa", "japanese": "こんばんは", "reading": "こんばんは", "meaning": { "en": "good evening", "ja": "夜のあいさつ" } },
+      { "id": "vocab:hajimemashite", "japanese": "はじめまして", "reading": "はじめまして", "meaning": { "en": "nice to meet you", "ja": "初対面のあいさつ" } },
+      { "id": "vocab:yoroshiku-onegaishimasu", "japanese": "よろしくお願いします", "reading": "よろしくおねがいします", "meaning": { "en": "a polite close to a first introduction", "ja": "初対面を結ぶ丁寧なあいさつ" } },
+      { "id": "vocab:watashi", "japanese": "わたし", "reading": "わたし", "meaning": { "en": "I; me", "ja": "自分を指すことば" } },
+      { "id": "vocab:namae", "japanese": "なまえ", "reading": "なまえ", "meaning": { "en": "name", "ja": "名前" } },
+      { "id": "vocab:sensei", "japanese": "先生", "reading": "せんせい", "meaning": { "en": "teacher", "ja": "先生" } },
+      { "id": "vocab:gakusei", "japanese": "学生", "reading": "がくせい", "meaning": { "en": "student", "ja": "学生" } },
+      { "id": "vocab:nihongo", "japanese": "日本語", "reading": "にほんご", "meaning": { "en": "Japanese language", "ja": "日本語" } },
+      { "id": "vocab:eigo", "japanese": "英語", "reading": "えいご", "meaning": { "en": "English language", "ja": "英語" } },
+      { "id": "vocab:hito", "japanese": "人", "reading": "ひと", "meaning": { "en": "person", "ja": "人" } },
+      { "id": "vocab:kurasu", "japanese": "クラス", "reading": "クラス", "meaning": { "en": "class", "ja": "クラス" } },
+      { "id": "vocab:kuni", "japanese": "くに", "reading": "くに", "meaning": { "en": "country", "ja": "国" } },
+      { "id": "vocab:shigoto", "japanese": "しごと", "reading": "しごと", "meaning": { "en": "work; occupation", "ja": "仕事" } },
+      { "id": "vocab:hai", "japanese": "はい", "reading": "はい", "meaning": { "en": "yes", "ja": "肯定の返事" } },
+      { "id": "vocab:iie", "japanese": "いいえ", "reading": "いいえ", "meaning": { "en": "no", "ja": "否定の返事" } }
+    ],
+    "activities": [
+      {
+        "id": "activity:lesson-zero-greet-rie",
+        "sectionId": "arrival-greetings",
+        "responseMode": "voice",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Greet the room and give your name.", "ja": "教室のみなさんに、あいさつして名前を言ってください。" },
+        "conceptIds": ["concept:first-meeting-greeting", "concept:self-introduction-name"],
+        "sourceQuestionIds": [],
+        "expectedEvidence": { "kind": "spoken-chunks", "values": ["こんばんは", "はじめまして", "です", "よろしくお願いします"], "rubricIds": ["greeting-order", "name-intelligibility"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-vowel-listen",
+        "sectionId": "sound-script-map",
+        "responseMode": "listen",
+        "assessed": true,
+        "production": false,
+        "prompt": { "en": "Listen twice. Mark the five beats in order.", "ja": "二回聞いて、聞こえた五つの音を順番どおりに並べてください。" },
+        "conceptIds": ["concept:japanese-vowel-map", "concept:mora-timing", "concept:long-vowel-awareness"],
+        "sourceQuestionIds": [],
+        "inputScriptId": "input:lesson-zero-sound-hosts",
+        "expectedEvidence": { "kind": "ordered-sound-map", "values": ["あ", "い", "う", "え", "お"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-vowel-doodle",
+        "sectionId": "sound-script-map",
+        "responseMode": "doodle",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Write the five vowel kana you heard.", "ja": "聞こえた五つの母音を、ひらがなで書いてください。" },
+        "conceptIds": ["concept:hiragana-vowel-row", "concept:hiragana-katakana-kanji-roles"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-07"],
+        "expectedEvidence": { "kind": "stroke-attempts", "values": ["あ", "い", "う", "え", "お"], "rubricIds": ["stroke-order", "stroke-direction", "recognisability"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-follow-instructions",
+        "sectionId": "classroom-survival",
+        "responseMode": "act",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Follow Rie's instructions without opening the meaning column.", "ja": "英語を見ないで、りえ先生の指示どおりに動いてください。" },
+        "conceptIds": ["concept:classroom-start-stop-break", "concept:classroom-look-say-listen-write"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-01", "source-question:classroom-phrase-02", "source-question:classroom-phrase-03", "source-question:classroom-phrase-04", "source-question:classroom-phrase-05", "source-question:classroom-phrase-06", "source-question:classroom-phrase-07"],
+        "expectedEvidence": { "kind": "scene-actions", "values": ["begin", "finish", "break", "look", "say-together", "listen", "write"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-reconstruct-repair",
+        "sectionId": "classroom-survival",
+        "responseMode": "reconstruct",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Rie moved on. Ask her to repeat.", "ja": "聞き取れませんでした。りえ先生に繰り返してもらってください。" },
+        "conceptIds": ["concept:classroom-understanding", "concept:classroom-repair-repeat", "concept:classroom-feedback"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-08", "source-question:classroom-phrase-09", "source-question:classroom-phrase-10", "source-question:classroom-phrase-11", "source-question:classroom-phrase-12"],
+        "expectedEvidence": { "kind": "constructed-japanese", "values": ["もう一度お願いします", "もういちどおねがいします"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-desk-language",
+        "sectionId": "classroom-survival",
+        "responseMode": "act",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Add the two headings Rie asks for to the papers on the desk.", "ja": "りえ先生が言った二つの見出しを、机のプリントにつけてください。" },
+        "conceptIds": ["concept:classroom-desk-nouns"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-13", "source-question:classroom-phrase-14"],
+        "expectedEvidence": { "kind": "object-labels", "values": ["しゅくだい", "れい"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-build-sentence-frames",
+        "sectionId": "sentence-frames",
+        "responseMode": "reconstruct",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Build a true introduction, a correction, and a question for the room.", "ja": "自分について、肯定文、否定文、質問文を一つずつ作ってください。" },
+        "conceptIds": ["concept:copula-affirmative", "concept:copula-negative", "concept:copula-question", "concept:noun-link-no", "concept:parallel-mo"],
+        "sourceQuestionIds": [],
+        "expectedEvidence": { "kind": "sentence-constructions", "values": ["N は N です", "N は N じゃありません", "N は N ですか", "N の N", "N も N です"], "rubricIds": ["meaning", "target-form"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-name-card-draft",
+        "sectionId": "useful-vocabulary",
+        "responseMode": "ime",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Complete your name card with two facts you choose to share.", "ja": "名札に、名前と、自分で選んだ二つのことを書いてください。" },
+        "conceptIds": ["concept:people-language-place-role-vocabulary", "concept:personal-information-choice"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-07"],
+        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["name-present", "two-true-facts", "sentence-frame"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-sound-input",
+        "sectionId": "multi-speaker-input",
+        "responseMode": "listen",
+        "assessed": true,
+        "production": false,
+        "prompt": { "en": "Listen first. Mark who speaks and one fact about each person.", "ja": "まず聞いて、話している人と、それぞれについて分かったことを一つずつメモしてください。" },
+        "conceptIds": ["concept:introduction-listening-gist", "concept:introduction-listening-detail"],
+        "sourceQuestionIds": [],
+        "inputScriptId": "input:lesson-zero-sound-hosts",
+        "expectedEvidence": { "kind": "speaker-fact-links", "values": ["xingyu", "mika"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-text-input",
+        "sectionId": "multi-speaker-input",
+        "responseMode": "reconstruct",
+        "assessed": true,
+        "production": false,
+        "prompt": { "en": "Read the note. Restore the two missing sentence links.", "ja": "メモを読んで、二つの空欄に助詞を入れてください。" },
+        "conceptIds": ["concept:introduction-reading", "concept:noun-link-no", "concept:parallel-mo"],
+        "sourceQuestionIds": [],
+        "inputScriptId": "input:lesson-zero-text-hosts",
+        "expectedEvidence": { "kind": "restored-particles", "values": ["の", "も"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-speaking-input",
+        "sectionId": "multi-speaker-input",
+        "responseMode": "voice",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Take the open turn in the introduction.", "ja": "自己紹介を聞いて、自分の番になったら話してください。" },
+        "conceptIds": ["concept:introduction-turn-taking", "concept:copula-question", "concept:copula-negative"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-08", "source-question:classroom-phrase-09"],
+        "inputScriptId": "input:lesson-zero-speaking-hosts",
+        "expectedEvidence": { "kind": "spoken-turn", "rubricIds": ["responds-to-question", "repairs-if-needed", "intelligible-name"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-read-name-cards",
+        "sectionId": "reading-writing",
+        "responseMode": "reconstruct",
+        "assessed": true,
+        "production": false,
+        "prompt": { "en": "Read the two name cards. Restore the line that answers Rie's question.", "ja": "二枚の名札を読んで、りえ先生の質問に答える文を完成させてください。" },
+        "conceptIds": ["concept:functional-name-card-reading", "concept:reading-for-evidence"],
+        "sourceQuestionIds": [],
+        "expectedEvidence": { "kind": "evidence-line-reconstruction", "rubricIds": ["correct-person", "source-line-used"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-write-name-card",
+        "sectionId": "reading-writing",
+        "responseMode": "ime",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Write your final name card for the desk.", "ja": "机に置く自分の名札を書いてください。" },
+        "conceptIds": ["concept:functional-name-card-writing", "concept:sentence-frame-production"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-07"],
+        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["greeting", "name", "chosen-facts", "closing"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-sound-transfer",
+        "sectionId": "transfer",
+        "responseMode": "voice",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Record the class line, then ask for the part you missed.", "ja": "クラスの文を録音して、聞き取れなかったところはもう一度お願いしてください。" },
+        "conceptIds": ["concept:shadowing-transfer", "concept:classroom-repair-repeat"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-06", "source-question:classroom-phrase-09"],
+        "inputScriptId": "input:lesson-zero-sound-hosts",
+        "expectedEvidence": { "kind": "recorded-shadow-and-repair", "rubricIds": ["mora-timing", "repair-language", "listen-back-reflection"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-text-transfer",
+        "sectionId": "transfer",
+        "responseMode": "ime",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Write the missing line on the class note in your own words.", "ja": "クラスのメモの空欄に、自分のことばで一文書いてください。" },
+        "conceptIds": ["concept:reading-to-writing-transfer", "concept:sentence-frame-production"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-07"],
+        "inputScriptId": "input:lesson-zero-text-hosts",
+        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["meaning-preserved", "target-frame", "personal-fact"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-speaking-transfer",
+        "sectionId": "transfer",
+        "responseMode": "voice",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Welcome the next person into the room and recover naturally if you miss their answer.", "ja": "次に教室へ来た人にあいさつして、返事が聞き取れなかったら自然に聞き返してください。" },
+        "conceptIds": ["concept:social-introduction-transfer", "concept:classroom-repair-repeat", "concept:turn-taking"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-08", "source-question:classroom-phrase-09"],
+        "inputScriptId": "input:lesson-zero-speaking-hosts",
+        "expectedEvidence": { "kind": "recorded-roleplay", "rubricIds": ["greeting", "true-introduction", "question", "repair", "closing"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-written-transfer",
+        "sectionId": "transfer",
+        "responseMode": "ime",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Leave a short introduction for a classmate who arrives later.", "ja": "あとで来るクラスメイトに、短い自己紹介を残してください。" },
+        "conceptIds": ["concept:written-self-introduction-transfer"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-07"],
+        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["name", "true-fact", "sentence-frame", "greeting-or-closing"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-close-room",
+        "sectionId": "close",
+        "responseMode": "act",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Follow Rie's final instruction, then choose what you do next.", "ja": "りえ先生の最後の指示に合わせて、そのあとの行動を選んでください。" },
+        "conceptIds": ["concept:classroom-close", "concept:learner-route-choice"],
+        "sourceQuestionIds": ["source-question:classroom-phrase-02", "source-question:classroom-phrase-03"],
+        "expectedEvidence": { "kind": "scene-actions", "values": ["finish-or-break", "more-class", "another-lesson", "explore", "study", "end-day"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      }
+    ],
+    "inputScripts": [
+      {
+        "id": "input:lesson-zero-sound-hosts",
+        "audioAssetId": "audio:lesson-zero-sound-hosts",
+        "transcriptReveal": "after-commit",
+        "lines": [
+          { "speakerId": "xingyu", "japanese": "はじめまして。Xingyuです。日本語を勉強しています。", "reading": "はじめまして。Xingyuです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Xingyu. I'm studying Japanese." },
+          { "speakerId": "mika", "japanese": "Mikaです。わたしも日本語を勉強しています。よろしくお願いします。", "reading": "Mikaです。わたしもにほんごをべんきょうしています。よろしくおねがいします。", "english": "I'm Mika. I'm studying Japanese too. Nice to meet you." }
+        ]
+      },
+      {
+        "id": "input:lesson-zero-text-hosts",
+        "audioAssetId": "audio:lesson-zero-text-hosts",
+        "transcriptReveal": "after-commit",
+        "lines": [
+          { "speakerId": "sophie", "japanese": "はじめまして。Sophieです。日本語を勉強しています。", "reading": "はじめまして。Sophieです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Sophie. I'm studying Japanese." },
+          { "speakerId": "ruparna", "japanese": "Ruparnaです。わたしも日本語を勉強しています。", "reading": "Ruparnaです。わたしもにほんごをべんきょうしています。", "english": "I'm Ruparna. I'm studying Japanese too." }
+        ]
+      },
+      {
+        "id": "input:lesson-zero-speaking-hosts",
+        "audioAssetId": "audio:lesson-zero-speaking-hosts",
+        "transcriptReveal": "after-commit",
+        "lines": [
+          { "speakerId": "aakash", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
+          { "speakerId": "sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." }
+        ]
+      }
+    ],
+    "audioAssets": [
+      {
+        "id": "audio:lesson-zero-sound-hosts",
+        "state": "release-blocked",
+        "purpose": "Paired multi-speaker introductions and vowel/mora discrimination for the Sound mission.",
+        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-text-hosts",
+        "state": "release-blocked",
+        "purpose": "Paired natural reading of the Text mission note for later listen-after-reading transfer.",
+        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-speaking-hosts",
+        "state": "release-blocked",
+        "purpose": "Paired conversational turns for the Speaking mission and delayed listen-back.",
+        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      }
+    ],
+    "missions": [
+      {
+        "id": "sound",
+        "hostIds": ["xingyu", "mika"],
+        "locationId": "location:language-lab",
+        "signature": "audio-first speaker and mora identification followed by shadowing and repair",
+        "openingActivityId": "activity:lesson-zero-sound-input",
+        "transferActivityId": "activity:lesson-zero-sound-transfer",
+        "evidenceProfile": { "listening": 4, "reading": 1, "speaking": 3, "writing": 1 },
+        "mementoId": "memento:lesson-zero-class-recording"
+      },
+      {
+        "id": "text",
+        "hostIds": ["sophie", "ruparna"],
+        "locationId": "location:library",
+        "signature": "handwritten-note evidence, particle reconstruction, and personal written transfer",
+        "openingActivityId": "activity:lesson-zero-text-input",
+        "transferActivityId": "activity:lesson-zero-text-transfer",
+        "evidenceProfile": { "listening": 1, "reading": 4, "speaking": 1, "writing": 4 },
+        "mementoId": "memento:lesson-zero-first-page-clue"
+      },
+      {
+        "id": "speaking",
+        "hostIds": ["aakash", "sam"],
+        "locationId": "location:classroom-entrance",
+        "signature": "live arrival turns, recording, clarification, and socially meaningful repair",
+        "openingActivityId": "activity:lesson-zero-speaking-input",
+        "transferActivityId": "activity:lesson-zero-speaking-transfer",
+        "evidenceProfile": { "listening": 2, "reading": 1, "speaking": 5, "writing": 1 },
+        "mementoId": "memento:lesson-zero-first-bond-scene"
+      }
+    ],
+    "releaseBlockers": [
+      {
+        "id": "blocker:lesson-zero-verified-dialogue-audio",
+        "kind": "audio",
+        "assetIds": ["audio:lesson-zero-sound-hosts", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
+        "internalReason": "No source-paired or reviewed authored recording has yet passed speaker, transcript, timing, and rights verification for these original Lesson 0 scripts.",
+        "learnerVisible": false
+      }
+    ]
+  }
+}

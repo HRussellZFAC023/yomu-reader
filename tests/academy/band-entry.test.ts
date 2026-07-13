@@ -32,4 +32,20 @@ describe('level-matched midstream entry', () => {
         expect(evaluation.result.feedback.nearbyExample?.en).toBeTruthy();
         expect(evaluation.result.feedback.nearbyExample?.ja).toBeTruthy();
     });
+
+    it('uses Alex\'s confirmed Latin name in Japanese content', () => {
+        const model = createBandEntryActivity('n3');
+        const visibleJapanese = [
+            model.prompt.en,
+            model.prompt.ja,
+            ...model.payload.options.flatMap(option => [
+                option.label.ja,
+                option.explanation?.ja,
+                option.repairPrompt?.ja,
+                option.nearbyExample?.ja,
+            ]),
+        ].filter(Boolean).join('\n');
+        expect(visibleJapanese).toContain('Alexさん');
+        expect(visibleJapanese).not.toContain('アレックス');
+    });
 });

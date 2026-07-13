@@ -31,6 +31,30 @@ Acceptance: the full [`discovery/VERTICAL-SLICE.md`](discovery/VERTICAL-SLICE.md
 
 Closure: source `371140513`, hosted assets `c5ef4629d`, release-candidate record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green. See [`evidence/stage-1/README.md`](evidence/stage-1/README.md).
 
+## P0 direction correction — before further volume
+
+The Stage 1 closure above remains valid engineering evidence, but user acceptance reopened the product slice. [`DIRECTION-RESET.md`](DIRECTION-RESET.md) is now binding.
+
+- [x] Freeze concurrent implementation and the 42 GB census at resumable boundaries.
+- [x] Reconstruct the product direction from all feedback, Donor A's stronger lesson structure, the real opening source, Yomu workflows, and the original runbook.
+- [x] Generate and record concept boards for the complete first class, VN/source flow, expanded world map, and 42 GB content journey.
+- [ ] Receive scheduled Fable adversarial review of the direction and incorporate warranted changes.
+- [ ] Author the complete 60–90 minute Lesson 0: greetings, sound/script, the fourteen-expression survival handout, first sentence frame, useful vocabulary, real listening/reading, matched writing/speaking, transfer, and close.
+- [ ] Make Sound, Text, and Speaking distinct first missions with different early cast/place, activity balance, story result, and adaptive evidence.
+- [ ] Replace the current giveaway choice and unrelated `一` route with one production-quality ten-minute proof drawn from the complete lesson.
+- [ ] Replace centred card pages with full-bleed VN scenes, visible speaker sprites, literal source objects, reactive expressions, and concise living-paper dialogue.
+- [x] Implement reversible native navigation: Japanese signs/doors/paths, compact minimap, `…` safety menu, change lesson, revisit, and end day.
+- [ ] Prove complete annotation/compound support, real paired audio, skill-matched production, repair/return, and no English answer leakage in the actual app at phone/tablet/desktop sizes.
+- [x] Replace the Text route's giveaway card with the first full-bleed VN/source-paper/IME/repair slice and prove it at 390×844 and 1440×900 after Yomu injection.
+- [x] Make Rie and Aakash break the journal paper edge as transparent sprites; keep preview likenesses release-blocked in the asset ledger.
+- [x] Replace the following Aakash direction card with a sprite-led VN production exchange and remove its three-choice grading.
+- [x] Enlarge the Rie journal cutout, use Aakash's transparent sprite instead of the event CG, and prove both in the current app.
+- [x] Enforce canonical cast names, dossier-backed lesson specialties, and peer-rotation thresholds without inventing identities or unsafe likeness swaps.
+- [x] Pin a planning-only 73-week classmate appearance package to real donor topics: 67 source-backed assignments, six review-required gaps, all 19 documented classmates represented, no authored/playable inflation.
+- [ ] Record and pair reviewed authored Lesson 0 speech; the canonical Moodle handout has no source audio and browser TTS is forbidden.
+
+Acceptance: a Japanese teacher can identify what the learner was taught, practised, produced, transferred, and retained; the learner can always orient or leave; the screen reads as a living class rather than a card dashboard.
+
 ## Stage 2 — source pipeline
 
 - [x] Rebuild the occurrence/payload ledger from all 96 Moodle archives and three direct Moodle resources; reconcile 96/916/688 exactly.
@@ -87,12 +111,16 @@ Acceptance: one source per bus as authored, no overlap/drone/autoplay loop, and 
 
 ## Stage 7 — Cloudflare access and sync
 
-- [ ] Load the Cloudflare, Workers best-practices, and Wrangler skills before commands or implementation.
-- [ ] Review/migrate the inherited Worker into focused access/progress/media modules.
-- [ ] Create/verify D1 migrations, R2 integrity manifests, signed media, anonymous invite sessions, privacy boundaries, and idempotent event sync.
-- [ ] Seed `UCL2026` through the authenticated admin endpoint using available secrets; never store plaintext codes.
-- [ ] Verify logout/expiry/revocation/range requests/offline merge/cross-device link.
-- [ ] Keep Stripe adapter and webhook tests ready but disabled until class-code stability.
+- [x] Load the Cloudflare, Workers best-practices, and Wrangler skills before commands or implementation.
+- [x] Review/migrate the Worker into focused access, invite, progress, media, Stripe, rate-limit, and crypto modules.
+- [x] Create/verify D1 migrations, R2 integrity manifests, protected range media, anonymous invite sessions, and HMAC-only privacy boundaries.
+- [ ] Complete idempotent learner-event sync and offline merge against the live Worker.
+- [x] Seed `UCL2026` through the authenticated admin endpoint using available secrets; never store plaintext codes.
+- [x] Verify authenticated/anonymous protected-media HEAD and range behavior; live Royal Days and Shinday playback pass.
+- [ ] Verify live logout, expiry, revocation, offline merge, and cross-device link.
+- [x] Activate the owner-authorized live Stripe Checkout path and create one uncharged £2 `cs_live_…` smoke session.
+- [x] Implement signed/idempotent webhook and claim contracts plus the concise generated-code return UX with bounded polling, URL scrubbing, copy, and retry.
+- [ ] Complete one owner-approved real paid webhook→code-claim acceptance transaction.
 
 Acceptance: live anonymous access, authorization, sync, deletion, expiry, and offline recovery smoke pass.
 

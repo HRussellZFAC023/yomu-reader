@@ -7,7 +7,8 @@
     "directoryApprovalForbidden": true,
     "acceptedGenerationFamilies": [
       "direct-openai-image-generation",
-      "direct-openai-image-edit-from-approved-reference"
+      "direct-openai-image-edit-from-approved-reference",
+      "owner-approved-existing-reference"
     ],
     "rejectedGenerationFamilies": [
       "pollinations-flux",
@@ -17,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 12,
-    "runtimeFiles": 18,
+    "runtimeAssetHomes": 18,
+    "runtimeFiles": 24,
     "approvedReferenceOnly": 3,
     "explicitlyRejectedFamilies": 4
   },
@@ -34,6 +35,66 @@
         "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
       }],
       "status": "bound-and-browser-reviewed"
+    },
+    {
+      "id": "rie-happy-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
+      "deliveries": [{
+        "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
+        "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75"
+      }],
+      "status": "release-blocked-pending-owner-approval"
+    },
+    {
+      "id": "rie-encouraging-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"],
+      "deliveries": [{
+        "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
+        "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411"
+      }],
+      "status": "release-blocked-pending-owner-approval"
+    },
+    {
+      "id": "rie-repair-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "journal:rie-expression-gallery"],
+      "deliveries": [{
+        "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
+        "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb"
+      }],
+      "status": "release-blocked-pending-owner-approval"
+    },
+    {
+      "id": "aakash-neutral-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "approved-runtime-preview",
+      "runtimeHome": ["journal:aakash"],
+      "deliveries": [{
+        "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
+        "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f"
+      }],
+      "status": "owner-requested-preview; release-blocked-pending-likeness-approval"
+    },
+    {
+      "id": "xingyu-neutral-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["mission:lesson-zero-sound-host"],
+      "deliveries": [{
+        "path": "/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
+        "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132"
+      }],
+      "status": "not-runtime-bound; release-blocked-pending-owner-likeness-and-cast-scale-approval"
     },
     {
       "id": "protagonist-quality-2",
@@ -82,6 +143,18 @@
         "sha256": "7a9868495d942837ff6197c8eb4d80f0eae829047ae3e7c21bd7f321c86adc4a"
       }],
       "status": "clean-alpha-browser-reviewed"
+    },
+    {
+      "id": "campus-home-ensemble-spring",
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp",
+      "provenance": "owner-approved-existing-reference",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["access:home"],
+      "deliveries": [{
+        "path": "/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
+        "sha256": "8d7907e4a05a8e5b915883ac6bb5a52e738eaf6fd17af858b498493974195ff9"
+      }],
+      "status": "bound; responsive focal-crop review pending"
     },
     {
       "id": "campus-entrance-blue-hour-arrival",
@@ -160,12 +233,12 @@
       "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime-anchor",
-      "runtimeHome": ["scene:aakash-rainy-directions", "unlock:aakash", "journal:aakash", "memory:aakash-rainy-directions"],
+      "runtimeHome": ["scene:aakash-rainy-directions", "unlock:aakash", "memory:aakash-rainy-directions"],
       "deliveries": [{
         "path": "/academy/art/events/rainy-directions__rie-aakash__v001.png",
         "sha256": "efac4f699510441bc8d33e00cf5d3ea346276c25b09469ab682f9b4e13ec9872"
       }],
-      "status": "approved-calibration-cg; standalone-aakash-sprite-withheld-pending-neutral-likeness-approval"
+      "status": "approved-calibration-cg; bound-to-rainy-scene-unlock-and-memory"
     },
     {
       "id": "calibration-campus-ensemble",

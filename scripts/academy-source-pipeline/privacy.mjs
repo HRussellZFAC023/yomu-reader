@@ -40,6 +40,13 @@ const PUBLIC_KEY_ALLOWLIST = new Set([
     'donorAnswerClaimCount', 'packsInMoodleCorpus',
     'pairing', 'audioRefCount', 'withCandidates', 'uniqueMatches', 'packs', 'packRef',
     'sourceSha256', 'inMoodleCorpus', 'counts',
+    // Shared-Japanese-library status (aggregate-only; separate universe from Moodle).
+    'scanRevision', 'entryCount', 'regularFileCount', 'regularFileBytes', 'uniquePayloadCount',
+    'duplicateOccurrenceCount', 'byState', 'state', 'byKind', 'byExtension', 'archives',
+    'containerPayloadCount', 'censused', 'uniqueMemberPayloadCount', 'failedMemberCount',
+    'encryptedMemberCount', 'media', 'payloadCount', 'reusedMoodleProbeCount', 'totalDurationSeconds',
+    'documentCount', 'reusedMoodleCensus', 'moodleOverlap', 'moodleLedgerPresent',
+    'overlapPayloadCount', 'contributesToMoodleCounts', 'humanAuthoredCoverage',
 ]);
 
 const FORBIDDEN_KEYS = new Set([

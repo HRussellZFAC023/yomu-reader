@@ -1,0 +1,19 @@
+{
+  "assetId": "aakash__neutral__halfbody__v001",
+  "sourceReferences": [
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/konbini-aakash-tom.png",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/style-aakash.png",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-01.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-02.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-03.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-04.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-06.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp"
+  ],
+  "generationMethod": "openai-imagegen",
+  "generationSource": "/Users/heru/.codex/generated_images/019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+  "intendedHomes": ["journal", "dialogue", "unlock"],
+  "status": "review-candidate"
+}

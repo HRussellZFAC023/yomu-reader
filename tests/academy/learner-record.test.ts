@@ -112,4 +112,49 @@ describe('learner record', () => {
         expect(projection.curriculumEntry?.band).toBe('n4');
         expect(projection.completedScenes).toEqual([]);
     });
+
+    it('projects collection undo, day closure, and ceremony-seen facts without deriving achievement truth', async () => {
+        const record = createLearnerRecord();
+        const collected = await record.record({
+            kind: 'vocabulary-collected',
+            eventId: 'collection:add',
+            collectionItemId: 'word:駅',
+            expression: '駅',
+            reading: 'えき',
+            meanings: ['station'],
+            provenance: { origin: 'academy', encounterId: 'encounter:1', activityId: 'lesson:1' },
+        });
+        await record.record({
+            kind: 'vocabulary-collection-undone',
+            eventId: 'collection:undo',
+            collectionItemId: 'word:駅',
+            collectedEventId: collected.eventId,
+        });
+        await record.record({
+            kind: 'academy-day-closed',
+            eventId: 'day:1:closed',
+            dayId: 'day:1',
+            mainLessonCompleted: true,
+            optionalActivityIds: ['listen'],
+            elapsedMs: 900_000,
+        });
+        await record.record({
+            kind: 'achievement-ceremony-seen',
+            eventId: 'ceremony:1',
+            achievementId: 'kana-hiragana-recall',
+            tier: 'bronze',
+        });
+        await record.record({
+            kind: 'relationship-chapter-unlocked',
+            eventId: 'relationship:rie:1',
+            characterId: 'rie',
+            chapter: 1,
+            majorTurn: 'recognition',
+        });
+        const projection = await record.snapshot();
+        expect(projection.vocabularyCollection).toEqual({});
+        expect(projection.closedDays['day:1']?.optionalActivityIds).toEqual(['listen']);
+        expect(projection.seenAchievementCeremonies).toEqual(['kana-hiragana-recall:bronze']);
+        expect(projection.relationshipJournal.rie).toEqual({ chapters: [1], majorTurns: ['recognition'] });
+    });
 });

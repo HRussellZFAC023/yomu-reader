@@ -1,4 +1,4 @@
-import { choiceActivityPlugin } from '../../src/academy/activities/choice';
+import { constructedResponseActivityPlugin } from '../../src/academy/activities/constructed-response';
 import { createAakashDirectionsActivity, AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
@@ -38,8 +38,8 @@ describe('learner evidence deep module', () => {
         const repository = createMemoryLearnerEventRepository();
         const evidence = createLearnerEvidence(repository, reviewService());
         await evidence.initialize();
-        const runtime = createActivityRuntime([choiceActivityPlugin]);
-        const evaluation = runtime.evaluate(createAakashDirectionsActivity(), 'straight-right');
+        const runtime = createActivityRuntime([constructedResponseActivityPlugin]);
+        const evaluation = runtime.evaluate(createAakashDirectionsActivity(), 'この道をまっすぐ行って、右です。');
         const milestone = {
             id: 'aakash-rainy-directions',
             sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
@@ -50,10 +50,31 @@ describe('learner evidence deep module', () => {
         await evidence.recordActivity(evaluation, milestone);
 
         expect(evidence.projection.bonds.aakash).toBe(1);
+        expect(evidence.projection.relationshipJournal.aakash).toEqual({
+            chapters: [1],
+            majorTurns: ['recognition'],
+        });
         expect(evidence.projection.completedScenes).toContain(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         const events = await repository.readAll();
         expect(events.filter(event => event.kind === 'review-scheduled')).toHaveLength(1);
         expect(events.filter(event => event.kind === 'bond-changed' && event.characterId === 'aakash')).toHaveLength(1);
+        expect(events.filter(event => event.kind === 'relationship-chapter-unlocked' && event.characterId === 'aakash')).toHaveLength(1);
         expect(events.filter(event => event.kind === 'attempt-recorded')).toHaveLength(2);
+    });
+
+    it('records earned support use as neutral evidence, not a wrong attempt or progress', async () => {
+        const repository = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(repository, reviewService());
+        await evidence.initialize();
+        await evidence.recordSupportUse('activity:listening-1', 'transcript', 'choice:replay');
+
+        expect(evidence.projection.supportUses).toEqual([expect.objectContaining({
+            kind: 'support-used',
+            activityId: 'activity:listening-1',
+            supportKind: 'transcript',
+            choiceId: 'choice:replay',
+        })]);
+        expect(evidence.projection.activities).toEqual({});
+        expect((await repository.readAll()).filter(event => event.kind === 'attempt-recorded')).toHaveLength(0);
     });
 });

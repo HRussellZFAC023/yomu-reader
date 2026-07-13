@@ -40,6 +40,7 @@ export function readZipMembers(zipInput, zipPath = typeof zipInput === 'string' 
             centralDirectoryIndex: index + 1,
             name,
             nameEncoding,
+            flags,
             memberKind: name.endsWith('/') ? 'directory' : 'file',
             method,
             compression: method === 0 ? 'store' : method === 8 ? 'deflate' : `method-${method}`,

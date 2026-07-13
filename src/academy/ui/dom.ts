@@ -16,7 +16,10 @@ export interface ScreenFrameOptions {
 export function screenFrame(options: ScreenFrameOptions): { screen: HTMLElement; panel: HTMLElement; content: HTMLElement } {
     const screen = element('section', `academy-screen ${options.className}`);
     screen.dataset.screen = options.className;
-    if (options.plate) screen.prepend(backgroundPicture(options.plate));
+    if (options.plate) {
+        screen.dataset.plate = options.plate;
+        screen.prepend(backgroundPicture(options.plate));
+    }
     const veil = element('div', 'academy-screen-veil');
     const panel = element('div', 'academy-panel');
     const content = element('div', 'academy-panel-content');
@@ -36,9 +39,7 @@ export function copyElement<K extends keyof HTMLElementTagNameMap>(
     key: AcademyCopyKey,
 ): HTMLElementTagNameMap[K] {
     const node = element(tag, className);
-    node.textContent = academyText(language, key);
-    node.lang = language;
-    node.dataset.jpdbReaderSurfaceIgnore = '';
+    setCopy(node, language, key);
     return node;
 }
 
@@ -51,16 +52,26 @@ export function localizedElement<K extends keyof HTMLElementTagNameMap>(
     const node = element(tag, className);
     node.textContent = value[language];
     node.lang = language;
+    markAnnotationSurface(node, language);
     return node;
 }
 
 export function copyButton(language: AcademyLanguage, key: AcademyCopyKey, className = 'academy-button'): HTMLButtonElement {
     const button = element('button', className);
     button.type = 'button';
-    button.textContent = academyText(language, key);
-    button.lang = language;
-    button.dataset.jpdbReaderSurfaceIgnore = '';
+    setCopy(button, language, key);
+    button.setAttribute('aria-label', academyText(language, key));
     return button;
+}
+
+export function setCopy(node: HTMLElement, language: AcademyLanguage, key: AcademyCopyKey): void {
+    node.textContent = academyText(language, key);
+    node.lang = language;
+    delete node.dataset.jpdbReaderSurfaceIgnore;
+    delete node.dataset.yomuRuntimeSurface;
+    delete node.dataset.yomuFuriganaMode;
+    markAnnotationSurface(node, language);
+    if (node instanceof HTMLButtonElement) node.setAttribute('aria-label', academyText(language, key));
 }
 
 export function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = ''): HTMLElementTagNameMap[K] {
@@ -72,7 +83,10 @@ export function element<K extends keyof HTMLElementTagNameMap>(tag: K, className
 export function setBusy(button: HTMLButtonElement, busy: boolean, label: string): void {
     button.disabled = busy;
     button.setAttribute('aria-busy', String(busy));
-    if (busy) button.textContent = label;
+    if (busy) {
+        button.textContent = label;
+        button.setAttribute('aria-label', label);
+    }
 }
 
 export function fieldError(message: string): HTMLParagraphElement {
@@ -95,4 +109,13 @@ function backgroundPicture(plateId: AcademyPlateId): HTMLPictureElement {
     image.decoding = 'async';
     picture.append(source, image);
     return picture;
+}
+
+function markAnnotationSurface(node: HTMLElement, language: AcademyLanguage): void {
+    if (language === 'ja') {
+        node.dataset.yomuRuntimeSurface = 'academy-copy';
+        node.dataset.yomuFuriganaMode = 'all';
+        return;
+    }
+    node.dataset.jpdbReaderSurfaceIgnore = '';
 }

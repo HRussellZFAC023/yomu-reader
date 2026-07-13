@@ -34,9 +34,10 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
     ORIENTATION_MOCK_ITEMS.forEach(item => {
         const fieldset = element('fieldset', 'academy-mock-item');
         fieldset.dataset.mockItem = item.id;
+        fieldset.setAttribute('aria-label', item.prompt[options.language]);
         const legend = localizedElement('legend', 'academy-mock-prompt', options.language, item.prompt);
         fieldset.append(legend);
-        if (item.passage) fieldset.append(localizedElement('p', 'academy-mock-passage', options.language, item.passage));
+        if (item.passage) fieldset.append(localizedElement('p', 'academy-mock-passage', 'ja', item.passage));
         if (item.spokenJapanese) {
             const play = copyButton(options.language, 'mockPlayAudio', 'academy-button academy-button-secondary');
             const audioError = element('span', 'academy-field-error');
@@ -70,7 +71,8 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
             input.name = item.id;
             input.value = option.id;
             input.required = true;
-            label.append(input, localizedElement('span', 'academy-mock-option-copy', options.language, option.label));
+            input.setAttribute('aria-label', option.label.ja);
+            label.append(input, localizedElement('span', 'academy-mock-option-copy', 'ja', option.label));
             choices.append(label);
         });
         fieldset.append(choices);
@@ -151,8 +153,10 @@ export function renderPlacementResultScreen(options: PlacementResultOptions): HT
 
 function bandSelect(language: AcademyLanguage): { fieldset: HTMLFieldSetElement; select: HTMLSelectElement } {
     const fieldset = element('fieldset', 'academy-target-band');
+    fieldset.setAttribute('aria-label', academyText(language, 'mockTargetLegend'));
     fieldset.append(copyElement('legend', 'academy-label', language, 'mockTargetLegend'));
     const select = element('select', 'academy-input');
+    select.setAttribute('aria-label', academyText(language, 'mockTargetLegend'));
     ACADEMY_BANDS.forEach(([value, key]) => {
         const option = document.createElement('option');
         option.value = value;
@@ -168,6 +172,7 @@ function confidenceSelect(language: AcademyLanguage, key: AcademyCopyKey, name: 
     const label = copyElement('label', 'academy-label', language, key);
     const select = element('select', 'academy-input');
     select.name = name;
+    select.setAttribute('aria-label', academyText(language, key));
     for (let index = 0; index <= 4; index += 1) {
         const option = document.createElement('option');
         option.value = String(index / 4);

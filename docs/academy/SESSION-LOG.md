@@ -263,3 +263,76 @@ The earlier execution blocker was removed in the continuing session; this sectio
 - Added real regressions for unchanged-length ZIP corruption, render-DPI/page-count mismatch, empty-census denominator honesty, private render copying, and quote/backslash token escaping. The four focused suites pass 32/32.
 - Rechecked the teacher comparison at the browser tool's 500 px minimum: document `clientWidth` and `scrollWidth` are both 485 px. The private mobile screenshot remains under the ignored artifact root.
 - Resumed the same Fable session after quota refresh. It inspected every fix and test, re-ran public validation, independently rescanned the three public outputs plus RESOURCE-LEDGER for private material and count drift, and returned final `PASS` with no release-blocking defects.
+
+## 2026-07-12 — Product direction reset
+
+### Why implementation paused
+
+- User acceptance identified a structural failure beneath the green Stage 1 engineering proof: the first route teaches only item 9 from a fourteen-expression source handout through an English answer-leaking choice, then jumps to an unrelated single `一` exercise.
+- Stopped concurrent product slices and the 42 GB library census at safe resumable boundaries. No donor or private source tree was mutated.
+- Re-read the real opening source, Donor A's fuller first-week structure, the discovery pack, and accumulated browser feedback from the learner's perspective.
+
+### Binding correction
+
+- Added [`DIRECTION-RESET.md`](DIRECTION-RESET.md). Japanese learning now has an explicit priority over game systems, followed by living-class presentation, reversible navigation, and world polish.
+- Defined Lesson 0 as a resumable 60–90 minute class: greetings, sound/script, the complete fourteen-expression survival activity, first sentence frames, useful vocabulary, paired multi-speaker input, reading, matched production, transfer, and close.
+- Made Sound, Text, and Speaking distinct missions with different early cast/place, practice balance, story result, and evidence profile.
+- Defined room/corridor, campus/neighbourhood, and travel-region map scales; Japanese signage, doors, paths, minimap, parallax travel, and a discovered physical map replace destination cards.
+- Defined the 42 GB learner boundary: immutable sources feed authored Week bundles and lazy shards; the learner sees one coherent class, never archive or extraction state.
+- Reopened Stage 1 learner-experience acceptance while preserving its access/persistence/source/annotation/offline engineering evidence.
+
+### Visual evidence
+
+- Generated seven direction boards under `evidence/direction-reset/`: the complete first class, VN/source flow, expanded world map, lesson-content journey, three consequential opening missions, journal-native freedom, and the production/repair interaction loop.
+- Regenerated the opening-missions board after the first concept invented `さくらさん`. Version 2 uses only canonical hosts: Xingyu/Mika, Sophie/Ruparna, and Aakash/Sam; unapproved likenesses remain deliberately obscured.
+- Recorded exact hashes and the concept-only boundary in `evidence/direction-reset/README.md`. Generated text is illustrative and cannot enter canonical lesson data.
+
+### Verification and next action
+
+- Documentation-only direction work; no runtime tests were relevant.
+- Scheduled Fable review remains queued at the user's requested 3.5-hour interval.
+- Next implementation is one production-quality ten-minute proof from the complete Lesson 0, followed by real-app phone/tablet/desktop acceptance before any content-volume work resumes.
+# 2026-07-13 — Direction reset: current-app Text mission proof
+
+## Product and content
+
+- Added the complete versioned Lesson 0 package with all fourteen immutable classroom-expression records, nine resumable sections, sentence frames, vocabulary, eighteen authored activities, multi-speaker scripts, distinct Sound/Text/Speaking mission contracts, and explicit audio blockers.
+- Added the canonical first-name-only cast registry and made Lesson 0 validation derive from it. Removed guessed Aakash/Alex kana aliases and corrected Rie from “new classmate” to teacher.
+- Rewrote contrived introduction lines as natural `日本語を勉強しています` and a current-scene textbook/handout correction. One expression now emits one stable review seed even when the attempt touches multiple concepts.
+- The source/audio audit confirmed the Moodle Lesson 1 ZIP and classroom-phrases PDF hashes but found no source audio. No local full-phrase recording passed provenance/pairing review; the authored-recording gate stays open.
+
+## Interface and art
+
+- Built a reusable full-bleed VN stage with living-paper dialogue, parallax, responsive cast/object slots, learner-controlled readings, earned translation, expression changes, lifecycle cleanup, and reduced-motion behavior.
+- Generated and reviewed Rie happy, encouraging, and repair expression candidates; registered them as release-blocked runtime previews. Added the standalone Aakash preview sprite to the journal and replaced its duplicated rainy CG there.
+- Replaced the Text route's translated choice card with a source-bound library scene: literal handout rows 4/6/7/9, contextual `もう一度` exposure, real Japanese IME response, response-specific repair, nearby contrast, source-faithful short-form acceptance, retry focus, Rie reaction, revealed source row, flower mark, and compact resolution.
+- Replaced the next Aakash directions card and three-option recognition task with a cafe-rain VN: visible Aakash sprite, learner-controlled readings, Japanese IME route production, authored left/right diagnostics, retry, stable evidence/unlock IDs, and a concise in-character resolution. Current-app desktop/phone evidence is `11` and `12` in the direction-reset evidence index.
+- Fixed the live VN stacking defect that hid the library and sprite behind the root background; fixed nested activity contrast; stopped automatic handout/prompt annotation and added explicit Yomu reading toggles.
+- Removed visible “Recommended…” campus copy/styling. Location names remain Japanese in English mode, and the mission choices now match the authored locations.
+
+## Verification
+
+- Focused Academy suites: 8 files / 58 tests passed. Offline manifest: 3/3. `npx tsc --noEmit`, `npm run build:academy`, and `git diff --check` pass. Hosted sync now includes the Lesson 0 shard and required sprite expressions; revision `s1-dad19af5580c` preceded the final CSS refinements.
+- Real Browser journey used `UCL2026`, created a fresh learner, selected Lesson 0 → Text, exercised readings, submitted `わかりました`, verified response-specific retry and Rie repair art, then passed with `もう一度お願いします` and verified happy art, flower mark, focus, persistence, and continuation.
+- 390×844 and 1440×900 both have no horizontal overflow. Current-app evidence and hashes are recorded in `evidence/direction-reset/README.md` (`08`–`10`).
+- Live Browser QA also exposed an unrelated canonical Reader error: `行って` was annotated as `おこなって` in the old Aakash card. Its generic Reader fix and the Aakash VN replacement are the next active slices.
+- Fixed that Reader regression at its source: ordinary sequential scans had bypassed the authored-vocabulary resolution used by prefetch. Both now share `applyParsedBatch`. After reloading the rebuilt hosted Reader, real Aakash-memory DOM rendered `行( い )って` with `expression=行く`, `reading=いく`, `pitch=heiban`; focused compound tests keep `もう一度` as one pitched token with its two component links.
+
+## 2026-07-13 — Journal, cast rotation, and learner freedom
+
+- Enlarged Rie's journal cutout so she deliberately crosses the living-paper edge and replaced the repeated rainy event image with Aakash's transparent sprite. Current-app captures `13` and `14` are indexed under `evidence/direction-reset/`.
+- Added a dossier-backed authored-cast guard: canonical IDs and exact visible first names, lesson-specialty fit, peer variety, and concentration limits. Lesson 0's Xingyu/Mika, Sophie/Ruparna, and Aakash/Sam pairs pass without speculative rotation.
+- Generated one Xingyu neutral review candidate from defensible matched references. It is explicitly ledgered but release-blocked. Mika, Sophie, and Ruparna were withheld where the preserved photos do not support a safe name-to-face match.
+- Added native `Choose lesson` and `End for today` actions to the `…` menu. Ending the day opens a full-bleed Rie scene, persists across reload, emits no false completion evidence, and returns to campus. Aakash no longer forces the learner into the writing desk.
+- Normalized every overflow-menu action to the same left-aligned living-paper geometry. Browser QA verified lesson selection, end-day persistence, Japanese campus signs, Rie's breakout, and the Aakash sprite.
+- Fixed a browser-media fade race that could set volume slightly above `1` and abort approved music playback. A strict media double covers the stale animation-frame timestamp.
+- Verification: journal/menu/audio/asset suites 31/31; cast/content/routing/persistence/day-end suites 32/32; TypeScript and Academy production build passed at `s1-ad5e2d11ed58`.
+
+## 2026-07-13 — Live access, approved audio, donation return, and 73-week cast plan
+
+- Proved the live Cloudflare boundary with `UCL2026`: cloud session exchange succeeds; authenticated Persona/Shinday HEAD and 1,024-byte ranges return `200/206`; anonymous media returns `401`.
+- Fixed the browser causes behind silent/failing playback: unbound native `fetch`, local rejection of Secure `__Host-` cookies, eager pre-auth SFX pools, access-route theme timing, protected-media service-worker caching, and stale-frame volume overshoot. Real Browser playback reached `readyState=4` with Royal Days playing and Shinday confirm decoded.
+- Created exactly one owner-authorized £2 live Checkout session without payment. D1 records it as pending with a live Stripe session; secret presence was checked by name only. No key, cookie, token, URL, or full Checkout id entered logs or Git.
+- Added the post-checkout claim flow: sensitive return parameters are removed from history immediately; polling is bounded and abortable; the generated code is validated, prefilled, and copyable without storage or URL leakage; pending/unavailable states have one concise retry.
+- Added a versioned 73-week classmate appearance plan pinned to the donor index. Sixty-seven assignments have source-topic evidence; orientation and five outline-only kickoffs remain review-required. All 19 documented classmates receive primary appearances under exact-name, specialty, and concentration validators. This is explicitly planning-only, not authored/playable content.
+- Browser evidence `16` records the real living-paper donation letter. Focused donation/i18n/human suites pass 27/27, live access/audio/Worker contracts 38/38, and cast planning 14/14. TypeScript and Academy build pass at `s1-63d201aec2dc`.

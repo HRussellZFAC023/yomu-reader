@@ -48,9 +48,16 @@ Its generated sprite files are not approved.
 | Rose | woman with brown hair | farm work and previously living in Japan | nature, practical language, memory; paper/ink clue | identity not tied to an unknown number; generate only after reference match |
 | Peter | quieter peripheral classmate | observation | review and the decisive simple question | low; needs reference confirmation before likeness art |
 
+## Named extended ensemble
+
+| Character | Visual lock | Interests and voice | Story and learning home | Reference confidence |
+| --- | --- | --- | --- | --- |
+| Nanako | private contextual group-photo candidate; do not publish the source or expand expressions before owner confirmation | concise bilingual warmth, natural social Japanese, considerate timing, gentle corrections and humour | pragmatic messages, social repair, invitations, returning-friend scenes | candidate likeness pair recorded by hash in the ignored private ledger; owner confirmation required |
+| Karen | no verified face image in the supplied archives; do not borrow an unrelated person or invent a likeness | friendly, direct and playful; language meetups, game-based learning, a modest daily study habit, practical plans | beginner conversation, habit design, game-vocabulary limits, personal-corpus review, return-after-absence scenes | blocked pending a clear owner-identified portrait |
+
 ## Unresolved people
 
-Two phone-number-only contacts may correspond to Rose and another Chinese classmate. They remain outside the named cast and art queue until a photo and name match is established. No placeholder identity is invented.
+Nanako and Karen are named independently and do not resolve either unknown contact. Two phone-number-only contacts may correspond to Rose and another Chinese classmate. They remain outside the named cast and art queue until a photo and name match is established. No placeholder identity is invented.
 
 ## Textbook legends
 

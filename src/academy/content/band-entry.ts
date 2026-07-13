@@ -58,8 +58,8 @@ const BAND_ENTRY_DEFINITIONS: Readonly<Record<JlptBand, BandEntryDefinition>> = 
     n3: {
         conceptId: 'concept:n3-hearsay-inference',
         prompt: {
-            en: 'You hear: 「アレックスさんは来ると言っていましたが、電車が止まったらしいです。」 What is supported by the message?',
-            ja: '「アレックスさんは来ると言っていましたが、電車が止まったらしいです。」この文から分かることは何ですか。',
+            en: 'You hear: 「Alexさんは来ると言っていましたが、電車が止まったらしいです。」 What is supported by the message?',
+            ja: '「Alexさんは来ると言っていましたが、電車が止まったらしいです。」この文から分かることは何ですか。',
         },
         reviewContent: {
             expression: '電車が止まったらしいです。',
@@ -67,9 +67,9 @@ const BAND_ENTRY_DEFINITIONS: Readonly<Record<JlptBand, BandEntryDefinition>> = 
             meanings: ['It seems / I heard that the train stopped.'],
         },
         options: [
-            correct('train-report', 'There is a report that Alex’s train stopped.', 'アレックスさんの電車が止まったという情報があります。', 'らしい marks reported or indirect information; the message does not claim direct observation.', '「らしい」は、聞いた情報や間接的な根拠を示します。'),
-            wrong('alex-cancelled', 'Alex definitely decided not to come.', 'アレックスさんは絶対に来ないと決めました。',
-                ['The message reports a stopped train, not a definite decision by Alex.', '文が伝えているのは電車の停止で、アレックスさんの決定ではありません。'],
+            correct('train-report', 'There is a report that Alex’s train stopped.', 'Alexさんの電車が止まったという情報があります。', 'らしい marks reported or indirect information; the message does not claim direct observation.', '「らしい」は、聞いた情報や間接的な根拠を示します。'),
+            wrong('alex-cancelled', 'Alex definitely decided not to come.', 'Alexさんは絶対に来ないと決めました。',
+                ['The message reports a stopped train, not a definite decision by Alex.', '文が伝えているのは電車の停止で、Alexさんの決定ではありません。'],
                 ['Separate what the sentence reports from what you might infer.', '文が伝える情報と、そこから推測できることを分けてください。'],
                 ['The sentence never says 「来ないと決めた」.', '「来ないと決めた」とは書かれていません。'], 'inference-overreach'),
             wrong('speaker-saw', 'The speaker personally saw the train stop.', '話し手が電車の停止を直接見ました。',

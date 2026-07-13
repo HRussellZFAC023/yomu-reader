@@ -1,8 +1,12 @@
 import { sessionCanResume } from '../access/gateway';
 import type { ThemeSlot } from '../audio/types';
+import { openingForkActivityId } from '../content/vertical-slice';
 import type { LearnerProjection } from '../domain/learner-record';
 import type { AcademyCheckpoint, AcademyRoute } from '../persistence/indexeddb';
 import type { AcademyNavigation } from '../ui/shell';
+
+export const LESSON_ZERO_TEXT_PROOF_ACTIVITY_ID = 'activity:lesson-zero-reconstruct-repair';
+export const AAKASH_CONTINUATION_ROUTE: AcademyRoute = 'campus';
 
 export function normalizeResumeCheckpoint(
     checkpoint: AcademyCheckpoint,
@@ -25,8 +29,13 @@ export function normalizeResumeCheckpoint(
             ? { ...normalized, selectedBand: projection.curriculumEntry.band }
             : { ...normalized, route: 'start' };
     }
-    if (normalized.route === 'source-activity' && projection.completedScenes.includes('scene:lesson-zero-first-repair')) {
-        normalized = { ...normalized, route: 'aakash-meet' };
+    if (normalized.route === 'source-activity') {
+        const forkComplete = normalized.selectedFork === 'text'
+            ? projection.activities[LESSON_ZERO_TEXT_PROOF_ACTIVITY_ID]?.lastOutcome === 'pass'
+            : normalized.selectedFork
+                ? projection.activities[openingForkActivityId(normalized.selectedFork)]?.lastOutcome === 'pass'
+                : projection.completedScenes.includes('scene:lesson-zero-first-repair');
+        if (forkComplete) normalized = { ...normalized, route: 'aakash-meet' };
     }
     if (normalized.route === 'writing-practice' && projection.completedScenes.includes('scene:lesson-zero-writing-desk')) {
         normalized = { ...normalized, route: 'campus' };
@@ -41,12 +50,17 @@ export function navigationForRoute(route: AcademyRoute): AcademyNavigation | und
 }
 
 export function themeForRoute(route: AcademyRoute): ThemeSlot {
-    if (route === 'access' || route === 'profile' || route === 'rie-unlock' || route === 'start') return 'opening.invitation';
+    // Protected soundtrack requests begin only after the invite exchange has
+    // established its HttpOnly session cookie. The first authenticated Rie
+    // scene still receives the opening theme on the same user gesture.
+    if (route === 'access') return 'silence';
+    if (route === 'profile' || route === 'rie-unlock' || route === 'start') return 'opening.invitation';
     if (route === 'placement-mock' || route === 'placement-result') return 'silence';
     if (route === 'writing-practice') return 'challenge.kanji';
     if (route === 'campus') return 'campus.evening';
     if (route === 'lab') return 'lab.listening';
     if (route === 'review') return 'library.quiet';
     if (route === 'journal') return 'bond.quiet';
+    if (route === 'day-end') return 'support.kindness';
     return 'classroom.focus';
 }

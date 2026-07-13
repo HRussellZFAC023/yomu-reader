@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "bucket": "yomu-academy-archive",
+  "rightsBasis": {
+    "persona-educational": {
+      "collection": "Persona 5 The Royal Soundtrack",
+      "rightsHolder": "ATLUS / SEGA",
+      "basis": "Project-owner-attested authorization for protected educational use in Yomu Academy",
+      "attestedAt": "2026-07-12",
+      "delivery": "Authenticated Academy session through private Cloudflare R2"
+    },
+    "shinday-educational": {
+      "collection": "Shinday SFX",
+      "rightsHolder": "Shinday project",
+      "basis": "Project-owner-approved and licensed for protected educational use in Yomu Academy",
+      "attestedAt": "2026-07-12",
+      "delivery": "Authenticated Academy session through private Cloudflare R2"
+    }
+  },
+  "objects": [
+    {
+      "key": "media/audio/v1/persona/royal-days.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/02 Royal Days.flac",
+      "contentType": "audio/flac",
+      "bytes": 29615879,
+      "durationSeconds": 257.546667,
+      "sha256": "4ff293cefc657c8203fc9f7bbc64f587f804a18bd18b2a4deddb5d9ee1c39f7c",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["opening.invitation", "campus.evening", "classroom.focus"]
+    },
+    {
+      "key": "media/audio/v1/persona/take-over.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/03 Take Over.flac",
+      "contentType": "audio/flac",
+      "bytes": 23696619,
+      "durationSeconds": 189.613333,
+      "sha256": "5200a81127a4844103400896e883a92134cf3d897689da13a1fdcb55da0b86c5",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["challenge.major"]
+    },
+    {
+      "key": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/04 No More What Ifs -instrumental version-.flac",
+      "contentType": "audio/flac",
+      "bytes": 32271798,
+      "durationSeconds": 274.64,
+      "sha256": "2384353e14242c783a1e6f99464f79eac726fedc40a4982946f8eef0598467f1",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["library.quiet", "bond.quiet"]
+    },
+    {
+      "key": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/05 Ideal and the Real.flac",
+      "contentType": "audio/flac",
+      "bytes": 39245419,
+      "durationSeconds": 362.346667,
+      "sha256": "13c607dc05ecf36c1eea7dce7f04d81d444e1afbb236ef746617dc1a5c3e8ca2",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["mystery.page"]
+    },
+    {
+      "key": "media/audio/v1/persona/kichijoji-199x.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/06 Kichijoji 199X.flac",
+      "contentType": "audio/flac",
+      "bytes": 15617078,
+      "durationSeconds": 136.32,
+      "sha256": "f983ea54d9b22932903c75b6d227050b37d0fe03bf3463aa093de2f2b7b277e7",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["cafe.social"]
+    },
+    {
+      "key": "media/audio/v1/persona/prison-labor.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/13 Prison Labor.flac",
+      "contentType": "audio/flac",
+      "bytes": 41685774,
+      "durationSeconds": 334.84,
+      "sha256": "879ce1c4eaf358b80f567feb7d5f50e0540880eabf6e0566d52582a0eee5249d",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["challenge.kanji"]
+    },
+    {
+      "key": "media/audio/v1/persona/so-happy-world.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD2/05 So Happy World.flac",
+      "contentType": "audio/flac",
+      "bytes": 25103865,
+      "durationSeconds": 233.893333,
+      "sha256": "cd401e2a191b94852026355d78bafadf46cb87c95ad218b48235241a0a9a9f06",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["unlock.world"]
+    },
+    {
+      "key": "media/audio/v1/persona/out-of-kindness.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD2/07 Out of Kindness.flac",
+      "contentType": "audio/flac",
+      "bytes": 17213492,
+      "durationSeconds": 170.76,
+      "sha256": "ade6922c87ec1cad5f54b02269cc870b3a561c69fdf6a85cceee5e82bb396dba",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["support.kindness"]
+    },
+    {
+      "key": "media/audio/v1/persona/i-believe.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD2/08 I believe.flac",
+      "contentType": "audio/flac",
+      "bytes": 35604935,
+      "durationSeconds": 270.973333,
+      "sha256": "c382faab780d491965c0bca77f360de195951e70d80584f50b353591ca245b5d",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["resolve.late"]
+    },
+    {
+      "key": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD2/12 Ideal and the Real -end version-.flac",
+      "contentType": "audio/flac",
+      "bytes": 43816006,
+      "durationSeconds": 436.52,
+      "sha256": "e7ad6762fc1ebf1e471e876041d47da6efcb1559c2f158ef79a7eac2dc33eda4",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["ending.reflective"]
+    },
+    {
+      "key": "media/audio/v1/shinday/menu-cursor-move.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/menu cursor move.wav",
+      "contentType": "audio/wav",
+      "bytes": 26136,
+      "durationSeconds": 0.591655,
+      "sha256": "4dd834120f6843422091e7ec29141420b6ed34513b83df486b0008524941754b",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["menu.move"]
+    },
+    {
+      "key": "media/audio/v1/shinday/menu-option-select.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/menu option select.wav",
+      "contentType": "audio/wav",
+      "bytes": 41240,
+      "durationSeconds": 0.93415,
+      "sha256": "89a09620d3144f1dc52937cbe823f2172e61fb896f54ea0c6b0228f65ae0e63f",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["menu.confirm"]
+    },
+    {
+      "key": "media/audio/v1/shinday/popup-close.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/pop-up close.wav",
+      "contentType": "audio/wav",
+      "bytes": 14176,
+      "durationSeconds": 0.320454,
+      "sha256": "8e49f9226da87c3f3544963589603ee7e5df07366ad0c443f9d2bdcc5d2e88d9",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["menu.cancel"]
+    },
+    {
+      "key": "media/audio/v1/shinday/unavailable.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/unavailable.wav",
+      "contentType": "audio/wav",
+      "bytes": 14572,
+      "durationSeconds": 0.329433,
+      "sha256": "254614cef31bb968acabe3f66e2f99feef13092fcb46e9d1335d0fd1bc8a935e",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["action.unavailable"]
+    },
+    {
+      "key": "media/audio/v1/shinday/menu-change.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/menu change.wav",
+      "contentType": "audio/wav",
+      "bytes": 44588,
+      "durationSeconds": 1.010068,
+      "sha256": "6ef55475c7cdd3b24a9d5974cddd21052d1d069d2208d47ca86c47ffd3f4e18f",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["scene.advance"]
+    },
+    {
+      "key": "media/audio/v1/shinday/module-change-1.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/module change 1.wav",
+      "contentType": "audio/wav",
+      "bytes": 130584,
+      "durationSeconds": 2.960091,
+      "sha256": "cf7bd1bcee2dcb0c634b38dddf2eb1ecdb203105e2cf193383dedb7ac6ce2f03",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["page.turn"]
+    },
+    {
+      "key": "media/audio/v1/shinday/module-change-2.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/module change 2.wav",
+      "contentType": "audio/wav",
+      "bytes": 132652,
+      "durationSeconds": 3.006984,
+      "sha256": "52fa877fbc0324e1cae47594bed9ff70500a8a35ef6d09a4b003e589347bfcf0",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["bond.unlock", "bond.rank"]
+    },
+    {
+      "key": "media/audio/v1/shinday/result-clear.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/result (clear).wav",
+      "contentType": "audio/wav",
+      "bytes": 114220,
+      "durationSeconds": 2.589025,
+      "sha256": "49d1916a186f2ce97e3c8a981f5996c89cc6b0b16a79cde9afebd06547347345",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["feedback.correct", "doodle.check"]
+    },
+    {
+      "key": "media/audio/v1/shinday/result-not-clear.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/result (not clear).wav",
+      "contentType": "audio/wav",
+      "bytes": 78452,
+      "durationSeconds": 1.777959,
+      "sha256": "b38172ad3e43fc177cb2bb230ccb4e696b27f8efca2ee1fd65229d67bc802ca7",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["feedback.repair"]
+    },
+    {
+      "key": "media/audio/v1/shinday/score-tally.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "menu sounds/score tally.wav",
+      "contentType": "audio/wav",
+      "bytes": 4434,
+      "durationSeconds": 0.099546,
+      "sha256": "cc14e4839d1bc8d9b73e69e3dd49061c41a0df64f64eb08a1c9ff1f007aa608d",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["feedback.hanamaru"]
+    },
+    {
+      "key": "media/audio/v1/shinday/camera.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "other sounds/camera.wav",
+      "contentType": "audio/wav",
+      "bytes": 2882,
+      "durationSeconds": 0.128707,
+      "sha256": "c4048ea941835c2012feaa346dfb378d5f9050e84a8ebc54f88cdd8620bb41ef",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["camera.capture"]
+    },
+    {
+      "key": "media/audio/v1/shinday/clap.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "other sounds/clap.wav",
+      "contentType": "audio/wav",
+      "bytes": 5654,
+      "durationSeconds": 0.127211,
+      "sha256": "ca9b0dcc490bed545516ca5832795680f6c565ee4273831dea71e107a421e10b",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["chapter.complete"]
+    },
+    {
+      "key": "media/audio/v1/shinday/click.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "other sounds/click.wav",
+      "contentType": "audio/wav",
+      "bytes": 9636,
+      "durationSeconds": 0.108753,
+      "sha256": "e1a77aa27df3cbf35ff560da73cfbedbd35936c0871cf1a99ea6c7f145624ccf",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["doodle.stroke"]
+    },
+    {
+      "key": "media/audio/v1/shinday/sonar-beeps-1.wav",
+      "sourceCollection": "shinday",
+      "sourceRelativePath": "other sounds/sonar beeps 1.wav",
+      "contentType": "audio/wav",
+      "bytes": 176444,
+      "durationSeconds": 2,
+      "sha256": "3f92905d0912fad7d52f9b4e073a350f8593dd5b7c6f6e28a243224252d51021",
+      "rightsId": "shinday-educational",
+      "runtimeHomes": ["radio.tune"]
+    }
+  ]
+}

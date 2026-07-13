@@ -1,4 +1,5 @@
 import type { AccessGateway } from '../access/gateway';
+import { createDonationClaimService, type DonationClaimService } from '../access/donation-claim';
 import { bandEntrySceneId, createBandEntryActivity } from '../content/band-entry';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
@@ -19,6 +20,7 @@ export interface EnrollmentFlowOptions {
     readonly access: AccessGateway;
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
+    readonly donationClaim?: DonationClaimService;
 }
 
 export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRouteFlow {
@@ -26,7 +28,11 @@ export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRou
 }
 
 class EnrollmentFlow implements AcademyRouteFlow {
-    constructor(private readonly options: EnrollmentFlowOptions) {}
+    private readonly donationClaim: DonationClaimService;
+
+    constructor(private readonly options: EnrollmentFlowOptions) {
+        this.donationClaim = options.donationClaim ?? createDonationClaimService();
+    }
 
     async render(route: AcademyRoute, context: AcademyRouteContext): Promise<boolean> {
         switch (route) {
@@ -34,6 +40,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 context.shell.replace(renderAccessScreen({
                     language: context.language,
                     onSubmit: code => this.openSession(code, context),
+                    claim: this.donationClaim,
                 }));
                 return true;
             case 'profile':

@@ -16,6 +16,8 @@ const runtimeSources = [
     ['public/academy/art/locations', 'art/locations'],
     ['public/academy/art/events', 'art/events'],
     ['public/academy/content/vertical-slice', 'content/vertical-slice'],
+    ['public/academy/content/lessons', 'content/lessons'],
+    ['public/academy/content/curriculum', 'content/curriculum'],
     ['public/academy/content/RESOURCE-LEDGER.json', 'content/RESOURCE-LEDGER.json'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
     ['public/academy/vendor', 'vendor'],
@@ -25,7 +27,10 @@ const runtimeSources = [
 const hostedDependencies = [
     'docs/public/yomu.user.js',
     'docs/public/yomu.css',
+    'docs/public/greasyfork/yomu-ui-copy.user.js',
     'docs/public/greasyfork/yomu-settings-surface.user.js',
+    'docs/public/greasyfork/yomu-kanji-study.user.js',
+    'docs/public/greasyfork/yomu-anki.user.js',
 ];
 
 const sourcePaths = [...templates, ...runtimeSources].map(([source]) => source).concat(hostedDependencies);

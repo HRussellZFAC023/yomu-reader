@@ -9,7 +9,40 @@ export interface ActivityModel {
     readonly responseKind: string;
     readonly prompt: LocalizedText;
     readonly payload: unknown;
+    readonly answerSupport?: AnswerSupportContract;
 }
+
+export interface AnswerSupportContract {
+    readonly id: 'academy-assessed-v1';
+    readonly englishUiPreCommit: {
+        readonly assessedJapanese: 'hidden';
+        readonly transcripts: 'hidden';
+        readonly translations: 'hidden';
+        readonly definitions: 'hidden';
+        readonly exampleGlosses: 'hidden';
+        readonly modelAnswers: 'hidden';
+    };
+    readonly earnedHintPolicy: 'explicit-after-attempt';
+    readonly preCommitChoiceStyle: 'neutral';
+    readonly evidenceRequires: 'learner-commitment';
+    readonly animatedReactions: 'presentation-only';
+}
+
+export const ACADEMY_ASSESSED_ANSWER_SUPPORT: AnswerSupportContract = {
+    id: 'academy-assessed-v1',
+    englishUiPreCommit: {
+        assessedJapanese: 'hidden',
+        transcripts: 'hidden',
+        translations: 'hidden',
+        definitions: 'hidden',
+        exampleGlosses: 'hidden',
+        modelAnswers: 'hidden',
+    },
+    earnedHintPolicy: 'explicit-after-attempt',
+    preCommitChoiceStyle: 'neutral',
+    evidenceRequires: 'learner-commitment',
+    animatedReactions: 'presentation-only',
+};
 
 export interface ValidationIssue {
     readonly path: string;
@@ -51,6 +84,13 @@ export interface ActivityEvaluation {
 export interface ActivityHost {
     replace(view: HTMLElement): void;
     announce(message: string): void;
+    readonly language?: 'en' | 'ja';
+    recordSupportUse?(support: Readonly<{
+        activityId: string;
+        supportKind: 'hint';
+        choiceId: string;
+    }>): void | Promise<void>;
+    react?(reaction: Readonly<{ speakerId: 'rie'; expression: 'neutral' | 'encouraging' | 'happy' | 'repair' }>): void;
 }
 
 export interface ActivityController {
@@ -160,6 +200,26 @@ function validateBaseModel(model: ActivityModel): ValidationIssue[] {
     if (!text(model.prompt?.en) || !text(model.prompt?.ja)) {
         issues.push({ path: 'prompt', message: 'English and Japanese prompt text are required.' });
     }
+    if (model.answerSupport) issues.push(...validateAnswerSupportContract(model.answerSupport).map(issue => ({
+        path: `answerSupport${issue.path ? `.${issue.path}` : ''}`,
+        message: issue.message,
+    })));
+    return issues;
+}
+
+export function validateAnswerSupportContract(value: unknown): readonly ValidationIssue[] {
+    if (!value || typeof value !== 'object') return [{ path: '', message: 'An answer-support contract is required.' }];
+    const contract = value as Partial<AnswerSupportContract>;
+    const issues: ValidationIssue[] = [];
+    if (contract.id !== 'academy-assessed-v1') issues.push({ path: 'id', message: 'Unknown answer-support contract.' });
+    const hidden = contract.englishUiPreCommit;
+    for (const field of ['assessedJapanese', 'transcripts', 'translations', 'definitions', 'exampleGlosses', 'modelAnswers'] as const) {
+        if (hidden?.[field] !== 'hidden') issues.push({ path: `englishUiPreCommit.${field}`, message: `${field} must stay hidden before commitment.` });
+    }
+    if (contract.earnedHintPolicy !== 'explicit-after-attempt') issues.push({ path: 'earnedHintPolicy', message: 'Hints must be explicitly earned after an attempt.' });
+    if (contract.preCommitChoiceStyle !== 'neutral') issues.push({ path: 'preCommitChoiceStyle', message: 'Pre-commit choices must use neutral styling.' });
+    if (contract.evidenceRequires !== 'learner-commitment') issues.push({ path: 'evidenceRequires', message: 'Progress evidence requires learner commitment.' });
+    if (contract.animatedReactions !== 'presentation-only') issues.push({ path: 'animatedReactions', message: 'Animated reactions are presentation only.' });
     return issues;
 }
 

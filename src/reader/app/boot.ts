@@ -1,6 +1,11 @@
 import { appendToDocumentHead } from '../dom/index';
 import { ReaderApp } from './main';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from '../platform/window-events';
+import {
+    clearReaderRuntimeHealth,
+    publishReaderRuntimeHealth,
+    READER_RUNTIME_MARKER_ID,
+} from './runtime-health';
 
 type YomuRuntimeKind = 'page' | 'dev' | 'userscript' | 'extension';
 
@@ -19,7 +24,7 @@ interface ActiveRuntime {
     ownerId: string;
 }
 
-const RUNTIME_MARKER_ID = 'jpdb-reader-runtime-owner';
+const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
 const RUNTIME_MARKER_OBSERVER_OPTIONS: MutationObserverInit = {
     attributes: true,
     attributeFilter: ['data-yomu-runtime-kind', 'data-yomu-runtime-owner'],
@@ -123,6 +128,11 @@ function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeK
         // Both real installs (userscript manager and browser extension) get the
         // first-run welcome/onboarding. The page/dev runtimes never do.
         showWelcome: runtimeKind === 'userscript' || runtimeKind === 'extension',
+    }).then(() => {
+        // A claim marker only means this runtime won ownership. Publish the
+        // typed service contract after initialization so hosted consumers do
+        // not mistake a claimed shell for a usable Reader.
+        publishReaderRuntimeHealth(ownerId);
     }).catch(error => {
         releaseRuntime(ownerId);
         throw error;
@@ -228,6 +238,7 @@ function claimRuntime(kind: YomuRuntimeKind): string | null {
     dispatchWindowEvent(createWindowCustomEvent('yomu-reader-runtime-claim', { ownerId, kind, priority: priority(kind) }));
     const marker = existing ?? document.createElement('meta');
     marker.id = RUNTIME_MARKER_ID;
+    clearReaderRuntimeHealth(marker);
     marker.dataset.yomuRuntimeKind = kind;
     marker.dataset.yomuRuntimeOwner = ownerId;
     if (!marker.isConnected) appendToDocumentHead(marker);

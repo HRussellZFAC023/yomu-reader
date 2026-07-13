@@ -1,5 +1,13 @@
 export const ACADEMY_ASSETS = {
     rie: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+    rieExpressions: {
+        happy: '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
+        encouraging: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
+        repair: '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
+    },
+    characters: {
+        aakash: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+    },
     portraits: {
         'quality-2': '/academy/art/protagonists/quality-2__picker__v001.png',
         'quality-3': '/academy/art/protagonists/quality-3__picker__v001.png',
@@ -10,6 +18,10 @@ export const ACADEMY_ASSETS = {
         rainyDirections: '/academy/art/events/rainy-directions__rie-aakash__v001.png',
     },
     locations: {
+        home: {
+            wide: '/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp',
+            mobile: '/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp',
+        },
         entrance: {
             wide: '/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp',
             mobile: '/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp',

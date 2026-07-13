@@ -1,0 +1,44 @@
+{
+  "assetId": "xingyu__neutral__halfbody__v001",
+  "characterId": "xingyu",
+  "verdict": "review-candidate",
+  "runtimeBinding": false,
+  "identityEvidence": {
+    "confidence": "sufficient-for-neutral-review-candidate",
+    "reason": "The same short-haired, round-glasses classmate appears in the preserved class-group-05 photo and as the third foreground classmate from the left in the approved campus ensemble calibration. Both agree with the dossier lock for Xingyu.",
+    "photoCrop": {
+      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
+      "bbox": [450, 430, 1120, 1320]
+    }
+  },
+  "sourceReferences": [
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/docs/academy/discovery/CHARACTER-ASSET-DOSSIER.md",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v2/sprites/source-map.json"
+  ],
+  "generation": {
+    "method": "openai-built-in-imagegen",
+    "source": "/Users/heru/.codex/generated_images/019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
+    "sourceSha256": "cb2f0d8586faec524b4448b85cca9cf34a53f1be27096256f87eda31ef58c5f1",
+    "prompt": "Create one neutral half-body sprite of the same adult classmate shown at the center of the class-photo crop and third from the left among the approved campus ensemble foreground group. Preserve her recognizable identity: East Asian woman, short light-brown/blond undercut with longer swept fringe, round thin-frame glasses, softly rounded face, joyful approachable energy. Translate her faithfully into locked Yomu Academy warm pixel-painted anime realism. Relaxed front three-quarter pose, head through mid-thigh, empty hands, neutral attentive expression with a small genuine smile. Teal cardigan over a cream top with restrained periwinkle accent. Equal intended scale to Rie. Warm classroom key with cool evening rim. Flat solid #ff00ff chroma-key background. No props, text, watermark, branded objects, childlike proportions, cosplay, generic anime face, or identity drift."
+  },
+  "postProcessing": {
+    "method": "remove_chroma_key.py",
+    "key": "#fc02fa",
+    "softMatte": true,
+    "despill": true,
+    "edgeContract": 1
+  },
+  "output": {
+    "path": "public/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
+    "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132",
+    "dimensions": [886, 1775],
+    "mode": "RGBA"
+  },
+  "reviewNotes": [
+    "Candidate is explicitly ledgered as a release-blocked preview and is not runtime-bound.",
+    "Owner likeness approval and equal-stage cast review are still required before expression expansion."
+  ]
+}

@@ -4,6 +4,59 @@
     gap: 14px;
 }
 
+.academy-activity-host[hidden] {
+    display: none;
+}
+
+.academy-fork-prelude {
+    position: relative;
+    display: grid;
+    gap: 11px;
+    padding: 14px 16px;
+    border: 1px solid var(--academy-line);
+    border-left: 4px solid var(--academy-accent);
+    border-radius: 3px 11px 4px 7px;
+    background:
+        linear-gradient(transparent 31px, rgba(90, 78, 58, 0.1) 32px),
+        rgba(255, 252, 241, 0.5);
+    background-size: 100% 32px;
+    box-shadow: 3px 4px 0 rgba(83, 69, 47, 0.14);
+}
+
+.academy-fork-prelude::after {
+    position: absolute;
+    top: -3px;
+    right: 18px;
+    width: 54px;
+    height: 9px;
+    background: color-mix(in srgb, var(--academy-accent) 52%, var(--academy-paper));
+    clip-path: polygon(5% 0, 100% 8%, 94% 100%, 0 88%);
+    content: "";
+    opacity: 0.7;
+}
+
+.academy-fork-prelude-copy,
+.academy-fork-board-line {
+    margin: 0;
+}
+
+.academy-fork-prelude-copy {
+    color: var(--academy-ink-muted);
+    line-height: 1.5;
+}
+
+.academy-fork-board-line {
+    min-height: 2em;
+    padding: 9px 12px 5px;
+    border-left: 3px solid color-mix(in srgb, var(--academy-accent) 58%, transparent);
+    font-size: 1.2rem;
+    line-height: 1.8;
+}
+
+.academy-fork-prelude.is-ready {
+    border-left-color: var(--academy-green);
+}
+
 .academy-activity {
     display: grid;
     gap: 16px;
@@ -33,26 +86,91 @@
     line-height: 1.45;
 }
 
+.academy-constructed-prompt-support {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.academy-constructed-prompt-support-toggle {
+    padding: 3px 2px 2px;
+    border: 0;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, currentColor);
+    border-radius: 0;
+    color: var(--academy-ink-muted);
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 720;
+    cursor: pointer;
+}
+
+.academy-constructed-prompt-support-toggle:hover,
+.academy-constructed-prompt-support-toggle:focus-visible {
+    color: var(--academy-ink);
+    border-bottom-color: var(--academy-accent);
+}
+
 .academy-choice-options {
     display: grid;
     gap: 9px;
 }
 
+.academy-choice-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
 .academy-choice-option {
+    position: relative;
     display: grid;
     min-height: 58px;
     justify-items: start;
     padding: 10px 14px;
     border: 1px solid var(--academy-line);
-    border-radius: 14px;
+    border-radius: 5px 13px 6px 10px;
     color: var(--academy-ink);
-    background: rgba(12, 26, 44, 0.88);
+    background: rgba(255, 252, 241, 0.58);
+    box-shadow: 4px 5px 0 rgba(83, 69, 47, 0.17);
     text-align: left;
     cursor: pointer;
 }
 
 .academy-choice-option:hover:not(:disabled) {
-    border-color: var(--academy-amber-strong);
+    border-color: color-mix(in srgb, var(--academy-paper-ink) 38%, transparent);
+    background: color-mix(in srgb, var(--academy-paper-deep) 46%, var(--academy-paper));
+    transform: translateX(3px);
+}
+
+.academy-choice-reading-toggle {
+    min-height: 36px;
+    padding: 5px 8px;
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    color: var(--academy-paper-ink);
+    background: transparent;
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.academy-choice-reading {
+    margin: 0;
+    color: var(--academy-ink-muted);
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.academy-choice-reading ruby {
+    ruby-position: over;
+}
+
+.academy-choice-reading rt {
+    font-size: 0.68em;
+}
+
+.academy-choice-pitch {
+    white-space: nowrap;
 }
 
 .academy-activity-feedback {
@@ -69,7 +187,7 @@
     margin: 0;
     padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.045);
+    background: rgba(255, 252, 241, 0.5);
 }
 
 .academy-activity[data-outcome="pass"] .academy-feedback-explanation {
@@ -82,7 +200,7 @@
 }
 
 .academy-feedback-example {
-    border-left: 3px solid var(--academy-blue);
+    border-left: 3px solid var(--academy-accent);
 }
 
 .academy-success-note {
@@ -99,7 +217,7 @@
 }
 
 .academy-source-record summary {
-    color: var(--academy-blue);
+    color: var(--academy-accent-strong);
     cursor: pointer;
 }
 
@@ -108,8 +226,8 @@
 }
 
 .academy-kanji-activity,
-.academy-kanji-recognition,
-.academy-kanji-writing {
+.academy-kanji-writing,
+.academy-kanji-recall {
     display: grid;
     gap: 12px;
 }
@@ -118,28 +236,40 @@
     display: none;
 }
 
-.academy-keyboard-writing {
-    display: grid;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid var(--academy-line);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.035);
-}
-
-.academy-keyboard-writing h3,
-.academy-keyboard-writing p {
+.academy-kanji-cue {
+    width: fit-content;
     margin: 0;
+    padding: 7px 11px;
+    border-bottom: 2px solid var(--academy-red);
+    color: var(--academy-paper-ink);
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    letter-spacing: 0.04em;
 }
 
-.academy-keyboard-writing h3 {
-    font-size: 1rem;
-}
-
-.academy-keyboard-writing p {
+.academy-kanji-writing-instruction {
+    margin: 0;
     color: var(--academy-ink-muted);
-    font-size: 0.84rem;
-    line-height: 1.5;
+}
+
+.academy-kanji-recall[hidden] {
+    display: none;
+}
+
+.academy-kanji-recall-character {
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: clamp(4rem, 15vw, 8rem);
+    line-height: 1;
+    text-align: center;
+}
+
+.academy-kanji-recall .academy-field {
+    display: grid;
+    gap: 6px;
+}
+
+.academy-kanji-next {
+    justify-self: start;
 }
 
 .academy-kanji-prompt,
@@ -173,7 +303,7 @@
     padding: 12px;
     border: 1px solid var(--academy-line);
     border-radius: 18px;
-    background: rgba(5, 13, 23, 0.74);
+    background: rgba(221, 208, 183, 0.42);
 }
 
 .academy-doodle .jpdb-reader-doodle-stage {
@@ -280,6 +410,15 @@ html.jpdb-reader-doodle-active * {
 }
 
 @media (max-width: 520px) {
+    .academy-choice-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .academy-choice-reading-support {
+        justify-self: start;
+    }
+
     .academy-kanji-options {
         grid-template-columns: 1fr;
     }

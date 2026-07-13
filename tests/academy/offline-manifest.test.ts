@@ -16,10 +16,12 @@ describe('Academy offline shell', () => {
             '/academy/art/locations/wide/writing-studio__rain-night--wide.webp',
             '/academy/art/events/rainy-directions__rie-aakash__v001.png',
             '/academy/content/vertical-slice/source-library.v1.json',
+            '/academy/content/lessons/lesson-zero.v1.json',
             '/academy/vendor/kanjivg/04e00.svg',
             '/academy/vendor/kanjivg/ATTRIBUTION.md',
         ]) expect(source).toContain(`'${required}'`);
         expect(source).toContain("url.pathname === '/yomu.user.js'");
+        expect(source).toContain("url.pathname.startsWith('/academy/media/')");
     });
 
     it('keeps every typed runtime asset in the offline core', () => {

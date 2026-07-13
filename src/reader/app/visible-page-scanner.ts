@@ -15,6 +15,7 @@ import { formatUiText, uiText } from '../app/i18n';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
+import { applyAuthoredVocabularyOverrides } from '../lookup/authored-vocabulary';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
@@ -373,20 +374,11 @@ export class VisiblePageScanner {
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
             if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
             if (this.isStaleScan(generation)) return parsedAnyTokens;
-            const tokens = parsed.flat();
-            const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
-            if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
-            // Kick the status-color lookup off before touching the DOM so the
-            // IndexedDB roundtrip overlaps the apply work.
-            const applyAnkiColors = this.shouldEnrichAnkiWords()
-                ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
-                : undefined;
-            const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
-            applyAnkiColors?.(changedRoots);
-            this.preloadParsed(parsed, changedRoots, {
-                skipAnki: Boolean(applyAnkiColors),
-                skipPitch: pitchStartedBeforeApply,
-            });
+            // Keep semantic overrides, pitch/status enrichment, DOM apply, and
+            // preload identical to the prefetch path. This used to be duplicated
+            // here, which meant ordinary sequential scans skipped authored
+            // homograph evidence while large/prefetched scans respected it.
+            await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
         return parsedAnyTokens;
@@ -433,15 +425,16 @@ export class VisiblePageScanner {
     }
 
     private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
-        const tokens = parsed.flat();
+        const resolved = applyAuthoredVocabularyToBatch(batch, parsed);
+        const tokens = resolved.flat();
         const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
         if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords()
             ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
             : undefined;
-        const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
+        const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, generation);
         applyAnkiColors?.(changedRoots);
-        this.preloadParsed(parsed, changedRoots, {
+        this.preloadParsed(resolved, changedRoots, {
             skipAnki: Boolean(applyAnkiColors),
             skipPitch: pitchStartedBeforeApply,
         });
@@ -597,6 +590,10 @@ export class VisiblePageScanner {
             document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
         }
     }
+}
+
+function applyAuthoredVocabularyToBatch(targets: ScanTextTarget[], parsed: JPDBToken[][]): JPDBToken[][] {
+    return targets.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
 }
 
 function waitForVisibleScanTurn(): Promise<void> {

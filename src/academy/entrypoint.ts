@@ -5,6 +5,9 @@ import './styles/shell.css';
 import './styles/screens.css';
 import './styles/activity.css';
 import './styles/world.css';
+import './styles/vn-stage.css';
+import './styles/lesson-zero-proof.css';
+import './styles/aakash-directions.css';
 import { AcademyApp } from './app';
 import { initYomuReaderRuntime } from './integration/yomu-runtime';
 

@@ -11,7 +11,9 @@ interface AssetDelivery {
 interface AssetEntry {
     readonly id: string;
     readonly verdict: string;
+    readonly runtimeHome?: readonly string[] | null;
     readonly deliveries?: readonly AssetDelivery[];
+    readonly status?: string;
 }
 
 describe('Academy runtime asset ledger', () => {
@@ -19,12 +21,14 @@ describe('Academy runtime asset ledger', () => {
         rules: { runtimeRequiresExplicitEntry: boolean };
         assets: AssetEntry[];
     };
-    const approved = ledger.assets.filter(asset => asset.verdict.startsWith('approved-runtime'));
-    const deliveries = approved.flatMap(asset => asset.deliveries ?? []);
+    const runtimeAssets = ledger.assets.filter(
+        asset => asset.verdict.startsWith('approved-runtime') || asset.verdict === 'review-candidate/runtime-preview',
+    );
+    const deliveries = runtimeAssets.flatMap(asset => asset.deliveries ?? []);
 
-    it('hashes every explicitly approved runtime delivery', () => {
+    it('hashes every explicit runtime delivery, including release-blocked previews', () => {
         expect(ledger.rules.runtimeRequiresExplicitEntry).toBe(true);
-        expect(approved.length).toBeGreaterThan(0);
+        expect(runtimeAssets.length).toBeGreaterThan(0);
         for (const delivery of deliveries) {
             const file = path.resolve('public', delivery.path.replace(/^\//, ''));
             expect(fs.existsSync(file), `missing ${delivery.path}`).toBe(true);
@@ -41,11 +45,63 @@ describe('Academy runtime asset ledger', () => {
         expect(files).toEqual(deliveries.map(delivery => delivery.path).sort());
     });
 
-    it('binds every typed runtime art path to an approved ledger delivery', () => {
-        const approvedPaths = new Set(deliveries.map(delivery => delivery.path));
+    it('binds every typed runtime art path to an explicit ledger delivery', () => {
+        const ledgeredPaths = new Set(deliveries.map(delivery => delivery.path));
         for (const assetPath of collectPaths(ACADEMY_ASSETS)) {
-            expect(approvedPaths.has(assetPath), `unapproved typed asset ${assetPath}`).toBe(true);
+            expect(ledgeredPaths.has(assetPath), `unledgered typed asset ${assetPath}`).toBe(true);
         }
+    });
+
+    it('keeps the three Rie expression previews release-blocked with exact prospective homes', () => {
+        const expected = {
+            'rie-happy-halfbody-v001': {
+                path: ACADEMY_ASSETS.rieExpressions.happy,
+                homes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'],
+            },
+            'rie-encouraging-halfbody-v001': {
+                path: ACADEMY_ASSETS.rieExpressions.encouraging,
+                homes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'],
+            },
+            'rie-repair-halfbody-v001': {
+                path: ACADEMY_ASSETS.rieExpressions.repair,
+                homes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'journal:rie-expression-gallery'],
+            },
+        } as const;
+
+        for (const [id, expectation] of Object.entries(expected)) {
+            const candidate = ledger.assets.find(asset => asset.id === id);
+            expect(candidate).toMatchObject({
+                verdict: 'review-candidate/runtime-preview',
+                runtimeHome: expectation.homes,
+                status: 'release-blocked-pending-owner-approval',
+            });
+            expect(candidate?.deliveries?.map(delivery => delivery.path)).toEqual([expectation.path]);
+        }
+    });
+
+    it('keeps the Aakash journal preview honest and separate from the rainy scene CG', () => {
+        const preview = ledger.assets.find(asset => asset.id === 'aakash-neutral-halfbody-v001');
+        const rainyScene = ledger.assets.find(asset => asset.id === 'rainy-directions-rie-aakash-v001');
+
+        expect(preview).toMatchObject({
+            verdict: 'approved-runtime-preview',
+            runtimeHome: ['journal:aakash'],
+            status: 'owner-requested-preview; release-blocked-pending-likeness-approval',
+        });
+        expect(rainyScene?.runtimeHome).not.toContain('journal:aakash');
+        expect(rainyScene?.status).not.toContain('sprite');
+    });
+
+    it('keeps Xingyu as an unbound review candidate until likeness approval', () => {
+        const preview = ledger.assets.find(asset => asset.id === 'xingyu-neutral-halfbody-v001');
+        expect(preview).toMatchObject({
+            verdict: 'review-candidate/runtime-preview',
+            runtimeHome: ['mission:lesson-zero-sound-host'],
+            status: 'not-runtime-bound; release-blocked-pending-owner-likeness-and-cast-scale-approval',
+        });
+        expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
+            '/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png',
+        ]);
     });
 });
 

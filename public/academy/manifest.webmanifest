@@ -6,9 +6,15 @@
   "start_url": "/academy/",
   "scope": "/academy/",
   "display": "standalone",
-  "background_color": "#07101e",
-  "theme_color": "#07101e",
+  "background_color": "#181b18",
+  "theme_color": "#181b18",
   "icons": [
+    {
+      "src": "/yomu-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/favicon-192x192.png",
       "sizes": "192x192",

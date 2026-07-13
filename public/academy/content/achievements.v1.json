@@ -1,0 +1,2762 @@
+{
+  "schemaVersion": 1,
+  "registryId": "yomu-academy-achievements",
+  "revision": 1,
+  "definitions": [
+    {
+      "id": "kana-hiragana-recall",
+      "group": "kana",
+      "title": {
+        "en": "Hiragana recall",
+        "ja": "ひらがなの想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through hiragana recall; progress comes only from the recorded learning action.",
+        "ja": "ひらがなの想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-hiragana-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:hiragana-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kana-katakana-recall",
+      "group": "kana",
+      "title": {
+        "en": "Katakana recall",
+        "ja": "カタカナの想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through katakana recall; progress comes only from the recorded learning action.",
+        "ja": "カタカナの想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-katakana-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:katakana-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kana-kana-production",
+      "group": "kana",
+      "title": {
+        "en": "Kana production",
+        "ja": "仮名の産出"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kana production; progress comes only from the recorded learning action.",
+        "ja": "仮名の産出の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-kana-production",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:kana-production:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kana-small-kana-contrasts",
+      "group": "kana",
+      "title": {
+        "en": "Small-kana contrasts",
+        "ja": "小書き仮名の区別"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through small-kana contrasts; progress comes only from the recorded learning action.",
+        "ja": "小書き仮名の区別の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-small-kana-contrasts",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:small-kana-contrasts:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kana-long-vowel-listening",
+      "group": "kana",
+      "title": {
+        "en": "Long-vowel listening",
+        "ja": "長音の聞き分け"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through long-vowel listening; progress comes only from the recorded learning action.",
+        "ja": "長音の聞き分けの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-long-vowel-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:long-vowel-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kana-kana-in-new-words",
+      "group": "kana",
+      "title": {
+        "en": "Kana in new words",
+        "ja": "新しい語の仮名"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kana in new words; progress comes only from the recorded learning action.",
+        "ja": "新しい語の仮名の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kana-kana-in-new-words",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kana",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kana:kana-in-new-words:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-kanji-recognition",
+      "group": "kanji",
+      "title": {
+        "en": "Kanji recognition",
+        "ja": "漢字の認識"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kanji recognition; progress comes only from the recorded learning action.",
+        "ja": "漢字の認識の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-kanji-recognition",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:kanji-recognition:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-reading-retrieval",
+      "group": "kanji",
+      "title": {
+        "en": "Reading retrieval",
+        "ja": "読みの想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through reading retrieval; progress comes only from the recorded learning action.",
+        "ja": "読みの想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-reading-retrieval",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:reading-retrieval:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-meaning-retrieval",
+      "group": "kanji",
+      "title": {
+        "en": "Meaning retrieval",
+        "ja": "意味の想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through meaning retrieval; progress comes only from the recorded learning action.",
+        "ja": "意味の想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-meaning-retrieval",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:meaning-retrieval:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-stroke-production",
+      "group": "kanji",
+      "title": {
+        "en": "Stroke production",
+        "ja": "筆順の産出"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through stroke production; progress comes only from the recorded learning action.",
+        "ja": "筆順の産出の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-stroke-production",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "write",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:stroke-production:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-component-awareness",
+      "group": "kanji",
+      "title": {
+        "en": "Component awareness",
+        "ja": "部品への気づき"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through component awareness; progress comes only from the recorded learning action.",
+        "ja": "部品への気づきの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-component-awareness",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:component-awareness:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-kanji-in-words",
+      "group": "kanji",
+      "title": {
+        "en": "Kanji in words",
+        "ja": "語の中の漢字"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kanji in words; progress comes only from the recorded learning action.",
+        "ja": "語の中の漢字の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-kanji-in-words",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:kanji-in-words:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-kanji-repair",
+      "group": "kanji",
+      "title": {
+        "en": "Kanji repair",
+        "ja": "漢字の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kanji repair; progress comes only from the recorded learning action.",
+        "ja": "漢字の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-kanji-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:kanji-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-mixed-context-kanji",
+      "group": "kanji",
+      "title": {
+        "en": "Mixed-context kanji",
+        "ja": "混合文脈の漢字"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through mixed-context kanji; progress comes only from the recorded learning action.",
+        "ja": "混合文脈の漢字の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-mixed-context-kanji",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:mixed-context-kanji:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-source-kanji",
+      "group": "kanji",
+      "title": {
+        "en": "Source kanji",
+        "ja": "教材の漢字"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through source kanji; progress comes only from the recorded learning action.",
+        "ja": "教材の漢字の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-source-kanji",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:source-kanji:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "kanji-transferred-kanji",
+      "group": "kanji",
+      "title": {
+        "en": "Transferred kanji",
+        "ja": "転移した漢字"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through transferred kanji; progress comes only from the recorded learning action.",
+        "ja": "転移した漢字の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:kanji-transferred-kanji",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "kanji",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:kanji:transferred-kanji:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-word-recognition",
+      "group": "vocabulary",
+      "title": {
+        "en": "Word recognition",
+        "ja": "語の認識"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word recognition; progress comes only from the recorded learning action.",
+        "ja": "語の認識の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-word-recognition",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:word-recognition:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-word-recall",
+      "group": "vocabulary",
+      "title": {
+        "en": "Word recall",
+        "ja": "語の想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word recall; progress comes only from the recorded learning action.",
+        "ja": "語の想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-word-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:word-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-word-production",
+      "group": "vocabulary",
+      "title": {
+        "en": "Word production",
+        "ja": "語の産出"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word production; progress comes only from the recorded learning action.",
+        "ja": "語の産出の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-word-production",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:word-production:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-words-in-sentences",
+      "group": "vocabulary",
+      "title": {
+        "en": "Words in sentences",
+        "ja": "文の中の語"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through words in sentences; progress comes only from the recorded learning action.",
+        "ja": "文の中の語の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-words-in-sentences",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:words-in-sentences:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-listening-vocabulary",
+      "group": "vocabulary",
+      "title": {
+        "en": "Listening vocabulary",
+        "ja": "聞いて分かる語"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through listening vocabulary; progress comes only from the recorded learning action.",
+        "ja": "聞いて分かる語の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-listening-vocabulary",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:listening-vocabulary:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-personal-collection",
+      "group": "vocabulary",
+      "title": {
+        "en": "Personal collection",
+        "ja": "自分のコレクション"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through personal collection; progress comes only from the recorded learning action.",
+        "ja": "自分のコレクションの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-personal-collection",
+      "criterion": {
+        "source": "collection",
+        "measure": "active-count"
+      },
+      "thresholds": {
+        "bronze": 10,
+        "silver": 50,
+        "gold": 200,
+        "platinum": 500
+      }
+    },
+    {
+      "id": "vocabulary-shiritori-words",
+      "group": "vocabulary",
+      "title": {
+        "en": "Shiritori words",
+        "ja": "しりとりの語"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through shiritori words; progress comes only from the recorded learning action.",
+        "ja": "しりとりの語の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-shiritori-words",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "modeId": "shiritori",
+        "conceptPrefix": "concept:vocabulary:shiritori-words:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-vocabulary-repair",
+      "group": "vocabulary",
+      "title": {
+        "en": "Vocabulary repair",
+        "ja": "語彙の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through vocabulary repair; progress comes only from the recorded learning action.",
+        "ja": "語彙の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-vocabulary-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:vocabulary-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "vocabulary-source-vocabulary",
+      "group": "vocabulary",
+      "title": {
+        "en": "Source vocabulary",
+        "ja": "教材の語彙"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through source vocabulary; progress comes only from the recorded learning action.",
+        "ja": "教材の語彙の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-source-vocabulary",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "vocabulary",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:source-vocabulary:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "vocabulary-vocabulary-transfer",
+      "group": "vocabulary",
+      "title": {
+        "en": "Vocabulary transfer",
+        "ja": "語彙の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through vocabulary transfer; progress comes only from the recorded learning action.",
+        "ja": "語彙の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:vocabulary-vocabulary-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:vocabulary:vocabulary-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-pattern-recognition",
+      "group": "grammar",
+      "title": {
+        "en": "Pattern recognition",
+        "ja": "文型の認識"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through pattern recognition; progress comes only from the recorded learning action.",
+        "ja": "文型の認識の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-pattern-recognition",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:pattern-recognition:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-grammar-recall",
+      "group": "grammar",
+      "title": {
+        "en": "Grammar recall",
+        "ja": "文法の想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar recall; progress comes only from the recorded learning action.",
+        "ja": "文法の想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-grammar-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:grammar-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-sentence-building",
+      "group": "grammar",
+      "title": {
+        "en": "Sentence building",
+        "ja": "文作り"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sentence building; progress comes only from the recorded learning action.",
+        "ja": "文作りの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-sentence-building",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:sentence-building:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-grammar-listening",
+      "group": "grammar",
+      "title": {
+        "en": "Grammar listening",
+        "ja": "聞き取り文法"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar listening; progress comes only from the recorded learning action.",
+        "ja": "聞き取り文法の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-grammar-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:grammar-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-grammar-repair",
+      "group": "grammar",
+      "title": {
+        "en": "Grammar repair",
+        "ja": "文法の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar repair; progress comes only from the recorded learning action.",
+        "ja": "文法の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-grammar-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:grammar-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-grammar-in-sources",
+      "group": "grammar",
+      "title": {
+        "en": "Grammar in sources",
+        "ja": "教材の文法"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar in sources; progress comes only from the recorded learning action.",
+        "ja": "教材の文法の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-grammar-in-sources",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:grammar-in-sources:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "grammar-grammar-transfer",
+      "group": "grammar",
+      "title": {
+        "en": "Grammar transfer",
+        "ja": "文法の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar transfer; progress comes only from the recorded learning action.",
+        "ja": "文法の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:grammar-grammar-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:grammar:grammar-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-phrase-reading",
+      "group": "reading",
+      "title": {
+        "en": "Phrase reading",
+        "ja": "句の読解"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through phrase reading; progress comes only from the recorded learning action.",
+        "ja": "句の読解の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-phrase-reading",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:phrase-reading:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-sentence-reading",
+      "group": "reading",
+      "title": {
+        "en": "Sentence reading",
+        "ja": "文の読解"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sentence reading; progress comes only from the recorded learning action.",
+        "ja": "文の読解の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-sentence-reading",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:sentence-reading:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-paragraph-reading",
+      "group": "reading",
+      "title": {
+        "en": "Paragraph reading",
+        "ja": "段落の読解"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through paragraph reading; progress comes only from the recorded learning action.",
+        "ja": "段落の読解の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-paragraph-reading",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:paragraph-reading:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-reading-recall",
+      "group": "reading",
+      "title": {
+        "en": "Reading recall",
+        "ja": "読解の想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through reading recall; progress comes only from the recorded learning action.",
+        "ja": "読解の想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-reading-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:reading-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-reading-repair",
+      "group": "reading",
+      "title": {
+        "en": "Reading repair",
+        "ja": "読解の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through reading repair; progress comes only from the recorded learning action.",
+        "ja": "読解の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-reading-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:reading-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-source-reading",
+      "group": "reading",
+      "title": {
+        "en": "Source reading",
+        "ja": "教材の読解"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through source reading; progress comes only from the recorded learning action.",
+        "ja": "教材の読解の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-source-reading",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:source-reading:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-mixed-reading",
+      "group": "reading",
+      "title": {
+        "en": "Mixed reading",
+        "ja": "混合読解"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through mixed reading; progress comes only from the recorded learning action.",
+        "ja": "混合読解の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-mixed-reading",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:mixed-reading:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "reading-reading-transfer",
+      "group": "reading",
+      "title": {
+        "en": "Reading transfer",
+        "ja": "読解の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through reading transfer; progress comes only from the recorded learning action.",
+        "ja": "読解の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:reading-reading-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:reading:reading-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-sound-recognition",
+      "group": "listening",
+      "title": {
+        "en": "Sound recognition",
+        "ja": "音の認識"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sound recognition; progress comes only from the recorded learning action.",
+        "ja": "音の認識の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-sound-recognition",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:sound-recognition:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-word-listening",
+      "group": "listening",
+      "title": {
+        "en": "Word listening",
+        "ja": "単語の聞き取り"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word listening; progress comes only from the recorded learning action.",
+        "ja": "単語の聞き取りの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-word-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:word-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-sentence-listening",
+      "group": "listening",
+      "title": {
+        "en": "Sentence listening",
+        "ja": "文の聞き取り"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sentence listening; progress comes only from the recorded learning action.",
+        "ja": "文の聞き取りの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-sentence-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:sentence-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-listening-recall",
+      "group": "listening",
+      "title": {
+        "en": "Listening recall",
+        "ja": "聞いた内容の想起"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through listening recall; progress comes only from the recorded learning action.",
+        "ja": "聞いた内容の想起の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-listening-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:listening-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-transcript-repair",
+      "group": "listening",
+      "title": {
+        "en": "Transcript repair",
+        "ja": "字幕による修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through transcript repair; progress comes only from the recorded learning action.",
+        "ja": "字幕による修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-transcript-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:transcript-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-video-listening",
+      "group": "listening",
+      "title": {
+        "en": "Video listening",
+        "ja": "動画の聞き取り"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through video listening; progress comes only from the recorded learning action.",
+        "ja": "動画の聞き取りの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-video-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "listen",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:video-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-source-listening",
+      "group": "listening",
+      "title": {
+        "en": "Source listening",
+        "ja": "教材の聞き取り"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through source listening; progress comes only from the recorded learning action.",
+        "ja": "教材の聞き取りの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-source-listening",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:source-listening:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "listening-listening-transfer",
+      "group": "listening",
+      "title": {
+        "en": "Listening transfer",
+        "ja": "聞き取りの転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through listening transfer; progress comes only from the recorded learning action.",
+        "ja": "聞き取りの転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:listening-listening-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:listening:listening-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-first-rehearsal",
+      "group": "speaking",
+      "title": {
+        "en": "First rehearsal",
+        "ja": "最初のリハーサル"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through first rehearsal; progress comes only from the recorded learning action.",
+        "ja": "最初のリハーサルの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-first-rehearsal",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "speak",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:first-rehearsal:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-word-production",
+      "group": "speaking",
+      "title": {
+        "en": "Word production",
+        "ja": "単語の発話"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word production; progress comes only from the recorded learning action.",
+        "ja": "単語の発話の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-word-production",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:word-production:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-sentence-production",
+      "group": "speaking",
+      "title": {
+        "en": "Sentence production",
+        "ja": "文の発話"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sentence production; progress comes only from the recorded learning action.",
+        "ja": "文の発話の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-sentence-production",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:sentence-production:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-shadowing",
+      "group": "speaking",
+      "title": {
+        "en": "Shadowing",
+        "ja": "シャドーイング"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through shadowing; progress comes only from the recorded learning action.",
+        "ja": "シャドーイングの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-shadowing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "speak",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:shadowing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-pronunciation-repair",
+      "group": "speaking",
+      "title": {
+        "en": "Pronunciation repair",
+        "ja": "発音の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through pronunciation repair; progress comes only from the recorded learning action.",
+        "ja": "発音の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-pronunciation-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:pronunciation-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-conversation-response",
+      "group": "speaking",
+      "title": {
+        "en": "Conversation response",
+        "ja": "会話の応答"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through conversation response; progress comes only from the recorded learning action.",
+        "ja": "会話の応答の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-conversation-response",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "speak",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:conversation-response:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "speaking-speaking-transfer",
+      "group": "speaking",
+      "title": {
+        "en": "Speaking transfer",
+        "ja": "発話の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through speaking transfer; progress comes only from the recorded learning action.",
+        "ja": "発話の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:speaking-speaking-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:speaking:speaking-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-kana-writing",
+      "group": "writing",
+      "title": {
+        "en": "Kana writing",
+        "ja": "仮名を書く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kana writing; progress comes only from the recorded learning action.",
+        "ja": "仮名を書くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-kana-writing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "write",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:kana-writing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-kanji-writing",
+      "group": "writing",
+      "title": {
+        "en": "Kanji writing",
+        "ja": "漢字を書く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kanji writing; progress comes only from the recorded learning action.",
+        "ja": "漢字を書くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-kanji-writing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "write",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:kanji-writing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-word-writing",
+      "group": "writing",
+      "title": {
+        "en": "Word writing",
+        "ja": "語を書く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through word writing; progress comes only from the recorded learning action.",
+        "ja": "語を書くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-word-writing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "write",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:word-writing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-sentence-writing",
+      "group": "writing",
+      "title": {
+        "en": "Sentence writing",
+        "ja": "文を書く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through sentence writing; progress comes only from the recorded learning action.",
+        "ja": "文を書くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-sentence-writing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:sentence-writing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-writing-repair",
+      "group": "writing",
+      "title": {
+        "en": "Writing repair",
+        "ja": "作文の修正"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through writing repair; progress comes only from the recorded learning action.",
+        "ja": "作文の修正の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-writing-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:writing-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-source-writing",
+      "group": "writing",
+      "title": {
+        "en": "Source writing",
+        "ja": "教材に基づく作文"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through source writing; progress comes only from the recorded learning action.",
+        "ja": "教材に基づく作文の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-source-writing",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:source-writing:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "writing-writing-transfer",
+      "group": "writing",
+      "title": {
+        "en": "Writing transfer",
+        "ja": "作文の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through writing transfer; progress comes only from the recorded learning action.",
+        "ja": "作文の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:writing-writing-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "writing",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:writing:writing-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-notice-a-lapse",
+      "group": "repair",
+      "title": {
+        "en": "Notice a lapse",
+        "ja": "間違いに気づく"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through notice a lapse; progress comes only from the recorded learning action.",
+        "ja": "間違いに気づくの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-notice-a-lapse",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:notice-a-lapse:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-use-a-hint",
+      "group": "repair",
+      "title": {
+        "en": "Use a hint",
+        "ja": "ヒントを使う"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through use a hint; progress comes only from the recorded learning action.",
+        "ja": "ヒントを使うの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-use-a-hint",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:use-a-hint:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-contrast-meanings",
+      "group": "repair",
+      "title": {
+        "en": "Contrast meanings",
+        "ja": "意味を対比する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through contrast meanings; progress comes only from the recorded learning action.",
+        "ja": "意味を対比するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-contrast-meanings",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "recognise",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:contrast-meanings:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-repair-a-form",
+      "group": "repair",
+      "title": {
+        "en": "Repair a form",
+        "ja": "形を直す"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through repair a form; progress comes only from the recorded learning action.",
+        "ja": "形を直すの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-repair-a-form",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "produce",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:repair-a-form:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-repair-later",
+      "group": "repair",
+      "title": {
+        "en": "Repair later",
+        "ja": "後で直す"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through repair later; progress comes only from the recorded learning action.",
+        "ja": "後で直すの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-repair-later",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "repair",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:repair-later:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-clear-a-repair-set",
+      "group": "repair",
+      "title": {
+        "en": "Clear a repair set",
+        "ja": "修正セットを終える"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through clear a repair set; progress comes only from the recorded learning action.",
+        "ja": "修正セットを終えるの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-clear-a-repair-set",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "review",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:clear-a-repair-set:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "repair-transfer-after-repair",
+      "group": "repair",
+      "title": {
+        "en": "Transfer after repair",
+        "ja": "修正後に転移する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through transfer after repair; progress comes only from the recorded learning action.",
+        "ja": "修正後に転移するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:repair-transfer-after-repair",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:repair:transfer-after-repair:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-begin-reviewing",
+      "group": "review",
+      "title": {
+        "en": "Begin reviewing",
+        "ja": "復習を始める"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through begin reviewing; progress comes only from the recorded learning action.",
+        "ja": "復習を始めるの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-begin-reviewing",
+      "criterion": {
+        "source": "review",
+        "measure": "count"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-review-on-new-days",
+      "group": "review",
+      "title": {
+        "en": "Review on new days",
+        "ja": "別の日に復習する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through review on new days; progress comes only from the recorded learning action.",
+        "ja": "別の日に復習するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-review-on-new-days",
+      "criterion": {
+        "source": "review",
+        "measure": "distinct-days"
+      },
+      "thresholds": {
+        "bronze": 2,
+        "silver": 7,
+        "gold": 30,
+        "platinum": 100
+      }
+    },
+    {
+      "id": "review-good-recall-reviews",
+      "group": "review",
+      "title": {
+        "en": "Good recall reviews",
+        "ja": "よく思い出せた復習"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through good recall reviews; progress comes only from the recorded learning action.",
+        "ja": "よく思い出せた復習の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-good-recall-reviews",
+      "criterion": {
+        "source": "review",
+        "measure": "count",
+        "rating": "good"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-easy-recall-reviews",
+      "group": "review",
+      "title": {
+        "en": "Easy recall reviews",
+        "ja": "楽に思い出せた復習"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through easy recall reviews; progress comes only from the recorded learning action.",
+        "ja": "楽に思い出せた復習の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-easy-recall-reviews",
+      "criterion": {
+        "source": "review",
+        "measure": "count",
+        "rating": "easy"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-hard-reviews-completed",
+      "group": "review",
+      "title": {
+        "en": "Hard reviews completed",
+        "ja": "難しい復習を完了"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through hard reviews completed; progress comes only from the recorded learning action.",
+        "ja": "難しい復習を完了の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-hard-reviews-completed",
+      "criterion": {
+        "source": "review",
+        "measure": "count",
+        "rating": "hard"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-again-becomes-evidence",
+      "group": "review",
+      "title": {
+        "en": "Again becomes evidence",
+        "ja": "もう一度から証拠へ"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through again becomes evidence; progress comes only from the recorded learning action.",
+        "ja": "もう一度から証拠への学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-again-becomes-evidence",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "repair",
+        "action": "review",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:review:again-becomes-evidence:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "review-long-review-practice",
+      "group": "review",
+      "title": {
+        "en": "Long review practice",
+        "ja": "長期の復習"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through long review practice; progress comes only from the recorded learning action.",
+        "ja": "長期の復習の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:review-long-review-practice",
+      "criterion": {
+        "source": "learning",
+        "measure": "duration-minutes",
+        "skill": "repair",
+        "action": "review",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:review:long-review-practice:"
+      },
+      "thresholds": {
+        "bronze": 15,
+        "silver": 60,
+        "gold": 300,
+        "platinum": 1200
+      }
+    },
+    {
+      "id": "source-open-a-source",
+      "group": "source",
+      "title": {
+        "en": "Open a source",
+        "ja": "教材を開く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through open a source; progress comes only from the recorded learning action.",
+        "ja": "教材を開くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-open-a-source",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "reading",
+        "action": "read",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:open-a-source:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "source-complete-source-tasks",
+      "group": "source",
+      "title": {
+        "en": "Complete source tasks",
+        "ja": "教材課題を完了"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through complete source tasks; progress comes only from the recorded learning action.",
+        "ja": "教材課題を完了の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-complete-source-tasks",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "reading",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:complete-source-tasks:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "source-use-several-sources",
+      "group": "source",
+      "title": {
+        "en": "Use several sources",
+        "ja": "複数教材を使う"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through use several sources; progress comes only from the recorded learning action.",
+        "ja": "複数教材を使うの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-use-several-sources",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "reading",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:use-several-sources:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "source-listen-from-sources",
+      "group": "source",
+      "title": {
+        "en": "Listen from sources",
+        "ja": "教材音声を聞く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through listen from sources; progress comes only from the recorded learning action.",
+        "ja": "教材音声を聞くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-listen-from-sources",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "listening",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:listen-from-sources:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "source-repair-from-sources",
+      "group": "source",
+      "title": {
+        "en": "Repair from sources",
+        "ja": "教材から修正する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through repair from sources; progress comes only from the recorded learning action.",
+        "ja": "教材から修正するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-repair-from-sources",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "repair",
+        "action": "source-complete",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:repair-from-sources:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "source-transfer-source-language",
+      "group": "source",
+      "title": {
+        "en": "Transfer source language",
+        "ja": "教材の言葉を転移する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through transfer source language; progress comes only from the recorded learning action.",
+        "ja": "教材の言葉を転移するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:source-transfer-source-language",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-sources",
+        "skill": "transfer",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:source:transfer-source-language:"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 8,
+        "platinum": 20
+      }
+    },
+    {
+      "id": "exploration-dictionary-discovery",
+      "group": "exploration",
+      "title": {
+        "en": "Dictionary discovery",
+        "ja": "辞書で発見"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through dictionary discovery; progress comes only from the recorded learning action.",
+        "ja": "辞書で発見の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-dictionary-discovery",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": false,
+        "modeId": "dictionary-discovery",
+        "conceptPrefix": "concept:exploration:dictionary-discovery:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "exploration-kanji-discovery",
+      "group": "exploration",
+      "title": {
+        "en": "Kanji discovery",
+        "ja": "漢字を発見"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through kanji discovery; progress comes only from the recorded learning action.",
+        "ja": "漢字を発見の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-kanji-discovery",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": false,
+        "modeId": "kanji-discovery",
+        "conceptPrefix": "concept:exploration:kanji-discovery:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "exploration-example-discovery",
+      "group": "exploration",
+      "title": {
+        "en": "Example discovery",
+        "ja": "用例を発見"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through example discovery; progress comes only from the recorded learning action.",
+        "ja": "用例を発見の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-example-discovery",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": false,
+        "modeId": "example-discovery",
+        "conceptPrefix": "concept:exploration:example-discovery:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "exploration-random-discovery",
+      "group": "exploration",
+      "title": {
+        "en": "Random discovery",
+        "ja": "ランダム発見"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through random discovery; progress comes only from the recorded learning action.",
+        "ja": "ランダム発見の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-random-discovery",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": false,
+        "modeId": "random-discovery",
+        "conceptPrefix": "concept:exploration:random-discovery:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "exploration-discovery-on-new-days",
+      "group": "exploration",
+      "title": {
+        "en": "Discovery on new days",
+        "ja": "別の日の発見"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through discovery on new days; progress comes only from the recorded learning action.",
+        "ja": "別の日の発見の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-discovery-on-new-days",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-days",
+        "skill": "vocabulary",
+        "action": "explore",
+        "outcome": "pass",
+        "independent": false,
+        "conceptPrefix": "concept:exploration:discovery-on-new-days:"
+      },
+      "thresholds": {
+        "bronze": 2,
+        "silver": 7,
+        "gold": 30,
+        "platinum": 100
+      }
+    },
+    {
+      "id": "exploration-discovery-becomes-recall",
+      "group": "exploration",
+      "title": {
+        "en": "Discovery becomes recall",
+        "ja": "発見から想起へ"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through discovery becomes recall; progress comes only from the recorded learning action.",
+        "ja": "発見から想起への学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:exploration-discovery-becomes-recall",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "recall",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:exploration:discovery-becomes-recall:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "character-bond-meet-the-ensemble",
+      "group": "character-bond",
+      "title": {
+        "en": "Meet the ensemble",
+        "ja": "仲間と出会う"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through meet the ensemble; progress comes only from the recorded learning action.",
+        "ja": "仲間と出会うの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:character-bond-meet-the-ensemble",
+      "criterion": {
+        "source": "scene",
+        "measure": "count",
+        "sceneIdPrefix": "scene:meet:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "character-bond-relationship-turning-points",
+      "group": "character-bond",
+      "title": {
+        "en": "Relationship turning points",
+        "ja": "関係の転機"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through relationship turning points; progress comes only from the recorded learning action.",
+        "ja": "関係の転機の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:character-bond-relationship-turning-points",
+      "criterion": {
+        "source": "relationship",
+        "measure": "relationship-turns"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 3,
+        "gold": 9,
+        "platinum": 18
+      }
+    },
+    {
+      "id": "character-bond-open-journal-chapters",
+      "group": "character-bond",
+      "title": {
+        "en": "Open journal chapters",
+        "ja": "関係日誌の章を開く"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through open journal chapters; progress comes only from the recorded learning action.",
+        "ja": "関係日誌の章を開くの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:character-bond-open-journal-chapters",
+      "criterion": {
+        "source": "relationship",
+        "measure": "relationship-chapters"
+      },
+      "thresholds": {
+        "bronze": 1,
+        "silver": 10,
+        "gold": 30,
+        "platinum": 60
+      }
+    },
+    {
+      "id": "character-bond-learn-together-often",
+      "group": "character-bond",
+      "title": {
+        "en": "Learn together often",
+        "ja": "何度も一緒に学ぶ"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through learn together often; progress comes only from the recorded learning action.",
+        "ja": "何度も一緒に学ぶの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:character-bond-learn-together-often",
+      "criterion": {
+        "source": "day",
+        "measure": "distinct-days"
+      },
+      "thresholds": {
+        "bronze": 2,
+        "silver": 7,
+        "gold": 30,
+        "platinum": 100
+      }
+    },
+    {
+      "id": "character-bond-shared-transfer-moments",
+      "group": "character-bond",
+      "title": {
+        "en": "Shared transfer moments",
+        "ja": "一緒に転移する"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through shared transfer moments; progress comes only from the recorded learning action.",
+        "ja": "一緒に転移するの学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:character-bond-shared-transfer-moments",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "transfer",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:character-bond:shared-transfer-moments:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-first-transfer",
+      "group": "transfer",
+      "title": {
+        "en": "First transfer",
+        "ja": "最初の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through first transfer; progress comes only from the recorded learning action.",
+        "ja": "最初の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-first-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "transfer",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:first-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-vocabulary-transfer",
+      "group": "transfer",
+      "title": {
+        "en": "Vocabulary transfer",
+        "ja": "語彙の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through vocabulary transfer; progress comes only from the recorded learning action.",
+        "ja": "語彙の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-vocabulary-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "vocabulary",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:vocabulary-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-grammar-transfer",
+      "group": "transfer",
+      "title": {
+        "en": "Grammar transfer",
+        "ja": "文法の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through grammar transfer; progress comes only from the recorded learning action.",
+        "ja": "文法の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-grammar-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "grammar",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:grammar-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-listening-transfer",
+      "group": "transfer",
+      "title": {
+        "en": "Listening transfer",
+        "ja": "聞き取りの転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through listening transfer; progress comes only from the recorded learning action.",
+        "ja": "聞き取りの転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-listening-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "listening",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:listening-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-production-transfer",
+      "group": "transfer",
+      "title": {
+        "en": "Production transfer",
+        "ja": "産出の転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through production transfer; progress comes only from the recorded learning action.",
+        "ja": "産出の転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-production-transfer",
+      "criterion": {
+        "source": "learning",
+        "measure": "count",
+        "skill": "speaking",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:production-transfer:"
+      },
+      "thresholds": {
+        "bronze": 5,
+        "silver": 25,
+        "gold": 100,
+        "platinum": 300
+      }
+    },
+    {
+      "id": "transfer-transfer-across-days",
+      "group": "transfer",
+      "title": {
+        "en": "Transfer across days",
+        "ja": "日をまたぐ転移"
+      },
+      "description": {
+        "en": "Build demonstrable learning evidence through transfer across days; progress comes only from the recorded learning action.",
+        "ja": "日をまたぐ転移の学習行動を記録し、実際の証拠だけで進みます。"
+      },
+      "medalId": "academy:transfer-transfer-across-days",
+      "criterion": {
+        "source": "learning",
+        "measure": "distinct-days",
+        "skill": "transfer",
+        "action": "transfer",
+        "outcome": "pass",
+        "independent": true,
+        "conceptPrefix": "concept:transfer:transfer-across-days:"
+      },
+      "thresholds": {
+        "bronze": 2,
+        "silver": 7,
+        "gold": 30,
+        "platinum": 100
+      }
+    }
+  ]
+}

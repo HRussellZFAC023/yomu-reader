@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "characterId": "rie",
+  "status": "review-candidate",
+  "approval": "pending-human-visual-review",
+  "generator": {
+    "provider": "OpenAI",
+    "mode": "built-in-image-generation",
+    "workflow": "identity-preserving edit with flat #ff00ff chroma background, local chroma removal, and canvas normalisation"
+  },
+  "references": [
+    {
+      "path": "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+      "role": "hard identity, wardrobe, pose, crop, prop, silhouette, and lighting reference"
+    },
+    {
+      "path": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-76d267a1-01fb-4224-a61a-3514006abc38.png",
+      "role": "Rie classroom face and warm pixel-painted style anchor"
+    },
+    {
+      "path": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-47673506-16a5-4045-9dfa-13c590ddf674.png",
+      "role": "classroom tutoring world and lighting calibration"
+    }
+  ],
+  "sharedPrompt": {
+    "useCase": "identity-preserve",
+    "assetType": "transparent half-body visual-novel character sprite review candidate",
+    "invariants": "Preserve the same adult woman, face structure, age, skin tone, soft dark bun and loose strands, pearl earring, cream cardigan, navy blouse, lanyard, necklace, belt, green thermos, marked worksheet stack, body proportions, half-body crop, warm key light, outline weight, and hand-placed pixel texture from the approved neutral. No text, watermark, cast shadow, contact shadow, reflection, photorealism, gloss, 3D rendering, chibi exaggeration, or subject pixels matching the chroma key.",
+    "background": "Perfectly flat solid #ff00ff chroma key with no texture or lighting variation."
+  },
+  "candidates": [
+    {
+      "expression": "happy",
+      "status": "review-candidate",
+      "promptDelta": "Warm genuine modest smile after a correct retry, with slightly brighter eyes and subtly lifted cheeks.",
+      "originalGenerationPath": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
+      "runtimeCandidatePath": "public/academy/art/characters/rie/rie__happy__halfbody__v001.png",
+      "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75",
+      "intendedHomes": [
+        "lesson-feedback.correct-retry",
+        "dialogue.positive-response",
+        "journal.expression-gallery"
+      ],
+      "validation": {
+        "width": 1536,
+        "height": 2048,
+        "alpha": true,
+        "transparentPixelRatio": 0.4899,
+        "partiallyTransparentPixelRatio": 0.0176,
+        "visibleMagentaEdgePixels": "63 of 55477 partially transparent pixels; visually negligible and concentrated around small coloured details"
+      }
+    },
+    {
+      "expression": "encouraging",
+      "status": "review-candidate",
+      "promptDelta": "Attentive direct gaze, relaxed brows, calm open expression, and a very slight supportive smile during an honest attempt.",
+      "originalGenerationPath": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
+      "runtimeCandidatePath": "public/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
+      "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411",
+      "intendedHomes": [
+        "lesson-feedback.attempt",
+        "dialogue.listening",
+        "journal.expression-gallery"
+      ],
+      "validation": {
+        "width": 1536,
+        "height": 2048,
+        "alpha": true,
+        "transparentPixelRatio": 0.4888,
+        "partiallyTransparentPixelRatio": 0.0181,
+        "visibleMagentaEdgePixels": "46 of 56894 partially transparent pixels; visually negligible and concentrated around small coloured details"
+      }
+    },
+    {
+      "expression": "repair",
+      "status": "review-candidate",
+      "promptDelta": "Gentle focused concern after an understandable mistake, attentive eyes toward the worksheet, slightly gathered brows, relaxed supportive mouth, and a small point toward the exact marked area; never angry, disappointed, sad, pitying, or scolding.",
+      "originalGenerationPath": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
+      "runtimeCandidatePath": "public/academy/art/characters/rie/rie__repair__halfbody__v001.png",
+      "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
+      "intendedHomes": [
+        "lesson-feedback.repair",
+        "dialogue.precise-hint",
+        "journal.expression-gallery"
+      ],
+      "validation": {
+        "width": 1536,
+        "height": 2048,
+        "alpha": true,
+        "transparentPixelRatio": 0.4921,
+        "partiallyTransparentPixelRatio": 0.0176,
+        "visibleMagentaEdgePixels": "20 of 55419 partially transparent pixels; visually negligible and concentrated around small coloured details"
+      }
+    }
+  ],
+  "evidence": {
+    "contactSheet": "docs/academy/evidence/direction-reset/rie-expression-contact-sheet.png",
+    "reviewNotes": [
+      "All candidates match the approved neutral's 1536 by 2048 canvas and approximately 51 percent subject coverage.",
+      "Happy and encouraging retain the neutral prop silhouette closely; repair intentionally changes the thermos-side hand to point at the marked worksheet.",
+      "Face, hair, and garment treatment remain visually coherent at contact-sheet scale, but the candidates are not approved for runtime until human likeness review."
+    ]
+  }
+}

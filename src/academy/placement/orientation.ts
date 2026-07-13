@@ -44,7 +44,7 @@ export const ORIENTATION_MOCK_ITEMS: readonly PlacementItem[] = [
         skill: 'reading',
         passage: {
             en: 'The meeting was going to begin at six, but Alex’s train stopped, so everyone changed it to half past six.',
-            ja: '会議は六時に始まる予定でしたが、アレックスさんの電車が止まったので、みんなで六時半に変えました。',
+            ja: '会議は六時に始まる予定でしたが、Alexさんの電車が止まったので、みんなで六時半に変えました。',
         },
         prompt: { en: 'When will the meeting begin?', ja: '会議は何時に始まりますか。' },
         options: [

@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yomu-academy",
+  "main": "workers/yomu-academy/src/index.ts",
+  "compatibility_date": "2026-07-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  // Only the API and protected media paths route to the Worker. The Academy
+  // app shell and public assets stay on the static host so the enrollment
+  // screen loads before any session exists.
+  "routes": [
+    { "pattern": "yomureader.com/academy/api/*", "zone_name": "yomureader.com" },
+    { "pattern": "yomureader.com/academy/media/*", "zone_name": "yomureader.com" }
+  ],
+  "vars": {
+    "ACADEMY_ORIGIN": "https://yomureader.com"
+  },
+  // Deploy-time contract: every value below is a Worker secret set with
+  // `npx wrangler secret put <NAME> --config wrangler.academy.jsonc`.
+  // None of them may appear in vars, source, or D1.
+  "secrets": {
+    "required": [
+      "ACADEMY_INVITE_HMAC_KEY",
+      "ACADEMY_RATE_HMAC_KEY",
+      "ACADEMY_ADMIN_TOKEN",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "GOOGLE_OIDC_CLIENT_ID",
+      "GOOGLE_OIDC_CLIENT_SECRET"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "ACADEMY_DB",
+      "database_name": "yomu-academy",
+      "database_id": "34866a17-0594-4544-a527-9c79c30b4fb7",
+      "migrations_dir": "workers/yomu-academy/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ACADEMY_MEDIA",
+      "bucket_name": "yomu-academy-archive"
+    }
+  ]
+}

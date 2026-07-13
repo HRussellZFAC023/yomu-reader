@@ -88,6 +88,14 @@ _Avoid_: Affection event
 The exact scene, activity, journal entry, or location that consumes an art or audio asset.
 _Avoid_: Intended use, asset category
 
+**Lesson Appearance Plan**:
+A planning-only assignment of documented classmates to a Week, justified by source-topic evidence and a documented learning specialty. It does not make the Week authored, playable, or bound to runtime scenes.
+_Avoid_: Lesson cast, finished scene roster
+
+**Review-required Appearance**:
+A Week entry whose available source metadata cannot yet justify a classmate assignment. It preserves the gap without inventing a host.
+_Avoid_: Placeholder cast, best guess
+
 ## Module Expectations
 
 - A Module has one Interface and one Implementation. The Interface includes types, ordering, config, error modes, DOM assumptions, storage effects, and performance expectations.

@@ -1,5 +1,6 @@
 import { createAudioCatalog, SILENT_AUDIO_CATALOG, trackCanPlay } from '../../src/academy/audio/catalog';
 import { AudioDirector } from '../../src/academy/audio/director';
+import { AUTHORIZED_AUDIO_CATALOG } from '../../src/academy/audio/manifest';
 import type { AudioTrack, MediaBusPlayback, SfxCue, SfxPlayback } from '../../src/academy/audio/types';
 
 class FakeBus implements MediaBusPlayback {
@@ -46,6 +47,40 @@ function track(id: string, scope: 'release' | 'private-prototype' = 'release'): 
 }
 
 describe('audio director', () => {
+    it('boots the owner-authorized Academy catalog on first gesture and keeps semantic transitions owned', async () => {
+        const music = new FakeBus();
+        const sfx = new FakeSfx();
+        const director = new AudioDirector({
+            catalog: AUTHORIZED_AUDIO_CATALOG,
+            music,
+            ambience: new FakeBus(),
+            lesson: new FakeBus(),
+            sfx,
+            releaseMode: true,
+        });
+
+        await director.setTheme('campus.evening');
+        expect(music.track).toBeNull();
+        expect(director.theme).toBe('campus.evening');
+        await director.unlock();
+        expect(sfx.calls).toEqual(['unlock']);
+        expect(music.track).toBe('persona.royal-days');
+        expect(AUTHORIZED_AUDIO_CATALOG['campus.evening'].music?.url)
+            .toBe('/academy/media/audio/media/audio/v1/persona/royal-days.flac');
+
+        await director.setTheme('cafe.social');
+        expect(music.track).toBe('persona.kichijoji-199x');
+        const fullVolume = music.volume;
+        const releaseSpeech = director.beginExternalLesson();
+        expect(music.volume).toBeLessThan(fullVolume);
+        releaseSpeech();
+        expect(music.volume).toBeCloseTo(fullVolume);
+        await director.handleVisibility(true);
+        await director.handleVisibility(false);
+        expect(music.calls).toContain('pause');
+        expect(music.calls).toContain('resume');
+    });
+
     it('runs campus to cafe to lesson and back through one owner with intentional ducking', async () => {
         const music = new FakeBus();
         const ambience = new FakeBus();

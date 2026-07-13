@@ -17,6 +17,10 @@ export interface ChoiceOption {
     readonly explanation: LocalizedText;
     readonly repairPrompt?: LocalizedText;
     readonly nearbyExample?: LocalizedText;
+    readonly readingHint?: {
+        readonly reading: string;
+        readonly pitch: string;
+    };
 }
 
 export interface ChoiceActivityPayload {
@@ -79,6 +83,9 @@ function validateChoice(model: ChoiceActivityModel): ValidationIssue[] {
         if (!option.explanation.en.trim() || !option.explanation.ja.trim()) {
             issues.push({ path: `payload.options.${index}.explanation`, message: 'Bilingual feedback is required.' });
         }
+        if (option.readingHint && (!option.readingHint.reading.trim() || !option.readingHint.pitch.trim())) {
+            issues.push({ path: `payload.options.${index}.readingHint`, message: 'Reading support needs a reading and pitch pattern.' });
+        }
         if (!option.correct && (!option.repairPrompt?.en.trim() || !option.repairPrompt.ja.trim()
             || !option.nearbyExample?.en.trim() || !option.nearbyExample.ja.trim())) {
             issues.push({ path: `payload.options.${index}`, message: 'Wrong choices need a bilingual repair and nearby example.' });
@@ -107,24 +114,33 @@ function renderChoice(
     const choices = document.createElement('div');
     choices.className = 'academy-choice-options';
     choices.setAttribute('role', 'group');
-    choices.setAttribute('aria-labelledby', `${model.id}-prompt`);
+    choices.setAttribute('aria-label', model.prompt.ja);
     heading.id = `${model.id}-prompt`;
     const feedback = document.createElement('div');
     feedback.className = 'academy-activity-feedback';
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
+    host.react?.({ speakerId: 'rie', expression: 'neutral' });
 
     for (const option of model.payload.options) {
+        const row = document.createElement('div');
+        row.className = 'academy-choice-row';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'academy-choice-option';
         button.dataset.choiceId = option.id;
-        button.append(japanese(option.label.ja), support(option.label.en));
+        button.setAttribute('aria-label', option.label.ja);
+        button.append(assessedJapanese(option.label.ja));
         button.addEventListener('click', async () => {
             setDisabled(choices, true);
+            host.react?.({ speakerId: 'rie', expression: 'encouraging' });
             try {
                 const evaluation = await submit(option.id);
                 root.dataset.outcome = evaluation.result.outcome;
+                host.react?.({
+                    speakerId: 'rie',
+                    expression: evaluation.result.outcome === 'pass' ? 'happy' : 'repair',
+                });
                 feedback.removeAttribute('aria-label');
                 showFeedback(feedback, evaluation);
                 host.announce([
@@ -134,10 +150,13 @@ function renderChoice(
                 if (evaluation.result.outcome === 'lapse') setDisabled(choices, false);
             } catch (error) {
                 setDisabled(choices, false);
+                host.react?.({ speakerId: 'rie', expression: 'neutral' });
                 host.announce(error instanceof Error ? error.message : String(error));
             }
         }, { signal: lifecycle.signal });
-        choices.append(button);
+        row.append(button);
+        if (option.readingHint) row.append(readingSupport(model, option, host));
+        choices.append(row);
     }
     root.append(heading, choices, feedback);
     host.replace(root);
@@ -147,6 +166,7 @@ function renderChoice(
         },
         dispose() {
             lifecycle.abort();
+            host.react?.({ speakerId: 'rie', expression: 'neutral' });
             root.remove();
         },
     };
@@ -170,14 +190,69 @@ function japanese(value: string): HTMLSpanElement {
     const span = document.createElement('span');
     span.className = 'academy-japanese';
     span.lang = 'ja';
+    span.dataset.yomuRuntimeSurface = 'academy-activity';
+    span.dataset.yomuFuriganaMode = 'all';
     span.textContent = value;
     return span;
+}
+
+function assessedJapanese(value: string): HTMLSpanElement {
+    const span = document.createElement('span');
+    span.className = 'academy-japanese academy-assessed-japanese';
+    span.lang = 'ja';
+    span.dataset.jpdbReaderSurfaceIgnore = '';
+    span.textContent = value;
+    return span;
+}
+
+function readingSupport(model: ChoiceActivityModel, option: ChoiceOption, host: ActivityHost): HTMLElement {
+    const root = document.createElement('div');
+    root.className = 'academy-choice-reading-support';
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'academy-choice-reading-toggle';
+    reveal.textContent = host.language === 'ja' ? '読み方を見る' : 'Show readings';
+    reveal.setAttribute('aria-expanded', 'false');
+    const reading = document.createElement('p');
+    reading.className = 'academy-choice-reading';
+    reading.hidden = true;
+    reading.lang = 'ja';
+    reading.dataset.jpdbReaderSurfaceIgnore = '';
+    const ruby = readingRuby(option.label.ja, option.readingHint!.reading);
+    const pitch = document.createElement('span');
+    pitch.className = 'academy-choice-pitch';
+    pitch.textContent = ` · ${option.readingHint!.pitch}`;
+    reading.append(ruby, pitch);
+    let recorded = false;
+    reveal.addEventListener('click', () => {
+        reading.hidden = false;
+        reveal.hidden = true;
+        reveal.setAttribute('aria-expanded', 'true');
+        if (recorded) return;
+        recorded = true;
+        void host.recordSupportUse?.({ activityId: model.id, supportKind: 'hint', choiceId: option.id });
+    });
+    root.append(reveal, reading);
+    return root;
+}
+
+function readingRuby(label: string, reading: string): HTMLElement {
+    const ruby = document.createElement('ruby');
+    const open = document.createElement('rp');
+    open.textContent = '(';
+    const rt = document.createElement('rt');
+    rt.textContent = reading;
+    const close = document.createElement('rp');
+    close.textContent = ')';
+    ruby.append(label, open, rt, close);
+    return ruby;
 }
 
 function support(value: string): HTMLSpanElement {
     const span = document.createElement('span');
     span.className = 'academy-support';
     span.lang = 'en';
+    span.dataset.jpdbReaderSurfaceIgnore = '';
     span.textContent = value;
     return span;
 }

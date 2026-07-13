@@ -1,8 +1,33 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type ProxyOptions } from 'vite';
+import { academyCookieForRemote, academySetCookieForLocal } from './academy-cookie-proxy';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function remoteAcademyProxy(): ProxyOptions {
+    return {
+        target: 'https://yomureader.com',
+        changeOrigin: true,
+        // The Worker intentionally rejects mutating cross-origin requests.
+        // This proxy is the local same-site test boundary, so present its
+        // upstream leg as the production origin rather than 127.0.0.1.
+        headers: {
+            origin: 'https://yomureader.com',
+            'sec-fetch-site': 'same-origin',
+        },
+        configure(proxy) {
+            proxy.on('proxyRes', response => {
+                const setCookie = response.headers['set-cookie'];
+                if (setCookie) response.headers['set-cookie'] = setCookie.map(academySetCookieForLocal);
+            });
+            proxy.on('proxyReq', (request, incoming) => {
+                const cookie = incoming.headers.cookie;
+                if (cookie) request.setHeader('cookie', academyCookieForRemote(cookie));
+            });
+        },
+    };
+}
 
 export default defineConfig(({ command }) => ({
     // Dev serves the same hosted Reader + Academy tree as GitHub Pages so the
@@ -12,6 +37,13 @@ export default defineConfig(({ command }) => ({
         host: '127.0.0.1',
         port: Number(process.env.ACADEMY_PORT ?? 5174),
         strictPort: true,
+        // Local Academy acceptance uses the deployed access/media boundary so
+        // UCL2026, HttpOnly sessions, and protected range audio behave exactly
+        // as they do on the hosted origin. Build output is unaffected.
+        proxy: {
+            '/academy/api': remoteAcademyProxy(),
+            '/academy/media': remoteAcademyProxy(),
+        },
     },
     build: {
         outDir: path.join(root, 'dist/academy'),

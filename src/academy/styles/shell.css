@@ -4,56 +4,82 @@
     min-height: 100dvh;
 }
 
+/* Academy mounts Reader capabilities in its own scenes; app-shell puck chrome
+   would cover the painterly stage and duplicate the in-world controls. */
+body:has(#yomu-academy) > .jpdb-reader-fab,
+body:has(#yomu-academy) > .jpdb-reader-fab-radial {
+    display: none !important;
+}
+
 .academy-root {
-    display: grid;
-    grid-template-rows: var(--academy-header-height) minmax(0, 1fr) auto;
+    position: relative;
     overflow: hidden;
     background: var(--academy-night);
 }
 
-/* Reader capability is mounted in-world; its generic launcher would be a
-   duplicate destination over the Academy shell. Dictionary tap still works. */
-body:has(#yomu-academy) > .jpdb-reader-fab {
-    display: none !important;
-}
-
 .academy-header {
-    position: relative;
-    z-index: 30;
+    position: fixed;
+    z-index: 40;
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 16px;
     min-width: 0;
-    padding: 0 max(16px, env(safe-area-inset-left));
-    border-bottom: 1px solid var(--academy-line);
-    background: rgba(5, 12, 23, 0.9);
-    backdrop-filter: blur(18px);
+    pointer-events: none;
 }
 
-.academy-brand {
-    overflow: hidden;
-    color: var(--academy-amber-strong);
-    font-family: var(--academy-japanese-font);
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.academy-root:has(.academy-access-screen) .academy-header {
+    display: none;
 }
 
 .academy-header-actions {
-    display: flex;
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 0;
+    display: grid;
     align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
+    width: min(240px, calc(100vw - 20px));
+    padding: 6px;
+    border: 1px solid var(--academy-line);
+    border-radius: 6px 12px 12px 12px;
+    background: rgba(31, 32, 28, 0.96);
+    box-shadow: var(--academy-shadow);
+    backdrop-filter: blur(14px);
 }
 
-.academy-network-state {
-    color: var(--academy-ink-muted);
-    font-size: 0.72rem;
-    white-space: nowrap;
+.academy-utility {
+    position: relative;
+    pointer-events: auto;
+}
+
+.academy-utility-toggle {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 1px solid var(--academy-line);
+    border-radius: 12px 6px 12px 12px;
+    color: var(--academy-ink);
+    background: rgba(24, 27, 24, 0.82);
+    box-shadow: 0 8px 24px rgba(10, 11, 9, 0.2);
+    cursor: pointer;
+    list-style: none;
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(12px);
+}
+
+.academy-utility-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.academy-utility[open] .academy-utility-toggle {
+    border-color: var(--academy-line-strong);
+    background: var(--academy-panel);
 }
 
 .academy-chrome-button,
@@ -67,34 +93,47 @@ body:has(#yomu-academy) > .jpdb-reader-fab {
 }
 
 .academy-chrome-button {
-    padding: 7px 11px;
-    font-size: 0.76rem;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 5px 10px 6px 8px;
+    font-size: 0.82rem;
+    text-align: left;
 }
 
 .academy-chrome-button:hover,
 .academy-nav-button:hover {
     border-color: var(--academy-line-strong);
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.055);
 }
 
 .academy-screen-host {
     position: relative;
-    min-height: 0;
+    min-height: 100dvh;
     overflow: hidden auto;
     outline: none;
 }
 
 .academy-navigation {
-    position: relative;
-    z-index: 30;
+    position: static;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    min-height: var(--academy-nav-height);
-    padding: 8px max(12px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom));
-    border-top: 1px solid var(--academy-line);
-    background: rgba(5, 12, 23, 0.94);
-    backdrop-filter: blur(18px);
+    gap: 4px;
+    width: 100%;
+    padding: 0 0 5px;
+    border: 0;
+    border-bottom: 1px solid var(--academy-line);
+    background: transparent;
+    box-shadow: none;
+}
+
+.academy-learner-actions {
+    display: grid;
+    gap: 4px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--academy-line);
+}
+
+.academy-learner-actions[hidden] {
+    display: none;
 }
 
 .academy-navigation[hidden] {
@@ -102,14 +141,48 @@ body:has(#yomu-academy) > .jpdb-reader-fab {
 }
 
 .academy-nav-button {
+    width: 100%;
     padding: 7px 10px;
+    border-radius: 5px 10px 6px 8px;
     font-size: 0.82rem;
+    text-align: left;
 }
 
 .academy-nav-button[aria-current="page"] {
     border-color: var(--academy-line-strong);
-    color: var(--academy-amber-strong);
-    background: rgba(245, 197, 110, 0.12);
+    color: var(--academy-accent-strong);
+    background: color-mix(in srgb, var(--academy-accent) 14%, transparent);
+}
+
+.academy-achievements-button:disabled {
+    cursor: default;
+    opacity: 0.62;
+}
+
+.academy-study-mount {
+    display: grid;
+    gap: 12px;
+    color: var(--academy-paper-ink);
+    --jpdb-reader-bg: var(--academy-paper-deep);
+    --jpdb-reader-surface: var(--academy-paper);
+    --jpdb-reader-surface-2: color-mix(in srgb, var(--academy-paper) 72%, var(--academy-paper-deep));
+    --jpdb-reader-text: var(--academy-paper-ink);
+    --jpdb-reader-muted: var(--academy-paper-muted);
+    --jpdb-reader-border: color-mix(in srgb, var(--academy-paper-ink) 22%, transparent);
+    --jpdb-reader-accent: var(--academy-accent);
+}
+
+.academy-study-countdown {
+    justify-self: end;
+    min-width: 5.5ch;
+    color: var(--academy-paper-ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 720;
+    letter-spacing: 0.04em;
+}
+
+.academy-study-module-host {
+    min-width: 0;
 }
 
 .academy-sr-only {
@@ -131,15 +204,15 @@ body:has(#yomu-academy) > .jpdb-reader-fab {
     border: 1px solid var(--academy-line-strong);
     border-radius: 999px;
     color: var(--academy-ink);
-    background: rgba(18, 34, 55, 0.9);
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+    background: rgba(255, 252, 241, 0.66);
+    box-shadow: 3px 4px 0 rgba(83, 69, 47, 0.16);
     cursor: pointer;
     transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .academy-button:hover:not(:disabled) {
     transform: translateY(-1px);
-    border-color: var(--academy-amber-strong);
+    border-color: var(--academy-accent-strong);
 }
 
 .academy-button:disabled {
@@ -148,14 +221,16 @@ body:has(#yomu-academy) > .jpdb-reader-fab {
 }
 
 .academy-button-primary {
-    border-color: #f2c36b;
-    color: #111827;
-    background: linear-gradient(135deg, #ffe1a7, #e9ad50);
-    font-weight: 800;
+    border-color: var(--academy-accent);
+    color: var(--jpdb-reader-accent-text, #11161d);
+    background: var(--academy-accent);
+    box-shadow: 4px 5px 0 color-mix(in srgb, var(--academy-accent) 30%, rgba(83, 69, 47, 0.2));
+    font-weight: 780;
 }
 
 .academy-button-secondary {
-    background: rgba(26, 48, 75, 0.92);
+    color: var(--academy-ink);
+    background: rgba(255, 252, 241, 0.58);
 }
 
 .academy-button-quiet {
@@ -165,22 +240,13 @@ body:has(#yomu-academy) > .jpdb-reader-fab {
 }
 
 @media (max-width: 700px) {
-    :root {
-        --academy-header-height: 54px;
-    }
-
     .academy-header {
         gap: 8px;
-        padding-inline: 10px;
-    }
-
-    .academy-network-state {
-        display: none;
     }
 
     .academy-chrome-button {
         min-height: 44px;
-        padding: 5px 8px;
-        font-size: 0.7rem;
+        padding: 7px 10px;
+        font-size: 0.82rem;
     }
 }

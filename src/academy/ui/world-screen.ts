@@ -1,7 +1,8 @@
-import type { AcademyCopyKey, AcademyLanguage } from '../../reader/app/academy-copy';
+import { academyText, type AcademyCopyKey, type AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ProtagonistPortraitId } from '../assets';
 import { ACADEMY_ASSETS } from '../assets';
 import { choiceActivityPlugin, type ChoiceActivityModel } from '../activities/choice';
+import type { LessonFork } from '../content/vertical-slice';
 import { createActivityRuntime, type ActivityEvaluation } from '../domain/activity-runtime';
 import type { LearnerProfileSnapshot, ReviewRating } from '../domain/learner-record';
 import type { Disposable, PronunciationService, ReviewQueueItem } from '../integration/yomu-bridge';
@@ -20,6 +21,7 @@ export function renderCampusScreen(
     language: AcademyLanguage,
     reviewComplete: boolean,
     onEnter: (location: CampusLocation) => void,
+    preference?: LessonFork,
 ): HTMLElement {
     const { screen, content } = screenFrame({
         language,
@@ -27,18 +29,63 @@ export function renderCampusScreen(
         plate: 'entrance',
         title: 'campusTitle',
     });
-    content.append(copyElement('p', 'academy-objective', language, reviewComplete ? 'campusObjectiveComplete' : 'campusObjective'));
+    screen.dataset.preference = preference ?? 'none';
+    const preferredLocation: CampusLocation | undefined = preference === 'sound' ? 'lab'
+        : preference === 'text' ? 'library'
+            : preference === 'speaking' ? 'cafe'
+                : undefined;
+    if (!preference) {
+        content.append(copyElement(
+            'p',
+            'academy-objective',
+            language,
+            reviewComplete ? 'campusObjectiveComplete' : 'campusObjective',
+        ));
+    }
     const map = element('div', 'academy-place-map');
+    map.setAttribute('role', 'group');
+    map.setAttribute('aria-label', academyText(language, 'mapLabel'));
+    map.append(routeNetwork(), mapEntrance(language));
+    const minimap = createMinimap(language, 'mapEntrance', 'mapChoose');
+    let travelTimer = 0;
     LOCATIONS.forEach(([location, title, body]) => {
-        const locked = !reviewComplete && (location === 'lab' || location === 'cafe');
+        const locked = !reviewComplete && (location === 'lab' || location === 'cafe') && location !== preferredLocation;
         const button = copyButton(language, title, `academy-location academy-location-${location}`);
         button.dataset.location = location;
         button.disabled = locked;
         button.append(copyElement('span', 'academy-location-purpose', language, locked ? 'locationUnavailable' : body));
-        button.addEventListener('click', () => onEnter(location));
+        const showDestination = () => {
+            minimap.destination.textContent = academyText(language, title);
+            minimap.root.dataset.destination = location;
+            map.dataset.destination = location;
+        };
+        const clearDestination = () => {
+            if (screen.dataset.traveling) return;
+            minimap.destination.textContent = academyText(language, 'mapChoose');
+            delete minimap.root.dataset.destination;
+            delete map.dataset.destination;
+        };
+        button.addEventListener('pointerenter', showDestination);
+        button.addEventListener('pointerleave', clearDestination);
+        button.addEventListener('focus', showDestination);
+        button.addEventListener('blur', clearDestination);
+        button.addEventListener('click', () => {
+            if (screen.dataset.traveling) return;
+            showDestination();
+            screen.dataset.traveling = location;
+            map.querySelectorAll<HTMLButtonElement>('.academy-location').forEach(candidate => { candidate.disabled = true; });
+            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+            if (reduceMotion) {
+                onEnter(location);
+                return;
+            }
+            travelTimer = window.setTimeout(() => onEnter(location), 360);
+        });
         map.append(button);
     });
     content.append(map);
+    screen.append(minimap.root);
+    screen.addEventListener('academy:dispose', () => window.clearTimeout(travelTimer), { once: true });
     return screen;
 }
 
@@ -55,6 +102,7 @@ export function renderLocationScreen(
     const back = copyButton(language, 'locationReturn', 'academy-button academy-button-primary');
     back.addEventListener('click', onBack);
     content.append(back);
+    screen.append(createMinimap(language, title).root);
     return screen;
 }
 
@@ -76,6 +124,7 @@ export function renderLanguageLabScreen(
         title: 'labTitle',
         body: 'labBody',
     });
+    screen.append(createMinimap(language, 'locationLab').root);
     const audioRow = element('div', 'academy-lab-audio');
     const play = copyButton(language, 'labPlay', 'academy-button academy-button-secondary');
     const timecode = copyElement('span', 'academy-lab-timecode', language, 'labTimecode');
@@ -216,6 +265,7 @@ export function renderReviewScreen(
         plate: 'library',
         title: 'reviewTitle',
     });
+    screen.append(createMinimap(language, 'locationLibrary').root);
     const cardHost = element('div', 'academy-review-host');
     let index = 0;
     const show = () => {
@@ -262,7 +312,7 @@ export function renderReviewScreen(
 export function renderJournalScreen(
     language: AcademyLanguage,
     profile: LearnerProfileSnapshot,
-    state: Readonly<{ rieBond: number; aakashBond: number; aakashUnlocked: boolean }>,
+    state: Readonly<{ rieChapters: readonly number[]; aakashChapters: readonly number[]; aakashUnlocked: boolean }>,
     callbacks: Readonly<{ onReplayRie: () => void; onReplayAakash: () => void }>,
 ): HTMLElement {
     const { screen, content } = screenFrame({
@@ -283,15 +333,18 @@ export function renderJournalScreen(
     reason.textContent = profile.learningReason;
     profileCopy.append(name, reasonLabel, reason);
     profileCard.append(portrait, profileCopy);
-    const rieCard = element('article', 'academy-journal-profile');
+    const rieCard = element('article', 'academy-journal-profile academy-journal-rie');
     const rie = element('img', 'academy-journal-portrait');
     rie.src = ACADEMY_ASSETS.rie;
     rie.alt = language === 'ja' ? 'りえ先生' : 'Rie-sensei';
+    rie.dataset.character = 'rie';
     const rieCopy = element('div', 'academy-journal-copy');
+    const rieLine = copyElement('blockquote', '', language, 'journalRieLine');
+    rieLine.dataset.speaker = 'rie';
     rieCopy.append(
         copyElement('h2', '', language, 'journalRie'),
-        bondStars(language, state.rieBond),
-        copyElement('blockquote', '', language, 'journalRieLine'),
+        relationshipPages(language, state.rieChapters),
+        rieLine,
     );
     const replay = copyButton(language, 'journalReplay', 'academy-button academy-button-secondary');
     replay.addEventListener('click', callbacks.onReplayRie);
@@ -301,14 +354,17 @@ export function renderJournalScreen(
     if (state.aakashUnlocked) {
         const aakashCard = element('article', 'academy-journal-profile academy-journal-aakash');
         aakashCard.dataset.character = 'aakash';
-        const aakash = element('img', 'academy-journal-portrait academy-journal-event-portrait');
-        aakash.src = ACADEMY_ASSETS.events.rainyDirections;
-        aakash.alt = language === 'ja' ? 'アーカーシュ' : 'Aakash';
+        const aakash = element('img', 'academy-journal-portrait academy-journal-aakash-portrait');
+        aakash.src = ACADEMY_ASSETS.characters.aakash;
+        aakash.alt = 'Aakash';
+        aakash.dataset.character = 'aakash';
         const aakashCopy = element('div', 'academy-journal-copy');
+        const aakashLine = copyElement('blockquote', '', language, 'journalAakashLine');
+        aakashLine.dataset.speaker = 'aakash';
         aakashCopy.append(
             copyElement('h2', '', language, 'journalAakash'),
-            bondStars(language, state.aakashBond),
-            copyElement('blockquote', '', language, 'journalAakashLine'),
+            relationshipPages(language, state.aakashChapters),
+            aakashLine,
         );
         const replayAakash = copyButton(language, 'journalReplayAakash', 'academy-button academy-button-secondary');
         replayAakash.addEventListener('click', callbacks.onReplayAakash);
@@ -321,10 +377,72 @@ export function renderJournalScreen(
     return screen;
 }
 
-function bondStars(language: AcademyLanguage, bond: number): HTMLParagraphElement {
-    const value = element('p', 'academy-bond-stars');
-    const rank = Math.max(0, Math.min(3, Math.trunc(bond)));
-    value.textContent = `${language === 'ja' ? '絆' : 'Bond'} ${'★'.repeat(rank)}${'☆'.repeat(3 - rank)}`;
-    value.dataset.jpdbReaderSurfaceIgnore = '';
-    return value;
+function relationshipPages(language: AcademyLanguage, chapters: readonly number[]): HTMLOListElement {
+    const unlocked = new Set(chapters);
+    const root = element('ol', 'academy-relationship-pages');
+    root.setAttribute('aria-label', academyText(language, 'relationshipJournalProgress'));
+    const keys = [
+        'relationshipStage1', 'relationshipStage2', 'relationshipStage3', 'relationshipStage4', 'relationshipStage5',
+        'relationshipStage6', 'relationshipStage7', 'relationshipStage8', 'relationshipStage9', 'relationshipStage10',
+    ] as const;
+    keys.forEach((key, index) => {
+        const page = index + 1;
+        const item = element('li', 'academy-relationship-page');
+        item.dataset.unlocked = String(unlocked.has(page));
+        item.setAttribute('aria-disabled', String(!unlocked.has(page)));
+        const number = element('span', 'academy-relationship-page-number');
+        number.textContent = String(page).padStart(2, '0');
+        number.setAttribute('aria-hidden', 'true');
+        item.append(number, copyElement('span', 'academy-relationship-page-name', language, key));
+        root.append(item);
+    });
+    return root;
+}
+
+function createMinimap(
+    language: AcademyLanguage,
+    currentKey: AcademyCopyKey,
+    destinationKey?: AcademyCopyKey,
+): { root: HTMLElement; destination: HTMLElement } {
+    const root = element('aside', 'academy-minimap');
+    root.setAttribute('aria-label', academyText(language, 'mapLabel'));
+    const label = copyElement('span', 'academy-minimap-label', language, 'mapLabel');
+    const route = element('div', 'academy-minimap-route');
+    const current = copyElement('strong', 'academy-minimap-place', language, currentKey);
+    const arrow = element('span', 'academy-minimap-arrow');
+    arrow.textContent = '→';
+    arrow.setAttribute('aria-hidden', 'true');
+    const destination = destinationKey
+        ? copyElement('span', 'academy-minimap-destination', language, destinationKey)
+        : element('span', 'academy-minimap-destination');
+    route.append(current);
+    if (destinationKey) route.append(arrow, destination);
+    root.append(label, route);
+    return { root, destination };
+}
+
+function routeNetwork(): SVGSVGElement {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('academy-route-network');
+    svg.setAttribute('viewBox', '0 0 100 62');
+    svg.setAttribute('aria-hidden', 'true');
+    const routes: readonly [CampusLocation, string][] = [
+        ['classroom', 'M50 58 C43 48 28 39 18 21'],
+        ['library', 'M50 58 C58 48 73 39 83 24'],
+        ['lab', 'M50 58 C42 52 32 50 28 45'],
+        ['cafe', 'M50 58 C60 53 69 51 77 45'],
+    ];
+    routes.forEach(([location, d]) => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.dataset.routeTo = location;
+        path.setAttribute('d', d);
+        svg.append(path);
+    });
+    return svg;
+}
+
+function mapEntrance(language: AcademyLanguage): HTMLElement {
+    const entrance = copyElement('span', 'academy-map-entrance', language, 'mapEntrance');
+    entrance.setAttribute('aria-hidden', 'true');
+    return entrance;
 }

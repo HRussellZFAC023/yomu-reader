@@ -1,0 +1,311 @@
+{
+  "version": 1,
+  "themes": [
+    {
+      "slot": "opening.invitation",
+      "bus": "music",
+      "trackId": "persona.royal-days",
+      "title": "Royal Days",
+      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "loop": true,
+      "gain": 0.38,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "campus.evening",
+      "bus": "music",
+      "trackId": "persona.royal-days",
+      "title": "Royal Days",
+      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "loop": true,
+      "gain": 0.38,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "classroom.focus",
+      "bus": "music",
+      "trackId": "persona.royal-days",
+      "title": "Royal Days",
+      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "loop": true,
+      "gain": 0.25,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "library.quiet",
+      "bus": "music",
+      "trackId": "persona.no-more-what-ifs-instrumental",
+      "title": "No More What Ifs — instrumental",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "loop": true,
+      "gain": 0.2,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "cafe.social",
+      "bus": "music",
+      "trackId": "persona.kichijoji-199x",
+      "title": "Kichijoji 199X",
+      "mediaKey": "media/audio/v1/persona/kichijoji-199x.flac",
+      "loop": true,
+      "gain": 0.34,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "bond.quiet",
+      "bus": "music",
+      "trackId": "persona.no-more-what-ifs-instrumental",
+      "title": "No More What Ifs — instrumental",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "loop": true,
+      "gain": 0.28,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "mystery.page",
+      "bus": "music",
+      "trackId": "persona.ideal-and-the-real",
+      "title": "Ideal and the Real",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "loop": false,
+      "gain": 0.22,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "challenge.kanji",
+      "bus": "music",
+      "trackId": "persona.prison-labor",
+      "title": "Prison Labor",
+      "mediaKey": "media/audio/v1/persona/prison-labor.flac",
+      "loop": false,
+      "gain": 0.35,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "challenge.major",
+      "bus": "music",
+      "trackId": "persona.take-over",
+      "title": "Take Over",
+      "mediaKey": "media/audio/v1/persona/take-over.flac",
+      "loop": false,
+      "gain": 0.35,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "unlock.world",
+      "bus": "music",
+      "trackId": "persona.so-happy-world",
+      "title": "So Happy World",
+      "mediaKey": "media/audio/v1/persona/so-happy-world.flac",
+      "loop": false,
+      "gain": 0.32,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "support.kindness",
+      "bus": "music",
+      "trackId": "persona.out-of-kindness",
+      "title": "Out of Kindness",
+      "mediaKey": "media/audio/v1/persona/out-of-kindness.flac",
+      "loop": false,
+      "gain": 0.26,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "resolve.late",
+      "bus": "music",
+      "trackId": "persona.i-believe",
+      "title": "I believe",
+      "mediaKey": "media/audio/v1/persona/i-believe.flac",
+      "loop": false,
+      "gain": 0.32,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "ending.reflective",
+      "bus": "music",
+      "trackId": "persona.ideal-and-the-real-end",
+      "title": "Ideal and the Real — end version",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "loop": false,
+      "gain": 0.25,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    }
+  ],
+  "sfx": [
+    {
+      "cue": "menu.move",
+      "mediaKey": "media/audio/v1/shinday/menu-cursor-move.wav",
+      "gain": 0.55,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "menu.confirm",
+      "mediaKey": "media/audio/v1/shinday/menu-option-select.wav",
+      "gain": 0.65,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "menu.cancel",
+      "mediaKey": "media/audio/v1/shinday/popup-close.wav",
+      "gain": 0.58,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "action.unavailable",
+      "mediaKey": "media/audio/v1/shinday/unavailable.wav",
+      "gain": 0.5,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "scene.advance",
+      "mediaKey": "media/audio/v1/shinday/menu-change.wav",
+      "gain": 0.38,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "page.turn",
+      "mediaKey": "media/audio/v1/shinday/module-change-1.wav",
+      "gain": 0.32,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "feedback.correct",
+      "mediaKey": "media/audio/v1/shinday/result-clear.wav",
+      "gain": 0.55,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "feedback.repair",
+      "mediaKey": "media/audio/v1/shinday/result-not-clear.wav",
+      "gain": 0.48,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "feedback.hanamaru",
+      "mediaKey": "media/audio/v1/shinday/score-tally.wav",
+      "gain": 0.45,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "bond.unlock",
+      "mediaKey": "media/audio/v1/shinday/module-change-2.wav",
+      "gain": 0.42,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "bond.rank",
+      "mediaKey": "media/audio/v1/shinday/module-change-2.wav",
+      "gain": 0.46,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "chapter.complete",
+      "mediaKey": "media/audio/v1/shinday/clap.wav",
+      "gain": 0.6,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "doodle.stroke",
+      "mediaKey": "media/audio/v1/shinday/click.wav",
+      "gain": 0.22,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "doodle.check",
+      "mediaKey": "media/audio/v1/shinday/result-clear.wav",
+      "gain": 0.5,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "radio.tune",
+      "mediaKey": "media/audio/v1/shinday/sonar-beeps-1.wav",
+      "gain": 0.35,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    },
+    {
+      "cue": "camera.capture",
+      "mediaKey": "media/audio/v1/shinday/camera.wav",
+      "gain": 0.6,
+      "rights": { "owner": "Shinday project", "licence": "Project-owner-approved educational use (2026-07-12)", "source": "Private Shinday SFX archive; SHA-256 pinned in the Academy media ledger", "reviewed": true, "scope": "release" }
+    }
+  ]
+}

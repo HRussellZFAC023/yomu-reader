@@ -1,11 +1,12 @@
 import type { AcademyLanguage } from '../reader/app/academy-copy';
+import { ACADEMY_ASSETS } from './assets';
 import { createAccessGateway, type AccessGateway } from './access/gateway';
-import { BrowserMediaBus, SilentSfxPlayback } from './audio/browser-media';
 import { BrowserSpeechPronunciationService } from './audio/browser-speech';
-import { SILENT_AUDIO_CATALOG } from './audio/catalog';
 import { AudioDirector } from './audio/director';
+import { createAuthorizedAcademyAudioDirector } from './audio/runtime';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID, createAakashDirectionsActivity } from './content/aakash-meet';
-import { loadVerticalSliceContent } from './content/vertical-slice';
+import { loadLessonZeroContent } from './content/lesson-zero';
+import { loadVerticalSliceContent, type LessonFork } from './content/vertical-slice';
 import type { ActivityEvaluation } from './domain/activity-runtime';
 import { createLearnerEvidence, type LearnerEvidence } from './evidence/learner-evidence';
 import { createYomuLocalReviewService } from './integration/yomu-local-review';
@@ -18,14 +19,15 @@ import {
     type AcademyPersistence,
     type AcademyRoute,
 } from './persistence/indexeddb';
-import { navigationForRoute, normalizeResumeCheckpoint, themeForRoute } from './routing/contract';
+import { AAKASH_CONTINUATION_ROUTE, navigationForRoute, normalizeResumeCheckpoint, themeForRoute } from './routing/contract';
 import { createEnrollmentFlow } from './routing/enrollment-flow';
 import type { AcademyRouteContext, AcademyRouteFlow } from './routing/types';
 import { createWorldFlow } from './routing/world-flow';
 import { renderAakashMeetScreen } from './ui/character-scenes';
 import { renderKanjiDeskScreen, renderLessonFork, renderSourceActivityScreen } from './ui/lesson-screen';
+import { createLessonZeroProof } from './ui/lesson-zero-proof';
 import { renderLoadingScreen } from './ui/loading-screen';
-import { createAcademyShell, type AcademyShell } from './ui/shell';
+import { createAcademyShell, type AcademyClassBoardAccess, type AcademyShell } from './ui/shell';
 
 const LANGUAGE_KEY = 'yomu:academy:language:v1';
 
@@ -36,6 +38,9 @@ export interface AcademyAppOptions {
     readonly kanjiWriting?: KanjiWritingService;
     readonly pronunciation?: PronunciationService;
     readonly databaseName?: string;
+    readonly onClassBoard?: (access: AcademyClassBoardAccess) => void;
+    /** Test/host seam; the browser default always uses the authorized manifest. */
+    readonly audio?: AudioDirector;
 }
 
 export class AcademyApp {
@@ -63,21 +68,16 @@ export class AcademyApp {
         this.review = options.review ?? createYomuLocalReviewService();
         this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
         this.databaseName = options.databaseName;
-        this.audio = new AudioDirector({
-            catalog: SILENT_AUDIO_CATALOG,
-            music: new BrowserMediaBus(),
-            ambience: new BrowserMediaBus(),
-            lesson: new BrowserMediaBus(),
-            sfx: new SilentSfxPlayback(),
-            storage: safeLocalStorage(),
-            releaseMode: true,
-        });
+        this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
         this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
         this.shell = createAcademyShell(host, {
             language: this.language,
             onLanguage: () => this.toggleLanguage(),
             onMute: () => this.toggleMuted(),
             onNavigate: route => void this.go(route),
+            onChooseLesson: () => void this.go('start'),
+            onEndForToday: () => void this.go('day-end'),
+            onClassBoard: options.onClassBoard,
         });
         this.shell.setNavigation(false);
         this.shell.setMuted(this.audio.settings.muted);
@@ -131,6 +131,7 @@ export class AcademyApp {
         await this.audio.setTheme(themeForRoute(route));
         const navigation = navigationForRoute(route);
         this.shell.setNavigation(Boolean(navigation), navigation);
+        this.shell.setLearnerActionsVisible(Boolean(this.projection.profile));
         const context = {
             language: this.language,
             checkpoint: this.checkpoint,
@@ -158,18 +159,51 @@ export class AcademyApp {
 
     private async renderSourceActivity(): Promise<void> {
         this.shell.replace(renderLoadingScreen(this.language, navigator.onLine));
+        const fork = this.checkpoint.selectedFork ?? 'text';
+        const returning = this.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        if (fork === 'text') {
+            const proof = await createLessonZeroProof({
+                language: this.language,
+                content: await loadLessonZeroContent(),
+                rieExpressions: {
+                    neutral: { still: ACADEMY_ASSETS.rie },
+                    encouraging: { still: ACADEMY_ASSETS.rieExpressions.encouraging },
+                    happy: { still: ACADEMY_ASSETS.rieExpressions.happy },
+                    repair: { still: ACADEMY_ASSETS.rieExpressions.repair },
+                },
+                onEvaluation: evaluation => this.recordTextProofActivity(evaluation),
+                onSupportUse: support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
+                onComplete: () => void this.go(returning ? 'campus' : 'aakash-meet'),
+            });
+            proof.element.dataset.academyScreen = 'lesson-zero-text-proof';
+            proof.element.dataset.academyRoute = 'source-activity';
+            proof.element.addEventListener('academy:dispose', () => proof.dispose(), { once: true });
+            this.shell.replace(proof.element);
+            return;
+        }
         const content = await loadVerticalSliceContent();
         this.shell.replace(renderSourceActivityScreen(
             this.language,
             content,
-            evaluation => this.recordSourceActivity(evaluation),
-            () => void this.go('aakash-meet'),
+            fork,
+            this.pronunciation,
+            evaluation => this.recordSourceActivity(evaluation, fork),
+            () => void this.go(returning ? 'campus' : 'aakash-meet'),
+            returning,
+            support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
         ));
     }
 
-    private async recordSourceActivity(evaluation: ActivityEvaluation): Promise<void> {
+    private async recordTextProofActivity(evaluation: ActivityEvaluation): Promise<void> {
         await this.evidence.recordActivity(evaluation, {
-            id: 'lesson-zero-first-repair',
+            id: 'lesson-zero-text-proof',
+            sceneId: 'scene:lesson-zero-first-repair',
+        });
+    }
+
+    private async recordSourceActivity(evaluation: ActivityEvaluation, fork: LessonFork): Promise<void> {
+        await this.evidence.recordActivity(evaluation, {
+            id: `lesson-zero-first-repair:${fork}`,
             sceneId: 'scene:lesson-zero-first-repair',
         });
     }
@@ -180,7 +214,8 @@ export class AcademyApp {
             activity: createAakashDirectionsActivity(),
             completed: this.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID),
             onEvaluation: evaluation => this.recordAakashActivity(evaluation),
-            onContinue: () => void this.go('writing-practice'),
+            onSupportUse: support => this.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
+            onContinue: () => void this.go(AAKASH_CONTINUATION_ROUTE),
         }));
     }
 

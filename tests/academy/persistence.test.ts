@@ -49,6 +49,25 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists a day-end navigation checkpoint without a completion event', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        await persistence.checkpoint.save({
+            schemaVersion: 1,
+            route: 'day-end',
+            session: {
+                sessionId: 'local-session',
+                expiresAt: 200,
+                offlineResumeUntil: 300,
+                source: 'local-qa',
+            },
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ route: 'day-end' });
+        expect(await persistence.events.readAll()).toEqual([]);
+        persistence.close();
+    });
+
     it('commits event batches atomically when a later event conflicts', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const existing: LearnerEvent = {

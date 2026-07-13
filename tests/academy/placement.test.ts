@@ -26,4 +26,10 @@ describe('orientation placement mock', () => {
         expect(result.scores['speaking-confidence']).toBe(0);
         expect(result.scores['writing-confidence']).toBe(1);
     });
+
+    it('uses Alex\'s confirmed Latin name in Japanese placement content', () => {
+        const item = ORIENTATION_MOCK_ITEMS.find(candidate => candidate.id === 'orientation:reading:change');
+        expect(item?.passage?.ja).toContain('Alexさん');
+        expect(item?.passage?.ja).not.toContain('アレックス');
+    });
 });

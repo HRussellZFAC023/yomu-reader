@@ -1,20 +1,29 @@
 :root {
     color-scheme: dark;
-    --academy-ink: #f7f2e8;
-    --academy-ink-muted: #c9c5c0;
-    --academy-night: #07101e;
-    --academy-panel: rgba(8, 17, 31, 0.9);
-    --academy-panel-soft: rgba(13, 26, 44, 0.78);
-    --academy-line: rgba(236, 229, 211, 0.2);
-    --academy-line-strong: rgba(245, 214, 148, 0.48);
-    --academy-amber: #f5c56e;
-    --academy-amber-strong: #ffd993;
-    --academy-blue: #8cc5e8;
-    --academy-red: #f08c7d;
-    --academy-green: #8fd4af;
-    --academy-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
-    --academy-radius: 22px;
-    --academy-radius-small: 12px;
+    /* Academy shares よむ's charcoal, paper and green language. */
+    --academy-ink: #f2f4f0;
+    --academy-ink-muted: #bfc4bd;
+    --academy-night: #181b18;
+    --academy-panel: rgba(31, 32, 28, 0.92);
+    --academy-panel-soft: rgba(40, 42, 37, 0.82);
+    --academy-line: rgba(242, 244, 240, 0.14);
+    --academy-accent: var(--jpdb-reader-accent, #5ea780);
+    --academy-accent-strong: color-mix(in srgb, var(--academy-accent) 72%, #f0eee7);
+    --academy-line-strong: color-mix(in srgb, var(--academy-accent) 50%, transparent);
+    --academy-warm: color-mix(in srgb, var(--academy-accent) 58%, #d88967);
+    --academy-paper: #f1ead9;
+    --academy-paper-deep: #ddd0b7;
+    --academy-paper-ink: #29271f;
+    --academy-paper-muted: #655f51;
+    /* Compatibility aliases while activity modules move to semantic tokens. */
+    --academy-amber: var(--academy-accent);
+    --academy-amber-strong: var(--academy-accent-strong);
+    --academy-blue: var(--academy-accent);
+    --academy-red: #ec9185;
+    --academy-green: #82c99f;
+    --academy-shadow: 0 24px 60px rgba(11, 12, 10, 0.34);
+    --academy-radius: 18px;
+    --academy-radius-small: 10px;
     --academy-header-height: 60px;
     --academy-nav-height: 64px;
     --academy-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -58,8 +67,22 @@ button {
     font-feature-settings: "palt" 1;
 }
 
+.academy-root [lang="ja"][data-yomu-runtime-surface] {
+    line-height: 1.82;
+    text-underline-offset: 0.16em;
+}
+
+.academy-root [lang="ja"][data-yomu-runtime-surface] ruby {
+    ruby-position: over;
+}
+
+.academy-root [lang="ja"][data-yomu-runtime-surface] rt {
+    font-size: 0.5em;
+    line-height: 1;
+}
+
 :focus-visible {
-    outline: 3px solid var(--academy-amber-strong);
+    outline: 3px solid var(--academy-accent-strong);
     outline-offset: 3px;
 }
 

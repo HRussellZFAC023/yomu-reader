@@ -1,6 +1,25 @@
 import { AccessError, HttpAccessGateway, LocalQaAccessGateway, sessionCanResume } from '../../src/academy/access/gateway';
 
 describe('Academy access gateway', () => {
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('calls the browser fetch default without binding it to the gateway instance', async () => {
+        const request = vi.fn(function(this: unknown) {
+            if (this !== undefined) throw new TypeError('Illegal invocation');
+            const now = Date.now();
+            return Promise.resolve(new Response(JSON.stringify({
+                sessionId: 'session-native-fetch',
+                expiresAt: now + 60_000,
+                offlineResumeUntil: now + 120_000,
+            }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        });
+        vi.stubGlobal('fetch', request);
+
+        await expect(new HttpAccessGateway('/academy/api/session').exchange('UCL2026'))
+            .resolves.toMatchObject({ sessionId: 'session-native-fetch', source: 'cloudflare' });
+        expect(request).toHaveBeenCalledTimes(1);
+    });
+
     it('exchanges a normalized code through the secure session endpoint', async () => {
         const expiresAt = Date.now() + 60_000;
         const offlineResumeUntil = expiresAt + 60_000;

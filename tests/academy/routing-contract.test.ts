@@ -1,6 +1,11 @@
 import { projectLearnerRecord, type LearnerEvent } from '../../src/academy/domain/learner-record';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
-import { normalizeResumeCheckpoint } from '../../src/academy/routing/contract';
+import {
+    AAKASH_CONTINUATION_ROUTE,
+    LESSON_ZERO_TEXT_PROOF_ACTIVITY_ID,
+    normalizeResumeCheckpoint,
+    themeForRoute,
+} from '../../src/academy/routing/contract';
 
 const SESSION = {
     sessionId: 'session',
@@ -18,6 +23,11 @@ function event<T extends LearnerEvent>(value: Omit<T, 'schemaVersion' | 'eventId
 }
 
 describe('Academy resume route contract', () => {
+    it('does not request protected soundtrack media before invite authentication', () => {
+        expect(themeForRoute('access')).toBe('silence');
+        expect(themeForRoute('profile')).toBe('opening.invitation');
+    });
+
     it('restores a missing selected band from curriculum evidence', () => {
         const projection = projectLearnerRecord([
             event({
@@ -46,7 +56,66 @@ describe('Academy resume route contract', () => {
             .toBe('campus');
     });
 
+    it('returns from Aakash to campus while keeping writing practice optional', () => {
+        expect(AAKASH_CONTINUATION_ROUTE).toBe('campus');
+        expect(checkpoint('writing-practice').route).toBe('writing-practice');
+    });
+
+    it('resumes each Lesson 0 fork from its own evidence', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Riku', learningReason: 'Read', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const textAttempt = event<Extract<LearnerEvent, { kind: 'attempt-recorded' }>>({
+            kind: 'attempt-recorded',
+            activityId: LESSON_ZERO_TEXT_PROOF_ACTIVITY_ID,
+            sourceQuestionId: 'source-question:classroom-phrase-09',
+            conceptIds: ['concept:classroom-repair-repeat'],
+            responseKind: 'choice',
+            outcome: 'pass',
+        }, 2);
+        const textCheckpoint = { ...checkpoint('source-activity'), selectedFork: 'text' as const };
+        const soundCheckpoint = { ...checkpoint('source-activity'), selectedFork: 'sound' as const };
+        const projection = projectLearnerRecord([profile, textAttempt]);
+
+        expect(normalizeResumeCheckpoint(textCheckpoint, projection, 1_000, true).route).toBe('aakash-meet');
+        expect(normalizeResumeCheckpoint(soundCheckpoint, projection, 1_000, true).route).toBe('source-activity');
+    });
+
+    it('keeps Sound and Speaking on their existing evidence contracts', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Riku', learningReason: 'Read', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const soundAttempt = event<Extract<LearnerEvent, { kind: 'attempt-recorded' }>>({
+            kind: 'attempt-recorded',
+            activityId: 'activity:lesson-zero-first-repair:sound',
+            sourceQuestionId: 'source-question:classroom-phrase-09',
+            conceptIds: ['concept:classroom-repair-repeat'],
+            responseKind: 'choice',
+            outcome: 'pass',
+        }, 2);
+        const projection = projectLearnerRecord([profile, soundAttempt]);
+
+        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'sound' }, projection, 1_000, true).route)
+            .toBe('aakash-meet');
+        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'speaking' }, projection, 1_000, true).route)
+            .toBe('source-activity');
+    });
+
     it('returns to access when neither online nor offline session validity remains', () => {
         expect(normalizeResumeCheckpoint(checkpoint('campus'), projectLearnerRecord([]), 4_000, false).route).toBe('access');
+    });
+
+    it('resumes the day-end pause without inventing lesson completion evidence', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Riku', learningReason: 'Read', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const projection = projectLearnerRecord([profile]);
+
+        expect(normalizeResumeCheckpoint(checkpoint('day-end'), projection, 1_000, true).route).toBe('day-end');
+        expect(projection.completedScenes).toEqual([]);
+        expect(themeForRoute('day-end')).toBe('support.kindness');
     });
 });

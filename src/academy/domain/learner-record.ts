@@ -4,6 +4,9 @@ export type GrammarKnowledge = 'unknown' | 'learning' | 'known' | 'mastered';
 export type JlptBand = 'n5' | 'n4' | 'n3' | 'n2' | 'n1';
 export type PlacementSkill = 'language-knowledge' | 'reading' | 'listening' | 'speaking-confidence' | 'writing-confidence';
 export type StartingRoute = 'lesson-zero' | 'manual-band' | 'placement-mock';
+export type LearningSkill = 'kana' | 'kanji' | 'vocabulary' | 'grammar' | 'reading' | 'listening' | 'speaking' | 'writing' | 'repair' | 'transfer';
+export type LearningAction = 'recognise' | 'recall' | 'produce' | 'listen' | 'speak' | 'write' | 'repair' | 'review' | 'read' | 'explore' | 'source-complete' | 'transfer';
+export type SupportKind = 'hint' | 'transcript' | 'translation' | 'definition' | 'example-gloss' | 'model-answer';
 
 export interface LearnerProfileSnapshot {
     readonly displayName: string;
@@ -70,6 +73,61 @@ type LearnerEventData =
         readonly conceptId: string;
         readonly dueAt: number;
         readonly provenance: Readonly<Record<string, string>>;
+    }
+    | {
+        readonly kind: 'learning-evidence-recorded';
+        readonly activityId: string;
+        readonly modeId: string;
+        readonly skill: LearningSkill;
+        readonly action: LearningAction;
+        readonly outcome: AttemptOutcome;
+        readonly conceptIds: readonly string[];
+        readonly sourceId?: string;
+        readonly durationMs?: number;
+        readonly independent: boolean;
+        readonly kanji?: string;
+    }
+    | {
+        readonly kind: 'vocabulary-collected';
+        readonly collectionItemId: string;
+        readonly expression: string;
+        readonly reading?: string;
+        readonly meanings: readonly string[];
+        readonly provenance: {
+            readonly origin: 'academy';
+            readonly encounterId: string;
+            readonly activityId: string;
+            readonly sourceId?: string;
+        };
+    }
+    | {
+        readonly kind: 'vocabulary-collection-undone';
+        readonly collectionItemId: string;
+        readonly collectedEventId: string;
+    }
+    | {
+        readonly kind: 'academy-day-closed';
+        readonly dayId: string;
+        readonly mainLessonCompleted: boolean;
+        readonly optionalActivityIds: readonly string[];
+        readonly elapsedMs: number;
+    }
+    | {
+        readonly kind: 'achievement-ceremony-seen';
+        readonly achievementId: string;
+        readonly tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+    }
+    | {
+        readonly kind: 'relationship-chapter-unlocked';
+        readonly characterId: string;
+        readonly chapter: number;
+        readonly majorTurn?: 'recognition' | 'friction' | 'support';
+    }
+    | {
+        readonly kind: 'support-used';
+        readonly activityId: string;
+        readonly supportKind: SupportKind;
+        readonly choiceId?: string;
     };
 
 export type LearnerEventInput = LearnerEventData & {
@@ -106,6 +164,14 @@ export interface LearnerProjection {
     readonly latestPlacement: Extract<LearnerEvent, { kind: 'placement-assessed' }> | null;
     readonly curriculumEntry: Extract<LearnerEvent, { kind: 'curriculum-entry-chosen' }> | null;
     readonly scheduledReviews: Readonly<Record<string, Extract<LearnerEvent, { kind: 'review-scheduled' }>>>;
+    readonly vocabularyCollection: Readonly<Record<string, Extract<LearnerEvent, { kind: 'vocabulary-collected' }>>>;
+    readonly closedDays: Readonly<Record<string, Extract<LearnerEvent, { kind: 'academy-day-closed' }>>>;
+    readonly seenAchievementCeremonies: readonly string[];
+    readonly relationshipJournal: Readonly<Record<string, {
+        readonly chapters: readonly number[];
+        readonly majorTurns: readonly ('recognition' | 'friction' | 'support')[];
+    }>>;
+    readonly supportUses: readonly Extract<LearnerEvent, { kind: 'support-used' }>[];
 }
 
 export interface LearnerEventRepository {
@@ -196,6 +262,11 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
     let latestPlacement: Extract<LearnerEvent, { kind: 'placement-assessed' }> | null = null;
     let curriculumEntry: Extract<LearnerEvent, { kind: 'curriculum-entry-chosen' }> | null = null;
     const scheduledReviews: Record<string, Extract<LearnerEvent, { kind: 'review-scheduled' }>> = {};
+    const vocabularyCollection: Record<string, Extract<LearnerEvent, { kind: 'vocabulary-collected' }>> = {};
+    const closedDays: Record<string, Extract<LearnerEvent, { kind: 'academy-day-closed' }>> = {};
+    const seenAchievementCeremonies = new Set<string>();
+    const relationshipJournal: Record<string, { chapters: Set<number>; majorTurns: Set<'recognition' | 'friction' | 'support'> }> = {};
+    const supportUses: Extract<LearnerEvent, { kind: 'support-used' }>[] = [];
     let lastEventAt: number | null = null;
 
     for (const event of events.map(validateEvent)) {
@@ -241,6 +312,31 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
             case 'review-scheduled':
                 scheduledReviews[event.reviewItemId] = clone(event);
                 break;
+            case 'learning-evidence-recorded':
+                break;
+            case 'vocabulary-collected':
+                vocabularyCollection[event.collectionItemId] ??= clone(event);
+                break;
+            case 'vocabulary-collection-undone': {
+                const collected = vocabularyCollection[event.collectionItemId];
+                if (collected?.eventId === event.collectedEventId) delete vocabularyCollection[event.collectionItemId];
+                break;
+            }
+            case 'academy-day-closed':
+                closedDays[event.dayId] = clone(event);
+                break;
+            case 'achievement-ceremony-seen':
+                seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
+                break;
+            case 'relationship-chapter-unlocked': {
+                const journal = relationshipJournal[event.characterId] ??= { chapters: new Set(), majorTurns: new Set() };
+                journal.chapters.add(event.chapter);
+                if (event.majorTurn) journal.majorTurns.add(event.majorTurn);
+                break;
+            }
+            case 'support-used':
+                supportUses.push(clone(event));
+                break;
         }
     }
 
@@ -257,6 +353,14 @@ export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerPr
         latestPlacement,
         curriculumEntry,
         scheduledReviews,
+        vocabularyCollection,
+        closedDays,
+        seenAchievementCeremonies: [...seenAchievementCeremonies].sort(),
+        relationshipJournal: Object.fromEntries(Object.entries(relationshipJournal).map(([characterId, journal]) => [characterId, {
+            chapters: [...journal.chapters].sort((left, right) => left - right),
+            majorTurns: [...journal.majorTurns].sort(),
+        }])),
+        supportUses,
     };
 }
 
@@ -318,6 +422,36 @@ function validateEventPayload(event: LearnerEvent): void {
         case 'review-scheduled':
             validateReviewScheduled(event);
             break;
+        case 'learning-evidence-recorded':
+            validateLearningEvidence(event);
+            break;
+        case 'vocabulary-collected':
+            validateVocabularyCollected(event);
+            break;
+        case 'vocabulary-collection-undone':
+            requireText(event.collectionItemId, 'collectionItemId');
+            requireText(event.collectedEventId, 'collectedEventId');
+            break;
+        case 'academy-day-closed':
+            requireText(event.dayId, 'dayId');
+            if (typeof event.mainLessonCompleted !== 'boolean') throw new TypeError('Day mainLessonCompleted must be boolean.');
+            unique(event.optionalActivityIds.map(id => requireText(id, 'optionalActivityId')));
+            if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError('Day elapsedMs must be a non-negative integer.');
+            break;
+        case 'achievement-ceremony-seen':
+            requireText(event.achievementId, 'achievementId');
+            if (!['bronze', 'silver', 'gold', 'platinum'].includes(event.tier)) throw new TypeError('Invalid achievement tier.');
+            break;
+        case 'relationship-chapter-unlocked':
+            requireText(event.characterId, 'characterId');
+            if (!Number.isSafeInteger(event.chapter) || event.chapter < 1 || event.chapter > 10) throw new TypeError('Relationship chapter must be from 1 to 10.');
+            if (event.majorTurn && !['recognition', 'friction', 'support'].includes(event.majorTurn)) throw new TypeError('Invalid relationship major turn.');
+            break;
+        case 'support-used':
+            requireText(event.activityId, 'activityId');
+            if (!['hint', 'transcript', 'translation', 'definition', 'example-gloss', 'model-answer'].includes(event.supportKind)) throw new TypeError('Invalid support kind.');
+            if (event.choiceId !== undefined) requireText(event.choiceId, 'choiceId');
+            break;
         default:
             throw new TypeError('Unknown learner event kind.');
     }
@@ -377,6 +511,37 @@ function validateReviewScheduled(event: Extract<LearnerEvent, { kind: 'review-sc
         requireText(key, 'provenance key');
         requireText(value, `provenance.${key}`);
     });
+}
+
+function validateLearningEvidence(event: Extract<LearnerEvent, { kind: 'learning-evidence-recorded' }>): void {
+    requireText(event.activityId, 'activityId');
+    requireText(event.modeId, 'modeId');
+    if (!['kana', 'kanji', 'vocabulary', 'grammar', 'reading', 'listening', 'speaking', 'writing', 'repair', 'transfer'].includes(event.skill)) {
+        throw new TypeError('Invalid learning skill.');
+    }
+    if (!['recognise', 'recall', 'produce', 'listen', 'speak', 'write', 'repair', 'review', 'read', 'explore', 'source-complete', 'transfer'].includes(event.action)) {
+        throw new TypeError('Invalid learning action.');
+    }
+    if (event.outcome !== 'pass' && event.outcome !== 'lapse') throw new TypeError('Invalid learning outcome.');
+    if (!event.conceptIds.length) throw new TypeError('Learning evidence needs at least one conceptId.');
+    unique(event.conceptIds.map(id => requireText(id, 'conceptId')));
+    if (typeof event.independent !== 'boolean') throw new TypeError('Learning independent must be boolean.');
+    if (event.durationMs !== undefined && (!Number.isSafeInteger(event.durationMs) || event.durationMs < 0)) {
+        throw new TypeError('Learning durationMs must be a non-negative integer.');
+    }
+    if (event.kanji !== undefined && Array.from(event.kanji).length !== 1) throw new TypeError('Learning kanji must be one character.');
+}
+
+function validateVocabularyCollected(event: Extract<LearnerEvent, { kind: 'vocabulary-collected' }>): void {
+    requireText(event.collectionItemId, 'collectionItemId');
+    requireText(event.expression, 'expression');
+    if (!event.meanings.length) throw new TypeError('Vocabulary collection needs at least one meaning.');
+    unique(event.meanings.map(meaning => requireText(meaning, 'meaning')));
+    if (event.reading !== undefined) requireText(event.reading, 'reading');
+    if (event.provenance.origin !== 'academy') throw new TypeError('Vocabulary provenance origin must be academy.');
+    requireText(event.provenance.encounterId, 'provenance.encounterId');
+    requireText(event.provenance.activityId, 'provenance.activityId');
+    if (event.provenance.sourceId !== undefined) requireText(event.provenance.sourceId, 'provenance.sourceId');
 }
 
 function defaultEventId(): string {

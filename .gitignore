@@ -32,3 +32,4 @@ docs/.vitepress/dist/
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
 /references/academy-engine/*/
+/references/kotoba-upstream/

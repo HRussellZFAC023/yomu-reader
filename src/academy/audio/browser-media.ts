@@ -101,8 +101,12 @@ export class BrowserMediaBus implements MediaBusPlayback {
                     resolve();
                     return;
                 }
-                const progress = Math.min(1, (now - startedAt) / durationMs);
-                this.media.volume = start + (end - start) * progress;
+                // RAF and performance.now normally share a clock, but embedded
+                // browsers can hand us one stale frame during activation. Clamp
+                // both the interpolation factor and the final media value so a
+                // harmless clock skew never aborts an otherwise valid track.
+                const progress = clamp((now - startedAt) / durationMs);
+                this.media.volume = clamp(start + (end - start) * progress);
                 if (progress >= 1) resolve();
                 else requestAnimationFrame(step);
             };

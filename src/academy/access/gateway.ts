@@ -26,7 +26,13 @@ export function createAccessGateway(location: Pick<Location, 'hostname'> = windo
 }
 
 export class HttpAccessGateway implements AccessGateway {
-    constructor(private readonly endpoint: string, private readonly request: typeof fetch = fetch) {}
+    constructor(
+        private readonly endpoint: string,
+        // Native Window.fetch rejects when stored and later invoked as an
+        // instance method because the gateway becomes its `this` value.
+        // Keep the default as a lexical call while preserving test injection.
+        private readonly request: typeof fetch = (...args) => fetch(...args),
+    ) {}
 
     async exchange(code: string, signal?: AbortSignal): Promise<InviteSession> {
         const normalized = normalizeCode(code);

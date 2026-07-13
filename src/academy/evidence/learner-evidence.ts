@@ -8,6 +8,7 @@ import {
     type LearnerProjection,
     type LearnerRecord,
     type ReviewRating,
+    type SupportKind,
 } from '../domain/learner-record';
 import type { ReviewQueueItem, ReviewQueueService } from '../integration/yomu-bridge';
 
@@ -39,6 +40,7 @@ export interface LearnerEvidence {
     savePlacement(result: OrientationMockResult): Promise<void>;
     recordActivity(evaluation: ActivityEvaluation, milestone?: ActivityMilestone): Promise<void>;
     recordShadowing(): Promise<void>;
+    recordSupportUse(activityId: string, supportKind: SupportKind, choiceId?: string): Promise<void>;
     dueReviews(limit: number): Promise<readonly ReviewQueueItem[]>;
     rateReview(itemId: string, rating: ReviewRating): Promise<void>;
 }
@@ -83,6 +85,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 ...(firstIntroduction ? [
                     { kind: 'asset-unlocked' as const, eventId: 'milestone:rie-introduction:asset', assetId: 'character:rie' },
                     { kind: 'bond-changed' as const, eventId: 'milestone:rie-introduction:bond', characterId: 'rie', delta: 1 },
+                    { kind: 'relationship-chapter-unlocked' as const, eventId: 'milestone:rie-introduction:journal', characterId: 'rie', chapter: 1, majorTurn: 'recognition' as const },
                     { kind: 'scene-completed' as const, eventId: 'milestone:rie-introduction:scene', sceneId: 'scene:opening-rie-introduction' },
                 ] : []),
             ]);
@@ -129,6 +132,7 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 ...(milestone.unlock ? [
                     { kind: 'asset-unlocked' as const, eventId: `milestone:${milestone.id}:asset`, assetId: milestone.unlock.assetId },
                     { kind: 'bond-changed' as const, eventId: `milestone:${milestone.id}:bond`, characterId: milestone.unlock.characterId, delta: milestone.unlock.bondDelta },
+                    { kind: 'relationship-chapter-unlocked' as const, eventId: `milestone:${milestone.id}:journal`, characterId: milestone.unlock.characterId, chapter: 1, majorTurn: 'recognition' as const },
                 ] : []),
                 { kind: 'scene-completed', eventId: `milestone:${milestone.id}:scene`, sceneId: milestone.sceneId },
             ]);
@@ -149,6 +153,18 @@ class DefaultLearnerEvidence implements LearnerEvidence {
                 responseKind: 'speaking-self-assessment',
                 outcome: 'pass',
                 score: 1,
+            });
+            await this.refreshNow();
+        });
+    }
+
+    recordSupportUse(activityId: string, supportKind: SupportKind, choiceId?: string): Promise<void> {
+        return this.enqueue(async () => {
+            await this.record.record({
+                kind: 'support-used',
+                activityId,
+                supportKind,
+                ...(choiceId ? { choiceId } : {}),
             });
             await this.refreshNow();
         });

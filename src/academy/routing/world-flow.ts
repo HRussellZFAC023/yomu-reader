@@ -4,6 +4,7 @@ import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAakashMemory } from '../ui/character-scenes';
+import { renderDayEndScene } from '../ui/day-end-scene';
 import { renderOpeningMemory } from '../ui/lesson-screen';
 import { renderLoadingScreen } from '../ui/loading-screen';
 import {
@@ -36,6 +37,7 @@ class WorldFlow implements AcademyRouteFlow {
                     context.language,
                     Object.keys(context.projection.reviewRatings).length > 0,
                     location => void this.enterLocation(location, context),
+                    context.checkpoint.selectedFork,
                 ));
                 return true;
             case 'lab':
@@ -47,6 +49,12 @@ class WorldFlow implements AcademyRouteFlow {
             case 'journal':
                 await this.renderJournal(context);
                 return true;
+            case 'day-end':
+                context.shell.replace(renderDayEndScene({
+                    language: context.language,
+                    onReturn: () => void context.go('campus'),
+                }));
+                return true;
             default:
                 return false;
         }
@@ -57,7 +65,7 @@ class WorldFlow implements AcademyRouteFlow {
         if (location === 'classroom') {
             return context.projection.curriculumEntry?.band
                 ? context.go('band-entry', { selectedBand: context.projection.curriculumEntry.band })
-                : context.go('source-activity');
+                : context.go('lesson-fork');
         }
         if (location === 'lab') return context.go('lab');
         await this.options.audio.setTheme('cafe.social');
@@ -123,8 +131,10 @@ class WorldFlow implements AcademyRouteFlow {
             context.language,
             profile,
             {
-                rieBond: context.projection.bonds.rie ?? 0,
-                aakashBond: context.projection.bonds.aakash ?? 0,
+                rieChapters: context.projection.relationshipJournal.rie?.chapters
+                    ?? legacyRelationshipChapters(context.projection.bonds.rie),
+                aakashChapters: context.projection.relationshipJournal.aakash?.chapters
+                    ?? legacyRelationshipChapters(context.projection.bonds.aakash),
                 aakashUnlocked: context.projection.unlockedAssets.includes('character:aakash'),
             },
             {
@@ -148,4 +158,8 @@ class WorldFlow implements AcademyRouteFlow {
         await this.options.evidence.refresh();
         await context.go(route);
     }
+}
+
+function legacyRelationshipChapters(bond: number | undefined): readonly number[] {
+    return bond && bond > 0 ? [1] : [];
 }

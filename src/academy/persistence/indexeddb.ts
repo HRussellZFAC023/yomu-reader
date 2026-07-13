@@ -18,7 +18,8 @@ export type AcademyRoute =
     | 'campus'
     | 'lab'
     | 'review'
-    | 'journal';
+    | 'journal'
+    | 'day-end';
 
 export interface AcademyCheckpoint {
     readonly schemaVersion: 1;
@@ -177,7 +178,7 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (!Number.isSafeInteger(value.updatedAt) || value.updatedAt < 0) throw new TypeError('Academy checkpoint needs a valid timestamp.');
     if (![
         'access', 'profile', 'rie-unlock', 'start', 'manual-band', 'placement-mock', 'placement-result',
-        'arrival-bridge', 'band-entry', 'lesson-fork', 'source-activity', 'aakash-meet', 'writing-practice', 'campus', 'lab', 'review', 'journal',
+        'arrival-bridge', 'band-entry', 'lesson-fork', 'source-activity', 'aakash-meet', 'writing-practice', 'campus', 'lab', 'review', 'journal', 'day-end',
     ].includes(value.route)) throw new TypeError('Academy checkpoint has an invalid route.');
 }
 

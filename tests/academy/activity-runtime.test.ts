@@ -1,5 +1,5 @@
 import { choiceActivityPlugin, type ChoiceActivityModel } from '../../src/academy/activities/choice';
-import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 
 function model(): ChoiceActivityModel {
     return {
@@ -35,6 +35,7 @@ function model(): ChoiceActivityModel {
                 },
             ],
         },
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
     };
 }
 
@@ -98,5 +99,18 @@ describe('activity runtime', () => {
         };
         const issues = createActivityRuntime([choiceActivityPlugin]).validate(bad);
         expect(issues.some(issue => issue.message.includes('repair'))).toBe(true);
+    });
+
+    it('rejects assessed activity support that reveals answer-bearing copy before commitment', () => {
+        const unsafe = {
+            ...model(),
+            answerSupport: {
+                ...ACADEMY_ASSESSED_ANSWER_SUPPORT,
+                englishUiPreCommit: { ...ACADEMY_ASSESSED_ANSWER_SUPPORT.englishUiPreCommit, modelAnswers: 'visible' },
+            },
+        } as unknown as ChoiceActivityModel;
+        expect(createActivityRuntime([choiceActivityPlugin]).validate(unsafe)).toContainEqual(expect.objectContaining({
+            path: 'answerSupport.englishUiPreCommit.modelAnswers',
+        }));
     });
 });
