@@ -2155,6 +2155,9 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
+      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
+      pinSubtitleControls: "Keep subtitle controls expanded",
+      unpinSubtitleControls: "Collapse subtitle controls when idle",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -3560,6 +3563,9 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
+moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
+pinSubtitleControls	字幕コントロールを展開したままにする
+unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
 right	右
 left	左
 bottom	下
@@ -4140,6 +4146,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // Subtitle layout geometry.
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+    { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
     // YouTube subscription snapshot + oembed title cache.
     { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
     { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
@@ -6344,10 +6351,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shouldSuppressCompactMediaRuby(parent) {
     return isYouTubeFeedbackChromeLinkText(parent);
-  }
-  function isYouTubeHost$1() {
-    const hostname = location.hostname.toLowerCase();
-    return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
   }
   function isYouTubeFeedbackChromeLinkText(parent) {
     if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
@@ -9049,7 +9052,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     flushFragmentBlockBoundary(isBlock, state2);
     visitFragmentShadowRoot(element, state2);
   }
-  const SHADOW_SCAN_MAX_DEPTH = 2;
+  const SHADOW_SCAN_MAX_DEPTH = 4;
   const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
   function visitFragmentShadowRoot(element, state2) {
     if (state2.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
@@ -9109,7 +9112,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
     if (!hasVisibleTextStyle(element) && !hasVisibleTextMirror(element)) return true;
-    return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
+    if (!visibleOnly || hasVisibleTextMirror(element)) return false;
+    const rect = element.getBoundingClientRect();
+    if (isVisibleRect(rect)) return false;
+    return !isBoxlessFragmentWrapper(rect) || !hasVisibleJapaneseFragmentDescendant(element);
+  }
+  const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 96;
+  function isBoxlessFragmentWrapper(rect) {
+    return rect.width <= 0 || rect.height <= 0;
+  }
+  function hasVisibleJapaneseFragmentDescendant(element) {
+    if (!HAS_JAPANESE.test(element.textContent ?? "")) return false;
+    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
+      const descendant = node;
+      if (HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+    }
+    return false;
   }
   function hasVisibleTextStyle(element) {
     return isVisibleStyle(safeComputedStyle(element));
@@ -9205,7 +9224,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element));
   }
   function isFragmentParagraphBoundary(element, options) {
-    return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element.tagName},`) || isParagraphBoundary(element);
+    return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element.tagName},`) || isCustomElementTextBoundary(element) || isParagraphBoundary(element);
+  }
+  function isCustomElementTextBoundary(element) {
+    if (!element.localName.includes("-") || !HAS_JAPANESE.test(element.textContent ?? "")) return false;
+    const parent = element.parentElement;
+    return !parent || !isLikelyProseElement(parent);
   }
   function isPassiveInteractionBoundaryElement(element, options) {
     if (!options.includePassiveInteractions) return false;
@@ -9474,7 +9498,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hasNativeRuby: target.hasNativeRuby,
       decoration: target.decoration,
       suppressRuby: target.suppressRuby,
-      detachedReadings: omitsInteractiveControlReadings(target.parent, target.decoration) ? false : void 0,
       proseWrap: target.proseWrap,
       passiveInteraction: target.passiveInteraction
     });
@@ -9498,9 +9521,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         fragment2.append(document.createElement("wbr"));
       }
       fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
-        // Content in clipped rows uses detached readings; interactive
-        // controls discard the reading channel entirely so their native
-        // centred line box remains invariant on WebKit.
+        // Content in clipped rows and interactive controls use detached
+        // readings so the native centred line box remains invariant on
+        // WebKit while the reading stays visible above the text.
         allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
         detachedReadings: target.detachedReadings ?? suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -9748,12 +9771,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(
-      host,
-      suppressRuby,
-      safeTokens,
-      !omitsInteractiveControlReadings(host, target.decoration)
-    );
+    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     return {
@@ -9783,6 +9801,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function reuseCurrentTextMirror(host, context) {
     const existing = currentTextMirror(host);
     const matches = [
+      existing && textMirrorRenderIsIntact(existing),
       existing?.dataset.sourceText === context.text,
       existing?.dataset.renderSignature === context.signature,
       (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
@@ -9811,7 +9830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
-    const controlMirror = omitsInteractiveControlReadings(host, target.decoration) || target.decoration === "interactive-passive" && context.hasRenderedRuby;
+    const controlMirror = target.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
     const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
@@ -10170,6 +10189,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && textMirrorBelongsToHost(child, host));
     if (direct) return direct;
     return ownedTextMirrors(host)[0] ?? null;
+  }
+  function textMirrorRenderIsIntact(mirror) {
+    return Boolean(mirror.querySelector(READER_WORD_SELECTOR$1));
   }
   function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby), detachedReadings = suppressRuby) {
     return JSON.stringify({
@@ -11068,7 +11090,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return fragment2;
   }
   function renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(target, fragment2.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     return renderToken(fragment2.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       detachedReadings: targetUsesDetachedReadings(target),
@@ -11138,7 +11160,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       scanWord: true,
       proseWrap: target.proseWrap === true,
       passiveInteraction,
-      allowRuby: !omitsInteractiveControlReadings(target.parent, target.decoration),
+      allowRuby: true,
       detachedReadings: targetUsesDetachedReadings(target),
       preserveTokenRubies: true,
       miningInsightKeys
@@ -11151,7 +11173,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!surface) continue;
       const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
       const rendered = renderToken(surface, pieceToken, settings, {
-        allowRuby: scanFragmentAllowsRuby(target, piece.fragment.hasNativeRuby),
+        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
         detachedReadings: targetUsesDetachedReadings(target),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
@@ -11302,7 +11324,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return boundary;
   }
   function insertSingleFragmentToken(target, fragment2, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-    const allowRuby = scanFragmentAllowsRuby(target, fragment2.hasNativeRuby);
+    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     const surface = fragment2.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -11316,16 +11338,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     replaceTextNodeRange(fragment2.node, start, end, rendered);
   }
-  function scanFragmentAllowsRuby(target, hasNativeRuby) {
-    return !omitsInteractiveControlReadings(target.parent, target.decoration) && !hasNativeRuby;
+  function scanFragmentAllowsRuby(hasNativeRuby) {
+    return !hasNativeRuby;
   }
   function targetUsesDetachedReadings(target) {
-    if (omitsInteractiveControlReadings(target.parent, target.decoration)) return false;
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
-  }
-  function omitsInteractiveControlReadings(parent, decoration) {
-    if (decoration !== "interactive-passive") return false;
-    return isYouTubeHost$1() && Boolean(parent.closest('button,[role="button"],[role="tab"],summary'));
   }
   function isInsideOwnedReaderRoot(element) {
     const readerRoot = element.closest(READER_ROOT_SELECTOR);
@@ -11933,7 +11950,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return isVisibleStyle(style);
   }
   function isVisibleRect(rect) {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && rect.right >= 0 && rect.left <= window.innerWidth;
   }
   function isVisibleStyle(style) {
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
@@ -42018,7 +42035,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.147".trim() ? "1.6.147".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.148".trim() ? "1.6.148".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -49592,12 +49609,10 @@ ${spelling}`);
   function renderDrawerPlayback(language) {
     const previousLabel = uiText(language, "previousSubtitle");
     const nextLabel = uiText(language, "nextSubtitle");
-    const playLabel = uiText(language, "playVideo");
     return `
         <div class="jpdb-subtitle-drawer-playback">
             <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
             <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
-            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
         </div>
     `;
   }
@@ -49695,6 +49710,7 @@ ${spelling}`);
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
+      grip: '<circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/>',
       locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
       mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',
@@ -49702,6 +49718,7 @@ ${spelling}`);
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
+      pin: '<path d="m8 3 8 8"/><path d="m14 5 5 5-4 2-3 3-2 4-5-5 4-2 3-3 2-4Z"/><path d="m5 19 4-4"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
       scan: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M7 12h10"/>',
@@ -49763,6 +49780,7 @@ ${spelling}`);
   const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
   const SUBTITLE_DRAG_OFFSET_KEY = "jpdb-reader-subtitle-drag-offset";
+  const SUBTITLE_CONTROL_RAIL_POSITION_KEY = "jpdb-reader-subtitle-control-rail-position";
   const SUBTITLE_DRAG_OFFSET_MIN_FRACTION = -0.9;
   const SUBTITLE_DRAG_OFFSET_MAX_FRACTION = 0.35;
   function clampSubtitleDragOffsetFraction(fraction) {
@@ -49864,6 +49882,28 @@ ${spelling}`);
       gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
     } catch {
     }
+  }
+  function loadSubtitleControlRailPosition() {
+    try {
+      const stored = gmStorageGetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {});
+      if (!Number.isFinite(stored?.x) || !Number.isFinite(stored?.y)) return null;
+      return { x: clampRailFraction(stored.x), y: clampRailFraction(stored.y) };
+    } catch {
+      return null;
+    }
+  }
+  function saveSubtitleControlRailPosition(position) {
+    try {
+      gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
+        x: clampRailFraction(position.x),
+        y: clampRailFraction(position.y)
+      });
+    } catch {
+    }
+  }
+  function clampRailFraction(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(1, Math.max(0, value));
   }
   function collectPageSubtitleSources(root = document) {
     const pageTitle = pageSubtitleTitle(root);
@@ -52376,16 +52416,6 @@ ${spelling}`);
     button.title = label;
     button.setAttribute("aria-label", label);
   }
-  function syncSubtitlePlaybackButton(button, options) {
-    const paused = options.video?.paused ?? true;
-    const label = uiText(options.language, paused ? "playVideo" : "pauseVideo");
-    button.hidden = !options.hasLines;
-    button.disabled = !options.video;
-    button.title = label;
-    button.setAttribute("aria-label", label);
-    button.setAttribute("aria-pressed", String(!paused));
-    setInnerHtml(button, subtitleIcon(paused ? "play" : "pause"));
-  }
   function subtitleDrawerButtonState(options) {
     const canOpenTranscript = options.hasLines || options.hasTranscriptSurface;
     const canOpenTracks = options.hasVideo || options.trackCount > 0;
@@ -53851,6 +53881,174 @@ ${spelling}`);
     }
     return formatSubtitleText(state2.language, "bmRowsReady", { count: state2.summary.rows });
   }
+  const RAIL_MARGIN_PX = 8;
+  const RAIL_KEY_STEP_PX = 12;
+  function bindSubtitleControlRail(root, onActivity) {
+    const rail = root.querySelector(".jpdb-subtitle-rail");
+    const handle = rail?.querySelector("[data-subtitle-rail-drag-handle]");
+    if (!rail || !handle) return null;
+    const abort = new AbortController();
+    let position = loadSubtitleControlRailPosition();
+    let drag = null;
+    const railBounds = () => {
+      const rootRect = root.getBoundingClientRect();
+      const railRect = rail.getBoundingClientRect();
+      if (rootRect.width <= 0 || rootRect.height <= 0 || railRect.width <= 0 || railRect.height <= 0) return null;
+      return {
+        maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
+        maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX)
+      };
+    };
+    const setPixels = (left, top, persist = false) => {
+      const bounds = railBounds();
+      if (!bounds) return;
+      const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
+      const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
+      rail.style.setProperty("left", `${Math.round(clampedLeft)}px`);
+      rail.style.setProperty("right", "auto");
+      rail.style.setProperty("top", `${Math.round(clampedTop)}px`);
+      position = {
+        x: fractionWithinRailAxis(clampedLeft, bounds.maxLeft),
+        y: fractionWithinRailAxis(clampedTop, bounds.maxTop)
+      };
+      if (persist) saveSubtitleControlRailPosition(position);
+    };
+    const syncPosition = () => {
+      if (!position) return;
+      const bounds = railBounds();
+      if (!bounds) return;
+      setPixels(
+        railAxisPosition(position.x, bounds.maxLeft),
+        railAxisPosition(position.y, bounds.maxTop)
+      );
+    };
+    const pointerDown = (event) => {
+      if (event.button !== 0 || drag) return;
+      const rootRect = root.getBoundingClientRect();
+      const railRect = rail.getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: railRect.left - rootRect.left,
+        top: railRect.top - rootRect.top,
+        moved: false
+      };
+      rail.classList.add("jpdb-subtitle-rail-dragging");
+      onActivity();
+      event.stopPropagation();
+      try {
+        handle.setPointerCapture?.(event.pointerId);
+      } catch {
+      }
+    };
+    const pointerMove = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const deltaX = event.clientX - drag.startX;
+      const deltaY = event.clientY - drag.startY;
+      if (Math.abs(deltaX) + Math.abs(deltaY) > 3) drag.moved = true;
+      setPixels(drag.left + deltaX, drag.top + deltaY);
+      if (drag.moved) event.preventDefault();
+      event.stopPropagation();
+    };
+    const finishPointer = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const moved = drag.moved;
+      drag = null;
+      rail.classList.remove("jpdb-subtitle-rail-dragging");
+      try {
+        handle.releasePointerCapture?.(event.pointerId);
+      } catch {
+      }
+      if (position) saveSubtitleControlRailPosition(position);
+      if (moved) {
+        handle.dataset.subtitleRailSuppressClick = "true";
+        event.preventDefault();
+      }
+      event.stopPropagation();
+    };
+    const suppressDraggedClick = (event) => {
+      if (handle.dataset.subtitleRailSuppressClick !== "true") return;
+      delete handle.dataset.subtitleRailSuppressClick;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const keyDown = (event) => {
+      const step = event.shiftKey ? RAIL_KEY_STEP_PX * 3 : RAIL_KEY_STEP_PX;
+      const rect = rail.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      const left = rect.left - rootRect.left;
+      const top = rect.top - rootRect.top;
+      let nextLeft = left;
+      let nextTop = top;
+      if (event.key === "ArrowLeft") nextLeft -= step;
+      else if (event.key === "ArrowRight") nextLeft += step;
+      else if (event.key === "ArrowUp") nextTop -= step;
+      else if (event.key === "ArrowDown") nextTop += step;
+      else if (event.key === "Home" || event.key === "0") {
+        nextLeft = RAIL_MARGIN_PX;
+        nextTop = RAIL_MARGIN_PX;
+      } else return;
+      event.preventDefault();
+      event.stopPropagation();
+      onActivity();
+      setPixels(nextLeft, nextTop, true);
+    };
+    handle.addEventListener("pointerdown", pointerDown, { signal: abort.signal });
+    handle.addEventListener("click", suppressDraggedClick, { capture: true, signal: abort.signal });
+    handle.addEventListener("keydown", keyDown, { signal: abort.signal });
+    window.addEventListener("pointermove", pointerMove, { passive: false, signal: abort.signal });
+    window.addEventListener("pointerup", finishPointer, { passive: false, signal: abort.signal });
+    window.addEventListener("pointercancel", finishPointer, { passive: false, signal: abort.signal });
+    const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(syncPosition) : null;
+    resizeObserver?.observe(root);
+    resizeObserver?.observe(rail);
+    requestAnimationFrame(syncPosition);
+    return {
+      syncPosition,
+      destroy: () => {
+        abort.abort();
+        resizeObserver?.disconnect();
+        rail.classList.remove("jpdb-subtitle-rail-dragging");
+      }
+    };
+  }
+  function railAxisPosition(fraction, max2) {
+    return RAIL_MARGIN_PX + fraction * Math.max(0, max2 - RAIL_MARGIN_PX);
+  }
+  function fractionWithinRailAxis(value, max2) {
+    const range = max2 - RAIL_MARGIN_PX;
+    return range > 0 ? Math.min(1, Math.max(0, (value - RAIL_MARGIN_PX) / range)) : 0;
+  }
+  const TRANSCRIPT_SCROLL_INTENT_WINDOW_MS = 1500;
+  class TranscriptFollowState {
+    intentUntil = 0;
+    manualScrollAt = 0;
+    armUserScroll(now = performance.now()) {
+      this.intentUntil = now + TRANSCRIPT_SCROLL_INTENT_WINDOW_MS;
+    }
+    noteScroll(now = performance.now()) {
+      if (now > this.intentUntil) return false;
+      this.intentUntil = 0;
+      this.manualScrollAt = now;
+      return true;
+    }
+    clear() {
+      this.intentUntil = 0;
+      this.manualScrollAt = 0;
+    }
+    isPaused(resumeMs, now = performance.now()) {
+      return Boolean(this.manualScrollAt && now - this.manualScrollAt < resumeMs);
+    }
+    remainingPauseMs(resumeMs, now = performance.now()) {
+      if (!this.manualScrollAt) return 0;
+      return Math.max(0, resumeMs - (now - this.manualScrollAt));
+    }
+  }
+  function isTranscriptScrollIntentKey(event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return false;
+    return ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key);
+  }
   const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
   const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
   const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 400;
@@ -54200,9 +54398,7 @@ ${spelling}`);
   const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
-  const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
-  const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -54452,6 +54648,7 @@ ${spelling}`);
     secondaryCue;
     observer;
     videoResizeObserver;
+    subtitleControlRail;
     lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
@@ -54524,12 +54721,10 @@ ${spelling}`);
     renderedTracksVirtualWindow;
     tracksVirtualRenderFrame;
     tracksVirtualScrollTop = 0;
-    // Manual-scroll override for transcript auto-follow: a user scroll pauses
-    // the snap-to-active so advancing to the next cue does not yank the list
-    // back; programmatic scrollIntoView calls are ignored for a short window so
-    // they are not mistaken for user scrolls.
-    transcriptUserScrollAt = 0;
-    transcriptProgrammaticScrollUntil = 0;
+    // Scroll alone is not intent: layout, hydration and virtual-window updates
+    // all scroll the panel. This state only enters manual mode when a direct
+    // wheel/touch/pointer/key signal arms the next scroll.
+    transcriptFollowState = new TranscriptFollowState();
     transcriptInsetRealignFrame;
     transcriptViewportStabilizeTimer;
     transcriptPreviewPlayerResizeDeferred = false;
@@ -54633,7 +54828,6 @@ ${spelling}`);
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
-      playback: () => this.toggleVideoPlayback(),
       ocr: () => this.toggleVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       copy: (target) => {
@@ -54644,6 +54838,8 @@ ${spelling}`);
       },
       "peek-row": (target) => this.toggleRowTranslationPeek(target),
       "jump-current": () => this.jumpToCurrentTranscriptRow(),
+      "rail-expand": () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+      "rail-pin": () => this.toggleSubtitleControlRailPin(),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -54797,6 +54993,8 @@ ${spelling}`);
       this.observer = void 0;
       this.videoResizeObserver?.disconnect();
       this.videoResizeObserver = void 0;
+      this.subtitleControlRail?.destroy();
+      this.subtitleControlRail = void 0;
       this.discoverTimer = clearWindowTimeout(this.discoverTimer);
       this.tickTimer = clearWindowTimeout(this.tickTimer);
       this.stopFrameSync();
@@ -54896,18 +55094,22 @@ ${spelling}`);
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
+      const moveControlsLabel = uiText(settings.interfaceLanguage, "moveSubtitleControls");
+      const pinControlsLabel = uiText(settings.interfaceLanguage, settings.subtitleControlsMode === "always" ? "unpinSubtitleControls" : "pinSubtitleControls");
       const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
       const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml$1(moveControlsLabel)}" aria-label="${escapeHtml$1(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon("grip")}</button>
                 <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
+                <button class="jpdb-subtitle-rail-pin" type="button" data-action="rail-pin" title="${escapeHtml$1(pinControlsLabel)}" aria-label="${escapeHtml$1(pinControlsLabel)}" aria-pressed="${settings.subtitleControlsMode === "always"}">${subtitleIcon("pin")}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
@@ -54929,10 +55131,12 @@ ${spelling}`);
       body.appendChild(root);
       body.appendChild(this.transcriptPanel);
       this.root = root;
+      this.subtitleControlRail = bindSubtitleControlRail(root, () => this.showControlsTemporarily({ independentOfPlayerChrome: true })) ?? void 0;
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
       this.alignToVideo();
+      this.subtitleControlRail?.syncPosition();
       this.scheduleControlsIdle();
       return true;
     }
@@ -57226,6 +57430,7 @@ ${spelling}`);
         this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
       }
       this.root.classList.remove("jpdb-subtitle-controls-idle");
+      this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
     }
@@ -57239,6 +57444,7 @@ ${spelling}`);
       this.subtitleSurfaceWakeActive = false;
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
+      this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
     }
     scheduleControlsIdle() {
@@ -57394,21 +57600,6 @@ ${spelling}`);
         this.armPlaybackPauseReassert(video);
       }
       document.dispatchEvent(new CustomEvent("yomu-ocr-video-frame-request", { detail: { video } }));
-    }
-    toggleVideoPlayback() {
-      const video = this.video;
-      if (!video) return;
-      const player = this.youTubePlayerApi(video);
-      if (video.paused) {
-        this.clearPlaybackPauseReassert();
-        if (player?.playVideo) player.playVideo();
-        else void video.play().catch(() => void 0);
-      } else {
-        if (player?.pauseVideo) player.pauseVideo();
-        else video.pause();
-        this.armPlaybackPauseReassert(video);
-      }
-      this.syncControls();
     }
     // YouTube's #movie_player exposes its player API on the element in the
     // page world. Routing pause/play/seek through it keeps YT's own state
@@ -58011,6 +58202,7 @@ ${spelling}`);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
       this.syncVisibilityRailButton();
+      this.syncSubtitleControlRailButtons();
       this.syncVideoFrameOcrButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
@@ -58043,6 +58235,27 @@ ${spelling}`);
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
     }
+    toggleSubtitleControlRailPin() {
+      const settings = this.options.getSettings();
+      settings.subtitleControlsMode = settings.subtitleControlsMode === "always" ? "auto" : "always";
+      this.options.onSettingsChange();
+      this.syncRootVisibility(settings);
+      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+      this.syncControls();
+    }
+    syncSubtitleControlRailButtons() {
+      const settings = this.options.getSettings();
+      const pinned = settings.subtitleControlsMode === "always";
+      const pin = this.root?.querySelector('[data-action="rail-pin"]');
+      if (pin) {
+        const label = uiText(settings.interfaceLanguage, pinned ? "unpinSubtitleControls" : "pinSubtitleControls");
+        pin.title = label;
+        pin.setAttribute("aria-label", label);
+        pin.setAttribute("aria-pressed", String(pinned));
+      }
+      const expand = this.root?.querySelector('[data-action="rail-expand"]');
+      if (expand) expand.setAttribute("aria-expanded", String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || pinned));
+    }
     syncVideoFrameOcrButton() {
       const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');
       if (!button) return;
@@ -58065,14 +58278,6 @@ ${spelling}`);
         }
         const drawerButton = this.transcriptPanel?.querySelector(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
         if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
-      }
-      const drawerPlayback = this.transcriptPanel?.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]');
-      if (drawerPlayback) {
-        syncSubtitlePlaybackButton(drawerPlayback, {
-          video: this.video,
-          hasLines,
-          language
-        });
       }
     }
     syncDrawerButtons(hasLines) {
@@ -58552,7 +58757,7 @@ ${spelling}`);
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      this.transcriptUserScrollAt = 0;
+      this.transcriptFollowState.clear();
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -59226,7 +59431,6 @@ ${spelling}`);
       if (!scroller) return;
       const scrollTop = Math.max(0, state2.virtual.scrollTop);
       if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
-        this.markTranscriptProgrammaticScroll();
         scroller.scrollTop = scrollTop;
       }
       this.transcriptVirtualScrollTop = scrollTop;
@@ -59341,7 +59545,6 @@ ${spelling}`);
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        this.markTranscriptProgrammaticScroll(behavior);
         active.scrollIntoView?.({ block: "center", inline: "nearest", behavior });
       };
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
@@ -59352,16 +59555,15 @@ ${spelling}`);
       }
       this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
-    markTranscriptProgrammaticScroll(behavior = "auto") {
-      const windowMs = behavior === "smooth" ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
-      this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
-    }
     noteTranscriptScroll() {
-      if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
-      this.transcriptUserScrollAt = performance.now();
+      if (!this.transcriptFollowState.noteScroll()) return;
       this.syncTranscriptAutoScrollPausedClass();
       this.scheduleTranscriptAutoScrollResume();
+    }
+    noteTranscriptScrollIntent() {
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
+      this.transcriptFollowState.armUserScroll();
     }
     jumpToCurrentTranscriptRow() {
       this.clearTranscriptManualScrollPause();
@@ -59370,13 +59572,13 @@ ${spelling}`);
       this.scrollTranscriptToActive({ force: true });
     }
     clearTranscriptManualScrollPause() {
-      this.transcriptUserScrollAt = 0;
+      this.transcriptFollowState.clear();
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
       this.syncTranscriptAutoScrollPausedClass();
     }
     scheduleTranscriptAutoScrollResume() {
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
+      const remaining = this.transcriptFollowState.remainingPauseMs(this.transcriptAutoScrollResumeMs());
       this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
         this.transcriptAutoScrollResumeTimer = void 0;
         this.syncTranscriptAutoScrollPausedClass();
@@ -59387,7 +59589,7 @@ ${spelling}`);
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
     }
     isTranscriptAutoScrollPaused() {
-      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptUserScrollAt && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
+      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptFollowState.isPaused(this.transcriptAutoScrollResumeMs()));
     }
     transcriptAutoScrollResumeMs() {
       const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
@@ -59403,13 +59605,16 @@ ${spelling}`);
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptVirtualRender(scroller);
       }, { passive: true });
-      const clearProgrammaticMarker = () => {
-        this.transcriptProgrammaticScrollUntil = 0;
-      };
-      scroller.addEventListener("touchstart", clearProgrammaticMarker, { passive: true });
-      scroller.addEventListener("pointerdown", clearProgrammaticMarker, { passive: true });
-      scroller.addEventListener("wheel", clearProgrammaticMarker, { passive: true });
-      if ("onscrollend" in scroller) scroller.addEventListener("scrollend", clearProgrammaticMarker, { passive: true });
+      const armUserScroll = () => this.noteTranscriptScrollIntent();
+      scroller.addEventListener("mousedown", armUserScroll, { passive: true });
+      scroller.addEventListener("touchmove", armUserScroll, { passive: true });
+      scroller.addEventListener("pointermove", (event) => {
+        if (event.buttons || event.pointerType === "touch") this.noteTranscriptScrollIntent();
+      }, { passive: true });
+      scroller.addEventListener("wheel", armUserScroll, { passive: true });
+      scroller.addEventListener("keydown", (event) => {
+        if (isTranscriptScrollIntentKey(event)) this.noteTranscriptScrollIntent();
+      });
     }
     scheduleTranscriptVirtualRender(scroller) {
       if (!this.isTranscriptVirtualScroller(scroller)) return;
@@ -65450,14 +65655,14 @@ ${component.reading}`;
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
         "expression components",
-        this.loadExpressionComponents(card, localEntries),
+        this.loadExpressionComponents(card, localEntries, jitenVocabularyLookup),
         []
       );
       const componentPitches = this.withFallback(
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
         "expression component pitch",
-        this.loadExpressionComponentPitches(expressionComponents),
+        this.loadExpressionComponentPitches(expressionComponents, jitenVocabularyLookup),
         []
       );
       void pitchAccent.catch(() => void 0);
@@ -65652,22 +65857,37 @@ ${component.reading}`;
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
-    async loadExpressionComponents(card, localEntries) {
-      if (!this.settings().localDictionariesEnabled) return [];
-      const entries2 = await localEntries.catch(() => []);
-      if (!entries2.length && !looksComposableExpression(card.spelling)) return [];
-      return this.segmentExpressionComponents(card.spelling);
+    async loadExpressionComponents(card, localEntries, jitenVocabularyInfo) {
+      if (this.settings().localDictionariesEnabled) {
+        const entries2 = await localEntries.catch(() => []);
+        if (entries2.length || looksComposableExpression(card.spelling)) {
+          const segmented = await this.segmentExpressionComponents(card.spelling);
+          if (segmented.length >= 2) return segmented;
+        }
+      }
+      const info = await jitenVocabularyInfo.catch(() => null);
+      return jitenExpressionComponents(info);
     }
     // Expressions and compounds expose their parts as lookup chips. Keep each
     // part's own pitch available for chip colouring even when the card now has
     // a whole-word pitch graph from direct or composed metadata.
-    async loadExpressionComponentPitches(expressionComponents) {
+    async loadExpressionComponentPitches(expressionComponents, jitenVocabularyInfo) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
-      const components2 = await expressionComponents.catch(() => []);
+      if (!settings.showPitchAccent) return [];
+      const [components2, jitenInfo] = await Promise.all([
+        expressionComponents.catch(() => []),
+        jitenVocabularyInfo.catch(() => null)
+      ]);
       if (components2.length < 2) return [];
       const pitches = [];
       for (const component of components2) {
+        const jitenWord = jitenInfo?.composedOf.find((word) => word.matchSurface.trim() === component.text && (!word.reading.trim() || word.reading.trim() === component.reading));
+        const jitenPitch = jitenWord?.pitchAccents?.map((position) => pitchPatternFromPosition(component.reading, position)).find(Boolean);
+        if (jitenPitch) {
+          pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
+          continue;
+        }
+        if (!settings.localDictionariesEnabled) continue;
         const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []);
         const pitch = localPitchPatternFromMeta(component.reading, meta);
         if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
@@ -65823,6 +66043,18 @@ ${component.reading}`;
     if (characters.length < 4) return false;
     const kanjiCount = characters.filter(isKanjiCharacter$1).length;
     return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter$1) || isKanjiCharacter$1(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter$1(character) || isKanaCharacter(character));
+  }
+  function jitenExpressionComponents(info) {
+    const seen = /* @__PURE__ */ new Set();
+    return (info?.composedOf ?? []).flatMap((word) => {
+      const text2 = word.matchSurface.trim();
+      const reading = word.reading.trim() || text2;
+      const key = `${text2}
+${reading}`;
+      if (!text2 || seen.has(key)) return [];
+      seen.add(key);
+      return [{ text: text2, reading }];
+    });
   }
   function delay$2(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));

@@ -222,8 +222,7 @@ export function backgroundPitchEnrichmentOptionsForHost(_hostname: string, compa
     };
 }
 
-export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnrichmentOptions {
-    if (isYouTubeHostname(hostname)) return { publicLookup: false };
+export function nestedPitchEnrichmentOptionsForHost(_hostname: string): PitchEnrichmentOptions {
     return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
 }
 

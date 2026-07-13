@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.148] - 2026-07-12
+
+### Fixed
+
+- YouTube and Reddit now share the generic visible-page and web-component scanner: component boundaries, late menus, comments, navigation labels, and residual text no longer disappear behind profile budgets or shared-node deduplication.
+- Compact controls keep their native geometry while showing detached furigana and pitch, and pressed words can enrich missing pitch on every site. Composite cards also expose their loaded Jiten subwords when local dictionary segmentation is unavailable.
+- Subtitle transcript tracking pauses only after direct wheel, touch-drag, native-scrollbar, or scroll-key input; automatic player updates no longer desynchronise the mobile panel, and Locate always restores tracking.
+- The subtitle control rail starts on the left, can be moved and keyboard-positioned, can be pinned open or collapsed, stays clear of YouTube's settings control, and no longer duplicates playback with a play button. Transparent subtitle line space is click-through, restoring the native mobile fullscreen button while visible words remain tappable.
+- Short functional headings in mirrored app panels are now annotated through the shared residual scanner, including YouTube transcript and engagement surfaces, without reintroducing a panel-specific parser.
+
+### Changed
+
+- Removed the separate YouTube guide, engagement-panel, and chrome parsers. YouTube-specific media adapters remain only where the platform API requires them; ordinary page text and controls follow the shared annotation pipeline.
+
 ## [1.6.147] - 2026-07-12
 
 ### Fixed

@@ -7,6 +7,7 @@ import type { AnkiConnectClient } from '../../src/reader/anki/index';
 import type { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../../src/reader/jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
+import type { JitenApiClient, JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 import type { YomitanDictionaryStore, YomitanMetaEntry, YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
 
 function expressionCard(spelling: string, reading: string): JPDBCard {
@@ -37,6 +38,7 @@ function createLoader(options: {
     entriesByTerm: Record<string, YomitanTermEntry[]>;
     metaByTerm: Record<string, YomitanMetaEntry[]>;
     settings?: Partial<ReaderSettings>;
+    jitenInfo?: JitenVocabularyInfo | null;
 }): CardRenderDataLoader {
     return new CardRenderDataLoader({
         getSettings: () => ({
@@ -58,6 +60,10 @@ function createLoader(options: {
         jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() } as unknown as AnkiConnectClient,
         jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
+        jiten: {
+            lookupVocabularyInfoForCard: vi.fn(async () => options.jitenInfo ?? null),
+            listReaderStudyDecks: vi.fn(async () => []),
+        } as unknown as JitenApiClient,
         isJpdbBackedCard: () => false,
     });
 }
@@ -101,6 +107,39 @@ describe('expression component pitch', () => {
         expect(data.expressionComponents?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
         expect(data.expressionComponents?.map(component => component.reading)).toEqual(['ちょうりょう', 'ばっこ']);
         expect(data.componentPitches?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
+        expect(data.componentPitches?.every(component => component.pitch.length > 0)).toBe(true);
+    });
+
+    it('surfaces Jiten decomposition as generic navigable components without local dictionaries', async () => {
+        const loader = createLoader({
+            entriesByTerm: {},
+            metaByTerm: {},
+            settings: { localDictionariesEnabled: false, jitenDefinitionsEnabled: true },
+            jitenInfo: {
+                wordId: 32022,
+                mainReading: { text: '高評価', readingIndex: 0, frequencyRank: null, usedInMediaAmount: null },
+                alternativeReadings: [],
+                partsOfSpeech: ['noun'],
+                definitions: [],
+                pitchAccents: [0],
+                knownStates: [],
+                composedOf: [
+                    { wordId: 6424, readingIndex: 0, reading: 'こう', readingFurigana: 'こう', mainDefinition: 'high', frequencyRank: null, matchSurface: '高', pitchAccents: [1] },
+                    { wordId: 2321, readingIndex: 0, reading: 'ひょうか', readingFurigana: 'ひょうか', mainDefinition: 'evaluation', frequencyRank: null, matchSurface: '評価', pitchAccents: [0] },
+                ],
+                usedIn: [],
+                usedInTotal: 0,
+                examples: [],
+            },
+        });
+
+        const data = await loader.load(expressionCard('高評価', 'こうひょうか')).all;
+
+        expect(data.expressionComponents).toEqual([
+            { text: '高', reading: 'こう' },
+            { text: '評価', reading: 'ひょうか' },
+        ]);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['高', '評価']);
         expect(data.componentPitches?.every(component => component.pitch.length > 0)).toBe(true);
     });
 

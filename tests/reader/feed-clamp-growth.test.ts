@@ -169,8 +169,10 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
-        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(false);
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        // Detached readings use the additive channel: YouTube keeps painting
+        // the native label while Yomu overlays only reading/hit/pitch paint.
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         // No one-line-taller mirror poking below the pill.
         expect(mirror.style.maxHeight).toBe('36px');
     });

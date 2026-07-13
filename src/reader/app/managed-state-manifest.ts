@@ -76,6 +76,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // Subtitle layout geometry.
     { owner: 'subtitles/subtitle-layout', kind: 'gm', key: 'jpdb-reader-transcript-panel-size' },
     { owner: 'subtitles/subtitle-layout', kind: 'gm', key: 'jpdb-reader-subtitle-drag-offset' },
+    { owner: 'subtitles/subtitle-layout', kind: 'gm', key: 'jpdb-reader-subtitle-control-rail-position' },
 
     // YouTube subscription snapshot + oembed title cache.
     { owner: 'subtitles/youtube', kind: 'gm', key: 'yomu:youtube-all-subscribed:v1' },

@@ -573,6 +573,7 @@
     // Subtitle layout geometry.
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+    { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
     // YouTube subscription snapshot + oembed title cache.
     { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
     { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
@@ -4066,6 +4067,9 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
+      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
+      pinSubtitleControls: "Keep subtitle controls expanded",
+      unpinSubtitleControls: "Collapse subtitle controls when idle",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -5452,6 +5456,9 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
+moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
+pinSubtitleControls	字幕コントロールを展開したままにする
+unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
 right	右
 left	左
 bottom	下

@@ -102,7 +102,7 @@ describe('reader runtime helpers', () => {
         expect(backgroundPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual(desktop);
         expect(backgroundPitchEnrichmentOptionsForHost('m.youtube.com', true)).toEqual(mobile);
         expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookupLimit: 3 });
-        expect(nestedPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({ publicLookup: false });
+        expect(nestedPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({ publicLookupLimit: 3 });
     });
 
     it('treats large visible image feeds as OCR reading pages without Japanese DOM text', () => {

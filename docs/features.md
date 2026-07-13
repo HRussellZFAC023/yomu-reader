@@ -88,7 +88,7 @@ The Batch Mine tab scans the loaded transcript against your current study states
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
-You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable.
+You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The left-aligned subtitle rail can be moved if it covers a player control and pinned open or left to collapse; playback stays in the video's own controls. Transparent space around the text is click-through, so native mobile controls such as fullscreen remain tappable while individual parsed words still open lookup. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable. Auto-follow pauses only after you directly scroll it, and **Locate** always returns to the active line.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
@@ -99,7 +99,7 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.
 
-YouTube controls that it constantly re-renders — including Subscribe, Join, tabs, and filter chips — stay lookupable and keep pitch annotation without adding furigana above the label. This preserves YouTube's native vertical centring and avoids flicker or layout shifts; ordinary page text still keeps furigana.
+YouTube page text uses the same generic scanner and web-component boundaries as Reddit and other dynamic sites, including late comments, menus, navigation labels, and controls. Subscribe, Join, tabs, and filter chips stay lookupable and show pitch plus detached furigana without changing the control's native centring or height.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
 

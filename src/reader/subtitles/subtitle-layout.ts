@@ -20,6 +20,7 @@ export const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
 export const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
 const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
 export const SUBTITLE_DRAG_OFFSET_KEY = 'jpdb-reader-subtitle-drag-offset';
+export const SUBTITLE_CONTROL_RAIL_POSITION_KEY = 'jpdb-reader-subtitle-control-rail-position';
 
 // The manual drag offset is stored as a fraction of the viewport height (negative
 // = nudged up) rather than raw pixels so the remembered position scales sensibly
@@ -39,6 +40,11 @@ function clampSubtitleDragOffsetFraction(fraction: number): number {
 export interface TranscriptPanelSize {
     sideWidth?: number;
     bottomHeight?: number;
+}
+
+export interface SubtitleControlRailPosition {
+    x: number;
+    y: number;
 }
 
 export interface SubtitleDrawerLayoutOptions {
@@ -165,4 +171,30 @@ export function saveSubtitleDragOffsetFraction(fraction: number): void {
     } catch {
         // Best-effort preference only.
     }
+}
+
+export function loadSubtitleControlRailPosition(): SubtitleControlRailPosition | null {
+    try {
+        const stored = gmStorageGetSync<Partial<SubtitleControlRailPosition>>(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {});
+        if (!Number.isFinite(stored?.x) || !Number.isFinite(stored?.y)) return null;
+        return { x: clampRailFraction(stored.x!), y: clampRailFraction(stored.y!) };
+    } catch {
+        return null;
+    }
+}
+
+export function saveSubtitleControlRailPosition(position: SubtitleControlRailPosition): void {
+    try {
+        gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
+            x: clampRailFraction(position.x),
+            y: clampRailFraction(position.y),
+        });
+    } catch {
+        // Best-effort preference only.
+    }
+}
+
+function clampRailFraction(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(1, Math.max(0, value));
 }

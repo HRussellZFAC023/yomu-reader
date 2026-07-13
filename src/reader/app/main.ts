@@ -3506,16 +3506,7 @@ export class ReaderApp {
     }
 
     private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        const options = nestedPitchEnrichmentOptionsForHost(location.hostname);
-        if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
-        return {
-            publicLookupLimit: 16,
-            publicLookupTotalLimit: 16,
-            publicLookupPageBudget: 32,
-            publicLookupTermLimit: 1,
-            substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        };
+        return nestedPitchEnrichmentOptionsForHost(location.hostname);
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {

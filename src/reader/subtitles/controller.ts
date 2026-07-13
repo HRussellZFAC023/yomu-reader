@@ -80,7 +80,6 @@ import {
     subtitleTrackPanelState,
     syncSubtitleDrawerButton,
     syncSubtitleLineNavigationButton,
-    syncSubtitlePlaybackButton,
     syncSubtitleTrackStatus,
     syncTranscriptPlacementButtons,
 } from './subtitle-panel-actions';
@@ -164,6 +163,8 @@ import {
     type SubtitleIconName,
     type SubtitlePanelMode,
 } from './subtitle-surface';
+import { bindSubtitleControlRail, type SubtitleControlRailBinding } from './subtitle-control-rail';
+import { isTranscriptScrollIntentKey, TranscriptFollowState } from './transcript-follow-state';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
     TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
@@ -614,14 +615,7 @@ const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3000;
 const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
 const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
-// Window after a programmatic scroll during which scroll events are treated as
-// self-induced (scrollIntoView fires async), not as a user scroll.
-const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
 const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
-// A smooth scrollIntoView animation runs far longer than an instant one; the
-// self-induced-scroll window has to cover it or the animation's own scroll
-// events get misread as a manual scroll partway through and pause auto-follow.
-const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -644,7 +638,6 @@ const log = Logger.scope('Subtitles');
 interface YouTubePlayerApi {
     seekTo?: (seconds: number, allowSeekAhead: boolean) => void;
     pauseVideo?: () => void;
-    playVideo?: () => void;
 }
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
     requestText: defaultRequestSubtitleText,
@@ -1009,6 +1002,7 @@ export class SubtitlePlayerController {
     private secondaryCue?: SubtitleCue;
     private observer?: MutationObserver;
     private videoResizeObserver?: ResizeObserver;
+    private subtitleControlRail?: SubtitleControlRailBinding;
     private lastPlayerChromeHidden = false;
     private discoverTimer?: number;
     private tickTimer?: number;
@@ -1081,12 +1075,10 @@ export class SubtitlePlayerController {
     private renderedTracksVirtualWindow?: { start: number; end: number; rowCount: number };
     private tracksVirtualRenderFrame?: number;
     private tracksVirtualScrollTop = 0;
-    // Manual-scroll override for transcript auto-follow: a user scroll pauses
-    // the snap-to-active so advancing to the next cue does not yank the list
-    // back; programmatic scrollIntoView calls are ignored for a short window so
-    // they are not mistaken for user scrolls.
-    private transcriptUserScrollAt = 0;
-    private transcriptProgrammaticScrollUntil = 0;
+    // Scroll alone is not intent: layout, hydration and virtual-window updates
+    // all scroll the panel. This state only enters manual mode when a direct
+    // wheel/touch/pointer/key signal arms the next scroll.
+    private readonly transcriptFollowState = new TranscriptFollowState();
     private transcriptInsetRealignFrame?: number;
     private transcriptViewportStabilizeTimer?: number;
     private transcriptPreviewPlayerResizeDeferred = false;
@@ -1193,13 +1185,14 @@ export class SubtitlePlayerController {
         cue: target => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
-        playback: () => this.toggleVideoPlayback(),
         ocr: () => this.toggleVideoFrameOcr(),
         visibility: () => this.toggleOverlayVisibility(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.toggleRowTranslationPeek(target),
         'jump-current': () => this.jumpToCurrentTranscriptRow(),
+        'rail-expand': () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+        'rail-pin': () => this.toggleSubtitleControlRailPin(),
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
@@ -1359,6 +1352,8 @@ export class SubtitlePlayerController {
         this.observer = undefined;
         this.videoResizeObserver?.disconnect();
         this.videoResizeObserver = undefined;
+        this.subtitleControlRail?.destroy();
+        this.subtitleControlRail = undefined;
         this.discoverTimer = clearWindowTimeout(this.discoverTimer);
         this.tickTimer = clearWindowTimeout(this.tickTimer);
         this.stopFrameSync();
@@ -1470,6 +1465,8 @@ export class SubtitlePlayerController {
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         const moveAccessibleLabel = uiText(settings.interfaceLanguage, 'moveSubtitlesAccessible');
+        const moveControlsLabel = uiText(settings.interfaceLanguage, 'moveSubtitleControls');
+        const pinControlsLabel = uiText(settings.interfaceLanguage, settings.subtitleControlsMode === 'always' ? 'unpinSubtitleControls' : 'pinSubtitleControls');
         const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
         const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
             ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : ''}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`
@@ -1478,12 +1475,14 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml(moveControlsLabel)}" aria-label="${escapeHtml(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon('grip')}</button>
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
+                <button class="jpdb-subtitle-rail-pin" type="button" data-action="rail-pin" title="${escapeHtml(pinControlsLabel)}" aria-label="${escapeHtml(pinControlsLabel)}" aria-pressed="${settings.subtitleControlsMode === 'always'}">${subtitleIcon('pin')}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
@@ -1505,12 +1504,14 @@ export class SubtitlePlayerController {
         body.appendChild(root);
         body.appendChild(this.transcriptPanel);
         this.root = root;
+        this.subtitleControlRail = bindSubtitleControlRail(root, () => this.showControlsTemporarily({ independentOfPlayerChrome: true })) ?? undefined;
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
         this.refresh();
         // First paint lands in the right place instead of being corrected a
         // frame later by the rAF-deferred alignment refresh() scheduled.
         this.alignToVideo();
+        this.subtitleControlRail?.syncPosition();
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
         this.scheduleControlsIdle();
@@ -4280,6 +4281,7 @@ export class SubtitlePlayerController {
             this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
         }
         this.root.classList.remove('jpdb-subtitle-controls-idle');
+        this.syncSubtitleControlRailButtons();
         this.syncAsbPlayerSubtitleMoveHandles();
         this.scheduleControlsIdle();
     }
@@ -4295,6 +4297,7 @@ export class SubtitlePlayerController {
         this.subtitleSurfaceWakeActive = false;
         if (!this.root || !this.shouldAutoIdleControls()) return;
         this.root.classList.add('jpdb-subtitle-controls-idle');
+        this.syncSubtitleControlRailButtons();
         this.syncAsbPlayerSubtitleMoveHandles();
     }
 
@@ -4503,22 +4506,6 @@ export class SubtitlePlayerController {
             this.armPlaybackPauseReassert(video);
         }
         document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
-    }
-
-    private toggleVideoPlayback(): void {
-        const video = this.video;
-        if (!video) return;
-        const player = this.youTubePlayerApi(video);
-        if (video.paused) {
-            this.clearPlaybackPauseReassert();
-            if (player?.playVideo) player.playVideo();
-            else void video.play().catch(() => undefined);
-        } else {
-            if (player?.pauseVideo) player.pauseVideo();
-            else video.pause();
-            this.armPlaybackPauseReassert(video);
-        }
-        this.syncControls();
     }
 
     // YouTube's #movie_player exposes its player API on the element in the
@@ -5223,6 +5210,7 @@ export class SubtitlePlayerController {
         this.syncDrawerButtons(hasLines);
         this.syncSubtitleStyleControls();
         this.syncVisibilityRailButton();
+        this.syncSubtitleControlRailButtons();
         this.syncVideoFrameOcrButton();
         this.syncTranscriptAutoScrollPausedClass();
         this.syncStatus();
@@ -5260,6 +5248,29 @@ export class SubtitlePlayerController {
         setInnerHtml(button, subtitleIcon(visible ? 'eye' : 'eye-off'));
     }
 
+    private toggleSubtitleControlRailPin(): void {
+        const settings = this.options.getSettings();
+        settings.subtitleControlsMode = settings.subtitleControlsMode === 'always' ? 'auto' : 'always';
+        this.options.onSettingsChange();
+        this.syncRootVisibility(settings);
+        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+        this.syncControls();
+    }
+
+    private syncSubtitleControlRailButtons(): void {
+        const settings = this.options.getSettings();
+        const pinned = settings.subtitleControlsMode === 'always';
+        const pin = this.root?.querySelector<HTMLButtonElement>('[data-action="rail-pin"]');
+        if (pin) {
+            const label = uiText(settings.interfaceLanguage, pinned ? 'unpinSubtitleControls' : 'pinSubtitleControls');
+            pin.title = label;
+            pin.setAttribute('aria-label', label);
+            pin.setAttribute('aria-pressed', String(pinned));
+        }
+        const expand = this.root?.querySelector<HTMLButtonElement>('[data-action="rail-expand"]');
+        if (expand) expand.setAttribute('aria-expanded', String(!this.root?.classList.contains('jpdb-subtitle-controls-idle') || pinned));
+    }
+
     private syncVideoFrameOcrButton(): void {
         const button = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="ocr"]');
         if (!button) return;
@@ -5286,14 +5297,6 @@ export class SubtitlePlayerController {
             }
             const drawerButton = this.transcriptPanel?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
             if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
-        }
-        const drawerPlayback = this.transcriptPanel?.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]');
-        if (drawerPlayback) {
-            syncSubtitlePlaybackButton(drawerPlayback, {
-                video: this.video,
-                hasLines,
-                language,
-            });
         }
     }
 
@@ -5852,7 +5855,7 @@ export class SubtitlePlayerController {
         this.clearDeferredTranscriptPanelRender();
         this.clearTranscriptVirtualRender();
         this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-        this.transcriptUserScrollAt = 0;
+        this.transcriptFollowState.clear();
         if (!options.autoPause) {
             this.pausePanelOpen = false;
             // An explicit close while paused must stick: otherwise the "open panel
@@ -6610,7 +6613,6 @@ export class SubtitlePlayerController {
         if (!scroller) return;
         const scrollTop = Math.max(0, state.virtual.scrollTop);
         if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
-            this.markTranscriptProgrammaticScroll();
             scroller.scrollTop = scrollTop;
         }
         this.transcriptVirtualScrollTop = scrollTop;
@@ -6749,9 +6751,6 @@ export class SubtitlePlayerController {
             if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             if (!active) return;
-            // Mark the self-induced scroll so its scroll events are not counted
-            // as a manual scroll that would pause auto-follow.
-            this.markTranscriptProgrammaticScroll(behavior);
             active.scrollIntoView?.({ block: 'center', inline: 'nearest', behavior });
         };
         if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
@@ -6763,17 +6762,16 @@ export class SubtitlePlayerController {
         this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
 
-    private markTranscriptProgrammaticScroll(behavior: ScrollBehavior = 'auto'): void {
-        const windowMs = behavior === 'smooth' ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
-        this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
-    }
-
     private noteTranscriptScroll(): void {
-        if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
         if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
-        this.transcriptUserScrollAt = performance.now();
+        if (!this.transcriptFollowState.noteScroll()) return;
         this.syncTranscriptAutoScrollPausedClass();
         this.scheduleTranscriptAutoScrollResume();
+    }
+
+    private noteTranscriptScrollIntent(): void {
+        if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
+        this.transcriptFollowState.armUserScroll();
     }
 
     private jumpToCurrentTranscriptRow(): void {
@@ -6784,14 +6782,14 @@ export class SubtitlePlayerController {
     }
 
     private clearTranscriptManualScrollPause(): void {
-        this.transcriptUserScrollAt = 0;
+        this.transcriptFollowState.clear();
         this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
         this.syncTranscriptAutoScrollPausedClass();
     }
 
     private scheduleTranscriptAutoScrollResume(): void {
         this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-        const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
+        const remaining = this.transcriptFollowState.remainingPauseMs(this.transcriptAutoScrollResumeMs());
         this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
             this.transcriptAutoScrollResumeTimer = undefined;
             this.syncTranscriptAutoScrollPausedClass();
@@ -6805,8 +6803,7 @@ export class SubtitlePlayerController {
 
     private isTranscriptAutoScrollPaused(): boolean {
         return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll
-            && this.transcriptUserScrollAt
-            && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
+            && this.transcriptFollowState.isPaused(this.transcriptAutoScrollResumeMs()));
     }
 
     private transcriptAutoScrollResumeMs(): number {
@@ -6826,14 +6823,24 @@ export class SubtitlePlayerController {
             this.scheduleTranscriptHydration();
             this.scheduleTranscriptVirtualRender(scroller);
         }, { passive: true });
-        // A real user interruption -- touch, pointer, or wheel input -- must be
-        // recognized immediately even mid-smooth-scroll, so clear the
-        // self-induced-scroll marker rather than waiting out its window.
-        const clearProgrammaticMarker = () => { this.transcriptProgrammaticScrollUntil = 0; };
-        scroller.addEventListener('touchstart', clearProgrammaticMarker, { passive: true });
-        scroller.addEventListener('pointerdown', clearProgrammaticMarker, { passive: true });
-        scroller.addEventListener('wheel', clearProgrammaticMarker, { passive: true });
-        if ('onscrollend' in scroller) scroller.addEventListener('scrollend', clearProgrammaticMarker, { passive: true });
+        // Scroll events are also produced by hydration, virtualization, layout
+        // correction and scrollIntoView. Arm manual mode only from direct input;
+        // the next scroll consumes the arm and pauses follow. Momentum remains
+        // manual through the existing resume timer.
+        const armUserScroll = () => this.noteTranscriptScrollIntent();
+        // Native desktop scrollbar drags do not reliably emit pointermove on
+        // the scroller. Chrome does emit mousedown before the scrollbar starts
+        // moving, so arm intent there as well; a plain click without a scroll
+        // consumes nothing and cannot desynchronise follow mode.
+        scroller.addEventListener('mousedown', armUserScroll, { passive: true });
+        scroller.addEventListener('touchmove', armUserScroll, { passive: true });
+        scroller.addEventListener('pointermove', event => {
+            if (event.buttons || event.pointerType === 'touch') this.noteTranscriptScrollIntent();
+        }, { passive: true });
+        scroller.addEventListener('wheel', armUserScroll, { passive: true });
+        scroller.addEventListener('keydown', event => {
+            if (isTranscriptScrollIntentKey(event)) this.noteTranscriptScrollIntent();
+        });
     }
 
     private scheduleTranscriptVirtualRender(scroller: HTMLElement): void {

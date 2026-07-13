@@ -1123,10 +1123,10 @@ describe('VisiblePageScanner', () => {
             expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['すべて', '動画']));
             expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
             const video = words.find(word => word.dataset.expression === '動画');
-            // Filter chips stay on YouTube's native centred line box while
-            // remaining tokenized and lookupable.
+            // Detached readings keep furigana outside YouTube's native centred
+            // line box while the control remains tokenized and lookupable.
             expect(video?.querySelector('rt')).toBeNull();
-            expect(video?.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+            expect(video?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('どうが');
             expect(video?.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
@@ -1246,10 +1246,10 @@ describe('VisiblePageScanner', () => {
             expect(create).not.toBeNull();
             expect(create.classList.contains('jpdb-reader-passive-word')).toBe(true);
             expect(create.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            // The topbar create button keeps YouTube's native centred line
-            // box; annotation must not reserve a reading lane.
+            // The topbar button keeps its native centred line box while a
+            // detached reading paints above it without reserving a lane.
             expect(create.querySelector('rt')).toBeNull();
-            expect(create.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+            expect(create.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さくせい');
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);

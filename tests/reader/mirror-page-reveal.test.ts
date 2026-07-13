@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     applyTokensToScanTarget,
@@ -28,6 +28,7 @@ function flushMicrotasks(): Promise<void> {
 }
 
 afterEach(() => {
+    vi.unstubAllGlobals();
     removeNonDestructiveScanMirrors(document);
     document.body.innerHTML = '';
 });
@@ -119,8 +120,23 @@ describe('mirrored interactive chrome keeps furigana', () => {
         expect(mirror.querySelector('rt')).toBeNull();
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
-        // Detached readings stay out of the button's line box, so the old
-        // hover-only control-mirror stamp is no longer needed.
-        expect(mirror.dataset.yomuControlMirror).toBeUndefined();
+        // Detached readings stay out of the button's line box while the
+        // control-mirror stamp keeps the base glyph on the exact native
+        // metrics instead of the roomier prose mirror metrics.
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
+    });
+
+    it('uses the same detached-reading channel on YouTube controls', () => {
+        vi.stubGlobal('location', {
+            hostname: 'www.youtube.com',
+            href: 'https://www.youtube.com/watch?v=test',
+        });
+        document.body.innerHTML = `<button id="host">${TEXT}</button>`;
+        const host = document.getElementById('host')!;
+        paintMirror(host);
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
     });
 });

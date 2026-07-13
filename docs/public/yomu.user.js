@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.147
+// @version 1.6.148
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.147#sha256=yNX6Fw1yFMqhEv5UYvp1sVS3jxCrzNMGXqq5mqF37bY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.147#sha256=dpkfgo1yiKZKTGhBRkh+2BjzNKIMHNcTjEapE7fBb54=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.147#sha256=WEtm5RRRbehO+6h48ZoOUPItXCLiNv0TOgVerbp3X10=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.147#sha256=9Ln+BhVQfeN1kZEIomS5YidkHXua2atRQjXVE2XJZlw=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.147#sha256=6CCsxC0UGW/URP8D0avR+9mnfxUn83CNdUvy1d+/VFc=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.147#sha256=XrpkVmETkvvlbiOMSsUgcPhgPR4GgCnMDhaFvuFvzQw=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.147#sha256=GtFGo4D1FAzaT+FVwH24Vn28trV7pgosQ6dT+f50p5Y=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.148#sha256=LnXglxXJMWaqFp7nsNmFTIobLYfONqsIjPYYb1U4DmI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.148#sha256=GkkmcM7en4Fz+z9BBcF0wCq31NTP9cuXngCrsRdYev8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.148#sha256=IE7f8sUqmwODfWsPPzyUJbp2Xc28zQamXZnouXQprlU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.148#sha256=qU3ZCgqlpnBNjiVu81iSGfw3Xo7poK3MBQP1GLlUFoo=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.148#sha256=80vB3ufW2XjGJcNxnCFKVGYfjYnONATfFlh+CCHv6vI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.148#sha256=hK9pzZFB/GL6ksmWAO1to4ERxV+ajIEXI2/cl7mOpyM=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.148#sha256=/HHYvgPfjRNL/YxFfdg63gVWeGfiPNRXHCHIAXxRh4U=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -2156,6 +2156,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "sources/state", kind: "gm", key: "jpdb-reader-source-open-state" },
   { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
   { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
   { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
   { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
@@ -5302,7 +5303,7 @@ function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
   flushFragmentBlockBoundary(isBlock, state);
   visitFragmentShadowRoot(element2, state);
 }
-const SHADOW_SCAN_MAX_DEPTH = 2;
+const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 function visitFragmentShadowRoot(element2, state) {
   if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
@@ -5362,7 +5363,23 @@ function isSafeEditableSurfaceFragmentRoot(element2, options) {
 }
 function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {
   if (!hasVisibleTextStyle(element2) && !hasVisibleTextMirror(element2)) return true;
-  return visibleOnly && !isVisible(element2) && !hasVisibleTextMirror(element2);
+  if (!visibleOnly || hasVisibleTextMirror(element2)) return false;
+  const rect = element2.getBoundingClientRect();
+  if (isVisibleRect(rect)) return false;
+  return !isBoxlessFragmentWrapper(rect) || !hasVisibleJapaneseFragmentDescendant(element2);
+}
+const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 96;
+function isBoxlessFragmentWrapper(rect) {
+  return rect.width <= 0 || rect.height <= 0;
+}
+function hasVisibleJapaneseFragmentDescendant(element2) {
+  if (!HAS_JAPANESE$1.test(element2.textContent ?? "")) return false;
+  const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
+  for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
+  const descendant = node;
+  if (HAS_JAPANESE$1.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+  }
+  return false;
 }
 function hasVisibleTextStyle(element2) {
   return isVisibleStyle(safeComputedStyle(element2));
@@ -5464,7 +5481,12 @@ function visibleVisualLabel(element2) {
   return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element2));
 }
 function isFragmentParagraphBoundary(element2, options) {
-  return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isParagraphBoundary(element2);
+  return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isCustomElementTextBoundary(element2) || isParagraphBoundary(element2);
+}
+function isCustomElementTextBoundary(element2) {
+  if (!element2.localName.includes("-") || !HAS_JAPANESE$1.test(element2.textContent ?? "")) return false;
+  const parent = element2.parentElement;
+  return !parent || !isLikelyProseElement(parent);
 }
 function isPassiveInteractionBoundaryElement(element2, options) {
   if (!options.includePassiveInteractions) return false;
@@ -5733,7 +5755,6 @@ function renderTokenizedTextFragment(target, tokens, settings) {
   hasNativeRuby: target.hasNativeRuby,
   decoration: target.decoration,
   suppressRuby: target.suppressRuby,
-  detachedReadings: omitsInteractiveControlReadings(target.parent, target.decoration) ? false : void 0,
   proseWrap: target.proseWrap,
   passiveInteraction: target.passiveInteraction
   });
@@ -5968,12 +5989,7 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(
-  host,
-  suppressRuby,
-  safeTokens,
-  !omitsInteractiveControlReadings(host, target.decoration)
-  );
+  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
@@ -6003,6 +6019,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
 function reuseCurrentTextMirror(host, context) {
   const existing = currentTextMirror(host);
   const matches = [
+  existing && textMirrorRenderIsIntact(existing),
   existing?.dataset.sourceText === context.text,
   existing?.dataset.renderSignature === context.signature,
   (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
@@ -6031,7 +6048,7 @@ function createNonDestructiveTextMirror(context) {
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
-  const controlMirror = omitsInteractiveControlReadings(host, target.decoration) || target.decoration === "interactive-passive" && context.hasRenderedRuby;
+  const controlMirror = target.decoration === "interactive-passive";
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
   const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
   const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
@@ -6388,7 +6405,7 @@ function currentTextMirror(host) {
 }
 function textMirrorAlreadyRenders(host, text2) {
   const mirror = currentTextMirror(host);
-  if (!mirror) return false;
+  if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
   const shouldClipHover = Boolean(
   closestRubyFragileConstrainedRow(host) && mirror.dataset.jpdbReaderHasRuby === "true"
   );
@@ -6399,6 +6416,9 @@ function textMirrorAlreadyRenders(host, text2) {
   syncTextMirrorVisibilityToPage(host, mirror);
   }
   return renders;
+}
+function textMirrorRenderIsIntact(mirror) {
+  return Boolean(mirror.querySelector(READER_WORD_SELECTOR$1));
 }
 function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby), detachedReadings = suppressRuby) {
   return JSON.stringify({
@@ -7497,7 +7517,7 @@ function wrapDirectFlexGridTextRun(replacement, parent) {
   return fragment;
 }
 function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
-  const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
   return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
   allowRuby,
   detachedReadings: targetUsesDetachedReadings(target),
@@ -7567,7 +7587,7 @@ function applyTokenToIndexedFragments(target, indexedFragments, token, tokenWith
   scanWord: true,
   proseWrap: target.proseWrap === true,
   passiveInteraction,
-  allowRuby: !omitsInteractiveControlReadings(target.parent, target.decoration),
+  allowRuby: true,
   detachedReadings: targetUsesDetachedReadings(target),
   preserveTokenRubies: true,
   miningInsightKeys
@@ -7580,7 +7600,7 @@ function insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence
   if (!surface) continue;
   const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
   const rendered = renderToken(surface, pieceToken, settings, {
-    allowRuby: scanFragmentAllowsRuby(target, piece.fragment.hasNativeRuby),
+    allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
     detachedReadings: targetUsesDetachedReadings(target),
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
@@ -7731,7 +7751,7 @@ function attachedFragmentBoundary(boundary) {
   return boundary;
 }
 function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-  const allowRuby = scanFragmentAllowsRuby(target, fragment.hasNativeRuby);
+  const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
   const surface = fragment.node.data.slice(start, end);
   const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
   allowRuby,
@@ -7745,16 +7765,11 @@ function insertSingleFragmentToken(target, fragment, start, end, token, tokenWit
   });
   replaceTextNodeRange(fragment.node, start, end, rendered);
 }
-function scanFragmentAllowsRuby(target, hasNativeRuby) {
-  return !omitsInteractiveControlReadings(target.parent, target.decoration) && !hasNativeRuby;
+function scanFragmentAllowsRuby(hasNativeRuby) {
+  return !hasNativeRuby;
 }
 function targetUsesDetachedReadings(target) {
-  if (omitsInteractiveControlReadings(target.parent, target.decoration)) return false;
   return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
-}
-function omitsInteractiveControlReadings(parent, decoration) {
-  if (decoration !== "interactive-passive") return false;
-  return isYouTubeHost() && Boolean(parent.closest('button,[role="button"],[role="tab"],summary'));
 }
 function isInsideOwnedReaderRoot(element2) {
   const readerRoot = element2.closest(READER_ROOT_SELECTOR$3);
@@ -8362,7 +8377,7 @@ function isVisible(element2) {
   return isVisibleStyle(style);
 }
 function isVisibleRect(rect) {
-  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && rect.right >= 0 && rect.left <= window.innerWidth;
 }
 function isVisibleStyle(style) {
   return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
@@ -17184,14 +17199,14 @@ class CardRenderDataLoader {
     card,
     CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
     "expression components",
-    this.loadExpressionComponents(card, localEntries),
+    this.loadExpressionComponents(card, localEntries, jitenVocabularyLookup),
     []
   );
   const componentPitches = this.withFallback(
     card,
     CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
     "expression component pitch",
-    this.loadExpressionComponentPitches(expressionComponents),
+    this.loadExpressionComponentPitches(expressionComponents, jitenVocabularyLookup),
     []
   );
   void pitchAccent.catch(() => void 0);
@@ -17378,19 +17393,34 @@ class CardRenderDataLoader {
     return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
   });
   }
-  async loadExpressionComponents(card, localEntries) {
-  if (!this.settings().localDictionariesEnabled) return [];
-  const entries2 = await localEntries.catch(() => []);
-  if (!entries2.length && !looksComposableExpression(card.spelling)) return [];
-  return this.segmentExpressionComponents(card.spelling);
+  async loadExpressionComponents(card, localEntries, jitenVocabularyInfo) {
+  if (this.settings().localDictionariesEnabled) {
+    const entries2 = await localEntries.catch(() => []);
+    if (entries2.length || looksComposableExpression(card.spelling)) {
+      const segmented = await this.segmentExpressionComponents(card.spelling);
+      if (segmented.length >= 2) return segmented;
+    }
   }
-  async loadExpressionComponentPitches(expressionComponents) {
+  const info = await jitenVocabularyInfo.catch(() => null);
+  return jitenExpressionComponents(info);
+  }
+  async loadExpressionComponentPitches(expressionComponents, jitenVocabularyInfo) {
   const settings = this.settings();
-  if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
-  const components = await expressionComponents.catch(() => []);
+  if (!settings.showPitchAccent) return [];
+  const [components, jitenInfo] = await Promise.all([
+    expressionComponents.catch(() => []),
+    jitenVocabularyInfo.catch(() => null)
+  ]);
   if (components.length < 2) return [];
   const pitches = [];
   for (const component of components) {
+    const jitenWord = jitenInfo?.composedOf.find((word) => word.matchSurface.trim() === component.text && (!word.reading.trim() || word.reading.trim() === component.reading));
+    const jitenPitch = jitenWord?.pitchAccents?.map((position) => pitchPatternFromPosition(component.reading, position)).find(Boolean);
+    if (jitenPitch) {
+      pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
+      continue;
+    }
+    if (!settings.localDictionariesEnabled) continue;
     const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []);
     const pitch = localPitchPatternFromMeta(component.reading, meta);
     if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
@@ -17546,6 +17576,18 @@ function looksComposableExpression(spelling) {
   if (characters.length < 4) return false;
   const kanjiCount = characters.filter(isKanjiCharacter).length;
   return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
+}
+function jitenExpressionComponents(info) {
+  const seen = new Set();
+  return (info?.composedOf ?? []).flatMap((word) => {
+  const text2 = word.matchSurface.trim();
+  const reading = word.reading.trim() || text2;
+  const key = `${text2}
+${reading}`;
+  if (!text2 || seen.has(key)) return [];
+  seen.add(key);
+  return [{ text: text2, reading }];
+  });
 }
 function delay$2(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -28088,6 +28130,10 @@ const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
 const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = "residual-visible-japanese-parser";
+const PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD = 40;
+const PROFILE_PHASE_GENERIC_RESERVE_RATIO = 0.3;
+const PROFILE_PHASE_GENERIC_RESERVE_MAX = 64;
+const GENERIC_UI_CHROME_TARGET_MAX = 48;
 const MOKURO_SCAN_ROOT_LIMIT = 160;
 const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
 const GENERIC_PROSE_ROOTS = [
@@ -28254,7 +28300,9 @@ const SAFE_UI_CHROME_ROOTS = [
   '[role="tab"]',
   '[role="menuitem"]',
   '[role="menuitemcheckbox"]',
-  '[role="menuitemradio"]'
+  '[role="menuitemradio"]',
+  "time",
+  "[datetime]"
 ].join(",");
 const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
 const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
@@ -28308,11 +28356,7 @@ const YOMU_HOSTED_DOCS_ROOTS = [
   ".yomu-link-grid",
   ".vp-doc"
 ];
-const YOMU_HOSTED_DOCS_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ".VPHero .name",
-  ".VPHomeHero .name"
-].join(",");
+const YOMU_HOSTED_DOCS_EXCLUDE = COMMON_EXCLUDE;
 const YOMU_VIDEO_PLAYER_ROOTS = [
   ".brand strong",
   "[data-yomu-video-frame] .empty strong",
@@ -28336,69 +28380,9 @@ const YOMU_PDF_READER_EXCLUDE = [
   ".textLayer .endOfContent",
   '.textLayer span[role="img"]'
 ].join(",");
-const YOUTUBE_CHROME_ROOTS = [
-  "yt-chip-cloud-chip-renderer button",
-  'yt-chip-cloud-chip-renderer [role="tab"]',
-  "yt-chip-cloud-chip-view-model button",
-  'yt-chip-cloud-chip-view-model [role="tab"]',
-  "yt-chip-cloud-chip-view-model",
-  "yt-tab-shape button",
-  'yt-tab-shape [role="tab"]',
-  "ytd-feed-filter-chip-bar-renderer chip-shape button",
-  'ytd-feed-filter-chip-bar-renderer [role="tab"]',
-  "yt-chip-cloud-renderer chip-shape button",
-  'yt-chip-cloud-renderer [role="tab"]',
-  "ytm-feed-filter-chip-bar-renderer button",
-  'ytm-feed-filter-chip-bar-renderer [role="tab"]',
-  "ytd-masthead yt-button-shape button",
-  "ytd-masthead yt-button-view-model button",
-  "ytd-masthead button-view-model button",
-  "ytd-masthead button[aria-label]",
-  "ytd-masthead ytd-searchbox",
-  "ytd-masthead yt-searchbox",
-  "ytd-masthead .ytSearchboxComponentInputBox",
-  "ytd-masthead .ytSearchboxComponentSearchButton",
-  "ytd-masthead .ytAttributedStringHost",
-  "ytd-masthead yt-attributed-string",
-  "ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer",
-  "ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer",
-  "ytd-watch-metadata #actions button",
-  "ytd-watch-metadata #actions-inner button",
-  "ytd-watch-metadata ytd-text-inline-expander #expand",
-  "ytd-watch-metadata ytd-text-inline-expander #collapse"
-];
 const YOUTUBE_TEXT_EXCLUDE = [
   COMMON_EXCLUDE,
   ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
-].join(",");
-const YOUTUBE_GUIDE_ROOTS = [
-  "ytd-mini-guide-renderer",
-  "ytd-guide-renderer"
-];
-const YOUTUBE_GUIDE_EXCLUDE = [
-  COMMON_EXCLUDE,
-  ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
-].join(",");
-const YOUTUBE_MOBILE_CHROME_ROOTS = [
-  "ytm-pivot-bar-renderer",
-  "ytm-pivot-bar-item-renderer",
-  "ytm-mobile-topbar-renderer",
-  "ytm-app-header",
-  "ytm-searchbox",
-  "ytm-shorts-player-controls",
-  "ytm-slim-video-action-bar-renderer",
-  "ytm-actions-renderer",
-  "ytm-menu-renderer",
-  "ytm-button-renderer",
-  "ytm-toggle-button-renderer",
-  "ytm-bottom-sheet-renderer",
-  "ytm-engagement-panel-section-list-renderer",
-  "ytm-reel-player-overlay-renderer",
-  "ytm-shorts-video-title-view-model"
-].join(",");
-const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
-  YOUTUBE_MOBILE_CHROME_ROOTS,
-  YOUTUBE_CHROME_ROOTS.join(",")
 ].join(",");
 const YOUTUBE_STABLE_TEXT_HOST_SELECTOR = [
   "yt-formatted-string",
@@ -28878,8 +28862,6 @@ const SITE_PARSER_PROFILES = [
     "ytd-live-chat-frame yt-formatted-string",
     "ytd-live-chat-frame button",
     'ytd-live-chat-frame [role="button"]',
-    YOUTUBE_MOBILE_CHROME_ROOTS,
-    ...YOUTUBE_CHROME_ROOTS,
     "ytd-watch-next-secondary-results-renderer",
     "ytd-rich-grid-renderer",
     "ytd-rich-item-renderer",
@@ -28910,47 +28892,6 @@ const SITE_PARSER_PROFILES = [
   allowUiText: true,
   visibleOnly: true,
   includeUiChrome: true,
-  nonDestructive: true,
-  includePassiveInteractionRoots: true,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
-  },
-  {
-  id: "youtube-guide-parser",
-  roots: YOUTUBE_GUIDE_ROOTS,
-  exclude: YOUTUBE_GUIDE_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  singlePassScan: true,
-  nonDestructive: true,
-  includePassiveInteractionRoots: false,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
-  },
-  {
-  id: "youtube-engagement-panel-parser",
-  roots: [
-    "ytd-engagement-panel-section-list-renderer",
-    "ytm-engagement-panel-section-list-renderer"
-  ],
-  exclude: YOUTUBE_TEXT_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  singlePassScan: true,
-  nonDestructive: true,
-  heading: true,
-  allowShortCenteredHeadings: true,
-  includePassiveInteractionRoots: true,
-  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
-  },
-  {
-  id: "youtube-chrome-parser",
-  roots: YOUTUBE_CHROME_ROOTS,
-  exclude: YOUTUBE_TEXT_EXCLUDE,
-  allowUiText: true,
-  minLength: 1,
-  includeUiChrome: true,
-  singlePassScan: true,
   nonDestructive: true,
   includePassiveInteractionRoots: true,
   matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
@@ -29249,13 +29190,12 @@ function targetSpansMultipleYouTubeWatchMetadataTextHosts(target) {
 }
 function siteScanTargetWithProfileOptions(profile, target) {
   const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-  const youtubePassiveChrome = isYouTubeSiteParserProfile(profile) && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
   const baseTarget = {
   ...target,
   parserId: profile.id,
   ...profileDecoration(profile, target),
   suppressRuby: target.suppressRuby || suppressRuby || void 0,
-  passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
+  passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || void 0,
   singlePassScan: profile.singlePassScan || void 0,
   nonDestructive: profile.nonDestructive || void 0
   };
@@ -29335,9 +29275,10 @@ function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
 }
 function* scanTargetCollectionSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
-  const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
+  const useNonDestructiveGenericScan = isGenericManagedAppShell();
   const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-  const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, effectiveLimit, href, options);
+  const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
+  const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
   const baseTargets = siteTargets ?? [];
   if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
@@ -29353,7 +29294,7 @@ function* scanTargetCollectionSteps(limit, href, options) {
   return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
   }
   yield;
-  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
+  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
   const profileTargets = [...baseTargets, ...profileUiChromeTargets];
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
@@ -29367,13 +29308,29 @@ function* scanTargetCollectionSteps(limit, href, options) {
   return residualTargets.length ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : profileTargets;
   }
   yield;
-  const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
+  const genericPhaseRemaining = effectiveLimit - baseTargets.length - profileUiChromeTargets.length;
+  const uiChromeReserve = genericUiChromeTargetLimit(genericPhaseRemaining);
+  const genericTargets = collectGenericProseTargets(
+  genericPhaseRemaining - uiChromeReserve,
+  [...baseTargets, ...profileUiChromeTargets]
+  );
   yield;
   const uiChromeTargets = collectSafeUiChromeTargets(
-  effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
+  genericPhaseRemaining - genericTargets.length,
   [...baseTargets, ...profileUiChromeTargets, ...genericTargets]
   );
-  const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
+  yield;
+  const supplementalGenericTargets = collectGenericProseTargets(
+  genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
+  [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets]
+  );
+  const collectedTargets = [
+  ...baseTargets,
+  ...profileUiChromeTargets,
+  ...genericTargets,
+  ...uiChromeTargets,
+  ...supplementalGenericTargets
+  ];
   yield;
   const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
   if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
@@ -29415,8 +29372,23 @@ function isGenericManagedAppShell() {
   'script[src*="/build/assets/"]',
   "astro-island",
   "shreddit-app",
+  "ytd-app",
+  "ytm-app",
   "[ng-version]"
   ].join(",")));
+}
+function profilePhaseTargetLimit(profiles, effectiveLimit) {
+  if (!profiles.length || !Number.isFinite(effectiveLimit) || effectiveLimit < PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD || profiles.some((profile) => profile.disableGenericDomScan || profile.suppressResidualVisibleScan)) return effectiveLimit;
+  const reserve = Math.min(
+  PROFILE_PHASE_GENERIC_RESERVE_MAX,
+  Math.max(1, Math.floor(effectiveLimit * PROFILE_PHASE_GENERIC_RESERVE_RATIO))
+  );
+  return Math.max(1, effectiveLimit - reserve);
+}
+function genericUiChromeTargetLimit(remaining) {
+  if (remaining <= 0) return 0;
+  if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
+  return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
 }
 function markTargetsNonDestructive(targets) {
   return targets.map((target) => ({
@@ -29438,6 +29410,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   limit
   };
   const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+  const nonDestructiveShell = profiles.some((profile) => profile.nonDestructive) || isGenericManagedAppShell();
   const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
   allowUiText: true,
   includeUiChrome: true,
@@ -29446,11 +29419,12 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   includePlayerChrome: isYouTubeHost(),
   includePassiveInteractions: true,
   heading: true,
+  allowShortCenteredHeadings: nonDestructiveShell,
   minLength: 1
   });
   for (const target of collected) {
   if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
-  appendGenericProseTarget(collection.targets, collection.seen, {
+  appendResidualVisibleTarget(collection.targets, collection.seen, {
     ...target,
     parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
   });
@@ -29635,6 +29609,63 @@ function genericProseCollectionFull(collection) {
 function appendGenericProseTarget(targets, seen, target, options) {
   const admissionOptions = { defaultParserId: "generic-prose-parser" };
   return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
+}
+function appendResidualVisibleTarget(targets, seen, target) {
+  const nodes = textNodesForFragmentTarget(target);
+  if (!nodes.some((node) => seen.has(node))) {
+  appendGenericProseTarget(targets, seen, target);
+  return;
+  }
+  for (const fragments of unseenFragmentRuns(target, seen)) {
+  const parent = fragments[0]?.node.parentElement;
+  if (!parent) continue;
+  const text2 = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
+  if (!hasJapaneseText(text2)) continue;
+  const decoration = classifyDecoration(parent);
+  if (decoration === "skip") continue;
+  appendAdmittedFragmentTarget(targets, seen, {
+    ...target,
+    text: text2,
+    parent,
+    fragments,
+    decoration,
+    suppressRuby: decoration === "interactive-passive" || void 0,
+    passiveInteraction: true,
+    proseWrap: false
+  }, { defaultParserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID });
+  }
+}
+function unseenFragmentRuns(target, seen) {
+  const runs = [];
+  let current = [];
+  const flush = () => {
+  const trimmed = trimFragmentRun(current);
+  if (trimmed.length) runs.push(trimmed);
+  current = [];
+  };
+  for (const fragment of target.fragments) {
+  if (seen.has(fragment.node)) flush();
+  else current.push({ ...fragment });
+  }
+  flush();
+  return runs;
+}
+function trimFragmentRun(fragments) {
+  while (fragments.length) {
+  const first = fragments[0];
+  const value = first.node.data.slice(first.start, first.end);
+  first.start += value.match(/^\s*/u)?.[0].length ?? 0;
+  if (first.start < first.end) break;
+  fragments.shift();
+  }
+  while (fragments.length) {
+  const last = fragments[fragments.length - 1];
+  const value = last.node.data.slice(last.start, last.end);
+  last.end -= value.match(/\s*$/u)?.[0].length ?? 0;
+  if (last.start < last.end) break;
+  fragments.pop();
+  }
+  return fragments;
 }
 function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
   const nodes = textNodesForFragmentTarget(target);
@@ -29893,8 +29924,7 @@ function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = fa
   substantivePublicLookupOnly: true
   };
 }
-function nestedPitchEnrichmentOptionsForHost(hostname) {
-  if (isYouTubeHostname(hostname)) return { publicLookup: false };
+function nestedPitchEnrichmentOptionsForHost(_hostname) {
   return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
 }
 function visibleAutoScanMutationDelay(defaultDelay = 450) {
@@ -35516,8 +35546,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.147"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.147"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.148"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.148"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35634,7 +35664,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.147"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.148"}`;
   } catch {
   return null;
   }
@@ -38926,16 +38956,7 @@ class ReaderApp {
   };
   }
   nestedPitchEnrichmentOptions() {
-  const options = nestedPitchEnrichmentOptionsForHost(location.hostname);
-  if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
-  return {
-    publicLookupLimit: 16,
-    publicLookupTotalLimit: 16,
-    publicLookupPageBudget: 32,
-    publicLookupTermLimit: 1,
-    substantivePublicLookupOnly: true,
-    deferPublicLookup: false
-  };
+  return nestedPitchEnrichmentOptionsForHost();
   }
   preloadableReaderWordCard(word) {
   if (word.dataset.jpdbReaderPassive === "true") return null;

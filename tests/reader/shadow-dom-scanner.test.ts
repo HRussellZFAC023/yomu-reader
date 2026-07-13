@@ -190,7 +190,7 @@ describe('shadow DOM scanner (Phase 1)', () => {
         }
     });
 
-    it('descends two open-shadow boundaries and still caps traversal before depth three', () => {
+    it('descends four open-shadow boundaries and still caps traversal before depth five', () => {
         defineShadowHost('yomu-inner-host', 'open', `<p>深い階層</p>`);
         defineShadowHost('yomu-outer-host', 'open', `<p>浅い階層</p><yomu-inner-host></yomu-inner-host>`);
         document.body.innerHTML = '<yomu-outer-host></yomu-outer-host>';
@@ -209,7 +209,17 @@ describe('shadow DOM scanner (Phase 1)', () => {
         const cappedTargets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
         expect(cappedTargets.some(t => t.text.includes('第一階層'))).toBe(true);
         expect(cappedTargets.some(t => t.text.includes('第二階層'))).toBe(true);
-        expect(cappedTargets.some(t => t.text.includes('第三階層')), 'depth-3 shadow text must remain outside the bounded scan').toBe(false);
+        expect(cappedTargets.some(t => t.text.includes('第三階層')), 'depth-3 shreddit-style text should be collected').toBe(true);
+
+        defineShadowHost('yomu-depth-five-host', 'open', `<p>第五階層</p>`);
+        defineShadowHost('yomu-depth-four-host', 'open', `<p>第四階層</p><yomu-depth-five-host></yomu-depth-five-host>`);
+        defineShadowHost('yomu-depth-three-deep-host', 'open', `<p>第三深層</p><yomu-depth-four-host></yomu-depth-four-host>`);
+        defineShadowHost('yomu-depth-two-deep-host', 'open', `<p>第二深層</p><yomu-depth-three-deep-host></yomu-depth-three-deep-host>`);
+        defineShadowHost('yomu-depth-one-deep-host', 'open', `<p>第一深層</p><yomu-depth-two-deep-host></yomu-depth-two-deep-host>`);
+        document.body.innerHTML = '<yomu-depth-one-deep-host></yomu-depth-one-deep-host>';
+        const deeplyCappedTargets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
+        expect(deeplyCappedTargets.some(t => t.text.includes('第四階層')), 'depth-4 shadow text should be collected').toBe(true);
+        expect(deeplyCappedTargets.some(t => t.text.includes('第五階層')), 'depth-5 shadow text must remain outside the bounded scan').toBe(false);
     });
 
     it('looks through a Latin-only outer shell to reach Reddit-style nested Japanese controls', () => {

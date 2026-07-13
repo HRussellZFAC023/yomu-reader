@@ -858,6 +858,7 @@
     // Subtitle layout geometry.
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
     { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+    { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
     // YouTube subscription snapshot + oembed title cache.
     { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
     { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
@@ -4618,6 +4619,9 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
+      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
+      pinSubtitleControls: "Keep subtitle controls expanded",
+      unpinSubtitleControls: "Collapse subtitle controls when idle",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -6023,6 +6027,9 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
+moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
+pinSubtitleControls	字幕コントロールを展開したままにする
+unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
 right	右
 left	左
 bottom	下
@@ -6515,12 +6522,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderDrawerPlayback(language) {
     const previousLabel = uiText(language, "previousSubtitle");
     const nextLabel = uiText(language, "nextSubtitle");
-    const playLabel = uiText(language, "playVideo");
     return `
         <div class="jpdb-subtitle-drawer-playback">
             <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
             <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
-            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
         </div>
     `;
   }
@@ -6618,6 +6623,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
+      grip: '<circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/>',
       locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
       mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',
@@ -6625,6 +6631,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
+      pin: '<path d="m8 3 8 8"/><path d="m14 5 5 5-4 2-3 3-2 4-5-5 4-2 3-3 2-4Z"/><path d="m5 19 4-4"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
       scan: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M7 12h10"/>',
@@ -6686,6 +6693,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
   const SUBTITLE_DRAG_OFFSET_KEY = "jpdb-reader-subtitle-drag-offset";
+  const SUBTITLE_CONTROL_RAIL_POSITION_KEY = "jpdb-reader-subtitle-control-rail-position";
   const SUBTITLE_DRAG_OFFSET_MIN_FRACTION = -0.9;
   const SUBTITLE_DRAG_OFFSET_MAX_FRACTION = 0.35;
   function clampSubtitleDragOffsetFraction(fraction) {
@@ -6787,6 +6795,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
     } catch {
     }
+  }
+  function loadSubtitleControlRailPosition() {
+    try {
+      const stored = gmStorageGetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {});
+      if (!Number.isFinite(stored?.x) || !Number.isFinite(stored?.y)) return null;
+      return { x: clampRailFraction(stored.x), y: clampRailFraction(stored.y) };
+    } catch {
+      return null;
+    }
+  }
+  function saveSubtitleControlRailPosition(position) {
+    try {
+      gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
+        x: clampRailFraction(position.x),
+        y: clampRailFraction(position.y)
+      });
+    } catch {
+    }
+  }
+  function clampRailFraction(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(1, Math.max(0, value));
   }
   function collectPageSubtitleSources(root = document) {
     const pageTitle = pageSubtitleTitle(root);
@@ -9315,16 +9345,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     button.title = label;
     button.setAttribute("aria-label", label);
   }
-  function syncSubtitlePlaybackButton(button, options) {
-    const paused = options.video?.paused ?? true;
-    const label = uiText(options.language, paused ? "playVideo" : "pauseVideo");
-    button.hidden = !options.hasLines;
-    button.disabled = !options.video;
-    button.title = label;
-    button.setAttribute("aria-label", label);
-    button.setAttribute("aria-pressed", String(!paused));
-    setInnerHtml(button, subtitleIcon(paused ? "play" : "pause"));
-  }
   function subtitleDrawerButtonState(options) {
     const canOpenTranscript = options.hasLines || options.hasTranscriptSurface;
     const canOpenTracks = options.hasVideo || options.trackCount > 0;
@@ -10437,6 +10457,174 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return formatSubtitleText(state.language, "bmRowsReady", { count: state.summary.rows });
   }
+  const RAIL_MARGIN_PX = 8;
+  const RAIL_KEY_STEP_PX = 12;
+  function bindSubtitleControlRail(root, onActivity) {
+    const rail = root.querySelector(".jpdb-subtitle-rail");
+    const handle = rail?.querySelector("[data-subtitle-rail-drag-handle]");
+    if (!rail || !handle) return null;
+    const abort = new AbortController();
+    let position = loadSubtitleControlRailPosition();
+    let drag = null;
+    const railBounds = () => {
+      const rootRect = root.getBoundingClientRect();
+      const railRect = rail.getBoundingClientRect();
+      if (rootRect.width <= 0 || rootRect.height <= 0 || railRect.width <= 0 || railRect.height <= 0) return null;
+      return {
+        maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
+        maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX)
+      };
+    };
+    const setPixels = (left, top, persist = false) => {
+      const bounds = railBounds();
+      if (!bounds) return;
+      const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
+      const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
+      rail.style.setProperty("left", `${Math.round(clampedLeft)}px`);
+      rail.style.setProperty("right", "auto");
+      rail.style.setProperty("top", `${Math.round(clampedTop)}px`);
+      position = {
+        x: fractionWithinRailAxis(clampedLeft, bounds.maxLeft),
+        y: fractionWithinRailAxis(clampedTop, bounds.maxTop)
+      };
+      if (persist) saveSubtitleControlRailPosition(position);
+    };
+    const syncPosition = () => {
+      if (!position) return;
+      const bounds = railBounds();
+      if (!bounds) return;
+      setPixels(
+        railAxisPosition(position.x, bounds.maxLeft),
+        railAxisPosition(position.y, bounds.maxTop)
+      );
+    };
+    const pointerDown = (event) => {
+      if (event.button !== 0 || drag) return;
+      const rootRect = root.getBoundingClientRect();
+      const railRect = rail.getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: railRect.left - rootRect.left,
+        top: railRect.top - rootRect.top,
+        moved: false
+      };
+      rail.classList.add("jpdb-subtitle-rail-dragging");
+      onActivity();
+      event.stopPropagation();
+      try {
+        handle.setPointerCapture?.(event.pointerId);
+      } catch {
+      }
+    };
+    const pointerMove = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const deltaX = event.clientX - drag.startX;
+      const deltaY = event.clientY - drag.startY;
+      if (Math.abs(deltaX) + Math.abs(deltaY) > 3) drag.moved = true;
+      setPixels(drag.left + deltaX, drag.top + deltaY);
+      if (drag.moved) event.preventDefault();
+      event.stopPropagation();
+    };
+    const finishPointer = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const moved = drag.moved;
+      drag = null;
+      rail.classList.remove("jpdb-subtitle-rail-dragging");
+      try {
+        handle.releasePointerCapture?.(event.pointerId);
+      } catch {
+      }
+      if (position) saveSubtitleControlRailPosition(position);
+      if (moved) {
+        handle.dataset.subtitleRailSuppressClick = "true";
+        event.preventDefault();
+      }
+      event.stopPropagation();
+    };
+    const suppressDraggedClick = (event) => {
+      if (handle.dataset.subtitleRailSuppressClick !== "true") return;
+      delete handle.dataset.subtitleRailSuppressClick;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const keyDown = (event) => {
+      const step = event.shiftKey ? RAIL_KEY_STEP_PX * 3 : RAIL_KEY_STEP_PX;
+      const rect = rail.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      const left = rect.left - rootRect.left;
+      const top = rect.top - rootRect.top;
+      let nextLeft = left;
+      let nextTop = top;
+      if (event.key === "ArrowLeft") nextLeft -= step;
+      else if (event.key === "ArrowRight") nextLeft += step;
+      else if (event.key === "ArrowUp") nextTop -= step;
+      else if (event.key === "ArrowDown") nextTop += step;
+      else if (event.key === "Home" || event.key === "0") {
+        nextLeft = RAIL_MARGIN_PX;
+        nextTop = RAIL_MARGIN_PX;
+      } else return;
+      event.preventDefault();
+      event.stopPropagation();
+      onActivity();
+      setPixels(nextLeft, nextTop, true);
+    };
+    handle.addEventListener("pointerdown", pointerDown, { signal: abort.signal });
+    handle.addEventListener("click", suppressDraggedClick, { capture: true, signal: abort.signal });
+    handle.addEventListener("keydown", keyDown, { signal: abort.signal });
+    window.addEventListener("pointermove", pointerMove, { passive: false, signal: abort.signal });
+    window.addEventListener("pointerup", finishPointer, { passive: false, signal: abort.signal });
+    window.addEventListener("pointercancel", finishPointer, { passive: false, signal: abort.signal });
+    const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(syncPosition) : null;
+    resizeObserver?.observe(root);
+    resizeObserver?.observe(rail);
+    requestAnimationFrame(syncPosition);
+    return {
+      syncPosition,
+      destroy: () => {
+        abort.abort();
+        resizeObserver?.disconnect();
+        rail.classList.remove("jpdb-subtitle-rail-dragging");
+      }
+    };
+  }
+  function railAxisPosition(fraction, max) {
+    return RAIL_MARGIN_PX + fraction * Math.max(0, max - RAIL_MARGIN_PX);
+  }
+  function fractionWithinRailAxis(value, max) {
+    const range = max - RAIL_MARGIN_PX;
+    return range > 0 ? Math.min(1, Math.max(0, (value - RAIL_MARGIN_PX) / range)) : 0;
+  }
+  const TRANSCRIPT_SCROLL_INTENT_WINDOW_MS = 1500;
+  class TranscriptFollowState {
+    intentUntil = 0;
+    manualScrollAt = 0;
+    armUserScroll(now = performance.now()) {
+      this.intentUntil = now + TRANSCRIPT_SCROLL_INTENT_WINDOW_MS;
+    }
+    noteScroll(now = performance.now()) {
+      if (now > this.intentUntil) return false;
+      this.intentUntil = 0;
+      this.manualScrollAt = now;
+      return true;
+    }
+    clear() {
+      this.intentUntil = 0;
+      this.manualScrollAt = 0;
+    }
+    isPaused(resumeMs, now = performance.now()) {
+      return Boolean(this.manualScrollAt && now - this.manualScrollAt < resumeMs);
+    }
+    remainingPauseMs(resumeMs, now = performance.now()) {
+      if (!this.manualScrollAt) return 0;
+      return Math.max(0, resumeMs - (now - this.manualScrollAt));
+    }
+  }
+  function isTranscriptScrollIntentKey(event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return false;
+    return ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key);
+  }
   const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
   const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
   const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 400;
@@ -10786,9 +10974,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
-  const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
-  const TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS = 1e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
@@ -11038,6 +11224,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     secondaryCue;
     observer;
     videoResizeObserver;
+    subtitleControlRail;
     lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
@@ -11110,12 +11297,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     renderedTracksVirtualWindow;
     tracksVirtualRenderFrame;
     tracksVirtualScrollTop = 0;
-    // Manual-scroll override for transcript auto-follow: a user scroll pauses
-    // the snap-to-active so advancing to the next cue does not yank the list
-    // back; programmatic scrollIntoView calls are ignored for a short window so
-    // they are not mistaken for user scrolls.
-    transcriptUserScrollAt = 0;
-    transcriptProgrammaticScrollUntil = 0;
+    // Scroll alone is not intent: layout, hydration and virtual-window updates
+    // all scroll the panel. This state only enters manual mode when a direct
+    // wheel/touch/pointer/key signal arms the next scroll.
+    transcriptFollowState = new TranscriptFollowState();
     transcriptInsetRealignFrame;
     transcriptViewportStabilizeTimer;
     transcriptPreviewPlayerResizeDeferred = false;
@@ -11219,7 +11404,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
-      playback: () => this.toggleVideoPlayback(),
       ocr: () => this.toggleVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       copy: (target) => {
@@ -11230,6 +11414,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       "peek-row": (target) => this.toggleRowTranslationPeek(target),
       "jump-current": () => this.jumpToCurrentTranscriptRow(),
+      "rail-expand": () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+      "rail-pin": () => this.toggleSubtitleControlRailPin(),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -11383,6 +11569,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.observer = void 0;
       this.videoResizeObserver?.disconnect();
       this.videoResizeObserver = void 0;
+      this.subtitleControlRail?.destroy();
+      this.subtitleControlRail = void 0;
       this.discoverTimer = clearWindowTimeout(this.discoverTimer);
       this.tickTimer = clearWindowTimeout(this.tickTimer);
       this.stopFrameSync();
@@ -11482,18 +11670,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
+      const moveControlsLabel = uiText(settings.interfaceLanguage, "moveSubtitleControls");
+      const pinControlsLabel = uiText(settings.interfaceLanguage, settings.subtitleControlsMode === "always" ? "unpinSubtitleControls" : "pinSubtitleControls");
       const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
       const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveAccessibleLabel)}" aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home 0"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
+                <button class="jpdb-subtitle-rail-move" type="button" data-action="rail-expand" data-subtitle-rail-drag-handle title="${escapeHtml(moveControlsLabel)}" aria-label="${escapeHtml(moveControlsLabel)}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home 0">${subtitleIcon("grip")}</button>
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
+                <button class="jpdb-subtitle-rail-pin" type="button" data-action="rail-pin" title="${escapeHtml(pinControlsLabel)}" aria-label="${escapeHtml(pinControlsLabel)}" aria-pressed="${settings.subtitleControlsMode === "always"}">${subtitleIcon("pin")}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
@@ -11515,10 +11707,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       body.appendChild(root);
       body.appendChild(this.transcriptPanel);
       this.root = root;
+      this.subtitleControlRail = bindSubtitleControlRail(root, () => this.showControlsTemporarily({ independentOfPlayerChrome: true })) ?? void 0;
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
       this.alignToVideo();
+      this.subtitleControlRail?.syncPosition();
       this.scheduleControlsIdle();
       return true;
     }
@@ -13812,6 +14006,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
       }
       this.root.classList.remove("jpdb-subtitle-controls-idle");
+      this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
     }
@@ -13825,6 +14020,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.subtitleSurfaceWakeActive = false;
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
+      this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
     }
     scheduleControlsIdle() {
@@ -13980,21 +14176,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.armPlaybackPauseReassert(video);
       }
       document.dispatchEvent(new CustomEvent("yomu-ocr-video-frame-request", { detail: { video } }));
-    }
-    toggleVideoPlayback() {
-      const video = this.video;
-      if (!video) return;
-      const player = this.youTubePlayerApi(video);
-      if (video.paused) {
-        this.clearPlaybackPauseReassert();
-        if (player?.playVideo) player.playVideo();
-        else void video.play().catch(() => void 0);
-      } else {
-        if (player?.pauseVideo) player.pauseVideo();
-        else video.pause();
-        this.armPlaybackPauseReassert(video);
-      }
-      this.syncControls();
     }
     // YouTube's #movie_player exposes its player API on the element in the
     // page world. Routing pause/play/seek through it keeps YT's own state
@@ -14597,6 +14778,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
       this.syncVisibilityRailButton();
+      this.syncSubtitleControlRailButtons();
       this.syncVideoFrameOcrButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
@@ -14629,6 +14811,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
     }
+    toggleSubtitleControlRailPin() {
+      const settings = this.options.getSettings();
+      settings.subtitleControlsMode = settings.subtitleControlsMode === "always" ? "auto" : "always";
+      this.options.onSettingsChange();
+      this.syncRootVisibility(settings);
+      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+      this.syncControls();
+    }
+    syncSubtitleControlRailButtons() {
+      const settings = this.options.getSettings();
+      const pinned = settings.subtitleControlsMode === "always";
+      const pin = this.root?.querySelector('[data-action="rail-pin"]');
+      if (pin) {
+        const label = uiText(settings.interfaceLanguage, pinned ? "unpinSubtitleControls" : "pinSubtitleControls");
+        pin.title = label;
+        pin.setAttribute("aria-label", label);
+        pin.setAttribute("aria-pressed", String(pinned));
+      }
+      const expand = this.root?.querySelector('[data-action="rail-expand"]');
+      if (expand) expand.setAttribute("aria-expanded", String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || pinned));
+    }
     syncVideoFrameOcrButton() {
       const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');
       if (!button) return;
@@ -14651,14 +14854,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
         const drawerButton = this.transcriptPanel?.querySelector(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
         if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
-      }
-      const drawerPlayback = this.transcriptPanel?.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]');
-      if (drawerPlayback) {
-        syncSubtitlePlaybackButton(drawerPlayback, {
-          video: this.video,
-          hasLines,
-          language
-        });
       }
     }
     syncDrawerButtons(hasLines) {
@@ -15138,7 +15333,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      this.transcriptUserScrollAt = 0;
+      this.transcriptFollowState.clear();
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -15812,7 +16007,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!scroller) return;
       const scrollTop = Math.max(0, state.virtual.scrollTop);
       if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
-        this.markTranscriptProgrammaticScroll();
         scroller.scrollTop = scrollTop;
       }
       this.transcriptVirtualScrollTop = scrollTop;
@@ -15927,7 +16121,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        this.markTranscriptProgrammaticScroll(behavior);
         active.scrollIntoView?.({ block: "center", inline: "nearest", behavior });
       };
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
@@ -15938,16 +16131,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       this.transcriptScrollFrame = requestAnimationFrame(perform);
     }
-    markTranscriptProgrammaticScroll(behavior = "auto") {
-      const windowMs = behavior === "smooth" ? TRANSCRIPT_SMOOTH_PROGRAMMATIC_SCROLL_WINDOW_MS : TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
-      this.transcriptProgrammaticScrollUntil = performance.now() + windowMs;
-    }
     noteTranscriptScroll() {
-      if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
-      this.transcriptUserScrollAt = performance.now();
+      if (!this.transcriptFollowState.noteScroll()) return;
       this.syncTranscriptAutoScrollPausedClass();
       this.scheduleTranscriptAutoScrollResume();
+    }
+    noteTranscriptScrollIntent() {
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
+      this.transcriptFollowState.armUserScroll();
     }
     jumpToCurrentTranscriptRow() {
       this.clearTranscriptManualScrollPause();
@@ -15956,13 +16148,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.scrollTranscriptToActive({ force: true });
     }
     clearTranscriptManualScrollPause() {
-      this.transcriptUserScrollAt = 0;
+      this.transcriptFollowState.clear();
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
       this.syncTranscriptAutoScrollPausedClass();
     }
     scheduleTranscriptAutoScrollResume() {
       this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
+      const remaining = this.transcriptFollowState.remainingPauseMs(this.transcriptAutoScrollResumeMs());
       this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
         this.transcriptAutoScrollResumeTimer = void 0;
         this.syncTranscriptAutoScrollPausedClass();
@@ -15973,7 +16165,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
     }
     isTranscriptAutoScrollPaused() {
-      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptUserScrollAt && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
+      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptFollowState.isPaused(this.transcriptAutoScrollResumeMs()));
     }
     transcriptAutoScrollResumeMs() {
       const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
@@ -15989,13 +16181,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptVirtualRender(scroller);
       }, { passive: true });
-      const clearProgrammaticMarker = () => {
-        this.transcriptProgrammaticScrollUntil = 0;
-      };
-      scroller.addEventListener("touchstart", clearProgrammaticMarker, { passive: true });
-      scroller.addEventListener("pointerdown", clearProgrammaticMarker, { passive: true });
-      scroller.addEventListener("wheel", clearProgrammaticMarker, { passive: true });
-      if ("onscrollend" in scroller) scroller.addEventListener("scrollend", clearProgrammaticMarker, { passive: true });
+      const armUserScroll = () => this.noteTranscriptScrollIntent();
+      scroller.addEventListener("mousedown", armUserScroll, { passive: true });
+      scroller.addEventListener("touchmove", armUserScroll, { passive: true });
+      scroller.addEventListener("pointermove", (event) => {
+        if (event.buttons || event.pointerType === "touch") this.noteTranscriptScrollIntent();
+      }, { passive: true });
+      scroller.addEventListener("wheel", armUserScroll, { passive: true });
+      scroller.addEventListener("keydown", (event) => {
+        if (isTranscriptScrollIntentKey(event)) this.noteTranscriptScrollIntent();
+      });
     }
     scheduleTranscriptVirtualRender(scroller) {
       if (!this.isTranscriptVirtualScroller(scroller)) return;

@@ -27,6 +27,8 @@ Video is some of the best Japanese input you can get — if you can actually rea
 - **A second language track** — show a native-language subtitle line underneath for support.
 - **A transcript and shadowing drawer** — dock it left, right, or below the video. The transcript highlights the active line and hydrates visible lines into lookup words; the Shadow tab focuses the current line with replay, loop, hide/reveal text, parsed Japanese, and the optional second-language line.
 - **A Batch Mine tab** — scan the loaded transcript, compare it with your known vocabulary, rank i+1 candidates first, and add, grade, or copy the selected words after the episode.
+- **Player-friendly controls** — the rail starts on the left, can be moved away from native controls, and can be pinned open or allowed to collapse. The video's own controls handle playback, so there is no duplicate play button; transparent space around subtitle words stays click-through for mobile fullscreen and settings controls.
+- **Reliable transcript tracking** — automatic cue changes keep following the active line; only direct wheel, touch-drag, native-scrollbar, or scroll-key input pauses tracking, and **Locate** resumes it.
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
 
 <figure class="yomu-feature-shot">

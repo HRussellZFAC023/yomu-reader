@@ -820,6 +820,7 @@ async function loadHostedVideoAndSubtitleTogether(page) {
 }
 
 async function assertHostedManualPanelCloseRestoresPlayer(page) {
+    await pinHostedSubtitleControlRail(page);
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
     const hiddenLayout = await readHostedPlayerLayoutState(page);
@@ -910,6 +911,7 @@ function hostedThemeToggleResponsive(state) {
 
 async function assertHostedPausedVideoOcrDoesNotCoverPlayback(page) {
     await installHostedPausedVideoCaptureStub(page);
+    await pinHostedSubtitleControlRail(page);
     await page.waitForSelector('.jpdb-subtitle-rail [data-action="ocr"]', { state: 'visible', timeout: 5000 });
     await page.locator('.jpdb-subtitle-rail [data-action="ocr"]').click();
     await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
@@ -1055,7 +1057,17 @@ function hostedPausedVideoOcrSafe(state) {
         && hostedSubtitleOverlayVisible(state.subtitleOverlay);
 }
 
+async function pinHostedSubtitleControlRail(page) {
+    const pin = page.locator('.jpdb-subtitle-rail [data-action="rail-pin"]');
+    if (await pin.getAttribute('aria-pressed') !== 'true') await pin.click();
+    await page.waitForFunction(() => (
+        document.querySelector('.jpdb-subtitle-rail [data-action="rail-pin"]')?.getAttribute('aria-pressed') === 'true'
+    ), null, { timeout: 6000 });
+    await page.locator('.jpdb-subtitle-rail [data-action="style"]').waitFor({ state: 'visible', timeout: 6000 });
+}
+
 async function assertHostedSubtitleStyleControls(page) {
+    await pinHostedSubtitleControlRail(page);
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
     await setHostedSubtitleStyleControl(page, 'subtitleFontSize', '34');
@@ -1270,6 +1282,7 @@ async function verifyHostedSubtitleStyleControlsMobile(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
     await assertHostedEmptyState(page, 'mobile');
     await loadHostedVideoAndSubtitleTogether(page);
+    await pinHostedSubtitleControlRail(page);
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
     const mobileState = await readHostedSubtitleStyleMobileState(page);
@@ -1344,6 +1357,7 @@ async function injectHostedPausedFrameOcrLines(page) {
 async function closeHostedTranscriptPanel(page) {
     const hidden = await page.evaluate(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true);
     if (hidden) return;
+    await pinHostedSubtitleControlRail(page);
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
 }
@@ -1428,6 +1442,7 @@ function hostedFullscreenPausedOcrTapped(state) {
 async function openHostedLinesPanel(page) {
     const open = await page.evaluate(() => Boolean(document.querySelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row')));
     if (open) return;
+    await pinHostedSubtitleControlRail(page);
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
 }

@@ -4481,6 +4481,10 @@ async function subtitleRailControlSnapshot(page, { addClasses, removeClasses, se
             rootClass: root instanceof HTMLElement ? root.className : '',
             rail: styleFor(rail),
             panel: styleFor(panel),
+            buttons: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => ({
+                action: button.getAttribute('data-action') ?? '',
+                style: styleFor(button),
+            })),
         };
     });
 }
@@ -4631,7 +4635,26 @@ function hasSettledSubtitleWordState(snapshot) {
 }
 
 function assertCompactIdleRailSnapshot(snapshot) {
-    assertHiddenSubtitleRailSnapshot(snapshot, 'idle compact');
+    assertAudit(
+        isSubtitleRailVisuallyAvailable(snapshot),
+        `idle compact subtitle rail should keep its move/pin chip visible: ${JSON.stringify(snapshot)}`,
+    );
+    assertAudit(
+        (snapshot.rail?.width ?? Number.POSITIVE_INFINITY) <= 120,
+        `idle compact subtitle rail should collapse to a small chip: ${JSON.stringify(snapshot)}`,
+    );
+    for (const action of ['rail-expand', 'rail-pin']) {
+        const button = snapshot.buttons?.find(candidate => candidate.action === action);
+        assertAudit(
+            isAtLeast(button?.style?.width, 28) && isAtLeast(button?.style?.height, 28),
+            `idle compact subtitle rail is missing its visible ${action} control: ${JSON.stringify(snapshot)}`,
+        );
+    }
+    const expandedControls = snapshot.buttons?.filter(candidate => !['rail-expand', 'rail-pin'].includes(candidate.action)) ?? [];
+    assertAudit(
+        expandedControls.every(button => button.style?.display === 'none' || !isAtLeast(button.style?.width, 1)),
+        `idle compact subtitle rail left expanded controls visible: ${JSON.stringify(snapshot)}`,
+    );
 }
 
 function assertHiddenControlsRailSnapshot(snapshot) {
@@ -4648,10 +4671,15 @@ function assertHiddenSubtitleRailSnapshot(snapshot, label) {
 }
 
 function isSubtitleRailVisuallyHidden(snapshot) {
-    return [
-        Number.parseFloat(snapshot.rail?.opacity ?? '1') <= 0.2,
-        snapshot.rail?.pointerEvents === 'none',
-    ].every(Boolean);
+    const visuallyConcealed = snapshot.rail?.visibility === 'hidden'
+        || Number.parseFloat(snapshot.rail?.opacity ?? '1') <= 0.2;
+    return visuallyConcealed && snapshot.rail?.pointerEvents === 'none';
+}
+
+function isSubtitleRailVisuallyAvailable(snapshot) {
+    return Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.9
+        && snapshot.rail?.pointerEvents !== 'none'
+        && isSubtitleRailLaidOut(snapshot);
 }
 
 function isSubtitleRailLaidOut(snapshot) {

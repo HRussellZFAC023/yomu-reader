@@ -37,6 +37,7 @@ const SCRIPTS = [
     'greasyfork/yomu-ui-copy.user.js',
     'yomu.user.js',
 ].map(rel => ({ rel, code: readDist(rel) }));
+const READER_CSS = readDist('yomu.css');
 
 // jpdb API key from .env (faithful furigana/colors).
 let jpdbKey = '';
@@ -218,6 +219,162 @@ const DIAGS = {
             unannotated: candidates.filter(element => !element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).map(summary),
         };
     },
+    // Cross-site acceptance: open a visible sort/menu surface when present,
+    // then inspect real rendered Japanese text nodes rather than fixture-owned
+    // selectors. Works for Reddit, YouTube and other dynamic app shells.
+    coverage: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const controls = Array.from(document.querySelectorAll('button,[role="button"]'));
+        const opener = controls.find(element => /並べ替え|並び替え|sort/i.test((element.textContent || element.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim()));
+        if (opener instanceof HTMLElement) {
+            opener.click();
+            await sleep(1200);
+        }
+        // Allow the live page's final mutation scan and parser batch to settle;
+        // the probe must not count a discovered-but-still-in-flight target as
+        // permanently bare on slower mobile/API runs.
+        await sleep(5000);
+        const samples = [];
+        const seen = new Set();
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let inspected = 0, node = walker.nextNode(); node && inspected < 2400; inspected += 1, node = walker.nextNode()) {
+            const parent = node.parentElement;
+            const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!parent || !text || !/[぀-ヿ㐀-鿿]/.test(text)) continue;
+            if (parent.closest('[data-jpdb-reader-root],script,style,noscript,svg,rt,rp,[aria-hidden="true"]')) continue;
+            const rect = parent.getBoundingClientRect();
+            const style = getComputedStyle(parent);
+            if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) continue;
+            if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) continue;
+            const key = `${text}\n${Math.round(rect.left)}:${Math.round(rect.top)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const host = parent.closest('.jpdb-reader-word') || parent;
+            const annotated = Boolean(parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror')
+                || host.querySelector?.('.jpdb-reader-word,.jpdb-reader-text-mirror'));
+            samples.push({
+                text: text.slice(0, 90),
+                tag: parent.tagName.toLowerCase(),
+                role: parent.getAttribute('role') || '',
+                annotated,
+                readings: host.querySelectorAll?.('rt,.jpdb-reader-detached-furi').length || 0,
+                context: Array.from({ length: 6 }, (_, index) => {
+                    let current = parent;
+                    for (let depth = 0; depth < index && current; depth += 1) current = current.parentElement;
+                    if (!current) return '';
+                    const classes = typeof current.className === 'string'
+                        ? current.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.')
+                        : '';
+                    return `${current.localName}${current.id ? `#${current.id}` : ''}${classes ? `.${classes}` : ''}${current.getAttribute('role') ? `[role=${current.getAttribute('role')}]` : ''}`;
+                }).filter(Boolean),
+            });
+        }
+        const unannotated = samples.filter(sample => !sample.annotated);
+        return {
+            menuOpened: Boolean(opener),
+            visibleJapaneseSamples: samples.length,
+            annotatedSamples: samples.length - unannotated.length,
+            unannotated: unannotated.slice(0, 40),
+            menuSamples: samples.filter(sample => sample.role === 'menuitem' || /順|メニュー|ハイライト/.test(sample.text)).slice(0, 30),
+            words: document.querySelectorAll('.jpdb-reader-word').length,
+            readings: document.querySelectorAll('rt,.jpdb-reader-detached-furi').length,
+        };
+    },
+    // Open a real YouTube engagement surface (Ask, transcript, or summary) and
+    // prove its short functional heading is covered by the generic residual
+    // scanner rather than a YouTube-only parser.
+    engagement: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const visible = element => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < innerHeight
+                && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
+        };
+        const label = element => (element.textContent || element.getAttribute('aria-label') || element.getAttribute('title') || '')
+            .replace(/\s+/g, ' ').trim();
+        const initialControls = Array.from(document.querySelectorAll('button,[role="button"]'))
+            .filter(element => element instanceof HTMLElement && visible(element));
+        const descriptionExpand = document.querySelector('#description-inline-expander #expand, #description #expand, ytd-text-inline-expander #expand')
+            || initialControls.find(element => /もっと見る|show more/i.test(label(element)));
+        if (descriptionExpand instanceof HTMLElement) {
+            descriptionExpand.click();
+            await sleep(1200);
+        }
+        const controls = Array.from(document.querySelectorAll('button,[role="button"]'))
+            .filter(element => {
+                if (!(element instanceof HTMLElement)) return false;
+                const rect = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+            });
+        const patterns = [/質問|ask/i, /文字起こし|transcript/i, /概要|summary/i];
+        const opener = patterns.map(pattern => controls.find(element => pattern.test(label(element)))).find(Boolean);
+        if (opener instanceof HTMLElement) {
+            opener.scrollIntoView({ block: 'center' });
+            await sleep(250);
+            opener.click();
+            await sleep(4500);
+        }
+        const panels = Array.from(document.querySelectorAll('ytd-engagement-panel-section-list-renderer,ytm-engagement-panel-section-list-renderer,[role="dialog"]'))
+            .filter(element => element instanceof HTMLElement && visible(element));
+        const samples = [];
+        for (const panel of panels) {
+            const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                const parent = node.parentElement;
+                const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!parent || !text || !/[぀-ヿ㐀-鿿]/.test(text) || parent.closest('script,style,svg,rt,rp,[aria-hidden="true"]') || !visible(parent)) continue;
+                const heading = parent.closest('h1,h2,h3,h4,h5,h6,[role="heading"]');
+                samples.push({
+                    text: text.slice(0, 100),
+                    heading: Boolean(heading),
+                    centered: Boolean(heading && getComputedStyle(heading).textAlign === 'center'),
+                    annotated: Boolean(parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror')
+                        || parent.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')),
+                    parserIds: Array.from(parent.closest('.jpdb-reader-text-mirror')?.querySelectorAll('.jpdb-reader-word') || [])
+                        .map(word => word.getAttribute('data-parser-id')).filter(Boolean),
+                });
+            }
+        }
+        return {
+            opener: opener instanceof HTMLElement ? label(opener).slice(0, 120) : null,
+            panels: panels.length,
+            samples,
+            unannotated: samples.filter(sample => !sample.annotated),
+            centeredHeadings: samples.filter(sample => sample.heading && sample.centered),
+        };
+    },
+    rail: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        if (!(rail instanceof HTMLElement)) return { found: false };
+        const snapshot = () => {
+            const rect = rail.getBoundingClientRect();
+            const gear = document.querySelector('.ytp-settings-button,[aria-label*="設定" i],[aria-label*="settings" i]');
+            const gearRect = gear instanceof HTMLElement ? gear.getBoundingClientRect() : null;
+            const primary = document.querySelector('.jpdb-subtitle-primary');
+            const word = primary?.querySelector('.jpdb-reader-word');
+            const overlap = Boolean(gearRect
+                && Math.min(rect.right, gearRect.right) > Math.max(rect.left, gearRect.left)
+                && Math.min(rect.bottom, gearRect.bottom) > Math.max(rect.top, gearRect.top));
+            return {
+                rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
+                gear: gearRect ? { left: gearRect.left, top: gearRect.top, right: gearRect.right, bottom: gearRect.bottom } : null,
+                overlapsSettings: overlap,
+                actions: Array.from(rail.querySelectorAll('button')).map(button => button.dataset.action),
+                pinned: rail.querySelector('[data-action="rail-pin"]')?.getAttribute('aria-pressed'),
+                moveHandle: Boolean(rail.querySelector('[data-subtitle-rail-drag-handle]')),
+                primaryPointerEvents: primary instanceof HTMLElement ? getComputedStyle(primary).pointerEvents : null,
+                wordPointerEvents: word instanceof HTMLElement ? getComputedStyle(word).pointerEvents : null,
+                rootClasses: rail.closest('.jpdb-subtitle-player')?.className || '',
+            };
+        };
+        const before = snapshot();
+        rail.querySelector('[data-action="rail-pin"]')?.click();
+        await sleep(120);
+        return { found: true, before, afterPin: snapshot() };
+    },
     // Empirically validate the geometry fix on a real broken title mirror.
     fixprobe: () => {
         const results = [];
@@ -289,7 +446,8 @@ const initScript = `
   window.GM_removeValueChangeListener = () => {};
   window.GM_registerMenuCommand = () => {};
   window.GM_openInTab = (u) => window.open(u, '_blank');
-  window.GM_getResourceText = () => '';
+  const yomuCss = ${JSON.stringify(READER_CSS)};
+  window.GM_getResourceText = name => name === 'yomuCss' ? yomuCss : '';
   window.GM_info = { script: { version: '1.2.0', name: 'yomu' }, scriptHandler: 'HarnessGM' };
   window.GM = {
     getValue: async (k,d)=>window.GM_getValue(k,d), setValue: async (k,v)=>window.GM_setValue(k,v),
@@ -358,9 +516,192 @@ async function runHoverExploration() {
     return { hovered: box.surface, vidSid: `${box.vid}:${box.sid}`, afterOpen, afterStationary, nodeReplaced: replaced, afterReconcile, reanchorSurvived: afterOpen.open && afterReconcile.open };
 }
 
+async function runRailDragExploration() {
+    const before = await page.evaluate(() => {
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const handle = rail?.querySelector('[data-subtitle-rail-drag-handle]');
+        if (!(rail instanceof HTMLElement) || !(handle instanceof HTMLElement)) return null;
+        const railRect = rail.getBoundingClientRect();
+        const handleRect = handle.getBoundingClientRect();
+        return {
+            rail: { left: railRect.left, top: railRect.top },
+            handle: { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 },
+        };
+    });
+    if (!before) return { moved: false, error: 'no rail drag handle' };
+    await page.mouse.move(before.handle.x, before.handle.y);
+    await page.mouse.down();
+    await page.mouse.move(before.handle.x + 56, before.handle.y + 72, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(180);
+    const after = await page.evaluate(() => {
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        if (!(rail instanceof HTMLElement)) return null;
+        const rect = rail.getBoundingClientRect();
+        return {
+            left: rect.left,
+            top: rect.top,
+            stored: window.GM_getValue?.('jpdb-reader-subtitle-control-rail-position', null) ?? null,
+        };
+    });
+    return {
+        before: before.rail,
+        after,
+        moved: Boolean(after && (Math.abs(after.left - before.rail.left) > 20 || Math.abs(after.top - before.rail.top) > 20)),
+    };
+}
+
+async function runRailTapExploration() {
+    await page.waitForTimeout(3200);
+    const snapshot = () => page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const rail = root?.querySelector('.jpdb-subtitle-rail');
+        const handle = rail?.querySelector('[data-subtitle-rail-drag-handle]');
+        if (!(root instanceof HTMLElement) || !(rail instanceof HTMLElement) || !(handle instanceof HTMLElement)) return null;
+        const rect = handle.getBoundingClientRect();
+        return {
+            idle: root.classList.contains('jpdb-subtitle-controls-idle'),
+            visibleActions: Array.from(rail.querySelectorAll('button')).filter(button => getComputedStyle(button).display !== 'none').map(button => button.dataset.action),
+            point: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+        };
+    });
+    const before = await snapshot();
+    if (!before) return { expanded: false, error: 'no rail tap handle' };
+    if (process.env.YT_MOBILE === '1') await page.touchscreen.tap(before.point.x, before.point.y);
+    else await page.mouse.click(before.point.x, before.point.y);
+    await page.waitForTimeout(180);
+    const after = await snapshot();
+    return {
+        before,
+        after,
+        expanded: Boolean(after && before.idle && !after.idle && after.visibleActions.length > before.visibleActions.length),
+    };
+}
+
+async function runFullscreenExploration() {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(350);
+    const videoBox = await page.evaluate(() => {
+        const video = Array.from(document.querySelectorAll([
+            'video',
+            '#player',
+            '#movie_player',
+            'ytm-player',
+            '.player-container',
+            '.player-container-inner',
+            '.html5-video-player',
+            'ytm-player-control-overlay',
+        ].join(',')))
+            .map(element => {
+                const rect = element.getBoundingClientRect();
+                const visibleHeight = Math.max(0, Math.min(rect.bottom, innerHeight) - Math.max(rect.top, 0));
+                const visibleWidth = Math.max(0, Math.min(rect.right, innerWidth) - Math.max(rect.left, 0));
+                const plausibleFrame = rect.width >= innerWidth * 0.65
+                    && rect.height >= 100
+                    && rect.height <= innerHeight * 0.7;
+                return { element, rect, visibleArea: plausibleFrame ? visibleWidth * visibleHeight : 0 };
+            })
+            .sort((a, b) => b.visibleArea - a.visibleArea)[0];
+        if (!video || !(video.element instanceof HTMLElement) || video.visibleArea <= 0) return null;
+        const rect = video.rect;
+        return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            element: `${video.element.localName}${video.element.id ? `#${video.element.id}` : ''}.${String(video.element.className || '').trim().split(/\s+/).slice(0, 3).join('.')}`,
+        };
+    });
+    if (videoBox) {
+        await page.mouse.click(videoBox.x, videoBox.y);
+        await page.evaluate(() => {
+            const video = Array.from(document.querySelectorAll('video')).find(element => element.readyState >= 1);
+            if (!video) return;
+            if (Number.isFinite(video.duration) && video.duration > 70) video.currentTime = 60;
+            void video.play().catch(() => undefined);
+        });
+        await page.waitForTimeout(2200);
+        await page.mouse.move(videoBox.right - 24, videoBox.bottom - 24);
+        await page.waitForTimeout(300);
+    }
+    const before = await page.evaluate(videoRect => {
+        const visible = element => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+        };
+        const candidates = Array.from(document.querySelectorAll('button,[role="button"]'))
+            .filter(element => element instanceof HTMLElement && visible(element))
+            .map(element => {
+                const rect = element.getBoundingClientRect();
+                return {
+                    element,
+                    label: element.getAttribute('aria-label') || element.getAttribute('title') || element.textContent || '',
+                    classes: String(element.className || ''),
+                    rect,
+                };
+            });
+        const candidate = candidates.find(item => /fullscreen|full screen|全画面/i.test(`${item.label} ${item.classes}`));
+        const point = candidate
+            ? { x: candidate.rect.left + candidate.rect.width / 2, y: candidate.rect.top + candidate.rect.height / 2 }
+            : { x: videoRect.right - 24, y: videoRect.bottom - 24 };
+        window.__yomuFullscreenProbeTarget = null;
+        document.addEventListener('click', event => {
+            const target = event.target;
+            window.__yomuFullscreenProbeTarget = target instanceof Element
+                ? { tag: target.localName, id: target.id, classes: String(target.className || '').slice(0, 120), reader: Boolean(target.closest('[data-jpdb-reader-root],.jpdb-subtitle-player,.jpdb-subtitle-surface,.jpdb-subtitle-text')) }
+                : { tag: '', id: '', classes: '', reader: false };
+        }, { once: true, capture: true });
+        if (candidate) candidate.element.addEventListener('click', () => { candidate.element.dataset.yomuFullscreenProbeReceived = 'true'; }, { once: true, capture: true });
+        return {
+            found: true,
+            point,
+            explicitButton: Boolean(candidate),
+            label: candidate?.label.trim().slice(0, 100) || 'video bottom-right',
+            classes: candidate?.classes.slice(0, 120) || '',
+            rect: candidate
+                ? { left: candidate.rect.left, top: candidate.rect.top, right: candidate.rect.right, bottom: candidate.rect.bottom }
+                : videoRect,
+            hitStack: document.elementsFromPoint(point.x, point.y).slice(0, 10).map(element => ({
+                tag: element.localName,
+                id: element.id,
+                classes: String(element.className || '').slice(0, 120),
+                reader: Boolean(element.closest('[data-jpdb-reader-root],.jpdb-subtitle-player,.jpdb-subtitle-surface,.jpdb-subtitle-text')),
+                pointerEvents: getComputedStyle(element).pointerEvents,
+            })),
+        };
+    }, videoBox);
+    if (!before.found) return before;
+    await page.mouse.click(before.point.x, before.point.y);
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => {
+        const received = document.querySelector('[data-yomu-fullscreen-probe-received="true"]');
+        const video = document.querySelector('video');
+        return {
+            nativeButtonReceivedClick: Boolean(received),
+            clickedTarget: window.__yomuFullscreenProbeTarget ?? null,
+            fullscreenElement: document.fullscreenElement?.localName || null,
+            webkitDisplayingFullscreen: Boolean(video && 'webkitDisplayingFullscreen' in video && video.webkitDisplayingFullscreen),
+        };
+    });
+    return { before, after };
+}
+
 let result;
 if (diagName === 'hover') {
     try { result = await runHoverExploration(); } catch (e) { result = { hoverError: String(e) }; }
+} else if (diagName === 'rail') {
+    try {
+        const tap = await runRailTapExploration();
+        result = await page.evaluate(probe);
+        result.tap = tap;
+        result.drag = await runRailDragExploration();
+        result.fullscreen = await runFullscreenExploration();
+    } catch (e) { result = { railError: String(e) }; }
+} else if (diagName === 'fullscreen') {
+    try { result = await runFullscreenExploration(); } catch (e) { result = { fullscreenError: String(e) }; }
 } else {
     try { result = await page.evaluate(probe); } catch (e) { result = { evalError: String(e) }; }
 }

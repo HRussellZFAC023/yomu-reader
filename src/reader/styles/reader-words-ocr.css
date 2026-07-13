@@ -843,9 +843,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   summary,
   label,
   select,
-  /* YouTube chrome roots without a button/nav ancestor — mirrors
-     YOUTUBE_PASSIVE_CHROME_SELECTOR in site-parsers.ts; listed here, not
-     marked in TS, because the stylesheet ships outside the 2 MB bundle. */
+  /* Legacy mobile player components without useful button/nav semantics.
+     New component surfaces use the generic DecorationPolicy stamp below. */
   ytm-pivot-bar-renderer,
   ytm-pivot-bar-item-renderer,
   ytm-mobile-topbar-renderer,

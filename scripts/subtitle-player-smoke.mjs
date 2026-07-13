@@ -691,9 +691,9 @@ async function runLocalMobileWrapSmoke(browser) {
         return video && !video.paused;
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
-    // The rail is transport-free: prev/next/play live in the drawer head and
-    // fullscreen belongs to the player chrome.
-    assert(controls.actions.join(',') === 'ocr,visibility,panel,style', 'Mobile rail is not the slim ocr/visibility/panel/style cluster', controls);
+    // Playback/fullscreen belong to the native player. The rail keeps subtitle
+    // navigation plus its movable, pinnable control shell.
+    assert(controls.actions.join(',') === 'rail-expand,previous,next,ocr,visibility,panel,style,rail-pin', 'Mobile rail actions do not match the movable subtitle-only control set', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);
     assert(Math.abs(controls.handleCenterX - controls.subtitleCenterX) <= 3, 'Mobile subtitle drag handle is not centered on the subtitle line', controls);
     assert(!overlaps(controls.handle, controls.rail), 'Mobile subtitle drag handle overlaps the subtitle rail', controls);
@@ -701,10 +701,9 @@ async function runLocalMobileWrapSmoke(browser) {
     const drawerTouch = await readMobileDrawerTouchTargets(page);
     assert(drawerTouch.buttons.length >= 5, 'Mobile transcript drawer head did not expose its controls', drawerTouch);
     const drawerTransport = await readMobileDrawerTransportState(page);
-    assert(drawerTransport.actions.join(',') === 'previous,next,playback', 'Drawer transport cluster did not expose previous/next/playback', drawerTransport);
+    assert(drawerTransport.actions.join(',') === 'previous,next', 'Drawer transport cluster did not expose previous/next without redundant playback', drawerTransport);
     assert(drawerTransport.inActionsRow, 'Drawer transport is not in the actions row beside the mode tabs', drawerTransport);
-    assert(!drawerTransport.previousHidden && !drawerTransport.nextHidden && !drawerTransport.playbackHidden, 'Drawer previous/next/playback controls were not shown together', drawerTransport);
-    assert(drawerTransport.playbackLabel === 'Pause video' && drawerTransport.playbackPressed === 'true', 'Drawer playback control did not expose pause while playing', drawerTransport);
+    assert(!drawerTransport.previousHidden && !drawerTransport.nextHidden, 'Drawer previous/next controls were not shown together', drawerTransport);
     for (const button of drawerTouch.buttons) {
         assert(
             button.effective.width >= 43.5 && button.effective.height >= 43.5,
@@ -943,15 +942,11 @@ async function readMobileDrawerTransportState(page) {
         const transport = document.querySelector('.jpdb-subtitle-drawer-playback');
         const previous = transport?.querySelector('[data-action="previous"]');
         const next = transport?.querySelector('[data-action="next"]');
-        const playback = transport?.querySelector('[data-action="playback"]');
         return {
             actions: [...(transport?.querySelectorAll('button') ?? [])].map(button => button.dataset.action),
             inActionsRow: Boolean(transport?.closest('.jpdb-subtitle-drawer-actions')),
             previousHidden: previous?.hidden ?? true,
             nextHidden: next?.hidden ?? true,
-            playbackHidden: playback?.hidden ?? true,
-            playbackLabel: playback?.getAttribute('aria-label') ?? '',
-            playbackPressed: playback?.getAttribute('aria-pressed') ?? '',
         };
     });
 }

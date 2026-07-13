@@ -95,10 +95,13 @@ describe('settings CSS', () => {
         expect(normalizedNewTabCss).toContain('color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, currentColor));');
     });
 
-    it('lets subtitle rails idle while the transcript panel is open', () => {
+    it('lets subtitle rails collapse while the transcript panel is open', () => {
         const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
 
-        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedSubtitlesCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*pointer-events: none;/);
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-secondary .jpdb-reader-word { pointer-events: auto; }');
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: 1; pointer-events: auto; transform: translateY(0); }');
+        expect(normalizedSubtitlesCss).toContain('> :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) { display: none !important; }');
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-rail:hover, .jpdb-subtitle-style-open .jpdb-subtitle-rail { opacity: 1; }');
         expect(normalizedSubtitlesCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open)');
         expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');

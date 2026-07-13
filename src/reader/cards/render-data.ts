@@ -176,14 +176,14 @@ export class CardRenderDataLoader {
             card,
             CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
             'expression components',
-            this.loadExpressionComponents(card, localEntries),
+            this.loadExpressionComponents(card, localEntries, jitenVocabularyLookup),
             [] as ExpressionComponentLookup[],
         );
         const componentPitches = this.withFallback(
             card,
             CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
             'expression component pitch',
-            this.loadExpressionComponentPitches(expressionComponents),
+            this.loadExpressionComponentPitches(expressionComponents, jitenVocabularyLookup),
             [] as ExpressionComponentPitch[],
         );
         void pitchAccent.catch(() => undefined);
@@ -417,11 +417,25 @@ export class CardRenderDataLoader {
         });
     }
 
-    private async loadExpressionComponents(card: JPDBCard, localEntries: Promise<YomitanTermEntry[]>): Promise<ExpressionComponentLookup[]> {
-        if (!this.settings().localDictionariesEnabled) return [];
-        const entries = await localEntries.catch(() => [] as YomitanTermEntry[]);
-        if (!entries.length && !looksComposableExpression(card.spelling)) return [];
-        return this.segmentExpressionComponents(card.spelling);
+    private async loadExpressionComponents(
+        card: JPDBCard,
+        localEntries: Promise<YomitanTermEntry[]>,
+        jitenVocabularyInfo: Promise<JitenVocabularyInfo | null>,
+    ): Promise<ExpressionComponentLookup[]> {
+        if (this.settings().localDictionariesEnabled) {
+            const entries = await localEntries.catch(() => [] as YomitanTermEntry[]);
+            if (entries.length || looksComposableExpression(card.spelling)) {
+                const segmented = await this.segmentExpressionComponents(card.spelling);
+                if (segmented.length >= 2) return segmented;
+            }
+        }
+
+        // Component navigation is a reader feature, not a local-dictionary
+        // feature. Jiten already returns the same decomposition for the card;
+        // surface it through the generic lookup chips even when Yomitan banks
+        // are disabled instead of burying the only usable links in one source.
+        const info = await jitenVocabularyInfo.catch(() => null);
+        return jitenExpressionComponents(info);
     }
 
     // Expressions and compounds expose their parts as lookup chips. Keep each
@@ -429,14 +443,29 @@ export class CardRenderDataLoader {
     // a whole-word pitch graph from direct or composed metadata.
     private async loadExpressionComponentPitches(
         expressionComponents: Promise<ExpressionComponentLookup[]>,
+        jitenVocabularyInfo: Promise<JitenVocabularyInfo | null>,
     ): Promise<ExpressionComponentPitch[]> {
         const settings = this.settings();
-        if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
-        const components = await expressionComponents.catch(() => [] as ExpressionComponentLookup[]);
+        if (!settings.showPitchAccent) return [];
+        const [components, jitenInfo] = await Promise.all([
+            expressionComponents.catch(() => [] as ExpressionComponentLookup[]),
+            jitenVocabularyInfo.catch(() => null),
+        ]);
         if (components.length < 2) return [];
         const pitches: ExpressionComponentPitch[] = [];
         for (const component of components) {
-            const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => [] as YomitanMetaEntry[]);
+            const jitenWord = jitenInfo?.composedOf.find(word => word.matchSurface.trim() === component.text
+                && (!word.reading.trim() || word.reading.trim() === component.reading));
+            const jitenPitch = jitenWord?.pitchAccents
+                ?.map(position => pitchPatternFromPosition(component.reading, position))
+                .find(Boolean);
+            if (jitenPitch) {
+                pitches.push({ text: component.text, reading: component.reading, pitch: jitenPitch });
+                continue;
+            }
+            if (!settings.localDictionariesEnabled) continue;
+            const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
+                .catch(() => [] as YomitanMetaEntry[]);
             const pitch = localPitchPatternFromMeta(component.reading, meta);
             if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
         }
@@ -623,6 +652,18 @@ function looksComposableExpression(spelling: string): boolean {
         // downstream still keep this from producing spurious chips.
         || (isKanjiCharacter(characters[0]) && kanjiCount >= 2
             && characters.every(character => isKanjiCharacter(character) || isKanaCharacter(character)));
+}
+
+function jitenExpressionComponents(info: JitenVocabularyInfo | null): ExpressionComponentLookup[] {
+    const seen = new Set<string>();
+    return (info?.composedOf ?? []).flatMap(word => {
+        const text = word.matchSurface.trim();
+        const reading = word.reading.trim() || text;
+        const key = `${text}\n${reading}`;
+        if (!text || seen.has(key)) return [];
+        seen.add(key);
+        return [{ text, reading }];
+    });
 }
 
 function delay(ms: number): Promise<void> {

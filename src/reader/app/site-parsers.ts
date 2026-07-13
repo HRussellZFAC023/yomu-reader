@@ -81,6 +81,10 @@ const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = 'residual-visible-japanese-parser';
+const PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD = 40;
+const PROFILE_PHASE_GENERIC_RESERVE_RATIO = 0.3;
+const PROFILE_PHASE_GENERIC_RESERVE_MAX = 64;
+const GENERIC_UI_CHROME_TARGET_MAX = 48;
 const MOKURO_SCAN_ROOT_LIMIT = 160;
 const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
 const GENERIC_PROSE_ROOTS = [
@@ -257,6 +261,11 @@ const SAFE_UI_CHROME_ROOTS = [
     '[role="menuitem"]',
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]',
+    // Timestamps are compact interactive metadata on feed cards. Keep them in
+    // the reserved chrome slice so long Reddit/YouTube feeds cannot exhaust
+    // the prose budget before relative Japanese times are reached.
+    'time',
+    '[datetime]',
 ].join(',');
 const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
 const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
@@ -317,11 +326,7 @@ const YOMU_HOSTED_DOCS_ROOTS = [
     '.yomu-link-grid',
     '.vp-doc',
 ];
-const YOMU_HOSTED_DOCS_EXCLUDE = [
-    COMMON_EXCLUDE,
-    '.VPHero .name',
-    '.VPHomeHero .name',
-].join(',');
+const YOMU_HOSTED_DOCS_EXCLUDE = COMMON_EXCLUDE;
 const YOMU_VIDEO_PLAYER_ROOTS = [
     '.brand strong',
     '[data-yomu-video-frame] .empty strong',
@@ -351,74 +356,9 @@ const YOMU_PDF_READER_EXCLUDE = [
     '.textLayer span[role="img"]',
 ].join(',');
 const YOMU_PDF_READER_MIN_TEXT_LENGTH = 8;
-const YOUTUBE_CHROME_ROOTS = [
-    'yt-chip-cloud-chip-renderer button',
-    'yt-chip-cloud-chip-renderer [role="tab"]',
-    'yt-chip-cloud-chip-view-model button',
-    'yt-chip-cloud-chip-view-model [role="tab"]',
-    'yt-chip-cloud-chip-view-model',
-    'yt-tab-shape button',
-    'yt-tab-shape [role="tab"]',
-    'ytd-feed-filter-chip-bar-renderer chip-shape button',
-    'ytd-feed-filter-chip-bar-renderer [role="tab"]',
-    'yt-chip-cloud-renderer chip-shape button',
-    'yt-chip-cloud-renderer [role="tab"]',
-    'ytm-feed-filter-chip-bar-renderer button',
-    'ytm-feed-filter-chip-bar-renderer [role="tab"]',
-    'ytd-masthead yt-button-shape button',
-    'ytd-masthead yt-button-view-model button',
-    'ytd-masthead button-view-model button',
-    'ytd-masthead button[aria-label]',
-    'ytd-masthead ytd-searchbox',
-    'ytd-masthead yt-searchbox',
-    'ytd-masthead .ytSearchboxComponentInputBox',
-    'ytd-masthead .ytSearchboxComponentSearchButton',
-    'ytd-masthead .ytAttributedStringHost',
-    'ytd-masthead yt-attributed-string',
-    'ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer',
-    'ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer',
-    // Watch-page action row (共有/質問する/…) and the description expander
-    // (もっと見る) mount late, after the metadata scan settles — explicit roots
-    // keep them covered. The #owner subscribe/join buttons stay excluded via
-    // YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR (annotating them regressed
-    // into re-render flicker).
-    'ytd-watch-metadata #actions button',
-    'ytd-watch-metadata #actions-inner button',
-    'ytd-watch-metadata ytd-text-inline-expander #expand',
-    'ytd-watch-metadata ytd-text-inline-expander #collapse',
-];
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-].join(',');
-const YOUTUBE_GUIDE_ROOTS = [
-    'ytd-mini-guide-renderer',
-    'ytd-guide-renderer',
-];
-const YOUTUBE_GUIDE_EXCLUDE = [
-    COMMON_EXCLUDE,
-    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-].join(',');
-const YOUTUBE_MOBILE_CHROME_ROOTS = [
-    'ytm-pivot-bar-renderer',
-    'ytm-pivot-bar-item-renderer',
-    'ytm-mobile-topbar-renderer',
-    'ytm-app-header',
-    'ytm-searchbox',
-    'ytm-shorts-player-controls',
-    'ytm-slim-video-action-bar-renderer',
-    'ytm-actions-renderer',
-    'ytm-menu-renderer',
-    'ytm-button-renderer',
-    'ytm-toggle-button-renderer',
-    'ytm-bottom-sheet-renderer',
-    'ytm-engagement-panel-section-list-renderer',
-    'ytm-reel-player-overlay-renderer',
-    'ytm-shorts-video-title-view-model',
-].join(',');
-const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
-    YOUTUBE_MOBILE_CHROME_ROOTS,
-    YOUTUBE_CHROME_ROOTS.join(','),
 ].join(',');
 const YOUTUBE_STABLE_TEXT_HOST_SELECTOR = [
     'yt-formatted-string',
@@ -932,8 +872,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-live-chat-frame yt-formatted-string',
             'ytd-live-chat-frame button',
             'ytd-live-chat-frame [role="button"]',
-            YOUTUBE_MOBILE_CHROME_ROOTS,
-            ...YOUTUBE_CHROME_ROOTS,
             'ytd-watch-next-secondary-results-renderer',
             // General feed/search grids are useful, but lower priority because
             // YouTube can hydrate hundreds of them.
@@ -976,61 +914,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         // budget on offscreen/recycled cards and left late comments bare.
         visibleOnly: true,
         includeUiChrome: true,
-        nonDestructive: true,
-        includePassiveInteractionRoots: true,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
-    },
-    {
-        // The guide rail is the same persistent surface on every desktop page;
-        // scoping this to /watch left it bare on home, channel, and search.
-        id: 'youtube-guide-parser',
-        roots: YOUTUBE_GUIDE_ROOTS,
-        exclude: YOUTUBE_GUIDE_EXCLUDE,
-        allowUiText: true,
-        minLength: 1,
-        includeUiChrome: true,
-        singlePassScan: true,
-        nonDestructive: true,
-        includePassiveInteractionRoots: false,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
-    },
-    {
-        // Engagement panels (description, transcript, the "ask about this
-        // video" AI panel) are reading surfaces, but their panel titles are
-        // short centered headings, which the fragment scanner rejects as
-        // display chrome by default — この動画について質問する stayed bare while the
-        // panel body annotated. Scoped here so centered headings elsewhere on
-        // YouTube stay skipped.
-        id: 'youtube-engagement-panel-parser',
-        roots: [
-            'ytd-engagement-panel-section-list-renderer',
-            'ytm-engagement-panel-section-list-renderer',
-        ],
-        exclude: YOUTUBE_TEXT_EXCLUDE,
-        allowUiText: true,
-        minLength: 1,
-        includeUiChrome: true,
-        singlePassScan: true,
-        nonDestructive: true,
-        heading: true,
-        allowShortCenteredHeadings: true,
-        includePassiveInteractionRoots: true,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
-    },
-    {
-        id: 'youtube-chrome-parser',
-        roots: YOUTUBE_CHROME_ROOTS,
-        exclude: YOUTUBE_TEXT_EXCLUDE,
-        allowUiText: true,
-        minLength: 1,
-        includeUiChrome: true,
-        singlePassScan: true,
         nonDestructive: true,
         includePassiveInteractionRoots: true,
         matches: url => url.hostname === 'youtube.com'
@@ -1485,8 +1368,6 @@ function targetSpansMultipleYouTubeWatchMetadataTextHosts(target: FragmentTextTa
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-    const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
-        && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
     const baseTarget = {
         ...target,
         parserId: profile.id,
@@ -1497,7 +1378,7 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         // keep inline readings (owner-surface naming; behavior is the policy's).
         ...profileDecoration(profile, target),
         suppressRuby: target.suppressRuby || suppressRuby || undefined,
-        passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
+        passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || undefined,
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: profile.nonDestructive || undefined,
     };
@@ -1621,9 +1502,10 @@ export function collectScanTargetsInSteps(
 
 function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
-    const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
+    const useNonDestructiveGenericScan = isGenericManagedAppShell();
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-    const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, effectiveLimit, href, options);
+    const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
+    const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
         if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) {
@@ -1641,7 +1523,7 @@ function* scanTargetCollectionSteps(limit: number, href: string, options: SiteSc
             : baseTargets;
     }
     yield;
-    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
         // Profile roots are curated, not exhaustive: any visible Japanese they
         // miss (e.g. a metadata row the selectors never named) still gets a
@@ -1660,13 +1542,32 @@ function* scanTargetCollectionSteps(limit: number, href: string, options: SiteSc
             : profileTargets;
     }
     yield;
-    const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
+    const genericPhaseRemaining = effectiveLimit - baseTargets.length - profileUiChromeTargets.length;
+    const uiChromeReserve = genericUiChromeTargetLimit(genericPhaseRemaining);
+    const genericTargets = collectGenericProseTargets(
+        genericPhaseRemaining - uiChromeReserve,
+        [...baseTargets, ...profileUiChromeTargets],
+    );
     yield;
     const uiChromeTargets = collectSafeUiChromeTargets(
-        effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
+        genericPhaseRemaining - genericTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
     );
-    const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
+    yield;
+    // A page with little or no chrome should not leave the reserved slice
+    // idle. Resume prose collection after the chrome pass while keeping the
+    // original prose-before-controls ordering and shared-node admission.
+    const supplementalGenericTargets = collectGenericProseTargets(
+        genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
+        [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
+    );
+    const collectedTargets = [
+        ...baseTargets,
+        ...profileUiChromeTargets,
+        ...genericTargets,
+        ...uiChromeTargets,
+        ...supplementalGenericTargets,
+    ];
     yield;
     const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
     if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
@@ -1716,8 +1617,28 @@ function isGenericManagedAppShell(): boolean {
         'script[src*="/build/assets/"]',
         'astro-island',
         'shreddit-app',
+        'ytd-app',
+        'ytm-app',
         '[ng-version]',
     ].join(',')));
+}
+
+function profilePhaseTargetLimit(profiles: SiteParserProfile[], effectiveLimit: number): number {
+    if (!profiles.length
+        || !Number.isFinite(effectiveLimit)
+        || effectiveLimit < PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD
+        || profiles.some(profile => profile.disableGenericDomScan || profile.suppressResidualVisibleScan)) return effectiveLimit;
+    const reserve = Math.min(
+        PROFILE_PHASE_GENERIC_RESERVE_MAX,
+        Math.max(1, Math.floor(effectiveLimit * PROFILE_PHASE_GENERIC_RESERVE_RATIO)),
+    );
+    return Math.max(1, effectiveLimit - reserve);
+}
+
+function genericUiChromeTargetLimit(remaining: number): number {
+    if (remaining <= 0) return 0;
+    if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
+    return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
 }
 
 function markTargetsNonDestructive(targets: ScanTextTarget[]): ScanTextTarget[] {
@@ -1752,6 +1673,8 @@ function collectResidualVisibleJapaneseTargets(
         limit,
     };
     const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+    const nonDestructiveShell = profiles.some(profile => profile.nonDestructive)
+        || isGenericManagedAppShell();
     const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
         includeUiChrome: true,
@@ -1764,6 +1687,12 @@ function collectResidualVisibleJapaneseTargets(
         includePlayerChrome: isYouTubeHost(),
         includePassiveInteractions: true,
         heading: true,
+        // The generic centered-heading guard protects destructive inline
+        // rewrites from changing decorative site layouts. Managed app shells
+        // and explicitly non-destructive profiles render through mirrors, so
+        // their functional panel/dialog headings are safe to admit and should
+        // not need a YouTube- or Reddit-specific parser exception.
+        allowShortCenteredHeadings: nonDestructiveShell,
         minLength: 1,
     });
     for (const target of collected) {
@@ -1774,7 +1703,7 @@ function collectResidualVisibleJapaneseTargets(
         if (options.skipMirroredHosts
             && target.parent instanceof HTMLElement
             && textMirrorAlreadyRenders(target.parent, target.text)) continue;
-        appendGenericProseTarget(collection.targets, collection.seen, {
+        appendResidualVisibleTarget(collection.targets, collection.seen, {
             ...target,
             parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID,
         });
@@ -2048,6 +1977,77 @@ function appendGenericProseTarget(
     const admissionOptions: FragmentTargetAdmissionOptions = { defaultParserId: 'generic-prose-parser' };
     if (options?.reject) admissionOptions.reject = options.reject;
     return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
+}
+
+function appendResidualVisibleTarget(
+    targets: FragmentTextTarget[],
+    seen: Set<Text>,
+    target: FragmentTextTarget,
+): void {
+    const nodes = textNodesForFragmentTarget(target);
+    if (!nodes.some(node => seen.has(node))) {
+        appendGenericProseTarget(targets, seen, target);
+        return;
+    }
+    // A curated profile can own one inline node while the residual walk groups
+    // it with uncovered siblings. Rejecting the whole group makes the siblings
+    // permanently invisible to later scans. Admit each unseen run as its own
+    // passive target instead, preserving shared-node dedupe without starvation.
+    for (const fragments of unseenFragmentRuns(target, seen)) {
+        const parent = fragments[0]?.node.parentElement;
+        if (!parent) continue;
+        const text = fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
+        if (!hasJapaneseText(text)) continue;
+        const decoration = classifyDecoration(parent);
+        if (decoration === 'skip') continue;
+        appendAdmittedFragmentTarget(targets, seen, {
+            ...target,
+            text,
+            parent,
+            fragments,
+            decoration,
+            suppressRuby: decoration === 'interactive-passive' || undefined,
+            passiveInteraction: true,
+            proseWrap: false,
+        }, { defaultParserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID });
+    }
+}
+
+function unseenFragmentRuns(
+    target: FragmentTextTarget,
+    seen: Set<Text>,
+): FragmentTextTarget['fragments'][] {
+    const runs: FragmentTextTarget['fragments'][] = [];
+    let current: FragmentTextTarget['fragments'] = [];
+    const flush = (): void => {
+        const trimmed = trimFragmentRun(current);
+        if (trimmed.length) runs.push(trimmed);
+        current = [];
+    };
+    for (const fragment of target.fragments) {
+        if (seen.has(fragment.node)) flush();
+        else current.push({ ...fragment });
+    }
+    flush();
+    return runs;
+}
+
+function trimFragmentRun(fragments: FragmentTextTarget['fragments']): FragmentTextTarget['fragments'] {
+    while (fragments.length) {
+        const first = fragments[0];
+        const value = first.node.data.slice(first.start, first.end);
+        first.start += value.match(/^\s*/u)?.[0].length ?? 0;
+        if (first.start < first.end) break;
+        fragments.shift();
+    }
+    while (fragments.length) {
+        const last = fragments[fragments.length - 1];
+        const value = last.node.data.slice(last.start, last.end);
+        last.end -= value.match(/\s*$/u)?.[0].length ?? 0;
+        if (last.start < last.end) break;
+        fragments.pop();
+    }
+    return fragments;
 }
 
 function appendAdmittedFragmentTarget(

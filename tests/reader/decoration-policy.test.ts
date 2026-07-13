@@ -406,10 +406,10 @@ describe('interactive-passive geometry invariance', () => {
             ], FURIGANA_SETTINGS);
         }
 
-        // Zero layout delta: no in-flow or detached reading lane.
+        // Zero layout delta: the reading is detached from line layout.
         expect(button.querySelector('rt')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-detached-furi')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+        expect(button.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
+        expect(button.querySelector('.jpdb-reader-has-furi')).toBeTruthy();
         expect(button.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
         expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
 
@@ -599,7 +599,7 @@ describe('mirror bareness with painted descendants', () => {
 // the mode attribute won — ruby appeared in the mirror channel. Realistic
 // live DOM shape; interactive-passive keeps the site's native line geometry.
 describe('interactive-passive mirror channel under furigana-mode=all', () => {
-    it('renders a centered subscribe-button annotation without a reading lane', () => {
+    it('renders a centered subscribe-button annotation with a layout-neutral detached reading', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div data-yomu-furigana-mode="all">
@@ -629,14 +629,14 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
         expect(mirror).toBeTruthy();
         expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // Controls remain lookupable without reserving or overlaying a
-        // furigana lane that can displace fixed-height labels on WebKit.
+        // Controls remain lookupable and readable without reserving an
+        // in-flow furigana lane that can displace fixed-height labels on WebKit.
         expect(button.querySelectorAll('rt')).toHaveLength(0);
-        expect(mirror?.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('preserves compound and multiple pitch patterns on a reading-free control word', () => {
+    it('preserves detached readings plus compound and multiple pitch patterns on a control word', () => {
         stubYouTube();
         document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
         document.body.innerHTML = `
@@ -656,7 +656,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(word.dataset.pitchClass).toBe('nakadaka');
         expect(word.dataset.pitchAccent).toBe('LHHHHHLL|HLLLLLLL');
         expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 

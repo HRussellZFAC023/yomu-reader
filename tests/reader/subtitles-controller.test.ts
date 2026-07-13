@@ -416,7 +416,7 @@ describe('SubtitlePlayerController', () => {
         expect(withoutPopover.defaultPrevented).toBe(true);
     });
 
-    it('keeps the drawer transport in the actions row so the title row gets the full head width', () => {
+    it('keeps drawer line navigation in the actions row so the title row gets the full head width', () => {
         const host = document.createElement('div');
         host.innerHTML = renderDrawerHead({
             mode: 'lines',
@@ -428,11 +428,11 @@ describe('SubtitlePlayerController', () => {
 
         const playback = host.querySelector('.jpdb-subtitle-drawer-playback');
         expect(playback).not.toBeNull();
-        // The ‹ › ▶ cluster shares the actions row with the mode tabs; putting
+        // The ‹ › cluster shares the actions row with the mode tabs; putting
         // it in the title row squeezed the track label into an ellipsis.
         expect(playback!.closest('.jpdb-subtitle-drawer-actions')).not.toBeNull();
         expect(host.querySelector('.jpdb-subtitle-drawer-top-actions .jpdb-subtitle-drawer-playback')).toBeNull();
-        expect([...playback!.querySelectorAll('button')].map(b => b.dataset.action)).toEqual(['previous', 'next', 'playback']);
+        expect([...playback!.querySelectorAll('button')].map(b => b.dataset.action)).toEqual(['previous', 'next']);
     });
 
     it('keeps translated track labels concise in the drawer while preserving the full tooltip', () => {
@@ -477,7 +477,7 @@ describe('SubtitlePlayerController', () => {
         expect(meta.title).toBe(full);
     });
 
-    it('keeps the rail to prev/next line, OCR, visibility, panel, and style controls', () => {
+    it('keeps the movable rail to expansion, prev/next, OCR, visibility, panel, style, and pin controls', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -495,21 +495,42 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'ocr', 'visibility', 'panel', 'style']);
+        expect(actions).toEqual(['rail-expand', 'previous', 'next', 'ocr', 'visibility', 'panel', 'style', 'rail-pin']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="previous"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="next"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="visibility"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
-        // Only prev/next line returned to the rail — playback, fullscreen, and
-        // the tracks shortcut stay out (playback/transport live in the drawer,
-        // fullscreen belongs to the player's own chrome).
+        // Playback/fullscreen belong to the player's native chrome.
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="playback"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="fullscreen"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('pins and unpins the expanded rail through the existing persisted controls mode', () => {
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController({ subtitleControlsMode: 'auto' }, { onSettingsChange });
+        try {
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const pin = root.querySelector<HTMLButtonElement>('[data-action="rail-pin"]')!;
+            expect(pin.getAttribute('aria-pressed')).toBe('false');
+
+            pin.click();
+            expect(settings.subtitleControlsMode).toBe('always');
+            expect(root.classList.contains('jpdb-subtitle-controls-always')).toBe(true);
+            expect(pin.getAttribute('aria-pressed')).toBe('true');
+
+            pin.click();
+            expect(settings.subtitleControlsMode).toBe('auto');
+            expect(root.classList.contains('jpdb-subtitle-controls-auto')).toBe(true);
+            expect(pin.getAttribute('aria-pressed')).toBe('false');
+            expect(onSettingsChange).toHaveBeenCalledTimes(2);
+        } finally {
+            controller.destroy();
+        }
     });
 
     it('toggles paused-frame OCR while preserving the immediate manual OCR request', () => {
@@ -1397,21 +1418,10 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('toggles playback from the drawer transport cluster', () => {
+    it('keeps playback out of the drawer transport cluster too', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
-        const video = attachVideo(controller, { currentTime: 0.5 });
-        let paused = false;
-        const play = vi.fn(() => {
-            paused = false;
-            return Promise.resolve();
-        });
-        const pause = vi.fn(() => {
-            paused = true;
-        });
-        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
-        Object.defineProperty(video, 'play', { configurable: true, value: play });
-        Object.defineProperty(video, 'pause', { configurable: true, value: pause });
+        attachVideo(controller, { currentTime: 0.5 });
 
         try {
             const internals = controllerInternals<{
@@ -1427,25 +1437,10 @@ describe('SubtitlePlayerController', () => {
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             const previous = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="previous"]')!;
             const next = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="next"]')!;
-            const playback = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]')!;
 
             expect(previous.hidden).toBe(false);
             expect(next.hidden).toBe(false);
-            expect(playback.hidden).toBe(false);
-            expect(playback.getAttribute('aria-label')).toBe('Pause video');
-            expect(playback.getAttribute('aria-pressed')).toBe('true');
-
-            playback.click();
-
-            expect(pause).toHaveBeenCalledTimes(1);
-            expect(playback.getAttribute('aria-label')).toBe('Play video');
-            expect(playback.getAttribute('aria-pressed')).toBe('false');
-
-            playback.click();
-
-            expect(play).toHaveBeenCalledTimes(1);
-            expect(playback.getAttribute('aria-label')).toBe('Pause video');
-            expect(playback.getAttribute('aria-pressed')).toBe('true');
+            expect(panel.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -1490,7 +1485,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps drawer navigation and playback enabled while the docked side panel is open during playback', () => {
+    it('keeps drawer line navigation enabled while the docked side panel is open during playback', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
         const video = attachVideo(controller, { currentTime: 0.5 });
@@ -1510,7 +1505,6 @@ describe('SubtitlePlayerController', () => {
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             const previous = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="previous"]')!;
             const next = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="next"]')!;
-            const playback = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]')!;
 
             expect(panel.hidden).toBe(false);
             // While the panel is open the drawer transport takes over, so the
@@ -1523,9 +1517,7 @@ describe('SubtitlePlayerController', () => {
             expect(previous.disabled).toBe(false);
             expect(next.hidden).toBe(false);
             expect(next.disabled).toBe(false);
-            expect(playback.hidden).toBe(false);
-            expect(playback.getAttribute('aria-label')).toBe('Pause video');
-            expect(playback.getAttribute('aria-pressed')).toBe('true');
+            expect(panel.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -4327,6 +4319,7 @@ Watch the cat
         const { controller, internals } = setupTranscriptCueController<typeof cues[number], {
             calibrateTranscriptRowEstimate: () => void;
             transcriptRowEstimatePx: number;
+            noteTranscriptScrollIntent: () => void;
             noteTranscriptScroll: () => void;
         }>(cues);
 
@@ -4339,6 +4332,7 @@ Watch the cat
 
             // A user scroll pauses auto-follow; the estimate must freeze so the
             // spacer/scroll geometry stays idempotent under the user's finger.
+            internals.noteTranscriptScrollIntent();
             internals.noteTranscriptScroll();
             internals.calibrateTranscriptRowEstimate();
             expect(internals.transcriptRowEstimatePx).toBe(before);
@@ -4609,7 +4603,19 @@ Watch the cat
             scroller.dispatchEvent(new Event('scroll'));
             expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
 
-            scroller.dispatchEvent(new Event('touchstart'));
+            // A tap/click can trigger a seek and a programmatic active-row
+            // scroll; pointerdown alone is not manual-scroll intent.
+            scroller.dispatchEvent(pointerEvent('pointerdown', { clientY: 20, pointerId: 44 }));
+            scroller.dispatchEvent(new Event('scroll'));
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
+
+            scroller.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+            scroller.dispatchEvent(new Event('scroll'));
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);
+            document.querySelector<HTMLButtonElement>('[data-action="jump-current"]')!.click();
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
+
+            scroller.dispatchEvent(new Event('touchmove'));
             scroller.dispatchEvent(new Event('scroll'));
             expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);
 
@@ -4620,6 +4626,12 @@ Watch the cat
             // Clear the manual pause, then prove a large seek stays instant even
             // when motion is otherwise allowed.
             document.querySelector<HTMLButtonElement>('[data-action="jump-current"]')!.click();
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
+            scroller.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+            scroller.dispatchEvent(new Event('scroll'));
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);
+            document.querySelector<HTMLButtonElement>('[data-action="jump-current"]')!.click();
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
             scrollSpy.mockClear();
             internals.currentCue = cues[9]!;
             video.currentTime = 9.2;
@@ -5697,9 +5709,11 @@ Watch the cat
         });
     });
 
-    it('visually hides the subtitle rail while keeping keyboard focus able to reveal it', () => {
+    it('collapses the idle subtitle rail to its move and pin chip', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 1;\n  pointer-events: auto;\n  transform: translateY(0);\n}');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('> :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {\n  display: none !important;');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
         expect(SUBTITLES_YOUTUBE_CSS)
@@ -5767,7 +5781,7 @@ Watch the cat
         }
     });
 
-    it('hides idle subtitle rails on touch screens instead of keeping them pinned at 72% opacity', () => {
+    it('uses left-aligned movable subtitle rails on touch screens', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         // any-pointer:coarse (not the primary pointer) so an iPad-with-Pencil
@@ -5780,7 +5794,7 @@ Watch the cat
         expect(normalizedCss).not.toContain('.jpdb-subtitle-drawer-playback button::after');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button, .jpdb-subtitle-compact-video .jpdb-subtitle-rail button { min-width: 42px; width: 42px; max-width: 42px; min-height: 42px; height: 42px; max-height: 42px; padding: 0; font-size: 11px; border-radius: 10px; touch-action: manipulation; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 4px; padding: 4px; border-radius: 13px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: auto; bottom: auto; gap: 4px; padding: 4px; border-radius: 13px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
         // The drawer transport shares the bordered icon-button chrome and answers
         // hover with the accent treatment like the close/options buttons.
         expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button:is(:hover, :focus-visible):not(:disabled) {');
@@ -5791,20 +5805,18 @@ Watch the cat
         // The merged panel-options control keeps 44px touch targets on coarse pointers.
         expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-item { min-height: 44px; }');
-        // The old coarse-pointer/compact "always discoverable" overrides kept
-        // the rail visible during playback even while the player chrome was
-        // hidden; the rail now follows the player chrome (lockstep tick) and
-        // idles to hidden everywhere.
+        // The old 72%-opacity full rail is gone; idle now collapses to a chip.
         expect(normalizedCss).not.toContain('opacity: 0.72; pointer-events: auto; transform: none;');
         expect(normalizedCss).not.toContain('opacity: .72; pointer-events: auto; transform: none;');
     });
 
-    it('ignores sticky tap hover/focus when hiding the idle rail on hoverless devices', () => {
+    it('ignores sticky tap hover when collapsing the idle rail on hoverless devices', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('@media (hover: none) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:not(:focus):not(.jpdb-subtitle-dragging), .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-controls-idle > .jpdb-subtitle-asb-drag-handle:not(:focus):not(.jpdb-subtitle-dragging) { opacity: 0; pointer-events: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) { opacity: 1; pointer-events: auto; transform: translateY(0); }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) { display: none !important; }');
         expect(normalizedCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
@@ -5892,6 +5904,8 @@ Watch the cat
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
         expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px), 320px); overflow: visible; pointer-events: none;');
         expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; display: grid; align-content: end; overflow: visible; pointer-events: none; }');
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*pointer-events: none;/);
+        expect(normalizedCss).toContain('.jpdb-subtitle-secondary, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-secondary .jpdb-reader-word { pointer-events: auto; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
         expect(normalizedCss).toContain('box-shadow: none;');
         expect(normalizedCss).toContain('touch-action: none;');
@@ -7265,6 +7279,7 @@ Watch the cat
             const internals = controllerInternals<{
                 transcriptPanel: HTMLElement;
                 panelMode: 'lines' | 'tracks';
+                noteTranscriptScrollIntent: () => void;
                 noteTranscriptScroll: () => void;
                 scrollTranscriptToActive: () => void;
             }>(controller);
@@ -7286,6 +7301,7 @@ Watch the cat
             // A real manual scroll (past the programmatic window) pauses follow:
             // the next cue advance must NOT yank the list back.
             now += 400;
+            internals.noteTranscriptScrollIntent();
             internals.noteTranscriptScroll();
             now += 100;
             internals.scrollTranscriptToActive();
@@ -7305,6 +7321,7 @@ Watch the cat
             // scroll then a 4s gap no longer resumes when the window is 10s.
             settings.subtitleTranscriptAutoScrollResumeSeconds = 10;
             now += 1000;
+            internals.noteTranscriptScrollIntent();
             internals.noteTranscriptScroll();
             now += 4000;
             internals.scrollTranscriptToActive();
@@ -7317,6 +7334,7 @@ Watch the cat
             // treat that legacy value as the safer 30s default during playback.
             settings.subtitleTranscriptAutoScrollResumeSeconds = 4;
             now += 1000;
+            internals.noteTranscriptScrollIntent();
             internals.noteTranscriptScroll();
             now += 5000;
             internals.scrollTranscriptToActive();
@@ -7351,6 +7369,7 @@ Watch the cat
         ];
         const { controller, internals } = setupTranscriptCueController<typeof cues[number], {
             currentCue: typeof cues[number];
+            noteTranscriptScrollIntent: () => void;
             noteTranscriptScroll: () => void;
             scrollTranscriptToActive: () => void;
         }>(cues, {
@@ -7367,6 +7386,7 @@ Watch the cat
 
             scrollSpy.mockClear();
             now += 500;
+            internals.noteTranscriptScrollIntent();
             internals.noteTranscriptScroll();
 
             expect(panel.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);

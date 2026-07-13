@@ -34866,7 +34866,7 @@ describe('reader helpers', () => {
         const texts = targets.map(target => target.text);
         expect(document.querySelector('.yomu-try-me .jpdb-reader-word')).toBeNull();
         expect(texts[0]).toBe('好きなものを読んで日本語を学ぶ');
-        expect(texts).not.toContain('よむ');
+        expect(texts.some(text => text.includes('よむ'))).toBe(true);
         expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(true);
         expect(texts).toContain('青空の下で本を読む');
         expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');

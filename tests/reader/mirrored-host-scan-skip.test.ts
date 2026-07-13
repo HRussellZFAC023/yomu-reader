@@ -47,6 +47,7 @@ describe('mirrored host scan skip', () => {
         mirror.className = 'jpdb-reader-text-mirror';
         mirror.dataset.jpdbReaderTextMirror = 'true';
         mirror.dataset.sourceText = '日本語のタイトルです';
+        mirror.innerHTML = '<span class="jpdb-reader-word">日本語</span>のタイトルです';
         host.append(mirror);
 
         expect(collectedTexts({ skipMirroredHosts: true })).not.toContain('日本語のタイトルです');
@@ -61,6 +62,19 @@ describe('mirrored host scan skip', () => {
         mirror.className = 'jpdb-reader-text-mirror';
         mirror.dataset.jpdbReaderTextMirror = 'true';
         mirror.dataset.sourceText = '古いタイトル';
+        host.append(mirror);
+
+        expect(collectedTexts({ skipMirroredHosts: true })).toContain('日本語のタイトルです');
+    });
+
+    it('keeps collecting when a framework replaced the mirror annotation children', () => {
+        stubYouTube();
+        const host = feedWithTitle();
+        const mirror = document.createElement('span');
+        mirror.className = 'jpdb-reader-text-mirror';
+        mirror.dataset.jpdbReaderTextMirror = 'true';
+        mirror.dataset.sourceText = '日本語のタイトルです';
+        mirror.textContent = '日本語のタイトルです';
         host.append(mirror);
 
         expect(collectedTexts({ skipMirroredHosts: true })).toContain('日本語のタイトルです');
