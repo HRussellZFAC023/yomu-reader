@@ -77,6 +77,29 @@ describe('movable subtitle control rail', () => {
         binding.destroy();
     });
 
+    it('treats a small finger-jitter tap as a tap so the pin/expand toggle still fires', () => {
+        const root = document.getElementById('root')!;
+        const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;
+        const handle = rail.querySelector<HTMLElement>('[data-subtitle-rail-drag-handle]')!;
+        const click = vi.fn();
+        handle.addEventListener('click', click);
+        const binding = bindSubtitleControlRail(root, vi.fn())!;
+
+        // A touch tap always carries a few pixels of jitter; below the tap slop
+        // the gesture must NOT become a drag, so the synthesised click still
+        // reaches the expand/pin toggle instead of being suppressed.
+        handle.dispatchEvent(pointerEvent('pointerdown', { pointerId: 3, clientX: 20, clientY: 30 }));
+        window.dispatchEvent(pointerEvent('pointermove', { pointerId: 3, clientX: 24, clientY: 33 }));
+        const up = pointerEvent('pointerup', { pointerId: 3, clientX: 24, clientY: 33 });
+        window.dispatchEvent(up);
+        handle.click();
+
+        expect(up.defaultPrevented).toBe(false);
+        expect(handle.dataset.subtitleRailSuppressClick).toBeUndefined();
+        expect(click).toHaveBeenCalledOnce();
+        binding.destroy();
+    });
+
     it('does not cancel a stationary touch-style tap needed for iOS click synthesis', () => {
         const root = document.getElementById('root')!;
         const handle = root.querySelector<HTMLElement>('[data-subtitle-rail-drag-handle]')!;

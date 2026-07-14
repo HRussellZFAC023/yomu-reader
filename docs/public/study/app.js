@@ -42388,7 +42388,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.150".trim() ? "1.6.150".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.151".trim() ? "1.6.151".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -54236,6 +54236,7 @@ ${spelling}`);
   }
   const RAIL_MARGIN_PX = 8;
   const RAIL_KEY_STEP_PX = 12;
+  const RAIL_TAP_SLOP_PX = 8;
   function bindSubtitleControlRail(root, onActivity) {
     const rail = root.querySelector(".jpdb-subtitle-rail");
     const handle = rail?.querySelector("[data-subtitle-rail-drag-handle]");
@@ -54299,7 +54300,7 @@ ${spelling}`);
       if (!drag || event.pointerId !== drag.pointerId) return;
       const deltaX = event.clientX - drag.startX;
       const deltaY = event.clientY - drag.startY;
-      if (Math.abs(deltaX) + Math.abs(deltaY) > 3) drag.moved = true;
+      if (Math.abs(deltaX) + Math.abs(deltaY) > RAIL_TAP_SLOP_PX) drag.moved = true;
       setPixels(drag.left + deltaX, drag.top + deltaY);
       if (drag.moved) event.preventDefault();
       event.stopPropagation();
@@ -54713,6 +54714,7 @@ ${spelling}`);
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
+  const SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS = 320;
   const SUBTITLE_TIMING_OFFSET_STEP_SECONDS = 0.1;
   const SUBTITLE_TIMING_OFFSET_MAX_SECONDS = 300;
   const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
@@ -55089,6 +55091,10 @@ ${spelling}`);
     pointerActivityFrame;
     pendingPointerActivity;
     controlsIdleTimer;
+    // Committing "away" (fully hidden) is debounced so a rapidly-flickering
+    // player-chrome-fade signal — e.g. a feed tile that autoplays on hover and
+    // strobes its own autohide class — cannot strobe the rail in and out.
+    awayCommitTimer;
     // A subtitle line can be positioned outside the video frame. Activity on
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
@@ -55351,6 +55357,7 @@ ${spelling}`);
       this.tickTimer = clearWindowTimeout(this.tickTimer);
       this.stopFrameSync();
       this.clearControlsIdleTimer();
+      this.clearAwayCommitTimer();
       this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
       this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
@@ -55405,7 +55412,7 @@ ${spelling}`);
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
       this.root.classList.toggle("jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
-      if (settings.subtitleControlsMode !== "auto") this.root.classList.remove("jpdb-subtitle-controls-away");
+      if (settings.subtitleControlsMode !== "auto") this.setControlsAway(false);
       if (!this.video) {
         this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
         this.root.classList.add("jpdb-subtitle-video-out-of-view");
@@ -55999,7 +56006,11 @@ ${spelling}`);
       const chromeHidden = this.videoPlayerChromeHidden();
       if (chromeHidden) this.blurFocusedRailControl();
       if (!this.hasAutoIdleMode(this.options.getSettings())) {
-        this.root.classList.remove("jpdb-subtitle-controls-away");
+        this.setControlsAway(false);
+        this.lastPlayerChromeHidden = chromeHidden;
+        return;
+      }
+      if (!this.canObservePlayerChromeFade()) {
         this.lastPlayerChromeHidden = chromeHidden;
         return;
       }
@@ -56008,10 +56019,7 @@ ${spelling}`);
       } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
         this.showControlsTemporarily();
       }
-      this.root.classList.toggle(
-        "jpdb-subtitle-controls-away",
-        chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi()
-      );
+      this.setControlsAway(chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi());
       this.lastPlayerChromeHidden = chromeHidden;
     }
     // m.youtube.com stacks its own top control row (autoplay/CC/settings) in
@@ -57417,6 +57425,7 @@ ${spelling}`);
       return Boolean(player?.contains(element));
     }
     syncPointerActivity(clientX, clientY) {
+      if (!this.hasAutoIdleMode(this.options.getSettings())) return;
       if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
         this.showControlsTemporarily();
       } else {
@@ -57784,6 +57793,7 @@ ${spelling}`);
         this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
       }
       this.root.classList.remove("jpdb-subtitle-controls-idle");
+      this.setControlsAway(false);
       this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
@@ -57793,8 +57803,40 @@ ${spelling}`);
       this.subtitleSurfaceWakeActive = false;
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
+      const keepGripForNativeChrome = this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden();
+      this.setControlsAway(!keepGripForNativeChrome);
       this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
+    }
+    // Whether a native player exposes a chrome-fade signal the rail can follow.
+    // Only YouTube surfaces do; for everything else the rail owns its own idle
+    // fade via the idle timer.
+    canObservePlayerChromeFade() {
+      return this.isVideoPlayerChromeSurface();
+    }
+    // Debounced commit of the fully-hidden ("away") state. Showing (away=false)
+    // is immediate; hiding (away=true) waits out a strobing signal and
+    // re-confirms against live state before committing, so a flickering
+    // hover-autoplay chrome cannot thrash the rail's visibility.
+    setControlsAway(away) {
+      if (!this.root) return;
+      if (!away) {
+        this.clearAwayCommitTimer();
+        this.root.classList.remove("jpdb-subtitle-controls-away");
+        return;
+      }
+      if (this.root.classList.contains("jpdb-subtitle-controls-away") || this.awayCommitTimer !== void 0) return;
+      this.awayCommitTimer = window.setTimeout(() => {
+        this.awayCommitTimer = void 0;
+        if (this.destroyed || !this.root) return;
+        if (!this.hasAutoIdleMode(this.options.getSettings())) return;
+        if (this.subtitleSurfaceWakeActive || this.hasActiveSubtitleUi()) return;
+        if (this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden()) return;
+        this.root.classList.add("jpdb-subtitle-controls-away");
+      }, SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS);
+    }
+    clearAwayCommitTimer() {
+      this.awayCommitTimer = clearWindowTimeout(this.awayCommitTimer);
     }
     scheduleControlsIdle() {
       this.clearControlsIdleTimer();

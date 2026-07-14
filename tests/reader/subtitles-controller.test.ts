@@ -5044,7 +5044,8 @@ Watch the cat
         }
     });
 
-    it('marks the rail away while the player chrome is hidden so it disappears entirely', () => {
+    it('marks the rail away while the player chrome is hidden so it disappears entirely', async () => {
+        vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div>';
         const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
         controller.init();
@@ -5055,11 +5056,105 @@ Watch the cat
             const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
 
+            // The fully-hidden commit is debounced so a strobing autohide class
+            // cannot flash the rail; it lands once the fade has stayed stable.
             internals.syncPlayerChromeIdleState();
+            await vi.advanceTimersByTimeAsync(400);
             expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(true);
 
+            // Chrome re-appearing reveals the rail immediately (no debounce on show).
             document.querySelector('#movie_player')!.classList.remove('ytp-autohide');
             internals.syncPlayerChromeIdleState();
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not strobe the rail away when the player chrome fade flickers (hover-autoplay)', async () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player" tabindex="-1"><video></video></div>';
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        controller.init();
+        try {
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            mockElementRect(video, new DOMRect(0, 0, 640, 360));
+            attachVideo(controller, { video });
+            const player = document.querySelector('#movie_player')!;
+            const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+
+            // Chrome fade rapidly flips hidden/visible faster than the commit delay.
+            for (let i = 0; i < 6; i += 1) {
+                player.classList.add('ytp-autohide');
+                internals.syncPlayerChromeIdleState();
+                await vi.advanceTimersByTimeAsync(80);
+                player.classList.remove('ytp-autohide');
+                internals.syncPlayerChromeIdleState();
+                await vi.advanceTimersByTimeAsync(80);
+            }
+            // The flicker settled on "visible" each time, so the debounced hide is
+            // abandoned — the rail never committed to away and stayed steady.
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('fully hides the rail on idle for a generic player with no chrome-fade signal', async () => {
+        vi.useFakeTimers();
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        controller.init();
+        try {
+            const video = document.createElement('video');
+            video.controls = true;
+            document.body.appendChild(video);
+            mockElementRect(video, new DOMRect(0, 0, 640, 360));
+            attachVideo(controller, { video });
+            const internals = controllerInternals<{ hideControlsImmediately: () => void }>(controller);
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+
+            internals.hideControlsImmediately();
+            // Minimised to the grip immediately...
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            // ...then disappears entirely once the debounced away commits, because
+            // a generic <video> exposes no native chrome fade to keep the stub for.
+            await vi.advanceTimersByTimeAsync(400);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(true);
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps a pinned rail fully visible regardless of pointer traffic or idle', async () => {
+        vi.useFakeTimers();
+        const { controller } = createSubtitleController(makeSubtitleSettings({
+            subtitleOverlayVisible: true,
+            subtitleControlsMode: 'always',
+        }));
+        controller.init();
+        try {
+            const video = document.createElement('video');
+            video.controls = true;
+            document.body.appendChild(video);
+            mockElementRect(video, new DOMRect(0, 0, 640, 360));
+            attachVideo(controller, { video });
+            controller.refresh();
+            const internals = controllerInternals<{
+                hideControlsImmediately: () => void;
+                syncPointerActivity: (x: number, y: number) => void;
+            }>(controller);
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+
+            expect(root.classList.contains('jpdb-subtitle-controls-always')).toBe(true);
+            // Pointer far from the rail must not collapse a pinned rail.
+            internals.syncPointerActivity(5000, 5000);
+            internals.hideControlsImmediately();
+            await vi.advanceTimersByTimeAsync(3000);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
             expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
         } finally {
             controller.destroy();

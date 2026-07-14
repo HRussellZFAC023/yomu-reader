@@ -5,6 +5,11 @@ import {
 
 const RAIL_MARGIN_PX = 8;
 const RAIL_KEY_STEP_PX = 12;
+// The grip is both the drag handle AND the rail's expand/pin toggle, so a tap
+// has to survive the finger jitter a touch always carries or the toggle never
+// fires. Below this travel the gesture stays a tap (click reaches the toggle);
+// past it the drag takes over and the synthesised click is suppressed.
+const RAIL_TAP_SLOP_PX = 8;
 
 export interface SubtitleControlRailBinding {
     syncPosition(): void;
@@ -92,7 +97,7 @@ export function bindSubtitleControlRail(
         if (!drag || event.pointerId !== drag.pointerId) return;
         const deltaX = event.clientX - drag.startX;
         const deltaY = event.clientY - drag.startY;
-        if (Math.abs(deltaX) + Math.abs(deltaY) > 3) drag.moved = true;
+        if (Math.abs(deltaX) + Math.abs(deltaY) > RAIL_TAP_SLOP_PX) drag.moved = true;
         setPixels(drag.left + deltaX, drag.top + deltaY);
         if (drag.moved) event.preventDefault();
         event.stopPropagation();

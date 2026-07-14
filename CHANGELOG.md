@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.151] - 2026-07-14
+
+### Fixed
+
+- The subtitle control rail no longer flickers over videos that autoplay on hover: a rapidly changing player-chrome fade signal is now debounced, so the rail stays steady instead of strobing in and out.
+- The subtitle control rail now fully disappears when idle on players without a native fade signal, instead of leaving a minimised grip stub visible forever.
+- The subtitle rail pin and move grip is easier to tap: a small amount of finger jitter is treated as a tap so the pin toggle fires reliably instead of being mistaken for a drag.
+- A pinned subtitle control rail now stays fully visible and never auto-hides or auto-collapses, even as the pointer moves across the video or the player goes idle.
+
 ## [1.6.150] - 2026-07-14
 
 ### Fixed

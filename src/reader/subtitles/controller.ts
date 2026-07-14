@@ -554,6 +554,11 @@ function frameHasPlayerControls(frame: HTMLElement): boolean {
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
 const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
 const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
+// Delay before a request to fully hide the rail is committed. A genuine idle
+// or chrome-fade persists well past this; a strobing hover-autoplay signal
+// settles back to "visible" first, so the pending hide is re-checked against
+// live state at commit and abandoned — the rail stops flickering.
+const SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS = 320;
 const SUBTITLE_TIMING_OFFSET_STEP_SECONDS = 0.1;
 const SUBTITLE_TIMING_OFFSET_MAX_SECONDS = 300;
 const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
@@ -1090,6 +1095,10 @@ export class SubtitlePlayerController {
     private pointerActivityFrame?: number;
     private pendingPointerActivity?: { x: number; y: number };
     private controlsIdleTimer?: number;
+    // Committing "away" (fully hidden) is debounced so a rapidly-flickering
+    // player-chrome-fade signal — e.g. a feed tile that autoplays on hover and
+    // strobes its own autohide class — cannot strobe the rail in and out.
+    private awayCommitTimer?: number;
     // A subtitle line can be positioned outside the video frame. Activity on
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
@@ -1357,6 +1366,7 @@ export class SubtitlePlayerController {
         this.tickTimer = clearWindowTimeout(this.tickTimer);
         this.stopFrameSync();
         this.clearControlsIdleTimer();
+        this.clearAwayCommitTimer();
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
@@ -1414,7 +1424,9 @@ export class SubtitlePlayerController {
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         this.root.classList.toggle('jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
-        if (settings.subtitleControlsMode !== 'auto') this.root.classList.remove('jpdb-subtitle-controls-away');
+        // Leaving auto mode (pinned or hidden) must drop any committed OR
+        // pending fully-hidden state so a pin can never inherit a stale hide.
+        if (settings.subtitleControlsMode !== 'auto') this.setControlsAway(false);
         if (!this.video) {
             this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
             this.root.classList.add('jpdb-subtitle-video-out-of-view');
@@ -2119,7 +2131,15 @@ export class SubtitlePlayerController {
         // player chrome has faded — not only in auto mode.
         if (chromeHidden) this.blurFocusedRailControl();
         if (!this.hasAutoIdleMode(this.options.getSettings())) {
-            this.root.classList.remove('jpdb-subtitle-controls-away');
+            this.setControlsAway(false);
+            this.lastPlayerChromeHidden = chromeHidden;
+            return;
+        }
+        if (!this.canObservePlayerChromeFade()) {
+            // No native chrome to follow: the fully-hidden state is owned solely
+            // by the idle timer (hideControlsImmediately). Leaving it untouched
+            // here is what lets the rail actually disappear on generic players
+            // instead of being un-hidden every tick.
             this.lastPlayerChromeHidden = chromeHidden;
             return;
         }
@@ -2131,9 +2151,9 @@ export class SubtitlePlayerController {
             this.showControlsTemporarily();
         }
         // An unfocused player hides the rail entirely (not just minimised):
-        // it tracks the player's own chrome fade so the video stays clean.
-        this.root.classList.toggle('jpdb-subtitle-controls-away',
-            chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi());
+        // it tracks the player's own chrome fade so the video stays clean. The
+        // commit is debounced so a strobing autohide class cannot flash it.
+        this.setControlsAway(chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi());
         this.lastPlayerChromeHidden = chromeHidden;
     }
 
@@ -3852,6 +3872,10 @@ export class SubtitlePlayerController {
     }
 
     private syncPointerActivity(clientX: number, clientY: number): void {
+        // A pinned rail (subtitleControlsMode === 'always') never auto-hides and
+        // never auto-collapses, so pointer traffic must not toggle its state at
+        // all — otherwise a mouse merely passing over the video would churn it.
+        if (!this.hasAutoIdleMode(this.options.getSettings())) return;
         if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
             this.showControlsTemporarily();
         } else {
@@ -4286,6 +4310,8 @@ export class SubtitlePlayerController {
             this.subtitleSurfaceWakeActive = this.hasAutoIdleMode(this.options.getSettings());
         }
         this.root.classList.remove('jpdb-subtitle-controls-idle');
+        // Revealing always wins immediately over any pending or committed hide.
+        this.setControlsAway(false);
         this.syncSubtitleControlRailButtons();
         this.syncAsbPlayerSubtitleMoveHandles();
         this.scheduleControlsIdle();
@@ -4296,8 +4322,52 @@ export class SubtitlePlayerController {
         this.subtitleSurfaceWakeActive = false;
         if (!this.root || !this.shouldAutoIdleControls()) return;
         this.root.classList.add('jpdb-subtitle-controls-idle');
+        // The grip stub is only kept as a stand-in for a native player that is
+        // currently showing its own chrome (YouTube), so the two stay in
+        // lockstep. Everywhere else — generic <video>, players with no
+        // observable chrome-fade — the idle timeout IS the "controls faded"
+        // signal, so the rail must disappear entirely instead of leaving a
+        // permanent stub that never hides.
+        const keepGripForNativeChrome = this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden();
+        this.setControlsAway(!keepGripForNativeChrome);
         this.syncSubtitleControlRailButtons();
         this.syncAsbPlayerSubtitleMoveHandles();
+    }
+
+    // Whether a native player exposes a chrome-fade signal the rail can follow.
+    // Only YouTube surfaces do; for everything else the rail owns its own idle
+    // fade via the idle timer.
+    private canObservePlayerChromeFade(): boolean {
+        return this.isVideoPlayerChromeSurface();
+    }
+
+    // Debounced commit of the fully-hidden ("away") state. Showing (away=false)
+    // is immediate; hiding (away=true) waits out a strobing signal and
+    // re-confirms against live state before committing, so a flickering
+    // hover-autoplay chrome cannot thrash the rail's visibility.
+    private setControlsAway(away: boolean): void {
+        if (!this.root) return;
+        if (!away) {
+            this.clearAwayCommitTimer();
+            this.root.classList.remove('jpdb-subtitle-controls-away');
+            return;
+        }
+        if (this.root.classList.contains('jpdb-subtitle-controls-away') || this.awayCommitTimer !== undefined) return;
+        this.awayCommitTimer = window.setTimeout(() => {
+            this.awayCommitTimer = undefined;
+            if (this.destroyed || !this.root) return;
+            // Re-confirm the rail should still be away: a pinned rail, an active
+            // subtitle UI, a fresh wake, or a native chrome that has since
+            // re-appeared all abort the hide.
+            if (!this.hasAutoIdleMode(this.options.getSettings())) return;
+            if (this.subtitleSurfaceWakeActive || this.hasActiveSubtitleUi()) return;
+            if (this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden()) return;
+            this.root.classList.add('jpdb-subtitle-controls-away');
+        }, SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS);
+    }
+
+    private clearAwayCommitTimer(): void {
+        this.awayCommitTimer = clearWindowTimeout(this.awayCommitTimer);
     }
 
     private scheduleControlsIdle(): void {
