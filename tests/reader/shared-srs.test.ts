@@ -18,11 +18,11 @@ describe('shared Study / Academy contract', () => {
             .toBeNull();
     });
 
-    it('uses one normalized collection key and a return URL with no answer', () => {
+    it('uses one normalized collection key without serializing it into the return URL', () => {
         expect(canonicalStudyCardKey(' Ａ読む ', ' よむ ')).toBe('A読む\u0000よむ');
         const url = safeStudyReturnUrl('https://yomureader.com', canonicalStudyCardKey('読む', 'よむ'), 'lesson-0');
-        expect(url).toBe('https://yomureader.com/study/?return=academy&card=%E8%AA%AD%E3%82%80%00%E3%82%88%E3%82%80&context=lesson-0');
-        expect(url).not.toContain('answer');
+        expect(url).toBe('https://yomureader.com/study/?return=academy&context=lesson-0');
+        expect(decodeURIComponent(url)).not.toMatch(/読む|よむ|answer|card=/u);
         expect(() => canonicalStudyCardKey('   ')).toThrow();
     });
 

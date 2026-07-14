@@ -107,6 +107,13 @@ import {
 } from './index';
 import { NEW_TAB_FILTERS, normalizeNewTabUiState, type NewTabListenSubMode } from './state';
 import {
+    planStudyCardHistoryUpdate,
+    readStudyCardRoute,
+    studyCardRouteSignature,
+    type PortableStudyCardRoute,
+    type StudyCardRoute,
+} from './study-card-route';
+import {
     newTabImmersionAudioUrls,
     newTabImmersionImageUrl,
     hiddenNewTabStudySentenceSettings,
@@ -685,11 +692,7 @@ interface NewTabSearchWordKanjiDetail {
     details: KanjiDetailBundle;
 }
 
-interface PortableStudyCardIdentity {
-    key: string;
-    spelling: string;
-    reading: string;
-}
+type PortableStudyCardIdentity = Omit<PortableStudyCardRoute, 'kind'>;
 
 interface NewTabSupportStatus {
     donationGoalGbp?: number;
@@ -11757,67 +11760,91 @@ export class NewTabController {
         }
     }
 
-    // UT-59: every study entry has a stable, shareable URL. The internal
-    // card key preserves session history; w/r make the link portable to
-    // another learner whose queue may not contain the same provider card.
-    // Advancing pushes history so browser back/forward walks the session;
-    // a reload restores the same card.
-    private lastSyncedCardUrlKey = '';
+    // Unrevealed history entries use the same controller-local opaque identity
+    // as the DOM. Reveal replaces that entry with the deliberate portable URL;
+    // only moving to another card pushes a new history entry.
+    private lastSyncedCardSelectionKey = '';
+    private lastSyncedCardRouteSignature = '';
     private handlingCardPopstate = false;
 
     private syncCardUrl(card: JPDBCard): void {
         if (!this.isVocabularyStudyMode(this.state.mode) || typeof history === 'undefined') return;
-        // Only the standalone study page owns its URL.
-        if (!isYomuNewTabUrl(location.href)) return;
+        // Only standalone Study owns its URL. An Academy host remains clean even
+        // if a test or future shell happens to mount it on a Study-shaped path.
+        if (this.options.host || this.options.surface === 'academy' || !isYomuNewTabUrl(location.href)) return;
         const key = this.cardSelectionKey(card);
-        if (key === this.lastSyncedCardUrlKey) return;
-        const url = this.studyCardUrlHash(card, key);
+        const route = this.studyCardRoute(card, key);
+        const update = planStudyCardHistoryUpdate({
+            href: location.href,
+            route,
+            selectionKey: key,
+            previousSelectionKey: this.lastSyncedCardSelectionKey,
+            previousRouteSignature: this.lastSyncedCardRouteSignature,
+            handlingPopstate: this.handlingCardPopstate,
+        });
+        if (!update) return;
         try {
-            if (!this.lastSyncedCardUrlKey || this.handlingCardPopstate) history.replaceState(null, '', url);
-            else history.pushState(null, '', url);
+            const mutate = update.action === 'push' ? history.pushState : history.replaceState;
+            mutate.call(history, null, '', update.url);
         } catch {
             // History can be unavailable (sandboxed frames) — non-fatal.
         }
-        this.lastSyncedCardUrlKey = key;
+        this.lastSyncedCardSelectionKey = update.selectionKey;
+        this.lastSyncedCardRouteSignature = update.routeSignature;
     }
 
     private cardKeyFromLocation(): string {
-        return this.portableCardIdentityFromLocation()?.key ?? '';
+        const route = readStudyCardRoute(location.href);
+        if (!route) return '';
+        if (route.kind === 'portable') return route.key;
+        const card = this.studyCardsByDomToken.get(route.token);
+        return card ? this.cardSelectionKey(card) : '';
     }
 
     private portableCardIdentityFromLocation(): PortableStudyCardIdentity | null {
-        try {
-            const params = new URLSearchParams(location.hash.replace(/^#/u, ''));
-            const key = params.get('card') ?? legacyHashCardKey(location.hash);
-            if (!key) return null;
-            const spelling = normalizeSearchQuery(params.get('w') ?? params.get('word') ?? '');
-            const reading = normalizeSearchQuery(params.get('r') ?? params.get('reading') ?? '');
-            return { key, spelling, reading };
-        } catch {
-            return null;
-        }
+        const route = readStudyCardRoute(location.href);
+        return route?.kind === 'portable'
+            ? { key: route.key, spelling: route.spelling, reading: route.reading }
+            : null;
     }
 
-    private studyCardUrlHash(card: JPDBCard, key: string): string {
-        const params = new URLSearchParams();
-        params.set('card', key);
+    private studyCardRoute(card: JPDBCard, key: string): StudyCardRoute {
+        if (!this.state.revealAnswer) return { kind: 'concealed', token: this.studyCardDomToken(card) };
         const spelling = card.spelling.trim();
         const reading = newTabCardReading(card).trim() || card.reading.trim();
-        if (spelling) params.set('w', spelling);
-        if (reading && reading !== spelling) params.set('r', reading);
-        return `#${params.toString()}`;
+        return { kind: 'portable', key, spelling, reading };
     }
 
     private handleCardPopstate(root: HTMLElement): void {
         if (!this.isVocabularyStudyMode(this.state.mode)) return;
         const key = this.cardKeyFromLocation();
-        if (!key || key === this.lastSyncedCardUrlKey) return;
+        if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
+        const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
+        if (routeSignature && routeSignature === this.lastSyncedCardRouteSignature) return;
+        if (this.undoReviewForPopstate(root, key)) return;
+        this.renderCardForPopstate(root, key);
+    }
+
+    private restoreCurrentCardAfterUnknownRoute(root: HTMLElement): void {
+        // A reloaded/foreign opaque token has no answer-bearing fallback.
+        // Any non-card hash in word mode is likewise replaced by the current
+        // safe route; search hashes are consumed before this handler runs.
+        this.lastSyncedCardRouteSignature = '';
+        this.state.revealAnswer = false;
+        const current = this.visibleWords[this.index];
+        if (current) this.renderWord(root, current);
+    }
+
+    private undoReviewForPopstate(root: HTMLElement, key: string): boolean {
         // UT-58: navigating back across a grade boundary undoes the grade.
-        if (this.canUndoLastReview() && this.lastUndoableReview && this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) {
-            this.handlingCardPopstate = true;
-            void this.undoLastReview(root).finally(() => { this.handlingCardPopstate = false; });
-            return;
-        }
+        if (!this.canUndoLastReview() || !this.lastUndoableReview
+            || !this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) return false;
+        this.handlingCardPopstate = true;
+        void this.undoLastReview(root).finally(() => { this.handlingCardPopstate = false; });
+        return true;
+    }
+
+    private renderCardForPopstate(root: HTMLElement, key: string): void {
         const index = this.visibleWords.findIndex(card => this.cardMatchesSelectionKey(card, key));
         if (index < 0) return;
         this.handlingCardPopstate = true;
@@ -12101,19 +12128,10 @@ function newSearchUrl(query: string): URL | null {
         url.searchParams.delete('search');
         if (query) url.searchParams.set('q', query);
         else url.searchParams.delete('q');
-        if (/[#&]card=/u.test(url.hash)) url.hash = '';
+        if (readStudyCardRoute(url.href)) url.hash = '';
         return url;
     } catch {
         return null;
-    }
-}
-
-function legacyHashCardKey(hash: string): string {
-    try {
-        const match = /[#&]card=([^&]+)/u.exec(hash);
-        return match ? decodeURIComponent(match[1]) : '';
-    } catch {
-        return '';
     }
 }
 

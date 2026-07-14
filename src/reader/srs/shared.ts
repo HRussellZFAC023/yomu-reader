@@ -37,7 +37,8 @@ export function safeStudyReturnUrl(origin: string, cardKey: string, context?: st
     if (!cardKey || cardKey.length > 256) throw new TypeError('Study card key is invalid.');
     const url = new URL('/study/', origin);
     url.searchParams.set('return', 'academy');
-    url.searchParams.set('card', cardKey);
+    // Card identity stays in the Academy/Study mount state. Serialising the
+    // canonical expression+reading key here would expose the answer on arrival.
     if (context && /^[a-z0-9:_-]{1,80}$/iu.test(context)) url.searchParams.set('context', context);
     return url.toString();
 }

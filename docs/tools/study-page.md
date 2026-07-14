@@ -50,6 +50,8 @@ Every card walks through a short sequence and you grade it once at the end. Depe
 
 Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word without pitch data skips the listen and speak steps. Grades flow through your usual JPDB, Jiten, Bunpro, or Anki review path once you reach the final step. Jiten and JPDB keep the normal five choices. Bunpro has no five-point scale: regular self-graded reveal cards use **Hard / Good**, and FSRS queue items use **Again / Hard / Good / Easy**.
 
+Until you reveal a card, its word, reading, answer, and provider id stay out of the address bar. Reveal creates the deliberate shareable card link; Study embedded inside Academy leaves the Academy URL alone.
+
 ## Pitch practice built in
 
 The listen and speak steps come from a lightweight pitch schedule that grows from the words already feeding your study — Anki, Jiten, Bunpro, JPDB, or local dictionary words with a clear pitch accent. It reviews the pitch shapes that are due first, and plays a same-reading, different-accent word back to back when it can find one, so the contrast is easy to hear.

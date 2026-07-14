@@ -8,7 +8,7 @@ Study and Academy use the same vocabulary collection, review providers, and lear
 - Local Study stays available without an account. Academy sync and the Class Board require the existing enrolled account flow.
 - The Worker owns Google Authorization Code + PKCE, account linking, and secure cookies. It stores a keyed hash of the Google subject, never the Google name, photo, email, browser token, or raw subject.
 - Class identity is the learner's chosen name plus a six-digit discriminator. The Class Board is off by default and returns only opted-in aggregate progress. Words, sentences, answers, failures, and raw learner events never enter its response.
-- Study returns to Academy with `/study/?return=academy&card=<canonical key>&context=<short id>`. The URL carries no answer, secret, or source prose.
+- Study returns to Academy with `/study/?return=academy&context=<short id>`; the mounted session owns card identity instead of serializing it. Standalone Study uses only a controller-local opaque token before reveal and produces the portable `card`/word/reading link only after an intentional reveal.
 - Academy Study sessions use the shared module with a living-paper surface and a configurable 15-minute countdown.
 
 The Reader-facing contracts live in `src/reader/srs/shared.ts` and `src/reader/srs/account-contract.ts`. The authoritative account, privacy, and aggregate-sync implementations live in `workers/yomu-academy/src/` and `src/academy/domain/class-board.ts`.

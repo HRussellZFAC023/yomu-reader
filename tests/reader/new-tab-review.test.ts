@@ -460,6 +460,7 @@ function newTabSettingsGetter(settingsOrGetter: NewTabSettingsSource): () => New
 function newTabBareController(
     settingsOrGetter: NewTabSettingsSource = DEFAULT_SETTINGS,
     overrides: Partial<NewTabControllerOptions> = {},
+    controllerOptions: ConstructorParameters<typeof NewTabController>[1] = {},
 ): NewTabController {
     return new NewTabController({
         getSettings: newTabSettingsGetter(settingsOrGetter),
@@ -477,7 +478,7 @@ function newTabBareController(
         showSettings: vi.fn(),
         dismiss: vi.fn(),
         ...overrides,
-    });
+    }, controllerOptions);
 }
 
 function disconnectedJpdbReviewBridge(): NewTabControllerOptions['jpdbReviewBridge'] {
@@ -16912,11 +16913,11 @@ describe('new tab review helpers', () => {
             });
 
             expect(newTabPromptText(root)).toBe('書く');
-            expectOpaqueStudyCardToken(root, write.spelling, write.reading);
+            const token = expectOpaqueStudyCardToken(root, write.spelling, write.reading);
             const params = new URLSearchParams(location.hash.slice(1));
-            expect(params.get('card')).toBe(cardKey(write));
-            expect(params.get('w')).toBe('書く');
-            expect(params.get('r')).toBe('かく');
+            expect(params.get('review')).toBe(token);
+            expect(params.has('card')).toBe(false);
+            expect(decodeURIComponent(location.href)).not.toMatch(/書く|かく/u);
         } finally {
             root.remove();
             sessionStorage.removeItem(NEW_TAB_CURRENT_WORD_KEY);
@@ -16958,8 +16959,9 @@ describe('new tab review helpers', () => {
             expect(visible[0]?.sourceCardKey).toBe(cardKey(shared));
             expect(lookupStudyCard).toHaveBeenCalledWith('図鑑', 'ずかん');
             const params = new URLSearchParams(location.hash.slice(1));
-            expect(params.get('w')).toBe('図鑑');
-            expect(params.get('r')).toBe('ずかん');
+            expect(params.get('review')).toMatch(/^study-card-\d+$/u);
+            expect(params.has('card')).toBe(false);
+            expect(decodeURIComponent(location.href)).not.toMatch(/図鑑|ずかん/u);
         } finally {
             root.remove();
         }
@@ -17012,7 +17014,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('uses permanent card URLs for next and popstate navigation', () => {
+    it('conceals unrevealed history, exposes a portable link after reveal, and navigates opaque entries', () => {
         localStorage.removeItem('jpdb-reader-newtab-ui');
         window.history.replaceState(null, '', '/newtab/index.html');
         const read = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'local' });
@@ -17028,30 +17030,92 @@ describe('new tab review helpers', () => {
             });
 
             expect(newTabPromptText(root)).toBe('読む');
+            const readToken = expectOpaqueStudyCardToken(root, read.spelling, read.reading);
             let params = new URLSearchParams(location.hash.slice(1));
+            expect(params.get('review')).toBe(readToken);
+            expect(decodeURIComponent(location.href)).not.toMatch(/読む|よむ/u);
+
+            Object.assign(controller as unknown as { state: { revealAnswer: boolean } }, {
+                state: { ...(controller as unknown as { state: object }).state, revealAnswer: true },
+            });
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, read);
+            params = new URLSearchParams(location.hash.slice(1));
             expect(params.get('card')).toBe(cardKey(read));
             expect(params.get('w')).toBe('読む');
             expect(params.get('r')).toBe('よむ');
 
             (controller as unknown as { showNextWord(): void }).showNextWord();
             expect(newTabPromptText(root)).toBe('書く');
+            const writeToken = expectOpaqueStudyCardToken(root, write.spelling, write.reading);
+            expect(writeToken).not.toBe(readToken);
             params = new URLSearchParams(location.hash.slice(1));
-            expect(params.get('card')).toBe(cardKey(write));
-            expect(params.get('w')).toBe('書く');
-            expect(params.get('r')).toBe('かく');
+            expect(params.get('review')).toBe(writeToken);
+            expect(decodeURIComponent(location.href)).not.toMatch(/書く|かく/u);
 
-            window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent(cardKey(read))}`);
+            window.history.replaceState(null, '', `/newtab/index.html#review=${readToken}`);
             (controller as unknown as { handleCardPopstate(root: HTMLElement): void }).handleCardPopstate(root);
 
             expect(newTabPromptText(root)).toBe('読む');
-            expectOpaqueStudyCardToken(root, read.spelling, read.reading);
+            expect(expectOpaqueStudyCardToken(root, read.spelling, read.reading)).toBe(readToken);
             params = new URLSearchParams(location.hash.slice(1));
-            expect(params.get('card')).toBe(cardKey(read));
-            expect(params.get('w')).toBe('読む');
-            expect(params.get('r')).toBe('よむ');
+            expect(params.get('review')).toBe(readToken);
+            expect(params.has('card')).toBe(false);
         } finally {
             root.remove();
         }
+    });
+
+    it('never lets an embedded Academy Study surface write the host URL', () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        window.history.replaceState(null, '', '/study/?return=academy&context=lesson-0');
+        const card = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'local' });
+        const host = document.createElement('section');
+        const controller = newTabBareController(
+            () => ({ ...DEFAULT_SETTINGS, newTabSource: 'dictionary', immersionKitEnabled: false }),
+            {},
+            { host, surface: 'academy' },
+        );
+        const root = renderEnabledNewTabRoot(controller);
+        const href = location.href;
+
+        applySeededNewTabWords(controller, root, {
+            allWords: [card],
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', sort: 'random', filter: 'all', source: 'dictionary', revealAnswer: false },
+        });
+
+        expect(location.href).toBe(href);
+        expect(location.hash).toBe('');
+        root.remove();
+        controller.destroy();
+    });
+
+    it('fails closed when a reload or foreign history entry carries an unknown opaque token', () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        window.history.replaceState(null, '', '/study/');
+        const card = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'local' });
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary',
+            immersionKitEnabled: false,
+        }));
+        const root = renderEnabledNewTabRoot(controller);
+
+        applySeededNewTabWords(controller, root, {
+            allWords: [card],
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', sort: 'random', filter: 'all', source: 'dictionary', revealAnswer: false },
+        });
+        const liveToken = expectOpaqueStudyCardToken(root, card.spelling, card.reading);
+        window.history.replaceState(null, '', '/study/#review=study-card-999');
+
+        (controller as unknown as { handleCardPopstate(root: HTMLElement): void }).handleCardPopstate(root);
+
+        expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
+        expect(new URLSearchParams(location.hash.slice(1)).get('review')).toBe(liveToken);
+        expect(decodeURIComponent(location.href)).not.toMatch(/読む|よむ/u);
+        root.remove();
+        controller.destroy();
     });
 
     it('shows cached new-tab cards while refreshing live sources', async () => {

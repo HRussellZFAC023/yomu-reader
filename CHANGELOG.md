@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- Study no longer exposes an unrevealed card's provider id, spelling, reading, or answer in the address bar. It uses a local opaque history token until reveal, creates a portable link only after reveal, and leaves Academy's embedded Study URL untouched.
 - Furigana no longer paints over the line above inside multi-line clamped rows (Google-style result snippets, feed previews): such rows keep pitch underlines and hover lookup but hide at-rest readings, single-line rows keep their reading lane even when padded, and late-enriched readings obey the same rule instead of flickering in.
 - A rail button left focused after a tap no longer blocks YouTube's own player controls from fading, in every rail mode including the new stays-expanded one.
 - Grades queued offline can no longer be silently lost when a reconnect sync overlaps a new offline grade: queue writes are serialized, a landed grade re-arms the connection-lost prompt, and partial multi-provider failures keep the silent queue instead of offering a retry that could double-grade.
