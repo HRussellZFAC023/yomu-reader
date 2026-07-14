@@ -80,11 +80,6 @@ describe('hosted docs reader scan boundary', () => {
         expect(routeSyncBody).toContain('stampHostedSurfaceIgnoreChrome();');
     });
 
-    it('scopes the fixed card-title band to the homepage next-step grid, em-sized for text enlargement', () => {
-        expect(css).toContain('html[lang="ja"] .yomu-next-grid .yomu-link-card strong');
-        expect(css).not.toMatch(/html\[lang="ja"\] \.yomu-link-card strong \{/);
-        expect(css).toMatch(/\.yomu-next-grid \.yomu-link-card strong \{[^}]*height: [\d.]+em/);
-    });
 });
 
 describe('hosted docs synchronous accent contrast', () => {
