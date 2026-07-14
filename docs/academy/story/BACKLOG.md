@@ -1,0 +1,43 @@
+# Narrative stream backlog
+
+One ordered stream; no phase or stage grouping. An item is complete only when its acceptance evidence exists.
+
+- [x] Pin explicitly licensed Japanese script corpora with upstream revisions, licences, hashes, and exclusions.
+- [x] Record Pokemon and Persona transcripts as citation-only references rather than mirroring unlicensed game dialogue.
+- [x] Publish derived pacing, voice, callback, bond, rhythm, and language-progression findings without source dialogue.
+- [x] Establish the four-season, 48-chapter canon and finite graduation ending.
+- [x] Reconcile the actual cast registry with prose, lesson, and likeness eligibility.
+- [x] Define the ten-chapter bond, diegetic consent, private-source, withdrawal, and portrayal contracts.
+- [x] Specify typed script units, state ownership, evidence hooks, replay isolation, callbacks, and validation gates.
+- [x] Map Seasons 1–2 to the actual Lesson 0 and numbered Level 1/2 package reservoirs.
+- [x] Mark N3–N1 content as a real release dependency instead of inventing package IDs or claiming it is shipped.
+- [ ] Record an ADR for the 24-to-48 chapter migration, event projection compatibility, and moved postgame gate.
+- [ ] Rename the class-event catalog's band-valued `season` field to `curriculumBand` and add an explicit four-season story reference without changing event IDs.
+- [ ] Add `story-package.v2` TypeScript types and a parser in a focused narrative module.
+- [ ] Add a compiler or loader that keeps authored JSON independent from the DOM and presentation engine.
+- [ ] Add validators for graph reachability, checkpoints, cast caps, consent routes, callback lifecycle, language invariants, and source safety.
+- [ ] Add structured lesson/component/exercise references to chapters 1–24 and replace descriptive hook strings after parity tests pass.
+- [ ] Add a migration projection from completed episode 24 to `seasonTwoCompleted` while preserving old event history.
+- [ ] Move `calendar:lantern-atlas-review` behind chapter 48 and retain an explicit legacy review route during migration.
+- [ ] Review episode 24 prose and presentation so it closes the first exhibition without implying graduation or permanent plot completion.
+- [ ] Author and register grounded N3 package families for chapters 25–30 across listening, reading, speaking, writing, and transfer.
+- [ ] Author and register grounded N2 package families for chapters 31–39 across quotation, evidence, permission, correspondence, and refusal.
+- [ ] Author and register grounded N1 package families for chapters 40–48 across synthesis, ambiguity, mediation, public inquiry, and graduation composition.
+- [ ] Write chapter 25 and prove a complete need-input-lesson-repair-transfer-consequence-return loop.
+- [ ] Write chapters 26–36 with one lead, at most two supports, and explicit portrayal/consent snapshots.
+- [ ] Write chapters 37–48 and verify the seven ending facts without omniscient overclaim or unresolved central plot.
+- [ ] Produce ten bond outlines for each non-textbook story-eligible person, then audit lead rotation and emotional duplication.
+- [ ] Hold Shaun's lesson ownership and broader voice until registry evidence changes; keep current use story-bounded.
+- [ ] Keep Mary and Takeshi to sparse source-grounded legend cameos until original voice cards pass review.
+- [ ] Build the callback ledger and budget every seed, echo, transform, and payoff across all 48 chapters.
+- [ ] Author Foundation-to-N1 line variants against semantic beat IDs; review Japanese for naturalness at every layer.
+- [ ] Add NG+ support reduction and perspective variants without introducing new canonical facts or consent changes.
+- [ ] Author the first alumni storylet and prove it requires graduation without reopening the atlas plot.
+- [ ] Bind portrait use to registry eligibility plus exact asset revision/hash and provide name-only presentation fallbacks.
+- [ ] Add withdrawal-safe replay fallbacks that preserve generic learner evidence but remove retired dialogue and portrait bytes.
+- [ ] Run copyright similarity review against all research paths and reject any source line, close paraphrase, proprietary name, or distinctive plot import.
+- [ ] Run adversarial cast-consent review, Japanese editorial review, pedagogy review, and narrative continuity review.
+- [ ] Prove desktop, tablet, and phone resume at every activity boundary and season hinge with no overlapping UI or lost state.
+- [ ] Prove placement bridges for N4, N3, N2, and N1 preserve chronology without auto-completing scenes or bonds.
+- [ ] Prove replay and practice remixes can append learning evidence but cannot append canon, bonds, unlocks, or graduation.
+- [ ] Publish the runtime only after the code, content registry, learner-event migration, tests, docs, and deployed assets agree on chapter 48 as the finite ending.

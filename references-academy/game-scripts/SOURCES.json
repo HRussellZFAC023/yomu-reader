@@ -1,0 +1,44 @@
+{
+  "schema": "yomu-academy.game-script-research-sources.v1",
+  "accessed": "2026-07-14",
+  "productImportAllowed": false,
+  "downloaded": [
+    {
+      "id": "character-conversation",
+      "upstream": "https://github.com/matsuvr/characterconversationdataset",
+      "commit": "b7f185a89d9f39b06f2d11a0040ca6956e4dbd78",
+      "licence": "Apache-2.0",
+      "copyright": "matsu xr",
+      "archive": "characterconversationdataset-b7f185a.tar.gz",
+      "sha256": "1772f55f598105db0bf9758ff901d8afd3bbb9c42d28d5439bee494c52c7bd80"
+    },
+    {
+      "id": "ojousama-talk",
+      "upstream": "https://github.com/matsuvr/OjousamaTalkScriptDataset",
+      "commit": "589f3b52324cc12ad3fb0b2ebe1520bbffce4087",
+      "licence": "MIT",
+      "copyright": "matsu xr",
+      "archive": "ojousama-talk-589f3b5.tar.gz",
+      "sha256": "7015a09ad949b16fcb4a25c42b5ee273917192f559fee9a397e76fd4eca2dce1"
+    },
+    {
+      "id": "rosebleu",
+      "upstream": "https://gitlab.com/open_contents_datasets/Rosebleu",
+      "commit": "b8a169893c87611c7c1c76d78acd1cbe3273a146",
+      "licence": "Apache-2.0",
+      "copyright": "Rosebleu",
+      "archive": "rosebleu-b8a1698.tar.gz",
+      "sha256": "34d5633cd39af0a724fd6566022292561a50df7bb4f3990df753b6a6e59ea1a3",
+      "excludedBasenamePattern": "h_converted"
+    }
+  ],
+  "citationOnly": [
+    "https://gamefaqs.gamespot.com/gameboy/367023-pokemon-red-version/faqs/48982",
+    "https://github.com/pret/pokered",
+    "https://gamefaqs.gamespot.com/ps2/932312-shin-megami-tensei-persona-3/faqs/50317",
+    "https://gamefaqs.gamespot.com/vita/641695-persona-4-golden/faqs/65710",
+    "https://megamitensei.fandom.com/wiki/Confidant/Sojiro_Sakura",
+    "https://megamitensei.fandom.com/wiki/Confidant/Yusuke_Kitagawa",
+    "https://github.com/seannyD/VideoGameDialogueCorpusPublic"
+  ]
+}
