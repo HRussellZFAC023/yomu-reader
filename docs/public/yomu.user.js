@@ -6267,7 +6267,8 @@ function stabilizeReadingFreeControlMirror(mirror, host) {
   if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
 }
 function prefersStableClippedMirror() {
-  return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  const coarseOrNoHover = typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  return coarseOrNoHover || typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 }
 function stabilizeClippedTextMirror(mirror) {
   mirror.style.setProperty("visibility", "visible", "important");

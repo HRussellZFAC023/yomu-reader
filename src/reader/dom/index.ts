@@ -2280,8 +2280,12 @@ function stabilizeReadingFreeControlMirror(mirror: HTMLElement, host: HTMLElemen
 }
 
 function prefersStableClippedMirror(): boolean {
-    return typeof window.matchMedia === 'function'
+    const coarseOrNoHover = typeof window.matchMedia === 'function'
         && window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    // Some embedded browsers and Playwright/WebKit builds expose touch input
+    // without updating the primary-pointer media queries. Touch taps can still
+    // synthesize sticky :hover there, so capability is the reliable fallback.
+    return coarseOrNoHover || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
 }
 
 function stabilizeClippedTextMirror(mirror: HTMLElement): void {
