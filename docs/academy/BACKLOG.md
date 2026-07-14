@@ -72,6 +72,7 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [ ] Connect a real grounded attempt through `LearnerEvidence.recordActivity` into the canonical Study queue, then prove attempt → repair → review → scene return in the real app.
 - [x] Keep placement answer controls outside automatic lookup/annotation until commitment; native radio selection and the Reader-ignore contract now pass focused tests and fresh 390×844 Browser proof.
 - [x] Ensure canonical Study contains no pre-reveal answer-bearing text or attributes while preserving reveal, grading, statistics, and Academy provenance. Opaque `study-card-N` / indexed Doodle identities preserve in-memory actions and stale guards; the full card key appears only after reveal.
+- [x] Rebase the checkpoint on Yomu 1.6.149, regenerate canonical Study/Academy assets, clear dead-code and line-scoped changed-code maintainability gates, and repair the extension build's stale hosted redirect input.
 - [ ] Extend the same concealment invariant to standalone Study URL hashes without breaking intentional shared-card deep links; Academy's embedded route is already clean.
 - [ ] Make Story and Course presentation choices visibly change the current experience without creating a second curriculum or progress model.
 - [ ] Remove duplicated Reader/Academy navigation and settings from the embedded Study host; retain only the contextual controls needed during a study session.
