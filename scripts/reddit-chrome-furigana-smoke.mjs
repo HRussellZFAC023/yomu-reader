@@ -499,6 +499,7 @@ async function snapshotTouchHoverSafety(page) {
     const after = await host.evaluate(touchHoverState);
     return {
         mirrorWords: await mirror.locator('.jpdb-reader-word').count(),
+        mirrorPitchWords: await mirror.locator('.jpdb-reader-word[data-pitch-class]').count(),
         mirrorRuby: await mirror.locator('rt,.jpdb-reader-detached-furi').count(),
         before,
         hovered,
@@ -510,6 +511,9 @@ function touchHoverState(element) {
     const mirror = element.querySelector('.jpdb-reader-text-mirror');
     const style = getComputedStyle(element);
     const readings = mirror ? [...mirror.querySelectorAll('rt,.jpdb-reader-detached-furi')] : [];
+    const paintIsVisible = value => value !== 'transparent'
+        && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
+        && !/\/\s*0(?:\.0+)?%?\s*\)$/.test(value);
     const bases = mirror ? [...mirror.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect()) : [];
     const readingBaseOverlap = readings.reduce((count, reading) => {
         const r = reading.getBoundingClientRect();
@@ -521,11 +525,13 @@ function touchHoverState(element) {
         mirrorVisibility: mirror ? getComputedStyle(mirror).visibility : '',
         visibleRuby: readings.filter(reading => getComputedStyle(reading).display !== 'none' && getComputedStyle(reading).visibility !== 'hidden').length,
         detachedReadings: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+        safetyHiddenReadings: readings.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
         readingBaseOverlap,
         wordWhiteSpace: mirror?.querySelector('.jpdb-reader-word') ? getComputedStyle(mirror.querySelector('.jpdb-reader-word')).whiteSpace : '',
         mirrorClientWidth: mirror?.clientWidth ?? 0,
         mirrorScrollWidth: mirror?.scrollWidth ?? 0,
         hostVisibility: style.visibility,
+        hostPaintVisible: paintIsVisible(style.color) || paintIsVisible(style.webkitTextFillColor),
         color: style.color,
         fill: style.webkitTextFillColor,
     };
@@ -588,16 +594,23 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         `${engineName}: mirrored Join label moved away from its native vertical alignment`, { baseline, join: snapshot.labels.join });
     assert(Math.abs(snapshot.labels.sort.wordCenterOffset - baseline.sortTextCenterOffset) <= 2,
         `${engineName}: mirrored sort label moved away from its native vertical alignment`, { baseline, sort: snapshot.labels.sort });
-    assert(touchHover.mirrorWords > 0 && touchHover.mirrorRuby > 0,
+    assert(touchHover.mirrorWords > 0 && touchHover.mirrorPitchWords > 0 && touchHover.mirrorRuby > 0,
         `${engineName}: touch fixture did not retain its annotated mirror`, touchHover);
     assert(touchHover.before.mirrorVisibility === 'visible' && touchHover.hovered.mirrorVisibility === 'visible',
         `${engineName}: coarse-pointer annotations still depend on a sticky hover transition`, touchHover);
-    assert(touchHover.before.detachedReadings > 0 && touchHover.before.visibleRuby > 0
-        && touchHover.hovered.visibleRuby > 0,
-    `${engineName}: coarse-pointer mirror hid its detached readings`, touchHover);
+    assert(touchHover.before.detachedReadings > 0
+        && touchHover.before.visibleRuby + touchHover.before.safetyHiddenReadings === touchHover.before.detachedReadings
+        && touchHover.hovered.visibleRuby + touchHover.hovered.safetyHiddenReadings === touchHover.hovered.detachedReadings
+        && touchHover.after.visibleRuby + touchHover.after.safetyHiddenReadings === touchHover.after.detachedReadings,
+    `${engineName}: coarse-pointer mirror lost detached readings without a safety verdict`, touchHover);
+    assert(touchHover.hovered.visibleRuby === touchHover.before.visibleRuby
+        && touchHover.after.visibleRuby === touchHover.before.visibleRuby,
+    `${engineName}: coarse-pointer detached readings changed across sticky hover`, touchHover);
     assert(touchHover.before.readingBaseOverlap === 0 && touchHover.hovered.readingBaseOverlap === 0,
         `${engineName}: coarse-pointer furigana overlaps base text`, touchHover);
-    assert(touchHover.before.hostVisibility !== 'hidden' && touchHover.hovered.hostVisibility !== 'hidden',
+    assert(touchHover.before.hostVisibility !== 'hidden' && touchHover.hovered.hostVisibility !== 'hidden'
+        && touchHover.after.hostVisibility !== 'hidden'
+        && touchHover.before.hostPaintVisible && touchHover.hovered.hostPaintVisible && touchHover.after.hostPaintVisible,
         `${engineName}: additive mirror hid the native fallback text`, touchHover);
     assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
         && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
