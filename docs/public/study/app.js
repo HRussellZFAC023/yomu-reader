@@ -85978,10 +85978,13 @@ ${entry.url}`),
       if (!current || cardKey(current) !== cardKey(card)) return false;
       const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
       if (!this.studyStepRendersKanji(session)) return false;
-      if (kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
+      if (this.isStaleKanjiStepEnrichment(session, kanji)) return false;
       const study = slots.prompt?.closest("[data-newtab-study]") ?? slots.answer?.closest("[data-newtab-study]");
       if (!study) return true;
       return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
+    }
+    isStaleKanjiStepEnrichment(session, kanji) {
+      return Boolean(kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji);
     }
     applyEnrichedKanjiKeyword(slots, card, kanji, details) {
       const keyword = this.keywordFromDetails(card, details.jpdb, details.jiten, details.rtk);
@@ -88026,69 +88029,77 @@ ${entry.url}`),
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-        const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
-        if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
-          const choice = await this.confirmOfflineReviewing(target.root);
-          if (choice === "stop") return false;
-          if (choice === "retry") return this.gradeCurrentCardUnlocked(grade, selectedTarget);
-        }
-        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
-          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-          this.setStatus(target.root, this.text("offlineGradeReconnect"));
-          if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card, grade);
-          return true;
-        } else {
-          this.setStatus(target.root, this.text("couldNotSubmitGrade"));
-        }
-        return false;
+        return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection);
       }
       try {
-        this.setStatus(target.root, this.text("grading"));
-        const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
-        this.offlineReviewingAccepted = false;
-        this.invalidateReviewSourceCache(target.card);
-        this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-        this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
-          card: target.card,
-          at: Date.now(),
-          serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
-          counted: !isCorrection
-        };
-        await this.advanceAfterGrade(target.root, target.card, grade);
-        return true;
+        return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection);
       } catch (error) {
-        log$2.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
-        if (target.card.source === "bunpro" || target.card.reviewSource === "bunpro-api") {
-          await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
-          return true;
-        }
-        const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
-        if (this.networkGradeTargets(queueTargets) && window.navigator.onLine === false && !this.partialGradeSubmission(target.card, selectedTarget, error)) {
-          const choice = await this.confirmOfflineReviewing(target.root);
-          if (choice === "stop") return false;
-          if (choice === "retry") {
-            const current = this.currentGradeTarget();
-            if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
-            return this.gradeCurrentCardUnlocked(grade, selectedTarget);
-          }
-        }
-        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
-          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-          this.setStatus(target.root, this.text("offlineGradeReconnect"));
-          if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card, grade);
-          return true;
-        }
-        this.setStatus(target.root, this.text("couldNotSubmitGrade"));
+        return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error);
       }
-      return false;
+    }
+    async gradeOfflineCard(target, grade, selectedTarget, isCorrection) {
+      const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+      if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
+        const choice = await this.confirmOfflineReviewing(target.root);
+        if (choice === "stop") return false;
+        if (choice === "retry") return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+      }
+      return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+    }
+    async submitCurrentGrade(target, grade, selectedTarget, isCorrection) {
+      this.setStatus(target.root, this.text("grading"));
+      const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+      this.offlineReviewingAccepted = false;
+      this.invalidateReviewSourceCache(target.card);
+      this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
+      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+      this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
+        card: target.card,
+        at: Date.now(),
+        serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
+        counted: !isCorrection
+      };
+      await this.advanceAfterGrade(target.root, target.card, grade);
+      return true;
+    }
+    async handleFailedGrade(target, grade, selectedTarget, isCorrection, error) {
+      log$2.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
+      if (target.card.source === "bunpro" || target.card.reviewSource === "bunpro-api") {
+        await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+        return true;
+      }
+      const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+      const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error);
+      if (promptResult !== null) return promptResult;
+      return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+    }
+    async resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error) {
+      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) return null;
+      const choice = await this.confirmOfflineReviewing(target.root);
+      if (choice === "stop") return false;
+      if (choice !== "retry") return null;
+      const current = this.currentGradeTarget();
+      if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
+      return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+    }
+    async queueGradeForLater(target, grade, queueTargets, isCorrection) {
+      if (!queueTargets.length || !await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
+        this.setStatus(target.root, this.text("couldNotSubmitGrade"));
+        return false;
+      }
+      this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
+      this.setStatus(target.root, this.text("offlineGradeReconnect"));
+      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+      this.advanceAfterGrade(target.root, target.card, grade);
+      return true;
     }
     // Local grading (Academy SRS) needs no connection, so it never raises the
     // connection-lost dialog; only queued grades bound for a network provider do.
     networkGradeTargets(targets) {
       return targets.some((target) => target !== "yomu-local");
+    }
+    shouldConfirmOfflineReviewAfterFailure(targets, card, selectedTarget, error) {
+      return this.networkGradeTargets(targets) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.

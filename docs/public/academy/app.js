@@ -1990,62 +1990,89 @@
     }
   }
   function assertProofSet(proofs, registry, label, context) {
+    assertCurriculumProof(proofs, registry);
+    assertInstructionProof(proofs, registry);
+    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
+    assertAnswerConcealmentProof(proofs, registry, label, context, registeredAnswers);
+    assertRepairProof(proofs, registry);
+    assertLearnerEvidenceProof(proofs, registry, label);
+  }
+  function assertCurriculumProof(proofs, registry) {
     if (proofs.curriculum.state === "ready") {
       for (const conceptId of proofs.curriculum.evidence.conceptIds) registry.resolveId(conceptId, "concept");
       for (const outcomeId of proofs.curriculum.evidence.outcomeIds) registry.resolveId(outcomeId, "outcome");
-      const prerequisites = proofs.curriculum.evidence.prerequisites;
-      if (prerequisites.kind === "resolved") {
-        for (const conceptId of prerequisites.conceptIds) registry.resolveId(conceptId, "concept");
-        registry.resolve(prerequisites.resolution, "prerequisite-resolution");
-      }
+      assertPrerequisiteProof(proofs.curriculum.evidence.prerequisites, registry);
     }
+  }
+  function assertPrerequisiteProof(prerequisites, registry) {
+    if (prerequisites.kind !== "resolved") return;
+    for (const conceptId of prerequisites.conceptIds) registry.resolveId(conceptId, "concept");
+    registry.resolve(prerequisites.resolution, "prerequisite-resolution");
+  }
+  function assertInstructionProof(proofs, registry) {
     if (proofs.instruction.state === "ready") {
       for (const coverage of proofs.instruction.evidence.conceptCoverage) {
         coverage.explanationRefs.forEach((ref) => registry.resolve(ref, "explanation"));
         coverage.workedExampleRefs.forEach((ref) => registry.resolve(ref, "worked-example"));
       }
     }
-    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
-    if (proofs.answerConcealment.state === "ready") {
-      const claim = proofs.answerConcealment.evidence;
-      const audit = registry.resolve(claim.surfaceAudit, "surface-audit");
-      const renderer = registry.resolve(claim.auditBinding.renderer, "surface-renderer");
-      const answerBearingContent = registry.resolve(claim.answerBearingContent, "answer-bearing-content");
-      if (claim.auditBinding.contentRevision !== context.contentRevision) {
-        throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
-      }
-      if (claim.answerBearingContent.revision !== context.contentRevision) {
-        throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
-      }
-      if (!registeredAnswers) {
-        throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
-      }
-      const rendererValue = renderer.value;
-      if (!rendererValue || typeof rendererValue !== "object" || rendererValue.surfaceId !== claim.auditBinding.surfaceId) {
-        throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
-      }
-      const forbiddenValues = answerBearingValues(answerBearingContent.value);
-      assertGroundedAnswerConcealmentAudit(audit.value, {
-        lessonId: context.lessonId,
-        subjectId: context.subjectId,
-        binding: claim.auditBinding,
-        forbiddenValues
-      }, registeredAnswers);
+  }
+  function assertAnswerConcealmentProof(proofs, registry, label, context, registeredAnswers) {
+    if (proofs.answerConcealment.state !== "ready") return;
+    const claim = proofs.answerConcealment.evidence;
+    const audit = registry.resolve(claim.surfaceAudit, "surface-audit");
+    const renderer = registry.resolve(claim.auditBinding.renderer, "surface-renderer");
+    const answerBearingContent = registry.resolve(claim.answerBearingContent, "answer-bearing-content");
+    assertAnswerConcealmentRevisions(label, claim, context.contentRevision);
+    const answers = requireRegisteredAnswers(label, registeredAnswers);
+    assertRendererOwnsSurface(label, renderer.value, claim.auditBinding.surfaceId);
+    assertGroundedAnswerConcealmentAudit(audit.value, {
+      lessonId: context.lessonId,
+      subjectId: context.subjectId,
+      binding: claim.auditBinding,
+      forbiddenValues: answerBearingValues(answerBearingContent.value)
+    }, answers);
+  }
+  function assertAnswerConcealmentRevisions(label, claim, contentRevision) {
+    if (claim.auditBinding.contentRevision !== contentRevision) {
+      throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
     }
+    if (claim.answerBearingContent.revision !== contentRevision) {
+      throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
+    }
+  }
+  function requireRegisteredAnswers(label, registeredAnswers) {
+    if (!registeredAnswers) {
+      throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
+    }
+    return registeredAnswers;
+  }
+  function assertRendererOwnsSurface(label, value, surfaceId) {
+    const renderer = value;
+    if (!renderer || typeof renderer !== "object" || renderer.surfaceId !== surfaceId) {
+      throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
+    }
+  }
+  function assertRepairProof(proofs, registry) {
     if (proofs.repair.state === "ready") {
       proofs.repair.evidence.errorTagIds.forEach((id2) => registry.resolveId(id2, "error-tag"));
       proofs.repair.evidence.feedbackIds.forEach((id2) => registry.resolveId(id2, "feedback"));
       proofs.repair.evidence.nearbyExampleIds.forEach((id2) => registry.resolveId(id2, "nearby-example"));
     }
+  }
+  function assertLearnerEvidenceProof(proofs, registry, label) {
     if (proofs.learnerEvidence.state === "ready") {
       for (const item of proofs.learnerEvidence.evidence.reviewItems) {
         const seed = registry.resolveId(item.seedId, "review-seed");
         const value = seed.value;
-        if (value.conceptId !== item.conceptId || value.expressionKey !== item.expressionKey || value.readingKey !== item.readingKey) {
+        if (!reviewSeedMatches(value, item)) {
           throw new TypeError(`${label} review seed ${item.seedId} does not match its canonical Yomu key.`);
         }
       }
     }
+  }
+  function reviewSeedMatches(value, item) {
+    return value.conceptId === item.conceptId && value.expressionKey === item.expressionKey && value.readingKey === item.readingKey;
   }
   function resolveAssessmentDefinitions(proofs, registry) {
     if (proofs.assessment.state !== "ready") return void 0;
@@ -2104,16 +2131,31 @@
   }
   function validateRecord(definition) {
     if (!definition || typeof definition !== "object") throw new TypeError("Grounded definition must be an object.");
+    validateDefinitionId(definition);
+    validateDefinitionRegistry(definition);
+    validateDefinitionRevision(definition);
+    validateDefinitionDigest(definition);
+    validateDefinitionSource(definition);
+  }
+  function validateDefinitionId(definition) {
     if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(definition.ref.id)) {
       throw new TypeError("Grounded definition needs a stable namespaced id.");
     }
+  }
+  function validateDefinitionRegistry(definition) {
     if (definition.ref.registry !== "academy-content" && definition.ref.registry !== "activity-plugin") {
       throw new TypeError(`Grounded definition ${definition.ref.id} has an invalid registry.`);
     }
+  }
+  function validateDefinitionRevision(definition) {
     if (!definition.ref.revision.trim()) throw new TypeError(`Grounded definition ${definition.ref.id} needs a revision.`);
+  }
+  function validateDefinitionDigest(definition) {
     if (!/^[a-f0-9]{64}$/u.test(definition.ref.sha256)) {
       throw new TypeError(`Grounded definition ${definition.ref.id} needs a SHA-256.`);
     }
+  }
+  function validateDefinitionSource(definition) {
     if (!definition.source.contentId.trim() || !definition.source.locator.trim()) {
       throw new TypeError(`Grounded definition ${definition.ref.id} needs a source locator.`);
     }
@@ -3721,11 +3763,18 @@
   }
   function validateOverview(lesson, activities, questionIds) {
     const overview = record$1(lesson.overview, "lesson.overview");
+    validateOverviewCopy(overview);
+    validateOverviewPeopleAndLocations(overview);
+    validateOverviewMaterials(overview, activities, questionIds);
+  }
+  function validateOverviewCopy(overview) {
     localized$1(overview.title, "lesson.overview.title");
     localized$1(overview.summary, "lesson.overview.summary");
     const goals = array$1(overview.goals, "lesson.overview.goals");
     if (goals.length < 3) fail$1("Lesson 0 overview needs concrete learning goals.");
     goals.forEach((goal, index) => localized$1(goal, `lesson.overview.goals.${index}`));
+  }
+  function validateOverviewPeopleAndLocations(overview) {
     nonEmpty(overview.peopleIds, "lesson.overview.peopleIds");
     for (const personId of overview.peopleIds) {
       if (!isAcademyCastMemberId(personId)) fail$1(`Lesson 0 overview invents cast id ${personId}.`);
@@ -3733,37 +3782,50 @@
     if (new Set(overview.peopleIds).size !== overview.peopleIds.length) fail$1("Lesson 0 overview repeats a person.");
     nonEmpty(overview.locationIds, "lesson.overview.locationIds");
     if (new Set(overview.locationIds).size !== overview.locationIds.length) fail$1("Lesson 0 overview repeats a location.");
+  }
+  function validateOverviewMaterials(overview, activities, questionIds) {
     const materials = array$1(overview.materials, "lesson.overview.materials");
     const materialIds = /* @__PURE__ */ new Set();
     for (const material of materials) {
-      text$3(material.id, "lesson.overview.material.id");
-      if (materialIds.has(material.id)) fail$1(`Lesson 0 overview repeats material ${material.id}.`);
-      materialIds.add(material.id);
-      localized$1(material.title, `lesson.overview material ${material.id}`);
-      if (!["source-handout", "writing-surface", "kana-surface", "dialogue-audio"].includes(material.kind)) {
-        fail$1(`Lesson 0 overview material ${material.id} has an invalid kind.`);
-      }
-      if (!["ready", "release-blocked"].includes(material.state)) {
-        fail$1(`Lesson 0 overview material ${material.id} has an invalid state.`);
-      }
-      nonEmpty(material.activityIds, `lesson.overview material ${material.id} activityIds`);
-      for (const activityId of material.activityIds) {
-        if (!activities.has(activityId)) {
-          fail$1(`Lesson 0 overview material ${material.id} references unknown activity ${activityId}.`);
-        }
-      }
-      for (const questionId of material.sourceQuestionIds ?? []) {
-        if (!questionIds.has(questionId)) {
-          fail$1(`Lesson 0 overview material ${material.id} references unknown source question ${questionId}.`);
-        }
-      }
-      if (material.state === "release-blocked" && !material.blockerId) {
-        fail$1(`Blocked material ${material.id} needs a blocker.`);
-      }
-      if (material.state === "ready" && material.blockerId) {
-        fail$1(`Ready material ${material.id} cannot retain a blocker.`);
+      validateOverviewMaterial(material, materialIds, activities, questionIds);
+    }
+  }
+  function validateOverviewMaterial(material, materialIds, activities, questionIds) {
+    validateOverviewMaterialIdentity(material, materialIds);
+    validateOverviewMaterialReferences(material, activities, questionIds);
+    validateOverviewMaterialBlocker(material);
+  }
+  function validateOverviewMaterialIdentity(material, materialIds) {
+    text$3(material.id, "lesson.overview.material.id");
+    if (materialIds.has(material.id)) fail$1(`Lesson 0 overview repeats material ${material.id}.`);
+    materialIds.add(material.id);
+    localized$1(material.title, `lesson.overview material ${material.id}`);
+    if (!["source-handout", "writing-surface", "kana-surface", "dialogue-audio"].includes(material.kind)) {
+      fail$1(`Lesson 0 overview material ${material.id} has an invalid kind.`);
+    }
+    if (!["ready", "release-blocked"].includes(material.state)) {
+      fail$1(`Lesson 0 overview material ${material.id} has an invalid state.`);
+    }
+  }
+  function validateOverviewMaterialReferences(material, activities, questionIds) {
+    nonEmpty(material.activityIds, `lesson.overview material ${material.id} activityIds`);
+    for (const activityId of material.activityIds) {
+      if (!activities.has(activityId)) {
+        fail$1(`Lesson 0 overview material ${material.id} references unknown activity ${activityId}.`);
       }
     }
+    for (const questionId of material.sourceQuestionIds ?? []) {
+      if (!questionIds.has(questionId)) {
+        fail$1(`Lesson 0 overview material ${material.id} references unknown source question ${questionId}.`);
+      }
+    }
+  }
+  function validateOverviewMaterialBlocker(material) {
+    if (material.state === "release-blocked") {
+      if (!material.blockerId) fail$1(`Blocked material ${material.id} needs a blocker.`);
+      return;
+    }
+    if (material.blockerId) fail$1(`Ready material ${material.id} cannot retain a blocker.`);
   }
   function validateLessonIdentity(lesson) {
     if (lesson.id !== "lesson:foundation-00") fail$1("Lesson 0 has the wrong lesson id.");
@@ -3794,18 +3856,26 @@
     const allowedModes = new Set(LESSON_ZERO_RESPONSE_MODES);
     const usedModes = /* @__PURE__ */ new Set();
     for (const activity of activities) {
-      if (!sections.has(activity.sectionId)) fail$1(`Activity ${activity.id} references an unknown section.`);
-      if (!allowedModes.has(activity.responseMode)) fail$1(`Activity ${activity.id} has an unsupported response mode.`);
+      validateActivity(activity, sections, questionIds, allowedModes);
       usedModes.add(activity.responseMode);
-      nonEmpty(activity.conceptIds, `activity ${activity.id} conceptIds`);
-      for (const sourceQuestionId of activity.sourceQuestionIds) {
-        if (!questionIds.has(sourceQuestionId)) fail$1(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
-      }
-      if (activity.assessed && !hasAssessedSupport(activity.support)) {
-        fail$1(`Activity ${activity.id} exposes assessed support before commitment.`);
-      }
     }
     exactSet(usedModes, LESSON_ZERO_RESPONSE_MODES, "lesson activity response modes");
+    validateSectionActivityReferences(sections, activityById);
+    validateProductionCoverage(activities);
+    return activityById;
+  }
+  function validateActivity(activity, sections, questionIds, allowedModes) {
+    if (!sections.has(activity.sectionId)) fail$1(`Activity ${activity.id} references an unknown section.`);
+    if (!allowedModes.has(activity.responseMode)) fail$1(`Activity ${activity.id} has an unsupported response mode.`);
+    nonEmpty(activity.conceptIds, `activity ${activity.id} conceptIds`);
+    for (const sourceQuestionId of activity.sourceQuestionIds) {
+      if (!questionIds.has(sourceQuestionId)) fail$1(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
+    }
+    if (activity.assessed && !hasAssessedSupport(activity.support)) {
+      fail$1(`Activity ${activity.id} exposes assessed support before commitment.`);
+    }
+  }
+  function validateSectionActivityReferences(sections, activityById) {
     for (const section of sections.values()) {
       for (const activityId of section.activityIds) {
         const activity = activityById.get(activityId);
@@ -3813,8 +3883,6 @@
         if (activity.sectionId !== section.id) fail$1(`Activity ${activityId} is assigned to two sections.`);
       }
     }
-    validateProductionCoverage(activities);
-    return activityById;
   }
   function validateScripts(lesson) {
     const scripts = array$1(lesson.inputScripts, "lesson.inputScripts");
@@ -3865,27 +3933,30 @@
     const learnerTurns = script.learnerTurns ?? [];
     const learnerTurnIds = /* @__PURE__ */ new Set();
     for (const turn of learnerTurns) {
-      text$3(turn.id, `script ${script.id} learner turn id`);
-      if (learnerTurnIds.has(turn.id)) fail$1(`Script ${script.id} repeats learner turn id ${turn.id}.`);
-      learnerTurnIds.add(turn.id);
-      if (!lineIds.has(turn.afterLineId)) {
-        fail$1(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
-      }
-      if (turn.capture?.kind !== "microphone-recording" || turn.capture.evidenceKind !== "spoken-turn") {
-        fail$1(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
-      }
-      if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
-        fail$1(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
-      }
-      if (!hasAssessedSupport(turn.support)) {
-        fail$1(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
-      }
+      validateScriptLearnerTurn(script, turn, learnerTurnIds, lineIds);
     }
     if (script.kind === "sound-sequence" && learnerTurns.length) {
       fail$1(`Sound sequence ${script.id} cannot contain a learner speaking turn.`);
     }
     if (learnerTurns.length && !activities.some((activity) => activity.inputScriptId === script.id && activity.expectedEvidence.kind === "spoken-turn")) {
       fail$1(`Script ${script.id} has a learner turn without a spoken-turn activity.`);
+    }
+  }
+  function validateScriptLearnerTurn(script, turn, learnerTurnIds, lineIds) {
+    text$3(turn.id, `script ${script.id} learner turn id`);
+    if (learnerTurnIds.has(turn.id)) fail$1(`Script ${script.id} repeats learner turn id ${turn.id}.`);
+    learnerTurnIds.add(turn.id);
+    if (!lineIds.has(turn.afterLineId)) {
+      fail$1(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
+    }
+    if (turn.capture?.kind !== "microphone-recording" || turn.capture.evidenceKind !== "spoken-turn") {
+      fail$1(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
+    }
+    if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
+      fail$1(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
+    }
+    if (!hasAssessedSupport(turn.support)) {
+      fail$1(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
     }
   }
   function validateScriptActivityReferences(activities, scriptById) {
@@ -3902,20 +3973,35 @@
     }
   }
   function validateSpeechActivityContracts(lesson, scriptById) {
-    const vowelActivity = lesson.activities.find((activity) => activity.id === "activity:lesson-zero-vowel-listen");
-    const vowelScript = vowelActivity?.inputScriptId ? scriptById.get(vowelActivity.inputScriptId) : void 0;
+    validateVowelActivityContract(lesson, scriptById);
+    validateSpeakingActivityContract(lesson, scriptById);
+  }
+  function validateVowelActivityContract(lesson, scriptById) {
+    const vowelScript = activityInputScript(lesson, "activity:lesson-zero-vowel-listen", scriptById);
     if (!vowelScript || vowelScript.kind !== "sound-sequence") {
       fail$1("Lesson 0 vowel listening must use its own sound-sequence script.");
     }
     const vowelTranscript = vowelScript.lines.map((line) => line.japanese).join("").replace(/[\s・、。]/gu, "");
     if (vowelTranscript !== "あいうえお") fail$1("Lesson 0 vowel script must contain the exact ordered vowel row.");
-    const speakingActivity = lesson.activities.find((activity) => activity.id === "activity:lesson-zero-speaking-input");
-    const speakingScript = speakingActivity?.inputScriptId ? scriptById.get(speakingActivity.inputScriptId) : void 0;
-    const learnerTurn = speakingScript?.learnerTurns?.find((turn) => turn.capture.evidenceKind === "spoken-turn");
-    const cueLine = learnerTurn && speakingScript?.lines.find((line) => line.id === learnerTurn.afterLineId);
-    if (!learnerTurn || !cueLine || cueLine.speakerId !== "aakash") {
+  }
+  function validateSpeakingActivityContract(lesson, scriptById) {
+    const speakingScript = requiredSpeakingScript(
+      activityInputScript(lesson, "activity:lesson-zero-speaking-input", scriptById)
+    );
+    const learnerTurn = speakingScript.learnerTurns?.find((turn) => turn.capture.evidenceKind === "spoken-turn");
+    if (!learnerTurn) fail$1("Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.");
+    const cueLine = speakingScript.lines.find((line) => line.id === learnerTurn.afterLineId);
+    if (!cueLine || cueLine.speakerId !== "aakash") {
       fail$1("Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.");
     }
+  }
+  function requiredSpeakingScript(script) {
+    if (!script) fail$1("Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.");
+    return script;
+  }
+  function activityInputScript(lesson, activityId, scriptById) {
+    const activity = lesson.activities.find((candidate) => candidate.id === activityId);
+    return activity?.inputScriptId ? scriptById.get(activity.inputScriptId) : void 0;
   }
   function validateLessonZeroCastUsage(missions, scripts) {
     const requirements = {
@@ -3969,18 +4055,26 @@
     const assetById = uniqueIndex(array$1(assets, "lesson.audioAssets"), "audio asset");
     const blockerById = uniqueIndex(array$1(blockers, "lesson.releaseBlockers"), "release blocker");
     for (const asset of assetById.values()) {
-      if (asset.browserTtsAllowed !== false || asset.learnerVisiblePlaceholder !== false) fail$1(`Audio ${asset.id} permits a fake or learner-visible fallback.`);
-      if (asset.state === "ready") {
-        if (!asset.runtimeUrl || asset.verifiedPairing !== true) fail$1(`Ready audio ${asset.id} lacks a verified pairing.`);
-      } else {
-        if (asset.runtimeUrl) fail$1(`Blocked audio ${asset.id} must not expose an unverified runtime file.`);
-        if (!asset.blockerId || !blockerById.has(asset.blockerId)) fail$1(`Blocked audio ${asset.id} lacks an internal blocker.`);
-      }
+      validateAudioAsset(asset, blockerById);
     }
     for (const script of scripts) if (!assetById.has(script.audioAssetId)) fail$1(`Script ${script.id} references unknown audio ${script.audioAssetId}.`);
     for (const blocker of blockerById.values()) {
-      if (blocker.kind !== "audio" || blocker.learnerVisible !== false) fail$1(`Release blocker ${blocker.id} is not internal audio state.`);
-      for (const assetId of blocker.assetIds) if (!assetById.has(assetId)) fail$1(`Release blocker ${blocker.id} references unknown audio ${assetId}.`);
+      validateAudioBlocker(blocker, assetById);
+    }
+  }
+  function validateAudioAsset(asset, blockerById) {
+    if (asset.browserTtsAllowed !== false || asset.learnerVisiblePlaceholder !== false) fail$1(`Audio ${asset.id} permits a fake or learner-visible fallback.`);
+    if (asset.state === "ready") {
+      if (!asset.runtimeUrl || asset.verifiedPairing !== true) fail$1(`Ready audio ${asset.id} lacks a verified pairing.`);
+      return;
+    }
+    if (asset.runtimeUrl) fail$1(`Blocked audio ${asset.id} must not expose an unverified runtime file.`);
+    if (!asset.blockerId || !blockerById.has(asset.blockerId)) fail$1(`Blocked audio ${asset.id} lacks an internal blocker.`);
+  }
+  function validateAudioBlocker(blocker, assetById) {
+    if (blocker.kind !== "audio" || blocker.learnerVisible !== false) fail$1(`Release blocker ${blocker.id} is not internal audio state.`);
+    for (const assetId of blocker.assetIds) {
+      if (!assetById.has(assetId)) fail$1(`Release blocker ${blocker.id} references unknown audio ${assetId}.`);
     }
   }
   function validateMissions(missions, activities) {
@@ -4330,119 +4424,130 @@
     const { at: _rightAt, ...rightPayload } = right;
     return JSON.stringify(leftPayload) === JSON.stringify(rightPayload);
   }
-  function projectLearnerRecord(events) {
-    const activities = {};
-    const reviewRatings = {};
-    const grammarKnowledge = {};
-    const completedScenes = /* @__PURE__ */ new Set();
-    const bonds = {};
-    const unlockedAssets = /* @__PURE__ */ new Set();
-    let profile = null;
-    let latestPlacement = null;
-    let curriculumEntry = null;
-    const scheduledReviews = {};
-    const vocabularyCollection = {};
-    const closedDays = {};
-    const seenAchievementCeremonies = /* @__PURE__ */ new Set();
-    const relationshipJournal = {};
-    const supportUses = [];
-    const neutralizedReviewScheduleIds = reviewScheduleNeutralizations(events);
-    let lastEventAt = null;
-    for (const event of events.map(validateEvent)) {
-      lastEventAt = lastEventAt === null ? event.at : Math.max(lastEventAt, event.at);
-      switch (event.kind) {
-        case "attempt-recorded": {
-          const previous = activities[event.activityId];
-          activities[event.activityId] = {
-            activityId: event.activityId,
-            attemptCount: (previous?.attemptCount ?? 0) + 1,
-            lapseCount: (previous?.lapseCount ?? 0) + (event.outcome === "lapse" ? 1 : 0),
-            lastOutcome: event.outcome,
-            lastAttemptAt: event.at,
-            ...event.sourceQuestionId ? { sourceQuestionId: event.sourceQuestionId } : {},
-            conceptIds: unique$1(event.conceptIds)
-          };
-          break;
-        }
-        case "review-rated":
-          reviewRatings[event.reviewItemId] = event.rating;
-          break;
-        case "grammar-known-changed":
-          grammarKnowledge[event.conceptId] = event.knowledge;
-          break;
-        case "scene-completed":
-          completedScenes.add(event.sceneId);
-          break;
-        case "bond-changed":
-          bonds[event.characterId] = Math.max(0, (bonds[event.characterId] ?? 0) + event.delta);
-          break;
-        case "asset-unlocked":
-          unlockedAssets.add(event.assetId);
-          break;
-        case "profile-changed":
-          profile = clone(event.profile);
-          break;
-        case "placement-assessed":
-          latestPlacement = clone(event);
-          break;
-        case "curriculum-entry-chosen":
-          curriculumEntry = clone(event);
-          break;
-        case "review-scheduled":
-          if (!neutralizedReviewScheduleIds.has(event.eventId)) {
-            scheduledReviews[event.reviewItemId] = clone(event);
-          }
-          break;
-        case "review-schedule-neutralized":
-          break;
-        case "learning-evidence-recorded":
-          break;
-        case "vocabulary-collected":
-          vocabularyCollection[event.collectionItemId] ??= clone(event);
-          break;
-        case "vocabulary-collection-undone": {
-          const collected = vocabularyCollection[event.collectionItemId];
-          if (collected?.eventId === event.collectedEventId) delete vocabularyCollection[event.collectionItemId];
-          break;
-        }
-        case "academy-day-closed":
-          closedDays[event.dayId] = clone(event);
-          break;
-        case "achievement-ceremony-seen":
-          seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
-          break;
-        case "relationship-chapter-unlocked": {
-          const journal = relationshipJournal[event.characterId] ??= { chapters: /* @__PURE__ */ new Set(), majorTurns: /* @__PURE__ */ new Set() };
-          journal.chapters.add(event.chapter);
-          if (event.majorTurn) journal.majorTurns.add(event.majorTurn);
-          break;
-        }
-        case "support-used":
-          supportUses.push(clone(event));
-          break;
+  const LEARNER_PROJECTION_REDUCERS = {
+    "attempt-recorded": projectAttempt,
+    "review-rated": (state, event) => {
+      state.reviewRatings[event.reviewItemId] = event.rating;
+    },
+    "grammar-known-changed": (state, event) => {
+      state.grammarKnowledge[event.conceptId] = event.knowledge;
+    },
+    "scene-completed": (state, event) => {
+      state.completedScenes.add(event.sceneId);
+    },
+    "bond-changed": (state, event) => {
+      state.bonds[event.characterId] = Math.max(0, (state.bonds[event.characterId] ?? 0) + event.delta);
+    },
+    "asset-unlocked": (state, event) => {
+      state.unlockedAssets.add(event.assetId);
+    },
+    "profile-changed": (state, event) => {
+      state.profile = clone(event.profile);
+    },
+    "placement-assessed": (state, event) => {
+      state.latestPlacement = clone(event);
+    },
+    "curriculum-entry-chosen": (state, event) => {
+      state.curriculumEntry = clone(event);
+    },
+    "review-scheduled": (state, event) => {
+      if (!state.neutralizedReviewScheduleIds.has(event.eventId)) {
+        state.scheduledReviews[event.reviewItemId] = clone(event);
       }
+    },
+    "review-schedule-neutralized": () => void 0,
+    "learning-evidence-recorded": () => void 0,
+    "vocabulary-collected": (state, event) => {
+      state.vocabularyCollection[event.collectionItemId] ??= clone(event);
+    },
+    "vocabulary-collection-undone": projectVocabularyUndo,
+    "academy-day-closed": (state, event) => {
+      state.closedDays[event.dayId] = clone(event);
+    },
+    "achievement-ceremony-seen": (state, event) => {
+      state.seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
+    },
+    "relationship-chapter-unlocked": projectRelationshipChapter,
+    "support-used": (state, event) => {
+      state.supportUses.push(clone(event));
     }
+  };
+  function projectLearnerRecord(events) {
+    const state = createLearnerProjectionState(events);
+    events.map(validateEvent).forEach((event) => applyLearnerProjectionEvent(state, event));
+    return learnerProjectionFromState(events.length, state);
+  }
+  function createLearnerProjectionState(events) {
     return {
-      eventCount: events.length,
-      lastEventAt,
-      activities,
-      reviewRatings,
-      grammarKnowledge,
-      completedScenes: [...completedScenes].sort(),
-      bonds,
-      unlockedAssets: [...unlockedAssets].sort(),
-      profile,
-      latestPlacement,
-      curriculumEntry,
-      scheduledReviews,
-      vocabularyCollection,
-      closedDays,
-      seenAchievementCeremonies: [...seenAchievementCeremonies].sort(),
-      relationshipJournal: Object.fromEntries(Object.entries(relationshipJournal).map(([characterId, journal]) => [characterId, {
+      activities: {},
+      reviewRatings: {},
+      grammarKnowledge: {},
+      completedScenes: /* @__PURE__ */ new Set(),
+      bonds: {},
+      unlockedAssets: /* @__PURE__ */ new Set(),
+      profile: null,
+      latestPlacement: null,
+      curriculumEntry: null,
+      scheduledReviews: {},
+      vocabularyCollection: {},
+      closedDays: {},
+      seenAchievementCeremonies: /* @__PURE__ */ new Set(),
+      relationshipJournal: {},
+      supportUses: [],
+      neutralizedReviewScheduleIds: reviewScheduleNeutralizations(events),
+      lastEventAt: null
+    };
+  }
+  function applyLearnerProjectionEvent(state, event) {
+    state.lastEventAt = state.lastEventAt === null ? event.at : Math.max(state.lastEventAt, event.at);
+    LEARNER_PROJECTION_REDUCERS[event.kind](state, event);
+  }
+  function projectAttempt(state, event) {
+    const previous = state.activities[event.activityId];
+    state.activities[event.activityId] = {
+      activityId: event.activityId,
+      attemptCount: (previous?.attemptCount ?? 0) + 1,
+      lapseCount: (previous?.lapseCount ?? 0) + Number(event.outcome === "lapse"),
+      lastOutcome: event.outcome,
+      lastAttemptAt: event.at,
+      ...sourceQuestionProjection(event.sourceQuestionId),
+      conceptIds: unique$1(event.conceptIds)
+    };
+  }
+  function sourceQuestionProjection(sourceQuestionId) {
+    return sourceQuestionId ? { sourceQuestionId } : {};
+  }
+  function projectVocabularyUndo(state, event) {
+    const collected = state.vocabularyCollection[event.collectionItemId];
+    if (collected?.eventId === event.collectedEventId) delete state.vocabularyCollection[event.collectionItemId];
+  }
+  function projectRelationshipChapter(state, event) {
+    const journal = state.relationshipJournal[event.characterId] ??= { chapters: /* @__PURE__ */ new Set(), majorTurns: /* @__PURE__ */ new Set() };
+    journal.chapters.add(event.chapter);
+    if (event.majorTurn) journal.majorTurns.add(event.majorTurn);
+  }
+  function learnerProjectionFromState(eventCount, state) {
+    return {
+      eventCount,
+      lastEventAt: state.lastEventAt,
+      activities: state.activities,
+      reviewRatings: state.reviewRatings,
+      grammarKnowledge: state.grammarKnowledge,
+      completedScenes: [...state.completedScenes].sort(),
+      bonds: state.bonds,
+      unlockedAssets: [...state.unlockedAssets].sort(),
+      profile: state.profile,
+      latestPlacement: state.latestPlacement,
+      curriculumEntry: state.curriculumEntry,
+      scheduledReviews: state.scheduledReviews,
+      vocabularyCollection: state.vocabularyCollection,
+      closedDays: state.closedDays,
+      seenAchievementCeremonies: [...state.seenAchievementCeremonies].sort(),
+      relationshipJournal: Object.fromEntries(Object.entries(state.relationshipJournal).map(([characterId, journal]) => [characterId, {
         chapters: [...journal.chapters].sort((left, right) => left - right),
         majorTurns: [...journal.majorTurns].sort()
       }])),
-      supportUses
+      supportUses: state.supportUses
     };
   }
   function reviewScheduleNeutralizations(events) {
@@ -4466,65 +4571,35 @@
     requireText(event.eventId, "eventId");
     if (!Number.isSafeInteger(event.at) || event.at < 0) throw new TypeError("Event timestamp must be a non-negative integer.");
   }
+  const LEARNER_EVENT_VALIDATORS = {
+    "attempt-recorded": validateAttemptRecorded,
+    "review-rated": validateReviewRated,
+    "grammar-known-changed": validateGrammarKnownChanged,
+    "scene-completed": (event) => {
+      requireText(event.sceneId, "sceneId");
+    },
+    "bond-changed": validateBondChanged,
+    "asset-unlocked": (event) => {
+      requireText(event.assetId, "assetId");
+    },
+    "profile-changed": validateProfileChanged,
+    "placement-assessed": validatePlacementAssessed,
+    "curriculum-entry-chosen": validateCurriculumEntryChosen,
+    "review-scheduled": validateReviewScheduled,
+    "review-schedule-neutralized": validateReviewScheduleNeutralized,
+    "learning-evidence-recorded": validateLearningEvidence,
+    "vocabulary-collected": validateVocabularyCollected,
+    "vocabulary-collection-undone": validateVocabularyCollectionUndone,
+    "academy-day-closed": validateAcademyDayClosed,
+    "achievement-ceremony-seen": validateAchievementCeremonySeen,
+    "relationship-chapter-unlocked": validateRelationshipChapterUnlocked,
+    "support-used": validateSupportUsed
+  };
   function validateEventPayload(event) {
-    switch (event.kind) {
-      case "attempt-recorded":
-        validateAttemptRecorded(event);
-        break;
-      case "review-rated":
-        validateReviewRated(event);
-        break;
-      case "grammar-known-changed":
-        validateGrammarKnownChanged(event);
-        break;
-      case "scene-completed":
-        requireText(event.sceneId, "sceneId");
-        break;
-      case "bond-changed":
-        validateBondChanged(event);
-        break;
-      case "asset-unlocked":
-        requireText(event.assetId, "assetId");
-        break;
-      case "profile-changed":
-        validateProfileChanged(event);
-        break;
-      case "placement-assessed":
-        validatePlacementAssessed(event);
-        break;
-      case "curriculum-entry-chosen":
-        validateCurriculumEntryChosen(event);
-        break;
-      case "review-scheduled":
-        validateReviewScheduled(event);
-        break;
-      case "review-schedule-neutralized":
-        validateReviewScheduleNeutralized(event);
-        break;
-      case "learning-evidence-recorded":
-        validateLearningEvidence(event);
-        break;
-      case "vocabulary-collected":
-        validateVocabularyCollected(event);
-        break;
-      case "vocabulary-collection-undone":
-        validateVocabularyCollectionUndone(event);
-        break;
-      case "academy-day-closed":
-        validateAcademyDayClosed(event);
-        break;
-      case "achievement-ceremony-seen":
-        validateAchievementCeremonySeen(event);
-        break;
-      case "relationship-chapter-unlocked":
-        validateRelationshipChapterUnlocked(event);
-        break;
-      case "support-used":
-        validateSupportUsed(event);
-        break;
-      default:
-        throw new TypeError("Unknown learner event kind.");
-    }
+    const validators = LEARNER_EVENT_VALIDATORS;
+    const validator = Object.prototype.hasOwnProperty.call(validators, event.kind) ? validators[event.kind] : void 0;
+    if (!validator) throw new TypeError("Unknown learner event kind.");
+    validator(event);
   }
   function validateBondChanged(event) {
     requireText(event.characterId, "characterId");
@@ -4612,20 +4687,43 @@
   function validateLearningEvidence(event) {
     requireText(event.activityId, "activityId");
     requireText(event.modeId, "modeId");
-    if (!["kana", "kanji", "vocabulary", "grammar", "reading", "listening", "speaking", "writing", "repair", "transfer"].includes(event.skill)) {
+    validateLearningSkill(event.skill);
+    validateLearningAction(event.action);
+    validateLearningOutcome(event.outcome);
+    validateLearningConcepts(event.conceptIds);
+    validateLearningIndependence(event.independent);
+    validateLearningDuration(event.durationMs);
+    validateLearningKanji(event.kanji);
+  }
+  function validateLearningSkill(skill) {
+    if (!["kana", "kanji", "vocabulary", "grammar", "reading", "listening", "speaking", "writing", "repair", "transfer"].includes(skill)) {
       throw new TypeError("Invalid learning skill.");
     }
-    if (!["recognise", "recall", "produce", "listen", "speak", "write", "repair", "review", "read", "explore", "source-complete", "transfer"].includes(event.action)) {
+  }
+  function validateLearningAction(action) {
+    if (!["recognise", "recall", "produce", "listen", "speak", "write", "repair", "review", "read", "explore", "source-complete", "transfer"].includes(action)) {
       throw new TypeError("Invalid learning action.");
     }
-    if (event.outcome !== "pass" && event.outcome !== "lapse") throw new TypeError("Invalid learning outcome.");
-    if (!event.conceptIds.length) throw new TypeError("Learning evidence needs at least one conceptId.");
-    unique$1(event.conceptIds.map((id2) => requireText(id2, "conceptId")));
-    if (typeof event.independent !== "boolean") throw new TypeError("Learning independent must be boolean.");
-    if (event.durationMs !== void 0 && (!Number.isSafeInteger(event.durationMs) || event.durationMs < 0)) {
+  }
+  function validateLearningOutcome(outcome) {
+    if (outcome !== "pass" && outcome !== "lapse") throw new TypeError("Invalid learning outcome.");
+  }
+  function validateLearningConcepts(conceptIds) {
+    if (!conceptIds.length) throw new TypeError("Learning evidence needs at least one conceptId.");
+    unique$1(conceptIds.map((id2) => requireText(id2, "conceptId")));
+  }
+  function validateLearningIndependence(independent) {
+    if (typeof independent !== "boolean") throw new TypeError("Learning independent must be boolean.");
+  }
+  function validateLearningDuration(durationMs) {
+    if (durationMs !== void 0 && (!Number.isSafeInteger(durationMs) || durationMs < 0)) {
       throw new TypeError("Learning durationMs must be a non-negative integer.");
     }
-    if (event.kanji !== void 0 && Array.from(event.kanji).length !== 1) throw new TypeError("Learning kanji must be one character.");
+  }
+  function validateLearningKanji(kanji) {
+    if (kanji !== void 0 && Array.from(kanji).length !== 1) {
+      throw new TypeError("Learning kanji must be one character.");
+    }
   }
   function validateVocabularyCollected(event) {
     requireText(event.collectionItemId, "collectionItemId");
@@ -6729,36 +6827,51 @@
   );
   function transitionAcademyRoute(state, transition) {
     switch (transition.kind) {
-      case "push": {
-        const next = mergeRouteFrame(state, transition.route, transition.context);
-        if (routeFramesAreEqual(state, next)) return state;
-        return withRouteFrame(
-          state,
-          next,
-          [...state.routeHistory, routeFrame(state)].slice(-64)
-        );
-      }
-      case "replace": {
-        const next = mergeRouteFrame(state, transition.route, transition.context);
-        if (routeFramesAreEqual(state, next)) return state;
-        return withRouteFrame(state, next, state.routeHistory);
-      }
-      case "back": {
-        const origin = state.routeHistory.at(-1);
-        if (!origin) return state;
-        return withRouteFrame(state, origin, state.routeHistory.slice(0, -1));
-      }
-      case "reset": {
-        const next = mergeRouteFrame(state, transition.route, transition.context);
-        if (routeFramesAreEqual(state, next) && state.routeHistory.length === 0) return state;
-        return withRouteFrame(state, next, []);
-      }
-      case "presentation": {
-        const route = transition.mode === "course" && state.route === "campus" ? "class" : transition.mode === "story" && state.route === "class" ? "campus" : state.route;
-        if (transition.mode === state.presentationMode && route === state.route) return state;
-        return { ...state, route, presentationMode: transition.mode };
-      }
+      case "push":
+        return pushRoute(state, transition.route, transition.context);
+      case "replace":
+        return replaceRoute(state, transition.route, transition.context);
+      case "back":
+        return backRoute(state);
+      case "reset":
+        return resetRoute(state, transition.route, transition.context);
+      case "presentation":
+        return presentRoute(state, transition.mode);
     }
+  }
+  function pushRoute(state, route, context) {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next)) return state;
+    return withRouteFrame(
+      state,
+      next,
+      [...state.routeHistory, routeFrame(state)].slice(-64)
+    );
+  }
+  function replaceRoute(state, route, context) {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next)) return state;
+    return withRouteFrame(state, next, state.routeHistory);
+  }
+  function backRoute(state) {
+    const origin = state.routeHistory.at(-1);
+    if (!origin) return state;
+    return withRouteFrame(state, origin, state.routeHistory.slice(0, -1));
+  }
+  function resetRoute(state, route, context) {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next) && state.routeHistory.length === 0) return state;
+    return withRouteFrame(state, next, []);
+  }
+  function presentRoute(state, mode) {
+    const route = presentationRoute(state.route, mode);
+    if (mode === state.presentationMode && route === state.route) return state;
+    return { ...state, route, presentationMode: mode };
+  }
+  function presentationRoute(route, mode) {
+    if (mode === "course" && route === "campus") return "class";
+    if (mode === "story" && route === "class") return "campus";
+    return route;
   }
   const ROUTE_CONTEXT_KEYS = [
     "selectedBand",
@@ -58507,10 +58620,13 @@ ${entry.url}`),
       if (!current || cardKey(current) !== cardKey(card)) return false;
       const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
       if (!this.studyStepRendersKanji(session)) return false;
-      if (kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
+      if (this.isStaleKanjiStepEnrichment(session, kanji)) return false;
       const study = slots.prompt?.closest("[data-newtab-study]") ?? slots.answer?.closest("[data-newtab-study]");
       if (!study) return true;
       return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
+    }
+    isStaleKanjiStepEnrichment(session, kanji) {
+      return Boolean(kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji);
     }
     applyEnrichedKanjiKeyword(slots, card, kanji, details) {
       const keyword = this.keywordFromDetails(card, details.jpdb, details.jiten, details.rtk);
@@ -60555,69 +60671,77 @@ ${entry.url}`),
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-        const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
-        if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
-          const choice = await this.confirmOfflineReviewing(target.root);
-          if (choice === "stop") return false;
-          if (choice === "retry") return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
-        }
-        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade2, queueTargets)) {
-          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-          this.setStatus(target.root, this.text("offlineGradeReconnect"));
-          if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card, grade2);
-          return true;
-        } else {
-          this.setStatus(target.root, this.text("couldNotSubmitGrade"));
-        }
-        return false;
+        return this.gradeOfflineCard(target, grade2, selectedTarget, isCorrection);
       }
       try {
-        this.setStatus(target.root, this.text("grading"));
-        const submittedTarget = await this.submitGrade(target.card, grade2, selectedTarget);
-        this.offlineReviewingAccepted = false;
-        this.invalidateReviewSourceCache(target.card);
-        this.setStatus(target.root, this.gradeSuccessStatus(grade2, submittedTarget));
-        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-        this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
-          card: target.card,
-          at: Date.now(),
-          serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
-          counted: !isCorrection
-        };
-        await this.advanceAfterGrade(target.root, target.card, grade2);
-        return true;
+        return await this.submitCurrentGrade(target, grade2, selectedTarget, isCorrection);
       } catch (error) {
-        log$6.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade: grade2 }, error);
-        if (target.card.source === "bunpro" || target.card.reviewSource === "bunpro-api") {
-          await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
-          return true;
-        }
-        const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
-        if (this.networkGradeTargets(queueTargets) && window.navigator.onLine === false && !this.partialGradeSubmission(target.card, selectedTarget, error)) {
-          const choice = await this.confirmOfflineReviewing(target.root);
-          if (choice === "stop") return false;
-          if (choice === "retry") {
-            const current = this.currentGradeTarget();
-            if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
-            return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
-          }
-        }
-        if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade2, queueTargets)) {
-          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-          this.setStatus(target.root, this.text("offlineGradeReconnect"));
-          if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card, grade2);
-          return true;
-        }
-        this.setStatus(target.root, this.text("couldNotSubmitGrade"));
+        return this.handleFailedGrade(target, grade2, selectedTarget, isCorrection, error);
       }
-      return false;
+    }
+    async gradeOfflineCard(target, grade2, selectedTarget, isCorrection) {
+      const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+      if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
+        const choice = await this.confirmOfflineReviewing(target.root);
+        if (choice === "stop") return false;
+        if (choice === "retry") return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+      }
+      return this.queueGradeForLater(target, grade2, queueTargets, isCorrection);
+    }
+    async submitCurrentGrade(target, grade2, selectedTarget, isCorrection) {
+      this.setStatus(target.root, this.text("grading"));
+      const submittedTarget = await this.submitGrade(target.card, grade2, selectedTarget);
+      this.offlineReviewingAccepted = false;
+      this.invalidateReviewSourceCache(target.card);
+      this.setStatus(target.root, this.gradeSuccessStatus(grade2, submittedTarget));
+      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+      this.lastUndoableReview = target.card.reviewSource === "bunpro-api" || target.card.source === "bunpro" ? void 0 : {
+        card: target.card,
+        at: Date.now(),
+        serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === "function",
+        counted: !isCorrection
+      };
+      await this.advanceAfterGrade(target.root, target.card, grade2);
+      return true;
+    }
+    async handleFailedGrade(target, grade2, selectedTarget, isCorrection, error) {
+      log$6.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade: grade2 }, error);
+      if (target.card.source === "bunpro" || target.card.reviewSource === "bunpro-api") {
+        await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+        return true;
+      }
+      const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+      const promptResult = await this.resolveFailedGradePrompt(target, grade2, selectedTarget, queueTargets, error);
+      if (promptResult !== null) return promptResult;
+      return this.queueGradeForLater(target, grade2, queueTargets, isCorrection);
+    }
+    async resolveFailedGradePrompt(target, grade2, selectedTarget, queueTargets, error) {
+      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) return null;
+      const choice = await this.confirmOfflineReviewing(target.root);
+      if (choice === "stop") return false;
+      if (choice !== "retry") return null;
+      const current = this.currentGradeTarget();
+      if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
+      return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+    }
+    async queueGradeForLater(target, grade2, queueTargets, isCorrection) {
+      if (!queueTargets.length || !await this.gradeQueue.enqueue(target.card, grade2, queueTargets)) {
+        this.setStatus(target.root, this.text("couldNotSubmitGrade"));
+        return false;
+      }
+      this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
+      this.setStatus(target.root, this.text("offlineGradeReconnect"));
+      if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+      this.advanceAfterGrade(target.root, target.card, grade2);
+      return true;
     }
     // Local grading (Academy SRS) needs no connection, so it never raises the
     // connection-lost dialog; only queued grades bound for a network provider do.
     networkGradeTargets(targets) {
       return targets.some((target) => target !== "yomu-local");
+    }
+    shouldConfirmOfflineReviewAfterFailure(targets, card, selectedTarget, error) {
+      return this.networkGradeTargets(targets) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.
