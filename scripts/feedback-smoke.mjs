@@ -1059,6 +1059,14 @@ function hostedPausedVideoOcrSafe(state) {
 
 async function pinHostedSubtitleControlRail(page) {
     const grip = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    // Auto-mode now fully hides the rail after its idle timeout. Wake it the
+    // same way a real pointer user does before pinning it for the style-control
+    // assertions; clicking a hidden, pointer-inert grip is no longer valid.
+    const videoBox = await page.locator('video').first().boundingBox();
+    if (videoBox) {
+        await page.mouse.move(videoBox.x + videoBox.width / 2, videoBox.y + videoBox.height / 2);
+        await grip.waitFor({ state: 'visible', timeout: 6000 });
+    }
     if (await grip.getAttribute('aria-expanded') !== 'true') await grip.click();
     await page.waitForFunction(() => (
         document.querySelector('.jpdb-subtitle-rail [data-action="rail-expand"]')?.getAttribute('aria-expanded') === 'true'
