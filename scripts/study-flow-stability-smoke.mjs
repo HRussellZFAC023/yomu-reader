@@ -87,7 +87,12 @@ try {
     const cloze1 = await page.locator('.jpdb-reader-newtab-kanji-front-cloze').first().textContent().catch(() => null);
     if (cloze1 && /[㐀-鿿]/u.test(cloze1)) failures.push(`kanji-1 cloze leaks kanji: ${cloze1}`);
 
-    // Click the SECOND kanji chip: stays in the word session, doodle visible.
+    // Click the SECOND kanji chip: stays in the same opaque word session, doodle visible.
+    const cardKeyBefore = await page.locator('[data-newtab-study]').getAttribute('data-newtab-card') ?? '';
+    if (!/^study-card-\d+$/.test(cardKeyBefore)) failures.push(`card key is not opaque: ${cardKeyBefore}`);
+    if (cardKeyBefore.includes('501') || cardKeyBefore.includes('図鑑') || cardKeyBefore.includes('ずかん')) {
+        failures.push(`card key leaks answer-bearing content: ${cardKeyBefore}`);
+    }
     const kanji2 = page.locator('[data-study-step-id]', { hasText: 'Kanji 2' }).first();
     if (await kanji2.count() === 0) failures.push('no Kanji 2 chip rendered');
     else {
@@ -108,7 +113,7 @@ try {
         if (state.activeStepKind !== 'kanji-doodle') failures.push(`Kanji 2 click active step = ${state.activeStepKind}`);
         if (!state.kanjiModeClass) failures.push('kanji-mode class missing after Kanji 2 click');
         if (!state.doodleVisible) failures.push('doodle stage not visible after Kanji 2 click');
-        if (!state.cardKey.includes('501')) failures.push(`card changed surfaces: ${state.cardKey}`);
+        if (state.cardKey !== cardKeyBefore) failures.push(`card changed surfaces: ${cardKeyBefore} -> ${state.cardKey}`);
         if (state.cloze && /[㐀-鿿]/u.test(state.cloze)) failures.push(`kanji-2 cloze leaks kanji: ${state.cloze}`);
         const chipsAfter = await chips();
         if (JSON.stringify(chipsAfter) !== JSON.stringify(chipsT0)) failures.push(`chips changed after Kanji 2 click: ${chipsAfter}`);
