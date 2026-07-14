@@ -16,10 +16,6 @@ let pendingChoice: Promise<ConnectionLostChoice> | null = null;
 let pendingPanel: HTMLElement | null = null;
 let pendingFinish: ((choice: ConnectionLostChoice) => void) | null = null;
 
-export function connectionLostDialogOpen(): boolean {
-    return pendingChoice !== null;
-}
-
 // Settles an orphaned prompt as "stop" (safe: nothing queued or submitted).
 // Called on controller teardown, and defensively when a remount replaced the
 // document body underneath an open dialog — an unresolved pendingChoice would

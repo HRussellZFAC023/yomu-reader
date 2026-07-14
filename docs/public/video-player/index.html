@@ -488,7 +488,10 @@
     .stage-fullscreen {
       position: absolute;
       top: 12px;
-      left: 12px;
+      /* Top-right: the subtitle control rail's default (and its collapsed
+         grip) lives top-left; at top-left this button stacked above the grip
+         and swallowed its taps. */
+      right: 12px;
       z-index: 2147483646;
       width: 40px;
       height: 40px;

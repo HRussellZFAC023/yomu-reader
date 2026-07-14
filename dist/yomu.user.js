@@ -6487,20 +6487,25 @@ function openSafeDetachedReadingClips(element2) {
   if (!clips) continue;
   const rect = current.getBoundingClientRect();
   const measured = current.clientWidth > 0 && current.clientHeight > 0;
-  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && detachedClipRowIsSingleLine(style, rect);
+  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
   const baseFits = measured && detachedBaseContentFits(current);
   if (compact && baseFits) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
   }
 }
-function detachedClipRowIsSingleLine(style, rect) {
+function detachedClipRowIsMultiLineClamp(style) {
   const clamp = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
-  if (Number.isFinite(clamp) && clamp > 1) return false;
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  const fontSize = Number.parseFloat(style.fontSize) || 16;
-  const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
-  const chrome = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0) + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.borderBottomWidth) || 0);
-  return Math.max(0, rect.height - chrome) <= line * 1.5;
+  return Number.isFinite(clamp) && clamp > 1;
+}
+function baseTextLineCount(box) {
+  const range = box.ownerDocument.createRange();
+  range.selectNodeContents(box);
+  const tops = [];
+  for (const lineRect of Array.from(range.getClientRects())) {
+  if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+  if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+  }
+  return tops.length;
 }
 function openDetachedReadingClip(box) {
   if (!detachedReadingClipStyles.has(box)) {
@@ -6540,6 +6545,7 @@ function detachedBaseContentFits(box) {
   }));
   hidden.forEach((element2) => element2.style.setProperty("display", "none", "important"));
   try {
+  if (baseTextLineCount(box) > 1) return false;
   const rect = box.getBoundingClientRect();
   const inlineSize = Math.max(box.clientWidth, rect.width);
   const blockSize = Math.max(box.clientHeight, rect.height);
