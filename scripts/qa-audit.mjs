@@ -3165,10 +3165,9 @@ async function auditRuntimeRegressionExampleAudioPlayback(page, runtimeAudioRequ
 async function auditRuntimeRegressionExampleLookup(page, failures) {
     await collectRuntimeRegressionFailure(failures, async () => {
         await page.evaluate(() => {
-            const { surface } = window.__yomuQaReaderWordDomHelpers;
             document.querySelectorAll('[data-yomu-qa-example-word]').forEach(node => node.removeAttribute('data-yomu-qa-example-word'));
             const target = [...document.querySelectorAll('.jpdb-reader-jpdb-example .jpdb-reader-word')]
-                .find(word => surface(word).trim() === '好き');
+                .find(word => word.getAttribute('data-expression') === '好き');
             target?.setAttribute('data-yomu-qa-example-word', 'true');
         });
         const exampleWord = page.locator('[data-yomu-qa-example-word="true"]').first();
@@ -3220,17 +3219,27 @@ function runtimeExampleLookupDebugSnapshotFromDom() {
         exampleWords: [...document.querySelectorAll('.jpdb-reader-jpdb-example .jpdb-reader-word')].map(exampleWordDebugSnapshot),
         popoverText: spacedText(document.querySelector('.jpdb-reader-popover')).slice(0, 700),
     };
-}
 
-function exampleWordDebugSnapshot(word) {
-    const helpers = window.__yomuQaReaderWordDomHelpers;
-    return {
-        surface: helpers?.surface?.(word)?.trim() ?? compactText(word),
-        text: compactText(word),
-        expression: word.getAttribute('data-expression') ?? '',
-        reading: word.getAttribute('data-reading') ?? '',
-        tagged: word.getAttribute('data-yomu-qa-example-word') === 'true',
-    };
+    // Playwright serializes this function into the page realm without its
+    // module scope, so every DOM snapshot helper must travel with it.
+    function exampleWordDebugSnapshot(word) {
+        const helpers = window.__yomuQaReaderWordDomHelpers;
+        return {
+            surface: helpers?.surface?.(word)?.trim() ?? compactText(word),
+            text: compactText(word),
+            expression: word.getAttribute('data-expression') ?? '',
+            reading: word.getAttribute('data-reading') ?? '',
+            tagged: word.getAttribute('data-yomu-qa-example-word') === 'true',
+        };
+    }
+
+    function compactText(node) {
+        return node?.textContent?.replace(/\s+/g, '').trim() ?? '';
+    }
+
+    function spacedText(node) {
+        return node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    }
 }
 
 async function collectRuntimeRegressionFailure(failures, task, formatError = runtimeRegressionErrorMessage) {
@@ -4677,7 +4686,10 @@ function isSubtitleRailVisuallyHidden(snapshot) {
 }
 
 function isSubtitleRailVisuallyAvailable(snapshot) {
-    return Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.9
+    // Compact idle intentionally rests at .55 opacity: visible enough to find
+    // the move/expand grip, quieter than active controls, and well above the
+    // <= .2 hidden-state floor audited separately.
+    return Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.5
         && snapshot.rail?.pointerEvents !== 'none'
         && isSubtitleRailLaidOut(snapshot);
 }
