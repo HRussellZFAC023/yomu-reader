@@ -12,6 +12,7 @@
 - Popup grammar tags such as `uk`, `abbr`, and `arch` are expanded into readable labels instead of exposing dictionary shorthand.
 - Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.
 - Furigana in compact single-line tabs and “show more” rows now opens every safe ancestor clip, so readings are no longer cut off even when both the label and its fixed-height parent hide overflow.
+- On touch/coarse-pointer layouts, clipped multi-line mirrors now keep individually safe detached readings visible at rest while continuing to hide any reading that would clip or overlap another line.
 
 ## [1.6.149] - 2026-07-13
 

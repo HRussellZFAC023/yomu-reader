@@ -7451,7 +7451,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   }
   [data-yomu-clip-hover-host="true"]
     .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
-    rt.jpdb-reader-furi {
+    rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi) {
     display: none !important;
     visibility: hidden !important;
   }

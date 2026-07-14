@@ -2213,9 +2213,13 @@ function mountNonDestructiveTextMirror(
     // coarse/no-hover rows paint a stable base-text mirror at rest, while only
     // a real fine hover pointer gets the ruby reveal channel.
     const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+    const stableDetachedMirror = context.detachedReadings
+        && Boolean(context.clipRow)
+        && prefersStableClippedMirror();
+    if (stableClippedMirror || stableDetachedMirror) mirror.dataset.yomuStableClippedMirror = 'true';
     const state = styleTextMirrorHost(
         host,
-        mirrorRubyLayout,
+        mirrorRubyLayout || stableDetachedMirror,
         context.clipHoverOnly && !stableClippedMirror,
         Boolean(context.clipRow),
         context.detachedReadings,
@@ -2282,7 +2286,10 @@ function prefersStableClippedMirror(): boolean {
 
 function stabilizeClippedTextMirror(mirror: HTMLElement): void {
     mirror.style.setProperty('visibility', 'visible', 'important');
-    for (const reading of mirror.querySelectorAll<HTMLElement>('rt.jpdb-reader-furi')) {
+    // Detached readings are out-of-flow overlays with their own clip and
+    // collision checks. Only suppress in-flow ruby here; otherwise the
+    // coarse-pointer fallback erases a lane that was already proven safe.
+    for (const reading of mirror.querySelectorAll<HTMLElement>('rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi)')) {
         reading.style.setProperty('display', 'none', 'important');
         reading.style.setProperty('visibility', 'hidden', 'important');
     }
@@ -2528,6 +2535,11 @@ function restoreUnsafeDetachedReading(reading: HTMLElement): void {
 // clip was verified safe to open (single-line, base fits). This mirrors the
 // in-place rt policy so the two channels can never disagree on a row.
 function detachedReadingRestHidden(reading: HTMLElement): boolean {
+    // Coarse pointers have no dependable hover reveal. Their stable additive
+    // mirror keeps candidate readings paintable here; the geometry-aware lane
+    // settle immediately below still hides only the readings that would clip
+    // or collide in a multi-line row.
+    if (reading.closest('[data-yomu-stable-clipped-mirror="true"]')) return false;
     const row = reading.closest<HTMLElement>('[data-yomu-clip-constrained="true"]');
     return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== 'true');
 }

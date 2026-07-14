@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.150#sha256=zDfMbW8rcoHQK+w9koo18lvwKg4ovRlRO3aCY3fEn8s=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.150#sha256=A2QX8rJSnKfsFyLCEUzPSvbryW0BpL4vQmysJ2/984U=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.150#sha256=5SXmlbRpyJDX1KD8g/bIbxIALuYW404RA6++dgSRcvA=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.150#sha256=Ng2tjE7gxJITTjfC3orNzDif1gvFYWSk0BRrieWeApM=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.150#sha256=JXrBaqwlfoUFj/KQIVw8Od9tuR939Psdbu5iweZuuw0=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -6217,9 +6217,11 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
   const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
   const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+  const stableDetachedMirror = context.detachedReadings && Boolean(context.clipRow) && prefersStableClippedMirror();
+  if (stableClippedMirror || stableDetachedMirror) mirror.dataset.yomuStableClippedMirror = "true";
   const state = styleTextMirrorHost(
   host,
-  mirrorRubyLayout,
+  mirrorRubyLayout || stableDetachedMirror,
   context.clipHoverOnly && !stableClippedMirror,
   Boolean(context.clipRow),
   context.detachedReadings
@@ -6269,7 +6271,7 @@ function prefersStableClippedMirror() {
 }
 function stabilizeClippedTextMirror(mirror) {
   mirror.style.setProperty("visibility", "visible", "important");
-  for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
+  for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi)")) {
   reading.style.setProperty("display", "none", "important");
   reading.style.setProperty("visibility", "hidden", "important");
   }
@@ -6454,6 +6456,7 @@ function restoreUnsafeDetachedReading(reading) {
   reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
 }
 function detachedReadingRestHidden(reading) {
+  if (reading.closest('[data-yomu-stable-clipped-mirror="true"]')) return false;
   const row = reading.closest('[data-yomu-clip-constrained="true"]');
   return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
 }

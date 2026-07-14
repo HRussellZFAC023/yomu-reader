@@ -10018,9 +10018,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
     const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
+    const stableDetachedMirror = context.detachedReadings && Boolean(context.clipRow) && prefersStableClippedMirror();
+    if (stableClippedMirror || stableDetachedMirror) mirror.dataset.yomuStableClippedMirror = "true";
     const state2 = styleTextMirrorHost(
       host,
-      mirrorRubyLayout,
+      mirrorRubyLayout || stableDetachedMirror,
       context.clipHoverOnly && !stableClippedMirror,
       Boolean(context.clipRow),
       context.detachedReadings
@@ -10073,7 +10075,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function stabilizeClippedTextMirror(mirror) {
     mirror.style.setProperty("visibility", "visible", "important");
-    for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
+    for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi)")) {
       reading.style.setProperty("display", "none", "important");
       reading.style.setProperty("visibility", "hidden", "important");
     }
@@ -10258,6 +10260,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   }
   function detachedReadingRestHidden(reading) {
+    if (reading.closest('[data-yomu-stable-clipped-mirror="true"]')) return false;
     const row = reading.closest('[data-yomu-clip-constrained="true"]');
     return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
   }
