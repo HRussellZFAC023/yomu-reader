@@ -160,6 +160,7 @@ async function runCoveragePage(pagePath, name) {
         };
 
         function scopeName(word) {
+            if (word.closest('.vp-doc')) return 'doc';
             if (word.closest('.VPHomeHero')) return 'hero';
             if (word.closest('.yomu-link-card')) return 'card';
             if (word.closest('.yomu-install-step-link')) return 'install';
@@ -170,7 +171,7 @@ async function runCoveragePage(pagePath, name) {
 
         function underlineMeasures(words) {
             return words
-                .filter(word => ['hero', 'card', 'install', 'button', 'newtab'].includes(scopeName(word)))
+                .filter(word => ['doc', 'hero', 'card', 'install', 'button', 'newtab'].includes(scopeName(word)))
                 .map(word => {
                     const rect = word.getBoundingClientRect();
                     const style = getComputedStyle(word);
@@ -319,10 +320,12 @@ async function waitForSettingsWord(page, expression) {
 function assertExpectedSurfaces(name, state) {
     const expected = name === 'docs'
         ? [
-            ['日本語', 'hero'],
-            ['辞書', 'card'],
-            ['追加', 'install'],
-            ['設定', 'button'],
+            // 1.6.151: only real `.vp-doc` prose is a reader surface on the
+            // hosted docs; the homepage's own marketing/nav chrome is excluded.
+            ['日本語', 'doc'],
+            ['辞書', 'doc'],
+            ['追加', 'doc'],
+            ['設定', 'doc'],
         ]
         : [
             ['検索', 'newtab'],
@@ -335,6 +338,10 @@ function assertExpectedSurfaces(name, state) {
         assert(match, `${name} page did not enhance ${scope} text "${text}"`, { expected, surfaces: state.surfaces });
         assert(match.hasRuby, `${name} page enhanced ${text} without ruby`, match);
         assert(match.pitch && match.pitch !== 'unknown', `${name} page enhanced ${text} without pitch`, match);
+    }
+    if (name === 'docs') {
+        const chrome = state.surfaces.filter(surface => ['hero', 'card', 'install', 'button'].includes(surface.scope));
+        assert(chrome.length === 0, 'docs page annotated homepage chrome (hero/card/install/button) — it is a hard no-scan boundary', { chrome });
     }
 }
 
@@ -554,6 +561,9 @@ main { padding: 42px; --jpdb-reader-source-pitch-decoration: #d33682; --jpdb-rea
 .yomu-link-card h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.3; }
 .yomu-link-card p { margin: 0; line-height: 1.45; }
 .yomu-install-step-link, button { margin-top: 18px; margin-right: 12px; font: inherit; }
+.vp-doc { max-width: 760px; margin-top: 28px; }
+.vp-doc h2 { margin: 0 0 8px; font-size: 26px; line-height: 1.3; }
+.vp-doc p { margin: 0 0 12px; line-height: 1.6; }
 </style></head><body>
 <main class="jpdb-reader-word-underline-pitch jpdb-reader-word-text-pitch">
   <section class="VPHomeHero">
@@ -566,6 +576,11 @@ main { padding: 42px; --jpdb-reader-source-pitch-decoration: #d33682; --jpdb-rea
   </section>
   <a class="yomu-install-step-link" href="/install/">今すぐ追加</a>
   <button type="button">設定を開く</button>
+  <div class="vp-doc">
+    <h2>使い方</h2>
+    <p>日本語の辞書を追加して、設定から表示を変えながら読む。</p>
+    <p>今日は静かな喫茶店で新しい本を読みました。</p>
+  </div>
 </main></body></html>`;
 }
 

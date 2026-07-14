@@ -142,6 +142,13 @@ function isVerticalWritingMode(writingMode: string): boolean {
 
 export const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
 const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+// Some authored previews are taller than compact chrome but still deliberately
+// truncate their text (m.youtube's inner expanded-description preview is
+// 112px). Recognize only boxes that are CURRENTLY overflowing, and cap the
+// measured viewport so a page-sized overflow shell can never become a text
+// row merely because it contains more content than the viewport.
+const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
+const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
 
 interface ConstrainedRowStyleFacts {
     clamped: boolean;
@@ -150,6 +157,10 @@ interface ConstrainedRowStyleFacts {
     // overflow clip + a measured height of at most ~3 text lines: a fixed
     // chrome row that cannot absorb a taller ruby line box.
     clippedShortRow: boolean;
+    // A bounded, fixed-height preview whose native content is measurably
+    // taller than its authored viewport. Unlike clippedShortRow this never
+    // classifies a same-height box that is not actually truncating content.
+    activelyTruncatedPreview: boolean;
 }
 
 const constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; facts: ConstrainedRowStyleFacts }>();
@@ -162,26 +173,37 @@ function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFact
     const clamped = hasLineClamp(style);
     const ellipsisRow = isEllipsisTextRow(style);
     const clips = clipsOverflow(style);
+    const clippedConstraint = hasClippedTextConstraint(style);
     let clippedShortRow = false;
+    let activelyTruncatedPreview = false;
     if (clips && !clamped && !ellipsisRow) {
         const height = element.getBoundingClientRect().height;
         clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+        const clientHeight = element.clientHeight;
+        activelyTruncatedPreview = clippedConstraint
+            && height > CONSTRAINED_ROW_MAX_HEIGHT_PX
+            && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX
+            && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX
+            && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX
+            && element.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
     }
     const facts: ConstrainedRowStyleFacts = {
         clamped,
         ellipsisRow,
-        clippedConstraint: hasClippedTextConstraint(style),
+        clippedConstraint,
         clippedShortRow,
+        activelyTruncatedPreview,
     };
     constrainedRowStyleFactMemo.set(element, { at: now, facts });
     return facts;
 }
 
-// The clip-constrained-row fact (class Q): within 5 ancestors an element with
-// line-clamp, a single-line ellipsis clip, or an overflow clip at fixed short
-// height. Applied UNCONDITIONALLY on every engine — rt paints into the
-// half-leading and ancestor overflow clips shave it mid-glyph on healthy
-// engines too, so this fact (not an engine probe) decides protection.
+// The clip-constrained-row fact (class Q): within the bounded ancestor walk,
+// find a line-clamp, single-line ellipsis clip, fixed short overflow clip, or
+// bounded preview that is actively truncating text. Applied UNCONDITIONALLY
+// on every engine — rt paints into the half-leading and ancestor overflow
+// clips shave it mid-glyph on healthy engines too, so this fact (not an
+// engine probe) decides protection.
 export function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
     return closestRubyFragileConstrainedRow(element) !== null;
 }
@@ -193,7 +215,7 @@ export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElem
     // escaped, so the clamped row was invisible to the fragile-row check.
     for (let depth = 0; current && depth < 10; depth += 1) {
         const facts = constrainedRowStyleFacts(current);
-        if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
+        if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
         current = current.parentElement;
     }
     return null;
@@ -206,13 +228,13 @@ export function boxStyleIsClipCapable(box: HTMLElement): boolean {
 }
 
 // A single element's own clip-constrained verdict (line-clamp, single-line
-// ellipsis, or overflow-clip at fixed short height). Such a row shows no
-// at-rest ruby, so ruby-room must never grow it either — growth on a clamped
-// feed title expands a 44px box to its full unclamped mirror height (the
-// 1.6.115 iPad home-feed blow-up).
+// ellipsis, fixed short overflow-clip, or bounded actively truncated preview).
+// Such a row shows no at-rest ruby, so ruby-room must never grow it either —
+// growth on a clamped feed title expands a 44px box to its full unclamped
+// mirror height (the 1.6.115 iPad home-feed blow-up).
 export function isClipConstrainedRow(element: HTMLElement): boolean {
     const facts = constrainedRowStyleFacts(element);
-    return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
+    return facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview;
 }
 
 // A clip-constrained SEMANTIC PROSE row may keep furigana at rest when it can
@@ -880,15 +902,14 @@ const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors('menu,menubar,toolbar,tablist');
 
 // Site-unique DOM naming (allowed; the BEHAVIOR decision stays here in the
-// policy): subscribe buttons are always controls, even inside content roots;
-// the mobile watch metadata/description chip rows are owner-curated CONTENT
-// chips (質問する / 文字起こしを表示) that keep readings.
+// policy): subscribe buttons and mobile watch actions are always controls,
+// even inside content roots. Their readings use the detached channel so the
+// page's authored chip geometry remains unchanged.
 const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = 'ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button';
-// Owner-curated CONTENT chips: controls whose Japanese label is reading
-// material (質問する / 文字起こしを表示, live-chat notice actions, the hosted
-// docs' own menu) keep inline readings. Site-unique naming is allowed here;
-// the behaviour decision stays in this policy.
-const CONTENT_CHIP_ROOT_SELECTOR = [
+// Named YouTube content roots still classify their prose/metadata as content,
+// but real controls within them remain interactive-passive below. The hosted
+// docs menu retains its explicit inline-reading exception.
+const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = [
     'ytm-slim-video-metadata-section-renderer',
     'ytm-expandable-video-description-body-renderer',
     'ytm-structured-description-content-renderer',
@@ -899,8 +920,8 @@ const CONTENT_CHIP_ROOT_SELECTOR = [
     'yt-live-chat-restricted-participation-renderer',
     'yt-live-chat-banner-renderer',
     'yt-live-chat-ticker-renderer',
-    '.yomu-hosted-overflow-group',
 ].join(',');
+const CONTENT_CHIP_ROOT_SELECTOR = `${YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR},.yomu-hosted-overflow-group`;
 // BookWalker viewer metadata (book title / description in the reader chrome)
 // is reading material; the header context would otherwise classify it as
 // compact chrome. Replaces the old profile-level ruby kill-switch.
@@ -1036,6 +1057,10 @@ export function classifyDecoration(element: Element): DecorationState {
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return 'interactive-passive';
+        // A real YouTube button remains a control even when it lives inside a
+        // named reading-content root. Detached readings preserve the authored
+        // chip baseline/height; in-flow ruby shifts vertically centred labels.
+        if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return 'interactive-passive';
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
         return 'interactive-passive';
     }

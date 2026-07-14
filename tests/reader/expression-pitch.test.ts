@@ -3,6 +3,7 @@ import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
 import { applyCompoundPitchDecoration } from '../../src/reader/dom/index';
 import { alignedExpressionComponentPitches, renderExpressionComponentPitches } from '../../src/reader/popup/render';
+import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import type { AnkiConnectClient } from '../../src/reader/anki/index';
@@ -145,6 +146,49 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.every(component => component.pitch.length > 0)).toBe(true);
     });
 
+    it('keeps 間違い pitch 3 as the primary graph despite the 間 + 違い decomposition', async () => {
+        const loader = createLoader({
+            entriesByTerm: {},
+            metaByTerm: {},
+            settings: { localDictionariesEnabled: false, jitenDefinitionsEnabled: true },
+            jitenInfo: {
+                wordId: 1215320,
+                mainReading: { text: '間違い', readingIndex: 0, frequencyRank: 1114, usedInMediaAmount: null },
+                alternativeReadings: [],
+                partsOfSpeech: ['noun'],
+                definitions: [],
+                pitchAccents: [3],
+                knownStates: [],
+                composedOf: [
+                    { wordId: 1215240, readingIndex: 0, reading: 'ま', readingFurigana: '間[ま]', mainDefinition: 'time', frequencyRank: 2979, matchSurface: '間' },
+                    { wordId: 1158870, readingIndex: 0, reading: 'ちがい', readingFurigana: '違[ちが]い', mainDefinition: 'difference', frequencyRank: 1561, matchSurface: '違い' },
+                ],
+                usedIn: [],
+                usedInTotal: 0,
+                examples: [],
+            },
+        });
+        const card = expressionCard('間違い', 'まちがい');
+        card.pitchAccent = [pitchPatternFromPosition(card.reading, 3)];
+        const data = await loader.load(card).all;
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, showPitchAccent: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render(card, card.spelling, 'modal', { ...data, loading: false });
+
+        expect(document.querySelectorAll('.jpdb-reader-card-tools .jpdb-reader-pitch svg')).toHaveLength(1);
+        expect(document.querySelector('.jpdb-reader-pitch-components')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('間');
+        expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('違');
+    });
+
     it('segments kanji-only compound components even when the full compound is missing locally', async () => {
         const loader = createLoader({
             entriesByTerm: {
@@ -232,7 +276,7 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['気合い', '入れる']);
     });
 
-    it('keeps 双子座流星群 in the component view and paints its inline compound underline', async () => {
+    it('keeps a whole-word graph primary while retaining compound navigation and inline segments', async () => {
         const loader = createLoader({
             entriesByTerm: {
                 双子座流星群: [termEntry('双子座流星群', 'ふたござりゅうせいぐん')],
@@ -273,11 +317,11 @@ describe('expression component pitch', () => {
         });
         document.body.innerHTML = renderer.render(card, card.spelling, 'modal', { ...data, loading: false });
 
-        expect(document.querySelector('.jpdb-reader-pitch-components')).not.toBeNull();
-        expect(document.querySelectorAll('.jpdb-reader-pitch-components .jpdb-reader-pitch-component')).toHaveLength(2);
+        expect(document.querySelector('.jpdb-reader-pitch-components')).toBeNull();
+        expect(document.querySelectorAll('.jpdb-reader-card-tools .jpdb-reader-pitch svg')).toHaveLength(1);
         expect(document.querySelector('.jpdb-reader-pitch-variants')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-pitch-components')?.textContent).toContain('双子座');
-        expect(document.querySelector('.jpdb-reader-pitch-components')?.textContent).toContain('流星群');
+        expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('双子座');
+        expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('流星群');
     });
 
     it('keeps componentPitches empty when only one component is found', async () => {

@@ -12,6 +12,7 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
+import { cleanupOwnedChromeAnnotations, readerWordSurfaceText } from './chrome-annotation-cleanup';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -108,6 +109,20 @@ const HOSTED_RUNTIME_TARGET_SELECTOR = [
     '.yomu-hosted-overflow-group',
     '.yomu-link-grid',
     '.vp-doc',
+].join(',');
+// Defence in depth for already-installed userscripts that have not yet
+// picked up the site-parsers.ts hosted-docs exclusion fix: stamp the same
+// homepage/site chrome with the runtime's own hard scan boundary
+// (data-jpdb-reader-surface-ignore) so old installed copies stop decorating
+// nav/hero/CTA copy too. setAttribute is naturally idempotent, so this is
+// safe to call on every mount and every route change.
+const HOSTED_SURFACE_IGNORE_CHROME_SELECTOR = [
+    '.VPNav',
+    '.VPHero',
+    '.VPHomeHero',
+    '.yomu-install-panel',
+    '.yomu-next-grid',
+    '.yomu-hosted-overflow-group',
 ].join(',');
 const textNodeOriginals = new WeakMap<Text, string>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
@@ -209,6 +224,14 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The installed userscript no longer decorates the yomureader.com homepage\'s own nav, hero marketing copy, CTA pills, install panel, or "what to do next" link grid with ruby/pitch furigana, which was destroying the tablet layout. The pre-rendered "Try me" sample stays annotated and interactive, and real docs prose is unaffected. As defence in depth, the site itself now strips any annotation an older installed copy already added to that chrome and marks it off-limits, so a not-yet-updated userscript can no longer break the layout.': 'インストール済みのユーザースクリプトは、yomureader.comホームページ自身のナビ、ヒーローの宣伝文、CTAピル、インストールパネル、「次にすること」のリンクグリッドにルビ／ピッチのふりがなを付けなくなりました。これはタブレット表示のレイアウトを崩していました。事前レンダリング済みの「Try me」サンプルは注釈とインタラクションを保ち、実際のドキュメント本文には影響しません。多層防御として、サイト側でも古いインストール済みのコピーがそのクロムに付けた注釈を取り除いて対象外に印を付けるため、まだ更新していないユーザースクリプトでもレイアウトを崩せなくなりました。',
+    'The Install buttons and getting-started steps point at the v1.6.151 release asset so a fresh install pulls the current build.': 'インストールボタンと入門手順はv1.6.151のリリースアセットを指すため、新規インストールでは最新ビルドが取得されます。',
+    'YouTube action chips and controls — the 質問する ask button, the 視聴 view count, subscribe, and live-chat notices — now render their furigana in a detached lane that never resizes the control, so the button/notice height, width, and baseline stay exactly as YouTube drew them; their pitch underline is anchored to the glyphs instead of dropping to the bottom edge of the chip. Reading content around them (chat messages, descriptions) keeps inline ruby.': 'YouTubeのアクションチップやコントロール（質問するボタン、視聴回数、チャンネル登録、ライブチャットの通知）は、コントロールの大きさを変えない切り離したレーンにふりがなを表示するようになりました。ボタンや通知の高さ・幅・ベースラインはYouTubeが描いたまま保たれ、ピッチの下線はチップの下端に落ちず文字に沿って表示されます。周囲の読み物本文（チャットメッセージや概要）はインラインのルビを保ちます。',
+    'A truncated, expandable video description keeps its annotation inside the authored clip height instead of spilling the extra lines over the summary block below it.': '折りたたまれた展開可能な動画概要は、余分な行を下の要約ブロックにはみ出させず、元の切り抜き高さの中に注釈を収めます。',
+    'Local-provider pitch accent (Jiten and JPDB) is now taken only from each word\'s own dictionary entry. A word with no listed accent stays uncoloured instead of borrowing the previous word\'s pattern, and the pitch-colour settings row for those words now reads simply "Unknown" rather than "Unknown / inherited".': 'ローカル提供元（JitenとJPDB）のピッチアクセントは、各単語自身の辞書エントリーからのみ取得するようになりました。アクセントが記載されていない単語は前の単語の型を借りず無着色のままになり、それらの単語のピッチ色設定の行は「不明／継承」ではなく単に「不明」と表示します。',
+    'When a word has several accepted pitch patterns, the variant cards now share one footprint with each contour and percentage centred, so the first (source-preferred) reading no longer looks larger or more authoritative than the other legitimate readings; source order stays visible through the first card\'s accent-coloured percentage.': '単語に複数の有効なピッチ型がある場合、バリアントのカードは同じ大きさに揃い、各輪郭と割合を中央寄せで表示するようになりました。これにより最初の（出典が優先する）読みが他の正当な読みより大きく、権威があるようには見えなくなります。出典の順序は最初のカードのアクセント色の割合で分かります。',
+    'A word\'s direct whole-word pitch now remains the primary top-right graph even when Jiten also exposes navigable inner components; for example 間違い keeps its pitch-3 contour while 間 and 違い remain available as secondary lookups.': 'Jitenが移動可能な内部構成語も示す場合でも、単語全体の直接ピッチを右上の主要グラフとして表示します。たとえば間違いは3型の輪郭を保ち、間と違いは補助的な検索先として引き続き利用できます。',
+    'All five review-grade buttons use the same slightly smaller font on narrow phones, so the longer “Something” label fits without crowding its button.': '幅の狭いスマートフォンでは、5つの復習評価ボタンすべてに同じ少し小さめの文字サイズを使い、長い「Something」もボタン内に余裕をもって収まるようにしました。',
     'Long compounds with both whole-word and constituent pitch data now keep one authoritative component view, so inline underlines and popup graphs agree for terms such as 双子座流星群.': '単語全体と構成語の両方にピッチ情報がある長い複合語は、構成語表示を一貫して優先します。これにより、双子座流星群のような語でも本文の下線とポップアップのグラフが一致します。',
     'Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.': '複数の有効なピッチ型は、「最も一般的」「他の型」という文言ではなく、コンパクトな割合で表示します。出典が順序だけを示す場合は合計100%になる相対比率を使い、実測の一般度が提供される場合はその値を優先します。',
     'Furigana in compact single-line tabs and “show more” rows now opens every safe ancestor clip, so readings are no longer cut off even when both the label and its fixed-height parent hide overflow.': 'コンパクトな1行タブや「さらに表示」の行では、安全な祖先要素のクリップをすべて開くようにしました。ラベルと固定高の親要素の両方がオーバーフローを隠していても、ふりがなが切れません。',
@@ -2673,6 +2696,19 @@ const HOSTED_RESEARCH_COPY_SEGMENTS: Record<InterfaceLanguage, readonly HostedRe
     ],
 };
 
+function stampHostedSurfaceIgnoreChrome(): void {
+    for (const element of document.querySelectorAll<HTMLElement>(HOSTED_SURFACE_IGNORE_CHROME_SELECTOR)) {
+        // Stamp the scan boundary first so an already-installed (pre-fix)
+        // userscript stops re-decorating this chrome, then strip anything it
+        // already annotated at document-start before the theme mounted.
+        element.setAttribute('data-jpdb-reader-surface-ignore', 'true');
+        // Strip anything a pre-fix userscript already annotated here at
+        // document-start; reset the theme's own text-original cache for any
+        // node this unwraps so localization does not restore a stale copy.
+        cleanupOwnedChromeAnnotations(element, resetHostedDocsTextOriginals);
+    }
+}
+
 function syncLandmarks() {
     const content = document.querySelector<HTMLElement>('#VPContent');
     syncSkipLinkLandmark();
@@ -2732,6 +2768,11 @@ function scheduleHostedDocsShellSync(): void {
     hostedDocsShellSyncPending = true;
     window.requestAnimationFrame(() => {
         hostedDocsShellSyncPending = false;
+        // VitePress replaces route content through history/navigation updates
+        // that do not always emit popstate or hashchange. Stamp newly mounted
+        // homepage chrome in the same observer-driven shell sync as the rest
+        // of the hosted enhancements.
+        stampHostedSurfaceIgnoreChrome();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
@@ -3225,7 +3266,7 @@ function unwrapHostedDocsReaderWords(): void {
         const parent = word.parentNode;
         if (!parent) return;
         parents.add(parent);
-        word.replaceWith(document.createTextNode(hostedReaderWordSurfaceText(word)));
+        word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
     });
     parents.forEach(parent => {
         parent.normalize();
@@ -3238,40 +3279,6 @@ function resetHostedDocsTextOriginals(root: ParentNode): void {
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
         textNodeOriginals.delete(node);
     }
-}
-
-function hostedReaderWordSurfaceText(word: HTMLElement): string {
-    let text = '';
-    word.childNodes.forEach(node => {
-        text += hostedReaderSurfaceTextFromNode(node);
-    });
-    return text || word.textContent || '';
-}
-
-function hostedReaderSurfaceTextFromNode(node: ChildNode): string {
-    if (isTextNode(node)) return node.textContent ?? '';
-    if (!isHostedReaderSurfaceElement(node)) return '';
-    return hostedReaderChildrenSurfaceText(node);
-}
-
-function isTextNode(node: ChildNode): node is Text {
-    return node.nodeType === Node.TEXT_NODE;
-}
-
-function isHostedReaderSurfaceElement(node: ChildNode): node is HTMLElement {
-    return node instanceof HTMLElement && !isHostedReaderSurfaceIgnoredElement(node);
-}
-
-function isHostedReaderSurfaceIgnoredElement(element: HTMLElement): boolean {
-    return element.matches('rt, rp, .jpdb-reader-furigana, .jpdb-reader-furi, .jpdb-ocr-furi, [data-jpdb-reader-surface-ignore="true"]');
-}
-
-function hostedReaderChildrenSurfaceText(element: HTMLElement): string {
-    let text = '';
-    element.childNodes.forEach(child => {
-        text += hostedReaderSurfaceTextFromNode(child);
-    });
-    return text;
 }
 
 function readStoredSettings(): Record<string, any> {
@@ -3536,6 +3543,7 @@ function browserPrefersJapanese(): boolean {
 
 function installHostedDocsEnhancements(): void {
     registerHostedDocsServiceWorker();
+    stampHostedSurfaceIgnoreChrome();
     syncLandmarks();
     installHostedLanguageToggle();
     installHostedOverflowMenu();
@@ -3561,6 +3569,7 @@ function installHostedDocsEnhancements(): void {
         scheduleHostedDocsLocalization({ resetReaderWords: true });
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
+        stampHostedSurfaceIgnoreChrome();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
@@ -3572,6 +3581,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
+        stampHostedSurfaceIgnoreChrome();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();

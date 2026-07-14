@@ -12,6 +12,7 @@ import * as esbuild from 'esbuild';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
+const READER_WORDS_CSS_PATH = path.join(ROOT, 'src', 'reader', 'styles', 'reader-words-ocr.css');
 const tempDir = mkdtempSync(path.join(tmpdir(), 'yomu-chip-mirror-smoke-'));
 const entryPath = path.join(tempDir, 'probe.ts');
 const bundlePath = path.join(tempDir, 'probe.js');
@@ -29,6 +30,15 @@ writeFileSync(entryPath, `
 
     const TEXT = '新しい順';
     const MINI_TEXT = '登録チャンネル';
+    const ASK_TEXT = '質問する';
+    const VIEW_TEXT = '視聴';
+    const DESCRIPTION_TEXT = [
+        '新しいSiri AIとiOS 27について知っておくべきことのすべて',
+        '父の日に向けて最大40%オフ！6月21日まで！',
+        'MKBHD グッズ',
+        'MKBHD イントロ曲のプレイリスト',
+        '質問する',
+    ].join('\\n\\n');
     function card(spelling: string, reading: string): JPDBCard {
         return {
             vid: 1, sid: 1, rid: 0, spelling, reading, frequencyRank: null,
@@ -127,7 +137,146 @@ writeFileSync(entryPath, `
         makeRoomForRubyInCroppedRows(document);
     }
 
+    function paintSingleWord(host: HTMLElement, sentence: string, spelling: string, reading: string): void {
+        const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text.trim() === sentence);
+        if (!target) throw new Error('single-word target not collected: ' + sentence);
+        const start = sentence.indexOf(spelling);
+        applyTokensToScanTarget({ ...target, nonDestructive: true }, [{
+            card: card(spelling, reading), start, end: start + spelling.length, length: spelling.length,
+            rubies: [{ text: reading, start, end: start + spelling.length, length: spelling.length }],
+            pitchClass: 'heiban', sentence,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        makeRoomForRubyInCroppedRows(document);
+    }
+
+    function paintDescriptionPreview(host: HTMLElement): void {
+        const node = host.firstChild as Text | null;
+        if (!node || node.nodeType !== Node.TEXT_NODE || node.data !== DESCRIPTION_TEXT) {
+            throw new Error('description preview native text missing');
+        }
+        const questionStart = DESCRIPTION_TEXT.indexOf('質問');
+        applyTokensToScanTarget({
+            node,
+            parent: host,
+            text: DESCRIPTION_TEXT,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [
+            {
+                card: card('新しい', 'あたらしい'), start: 0, end: 3, length: 3,
+                rubies: [{ text: 'あたら', start: 0, end: 1, length: 1 }],
+                pitchClass: 'nakadaka', sentence: DESCRIPTION_TEXT,
+            },
+            {
+                card: card('質問', 'しつもん'), start: questionStart, end: questionStart + 2, length: 2,
+                rubies: [{ text: 'しつもん', start: questionStart, end: questionStart + 2, length: 2 }],
+                pitchClass: 'heiban', sentence: DESCRIPTION_TEXT,
+            },
+        ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        makeRoomForRubyInCroppedRows(document);
+    }
+
+    function rectanglesOverlap(left: DOMRect, right: DOMRect): boolean {
+        return Math.min(left.right, right.right) - Math.max(left.left, right.left) > 0.5
+            && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
+    }
+
     Object.assign(window, {
+        runYouTubeDescriptionClipProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const panel = document.getElementById('structured-description')!;
+            const preview = document.getElementById('collapsed-string')!;
+            const host = document.getElementById('description-host')!;
+            const summary = document.getElementById('description-summary')!;
+            host.textContent = DESCRIPTION_TEXT;
+            const previewBefore = preview.getBoundingClientRect();
+            const summaryBefore = summary.getBoundingClientRect();
+            paintDescriptionPreview(host);
+
+            // The real component keeps the panel mounted while disclosure
+            // state changes. Reapplying after repeated hide/show cycles must
+            // reuse one mirror rather than stack duplicate paint layers.
+            const cycleMirrorCounts: number[] = [];
+            for (let cycle = 0; cycle < 3; cycle += 1) {
+                panel.hidden = true;
+                panel.hidden = false;
+                paintDescriptionPreview(host);
+                cycleMirrorCounts.push(host.querySelectorAll(':scope > .jpdb-reader-text-mirror').length);
+            }
+
+            const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
+            const words = mirror ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')] : [];
+            const summaryAfter = summary.getBoundingClientRect();
+            const visibleWords = words.filter(word => {
+                const style = getComputedStyle(word);
+                const rect = word.getBoundingClientRect();
+                return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+            });
+            const lateWord = words.find(word => word.textContent?.includes('質問')) ?? null;
+            const mirrorStyle = mirror ? getComputedStyle(mirror) : null;
+            return {
+                additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
+                inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
+                detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+                nativeHostVisible: getComputedStyle(host).visibility !== 'hidden',
+                mirrorColor: mirrorStyle?.color ?? '',
+                mirrorTextFill: mirrorStyle?.webkitTextFillColor ?? '',
+                lateWordVisibility: lateWord ? getComputedStyle(lateWord).visibility : '',
+                visibleWordSummaryOverlaps: visibleWords.filter(word => rectanglesOverlap(word.getBoundingClientRect(), summaryAfter)).length,
+                previewHeightGrowth: preview.getBoundingClientRect().height - previewBefore.height,
+                summaryTopShift: summaryAfter.top - summaryBefore.top,
+                summaryHeightGrowth: summaryAfter.height - summaryBefore.height,
+                previewOverflow: getComputedStyle(preview).overflow,
+                previewClientHeight: preview.clientHeight,
+                previewScrollHeight: preview.scrollHeight,
+                mirrorMaxHeight: mirror?.style.maxHeight ?? '',
+                mirrorCount: host.querySelectorAll(':scope > .jpdb-reader-text-mirror').length,
+                cycleMirrorCounts,
+            };
+        },
+        runYouTubeGeometryProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const chip = document.getElementById('ask-chip')!;
+            const label = document.getElementById('ask-label')!;
+            label.textContent = ASK_TEXT;
+            const nativeBefore = findTextNode(label, ASK_TEXT);
+            const baseBefore = rectOfText(nativeBefore, 0, 2);
+            const chipBefore = chip.getBoundingClientRect();
+            paintSingleWord(label, ASK_TEXT, '質問', 'しつもん');
+            const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word') ?? null;
+            const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+            const base = mirror?.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? null;
+            const nativeAfter = findTextNode(label, ASK_TEXT);
+            const baseAfter = rectOfText(nativeAfter, 0, 2);
+            const chipAfter = chip.getBoundingClientRect();
+
+            const metadata = document.getElementById('metadata-row')!;
+            metadata.textContent = VIEW_TEXT;
+            const metadataBefore = metadata.getBoundingClientRect();
+            paintSingleWord(metadata, VIEW_TEXT, VIEW_TEXT, 'しちょう');
+            const metadataReading = metadata.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+            const metadataAfter = metadata.getBoundingClientRect();
+            return {
+                additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
+                inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
+                detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+                actionReadingHiddenReason: reading?.dataset.yomuDetachedReadingHidden ?? '',
+                actionReadingDisplay: reading ? getComputedStyle(reading).display : '',
+                nativeBaseCenterDelta: (baseAfter.top + baseAfter.bottom - baseBefore.top - baseBefore.bottom) / 2,
+                chipWidthGrowth: chipAfter.width - chipBefore.width,
+                chipHeightGrowth: chipAfter.height - chipBefore.height,
+                readingBaseClearance: reading && base ? base.getBoundingClientRect().top - reading.getBoundingClientRect().bottom : -1,
+                nativeUnderline: word ? getComputedStyle(word).textDecorationColor : '',
+                pseudoContent: word ? getComputedStyle(word, '::after').content : '',
+                underlineToChipBottom: word ? chipAfter.bottom - word.getBoundingClientRect().bottom : -1,
+                metadataReadingRetained: Boolean(metadataReading),
+                metadataReadingHiddenReason: metadataReading?.dataset.yomuDetachedReadingHidden ?? '',
+                metadataHeightGrowth: metadataAfter.height - metadataBefore.height,
+            };
+        },
         runMiniGuideProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -267,6 +416,26 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 <div id="more-row" style="overflow: hidden; height: 22px; margin-top: 24px; background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 8px;">
   <div id="more" role="button" style="font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</div>
 </div>
+<ytm-slim-video-metadata-section-renderer>
+  <ytm-button-renderer><button id="ask-chip" style="box-sizing:border-box;display:inline-flex;align-items:center;height:48px;padding:0 18px;border:0;border-radius:24px;overflow:visible;font:600 16px/20px Roboto,sans-serif"><yt-formatted-string id="ask-label">質問する</yt-formatted-string></button></ytm-button-renderer>
+</ytm-slim-video-metadata-section-renderer>
+<div id="metadata-stack" style="margin-top:20px;font:14px/16px Roboto,sans-serif">
+  <div id="foreign-line" style="height:16px">チャンネル</div>
+  <yt-formatted-string id="metadata-row" class="metadata-text" style="display:block;height:16px;overflow:visible">視聴</yt-formatted-string>
+</div>
+<ytm-structured-description-content-renderer id="structured-description" style="display:block;width:256px;margin-top:24px">
+  <ytm-expandable-video-description-body-renderer style="display:block;box-sizing:border-box;width:232px;margin:0 12px;padding:12px">
+    <div id="collapsed-string-container" style="width:208px;height:112px;white-space:pre-wrap">
+      <div id="collapsed-string" style="width:208px;height:112px;max-height:112px;overflow:hidden;white-space:pre-wrap;font:14px/16px Roboto,sans-serif">
+        <span id="description-host" class="ytAttributedStringHost ytAttributedStringWhiteSpacePreWrap"></span>
+      </div>
+    </div>
+  </ytm-expandable-video-description-body-renderer>
+  <ytm-expandable-metadata-renderer id="description-summary" style="box-sizing:border-box;display:flex;align-items:center;width:232px;height:72px;margin:12px 12px 0;padding:12px 16px;background:#eee">
+    <p style="height:20px;max-height:20px;overflow:hidden;line-height:20px;margin:0">Marques Brownlee shares initial thoughts on the 2026 conference.</p>
+    <h3 style="margin:0 0 0 auto">概要</h3>
+  </ytm-expandable-metadata-renderer>
+</ytm-structured-description-content-renderer>
 <mini-guide-probe></mini-guide-probe>
 <script>
 customElements.define('mini-guide-probe', class extends HTMLElement {
@@ -284,6 +453,13 @@ function fail(message, details) {
     failed = true;
 }
 
+function transparentPaint(value) {
+    const normalized = String(value ?? '').replace(/\s+/g, '').toLowerCase();
+    return normalized === 'transparent'
+        || normalized === 'rgba(0,0,0,0)'
+        || normalized.endsWith(',0)');
+}
+
 // A reading wider than its base may add at most ~2px of spacing around the
 // base before the label visibly reads as "新 しい 順" (a plain 14px CJK glyph
 // gap is 14px; anything beyond a couple px is a visible split).
@@ -297,6 +473,9 @@ async function runEngine(name, browserType) {
         await page.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
         await page.goto('https://www.youtube.com/chip-mirror-smoke', { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
+        // Exercise the source policy without requiring this focused smoke to
+        // rewrite generated distribution assets.
+        await page.addStyleTag({ content: readFileSync(READER_WORDS_CSS_PATH, 'utf8') });
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runChipMirrorProbe());
         console.log(`${name} chip:`, JSON.stringify(result));
@@ -308,6 +487,27 @@ async function runEngine(name, browserType) {
         if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
         if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
         if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
+        const youtube = await page.evaluate(() => window.runYouTubeGeometryProbe());
+        console.log(`${name} youtube geometry:`, JSON.stringify(youtube));
+        if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
+        if (youtube.actionReadingHiddenReason || youtube.actionReadingDisplay === 'none') fail(`${name}: YouTube action chip hid a safe furigana lane`, youtube);
+        if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
+        if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
+        if (youtube.readingBaseClearance < 1.5) fail(`${name}: YouTube action chip furigana lacks a visible 2px base gap`, youtube);
+        if (!youtube.nativeUnderline || youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)' || youtube.pseudoContent !== 'none') fail(`${name}: YouTube mirror pitch underline is not glyph-anchored native decoration`, youtube);
+        if (youtube.underlineToChipBottom < 4) fail(`${name}: YouTube pitch underline fell to the chip edge`, youtube);
+        if (!youtube.metadataReadingRetained || youtube.metadataReadingHiddenReason !== 'unsafe-lane') fail(`${name}: close metadata furigana was not safety-culled with 3px clearance`, youtube);
+        if (Math.abs(youtube.metadataHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata safety clearance grew its host row`, youtube);
+        const description = await page.evaluate(() => window.runYouTubeDescriptionClipProbe());
+        console.log(`${name} youtube description:`, JSON.stringify(description));
+        if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);
+        if (!description.nativeHostVisible) fail(`${name}: truncated description lost its native fallback text`, description);
+        if (!transparentPaint(description.mirrorColor) || !transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
+        if (description.lateWordVisibility !== 'hidden') fail(`${name}: off-clip description word remained paintable`, description);
+        if (description.visibleWordSummaryOverlaps !== 0) fail(`${name}: description annotation overlapped its summary sibling`, description);
+        if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);
+        if (description.previewOverflow !== 'hidden' || description.previewClientHeight !== 112 || description.previewScrollHeight <= description.previewClientHeight || description.mirrorMaxHeight !== '112px') fail(`${name}: authored 112px description clip was not preserved`, description);
+        if (description.mirrorCount !== 1 || description.cycleMirrorCounts.some(count => count !== 1)) fail(`${name}: repeated description disclosure stacked mirrors`, description);
         const more = await page.evaluate(() => window.runShowMoreProbe());
         console.log(`${name} show-more:`, JSON.stringify(more));
         if (more.detachedReadingCount < 1) fail(`${name}: show-more reading missing`, more);

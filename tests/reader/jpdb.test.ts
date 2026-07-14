@@ -3664,6 +3664,39 @@ describe('reader helpers', () => {
         expect(below.pitchClass).toBe('heiban');
     });
 
+    it('derives each pitch class from its own card instead of inheriting the previous token', () => {
+        const text = '青空。未知語猫';
+        const cards = jpdbVocabularyToCards([
+            [1, 1, 1, '青空', 'あおぞら', 1200, ['n'], [['blue sky']], [['n']], ['known'], ['LHHH']],
+            [2, 2, 2, '未知語', 'みちご', null, ['n'], [['unknown word']], [['n']], ['known'], []],
+            [3, 3, 3, '猫', 'ねこ', 1500, ['n'], [['cat']], [['n']], ['known'], ['HL']],
+        ]);
+        const rawTokens: JPDBRawToken[][] = [[
+            [0, 0, 2, [['青空', 'あおぞら']]],
+            [1, 3, 3, [['未知語', 'みちご']]],
+            [2, 6, 1, [['猫', 'ねこ']]],
+        ]];
+        const [[sky, unrelated, cat]] = jpdbParseResultToTokens([text], rawTokens, cards);
+
+        expect(sky.pitchClass).toBe('heiban');
+        expect(unrelated.pitchClass).toBe('');
+        expect(cat.pitchClass).toBe('atamadaka');
+    });
+
+    it('keeps an inflected surface as one token coloured by its own lexical card pitch', () => {
+        const text = '読んで';
+        const cards = jpdbVocabularyToCards([
+            [1, 1, 1, '読む', 'よむ', 800, ['v5'], [['to read']], [['v5']], ['known'], ['HL']],
+        ]);
+        const rawTokens: JPDBRawToken[][] = [[
+            [0, 0, 3, null],
+        ]];
+        const [[reading]] = jpdbParseResultToTokens([text], rawTokens, cards);
+
+        expect(reading).toBeDefined();
+        expect(reading.pitchClass).toBe('atamadaka');
+    });
+
     it('keeps hosted dark brand buttons driven by the dynamic accent variables', () => {
         const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
 
@@ -8835,7 +8868,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('collects current VitePress hosted hero heading and tagline text', () => {
+    it('excludes the VitePress hosted hero heading and tagline from scanning', () => {
         const rectSpy = mockElementBoundingClientRect({ height: 240 });
         document.body.innerHTML = `
             <section class="VPHero has-image">
@@ -8846,14 +8879,16 @@ describe('reader helpers', () => {
                     </div>
                 </div>
             </section>
+            <div class="vp-doc"><p>今日は静かな喫茶店で新しい本を読みました。</p></div>
         `;
 
         try {
-            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text))
-                .toEqual(expect.arrayContaining([
-                    'よむ 好きなものを読んで日本語を学ぶ',
-                    'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。',
-                ]));
+            const texts = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text);
+            // The homepage hero is marketing chrome — a hard no-scan boundary.
+            expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(false);
+            expect(texts.some(text => text.includes('どこでも単語をタップし'))).toBe(false);
+            // Real docs prose stays reading material.
+            expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
         } finally {
             rectSpy.mockRestore();
             document.body.replaceChildren();
@@ -12379,8 +12414,10 @@ describe('reader helpers', () => {
 
         expect(today.pitchAccent).toEqual(['HL']);
         expect(html).toContain('class="atamadaka"');
-        expect(html).toContain('points="9,10 33,29"');
-        expect(html).not.toContain('points="9,10 33,10"');
+        // Graphs now centre their contour (startX 21, +24/mora), so the drop
+        // from きょ (H) to う (L) plots at 21,10 → 45,29.
+        expect(html).toContain('points="21,10 45,29"');
+        expect(html).not.toContain('points="21,10 45,10"');
         expect(html).toContain('>きょ<');
         expect(html).toContain('>う<');
     });
@@ -34789,7 +34826,7 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('つづ');
     });
 
-    it('collects hosted docs text in page order including Try Me content', () => {
+    it('collects hosted .vp-doc prose and Try Me content in page order while excluding chrome', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main>
@@ -34832,17 +34869,22 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
 
         const texts = targets.map(target => target.text);
+        // Collection never wraps text in place.
         expect(document.querySelector('.yomu-try-me .jpdb-reader-word')).toBeNull();
-        expect(texts[0]).toBe('好きなものを読んで日本語を学ぶ');
-        expect(texts.some(text => text.includes('よむ'))).toBe(true);
-        expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(true);
+        // Homepage hero and the install panel are chrome — excluded from scanning
+        // even though the install panel sits inside `.vp-doc`.
+        expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(false);
+        expect(texts.some(text => text.includes('よむ turns real Japanese pages'))).toBe(false);
+        expect(texts.some(text => text.includes('Install よむ as a userscript'))).toBe(false);
+        expect(targets.find(target => target.text.trim() === '2 Install よむ')).toBeUndefined();
+        // Real `.vp-doc` prose and the Try Me sample stay covered, in page order.
+        expect(texts.some(text => text.includes('よむ runs inside your browser'))).toBe(true);
         expect(texts).toContain('青空の下で本を読む');
         expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
-        expect(texts.some(text => text.includes('よむ turns real Japanese pages'))).toBe(true);
-        expect(texts.some(text => text.includes('よむ runs inside your browser'))).toBe(true);
-        const installTarget = targets.find(target => target.text.trim() === '2 Install よむ');
-        expect(installTarget).toBeTruthy();
-        expect('passiveInteraction' in installTarget! && installTarget.passiveInteraction).toBe(true);
+        const proseIndex = texts.findIndex(text => text.includes('よむ runs inside your browser'));
+        const tryMeIndex = texts.indexOf('青空の下で本を読む');
+        expect(proseIndex).toBeGreaterThanOrEqual(0);
+        expect(proseIndex).toBeLessThan(tryMeIndex);
     });
 
     it('collects Japanese text on hosted docs pages without a Try Me block', () => {
@@ -34881,10 +34923,13 @@ describe('reader helpers', () => {
     it('lets annotated hosted docs card links wrap while staying passive', () => {
         const rectSpy = mockElementBoundingClientRect();
         const copy = 'ユーザースクリプト管理拡張を入れ、よむを追加して、最初の検索を試します。';
+        // A content link-grid inside `.vp-doc` (NOT the homepage `.yomu-next-grid`
+        // chrome, which is excluded): its card copy is reading material and wraps
+        // as a passive lookup target.
         document.body.innerHTML = `
             <main>
                 <div class="vp-doc">
-                    <div class="yomu-link-grid yomu-next-grid">
+                    <div class="yomu-link-grid">
                         <a class="yomu-link-card" href="/getting-started">
                             <strong>よむをセットアップ</strong>
                             <span>${copy}</span>
@@ -34940,7 +34985,7 @@ describe('reader helpers', () => {
         expect(words[1]?.querySelector('rt')?.textContent).toBe('どくしょ');
     });
 
-    it('scans hosted docs overflow menu labels as passive ruby lookup targets', () => {
+    it('excludes the hosted docs overflow menu from passive scanning', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main><div class="vp-doc"><p>今日は本を読みます。</p></div></main>
@@ -34953,25 +34998,14 @@ describe('reader helpers', () => {
         const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
         rectSpy.mockRestore();
 
-        const settingsTarget = targets.find(target => target.text.trim() === '設定');
-        expect(settingsTarget).toBeTruthy();
-        expect('passiveInteraction' in settingsTarget! && settingsTarget.passiveInteraction).toBe(true);
-        expect(settingsTarget && 'parserId' in settingsTarget ? settingsTarget.parserId : '').toBe('yomu-hosted-docs-parser');
-
-        applyTokensToScanTarget(settingsTarget!, [{
-            card: { ...card, spelling: '設定', reading: 'せってい', cardState: ['not-in-deck'] },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'せってい', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '設定',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('.yomu-hosted-overflow-group button .jpdb-reader-word')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')?.textContent).toBe('せってい');
+        const texts = targets.map(target => target.text);
+        // The "more" overflow menu is navigation chrome — a hard no-scan boundary,
+        // so its button/link labels are never collected as lookup targets.
+        expect(texts.some(text => text.includes('設定'))).toBe(false);
+        expect(texts.some(text => text.includes('動画プレイヤー'))).toBe(false);
+        expect(document.querySelector('.yomu-hosted-overflow-group .jpdb-reader-word')).toBeNull();
+        // Real `.vp-doc` prose is still covered.
+        expect(texts).toContain('今日は本を読みます。');
     });
 
     it('scans hosted video-player Japanese empty-state and control text', () => {
@@ -35014,10 +35048,8 @@ describe('reader helpers', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main>
-                <section class="VPHero">
-                    <h1><span class="text">好きなものを読んで日本語を学ぶ</span></h1>
-                </section>
                 <div class="vp-doc">
+                    <p>好きなものを読んで日本語を学ぶ</p>
                     <div class="yomu-try-me">
 	                    <strong>Try me</strong>
 	                    <div class="yomu-try-me-text">
@@ -35917,8 +35949,10 @@ describe('reader helpers', () => {
         expect(titleWord.dataset.cardSource).toBe('jpdb');
         expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
         expectRenderedPitchWord(titleWord, 'heiban');
-        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word rt')?.textContent).toBe('しつもん');
-        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')?.textContent).toBe('もじ');
+        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word rt')).toBeNull();
+        expect(document.querySelector('ytm-button-renderer .jpdb-reader-detached-furi')?.textContent).toBe('しつもん');
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')).toBeNull();
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-detached-furi')?.textContent).toBe('もじ');
         expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt')?.textContent).toBe('とうろく');
         const commentWord = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text .jpdb-reader-word')!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
@@ -36119,8 +36153,12 @@ describe('reader helpers', () => {
         expect(Array.from(document.querySelector('ytd-watch-info-text')!.children)
             .some(child => child.matches('.jpdb-reader-text-mirror'))).toBe(true);
         expect(readerWordSurfaceText(viewerWord)).toBe('視聴');
-        expect(viewerWord.querySelector('rt')?.textContent).toBe('しちょう');
+        // The viewer-count chip is a control (role="button"); its reading is
+        // rendered through the detached channel so the chip is not resized.
+        expect(viewerWord.querySelector('rt')).toBeNull();
+        expect(document.querySelector('ytd-watch-info-text .jpdb-reader-detached-furi')?.textContent).toBe('しちょう');
         expectRenderedPitchWord(viewerWord, 'heiban');
+        // The engagement message is reading content, so it keeps inline ruby.
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
         expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
         expect(document.querySelector('yt-live-chat-viewer-engagement-message-renderer button .jpdb-reader-word')).toBeNull();
@@ -36190,7 +36228,10 @@ describe('reader helpers', () => {
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
         expect(readerWordSurfaceText(detailWord)).toBe('詳細');
         expect(detailWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(detailWord.querySelector('rt')?.textContent).toBe('しょうさい');
+        // The 詳細 subtext is a control (role="button"): detached reading, no
+        // inline ruby, so the notice row keeps its authored height.
+        expect(detailWord.querySelector('rt')).toBeNull();
+        expect(document.querySelector('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-detached-furi')?.textContent).toBe('しょうさい');
     });
 
     it('uses YouTube watch-info aria labels instead of hidden rolling-number text', async () => {
@@ -36467,7 +36508,10 @@ describe('reader helpers', () => {
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
         expect(readerWordSurfaceText(detailWord)).toBe('詳細');
         expect(detailWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(detailWord.querySelector('rt')?.textContent).toBe('しょうさい');
+        // The 詳細 subtext is a control (role="button"): detached reading, no
+        // inline ruby, so the notice row keeps its authored height.
+        expect(detailWord.querySelector('rt')).toBeNull();
+        expect(document.querySelector('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-detached-furi')?.textContent).toBe('しょうさい');
     });
 
     it('scans YouTube watch metadata live-chat teaser carousel text', () => {
@@ -37528,12 +37572,15 @@ describe('reader helpers', () => {
             y: 0,
             toJSON: () => ({}),
         } as DOMRect);
-        document.body.innerHTML = '<div class="hosted-text-fixture"></div><main><p>今日は静かな部屋で本を読みます。</p></main>';
+        document.body.innerHTML = '<main><p>今日は静かな部屋で本を読みます。</p></main>';
 
-        const targets = collectScanTargets(10, 'https://hrussellzfac023.github.io/yomu-reader/');
+        // Google search opts into generic page text (includeGenericPageText), so
+        // prose outside its curated result roots still gets a generic-scan pass —
+        // unlike the hosted docs profile, which is curated `.vp-doc` only.
+        const targets = collectScanTargets(10, 'https://www.google.com/search?q=reading');
         rectSpy.mockRestore();
 
-        expect(targets.map(target => target.text)).toEqual(['今日は静かな部屋で本を読みます。']);
+        expect(targets.map(target => target.text)).toContain('今日は静かな部屋で本を読みます。');
     });
 
     it('only enables the asbplayer parser when asbplayer subtitle roots exist', () => {

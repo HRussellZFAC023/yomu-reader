@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { withViewport } from './helpers/browser-fixtures';
 
@@ -25,6 +25,16 @@ function createVisiblePageScanner(
 }
 
 describe('VisiblePageScanner', () => {
+    // The jsdom default URL (http://localhost:3000/) now matches the
+    // yomu-hosted-docs profile — a loopback root is treated as the Yomu docs
+    // homepage, which scans ONLY `.vp-doc` and disables the generic/residual
+    // passes. These scheduling/enrichment tests simulate ordinary web pages, so
+    // start each on a plain non-Yomu path; the hosted-docs and site-specific
+    // tests below re-declare their own URL in-body and override this default.
+    beforeEach(() => {
+        window.history.pushState({}, '', '/reading/');
+    });
+
     it('parses large page scans in batches so the first targets can render sooner', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
@@ -1776,8 +1786,11 @@ describe('VisiblePageScanner', () => {
         const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/');
         const heading = '青空の下で本を読む';
+        // Hosted docs prose lives in the curated `.vp-doc` root; that is the one
+        // region the hosted-docs profile scans now that homepage chrome and the
+        // generic fallback are excluded.
         document.body.innerHTML = `
-            <main class="hosted-text-fixture">
+            <main class="hosted-text-fixture vp-doc">
                 <h3>${heading}</h3>
                 <p>今日は静かな喫茶店で新しい本を読みました。</p>
             </main>
@@ -1812,7 +1825,7 @@ describe('VisiblePageScanner', () => {
         window.history.pushState({}, '', '/yomu-reader/');
         const heading = '青空の下で本を読む';
         document.body.innerHTML = `
-            <main class="hosted-text-fixture">
+            <main class="hosted-text-fixture vp-doc">
                 <h3>${heading}</h3>
                 <p>日本語</p>
             </main>
@@ -1893,23 +1906,28 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('covers hosted docs hero, cards, install links, and buttons with ruby and pitch classes', async () => {
+    it('excludes hosted homepage chrome from scanning while covering .vp-doc prose', async () => {
         const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/');
+        // The homepage's own nav, hero marketing copy, CTA pills, install panel,
+        // and "what to do next" link grid are a hard no-scan boundary in
+        // 1.6.151; only the curated `.vp-doc` docs prose is reading material.
         document.body.innerHTML = `
             <main class="jpdb-reader-word-underline-pitch jpdb-reader-word-text-pitch">
+                <header class="VPNav"><a href="/getting-started">はじめる</a></header>
                 <section class="VPHomeHero">
                     <h1 class="heading">日本語を読む</h1>
                     <p class="tagline">青空の下で本を読む</p>
+                    <div class="actions"><a class="VPButton" href="/install/">今すぐ追加</a></div>
                 </section>
-                <section class="VPFeatures">
-                    <a class="item yomu-link-card" href="/guide/">
-                        <h2>次の手順</h2>
-                        <p>辞書を追加する</p>
-                    </a>
-                </section>
-                <a class="yomu-install-step-link" href="/install/">今すぐ追加</a>
-                <button type="button">設定を開く</button>
+                <div class="yomu-install-panel"><strong>設定を開く</strong></div>
+                <div class="yomu-link-grid yomu-next-grid">
+                    <a class="yomu-link-card" href="/guide/"><strong>次の手順</strong></a>
+                </div>
+                <div class="yomu-hosted-overflow-group"><a href="/changelog">更新履歴</a></div>
+                <div class="vp-doc">
+                    <p>辞書で設定を読む。</p>
+                </div>
             </main>
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForHostedCoverageText));
@@ -1920,19 +1938,38 @@ describe('VisiblePageScanner', () => {
 
         try {
             await scanner.scanVisiblePage({ silent: true });
+            const docHtmlAfterFirstScan = document.querySelector<HTMLElement>('.vp-doc')!.innerHTML;
 
-            const words = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            const surfaces = words.map(word => word.dataset.expression || word.textContent?.trim() || '');
-            expect(surfaces).toEqual(expect.arrayContaining(['日本語', '読む', '次', '手順', '辞書', '追加', '設定', '開く']));
-            for (const surface of ['日本語', '辞書', '設定']) {
-                const word = words.find(item => item.dataset.expression === surface);
+            // No wrappers, detached mirrors, or ruby anywhere in the chrome.
+            for (const selector of ['.VPNav', '.VPHomeHero', '.yomu-install-panel', '.yomu-next-grid', '.yomu-hosted-overflow-group']) {
+                const chrome = document.querySelector<HTMLElement>(selector)!;
+                expect(chrome.querySelectorAll('.jpdb-reader-word, rt, .jpdb-reader-text-mirror, .jpdb-reader-ruby-base')).toHaveLength(0);
+            }
+            // The chrome copy is never even handed to the parser.
+            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
+            expect(parsedText).not.toContain('設定を開く');
+            expect(parsedText).not.toContain('次の手順');
+            expect(parsedText).not.toContain('今すぐ追加');
+            expect(parsedText).not.toContain('はじめる');
+            expect(parsedText).not.toContain('更新履歴');
+
+            // Real docs prose in the curated `.vp-doc` root stays fully covered.
+            const docWords = [...document.querySelectorAll<HTMLElement>('.vp-doc .jpdb-reader-word')];
+            const docSurfaces = docWords.map(word => word.dataset.expression || word.textContent?.trim() || '');
+            expect(docSurfaces).toEqual(expect.arrayContaining(['辞書', '設定', '読む']));
+            for (const surface of ['辞書', '設定']) {
+                const word = docWords.find(item => item.dataset.expression === surface);
                 expect(word?.querySelector('rt')?.textContent).toBe(readingForHostedCoverage(surface));
                 expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
             }
-            const installWord = words.find(item => item.dataset.expression === '追加' && item.closest('.yomu-install-step-link'));
-            expect(installWord?.querySelector('rt')?.textContent).toBe('ついか');
-            expect(installWord?.classList.contains('jpdb-reader-passive-word')).toBe(true);
-            expect(parseJapanese.mock.calls.flatMap(call => call[0]).join('\n')).toContain('設定を開く');
+
+            // SPA remount / repeated scan stays stable: docs prose is not
+            // re-parsed or re-wrapped, and chrome stays untouched.
+            await scanner.scanVisiblePage({ silent: true });
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(document.querySelector<HTMLElement>('.vp-doc')!.innerHTML).toBe(docHtmlAfterFirstScan);
+            expect(document.querySelectorAll('.vp-doc .jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
+            expect(document.querySelectorAll('.VPHomeHero .jpdb-reader-word')).toHaveLength(0);
         } finally {
             scanner.destroy();
             restoreRects();
@@ -2830,6 +2867,12 @@ function readingForHostedCoverage(surface: string): string {
 }
 
 describe('abortable visible-work scheduling (P1)', () => {
+    // See the note in the VisiblePageScanner block: a loopback root matches the
+    // hosted-docs profile, so pin these generic batching tests to a plain page.
+    beforeEach(() => {
+        window.history.pushState({}, '', '/reading/');
+    });
+
     it('stops an in-flight scan between batches when a newer scan is requested', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');

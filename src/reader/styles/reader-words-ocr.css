@@ -939,7 +939,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   position: absolute !important;
   z-index: 2;
   inset-inline-start: 50%;
-  inset-block-end: calc(100% + 1px);
+  /* 3px yields a measured >=2px reading/base gap after WebKit font rounding. */
+  inset-block-end: calc(100% + 3px);
   display: block !important;
   width: max-content;
   max-width: none;
@@ -973,14 +974,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }
-/* An additive mirror keeps the native base glyphs visible and paints its pitch
-   line as a native text decoration anchored to those glyphs. The generic
-   absolute ::after line is anchored to the mirror's containing line box; in a
-   tall pill/button that put the line at the bottom edge instead of directly
-   beneath the label. Keep other underline modes unchanged. */
+/* A mirrored page word's line box can include ruby leading or a tall host
+   control. Anchor ordinary pitch lines to the glyphs with native decoration;
+   the absolute ::after lane otherwise falls at the containing line-box edge.
+   Compound pitch keeps ::after because its multi-colour gradient cannot be
+   represented by one native text-decoration colour. */
 .jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
-  .jpdb-reader-word::after {
+  .jpdb-reader-text-mirror
+  .jpdb-reader-word:not(.jpdb-reader-pitch-compound) {
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror
+  .jpdb-reader-word:not(.jpdb-reader-pitch-compound)::after {
   content: none !important;
 }
 [data-yomu-detached-reading-overflow="true"] {

@@ -8029,7 +8029,9 @@ export class ReaderApp {
             card.spelling,
             card.reading,
             expression => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences),
-            { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) },
+            {
+                includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling),
+            },
         ).catch(error => {
             log.warn('Local pitch enrichment failed', { term: card.spelling }, error);
             return { patterns: [] };

@@ -556,7 +556,9 @@ export class ReaderParser {
             card.spelling,
             card.reading,
             expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-            { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) },
+            {
+                includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling),
+            },
         ).catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return { patterns: [] };

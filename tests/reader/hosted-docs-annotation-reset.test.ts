@@ -55,15 +55,29 @@ describe('hosted docs annotation reset gating', () => {
     });
 });
 
-// The homepage chrome groups (hero pills, install steps, nav tabs, next-step
-// card titles) reserve the furigana band with fixed-height flex-end label
-// boxes so annotated and plain labels share identical geometry and baselines.
-describe('hosted docs furigana chrome geometry', () => {
-    const css = readProjectFile('docs/.vitepress/theme/custom.css');
+describe('hosted docs reader scan boundary', () => {
+    const theme = readProjectFile('docs/.vitepress/theme/index.ts');
 
-    it('reserves a uniform ruby band on every hero pill (not only annotated ones)', () => {
-        expect(css).toContain('html[lang="ja"] .VPHomeHero .actions .VPButton');
-        expect(css).not.toContain(':has(.jpdb-reader-word.jpdb-reader-has-furi)');
+    it('stamps homepage chrome at initial mount and after VitePress swaps route content', () => {
+        for (const selector of [
+            "'.VPNav'",
+            "'.VPHero'",
+            "'.VPHomeHero'",
+            "'.yomu-install-panel'",
+            "'.yomu-next-grid'",
+            "'.yomu-hosted-overflow-group'",
+        ]) {
+            expect(theme).toContain(selector);
+        }
+        expect(theme).toContain("element.setAttribute('data-jpdb-reader-surface-ignore', 'true');");
+
+        const initialInstall = theme.slice(theme.indexOf('function installHostedDocsEnhancements'));
+        expect(initialInstall.indexOf('stampHostedSurfaceIgnoreChrome();'))
+            .toBeLessThan(initialInstall.indexOf('syncLandmarks();'));
+
+        const routeSync = theme.slice(theme.indexOf('function scheduleHostedDocsShellSync'));
+        const routeSyncBody = routeSync.slice(0, routeSync.indexOf('\n}'));
+        expect(routeSyncBody).toContain('stampHostedSurfaceIgnoreChrome();');
     });
 
     it('scopes the fixed card-title band to the homepage next-step grid, em-sized for text enlargement', () => {

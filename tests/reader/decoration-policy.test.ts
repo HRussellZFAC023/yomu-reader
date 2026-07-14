@@ -12,6 +12,7 @@ import {
     removeNonDestructiveScanMirrors,
     type FragmentTextTarget,
 } from '../../src/reader/dom';
+import { closestRubyFragileConstrainedRow, isClipConstrainedRow } from '../../src/reader/dom/decoration-policy';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -319,14 +320,14 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#content-text')).toBe('content-ruby');
     });
 
-    it('classifies owner-curated content chips (質問する) as content-ruby', () => {
+    it('keeps actual controls in YouTube content roots interactive-passive', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-slim-video-metadata-section-renderer>
                 <ytm-button-renderer><button id="ask"><span id="label">質問する</span></button></ytm-button-renderer>
             </ytm-slim-video-metadata-section-renderer>
         `;
-        expect(classifyText('#label')).toBe('content-ruby');
+        expect(classifyText('#label')).toBe('interactive-passive');
     });
 
     it('classifies an article paragraph as prose-full', () => {
@@ -502,6 +503,53 @@ describe('clip-constrained chrome rows (engine-unconditional)', () => {
         mockRect(row, { width: 240, height: 22 });
         paintRow(row);
         expectNoInFlowRuby(row);
+    });
+
+    it('recognizes a 112px preview only when its native content is actively truncated', () => {
+        document.body.innerHTML = `
+            <div id="preview" style="height:112px;max-height:112px;overflow:hidden">
+                <span id="copy">田中太郎</span>
+            </div>
+        `;
+        const preview = document.querySelector<HTMLElement>('#preview')!;
+        const copy = document.querySelector<HTMLElement>('#copy')!;
+        mockRect(preview, { width: 208, height: 112 });
+        mockOverflow(preview, 241, 112);
+
+        expect(closestRubyFragileConstrainedRow(copy)).toBe(preview);
+        expect(isClipConstrainedRow(preview)).toBe(true);
+    });
+
+    it('does not classify a non-overflowing 112px box as a constrained preview', () => {
+        document.body.innerHTML = `
+            <div id="preview" style="height:112px;max-height:112px;overflow:hidden">
+                <span id="copy">田中太郎</span>
+            </div>
+        `;
+        const preview = document.querySelector<HTMLElement>('#preview')!;
+        const copy = document.querySelector<HTMLElement>('#copy')!;
+        mockRect(preview, { width: 208, height: 112 });
+        mockOverflow(preview, 112, 112);
+
+        expect(closestRubyFragileConstrainedRow(copy)).toBeNull();
+        expect(isClipConstrainedRow(preview)).toBe(false);
+    });
+
+    it('does not classify a viewport-sized overflow shell as a text preview', () => {
+        document.body.innerHTML = `
+            <main id="shell" style="height:600px;max-height:600px;overflow:hidden">
+                <span id="copy">田中太郎</span>
+            </main>
+        `;
+        const shell = document.querySelector<HTMLElement>('#shell')!;
+        const copy = document.querySelector<HTMLElement>('#copy')!;
+        // Even if a transform makes the visual rect look preview-sized, the
+        // authored client viewport remains page-sized and must keep it out.
+        mockRect(shell, { width: 273, height: 160 });
+        mockOverflow(shell, 1200, 600);
+
+        expect(closestRubyFragileConstrainedRow(copy)).toBeNull();
+        expect(isClipConstrainedRow(shell)).toBe(false);
     });
 });
 

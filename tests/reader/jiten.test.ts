@@ -349,6 +349,99 @@ describe('JitenApiClient', () => {
         });
     });
 
+    it('derives each pitch class from its own card instead of inheriting the previous token', async () => {
+        const paragraph = '青空の。未知語猫';
+        const fetchMock = createFetchMock({
+            vocabulary: [
+                {
+                    wordId: 1,
+                    readingIndex: 0,
+                    spelling: '青空',
+                    reading: '青空[あおぞら]',
+                    frequencyRank: 100,
+                    partsOfSpeech: ['n'],
+                    meaningsChunks: [['blue sky']],
+                    meaningsPartOfSpeech: ['n'],
+                    knownState: [4],
+                    pitchAccents: [0],
+                },
+                {
+                    wordId: 2,
+                    readingIndex: 0,
+                    spelling: 'の',
+                    reading: 'の',
+                    partsOfSpeech: ['prt'],
+                    meaningsChunks: [['particle']],
+                    meaningsPartOfSpeech: ['prt'],
+                    knownState: [4],
+                    pitchAccents: [],
+                },
+                {
+                    wordId: 3,
+                    readingIndex: 0,
+                    spelling: '未知語',
+                    reading: '未知語[みちご]',
+                    partsOfSpeech: ['n'],
+                    meaningsChunks: [['unknown word']],
+                    meaningsPartOfSpeech: ['n'],
+                    knownState: [4],
+                    pitchAccents: [],
+                },
+                {
+                    wordId: 4,
+                    readingIndex: 0,
+                    spelling: '猫',
+                    reading: '猫[ねこ]',
+                    partsOfSpeech: ['n'],
+                    meaningsChunks: [['cat']],
+                    meaningsPartOfSpeech: ['n'],
+                    knownState: [4],
+                    pitchAccents: [1],
+                },
+            ],
+            tokens: [[
+                { wordId: 1, readingIndex: 0, start: 0, end: 2, length: 2 },
+                { wordId: 2, readingIndex: 0, start: 2, end: 3, length: 1 },
+                { wordId: 3, readingIndex: 0, start: 4, end: 7, length: 3 },
+                { wordId: 4, readingIndex: 0, start: 7, end: 8, length: 1 },
+            ]],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const [tokens] = await client.parse([paragraph]);
+        const [sky, particle, unrelated, cat] = tokens;
+
+        expect(sky.pitchClass).toBe('heiban');
+        expect(particle.pitchClass).toBe('');
+        expect(unrelated.pitchClass).toBe('');
+        expect(cat.pitchClass).toBe('atamadaka');
+    });
+
+    it('keeps an inflected surface as one token coloured by its own lexical card pitch', async () => {
+        const fetchMock = createFetchMock({
+            vocabulary: [{
+                wordId: 5,
+                readingIndex: 0,
+                spelling: '読む',
+                reading: '読[よ]む',
+                partsOfSpeech: ['v5'],
+                meaningsChunks: [['to read']],
+                meaningsPartOfSpeech: ['v5'],
+                knownState: [4],
+                pitchAccents: [1],
+            }],
+            tokens: [[
+                { wordId: 5, readingIndex: 0, start: 0, end: 3, length: 3 },
+            ]],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const [tokens] = await client.parse(['読んで']);
+
+        expect(tokens).toHaveLength(1);
+        expect(tokens[0].pitchClass).toBe('atamadaka');
+    });
+
     it('normalizes Jiten byte offsets before rendering multi-kanji reader tokens', async () => {
         const fetchMock = createFetchMock({
             vocabulary: [

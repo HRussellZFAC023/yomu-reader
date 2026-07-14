@@ -311,22 +311,22 @@ const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
 const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
+// Only real docs prose is a scan root here. Homepage/site chrome (hero,
+// nav, install panel, "next step" link grid, overflow menu) is excluded
+// below instead — it decorates the userscript's own hero/nav/CTA copy and
+// destroys the tablet layout, and none of it is reading material.
 const YOMU_HOSTED_DOCS_ROOTS = [
-    '.VPHero .heading',
-    '.VPHero .text',
-    '.VPHero .tagline',
-    '.VPHero .main',
-    '.VPHomeHero .heading',
-    '.VPHomeHero .text',
-    '.VPHomeHero .tagline',
-    '.VPHomeHero .main',
-    '.VPFeatures .item',
-    '.yomu-install-panel',
-    '.yomu-hosted-overflow-group',
-    '.yomu-link-grid',
     '.vp-doc',
 ];
-const YOMU_HOSTED_DOCS_EXCLUDE = COMMON_EXCLUDE;
+const YOMU_HOSTED_DOCS_EXCLUDE = [
+    COMMON_EXCLUDE,
+    '.VPNav',
+    '.VPHero',
+    '.VPHomeHero',
+    '.yomu-install-panel',
+    '.yomu-next-grid',
+    '.yomu-hosted-overflow-group',
+].join(',');
 const YOMU_VIDEO_PLAYER_ROOTS = [
     '.brand strong',
     '[data-yomu-video-frame] .empty strong',
@@ -531,8 +531,12 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         heading: true,
         minLength: 1,
-        includeUiChrome: true,
-        includeGenericPageText: true,
+        // Hosted documentation prose is fully covered by `.vp-doc`. Do not
+        // let the generic or residual passes rediscover site chrome outside
+        // that curated root: annotating the nav, hero, install panel, or CTA
+        // grids changes their layout and can make the homepage unusable.
+        disableGenericDomScan: true,
+        suppressResidualVisibleScan: true,
         visibleOnly: false,
         matches: url => isYomuHostedPassivePage(url.href),
     },

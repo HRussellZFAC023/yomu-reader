@@ -1370,7 +1370,7 @@ html.jpdb-reader-doodle-active * {
   }
   .jpdb-reader-grades .jpdb-reader-btn {
     padding-inline: clamp(1px, 0.75cqi, 4px);
-    font-size: clamp(8.8px, 2.4cqi, 10.4px);
+    font-size: clamp(8.2px, 2.2cqi, 9.8px);
   }
 }
 
@@ -1517,8 +1517,10 @@ html.jpdb-reader-doodle-active * {
   gap: 1px;
   min-width: 0;
 }
-/* Accent variants: one compact wrapping row, graph + commonality badge grouped
-   tightly, primary variant first and emphasized (mobile-first space use). */
+/* Accent variants are peers: keep every graph in the same footprint so the
+   first/source-preferred reading does not appear larger or more authoritative
+   than the other legitimate readings. Source order remains visible through
+   the first badge colour, while two or three cards wrap as equal siblings. */
 .jpdb-reader-pitch.jpdb-reader-pitch-variants {
   justify-content: center;
   gap: 4px 8px;
@@ -1527,13 +1529,7 @@ html.jpdb-reader-doodle-active * {
   padding: 2px 6px 3px;
   border: 1px solid transparent;
   border-radius: 8px;
-}
-.jpdb-reader-pitch-variant-primary {
-  border-color: var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface);
-}
-.jpdb-reader-pitch-variant:not(.jpdb-reader-pitch-variant-primary) {
-  opacity: 0.82;
+  text-align: center;
 }
 .jpdb-reader-pitch-variant-badge {
   color: var(--jpdb-reader-muted);

@@ -35,6 +35,7 @@ export function renderPitchVariantGraphs(reading: string, variants: PitchVariant
         .map(variant => ({
             variant,
             svg: renderPitchGraphSvg(reading, variant.pattern, {
+                centerContent: true,
                 segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : undefined,
             }),
         }))
@@ -103,7 +104,10 @@ export interface PitchGraphRenderOptions {
 // component gets its own labelled mini graph.
 export function renderExpressionComponentPitches(components: ExpressionComponentPitch[]): string {
     const graphs = components
-        .map(component => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) }))
+        .map(component => ({
+            component,
+            svg: renderPitchGraphSvg(component.reading, component.pitch, { centerContent: true }),
+        }))
         .filter(entry => entry.svg)
         .map(entry => `<span class="jpdb-reader-pitch-component">
             ${entry.svg}

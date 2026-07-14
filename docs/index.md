@@ -18,7 +18,7 @@ hero:
   actions:
     - theme: brand
       text: Install
-      link: https://github.com/HRussellZFAC023/yomu-reader/releases/download/v1.6.150/yomu.user.js
+      link: https://github.com/HRussellZFAC023/yomu-reader/releases/download/v1.6.151/yomu.user.js
     - theme: alt
       text: Study
       link: /study/
@@ -44,7 +44,7 @@ hero:
   </div>
   <div class="yomu-install-steps" role="list" aria-label="Install steps">
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Manager</span></a></div>
-    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://github.com/HRussellZFAC023/yomu-reader/releases/download/v1.6.150/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Install</span></a></div>
+    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://github.com/HRussellZFAC023/yomu-reader/releases/download/v1.6.151/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Install</span></a></div>
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span class="yomu-install-step-label">Read</span></a></div>
   </div>
 </div>

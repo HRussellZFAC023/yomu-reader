@@ -121,7 +121,7 @@ const PITCH_COLOR_FIELDS = [
     ['pitchColorNakadaka', 'Nakadaka (middle-high)'],
     ['pitchColorOdaka', 'Odaka (tail-high)'],
     ['pitchColorKifuku', 'Kifuku (variable)'],
-    ['pitchColorUnknown', 'Unknown / inherited'],
+    ['pitchColorUnknown', 'Unknown'],
 ] as const satisfies readonly ColorInputField[];
 // No ocrBackgroundColor field: the highlight background is derived from the
 // accent color on every normalize (accessibleOcrBackgroundColor), so a picker

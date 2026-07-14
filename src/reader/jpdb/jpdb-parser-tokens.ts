@@ -12,15 +12,10 @@ export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRaw
 }
 
 function parseParagraphTokens(paragraph: string, rawTokens: JPDBRawToken[], cards: JPDBCard[]): JPDBToken[] {
-    let inheritedPitchClass = '';
-    return rawTokens.map(rawToken => {
-        const token = parseToken(rawToken, paragraph, cards, inheritedPitchClass);
-        inheritedPitchClass = token.pitchClass;
-        return token;
-    });
+    return rawTokens.map(rawToken => parseToken(rawToken, paragraph, cards));
 }
 
-function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken, paragraph: string, cards: JPDBCard[], inheritedPitchClass: string): JPDBToken {
+function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken, paragraph: string, cards: JPDBCard[]): JPDBToken {
     const card = cards[vocabularyIndex];
     const rubies = parseRubies(furigana, position);
     repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
@@ -30,7 +25,7 @@ function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken,
         end: position + length,
         length,
         rubies,
-        pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass),
+        pitchClass: currentPitchClass(card),
     };
     assignWordWithReading(token);
     return token;
@@ -53,9 +48,9 @@ function parseRubies(furigana: JPDBRawToken[3], startOffset: number): JPDBRuby[]
     });
 }
 
-function inheritedOrCurrentPitchClass(card: JPDBCard, inheritedPitchClass: string): string {
+function currentPitchClass(card: JPDBCard): string {
     if (card.partOfSpeech.includes('prt')) return '';
-    return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
+    return getPitchClass(card.pitchAccent, card.reading);
 }
 
 function assignWordWithReading(token: JPDBToken): void {

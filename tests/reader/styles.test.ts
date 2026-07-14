@@ -66,6 +66,12 @@ describe('reader stylesheet loading', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });
 
+    it('uses one slightly smaller font size for every mobile five-grade button', () => {
+        const css = readFileSync('src/reader/styles/kanji.css', 'utf8').replace(/\s+/g, ' ');
+        expect(css).toContain('.jpdb-reader-grades .jpdb-reader-btn { padding-inline: clamp(1px, 0.75cqi, 4px); font-size: clamp(8.2px, 2.2cqi, 9.8px); }');
+        expect(css).not.toMatch(/\.jpdb-reader-btn\.something\s*\{[^}]*font-size:/s);
+    });
+
     it('keeps the shared Study pause control large enough to operate', () => {
         const css = readFileSync('src/reader/styles/new-tab.css', 'utf8');
         const rule = css.match(/\.jpdb-reader-study-clock-toggle\s*\{[^}]*\}/)?.[0] ?? '';
@@ -278,11 +284,14 @@ describe('reader stylesheet loading', () => {
         // to this chrome selector was the one that hid the pitch underline).
         const chromeAfterRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*::after\s*\{[^}]*\}/)?.[0] ?? '';
         expect(chromeAfterRule).toBe('');
-        // Additive mirrors retain the page's native base text. Their absolute
-        // ::after line would anchor to the bottom of a tall button; pitch mode
-        // uses the inline native decoration instead, directly under the glyphs.
-        expect(css).toContain('.jpdb-reader-word-underline-pitch\n  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror\n  .jpdb-reader-word::after');
-        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-additive-text-mirror[\s\S]*?\.jpdb-reader-word::after\s*\{\s*content: none !important;/);
+        // Mirrored words can inherit a tall control/ruby line box. Their
+        // absolute ::after line would anchor to that box edge; pitch mode uses
+        // native decoration instead, directly under the base glyphs.
+        expect(css).toContain('.jpdb-reader-word-underline-pitch\n  .jpdb-reader-text-mirror\n  .jpdb-reader-word:not(.jpdb-reader-pitch-compound)::after');
+        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-text-mirror[\s\S]*?\.jpdb-reader-word:not\(\.jpdb-reader-pitch-compound\)::after\s*\{\s*content: none !important;/);
+        expect(css).toContain('.jpdb-reader-word:not(.jpdb-reader-pitch-compound)');
+        expect(css).toContain('text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important');
+        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch \.jpdb-reader-word\.jpdb-reader-pitch-compound::after\s*\{[\s\S]*?background-image: var\(--jpdb-reader-pitch-compound-gradient, none\)/);
     });
 
     it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {

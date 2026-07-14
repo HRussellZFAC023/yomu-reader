@@ -730,14 +730,12 @@ function jitenParseResultToTokens(paragraphs: string[], result: JitenParseResult
     const vocabByKey = new Map(vocabulary.map(entry => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
     const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
     const tokens: JPDBToken[][] = paragraphs.map((paragraph, paragraphIndex) => {
-        let lastPitchClass = '';
         const parsed: JPDBToken[] = [];
         for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
             const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
             if (!card) continue;
             const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
             const pitchClass = card.partOfSpeech.includes('prt') ? '' : getPitchClass(card.pitchAccent, card.reading);
-            lastPitchClass = pitchClass || lastPitchClass;
             const span = jitenTokenTextSpan(paragraph, token, card);
             const rubies = jitenTokenRubies(vocabularyEntry, span.start);
             if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
@@ -747,7 +745,7 @@ function jitenParseResultToTokens(paragraphs: string[], result: JitenParseResult
                 end: span.end,
                 length: span.length,
                 rubies,
-                pitchClass: lastPitchClass,
+                pitchClass,
                 sentence: paragraph,
             });
         }

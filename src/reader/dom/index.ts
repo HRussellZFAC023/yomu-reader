@@ -2334,7 +2334,10 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         reading.style.setProperty('position', 'absolute', 'important');
         reading.style.setProperty('z-index', '2');
         reading.style.setProperty('inset-inline-start', '50%');
-        reading.style.setProperty('inset-block-end', 'calc(100% + 1px)');
+        // Leave a visible lane between the kana and its base glyph. WebKit's
+        // ruby/font rounding consumes roughly one CSS pixel, so 3px here
+        // produces a measured >=2px gap in both Chromium and WebKit.
+        reading.style.setProperty('inset-block-end', 'calc(100% + 3px)');
         // A reading inside a clip-constrained row whose clip was NOT safely
         // opened (multi-line clamps never open) sits in the fixed inter-line
         // leading and paints over the line above — same at-rest rule as
@@ -2405,6 +2408,7 @@ function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | nul
 }
 
 const DETACHED_READING_COLLISION_SLOP = 0.5;
+const DETACHED_READING_CLEARANCE_PX = 3;
 const pendingDetachedReadingSurfaces = new Set<HTMLElement>();
 
 function detachedReadingCollisionSurface(root: HTMLElement): HTMLElement {
@@ -2444,20 +2448,27 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
     const unsafe = new Set<HTMLElement>();
 
     for (const reading of readingRects) {
+        const ownRuby = reading.element.closest('.jpdb-reader-detached-ruby');
+        const ownBase = ownRuby?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
         if (detachedReadingIsClipped(reading.element, reading.rect)
             || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
         for (const base of baseRects) {
-            if (base.rect.top >= reading.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-            if (base.rect.bottom <= reading.rect.top + DETACHED_READING_COLLISION_SLOP) continue;
-            if (rectanglesOverlap(reading.rect, base.rect)) unsafe.add(reading.element);
+            if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+            if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
+            if (ownRuby && base.element.closest('.jpdb-reader-detached-ruby') === ownRuby) continue;
+            // Adjacent bases on the same authored line are expected reading
+            // overhang, not a foreign row; spacing them would erase compact
+            // compounds such as 新しい順.
+            if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
+            if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
         }
     }
     for (let index = 0; index < readingRects.length; index += 1) {
         const current = readingRects[index];
         for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
             const other = readingRects[otherIndex];
-            if (other.rect.top >= current.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-            if (!rectanglesOverlap(current.rect, other.rect)) continue;
+            if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+            if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
             unsafe.add(current.element);
             unsafe.add(other.element);
         }
@@ -2467,38 +2478,59 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
 
 function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): boolean {
     const ownWord = reading.closest('.jpdb-reader-word');
+    const ownBase = reading.closest('.jpdb-reader-detached-ruby')
+        ?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
+    const ownMirror = reading.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
+    const sourceHost = ownMirror?.parentElement ?? null;
     const root = reading.getRootNode();
     const hitRoots: Array<Document | ShadowRoot> = [document];
     if (root instanceof ShadowRoot) hitRoots.push(root);
     const inset = Math.min(2, rect.width / 4);
     const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
+    const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
+    const rows = [
+        rect.top - clearanceProbe,
+        (rect.top + rect.bottom) / 2,
+        rect.bottom + clearanceProbe,
+    ];
     const hits = uniqueElements(hitRoots.flatMap(hitRoot => {
         const elementsFromPoint = hitRoot.elementsFromPoint;
         if (typeof elementsFromPoint !== 'function') return [];
-        return points.flatMap(x => elementsFromPoint.call(hitRoot, x, (rect.top + rect.bottom) / 2)
-            .filter((element): element is HTMLElement => element instanceof HTMLElement));
+        return rows.flatMap(y => points.flatMap(x => elementsFromPoint.call(hitRoot, x, y)
+            .filter((element): element is HTMLElement => element instanceof HTMLElement)));
     }));
     for (const hit of hits) {
+        // Additive mirrors deliberately sit over their framework host's native
+        // source text. That is the same base copy, not foreign content; other
+        // annotated mirror bases are checked independently below.
+        if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
         const hitWord = hit.closest<HTMLElement>('.jpdb-reader-word');
         if (ownWord && hitWord === ownWord) continue;
+        const hitBase = hitWord?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
+        if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
         // Another word's annotated surface counts as covered text even when
         // the sampled point lands on a wrapper with no direct text node (the
         // point-sampling blind spot that let inter-line readings survive).
         if (hitWord && hitWord !== ownWord && !hitWord.contains(reading)
-            && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
+            && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
         for (const node of hit.childNodes) {
             if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
             const range = document.createRange();
             range.selectNodeContents(node);
-            if (Array.from(range.getClientRects()).some(textRect => rectanglesOverlap(rect, textRect))) return true;
+            if (Array.from(range.getClientRects()).some(textRect => rectanglesWithinClearance(rect, textRect))) return true;
         }
     }
     return false;
 }
 
-function rectanglesOverlap(left: DOMRect, right: DOMRect): boolean {
+function rectanglesWithinClearance(left: DOMRect, right: DOMRect): boolean {
     return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP
-        && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+        && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX
+        && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
+}
+
+function verticalRunsOverlap(left: DOMRect, right: DOMRect): boolean {
+    return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
 }
 
 function detachedReadingIsClipped(reading: HTMLElement, rect: DOMRect): boolean {

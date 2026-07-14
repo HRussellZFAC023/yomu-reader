@@ -179,10 +179,15 @@ export class CardPopoverRenderer {
 
     private renderPitch(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
         if (!this.settings().showPitchAccent) return '';
-        // Once a compound has a complete decomposition, its constituent graphs
-        // are the useful view. A whole-word row may still exist, but showing it
-        // first made the same card flip between two representations as async
-        // dictionary details arrived.
+        // A lexical entry's own accent is authoritative. Component navigation
+        // can still appear in the body, but it must not replace a direct or
+        // safely-composed whole-word contour (e.g. 間違い has direct Jiten pitch
+        // 3 even though Jiten also exposes 間 + 違い as lookup components).
+        const whole = renderPitch(card, data.metaEntries);
+        if (whole) return whole;
+
+        // Only expressions with no usable whole-word contour fall back to one
+        // labelled mini graph per aligned component.
         const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
             card,
             data.expressionComponents ?? [],
@@ -190,8 +195,6 @@ export class CardPopoverRenderer {
         );
         const components = renderExpressionComponentPitches(alignedComponents);
         if (components) return components;
-        const whole = renderPitch(card, data.metaEntries);
-        if (whole) return whole;
         return '';
     }
 

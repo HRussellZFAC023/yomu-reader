@@ -146,6 +146,66 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(h3.style.height).toBe('40px');
     });
 
+    it('keeps an actively truncated expanded-description preview out of its summary sibling', () => {
+        stubYouTube();
+        const description = [
+            '新しいSiri AIとiOS 27について知っておくべきことのすべて',
+            '父の日に向けて最大40%オフ！6月21日まで！',
+            'MKBHD グッズ',
+            'MKBHD イントロ曲のプレイリスト',
+            '質問する',
+        ].join('\n\n');
+        document.body.innerHTML = `
+            <ytm-structured-description-content-renderer>
+                <ytm-expandable-video-description-body-renderer>
+                    <div id="collapsed-string-container">
+                        <div id="collapsed-string"
+                             style="height:112px;max-height:112px;overflow:hidden;white-space:pre-wrap;line-height:16px">
+                            <span class="ytAttributedStringHost"></span>
+                        </div>
+                    </div>
+                </ytm-expandable-video-description-body-renderer>
+                <ytm-expandable-metadata-renderer id="summary" style="display:flex;height:72px">
+                    <p>Marques Brownlee shares initial thoughts on the conference.</p>
+                    <h3>概要</h3>
+                </ytm-expandable-metadata-renderer>
+            </ytm-structured-description-content-renderer>
+        `;
+        const preview = document.querySelector<HTMLElement>('#collapsed-string')!;
+        const host = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
+        const summary = document.querySelector<HTMLElement>('#summary')!;
+        host.textContent = description;
+        mockRect(preview, { width: 208, height: 112 });
+        mockOverflow(preview, 275, 112);
+        mockRect(summary, { width: 232, height: 72 });
+        const summaryBefore = summary.getBoundingClientRect();
+        const target: ScanTextTarget = {
+            node: host.firstChild as Text,
+            parent: host,
+            text: description,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        };
+
+        applyTokensToScanTarget(target, [token('新しい', 0, description, 'あたらしい')], FURI);
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
+        expect(mirror.querySelector('rt:not(.jpdb-reader-detached-furi)')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('あたら');
+        expect(mirror.style.maxHeight).toBe('112px');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(host.style.getPropertyValue('display')).toBe('');
+        expect(preview.style.height).toBe('112px');
+        expect(preview.style.maxHeight).toBe('112px');
+        expect(preview.style.overflow).toBe('hidden');
+        expect(preview.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(summary.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(summary.getBoundingClientRect().top).toBe(summaryBefore.top);
+        expect(summary.getBoundingClientRect().height).toBe(summaryBefore.height);
+    });
+
     it('constrains an interactive-passive mirror to the host clamp box too', () => {
         stubYouTube();
         document.body.innerHTML = `

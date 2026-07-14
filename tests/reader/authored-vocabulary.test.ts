@@ -66,6 +66,10 @@ describe('authored vocabulary disambiguation', () => {
             pitch: { pattern: 'LHHH', source: 'Jiten 1578850/0 + authored te-form' },
         }]));
         document.body.replaceChildren(line);
+        // The default jsdom URL now matches the hosted-docs profile (curated
+        // `.vp-doc` only); this authored line is ordinary page prose, so scan it
+        // as a plain page.
+        window.history.pushState({}, '', '/reading/');
         const restoreRects = mockVisibleElementRects();
         const enrichPitchWords = vi.fn(async (tokens: JPDBToken[]) => {
             expect(tokens.find(item => item.start === sentence.indexOf('行って'))?.card).toMatchObject({
@@ -106,6 +110,7 @@ describe('authored vocabulary disambiguation', () => {
             scanner.destroy();
             restoreRects();
             document.body.replaceChildren();
+            window.history.pushState({}, '', '/');
         }
     });
 });

@@ -51,8 +51,17 @@ function testToken(sentence: string, spelling: string, start: number, end: numbe
 }
 
 describe('VisiblePageScanner ruby-room sweep cadence', () => {
-    beforeEach(() => rubyRoomSpy.mockClear());
-    afterEach(() => { document.body.innerHTML = ''; });
+    // The default jsdom URL (localhost:3000/) now matches the hosted-docs
+    // profile, which scans only `.vp-doc` and disables the generic pass. These
+    // tests scan bare generic prose, so pin them to an ordinary page.
+    beforeEach(() => {
+        rubyRoomSpy.mockClear();
+        window.history.pushState({}, '', '/reading/');
+    });
+    afterEach(() => {
+        document.body.innerHTML = '';
+        window.history.pushState({}, '', '/');
+    });
 
     it('reserves ruby room once per parse batch (after its apply chunks), never per apply chunk', async () => {
         const restoreRects = mockRects();

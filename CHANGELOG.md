@@ -8,6 +8,14 @@
 - The subtitle control rail now fully disappears when idle on players without a native fade signal, instead of leaving a minimised grip stub visible forever.
 - The subtitle rail pin and move grip is easier to tap: a small amount of finger jitter is treated as a tap so the pin toggle fires reliably instead of being mistaken for a drag.
 - A pinned subtitle control rail now stays fully visible and never auto-hides or auto-collapses, even as the pointer moves across the video or the player goes idle.
+- The installed userscript no longer decorates the yomureader.com homepage's own nav, hero marketing copy, CTA pills, install panel, or "what to do next" link grid with ruby/pitch furigana, which was destroying the tablet layout. The pre-rendered "Try me" sample stays annotated and interactive, and real docs prose is unaffected. As defence in depth, the site itself now strips any annotation an older installed copy already added to that chrome and marks it off-limits, so a not-yet-updated userscript can no longer break the layout.
+- The Install buttons and getting-started steps point at the v1.6.151 release asset so a fresh install pulls the current build.
+- YouTube action chips and controls — the 質問する ask button, the 視聴 view count, subscribe, and live-chat notices — now render their furigana in a detached lane that never resizes the control, so the button/notice height, width, and baseline stay exactly as YouTube drew them; their pitch underline is anchored to the glyphs instead of dropping to the bottom edge of the chip. Reading content around them (chat messages, descriptions) keeps inline ruby.
+- A truncated, expandable video description keeps its annotation inside the authored clip height instead of spilling the extra lines over the summary block below it.
+- Local-provider pitch accent (Jiten and JPDB) is now taken only from each word's own dictionary entry. A word with no listed accent stays uncoloured instead of borrowing the previous word's pattern, and the pitch-colour settings row for those words now reads simply "Unknown" rather than "Unknown / inherited".
+- When a word has several accepted pitch patterns, the variant cards now share one footprint with each contour and percentage centred, so the first (source-preferred) reading no longer looks larger or more authoritative than the other legitimate readings; source order stays visible through the first card's accent-coloured percentage.
+- A word's direct whole-word pitch now remains the primary top-right graph even when Jiten also exposes navigable inner components; for example 間違い keeps its pitch-3 contour while 間 and 違い remain available as secondary lookups.
+- All five review-grade buttons use the same slightly smaller font on narrow phones, so the longer “Something” label fits without crowding its button.
 
 ## [1.6.150] - 2026-07-14
 
