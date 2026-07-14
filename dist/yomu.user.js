@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.151#sha256=DXu53Mqu3QDqPbeJMJK82Kr2iIkbYzulnDdSsKw6p0o=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.151#sha256=/RyHB+Jg64nB2wvEBZZyG1cjjVXYD15z8o3XGrjsn6M=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.151#sha256=+3Zi/CQ2ANIASMC+zjHPOAwI0W/Q9Mh5uyZgiFKMitg=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.151#sha256=zDfMbW8rcoHQK+w9koo18lvwKg4ovRlRO3aCY3fEn8s=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.151#sha256=GyG1/UHFTVnrtERNj4LC64OEZ6LB5tyHQEC7q0TETqo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.151#sha256=s6kUTA3xrVoxJEiiSWoGnOrjH2tjYgyx4grexUjHZ3w=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.151#sha256=JXrBaqwlfoUFj/KQIVw8Od9tuR939Psdbu5iweZuuw0=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.151#sha256=EcrUhb8TpArLzf02xvsOTwMK6pOJUgQhwBGAOqvkUF8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.151#sha256=bd7uE6WJZTJZU+3orSJn3HHmmpzWt3h+ylRhln48G4A=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.151#sha256=IcOrrRA7G1GZ1OOucrFyCQF7yvcF9h1yxXeW38UBARY=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.151#sha256=AKb7NeXRAXwXs41d9p/76b1Xh/8GlA6e2azhXD2kJHg=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.151#sha256=HUIeucJLxmAWSkKcoIguO5DB0jJVQORj6Zpvjd9Kf28=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.151#sha256=r/fcppa1qzafIeFpXW2dY1ijNbwvhhiwEnzStO0IDUY=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.151#sha256=GtUc+NeeSMgHA0e+igUoUw82gMBcBMG2f92FVOqGn3U=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -475,6 +475,8 @@ function isVerticalWritingMode(writingMode) {
 }
 const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
 const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
+const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
 const constrainedRowStyleFactMemo = new WeakMap();
 function constrainedRowStyleFacts(element2) {
   const now = Date.now();
@@ -484,16 +486,21 @@ function constrainedRowStyleFacts(element2) {
   const clamped = hasLineClamp(style);
   const ellipsisRow = isEllipsisTextRow(style);
   const clips = clipsOverflow(style);
+  const clippedConstraint = hasClippedTextConstraint(style);
   let clippedShortRow = false;
+  let activelyTruncatedPreview = false;
   if (clips && !clamped && !ellipsisRow) {
   const height = element2.getBoundingClientRect().height;
   clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+  const clientHeight = element2.clientHeight;
+  activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
   }
   const facts = {
   clamped,
   ellipsisRow,
-  clippedConstraint: hasClippedTextConstraint(style),
-  clippedShortRow
+  clippedConstraint,
+  clippedShortRow,
+  activelyTruncatedPreview
   };
   constrainedRowStyleFactMemo.set(element2, { at: now, facts });
   return facts;
@@ -505,7 +512,7 @@ function closestRubyFragileConstrainedRow(element2) {
   let current = element2;
   for (let depth = 0; current && depth < 10; depth += 1) {
   const facts = constrainedRowStyleFacts(current);
-  if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
+  if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
   current = current.parentElement;
   }
   return null;
@@ -516,7 +523,7 @@ function boxStyleIsClipCapable(box) {
 }
 function isClipConstrainedRow(element2) {
   const facts = constrainedRowStyleFacts(element2);
-  return facts.clamped || facts.ellipsisRow || facts.clippedShortRow;
+  return facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview;
 }
 function contentClipRowShowsRestReadings(decoration, clipRow) {
   if (decoration !== "prose-full") return false;
@@ -949,7 +956,7 @@ const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("butt
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
-const CONTENT_CHIP_ROOT_SELECTOR = [
+const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = [
   "ytm-slim-video-metadata-section-renderer",
   "ytm-expandable-video-description-body-renderer",
   "ytm-structured-description-content-renderer",
@@ -957,9 +964,9 @@ const CONTENT_CHIP_ROOT_SELECTOR = [
   "yt-live-chat-viewer-engagement-message-renderer",
   "yt-live-chat-restricted-participation-renderer",
   "yt-live-chat-banner-renderer",
-  "yt-live-chat-ticker-renderer",
-  ".yomu-hosted-overflow-group"
+  "yt-live-chat-ticker-renderer"
 ].join(",");
+const CONTENT_CHIP_ROOT_SELECTOR = `${YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR},.yomu-hosted-overflow-group`;
 const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 function interactivePassiveControl(element2) {
   const temporalMetadata = element2.closest("time,[datetime]");
@@ -1041,6 +1048,7 @@ function classifyDecoration(element2) {
   const control = interactivePassiveControl(element2);
   if (control) {
   if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return "interactive-passive";
+  if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return "interactive-passive";
   if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
   return "interactive-passive";
   }
@@ -6303,7 +6311,7 @@ function styleDetachedReadingElements(root, host) {
   reading.style.setProperty("position", "absolute", "important");
   reading.style.setProperty("z-index", "2");
   reading.style.setProperty("inset-inline-start", "50%");
-  reading.style.setProperty("inset-block-end", "calc(100% + 1px)");
+  reading.style.setProperty("inset-block-end", "calc(100% + 3px)");
   reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   reading.style.setProperty("width", "max-content");
   reading.style.setProperty("max-width", "none");
@@ -6357,6 +6365,7 @@ function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
   if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
 }
 const DETACHED_READING_COLLISION_SLOP = 0.5;
+const DETACHED_READING_CLEARANCE_PX = 3;
 const pendingDetachedReadingSurfaces = new Set();
 function detachedReadingCollisionSurface(root) {
   const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedParentElement(root) ?? root : root;
@@ -6383,19 +6392,23 @@ function settleDetachedReadingLanes(readings, bases) {
   const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element: element2, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element2).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
   const unsafe = new Set();
   for (const reading of readingRects) {
+  const ownRuby = reading.element.closest(".jpdb-reader-detached-ruby");
+  const ownBase = ownRuby?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
   if (detachedReadingIsClipped(reading.element, reading.rect) || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
   for (const base of baseRects) {
-    if (base.rect.top >= reading.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-    if (base.rect.bottom <= reading.rect.top + DETACHED_READING_COLLISION_SLOP) continue;
-    if (rectanglesOverlap(reading.rect, base.rect)) unsafe.add(reading.element);
+    if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+    if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
+    if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
+    if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
+    if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
   }
   }
   for (let index = 0; index < readingRects.length; index += 1) {
   const current = readingRects[index];
   for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
     const other = readingRects[otherIndex];
-    if (other.rect.top >= current.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-    if (!rectanglesOverlap(current.rect, other.rect)) continue;
+    if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+    if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
     unsafe.add(current.element);
     unsafe.add(other.element);
   }
@@ -6404,31 +6417,46 @@ function settleDetachedReadingLanes(readings, bases) {
 }
 function detachedReadingCoversForeignText(reading, rect) {
   const ownWord = reading.closest(".jpdb-reader-word");
+  const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
+  const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
+  const sourceHost = ownMirror?.parentElement ?? null;
   const root = reading.getRootNode();
   const hitRoots = [document];
   if (root instanceof ShadowRoot) hitRoots.push(root);
   const inset = Math.min(2, rect.width / 4);
   const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
+  const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
+  const rows = [
+  rect.top - clearanceProbe,
+  (rect.top + rect.bottom) / 2,
+  rect.bottom + clearanceProbe
+  ];
   const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
   const elementsFromPoint = hitRoot.elementsFromPoint;
   if (typeof elementsFromPoint !== "function") return [];
-  return points.flatMap((x) => elementsFromPoint.call(hitRoot, x, (rect.top + rect.bottom) / 2).filter((element2) => element2 instanceof HTMLElement));
+  return rows.flatMap((y) => points.flatMap((x) => elementsFromPoint.call(hitRoot, x, y).filter((element2) => element2 instanceof HTMLElement)));
   }));
   for (const hit of hits) {
+  if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
   const hitWord = hit.closest(".jpdb-reader-word");
   if (ownWord && hitWord === ownWord) continue;
-  if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
+  const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
+  if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
+  if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
   for (const node of hit.childNodes) {
     if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
     const range = document.createRange();
     range.selectNodeContents(node);
-    if (Array.from(range.getClientRects()).some((textRect) => rectanglesOverlap(rect, textRect))) return true;
+    if (Array.from(range.getClientRects()).some((textRect) => rectanglesWithinClearance(rect, textRect))) return true;
   }
   }
   return false;
 }
-function rectanglesOverlap(left, right) {
-  return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+function rectanglesWithinClearance(left, right) {
+  return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
+}
+function verticalRunsOverlap(left, right) {
+  return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
 }
 function detachedReadingIsClipped(reading, rect) {
   let ancestor = composedParentElement(reading);
@@ -16439,6 +16467,7 @@ function renderPitchVariantGraphs(reading, variants, compoundSegments) {
   const graphs = variants.map((variant) => ({
   variant,
   svg: renderPitchGraphSvg(reading, variant.pattern, {
+    centerContent: true,
     segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : void 0
   })
   })).filter((entry) => entry.svg);
@@ -16470,7 +16499,10 @@ function alignedExpressionComponentPitches(card, components, componentPitches) {
   return aligned;
 }
 function renderExpressionComponentPitches(components) {
-  const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
+  const graphs = components.map((component) => ({
+  component,
+  svg: renderPitchGraphSvg(component.reading, component.pitch, { centerContent: true })
+  })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
             ${entry.svg}
             <span class="jpdb-reader-pitch-component-label">${escapeHtml$1(entry.component.text)}</span>
         </span>`);
@@ -16658,6 +16690,8 @@ class CardPopoverRenderer {
   }
   renderPitch(card, data) {
   if (!this.settings().showPitchAccent) return "";
+  const whole = renderPitch(card, data.metaEntries);
+  if (whole) return whole;
   const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
     card,
     data.expressionComponents ?? [],
@@ -16665,8 +16699,6 @@ class CardPopoverRenderer {
   );
   const components = renderExpressionComponentPitches(alignedComponents);
   if (components) return components;
-  const whole = renderPitch(card, data.metaEntries);
-  if (whole) return whole;
   return "";
   }
   renderPartOfSpeech(view) {
@@ -21322,14 +21354,9 @@ function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
   return tokens;
 }
 function parseParagraphTokens(paragraph, rawTokens, cards) {
-  let inheritedPitchClass = "";
-  return rawTokens.map((rawToken) => {
-  const token = parseToken(rawToken, paragraph, cards, inheritedPitchClass);
-  inheritedPitchClass = token.pitchClass;
-  return token;
-  });
+  return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
 }
-function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards, inheritedPitchClass) {
+function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
   const card = cards[vocabularyIndex];
   const rubies = parseRubies(furigana, position);
   repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
@@ -21339,7 +21366,7 @@ function parseToken([vocabularyIndex, position, length, furigana], paragraph, ca
   end: position + length,
   length,
   rubies,
-  pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass)
+  pitchClass: currentPitchClass(card)
   };
   assignWordWithReading(token);
   return token;
@@ -21358,9 +21385,9 @@ function parseRubies(furigana, startOffset) {
   return [{ text: ruby, start, end, length: base.length }];
   });
 }
-function inheritedOrCurrentPitchClass(card, inheritedPitchClass) {
+function currentPitchClass(card) {
   if (card.partOfSpeech.includes("prt")) return "";
-  return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
+  return getPitchClass(card.pitchAccent, card.reading);
 }
 function assignWordWithReading(token) {
   const { card, rubies, start: offset } = token;
@@ -21867,7 +21894,9 @@ ${spelling}`);
     card.spelling,
     card.reading,
     (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-    { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+    {
+      includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
+    }
   ).catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return { patterns: [] };
@@ -24081,14 +24110,12 @@ function jitenParseResultToTokens(paragraphs, result) {
   const vocabByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
   const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
   const tokens = paragraphs.map((paragraph, paragraphIndex) => {
-  let lastPitchClass = "";
   const parsed = [];
   for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
     const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
     if (!card) continue;
     const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
     const pitchClass = card.partOfSpeech.includes("prt") ? "" : getPitchClass(card.pitchAccent, card.reading);
-    lastPitchClass = pitchClass || lastPitchClass;
     const span = jitenTokenTextSpan(paragraph, token, card);
     const rubies = jitenTokenRubies(vocabularyEntry, span.start);
     if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
@@ -24098,7 +24125,7 @@ function jitenParseResultToTokens(paragraphs, result) {
       end: span.end,
       length: span.length,
       rubies,
-      pitchClass: lastPitchClass,
+      pitchClass,
       sentence: paragraph
     });
   }
@@ -28717,21 +28744,17 @@ const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = "yomu-hosted-docs-parser";
 const JPDB_PARSER_ID = "jpdb-parser";
 const YOMU_HOSTED_DOCS_ROOTS = [
-  ".VPHero .heading",
-  ".VPHero .text",
-  ".VPHero .tagline",
-  ".VPHero .main",
-  ".VPHomeHero .heading",
-  ".VPHomeHero .text",
-  ".VPHomeHero .tagline",
-  ".VPHomeHero .main",
-  ".VPFeatures .item",
-  ".yomu-install-panel",
-  ".yomu-hosted-overflow-group",
-  ".yomu-link-grid",
   ".vp-doc"
 ];
-const YOMU_HOSTED_DOCS_EXCLUDE = COMMON_EXCLUDE;
+const YOMU_HOSTED_DOCS_EXCLUDE = [
+  COMMON_EXCLUDE,
+  ".VPNav",
+  ".VPHero",
+  ".VPHomeHero",
+  ".yomu-install-panel",
+  ".yomu-next-grid",
+  ".yomu-hosted-overflow-group"
+].join(",");
 const YOMU_VIDEO_PLAYER_ROOTS = [
   ".brand strong",
   "[data-yomu-video-frame] .empty strong",
@@ -28922,8 +28945,8 @@ const SITE_PARSER_PROFILES = [
   allowUiText: true,
   heading: true,
   minLength: 1,
-  includeUiChrome: true,
-  includeGenericPageText: true,
+  disableGenericDomScan: true,
+  suppressResidualVisibleScan: true,
   visibleOnly: false,
   matches: (url) => isYomuHostedPassivePage(url.href)
   },
@@ -43161,7 +43184,9 @@ class ReaderApp {
     card.spelling,
     card.reading,
     (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences),
-    { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+    {
+      includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
+    }
   ).catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
     return { patterns: [] };

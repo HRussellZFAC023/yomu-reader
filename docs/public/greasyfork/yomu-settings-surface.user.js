@@ -4406,7 +4406,7 @@
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorKifuku: "Kifuku (variable)",
-      pitchColorUnknown: "Unknown / inherited",
+      pitchColorUnknown: "Unknown",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
       wordUnderlineColorSource: "Word underline color",
@@ -6151,7 +6151,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorKifuku	起伏
-pitchColorUnknown	不明 / 継承
+pitchColorUnknown	不明
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -9403,7 +9403,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["pitchColorNakadaka", "Nakadaka (middle-high)"],
     ["pitchColorOdaka", "Odaka (tail-high)"],
     ["pitchColorKifuku", "Kifuku (variable)"],
-    ["pitchColorUnknown", "Unknown / inherited"]
+    ["pitchColorUnknown", "Unknown"]
   ];
   const OCR_COLOR_FIELDS = [
     ["ocrTextColor", "Image text color"],
