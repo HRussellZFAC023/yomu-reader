@@ -297,6 +297,7 @@
   `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
   `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
   `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
   `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
   roleSelectors("menu,menubar,toolbar,tablist");
   const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
@@ -10571,7 +10572,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const RAIL_MARGIN_PX = 8;
   const RAIL_KEY_STEP_PX = 12;
   const RAIL_TAP_SLOP_PX = 8;
-  function bindSubtitleControlRail(root, onActivity) {
+  function bindSubtitleControlRail(root, onActivity, options = {}) {
     const rail = root.querySelector(".jpdb-subtitle-rail");
     const handle = rail?.querySelector("[data-subtitle-rail-drag-handle]");
     if (!rail || !handle) return null;
@@ -10583,6 +10584,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const railRect = rail.getBoundingClientRect();
       if (rootRect.width <= 0 || rootRect.height <= 0 || railRect.width <= 0 || railRect.height <= 0) return null;
       return {
+        rootRect,
+        railWidth: railRect.width,
+        railHeight: railRect.height,
         maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
         maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX)
       };
@@ -10592,22 +10596,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!bounds) return;
       const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
       const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
-      rail.style.setProperty("left", `${Math.round(clampedLeft)}px`);
+      const safePosition = railPositionOutsideReservedRects(
+        clampedLeft,
+        clampedTop,
+        bounds,
+        options.getReservedRects?.() ?? []
+      );
+      rail.style.setProperty("left", `${Math.round(safePosition.left)}px`);
       rail.style.setProperty("right", "auto");
-      rail.style.setProperty("top", `${Math.round(clampedTop)}px`);
+      rail.style.setProperty("top", `${Math.round(safePosition.top)}px`);
       position = {
-        x: fractionWithinRailAxis(clampedLeft, bounds.maxLeft),
-        y: fractionWithinRailAxis(clampedTop, bounds.maxTop)
+        x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
+        y: fractionWithinRailAxis(safePosition.top, bounds.maxTop)
       };
       if (persist) saveSubtitleControlRailPosition(position);
     };
     const syncPosition = () => {
-      if (!position) return;
       const bounds = railBounds();
       if (!bounds) return;
+      const railRect = rail.getBoundingClientRect();
       setPixels(
-        railAxisPosition(position.x, bounds.maxLeft),
-        railAxisPosition(position.y, bounds.maxTop)
+        position ? railAxisPosition(position.x, bounds.maxLeft) : railRect.left - bounds.rootRect.left,
+        position ? railAxisPosition(position.y, bounds.maxTop) : railRect.top - bounds.rootRect.top
       );
     };
     const pointerDown = (event) => {
@@ -10707,6 +10717,46 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function fractionWithinRailAxis(value, max) {
     const range = max - RAIL_MARGIN_PX;
     return range > 0 ? Math.min(1, Math.max(0, (value - RAIL_MARGIN_PX) / range)) : 0;
+  }
+  function railPositionOutsideReservedRects(requestedLeft, requestedTop, bounds, reservedRects) {
+    if (!reservedRects.length) return { left: requestedLeft, top: requestedTop };
+    const clamp = (left, top) => ({
+      left: Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left)),
+      top: Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top))
+    });
+    const rootLeft = bounds.rootRect.left;
+    const rootTop = bounds.rootRect.top;
+    const overlapsReservedRect = ({ left, top }) => {
+      const right = rootLeft + left + bounds.railWidth;
+      const bottom = rootTop + top + bounds.railHeight;
+      const viewportLeft = rootLeft + left;
+      const viewportTop = rootTop + top;
+      return reservedRects.some((rect) => right > rect.left && rect.right > viewportLeft && bottom > rect.top && rect.bottom > viewportTop);
+    };
+    const requested = clamp(requestedLeft, requestedTop);
+    if (!overlapsReservedRect(requested)) return requested;
+    const gap = 6;
+    const candidates = [
+      requested,
+      clamp(RAIL_MARGIN_PX, RAIL_MARGIN_PX),
+      clamp(bounds.maxLeft, RAIL_MARGIN_PX),
+      clamp(RAIL_MARGIN_PX, bounds.maxTop),
+      clamp(bounds.maxLeft, bounds.maxTop)
+    ];
+    for (const rect of reservedRects) {
+      const left = rect.left - rootLeft;
+      const top = rect.top - rootTop;
+      candidates.push(
+        clamp(left - bounds.railWidth - gap, requested.top),
+        clamp(rect.right - rootLeft + gap, requested.top),
+        clamp(requested.left, top - bounds.railHeight - gap),
+        clamp(requested.left, rect.bottom - rootTop + gap)
+      );
+    }
+    return candidates.filter((candidate) => !overlapsReservedRect(candidate)).sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0] ?? requested;
+  }
+  function squaredDistance(first, second) {
+    return (first.left - second.left) ** 2 + (first.top - second.top) ** 2;
   }
   const TRANSCRIPT_SCROLL_INTENT_WINDOW_MS = 1500;
   class TranscriptFollowState {
@@ -10904,6 +10954,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
   const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
+  const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
+  const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -11013,6 +11065,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function pointInRect(x, y, rect) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+  function rectsOverlap(first, second) {
+    return first.right > second.left && second.right > first.left && first.bottom > second.top && second.bottom > first.top;
+  }
+  function nativePlayerControlIsInteractive(control) {
+    if (control.hidden || control.getAttribute("aria-hidden") === "true" || control.getAttribute("aria-disabled") === "true" || control.matches(":disabled")) return false;
+    const style = getComputedStyle(control);
+    return style.display !== "none" && style.visibility !== "hidden" && style.pointerEvents !== "none" && Number.parseFloat(style.opacity || "1") > 0.01;
   }
   function videoRectKey(rect) {
     return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
@@ -11823,7 +11883,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       body.appendChild(root);
       body.appendChild(this.transcriptPanel);
       this.root = root;
-      this.subtitleControlRail = bindSubtitleControlRail(root, () => this.showControlsTemporarily({ independentOfPlayerChrome: true })) ?? void 0;
+      this.subtitleControlRail = bindSubtitleControlRail(
+        root,
+        () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+        { getReservedRects: () => this.nativePlayerControlSafeZones() }
+      ) ?? void 0;
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
@@ -12322,6 +12386,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.realignIfVideoMoved();
       this.syncPlayerChromeIdleState();
       this.syncNativeControlsInset();
+      this.syncNativePlayerControlHitProtection();
+      this.subtitleControlRail?.syncPosition();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
@@ -12519,6 +12585,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       applyElementLayout(this.root, layout);
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.fitSubtitleTextToVideo();
+      this.syncNativePlayerControlHitProtection();
+      this.subtitleControlRail?.syncPosition();
     }
     updateFromLoadedCues() {
       if (!this.video) return;
@@ -12809,6 +12877,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     applyRenderedPrimarySubtitle(primary, text) {
       this.applyRenderedPrimaryKaraoke(primary);
       this.fitSubtitleTextToVideo();
+      this.syncNativePlayerControlHitProtection();
       this.cacheRenderedPrimarySubtitle(primary);
       this.requestParsedPrimaryIfNeeded(primary, text);
     }
@@ -12852,6 +12921,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
         this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
         this.fitSubtitleTextToVideo();
+        this.syncNativePlayerControlHitProtection();
         return primary;
       }
       return null;
@@ -14224,10 +14294,50 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return this.asbPlayerSubtitleMoveRoots().some((root) => this.pointInElement(root, x, y));
     }
     videoPlayerChromeHidden() {
+      if (this.isYouTubeShortsControlSurface()) return false;
       const mobileOverlay = this.mobileYouTubeControlOverlay();
       if (mobileOverlay) return !mobileOverlay.classList.contains("fadein");
       const player = this.video?.closest("#movie_player, .html5-video-player");
       return Boolean(player?.classList.contains("ytp-autohide") || player?.classList.contains("ytp-hide-controls") || player?.classList.contains("ytp-player-minimized"));
+    }
+    isYouTubeShortsControlSurface() {
+      return Boolean(this.video && isYouTubePage() && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
+    }
+    // Native player controls must win when a moved/long subtitle crosses them.
+    // The overlay frame is already click-through, but individual lookup words
+    // opt back into pointer events. Mark only words whose painted box overlaps
+    // a small, visible native control; CSS then returns that word's hit testing
+    // to the player while every other subtitle word remains lookupable.
+    syncNativePlayerControlHitProtection() {
+      const words = Array.from(this.root?.querySelectorAll(
+        ".jpdb-subtitle-primary .jpdb-reader-word,.jpdb-subtitle-secondary .jpdb-reader-word"
+      ) ?? []);
+      words.forEach((word) => word.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
+      const safeZones = this.nativePlayerControlSafeZones();
+      if (!safeZones.length) return;
+      for (const word of words) {
+        const rect = word.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        if (safeZones.some((zone) => rectsOverlap(rect, zone))) {
+          word.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, "true");
+        }
+      }
+    }
+    nativePlayerControlSafeZones() {
+      if (!this.video || !isYouTubePage()) return [];
+      const surface = this.youtubeNativeControlSurface();
+      if (!surface) return [];
+      const videoRect = this.videoLayoutRect();
+      const maxWidth = Math.min(240, Math.max(72, videoRect.width * 0.42));
+      const maxHeight = Math.min(180, Math.max(56, videoRect.height * 0.28));
+      return Array.from(surface.querySelectorAll(NATIVE_PLAYER_CONTROL_SELECTOR)).filter((control) => !control.closest('[data-jpdb-reader-root="true"]')).filter((control) => nativePlayerControlIsInteractive(control)).map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.width <= maxWidth && rect.height <= maxHeight && rectsOverlap(rect, videoRect));
+    }
+    youtubeNativeControlSurface() {
+      if (!this.video) return null;
+      if (this.isYouTubeShortsControlSurface()) {
+        return this.video.closest("ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts") ?? this.video.closest("#movie_player,.html5-video-player");
+      }
+      return this.video.closest("#movie_player,.html5-video-player,ytm-player,ytd-player,#player");
     }
     pointInOpenTranscriptPanel(x, y) {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing && this.pointInElement(this.transcriptPanel, x, y));

@@ -824,14 +824,23 @@ function isCompactMediaContext(element: HTMLElement): boolean {
 // classifyDecoration — the four-state policy
 // ---------------------------------------------------------------------------
 
-// Editable/composing contexts (class P): the fields themselves, listbox
-// popups, disabled controls, and any popup a combobox owns via
-// aria-owns/aria-controls. Never decorated at all.
-const EDITABLE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="listbox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+// Editable/composing contexts (class P): editor surfaces, listbox owners,
+// disabled controls, and unclassified content in a popup a combobox owns via
+// aria-owns/aria-controls. Never decorate the editor itself. Declared choices
+// are different: a visible option/menuitem is read-only text, so it follows the
+// passive-control channel even when its listbox belongs to a live combobox.
+const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
+const PASSIVE_CHOICE_SELECTOR = roleSelectors('option,menuitem,menuitemcheckbox,menuitemradio');
 const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
 
 function isEditableComposingContext(element: Element): boolean {
-    if (element.closest(EDITABLE_SKIP_SELECTOR)) return true;
+    // An editor nested inside a choice remains an editor; test this before the
+    // choice escape hatch. Native <option> also stays on the control-mirror
+    // path because browser-native select popups cannot host DOM decoration.
+    if (element.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    if (element.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+    if (element.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
     return isComboboxOwnedPopup(element);
 }
 

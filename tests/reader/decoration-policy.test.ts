@@ -264,7 +264,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#label')).toBe('interactive-passive');
     });
 
-    it('classifies a search input and its suggestion listbox as skip', () => {
+    it('keeps a search editor untouched while its declared suggestion choice is passive', () => {
         document.body.innerHTML = `
             <div role="combobox" aria-owns="suggestions" aria-expanded="true">
                 <input id="search" type="search" value="日本語">
@@ -274,7 +274,12 @@ describe('classifyDecoration acceptance matrix', () => {
             </div>
         `;
         expect(classifyText('#search')).toBe('skip');
-        expect(classifyText('#suggestion')).toBe('skip');
+        expect(classifyText('#suggestions')).toBe('skip');
+        expect(classifyText('#suggestion')).toBe('interactive-passive');
+        expect(collectTargets().find(candidate => candidate.text === '日本語 勉強')).toMatchObject({
+            decoration: 'interactive-passive',
+            passiveInteraction: true,
+        });
     });
 
     it('classifies a combobox-owned popup without a listbox role as skip', () => {
@@ -283,6 +288,19 @@ describe('classifyDecoration acceptance matrix', () => {
             <div id="popup"><div id="row">日本語の候補</div></div>
         `;
         expect(classifyText('#row')).toBe('skip');
+    });
+
+    it('annotates a declared menu choice inside a combobox-owned popup passively', () => {
+        document.body.innerHTML = `
+            <input role="combobox" aria-controls="popup" type="text">
+            <div id="popup"><div id="row" role="menuitem">候補を選択</div></div>
+        `;
+        expect(classifyText('#row')).toBe('interactive-passive');
+    });
+
+    it('keeps native select options on the native-control mirror path', () => {
+        document.body.innerHTML = '<select><option id="option">新しい順</option></select>';
+        expect(classifyText('#option')).toBe('skip');
     });
 
     it('classifies disabled controls as skip', () => {

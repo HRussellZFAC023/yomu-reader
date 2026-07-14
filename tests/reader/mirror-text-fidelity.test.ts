@@ -38,7 +38,7 @@ function mirror(root: ParentNode = document): HTMLElement {
 // The mirror's rendered base text: every text node except furigana readings.
 function renderedMirrorText(m: HTMLElement): string {
     const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT, {
-        acceptNode: node => (node.parentElement?.closest('rt,rp') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+        acceptNode: node => (node.parentElement?.closest('rt,rp,.jpdb-reader-detached-furi') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
     let text = '';
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
@@ -124,15 +124,15 @@ describe('class O: mirror soft-wrap opportunities', () => {
         expect(host.style.getPropertyValue('overflow')).toBe('hidden');
     });
 
-    it('keeps the ruby unclip when the mirror fits its host', () => {
+    it('leaves native overflow untouched when the mirror fits its host', () => {
         vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(() => 100);
         vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(() => 100);
         document.body.innerHTML = `<span id="t" class="ytAttributedStringHost" style="overflow: hidden">${TEXT}</span>`;
         const host = document.getElementById('t')!;
         paintThreeWords(host);
         mirror(host);
-        expect(host.style.getPropertyValue('overflow')).toBe('visible');
-        expect(host.style.getPropertyPriority('overflow')).toBe('important');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(host.style.getPropertyPriority('overflow')).toBe('');
     });
 });
 
@@ -250,7 +250,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         expect(renderedMirrorText(mirror(host))).toBe('ポーラン @Canna');
     });
 
-    it('keeps the unclip when only the RUBY (not the base text) is wider than the host', () => {
+    it('leaves host clipping untouched when only the detached reading is wider', () => {
         // A narrow label (順 with じゅん) has fitting base text but a wider
         // reading: the overflow gate must measure the base text WITHOUT rt, or
         // it re-clips the annotation it exists to reveal.
@@ -268,7 +268,7 @@ describe('sol review: mirror fidelity edge cases', () => {
             return [tokenAt(target.text, '言語', 'げんご', base), tokenAt(target.text, '学習', 'がくしゅう', base + 2)];
         });
         mirror(host);
-        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
         // The measurement pass must leave the readings visible afterwards.
         mirror(host).querySelectorAll<HTMLElement>('rt').forEach(rt => expect(rt.style.display).not.toBe('none'));
     });

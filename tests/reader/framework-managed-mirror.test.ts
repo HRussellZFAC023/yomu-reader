@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
     collectTextTargetsIn,
+    readerWordAtSourcePointInScope,
     removeNonDestructiveScanMirrors,
     STALE_MIRROR_REMOVAL_GRACE_MS,
 } from '../../src/reader/dom';
@@ -62,8 +63,8 @@ describe('framework-managed chat mirror', () => {
             pitchClass: '',
             sentence: initial,
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        expect(host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.textContent).toContain(initial);
-        expect(host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.parentElement).toBe(host);
+        expect(host.querySelectorAll<HTMLElement>('.jpdb-reader-text-mirror')).toHaveLength(2);
+        expect(prefix.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.textContent).toBe('ス');
 
         // Discord/React keeps the existing nested node and appends the rest of
         // the message in a sibling text node. The mirror must expose the suffix
@@ -71,11 +72,11 @@ describe('framework-managed chat mirror', () => {
         document.getElementById('prefix-rest')!.after(document.createTextNode('プラチナ'));
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
-        expect(mirror?.textContent).toContain(complete);
-        expect(mirror?.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe(initial);
-        expect(prefix.textContent).toBe('ス');
+        // The source glyphs remain page-owned and visible, so a newly streamed
+        // suffix is readable immediately even before the next annotation pass.
         expect(host.childNodes[2]?.textContent).toBe('プラチナ');
+        expect(prefix.childNodes[0]?.textContent).toBe('ス');
+        expect(complete).toBe(`${prefix.childNodes[0]?.textContent}${document.getElementById('prefix-rest')?.childNodes[0]?.textContent}${host.childNodes[2]?.textContent}`);
     });
 
     it('conceals text instead of hiding a STYLED framework host (box paint survives)', () => {
@@ -84,20 +85,18 @@ describe('framework-managed chat mirror', () => {
         markReactOwned(host);
         paint(host);
 
-        // The mirror carries the text; the host box must keep painting: no
-        // visibility:hidden (which erases background/border/icons) — the
-        // host text goes transparent instead.
+        // The page-owned text and box remain authoritative. The additive
+        // layer must not blank any native glyph or icon.
         expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(host.style.getPropertyValue('color')).toBe('transparent');
+        expect(host.style.getPropertyValue('color')).not.toBe('transparent');
         expect(host.style.getPropertyValue('background-color')).toBe('rgb(31, 41, 55)');
         // The icon must not inherit the transparent text colour.
         const svg = host.querySelector('svg')!;
         expect((svg as unknown as HTMLElement).style.getPropertyValue('color')).not.toBe('transparent');
-        // The mirror pins its own colour so it does not inherit transparent.
+        // Only the overlay glyphs are transparent.
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
-        expect(mirror.style.getPropertyValue('color')).toBeTruthy();
-        expect(mirror.style.getPropertyValue('color')).not.toBe('transparent');
+        expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
     });
 
     it('restores concealed text when the mirror is removed', () => {
@@ -105,19 +104,19 @@ describe('framework-managed chat mirror', () => {
         const host = document.getElementById('host')!;
         markReactOwned(host);
         paint(host);
-        expect(host.style.getPropertyValue('color')).toBe('transparent');
+        expect(host.style.getPropertyValue('color')).toBe('rgb(255, 255, 255)');
 
         removeNonDestructiveScanMirrors(document);
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(host.style.getPropertyValue('color')).toBe('rgb(255, 255, 255)');
     });
 
-    it('keeps plain visibility hiding for BARE hosts (colour still follows the page)', () => {
+    it('keeps native glyphs visible for bare hosts', () => {
         document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}</div></div>`;
         const host = document.getElementById('host')!;
         markReactOwned(host);
         paint(host);
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(host.style.getPropertyValue('color')).not.toBe('transparent');
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror.style.getPropertyValue('color')).toBe('');
@@ -137,7 +136,7 @@ describe('framework-managed chat mirror', () => {
         expect(reactTextNode.data).toBe(TEXT);
         // Annotation is delivered via the overlay mirror, not by mutating React's tree.
         expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(host.querySelector('.jpdb-reader-text-mirror .jpdb-reader-word')).toBeTruthy();
     });
 
@@ -163,12 +162,38 @@ describe('framework-managed chat mirror', () => {
 
         paint(host);
 
-        const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
-        const words = [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-        expect(words).toHaveLength(1);
-        expect(words[0]?.dataset.expression).toBe(TEXT);
-        expect(words[0]?.querySelector('.jpdb-reader-furi')?.textContent).toBe('にほんご');
-        expect(host.querySelector('span')?.textContent).toBe('日');
+        const mirrors = [...host.querySelectorAll<HTMLElement>('.jpdb-reader-text-mirror')];
+        expect(mirrors).toHaveLength(2);
+        expect(mirrors.map(item => item.parentElement?.tagName)).toEqual(['SPAN', 'SPAN']);
+        const words = mirrors.flatMap(mirror => [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')]);
+        expect(words).toHaveLength(2);
+        expect(words.every(word => word.dataset.expression === TEXT)).toBe(true);
+        // A cross-leaf reading has no safe single geometry lane: omit only
+        // furigana, keeping the native glyphs and word lookup identity.
+        expect(words.some(word => word.querySelector('.jpdb-reader-furi'))).toBe(false);
+        expect(host.querySelector('span')?.childNodes[0]?.textContent).toBe('日');
+    });
+
+    it('splits explicit non-destructive multi-leaf targets without framework markers', () => {
+        document.body.innerHTML = '<button id="host"><span>共</span><span>有</span></button>';
+        const host = document.getElementById('host')!;
+        const target = collectFragmentTextTargetsIn(host, 40, false).find(candidate => candidate.text === '共有');
+        expect(target).toBeTruthy();
+
+        applyTokensToScanTarget({ ...target!, nonDestructive: true }, [{
+            card: { ...CARD, spelling: '共有', reading: 'きょうゆう' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'きょうゆう', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '共有',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        expect(host.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(0);
+        expect(host.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(2);
+        expect(host.childNodes[0]?.textContent?.startsWith('共')).toBe(true);
+        expect(host.childNodes[1]?.textContent?.startsWith('有')).toBe(true);
     });
 
     it('drops a stale mirror when the host is recycled with different text', async () => {
@@ -208,13 +233,42 @@ describe('framework-managed chat mirror', () => {
         (host.firstChild as Text).data = TEXT;
         await new Promise(resolve => setTimeout(resolve, STALE_MIRROR_REMOVAL_GRACE_MS + 150));
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
-    it('keeps the higher-fidelity destructive paint on static framework article prose', () => {
-        // A React/Next.js article is framework-owned but not a live chat surface; it
-        // must keep inline destructive rendering (preserving bold/links/code) — no
-        // mirror, no regression for the core article-reading experience.
+    it('resolves a tap against source ranges rather than displaced overlay boxes', () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">高評価</div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        const target = collectFragmentTextTargetsIn(host, 40, false).find(item => item.text === '高評価')!;
+        const makeToken = (surface: string, start: number, end: number): JPDBToken => ({
+            card: { ...CARD, spelling: surface, reading: surface }, start, end, length: end - start,
+            rubies: [], pitchClass: '', sentence: '高評価',
+        });
+        applyTokensToScanTarget(target, [makeToken('高', 0, 1), makeToken('評価', 1, 3)], DEFAULT_SETTINGS);
+        const restore = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
+        Object.defineProperty(Range.prototype, 'getClientRects', {
+            configurable: true,
+            value(this: Range) {
+                const left = this.startOffset === 0 ? 0 : 20;
+                const right = this.startOffset === 0 ? 20 : 60;
+                return [{ left, right, top: 0, bottom: 20, width: right - left, height: 20 }];
+            },
+        });
+        try {
+            const word = readerWordAtSourcePointInScope(host, 35, 10);
+            expect(word?.dataset.expression).toBe('評価');
+        } finally {
+            if (restore) Object.defineProperty(Range.prototype, 'getClientRects', restore);
+            else Reflect.deleteProperty(Range.prototype, 'getClientRects');
+            vi.restoreAllMocks();
+        }
+    });
+
+    it('keeps static framework article prose source-owned too', () => {
+        // "Quiet" React/Next.js prose can still be replaced by hydration or SPA
+        // navigation later. Exact ownership therefore selects the same additive
+        // source-preserving contract as a streaming message.
         document.body.innerHTML = `<article class="prose"><p id="host">${TEXT}</p></article>`;
         const host = document.getElementById('host')!;
         markReactOwned(host);
@@ -222,7 +276,8 @@ describe('framework-managed chat mirror', () => {
         paint(host);
 
         expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
-        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        expect(host.childNodes[0]?.textContent).toBe(TEXT);
     });
 
     it('keeps the destructive paint on a chat-shaped host that is not framework-owned', () => {

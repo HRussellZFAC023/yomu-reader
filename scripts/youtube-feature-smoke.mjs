@@ -8,7 +8,7 @@ import { dragTranscriptResizeHandle } from './lib/subtitle-layout-test-utils.mjs
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
 const DEFAULT_COMPANION_DIR = existsSync(resolve('dist/greasyfork')) ? 'dist/greasyfork' : 'docs/public/greasyfork';
-const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
+const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-ui-copy.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
     .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? DEFAULT_COMPANION_DIR, name));
 const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 
@@ -66,6 +66,25 @@ const youtubeTimedText = `<timedtext><body>
 <p t="2200" d="1800"><s t="0">日本語の字幕を確認します。</s></p>
 <p t="4500" d="1800"><s t="0">梅干しをセロハンテープで貼る話。</s></p>
 </body></timedtext>`;
+
+const youtubePublicPitchHtml = `
+<div class="results search">
+  ${publicPitchResult(32022, '会話', 'かいわ', ['か', 'いわ'])}
+  ${publicPitchResult(27492, 'チャット', 'チャット', ['チャ', 'ット'])}
+</div>`;
+
+function publicPitchResult(id, spelling, reading, [low, high]) {
+    const encodedSpelling = encodeURIComponent(spelling);
+    const encodedReading = encodeURIComponent(reading);
+    return `<div class="result vocabulary">
+      <a href="/vocabulary/${id}/${encodedSpelling}/${encodedReading}#a">${spelling}</a>
+      <div class="subsection-headword"><div class="primary-spelling"><div class="spelling"><ruby>${spelling}<rt>${reading}</rt></ruby></div></div></div>
+      <div class="subsection-pitch-accent"><div class="subsection"><div><div>
+        <div style="background-image:linear-gradient(to top,var(--pitch-low-s),var(--pitch-low-e))"><div>${low}</div></div>
+        <div style="background-image:linear-gradient(to bottom,var(--pitch-high-s),var(--pitch-high-e))"><div>${high}</div></div>
+      </div></div></div></div>
+    </div>`;
+}
 
 function youtubePlayerResponse(videoId = 'feature123') {
     return {
@@ -363,6 +382,7 @@ function youtubeShortsGalleryHtml() {
 }
 
 function youtubeShortsWatchHtml() {
+    const playerResponse = youtubePlayerResponse('watch-en');
     return `<!doctype html>
 <html>
 <head>
@@ -371,13 +391,24 @@ function youtubeShortsWatchHtml() {
   <style>
     html, body { margin: 0; background: #000; color: #fff; font-family: Roboto, Arial, sans-serif; }
     ytd-shorts { display: block; height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; }
-    ytd-reel-video-renderer { display: block; height: 100vh; scroll-snap-align: start; }
-    #video-title { display: block; padding: 80vh 20px 0; color: white; }
+    ytd-reel-video-renderer { position: relative; display: block; height: 100vh; scroll-snap-align: start; }
+    #movie_player { position: absolute; inset: 16px 15px; overflow: hidden; border-radius: 18px; background: #151515; }
+    #movie_player video { display: block; width: 100%; height: 100%; background: #151515; }
+    .shorts-native-action { position: absolute; right: 12px; z-index: 5; width: 48px; height: 48px; border: 0; border-radius: 50%; color: white; background: #333; font-size: 20px; }
+    #shorts-share { bottom: 104px; }
+    #shorts-fullscreen { bottom: 42px; }
+    #video-title { position: absolute; left: 18px; right: 76px; bottom: 24px; z-index: 4; display: block; color: white; }
   </style>
+  <script>window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};</script>
 </head>
 <body>
   <ytd-shorts>
     <ytd-reel-video-renderer data-case="shorts-watch-current" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
+      <div id="movie_player" class="html5-video-player ytp-autohide">
+        <video class="html5-main-video" controls muted></video>
+        <button id="shorts-share" class="shorts-native-action" type="button" aria-label="Share"><span id="shorts-share-label">共有</span></button>
+        <button id="shorts-fullscreen" class="shorts-native-action" type="button" aria-label="Fullscreen">⛶</button>
+      </div>
       <a id="video-title" href="/shorts/watch-en">English short in snap feed</a>
     </ytd-reel-video-renderer>
     <ytd-reel-video-renderer data-case="shorts-watch-next-en" data-expected-language="en">
@@ -387,6 +418,23 @@ function youtubeShortsWatchHtml() {
       <a id="video-title" href="/shorts/watch-next-jp">大阪で食べ歩き</a>
     </ytd-reel-video-renderer>
   </ytd-shorts>
+  <script>
+    window.__shortsNativeClicks = { share: 0, fullscreen: 0 };
+    const player = document.querySelector('#movie_player');
+    const video = document.querySelector('video');
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+    Object.defineProperty(video, 'duration', { configurable: true, value: 10 });
+    Object.defineProperty(video, 'videoWidth', { configurable: true, value: 720 });
+    Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1280 });
+    player.getVideoData = () => ({ video_id: 'watch-en' });
+    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
+    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
+    player.setOption = () => {};
+    player.loadModule = () => {};
+    player.unloadModule = () => {};
+    document.querySelector('#shorts-share').addEventListener('click', () => { window.__shortsNativeClicks.share += 1; });
+    document.querySelector('#shorts-fullscreen').addEventListener('click', () => { window.__shortsNativeClicks.fullscreen += 1; });
+  </script>
 </body>
 </html>`;
 }
@@ -692,6 +740,9 @@ async function installUserscriptContext(context) {
             };
         };
         window.__yomuFeatureReadShortsWatchState = function yomuFeatureReadShortsWatchState() {
+            const subtitleRoot = element('.jpdb-subtitle-player');
+            const rail = element('.jpdb-subtitle-rail');
+            const grip = element('.jpdb-subtitle-rail [data-action="rail-expand"]');
             return {
                 cards: queryCount('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
                 filtered: queryCount('.jpdb-youtube-filtered'),
@@ -705,6 +756,24 @@ async function installUserscriptContext(context) {
                     .map(caseName => document.querySelector(`[data-case="${caseName}"]`)?.dataset.expectedLanguage)
                     .filter(language => language === 'en').length,
                 documentClasses: document.documentElement.className,
+                parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
+                nativeSafeZoneWords: queryCount('.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]'),
+                nativeClicks: { ...(window.__shortsNativeClicks || {}) },
+                shareLabelSourceText: document.querySelector('#shorts-share-label')?.firstChild?.textContent || '',
+                shareLabelAnnotationWords: queryCount('#shorts-share-label .jpdb-reader-text-mirror .jpdb-reader-word'),
+                nativeControlRects: {
+                    share: elementRectJson('#shorts-share'),
+                    fullscreen: elementRectJson('#shorts-fullscreen'),
+                },
+                storedRailPosition: window.GM_getValue?.('jpdb-reader-subtitle-control-rail-position', null) ?? null,
+                rail: {
+                    rootClasses: subtitleRoot?.className || '',
+                    rect: rail?.getBoundingClientRect().toJSON() || null,
+                    left: rail?.style.left || '',
+                    top: rail?.style.top || '',
+                    gripVisible: Boolean(grip && elementVisibleFromElement(grip)),
+                    gripExpanded: grip?.getAttribute('aria-expanded') || '',
+                },
                 items: [...document.querySelectorAll('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')].map(card => ({
                     caseName: card.dataset.case,
                     className: card.className,
@@ -775,6 +844,11 @@ async function installUserscriptContext(context) {
 }
 
 async function installRoutes(page) {
+    await page.route('https://jpdb.io/search**', route => route.fulfill({
+        body: youtubePublicPitchHtml,
+        contentType: 'text/html',
+        headers: { 'access-control-allow-origin': '*' },
+    }));
     await page.route(url => isYouTubeRootUrl(url, 'www.youtube.com'), route => route.fulfill({ body: youtubeHomeHtml(), contentType: 'text/html' }));
     await page.route(url => isYouTubeRootUrl(url, 'm.youtube.com'), route => route.fulfill({ body: youtubeMobileHomeHtml(), contentType: 'text/html' }));
     await page.route(url => isYouTubePathUrl(url, 'www.youtube.com', '/feed/shorts'), route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
@@ -1057,6 +1131,79 @@ async function runShortsWatchCheck(page) {
             && state.visibleCases.includes('shorts-watch-next-jp');
     }, null, { timeout: 12000 }).catch(() => undefined);
 
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadShortsWatchState();
+        return state.parsedPlayerWords > 0 && state.rail.gripVisible;
+    }, null, { timeout: 30000 });
+    await page.waitForTimeout(3300);
+
+    const idleRail = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
+    assert(includesText(idleRail.rail.rootClasses, 'jpdb-subtitle-controls-idle'), 'Shorts subtitle rail did not collapse to its grip after idle', idleRail);
+    assert(!includesText(idleRail.rail.rootClasses, 'jpdb-subtitle-controls-away'), 'Persistent Shorts ytp-autohide incorrectly removed the subtitle rail grip', idleRail);
+    assert(idleRail.rail.gripVisible === true, 'Shorts subtitle rail grip is not available', idleRail);
+
+    const grip = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    await grip.click();
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadShortsWatchState();
+        return state.rail.gripExpanded === 'true'
+            && state.rail.rootClasses.includes('jpdb-subtitle-controls-always');
+    }, null, { timeout: 5000 });
+    const expandedRail = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
+
+    const gripBox = await grip.boundingBox();
+    const shareBox = await page.locator('#shorts-share').boundingBox();
+    assert(gripBox && shareBox, 'Shorts rail/native Share geometry was unavailable');
+    await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+        gripBox.x + gripBox.width / 2 + shareBox.x - expandedRail.rail.rect.left,
+        gripBox.y + gripBox.height / 2 + shareBox.y - expandedRail.rail.rect.top,
+        { steps: 6 },
+    );
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    const draggedRail = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
+    assert(draggedRail.rail.left !== expandedRail.rail.left || draggedRail.rail.top !== expandedRail.rail.top, 'Shorts subtitle rail did not move when its grip was dragged', { expandedRail, draggedRail });
+    assert(Number.isFinite(draggedRail.storedRailPosition?.x) && Number.isFinite(draggedRail.storedRailPosition?.y), 'Shorts rail drag position was not persisted', draggedRail);
+    assert(!layoutBoxesOverlap(draggedRail.rail.rect, draggedRail.nativeControlRects.share), 'Moved Shorts subtitle rail covered the native Share action', draggedRail);
+    assert(!layoutBoxesOverlap(draggedRail.rail.rect, draggedRail.nativeControlRects.fullscreen), 'Moved Shorts subtitle rail covered the native fullscreen action', draggedRail);
+
+    // The transcript drawer is a deliberate interactive panel rather than a
+    // transparent player overlay. Close it for the native-control hit test so
+    // the assertion isolates the on-video subtitle surface reported here.
+    const transcriptPanel = page.locator('.jpdb-subtitle-list');
+    if (await transcriptPanel.isVisible()) {
+        await page.evaluate(() => document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')?.click());
+        await transcriptPanel.waitFor({ state: 'hidden', timeout: 5000 });
+    }
+
+    // Put each native action directly beneath a parsed subtitle word. The word
+    // remains visually annotated, but its small overlap is returned to the
+    // player for hit testing, so a real Playwright click reaches the action.
+    await page.evaluate(() => {
+        const word = document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word');
+        const share = document.querySelector('#shorts-share');
+        if (!(word instanceof HTMLElement) || !(share instanceof HTMLElement)) return;
+        const rect = word.getBoundingClientRect();
+        share.style.cssText += `;position:fixed;left:${rect.left}px;top:${rect.top}px;right:auto;bottom:auto;z-index:1`;
+    });
+    await page.waitForFunction(() => document.querySelector('#shorts-share')?.getBoundingClientRect().width > 0
+        && document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]'), null, { timeout: 5000 });
+    await page.locator('#shorts-share').click();
+
+    await page.evaluate(() => {
+        const word = document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word');
+        const share = document.querySelector('#shorts-share');
+        const fullscreen = document.querySelector('#shorts-fullscreen');
+        if (!(word instanceof HTMLElement) || !(share instanceof HTMLElement) || !(fullscreen instanceof HTMLElement)) return;
+        const rect = word.getBoundingClientRect();
+        share.style.cssText += ';position:absolute;left:auto;top:auto;right:12px;bottom:104px';
+        fullscreen.style.cssText += `;position:fixed;left:${rect.left}px;top:${rect.top}px;right:auto;bottom:auto;z-index:1`;
+    });
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]'), null, { timeout: 5000 });
+    await page.locator('#shorts-fullscreen').click();
+
     const shortsWatch = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
     assert(shortsWatch.cards === 3, 'Shorts watch feed did not render the snap sequence', shortsWatch);
     assert(includesText(shortsWatch.visibleCases.join(','), 'shorts-watch-current'), 'Shorts watch current snap item was hidden', shortsWatch);
@@ -1064,6 +1211,10 @@ async function runShortsWatchCheck(page) {
     assert(includesText(shortsWatch.visibleCases.join(','), 'shorts-watch-next-jp'), 'Shorts watch next Japanese item was not left available', shortsWatch);
     assert(shortsWatch.visibleJapanese >= 1, 'Shorts watch feed did not leave a Japanese next item visible', shortsWatch);
     assert(shortsWatch.visibleNonCurrentEnglish === 0, 'Shorts watch feed still shows a non-current English item', shortsWatch);
+    assert(shortsWatch.shareLabelSourceText === '共有', 'Annotating Shorts Share changed its page-owned source label', shortsWatch);
+    assert(shortsWatch.shareLabelAnnotationWords > 0, 'Shorts Share label was left without an annotation layer', shortsWatch);
+    assert(shortsWatch.nativeClicks.share === 1, 'Subtitle overlay prevented a native Shorts Share click', shortsWatch);
+    assert(shortsWatch.nativeClicks.fullscreen === 1, 'Subtitle overlay prevented a native Shorts fullscreen click', shortsWatch);
     return shortsWatch;
 }
 
@@ -1071,7 +1222,13 @@ async function runWatchCheck(page) {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await waitForWatchFeatureReady(page);
 
-    // R5 check: Side panel rail/toggle button is fully visible and functional.
+    // R5 check: The auto-mode rail may have idled down to its grip while the
+    // parser readiness checks ran. Hover the same visible affordance a pointer
+    // user has, without persisting always-open mode, then verify the panel.
+    const grip = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    assert(await grip.isVisible(), 'Collapsed subtitle rail grip is not visible');
+    assert(await grip.isEnabled(), 'Collapsed subtitle rail grip is not enabled');
+    await grip.hover();
     const railBtn = page.locator('.jpdb-subtitle-rail [data-action="panel"]');
     assert(await railBtn.isVisible(), 'Side panel rail toggle button is not visible');
     assert(await railBtn.isEnabled(), 'Side panel rail toggle button is not enabled');
@@ -1095,6 +1252,7 @@ async function runWatchCheck(page) {
     const mutations = await page.evaluate(() => window.__yomuMutationCount);
     assert(mutations === 0, 'Detected unexpected DOM mutations in ytd-watch-metadata (rendering loop)', mutations);
 
+    await revealAndWaitForWatchLiveCard(page);
     const initial = await readWatchState(page);
     assertInitialWatchState(initial);
 
@@ -1119,6 +1277,7 @@ async function runWatchCheck(page) {
 async function runWatchLiveCardCheck(page) {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await waitForWatchFeatureReady(page);
+    await revealAndWaitForWatchLiveCard(page);
     const initial = await readWatchState(page);
     assertYouTubeLiveChatFrameCard(initial.liveChatFrame);
     return { liveChatFrame: initial.liveChatFrame };
@@ -1147,6 +1306,7 @@ async function runIpadWatchCheck(page) {
         await railButton.tap();
         await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
     }
+    await revealAndWaitForWatchLiveCard(page);
     const state = await readWatchState(page);
     assertWatchTranscriptState(state);
     assertWatchPageParsing(state);
@@ -1167,6 +1327,17 @@ async function waitForWatchFeatureReady(page) {
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
         && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0
         && document.querySelectorAll('yt-live-chat-text-message-renderer .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+}
+
+async function revealAndWaitForWatchLiveCard(page) {
+    await page.evaluate(() => document.querySelector('ytd-live-chat-frame')?.scrollIntoView({ block: 'center' }));
+    await page.waitForFunction(() => document.querySelectorAll('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word').length > 0
+        && document.querySelectorAll('ytd-live-chat-frame #show-hide-button .jpdb-reader-word').length > 0, null, { timeout: 8000 });
+    await page.waitForFunction(() => [
+        'ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word',
+        'ytd-live-chat-frame #show-hide-button .jpdb-reader-word',
+    ].every(selector => !document.querySelector(selector)?.classList.contains('jpdb-pitch-unknown')), null, { timeout: 15000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
 }
 
 async function readWatchState(page) {
@@ -1274,8 +1445,8 @@ async function readIdleControls(page) {
 
 function assertIdleControls(idleControls) {
     assert(includesText(idleControls.rootClasses, 'jpdb-subtitle-controls-idle'), 'YouTube subtitle controls did not enter idle mode', idleControls);
-    assert(Number(idleControls.railOpacity) < 0.05, 'YouTube idle mode did not hide the whole control rail', idleControls);
-    assert(idleControls.railPointerEvents === 'none', 'Hidden YouTube control rail still receives pointer events', idleControls);
+    assert(Number(idleControls.railOpacity) > 0 && Number(idleControls.railOpacity) <= 0.6, 'YouTube idle mode did not collapse to its quiet move/expand grip', idleControls);
+    assert(idleControls.railPointerEvents === 'auto', 'YouTube idle subtitle grip is not interactive', idleControls);
 }
 
 async function waitForVisibleWatchSidebarParsing(page) {
@@ -1302,7 +1473,8 @@ function hasVisibleSidebarCard(state) {
 }
 
 async function exerciseWatchPanelResize(page) {
-    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+    await page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]').hover();
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
     const beforeResize = await readWatchState(page);
     await resizePanel(page, resizePlacement(beforeResize.layout));
@@ -1403,7 +1575,12 @@ async function clickDictionaryActionPillAndAssertOpen(page, query, label, urlPre
 async function clickTeacherCommentWord(page) {
     const word = page.locator('ytd-comment-view-model #content-text .jpdb-reader-word').filter({ hasText: '先生' }).first();
     await word.waitFor({ state: 'visible', timeout: 10000 });
-    await word.click();
+    const box = await word.boundingBox();
+    assert(box, 'Teacher comment word has no clickable geometry');
+    // Source-preserving mirrors deliberately do not intercept input. Click the
+    // painted coordinate so the page-owned host receives the pointer and Yomu
+    // resolves the exact source Text range beneath it, as a real user tap does.
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-spelling', { timeout: 10000 });
 }
 
@@ -1459,6 +1636,10 @@ try {
     } else if (process.env.YOMU_YOUTUBE_FEATURE_ONLY === 'watch') {
         const watch = await runWatchCheck(page);
         console.log(JSON.stringify({ watch }, null, 2));
+        process.exitCode = 0;
+    } else if (process.env.YOMU_YOUTUBE_FEATURE_ONLY === 'shorts-watch') {
+        const shortsWatch = await runShortsWatchCheck(page);
+        console.log(JSON.stringify({ shortsWatch }, null, 2));
         process.exitCode = 0;
     } else {
         const homepage = await runHomepageCheck(page);

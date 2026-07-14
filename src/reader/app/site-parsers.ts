@@ -1506,7 +1506,6 @@ export function collectScanTargetsInSteps(
 
 function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
-    const useNonDestructiveGenericScan = isGenericManagedAppShell();
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
     const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
@@ -1574,14 +1573,13 @@ function* scanTargetCollectionSteps(limit: number, href: string, options: SiteSc
     ];
     yield;
     const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
-    if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
+    if (targetsWithResidual.length) return targetsWithResidual;
 
     yield;
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
-    if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
-    const visibleTargets = collectVisibleTextTargets(effectiveLimit);
-    return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
+    if (broadWithResidual.length) return broadWithResidual;
+    return collectVisibleTextTargets(effectiveLimit);
 }
 
 // Passive keeps click-through navigation; ruby/pitch still render — the
@@ -1603,30 +1601,6 @@ function markTargetsPassive(targets: ScanTextTarget[], options: { nonDestructive
     }));
 }
 
-function isGenericManagedAppShell(): boolean {
-    return Boolean(document.querySelector([
-        'script[src*="/_next/static/"]',
-        'script[id="__NEXT_DATA__"]',
-        '#__next',
-        '#__nuxt',
-        '#root',
-        '#app',
-        '[data-reactroot]',
-        '[data-server-rendered="true"]',
-        '[data-v-app]',
-        '[data-sveltekit-preload-data]',
-        'script[src*="/_app/immutable/"]',
-        'script[type="module"][src*="/assets/"]',
-        'script[type="module"][src*="/build/assets/"]',
-        'script[src*="/build/assets/"]',
-        'astro-island',
-        'shreddit-app',
-        'ytd-app',
-        'ytm-app',
-        '[ng-version]',
-    ].join(',')));
-}
-
 function profilePhaseTargetLimit(profiles: SiteParserProfile[], effectiveLimit: number): number {
     if (!profiles.length
         || !Number.isFinite(effectiveLimit)
@@ -1643,13 +1617,6 @@ function genericUiChromeTargetLimit(remaining: number): number {
     if (remaining <= 0) return 0;
     if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
     return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
-}
-
-function markTargetsNonDestructive(targets: ScanTextTarget[]): ScanTextTarget[] {
-    return targets.map(target => ({
-        ...target,
-        nonDestructive: true,
-    }));
 }
 
 function withResidualVisibleJapaneseTargets(
@@ -1677,8 +1644,7 @@ function collectResidualVisibleJapaneseTargets(
         limit,
     };
     const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
-    const nonDestructiveShell = profiles.some(profile => profile.nonDestructive)
-        || isGenericManagedAppShell();
+    const nonDestructiveProfile = profiles.some(profile => profile.nonDestructive);
     const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
         includeUiChrome: true,
@@ -1692,11 +1658,12 @@ function collectResidualVisibleJapaneseTargets(
         includePassiveInteractions: true,
         heading: true,
         // The generic centered-heading guard protects destructive inline
-        // rewrites from changing decorative site layouts. Managed app shells
-        // and explicitly non-destructive profiles render through mirrors, so
-        // their functional panel/dialog headings are safe to admit and should
-        // not need a YouTube- or Reddit-specific parser exception.
-        allowShortCenteredHeadings: nonDestructiveShell,
+        // rewrites from changing decorative site layouts. Explicitly
+        // non-destructive profiles render through mirrors, so their functional
+        // panel/dialog headings are safe to admit. Generic framework ownership
+        // is a per-target render decision and must not alter document-wide
+        // collection policy.
+        allowShortCenteredHeadings: nonDestructiveProfile,
         minLength: 1,
     });
     for (const target of collected) {

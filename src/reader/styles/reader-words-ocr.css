@@ -242,7 +242,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    to avoid disturbing normal prose. any-pointer:coarse so an iPad with an Apple
    Pencil (pointer:fine + hover:hover) still gets the larger tap targets. */
 @media (any-pointer: coarse) {
-  .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
+  :is(.jpdb-ocr-layer, .jpdb-ocr-line, .textBox, #pagesContainer, #manga-panel)
+    .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
     content: "";
     position: absolute;
     inset: -0.36em -0.06em;
@@ -965,6 +966,52 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
+  pointer-events: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+/* The source glyph stays page-owned, so highlight/text-colour modes cannot
+   safely repaint it from an overlay. Preserve their annotation signal as a
+   quiet underline, while ordinary underline mode uses the same source colour.
+   This also fixes the additive pitch line being accidentally forced
+   transparent after the absolute ::after strip was retired. */
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-underline-status,
+  .jpdb-reader-word-text-status
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-status-decoration, transparent);
+}
+:is(
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-underline-jpdb,
+  .jpdb-reader-word-text-jpdb
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent);
+}
+:is(
+  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-underline-anki,
+  .jpdb-reader-word-text-anki
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-anki-decoration, transparent);
+}
+:is(
+  .jpdb-reader-word-highlight-pitch,
+  .jpdb-reader-word-underline-pitch,
+  .jpdb-reader-word-text-pitch
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-pitch-decoration, transparent);
+}
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
   color: var(
@@ -1065,51 +1112,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
-}
-
-/* Clip-constrained HOVER-ONLY mirror (paint-invariant design, third live
-   gate): at rest the host text paints naturally and the mirror stays hidden
-   (inline visibility on the element). A real fine hover pointer may reveal the
-   annotated mirror and blank the native glyphs so the two texts never
-   double-paint. Touch WebKit synthesises a sticky :hover after tapping; letting
-   that state swap in a ruby-bearing mirror leaves tablet rows displaced or
-   blank long after the tap. Coarse pointers therefore use a stable at-rest
-   mirror below: it keeps word decoration and tap lookup, removes rt from ruby
-   layout, and restores native wrapping instead of depending on sticky hover. */
-@media (hover: hover) and (pointer: fine) {
-  [data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
-    visibility: visible !important;
-  }
-  [data-yomu-clip-hover-host="true"]:hover {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  [data-yomu-clip-hover-host="true"] {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-    text-decoration-color: transparent !important;
-    text-shadow: none !important;
-  }
-  [data-yomu-clip-hover-host="true"] .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
-    visibility: visible !important;
-  }
-  [data-yomu-clip-hover-host="true"]
-    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
-    rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi) {
-    display: none !important;
-    visibility: hidden !important;
-  }
-  [data-yomu-clip-hover-host="true"]
-    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
-    :is(.jpdb-reader-word.jpdb-reader-scan-word, ruby) {
-    white-space: normal !important;
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    line-break: auto !important;
-  }
 }
 
 /* Class Q: clip-constrained rows (fixed-height nav rows, line-clamped titles)
@@ -2462,4 +2464,18 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   background-image: var(--jpdb-reader-pitch-compound-gradient, none);
   background-repeat: no-repeat;
   background-size: 100% 100%;
+}
+/* Source-preserving mirrors normally use a native text decoration because an
+   absolute underline would fall at the bottom of a tall pill. Composite words
+   are the exception: their per-subword gradient cannot be represented by one
+   native decoration colour, so restore only their tightly word-sized strip. */
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word.jpdb-reader-pitch-compound {
+  text-decoration-color: transparent !important;
+}
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word.jpdb-reader-pitch-compound::after {
+  content: "" !important;
 }

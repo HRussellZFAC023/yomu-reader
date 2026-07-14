@@ -123,7 +123,7 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(contentClipRowShowsRestReadings('prose-full', single)).toBe(true);
     });
 
-    it('ships the hover-only override CSS keyed on the root stamp and keeps the rest-hide rule value-exact', () => {
+    it('ships the content-row hover override without a host-blanking mirror swap', () => {
         const css = readFileSync(resolve(process.cwd(), 'src/reader/styles/reader-words-ocr.css'), 'utf8');
         expect(css).toContain(':root[data-yomu-clamped-readings="hover"]');
         expect(css).toContain('[data-yomu-clip-constrained="content"]');
@@ -131,9 +131,8 @@ describe('clamped content preserves base text and bounded geometry', () => {
         // "content" rows are visible at rest by default: the ONLY selector
         // that hides "content" readings is the :root hover-mode rule.
         expect(css).toContain('[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi');
-        expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)[\s\S]*\[data-yomu-clip-hover-host="true"\]:hover/);
-        expect(css).toMatch(/@media \(hover: none\), \(pointer: coarse\)[\s\S]*\.jpdb-reader-clip-hover-mirror[\s\S]*visibility: visible !important/);
-        expect(css).toMatch(/@media \(hover: none\), \(pointer: coarse\)[\s\S]*rt\.jpdb-reader-furi[\s\S]*display: none !important/);
+        expect(css).not.toContain('[data-yomu-clip-hover-host="true"]');
+        expect(css).not.toContain('.jpdb-reader-clip-hover-mirror');
         const contentSelectorUses = css.split('[data-yomu-clip-constrained="content"]').length - 1;
         expect(contentSelectorUses).toBe(1);
         expect(css).toMatch(/:root\[data-yomu-clamped-readings="hover"\]\s*\[data-yomu-clip-constrained="content"\]/);

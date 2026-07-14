@@ -31,10 +31,8 @@ import {
     hasInlineControlShape,
     hasLineClamp,
     hasUiBox,
-    hostIsVisuallyBareForMirror,
     isCompactInteractiveChromeText,
     isCompactPassiveInteractionElement,
-    isConversationTextClass,
     isEllipsisTextRow,
     isInsideRubyFragileConstrainedRow,
     isLikelyProseElement,
@@ -326,39 +324,13 @@ interface TextMirrorHostState {
     // Aborted on teardown so a pending stale-removal timer scheduled by the
     // per-host observer can never fire against a removed/recycled host.
     lifecycle?: AbortController;
-    visibility: string;
-    visibilityPriority: string;
-    overflow: string;
-    overflowPriority: string;
-    overflowAdjusted: boolean;
     position: string;
     positionPriority: string;
     positioned: boolean;
-    display: string;
-    displayPriority: string;
-    displayAdjusted: boolean;
     /** The mirror this state's apply created, held weakly: teardown removes
      * it through this ref even after a framework relocates it anywhere in
      * (or across) roots, without any document-wide query. */
     mirror?: WeakRef<HTMLElement>;
-    /** Styled hosts hide TEXT only (transparent colour) so their own box
-     * paint — background, border, pseudo-elements, icons — keeps rendering
-     * under the mirror; bare hosts use plain visibility:hidden. */
-    concealTextOnly: boolean;
-    concealedText: ConcealedTextRecord[];
-    // Clip-constrained hover-only arrangement: the host text keeps painting
-    // and the mirror is only revealed on hover (paint-invariant at rest).
-    clipHoverOnly?: boolean;
-    // Detached-reading mirrors are additive: the page keeps painting its
-    // native glyphs while the mirror contributes only lookup hit targets,
-    // pitch/status decoration, and out-of-flow readings. A missing/recycled
-    // mirror can therefore never leave a blank control or title.
-    nativeTextVisible?: boolean;
-}
-
-interface ConcealedTextRecord {
-    element: HTMLElement;
-    values: Array<{ property: string; value: string; priority: string }>;
 }
 
 interface ControlTextMirrorHostState {
@@ -1521,14 +1493,13 @@ function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
 // を表示できません"), and the shared layout collapses (fat composer, displaced send
 // button). The repaint-loop/rejection guards below are reactive and fire only AFTER a
 // re-render, so they cannot prevent that first synchronous crash, and streaming text
-// never repeats identically. For framework-owned LIVE regions we therefore render
-// non-destructively up front: the overlay mirror never mutates the framework's nodes,
-// so it keeps full ownership and re-renders freely. Scoped to conversation/message
-// surfaces (the streaming category) so static framework article pages keep the
-// higher-fidelity inline destructive paint and the reactive guards still cover the rest.
+// never repeats identically. Framework-owned targets therefore render
+// non-destructively up front: the additive overlay never mutates or hides the
+// framework's nodes, so it keeps full ownership and re-renders freely. The
+// decision comes from a concrete per-target ownership marker, never a
+// document-wide app-shell guess.
 const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
 const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
-const LIVE_FRAMEWORK_CHAT_HOST_SELECTOR = '[data-message-author-role],[data-message-id],[data-testid*="conversation-turn" i],[data-testid*="chat-message" i],[data-testid*="message-content" i],[data-testid*="message-bubble" i],[data-test-id*="chat-message" i],[data-test-id*="message-content" i],.markdown,.markdown-body,.markdown-content,.message,.message-body,.message-content,.messageContent,.chat-message,.conversation-turn,.model-response,.model-response-text,.response-content,.font-claude-message';
 const frameworkManagedElements = new WeakSet<Element>();
 
 function elementHasFrameworkOwnershipMarker(element: Element): boolean {
@@ -1552,21 +1523,14 @@ function elementIsFrameworkManaged(element: Element | null): boolean {
     return false;
 }
 
-function hostInConversationContext(host: HTMLElement): boolean {
-    if (host.closest(LIVE_FRAMEWORK_CHAT_HOST_SELECTOR)) return true;
-    let current: HTMLElement | null = host;
-    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
-        if (isConversationTextClass(current)) return true;
-    }
-    return false;
-}
-
-function scanHostIsLiveFrameworkRegion(host: HTMLElement): boolean {
+function scanHostRequiresSourcePreservingMirror(host: HTMLElement): boolean {
     // Never overlay a mirror inside a rich-text editor; that would corrupt the
     // composer (already skipped at collection, guarded here for defence in depth).
     if (host.closest('[contenteditable="true"]')) return false;
-    if (!elementIsFrameworkManaged(host)) return false;
-    return hostInConversationContext(host);
+    // Replacing even a quiet article Text node can invalidate a later hydration
+    // or navigation commit; waiting for a repaint loop is already one
+    // destructive write too late.
+    return elementIsFrameworkManaged(host);
 }
 
 // The sealed decision is stamped ONCE, at apply time, on the render host (and
@@ -1605,10 +1569,20 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
+    // A fragment target may span several independently laid-out component
+    // leaves. Flattening their common ancestor into one absolute text line moves
+    // the lookup hit areas away from the native glyphs (and was the root cause
+    // of a tap on one word opening a neighbour). Split exact framework-owned
+    // targets before choosing a mirror host so every overlay inherits one leaf's
+    // real typography and geometry.
+    if (isFragmentTextTarget(target) && targetRequiresReactiveLeafMirrors(target)) {
+        applyTokensToReactiveLeafMirrors(target, tokens, settings);
+        return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
-    const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
-    const repaintLooping = !target.nonDestructive && !liveFrameworkRegion
+    const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+    const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
@@ -1620,7 +1594,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // mirror becomes a hover-only overlay over the still-painted host text.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
-        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
+        && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
@@ -1631,8 +1605,106 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
 function nonDestructiveTargetShouldRenderInline(target: ScanTextTarget, host: HTMLElement): boolean {
     if (!isFragmentTextTarget(target)) return false;
     if (!target.fragments.length) return false;
-    if (scanHostIsLiveFrameworkRegion(host)) return false;
+    if (scanHostRequiresSourcePreservingMirror(host)) return false;
     return targetLeavesVisibleBlockDescendantTextUncovered(target, host);
+}
+
+function targetRequiresReactiveLeafMirrors(target: FragmentTextTarget): boolean {
+    const parents = target.fragments
+        .map(fragment => fragment.node.parentElement)
+        .filter((parent): parent is HTMLElement => Boolean(parent));
+    const uniqueParents = [...new Set(parents)];
+    if (uniqueParents.length < 2) return false;
+    // Inline markup often splits one visual line into an outer Text node and a
+    // nested span (登<span>録者</span>). Its outer parent still owns one coherent
+    // layout surface, so a single mirror preserves the cross-node word. Only
+    // split genuinely independent leaves; otherwise later discontiguous runs on
+    // the same outer parent would replace the earlier mirror and lose a glyph.
+    if (uniqueParents.some(parent => uniqueParents.every(candidate => parent.contains(candidate)))) return false;
+    // Explicit non-destructive profiles (including generic dynamic-page
+    // adapters) carry the same source-preservation promise even when a
+    // framework exposes no private ownership marker. Never flatten their
+    // independently laid-out leaves into one common-ancestor overlay.
+    return Boolean(target.nonDestructive)
+        || uniqueParents.some(parent => scanHostRequiresSourcePreservingMirror(parent));
+}
+
+interface ReactiveLeafRun {
+    parent: HTMLElement;
+    fragments: IndexedTextFragment[];
+    globalStart: number;
+    globalEnd: number;
+}
+
+function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const indexed = indexTextFragments(target.fragments);
+    for (const run of reactiveLeafRuns(indexed)) {
+        const text = target.text.slice(run.globalStart, run.globalEnd);
+        const runTokens = tokens
+            .map(token => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd))
+            .filter((token): token is JPDBToken => token !== null);
+        if (!runTokens.length || !HAS_JAPANESE.test(text)) continue;
+        const crossesLeafBoundary = tokens.some(token => token.start < run.globalStart && token.end > run.globalStart
+            || token.start < run.globalEnd && token.end > run.globalEnd);
+        const leafTarget: FragmentTextTarget = {
+            ...target,
+            text,
+            parent: run.parent,
+            fragments: run.fragments.map(fragment => ({
+                node: fragment.node,
+                start: fragment.start,
+                end: fragment.end,
+                hasNativeRuby: fragment.hasNativeRuby,
+                layoutSensitive: fragment.layoutSensitive,
+                passiveInteraction: fragment.passiveInteraction,
+            })),
+            nonDestructive: true,
+            suppressRuby: target.suppressRuby || crossesLeafBoundary,
+        };
+        const host = nonDestructiveScanHost(leafTarget);
+        stampTargetDecoration(leafTarget, host);
+        applyTokensToNonDestructiveScanTarget(leafTarget, runTokens, settings);
+    }
+}
+
+function reactiveLeafRuns(fragments: IndexedTextFragment[]): ReactiveLeafRun[] {
+    const runs: ReactiveLeafRun[] = [];
+    for (const fragment of fragments) {
+        const parent = fragment.node.parentElement;
+        if (!parent) continue;
+        const previous = runs[runs.length - 1];
+        if (previous?.parent === parent && previous.globalEnd === fragment.globalStart) {
+            previous.fragments.push(fragment);
+            previous.globalEnd = fragment.globalEnd;
+        } else {
+            runs.push({
+                parent,
+                fragments: [fragment],
+                globalStart: fragment.globalStart,
+                globalEnd: fragment.globalEnd,
+            });
+        }
+    }
+    return runs;
+}
+
+function tokenPieceForReactiveLeaf(token: JPDBToken, runStart: number, runEnd: number): JPDBToken | null {
+    const start = Math.max(token.start, runStart);
+    const end = Math.min(token.end, runEnd);
+    if (end <= start) return null;
+    const delta = -runStart;
+    return {
+        ...token,
+        start: start + delta,
+        end: end + delta,
+        length: end - start,
+        // A reading that crosses a component boundary has no safe single lane.
+        // Keep the word identity/pitch on each source piece and omit only that
+        // furigana rather than letting it overlap a neighbouring UI row.
+        rubies: token.rubies
+            .filter(ruby => ruby.start >= start && ruby.end <= end)
+            .map(ruby => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta })),
+    };
 }
 
 function targetLeavesVisibleBlockDescendantTextUncovered(target: FragmentTextTarget, host: HTMLElement): boolean {
@@ -2075,8 +2147,6 @@ interface NonDestructiveMirrorRenderContext {
     signature: string;
     whitespaceJointsKey: string;
     clipRow: HTMLElement | null;
-    hasRenderedRuby: boolean;
-    clipHoverOnly: boolean;
     detachedReadings: boolean;
     suppressRuby: boolean;
     hostText: string;
@@ -2099,7 +2169,7 @@ function nonDestructiveMirrorRenderContext(
         : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
-    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+    const { clipRow, detachedReadings } = textMirrorClipMode(host, safeTokens);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     // The rendered text depends on the host's LAYOUT (whitespace joints from
     // computed display contexts), not just its source text: a framework can
@@ -2107,16 +2177,6 @@ function nonDestructiveMirrorRenderContext(
     // the page renders. Fingerprint the joints so that flip re-renders instead
     // of keeping a stale mirror the observers cannot repair.
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(',');
-    // Clip-constrained is a LAYOUT MODE, not text: a framework can clamp or
-    // unclamp a row with identical text (feed virtualization re-styles), which
-    // must flip the mirror between the hover-only overlay and the standard
-    // host-hidden arrangement. The mode is part of idempotency, like the
-    // whitespace joints above.
-    // A clipped mirror only needs the rest-hidden hover channel when it
-    // actually contains ruby. Interactive/passive controls deliberately
-    // suppress ruby; keeping those mirrors hidden also hid every underline and
-    // lookup word on touch devices, which is the Reddit/iPad "no annotations"
-    // failure. Their plain-line-metric mirror can paint safely at rest.
     return {
         text,
         safeTokens,
@@ -2125,8 +2185,6 @@ function nonDestructiveMirrorRenderContext(
         signature,
         whitespaceJointsKey,
         clipRow,
-        hasRenderedRuby,
-        clipHoverOnly,
         detachedReadings,
         suppressRuby,
         hostText: plan.hostText,
@@ -2150,8 +2208,7 @@ function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirror
         existing?.dataset.sourceText === context.text,
         existing?.dataset.renderSignature === context.signature,
         (existing?.dataset.whitespaceJoints ?? '') === context.whitespaceJointsKey,
-        existing?.classList.contains('jpdb-reader-clip-hover-mirror') === context.clipHoverOnly,
-        existing?.classList.contains('jpdb-reader-additive-text-mirror') === context.detachedReadings,
+        existing?.classList.contains('jpdb-reader-additive-text-mirror'),
     ].every(Boolean);
     if (!matches) return false;
     const state = textMirrorHosts.get(host);
@@ -2171,17 +2228,12 @@ function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderConte
     // paired with user-select:none in CSS this keeps Cmd+A/copy grabbing only
     // the clean original host text instead of doubled/garbled clipboard.
     mirror.setAttribute('aria-hidden', 'true');
-    // Class Q (site-sweep 2026-07-10): a clip-constrained row shows NO at-rest
-    // ruby in ANY channel — the out-of-flow mirror's rt paints OUTSIDE the
-    // clipped row bounds. Mark the mirror so CSS hides its readings at rest
-    // (hover reveals them), and constrain the mirror to the host's clamp box:
-    // an unconstrained mirror renders the FULL unclamped text below the tile
-    // (the 1.6.115 iPad feed expansion) or one extra line past the clamp.
-    if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = 'true';
-    if (context.detachedReadings) {
-        mirror.classList.add('jpdb-reader-additive-text-mirror');
-        mirror.dataset.yomuDetachedReadings = 'true';
-    }
+    // Source-preserving is the only mirror contract. The page's glyphs remain
+    // authoritative; this layer contributes hit areas, pitch/status decoration,
+    // and collision-checked readings. Losing the layer therefore degrades to
+    // plain readable text rather than a blank host.
+    mirror.classList.add('jpdb-reader-additive-text-mirror');
+    if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = 'true';
     return mirror;
 }
 
@@ -2206,30 +2258,11 @@ function mountNonDestructiveTextMirror(
     // count) and over-clamping 2-line titles to one. Readings are rest-hidden
     // there anyway, so the mirror keeps the host's own line metrics and the
     // host's overflow stays closed.
-    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
-    // Document-level CSS cannot cross an open shadow boundary. Decide the
-    // touch-safe paint mode here as well as in CSS so the same generic mirror
-    // contract holds for web components (Reddit controls are representative):
-    // coarse/no-hover rows paint a stable base-text mirror at rest, while only
-    // a real fine hover pointer gets the ruby reveal channel.
-    const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
-    const stableDetachedMirror = context.detachedReadings
-        && Boolean(context.clipRow)
-        && prefersStableClippedMirror();
-    if (stableClippedMirror || stableDetachedMirror) mirror.dataset.yomuStableClippedMirror = 'true';
-    const state = styleTextMirrorHost(
-        host,
-        mirrorRubyLayout || stableDetachedMirror,
-        context.clipHoverOnly && !stableClippedMirror,
-        Boolean(context.clipRow),
-        context.detachedReadings,
-    );
+    const state = styleTextMirrorHost(host);
     try {
-        styleTextMirror(mirror, host, mirrorRubyLayout);
+        styleTextMirror(mirror, host, false);
         if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
-        // After styleTextMirror (which opens overflow): re-impose the host's
-        // clamp on the mirror so it cannot paint past the clip row's box.
-        styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
+        styleConstrainedTextMirror(mirror, context.clipRow, context.detachedReadings);
         mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -2246,7 +2279,7 @@ function mountNonDestructiveTextMirror(
             removeTextMirror(host);
             return;
         }
-        if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
+        stampMirrorWordSourceRanges(mirror, context.safeTokens);
         // Commit atomically: a framework host must never be concealed before
         // its replacement is connected and known to contain paintable text.
         host.append(mirror);
@@ -2254,12 +2287,8 @@ function mountNonDestructiveTextMirror(
         state.mirror = new WeakRef(mirror);
         if (context.detachedReadings) {
             styleDetachedReadingElements(mirror, host);
-            openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
-        else tightenMirrorRubyOverhang(mirror);
-        withdrawUnfitTextMirrorOverflow(host, state, mirror);
-        hideTextMirrorHost(host, state, mirror);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2279,30 +2308,85 @@ function stabilizeReadingFreeControlMirror(mirror: HTMLElement, host: HTMLElemen
     if (height > 0) mirror.style.setProperty('line-height', `${height}px`, 'important');
 }
 
-function prefersStableClippedMirror(): boolean {
-    const coarseOrNoHover = typeof window.matchMedia === 'function'
-        && window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    // Some embedded browsers and Playwright/WebKit builds expose touch input
-    // without updating the primary-pointer media queries. Touch taps can still
-    // synthesize sticky :hover there, so capability is the reliable fallback.
-    return coarseOrNoHover || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+function stampMirrorWordSourceRanges(mirror: HTMLElement, tokens: JPDBToken[]): void {
+    const words = Array.from(mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word'));
+    for (const [index, word] of words.entries()) {
+        const token = tokens[index];
+        if (!token) continue;
+        word.dataset.yomuSourceStart = String(token.start);
+        word.dataset.yomuSourceEnd = String(token.end);
+    }
 }
 
-function stabilizeClippedTextMirror(mirror: HTMLElement): void {
-    mirror.style.setProperty('visibility', 'visible', 'important');
-    // Detached readings are out-of-flow overlays with their own clip and
-    // collision checks. Only suppress in-flow ruby here; otherwise the
-    // coarse-pointer fallback erases a lane that was already proven safe.
-    for (const reading of mirror.querySelectorAll<HTMLElement>('rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi)')) {
-        reading.style.setProperty('display', 'none', 'important');
-        reading.style.setProperty('visibility', 'hidden', 'important');
+/**
+ * Score a mirrored word against the geometry of the page-owned source range.
+ * Additive mirrors can be displaced by framework layout/recycling; their own
+ * boxes are never authoritative for hit testing.
+ */
+export function readerWordSourcePointScore(word: HTMLElement, x: number, y: number): number | null {
+    const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror');
+    if (!mirror || typeof Range.prototype.getClientRects !== 'function') return null;
+    const host = registeredTextMirrorHostFor(mirror);
+    if (!host?.isConnected) return null;
+    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (mirror.dataset.sourceText !== source.hostText || end > source.hostText.length) return null;
+    const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
+    const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
+    if (!startBoundary || !endBoundary) return null;
+    const range = host.ownerDocument.createRange();
+    range.setStart(startBoundary.node, startBoundary.offset);
+    range.setEnd(endBoundary.node, endBoundary.offset);
+    let best: number | null = null;
+    for (const rect of Array.from(range.getClientRects())) {
+        const score = sourceRectPointScore(rect, x, y);
+        if (score !== null && (best === null || score < best)) best = score;
     }
-    for (const segment of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word, ruby')) {
-        segment.style.setProperty('white-space', 'normal', 'important');
-        segment.style.setProperty('word-break', 'normal', 'important');
-        segment.style.setProperty('overflow-wrap', 'break-word', 'important');
-        segment.style.setProperty('line-break', 'auto', 'important');
+    return best;
+}
+
+export function readerWordAtSourcePointInScope(
+    scope: ParentNode,
+    x: number,
+    y: number,
+    accepts: (word: HTMLElement) => boolean = () => true,
+): HTMLElement | null {
+    let best: { word: HTMLElement; score: number } | null = null;
+    const selector = '.jpdb-reader-additive-text-mirror .jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]';
+    for (const word of scope.querySelectorAll<HTMLElement>(selector)) {
+        if (!accepts(word)) continue;
+        const score = readerWordSourcePointScore(word, x, y);
+        if (score !== null && (!best || score < best.score)) best = { word, score };
     }
+    return best?.word ?? null;
+}
+
+function sourceRangeBoundary(
+    nodeOffsets: Map<Text, number>,
+    sourceOffset: number,
+    side: 'start' | 'end',
+): { node: Text; offset: number } | null {
+    let boundary: { node: Text; offset: number } | null = null;
+    for (const [node, nodeStart] of nodeOffsets) {
+        const nodeEnd = nodeStart + node.data.length;
+        if (sourceOffset < nodeStart || sourceOffset > nodeEnd) continue;
+        const candidate = { node, offset: sourceOffset - nodeStart };
+        if (side === 'start' && sourceOffset < nodeEnd) return candidate;
+        boundary = candidate;
+        if (side === 'end' && sourceOffset > nodeStart) return candidate;
+    }
+    return boundary;
+}
+
+function sourceRectPointScore(rect: DOMRect, x: number, y: number): number | null {
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const slack = 0.75;
+    if (x < rect.left - slack || x > rect.right + slack || y < rect.top - slack || y > rect.bottom + slack) return null;
+    const dx = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
+    const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+    return dx * dx + dy * dy;
 }
 
 // A document stylesheet does not cross an open shadow boundary. Detached
@@ -2320,7 +2404,11 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
     const additive = root.classList.contains('jpdb-reader-additive-text-mirror');
-    const pitchUnderline = document.documentElement.classList.contains('jpdb-reader-word-underline-pitch');
+    const pitchDecoration = [
+        'jpdb-reader-word-highlight-pitch',
+        'jpdb-reader-word-underline-pitch',
+        'jpdb-reader-word-text-pitch',
+    ].some(className => document.documentElement.classList.contains(className));
 
     for (const wrapper of detachedRubies) {
         wrapper.style.setProperty('position', 'relative', 'important');
@@ -2366,7 +2454,7 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         element.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
         element.style.setProperty('text-shadow', 'none', 'important');
     }
-    if (!pitchUnderline) return;
+    if (!pitchDecoration) return;
     for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-pitch-class]')) {
         const pitchClass = safePitchClass(word.dataset.pitchClass ?? 'unknown');
         if (pitchClass === 'unknown') continue;
@@ -2571,11 +2659,6 @@ function restoreUnsafeDetachedReading(reading: HTMLElement): void {
 // clip was verified safe to open (single-line, base fits). This mirrors the
 // in-place rt policy so the two channels can never disagree on a row.
 function detachedReadingRestHidden(reading: HTMLElement): boolean {
-    // Coarse pointers have no dependable hover reveal. Their stable additive
-    // mirror keeps candidate readings paintable here; the geometry-aware lane
-    // settle immediately below still hides only the readings that would clip
-    // or collide in a multi-line row.
-    if (reading.closest('[data-yomu-stable-clipped-mirror="true"]')) return false;
     const row = reading.closest<HTMLElement>('[data-yomu-clip-constrained="true"]');
     return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== 'true');
 }
@@ -2765,9 +2848,7 @@ function closeOrphanedDetachedReadingClips(element: HTMLElement): void {
 
 function styleConstrainedTextMirror(
     mirror: HTMLElement,
-    host: HTMLElement,
     clipRow: HTMLElement | null,
-    clipHoverOnly: boolean,
     detachedReadings = false,
 ): void {
     if (!clipRow) return;
@@ -2779,37 +2860,21 @@ function styleConstrainedTextMirror(
         // detached readings can occupy the spare leading above a glyph.
         mirror.style.setProperty('overflow', 'visible');
     } else constrainMirrorToClampBox(mirror, clipRow);
-    // Mirrors with real readings are hover-only at rest; ruby-suppressed
-    // control mirrors stay visible so word state and lookup remain usable on
-    // touch screens without changing the host's line geometry.
-    if (!clipHoverOnly) return;
-    mirror.classList.add('jpdb-reader-clip-hover-mirror');
-    mirror.style.setProperty('visibility', 'hidden');
-    const hostColor = safeComputedStyle(host).color;
-    if (hostColor) {
-        mirror.style.setProperty('color', hostColor);
-        mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
-    }
-    host.dataset.yomuClipHoverHost = 'true';
 }
 
-function textMirrorClipMode(host: HTMLElement, suppressRuby: boolean, tokens: JPDBToken[], allowDetachedReadings = true): {
+function textMirrorClipMode(host: HTMLElement, tokens: JPDBToken[]): {
     clipRow: HTMLElement | null;
-    hasRenderedRuby: boolean;
-    clipHoverOnly: boolean;
     detachedReadings: boolean;
 } {
     const clipRow = closestRubyFragileConstrainedRow(host);
     const hasReadings = tokens.some(token => token.rubies.length > 0);
-    const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
-    const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
+    // Every mirror is additive, so readings are always detached from the line
+    // box. If collision/clip checks find no safe lane, only the reading is
+    // hidden; source glyphs, pitch and lookup remain available.
+    const detachedReadings = hasReadings;
     return {
         clipRow,
-        hasRenderedRuby,
         detachedReadings,
-        // Detached readings are stable at rest, so clipped text no longer
-        // needs a hover-only channel on touch or desktop.
-        clipHoverOnly: Boolean(clipRow && hasRenderedRuby),
     };
 }
 
@@ -2936,8 +3001,8 @@ function textMirrorBelongsToHost(mirror: HTMLElement, host: HTMLElement): boolea
     // Creation-time registration wins while the registered owner is still a
     // live mirror host: a mirror a framework relocated INTO another registered
     // host's subtree must not be claimed by that host — its sweep would remove
-    // the mirror and clear only its OWN clip-hover stamp, leaving the true
-    // owner stamped (hover blanks the host glyphs) with no mirror to reveal.
+    // another host's annotation layer and leave the true owner's observer and
+    // replay state orphaned.
     const owner = textMirrorOwners.get(mirror);
     if (owner && textMirrorHosts.has(owner)) return owner === host;
     let ancestor = mirror.parentElement;
@@ -2970,14 +3035,6 @@ function currentTextMirror(host: HTMLElement): HTMLElement | null {
 export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boolean {
     const mirror = currentTextMirror(host);
     if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
-    // A clamp/unclamp re-style with identical text must not be skipped: the
-    // mirror has to flip between the hover-only overlay and the standard
-    // host-hidden arrangement (same mode check as the apply idempotency).
-    const shouldClipHover = Boolean(
-        closestRubyFragileConstrainedRow(host)
-        && mirror.dataset.jpdbReaderHasRuby === 'true',
-    );
-    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror') !== shouldClipHover) return false;
     const source = mirror.dataset.sourceText ?? '';
     const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
     // A transient ancestor hide (an SPA page swap that re-renders cards while
@@ -3340,6 +3397,12 @@ function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
     const parents = target.fragments
         .map(fragment => fragment.node.parentElement)
         .filter((parent): parent is HTMLElement => Boolean(parent));
+    // Reactive multi-leaf targets are split into one source-preserving target
+    // per actual layout leaf. Keep that exact leaf as the mirror host: promoting
+    // every piece back to the same preferred component ancestor makes each
+    // successive mirror replace the previous one, dropping annotations for
+    // tokens that cross an inline framework boundary (e.g. 登<span>録者</span>).
+    if (parents.length && parents.every(parent => parent === target.parent)) return target.parent;
     return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
 }
 
@@ -3367,194 +3430,18 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(
-    host: HTMLElement,
-    allowOverflow = true,
-    clipHoverOnly = false,
-    preserveConstrainedLayout = false,
-    nativeTextVisible = false,
-): TextMirrorHostState {
+function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
         sourceText: '',
-        visibility: host.style.getPropertyValue('visibility'),
-        visibilityPriority: host.style.getPropertyPriority('visibility'),
-        overflow: host.style.getPropertyValue('overflow'),
-        overflowPriority: host.style.getPropertyPriority('overflow'),
-        overflowAdjusted: allowOverflow && !clipHoverOnly,
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
-        display: host.style.getPropertyValue('display'),
-        displayPriority: host.style.getPropertyPriority('display'),
-        // Paint invariance for clip-constrained hosts: no display coercion —
-        // the host must lay out exactly as without the userscript.
-        displayAdjusted: computed.display === 'inline' && !preserveConstrainedLayout,
-        concealTextOnly: !hostIsVisuallyBareForMirror(host),
-        concealedText: [],
-        clipHoverOnly,
-        nativeTextVisible,
     };
     textMirrorHosts.set(host, state);
-    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
-    if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
     return state;
-}
-
-// A ruby mirror needs the host unclipped so readings can paint above the row —
-// but only while the mirror's own line boxes FIT the host. When the rendered
-// mirror is wider than its box (a long all-CJK line the host cannot contain),
-// forcing overflow:visible would let the runaway line escape its container and
-// side-scroll the page (class O). Withdraw the unclip and let the host's own
-// overflow clip the mirror exactly as it clips the page's native text.
-//
-// Deliberately measured ONCE at creation: a later viewport/sidebar/font-load
-// change is reconciled by the next repaint (every re-apply rebuilds the mirror
-// and re-measures), not by a resize observer — deferred by design to keep the
-// mirror channel free of per-mirror layout listeners.
-function withdrawUnfitTextMirrorOverflow(host: HTMLElement, state: TextMirrorHostState, mirror: HTMLElement): void {
-    if (!state.overflowAdjusted) return;
-    // A clip-constrained row's readings are CSS-hidden at rest and revealed by
-    // hover / ruby-room growth (class Q): withdrawing its unclip would re-clip
-    // the reveal that machinery exists to provide. Its base text matches the
-    // page's own nowrap truncation, so class O cannot regress here.
-    if (mirror.dataset.yomuClipConstrained === 'true') return;
-    if (!mirrorBaseTextOverflowsBox(mirror)) return;
-    restoreStyleProperty(host, 'overflow', 'visible', state.overflow, state.overflowPriority);
-    state.overflowAdjusted = false;
-}
-
-// Fit is judged on the BASE text only: ruby readings legitimately overhang a
-// narrow base (じゅん over 順) and are exactly what the unclip protects, so rt
-// is display:none'd for the measurement and restored — two synchronous
-// reflows, once per mirror creation. The negative overhang margins written by
-// tightenMirrorRubyOverhang are neutralized for the same measurement: with rt
-// hidden the ruby boxes shrink to their bases, and the retained negative
-// margins would overlap glyphs and UNDERSTATE the base width.
-function mirrorBaseTextOverflowsBox(mirror: HTMLElement): boolean {
-    const restores: Array<() => void> = [];
-    const neutralize = (element: HTMLElement, property: string, value: string, priority: string): void => {
-        const saved = { value: element.style.getPropertyValue(property), priority: element.style.getPropertyPriority(property) };
-        restores.push(() => {
-            if (saved.value) element.style.setProperty(property, saved.value, saved.priority);
-            else element.style.removeProperty(property);
-        });
-        if (value) element.style.setProperty(property, value, priority);
-        else element.style.removeProperty(property);
-    };
-    for (const rt of mirror.querySelectorAll<HTMLElement>('rt')) {
-        neutralize(rt, 'display', 'none', 'important');
-    }
-    for (const ruby of mirror.querySelectorAll<HTMLElement>('ruby')) {
-        if (ruby.style.getPropertyValue('margin-left')) neutralize(ruby, 'margin-left', '', '');
-        if (ruby.style.getPropertyValue('margin-right')) neutralize(ruby, 'margin-right', '', '');
-    }
-    try {
-        return mirror.scrollWidth > mirror.clientWidth + 1;
-    } finally {
-        restores.forEach(restore => restore());
-    }
-}
-
-function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
-    textMirrorHosts.set(host, state);
-    // Hover-only and additive arrangements keep the host text painting. The
-    // latter makes the mirror failure-safe: it contributes decoration and
-    // detached readings, never the sole copy of the label.
-    if (state.clipHoverOnly || state.nativeTextVisible) return;
-    if (state.concealTextOnly) {
-        // The mirror inherits colour from the host; pin the host's REAL text
-        // colour on it before the host's colour goes transparent. (Bare hosts
-        // skip this so mirrors keep following late host colour changes.)
-        if (mirror) {
-            const hostColor = safeComputedStyle(host).color;
-            if (hostColor) {
-                mirror.style.setProperty('color', hostColor);
-                // currentcolor, NOT the fixed colour: fill-color inherits and
-                // would override the per-word state colour classes inside.
-                mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
-            }
-        }
-        concealTextMirrorHostText(host, state);
-    } else host.style.setProperty('visibility', 'hidden', 'important');
-    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
-    if (state.positioned) host.style.setProperty('position', 'relative', 'important');
-    if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
-}
-
-// Text-transparency set: hides glyphs, decorations, and shadows while the
-// element's own box (background, border, pseudo content) keeps painting.
-const CONCEALED_TEXT_PROPERTIES = ['color', '-webkit-text-fill-color', 'text-decoration-color', 'text-shadow'] as const;
-// Hosts bigger than this are not concealed element-by-element — a mirror over
-// a huge subtree falls back to hiding the host outright.
-const CONCEALED_TEXT_MAX_ELEMENTS = 60;
-
-function concealTextMirrorHostText(host: HTMLElement, state: TextMirrorHostState): void {
-    const descendants = Array.from(host.querySelectorAll<HTMLElement>('*'))
-        .filter(element => !element.closest(READER_TEXT_MIRROR_SELECTOR));
-    if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
-        state.concealTextOnly = false;
-        host.style.setProperty('visibility', 'hidden', 'important');
-        return;
-    }
-    // Icons drawn with fill/stroke: currentColor would inherit the transparent
-    // text colour — pin their computed colour inline first, then skip them.
-    for (const svg of host.querySelectorAll<SVGElement>('svg')) {
-        if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue('color')) continue;
-        const computed = safeComputedStyle(svg as unknown as HTMLElement).color;
-        if (computed) {
-            state.concealedText.push({ element: svg as unknown as HTMLElement, values: [{ property: 'color', value: '', priority: '' }] });
-            svg.style.setProperty('color', computed, 'important');
-        }
-    }
-    for (const element of [host, ...descendants]) {
-        if (element instanceof SVGElement || element.closest('svg')) continue;
-        concealElementText(element, state);
-    }
-}
-
-function concealElementText(element: HTMLElement, state: TextMirrorHostState): void {
-    if (state.concealedText.some(record => record.element === element && record.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
-    const values = CONCEALED_TEXT_PROPERTIES.map(property => ({
-        property,
-        value: element.style.getPropertyValue(property),
-        priority: element.style.getPropertyPriority(property),
-    }));
-    state.concealedText.push({ element, values });
-    for (const property of CONCEALED_TEXT_PROPERTIES) {
-        element.style.setProperty(property, property === 'text-shadow' ? 'none' : 'transparent', 'important');
-    }
-}
-
-function reassertConcealedTextMirrorHostText(host: HTMLElement, state: TextMirrorHostState): void {
-    if (host.style.getPropertyValue('color') !== 'transparent') concealElementText(host, state);
-    for (const record of state.concealedText) {
-        const element = record.element;
-        if (!element.isConnected || element instanceof SVGElement) continue;
-        if (element.style.getPropertyValue('color') !== 'transparent') {
-            for (const property of CONCEALED_TEXT_PROPERTIES) {
-                element.style.setProperty(property, property === 'text-shadow' ? 'none' : 'transparent', 'important');
-            }
-        }
-    }
-}
-
-function restoreConcealedTextMirrorHostText(state: TextMirrorHostState): void {
-    for (const record of state.concealedText) {
-        for (const { property, value, priority } of record.values) {
-            const injected = property === 'text-shadow' ? 'none' : 'transparent';
-            const current = record.element.style.getPropertyValue(property);
-            // SVG colour pins recorded a snapshot, not an injected sentinel —
-            // restore those unconditionally; text conceals restore only while
-            // they still hold our transparent value.
-            if (record.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
-            if (value) record.element.style.setProperty(property, value, priority);
-            else record.element.style.removeProperty(property);
-        }
-    }
-    state.concealedText = [];
 }
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false): void {
@@ -3590,7 +3477,10 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     mirror.style.setProperty('height', 'auto');
     mirror.style.setProperty('overflow', 'visible');
     mirror.style.setProperty('visibility', 'visible', 'important');
-    mirror.style.setProperty('pointer-events', 'auto');
+    // The source DOM owns interaction. A transparent absolute layer must not
+    // block player controls or framework handlers; lookup resolves through
+    // the stamped source ranges instead of the overlay's potentially stale box.
+    mirror.style.setProperty('pointer-events', 'none');
     mirror.style.setProperty('white-space', style.whiteSpace);
     mirror.style.setProperty('font', style.font);
     mirror.style.setProperty('font-size', style.fontSize);
@@ -3609,126 +3499,6 @@ function hostCentersTextVertically(host: HTMLElement, style: CSSStyleDeclaration
     // not: a role=menuitem/div can be top-aligned or use authored padding, so
     // centring every such host moves its mirror away from the original label.
     return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
-}
-
-// A reading wider than its base (じゅん over 順) makes ruby layout grow the
-// ruby box and center the base inside it. Engines only reclaim that slack via
-// ruby overhang over adjacent NON-ruby text — never across an adjacent ruby —
-// so compact mirrored labels split into "新 しい 順" (worst on WebKit, which is
-// exactly the iPad chip surface). Styling rt is a dead end: WebKit ignores
-// display/position overrides on ruby internals. Instead, measure the RENDERED
-// gap between each ruby base and its same-line CJK neighbours and pull the
-// neighbours back in with negative inline margins on the ruby element — the
-// annotation keeps painting centered over the base, overhanging exactly the
-// way native overhang would. Measured-then-written in two phases (no
-// per-ruby reflow), and a no-op wherever the engine already overhangs.
-function tightenMirrorRubyOverhang(mirror: HTMLElement): void {
-    interface RubyMeasure {
-        ruby: HTMLElement;
-        baseRect: DOMRect;
-        insetLeft: number;
-        insetRight: number;
-        marginLeft: number;
-        marginRight: number;
-    }
-    // jsdom has no Range.getBoundingClientRect; there is no layout to fix there.
-    if (typeof Range.prototype.getBoundingClientRect !== 'function') return;
-    const measures: RubyMeasure[] = [];
-    const byRuby = new Map<HTMLElement, RubyMeasure>();
-    for (const ruby of mirror.querySelectorAll<HTMLElement>('ruby')) {
-        const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base');
-        if (!base || !base.textContent) continue;
-        const rubyRect = ruby.getBoundingClientRect();
-        const baseRect = glyphRangeRect(base);
-        if (!baseRect) continue;
-        const measure: RubyMeasure = {
-            ruby,
-            baseRect,
-            insetLeft: Math.max(0, baseRect.left - rubyRect.left),
-            insetRight: Math.max(0, rubyRect.right - baseRect.right),
-            marginLeft: 0,
-            marginRight: 0,
-        };
-        measures.push(measure);
-        byRuby.set(ruby, measure);
-    }
-    for (const measure of measures) {
-        if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
-        const previous = adjacentGlyph(mirror, measure.ruby, 'previous');
-        if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
-            const gap = measure.baseRect.left - previous.rect.right;
-            measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
-        }
-        const next = adjacentGlyph(mirror, measure.ruby, 'next');
-        if (next && rectsShareLine(measure.baseRect, next.rect)) {
-            const gap = next.rect.left - measure.baseRect.right;
-            const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
-            measure.marginRight = Math.min(needed, measure.insetRight);
-            // The slack between two ADJACENT rubies belongs to both boxes:
-            // this ruby reclaims its own right inset, the neighbour's left
-            // inset covers the remainder — assigned here as a pair so the
-            // same gap is never compensated twice.
-            const neighbour = next.ruby ? byRuby.get(next.ruby) : undefined;
-            if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
-        }
-    }
-    for (const measure of measures) {
-        if (measure.marginLeft > 0) measure.ruby.style.setProperty('margin-left', `${-measure.marginLeft}px`, 'important');
-        if (measure.marginRight > 0) measure.ruby.style.setProperty('margin-right', `${-measure.marginRight}px`, 'important');
-    }
-}
-
-// CJK renders with no inter-glyph gap, so anything beyond a hair of rendered
-// space next to a ruby base is annotation-induced slack; reclaim it up to the
-// ruby box's own inset so a compensated line can never overlap real glyphs.
-const RUBY_GAP_KEEP_PX = 0.5;
-
-function rectsShareLine(a: DOMRect, b: DOMRect): boolean {
-    return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
-}
-
-function glyphRangeRect(element: HTMLElement): DOMRect | null {
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    const rect = range.getBoundingClientRect();
-    return rect.width > 0 ? rect : null;
-}
-
-// Nearest rendered CJK glyph before/after the ruby inside the mirror. A
-// whitespace or Latin neighbour keeps its natural spacing — only CJK
-// adjacency implies the gap should be zero.
-function adjacentGlyph(
-    mirror: HTMLElement,
-    ruby: HTMLElement,
-    direction: 'previous' | 'next',
-): { rect: DOMRect; ruby: HTMLElement | null } | null {
-    const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
-        acceptNode: node => (node.parentElement?.closest('rt,rp') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
-    });
-    let candidate: Text | null = null;
-    const position = direction === 'previous' ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
-    while (walker.nextNode()) {
-        const node = walker.currentNode as Text;
-        if (ruby.contains(node) || !node.data) continue;
-        if (!(ruby.compareDocumentPosition(node) & position)) continue;
-        if (direction === 'previous') candidate = node;
-        else { candidate = node; break; }
-    }
-    if (!candidate?.data) return null;
-    const characters = Array.from(candidate.data);
-    const character = direction === 'previous' ? characters[characters.length - 1] : characters[0];
-    if (!character || !isCjkChar(character)) return null;
-    const range = document.createRange();
-    if (direction === 'previous') {
-        range.setStart(candidate, candidate.data.length - character.length);
-        range.setEnd(candidate, candidate.data.length);
-    } else {
-        range.setStart(candidate, 0);
-        range.setEnd(candidate, character.length);
-    }
-    const rect = range.getBoundingClientRect();
-    if (rect.width <= 0) return null;
-    return { rect, ruby: candidate.parentElement?.closest('ruby') as HTMLElement | null };
 }
 
 function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
@@ -3759,14 +3529,8 @@ function observeTextMirrorHost(host: HTMLElement): void {
     state.lifecycle?.abort();
     const lifecycle = new AbortController();
     state.lifecycle = lifecycle;
-    // The callback must close over NOTHING that strongly reaches `host`.
-    // WeakRef(host) alone is not enough: closing over `state` would pin the host
-    // too, because a concealTextOnly mirror's state.concealedText holds `host`
-    // itself (the [host, ...descendants] capture in concealTextMirrorHostText).
-    // So the callback closes over ONLY hostRef, derefs it, and looks the state
-    // back up through the host-keyed WeakMap — no strong host retention survives
-    // in the observer/callback/global-Set graph, so a framework detach lets the
-    // host (and this observer) be collected.
+    // The callback closes over only a WeakRef and looks state back up through
+    // the host-keyed WeakMap, so a framework detach can collect the host.
     const hostRef = new WeakRef(host);
     const observer: MutationObserver = new MutationObserver(mutations => {
         const liveHost = hostRef.deref();
@@ -4160,27 +3924,12 @@ function removeTextMirror(host: HTMLElement): void {
     if (tracked?.isConnected) tracked.remove();
     closeOrphanedDetachedReadingClips(host);
     if (state) restoreTextMirrorHost(host, state);
-    delete host.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host);
 }
 
-// The mirror carries visibility:visible !important so Yomu's own
-// visibility-hiding of the host cannot swallow it — but that force also
-// defeats the PAGE's hiding: a dropdown closed via ancestor visibility (or
-// display) after annotation would leave the mirrored label floating on
-// screen. Sync the force to the page's intent by walking the host's
-// ANCESTORS (the host's own visibility is Yomu's). Runs at creation and on
-// every reassert (host attribute mutations + each idempotent re-apply);
-// an ancestor-only hide with no host mutation is caught on the next apply
-// cadence — accepted latency, no per-ancestor observers.
+// The additive mirror forces its own visibility so a page-owned hidden
+// ancestor must be respected explicitly. Native host visibility is untouched.
 function syncTextMirrorVisibilityToPage(host: HTMLElement, mirror: HTMLElement): void {
-    // A hover-only clip mirror is rest-hidden by inline visibility with a CSS
-    // hover reveal, while its host text KEEPS painting (paint invariance).
-    // Forcing visibility:visible !important here would double-paint it over
-    // the visible host and defeat the hover reveal; the page's own conceal
-    // reaches it by inheritance (a hidden ancestor also cannot be hovered),
-    // so force nothing in either direction.
-    if (mirror.classList.contains('jpdb-reader-clip-hover-mirror')) return;
     mirror.style.setProperty('visibility', pageConcealsTextMirrorHost(host) ? 'hidden' : 'visible', 'important');
 }
 
@@ -4210,13 +3959,9 @@ function pageConcealsTextMirrorHostMemoized(host: HTMLElement): boolean {
     return concealed;
 }
 
-// A YouTube re-render of a live host (e.g. the caption/translation strip) can
-// strip the inline styles we set in styleTextMirrorHost. Without
-// visibility:hidden the original host text re-appears beside the mirror
-// (duplication); without position:relative the absolutely-positioned mirror
-// anchors to the wrong ancestor (misalignment). Re-assert both when the host
-// text changes, before refreshing the mirror. The host-text observer does not
-// watch attributes, so re-setting styles here cannot re-trigger it.
+// A framework re-render can strip the one layout-neutral host style the
+// additive layer needs. Reassert only the positioning context: native paint,
+// overflow and display always remain page-owned.
 function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostState): void {
     const mirror = currentTextMirror(host);
     if (!mirror) {
@@ -4224,30 +3969,13 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
         return;
     }
     syncTextMirrorVisibilityToPage(host, mirror);
-    if (state.clipHoverOnly || state.nativeTextVisible) {
-        // Host stays painted; only the anchoring position may need re-assert.
-    } else if (state.concealTextOnly) {
-        reassertConcealedTextMirrorHostText(host, state);
-    } else if (host.style.getPropertyValue('visibility') !== 'hidden') {
-        host.style.setProperty('visibility', 'hidden', 'important');
-    }
-    if (state.overflowAdjusted && host.style.getPropertyValue('overflow') !== 'visible') {
-        host.style.setProperty('overflow', 'visible', 'important');
-    }
     if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
         host.style.setProperty('position', 'relative', 'important');
-    }
-    if (state.displayAdjusted && host.style.getPropertyValue('display') !== 'inline-block') {
-        host.style.setProperty('display', 'inline-block', 'important');
     }
 }
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
-    if (state.concealTextOnly) restoreConcealedTextMirrorHostText(state);
-    else restoreStyleProperty(host, 'visibility', 'hidden', state.visibility, state.visibilityPriority);
-    if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', 'visible', state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', 'relative', state.position, state.positionPriority);
-    if (state.displayAdjusted) restoreStyleProperty(host, 'display', 'inline-block', state.display, state.displayPriority);
 }
 
 // Restore the pre-mirror inline value ONLY while the property still carries

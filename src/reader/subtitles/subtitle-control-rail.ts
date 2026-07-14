@@ -16,12 +16,20 @@ export interface SubtitleControlRailBinding {
     destroy(): void;
 }
 
+export interface SubtitleControlRailOptions {
+    // Viewport-space rectangles owned by the native player (Share,
+    // fullscreen, settings, etc.). The rail may be dragged anywhere else in
+    // the video frame, but must never settle on top of these controls.
+    getReservedRects?: () => DOMRect[];
+}
+
 // Owns the rail's one interaction: moving it within the current video frame.
 // The subtitle controller only needs a small lifecycle interface; pointer,
 // keyboard, persistence and resize clamping stay behind this module boundary.
 export function bindSubtitleControlRail(
     root: HTMLElement,
     onActivity: () => void,
+    options: SubtitleControlRailOptions = {},
 ): SubtitleControlRailBinding | null {
     const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail');
     const handle = rail?.querySelector<HTMLElement>('[data-subtitle-rail-drag-handle]');
@@ -31,11 +39,20 @@ export function bindSubtitleControlRail(
     let position = loadSubtitleControlRailPosition();
     let drag: { pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null = null;
 
-    const railBounds = (): { maxLeft: number; maxTop: number } | null => {
+    const railBounds = (): {
+        rootRect: DOMRect;
+        railWidth: number;
+        railHeight: number;
+        maxLeft: number;
+        maxTop: number;
+    } | null => {
         const rootRect = root.getBoundingClientRect();
         const railRect = rail.getBoundingClientRect();
         if (rootRect.width <= 0 || rootRect.height <= 0 || railRect.width <= 0 || railRect.height <= 0) return null;
         return {
+            rootRect,
+            railWidth: railRect.width,
+            railHeight: railRect.height,
             maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
             maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX),
         };
@@ -46,23 +63,29 @@ export function bindSubtitleControlRail(
         if (!bounds) return;
         const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
         const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
-        rail.style.setProperty('left', `${Math.round(clampedLeft)}px`);
+        const safePosition = railPositionOutsideReservedRects(
+            clampedLeft,
+            clampedTop,
+            bounds,
+            options.getReservedRects?.() ?? [],
+        );
+        rail.style.setProperty('left', `${Math.round(safePosition.left)}px`);
         rail.style.setProperty('right', 'auto');
-        rail.style.setProperty('top', `${Math.round(clampedTop)}px`);
+        rail.style.setProperty('top', `${Math.round(safePosition.top)}px`);
         position = {
-            x: fractionWithinRailAxis(clampedLeft, bounds.maxLeft),
-            y: fractionWithinRailAxis(clampedTop, bounds.maxTop),
+            x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
+            y: fractionWithinRailAxis(safePosition.top, bounds.maxTop),
         };
         if (persist) saveSubtitleControlRailPosition(position);
     };
 
     const syncPosition = (): void => {
-        if (!position) return;
         const bounds = railBounds();
         if (!bounds) return;
+        const railRect = rail.getBoundingClientRect();
         setPixels(
-            railAxisPosition(position.x, bounds.maxLeft),
-            railAxisPosition(position.y, bounds.maxTop),
+            position ? railAxisPosition(position.x, bounds.maxLeft) : railRect.left - bounds.rootRect.left,
+            position ? railAxisPosition(position.y, bounds.maxTop) : railRect.top - bounds.rootRect.top,
         );
     };
 
@@ -179,4 +202,69 @@ function railAxisPosition(fraction: number, max: number): number {
 function fractionWithinRailAxis(value: number, max: number): number {
     const range = max - RAIL_MARGIN_PX;
     return range > 0 ? Math.min(1, Math.max(0, (value - RAIL_MARGIN_PX) / range)) : 0;
+}
+
+interface RailBounds {
+    rootRect: DOMRect;
+    railWidth: number;
+    railHeight: number;
+    maxLeft: number;
+    maxTop: number;
+}
+
+function railPositionOutsideReservedRects(
+    requestedLeft: number,
+    requestedTop: number,
+    bounds: RailBounds,
+    reservedRects: DOMRect[],
+): { left: number; top: number } {
+    if (!reservedRects.length) return { left: requestedLeft, top: requestedTop };
+    const clamp = (left: number, top: number): { left: number; top: number } => ({
+        left: Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left)),
+        top: Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top)),
+    });
+    const rootLeft = bounds.rootRect.left;
+    const rootTop = bounds.rootRect.top;
+    const overlapsReservedRect = ({ left, top }: { left: number; top: number }): boolean => {
+        const right = rootLeft + left + bounds.railWidth;
+        const bottom = rootTop + top + bounds.railHeight;
+        const viewportLeft = rootLeft + left;
+        const viewportTop = rootTop + top;
+        return reservedRects.some(rect => right > rect.left
+            && rect.right > viewportLeft
+            && bottom > rect.top
+            && rect.bottom > viewportTop);
+    };
+    const requested = clamp(requestedLeft, requestedTop);
+    if (!overlapsReservedRect(requested)) return requested;
+
+    const gap = 6;
+    const candidates = [
+        requested,
+        clamp(RAIL_MARGIN_PX, RAIL_MARGIN_PX),
+        clamp(bounds.maxLeft, RAIL_MARGIN_PX),
+        clamp(RAIL_MARGIN_PX, bounds.maxTop),
+        clamp(bounds.maxLeft, bounds.maxTop),
+    ];
+    for (const rect of reservedRects) {
+        const left = rect.left - rootLeft;
+        const top = rect.top - rootTop;
+        candidates.push(
+            clamp(left - bounds.railWidth - gap, requested.top),
+            clamp(rect.right - rootLeft + gap, requested.top),
+            clamp(requested.left, top - bounds.railHeight - gap),
+            clamp(requested.left, rect.bottom - rootTop + gap),
+        );
+    }
+    return candidates
+        .filter(candidate => !overlapsReservedRect(candidate))
+        .sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0]
+        ?? requested;
+}
+
+function squaredDistance(
+    first: { left: number; top: number },
+    second: { left: number; top: number },
+): number {
+    return (first.left - second.left) ** 2 + (first.top - second.top) ** 2;
 }

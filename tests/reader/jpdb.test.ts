@@ -35778,7 +35778,7 @@ describe('reader helpers', () => {
         const recordStaleEvent = (event: Event) => staleEvents.push(event);
         document.addEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
-        expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(titleHost.style.getPropertyValue('visibility')).toBe('');
 
         titleHost.firstChild!.textContent = '更新後の日本語タイトル';
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -35786,7 +35786,8 @@ describe('reader helpers', () => {
 
         expect(staleEvents).toHaveLength(1);
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
-        expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(titleHost.style.getPropertyValue('visibility')).toBe('');
+        expect(titleHost.firstChild?.textContent).toBe('更新後の日本語タイトル');
         expect(readerWordSurfaceText(titleHost.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('日本語');
 
         const rectSpy = mockElementBoundingClientRect({ width: 1000, height: 240 });
@@ -35947,16 +35948,16 @@ describe('reader helpers', () => {
         const titleWord = document.querySelector<HTMLElement>('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('日本語');
         expect(titleWord.dataset.cardSource).toBe('jpdb');
-        expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
+        expect(titleWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         expectRenderedPitchWord(titleWord, 'heiban');
         expect(document.querySelector('ytm-button-renderer .jpdb-reader-word rt')).toBeNull();
         expect(document.querySelector('ytm-button-renderer .jpdb-reader-detached-furi')?.textContent).toBe('しつもん');
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')).toBeNull();
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-detached-furi')?.textContent).toBe('もじ');
-        expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt')?.textContent).toBe('とうろく');
+        expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt, ytm-pivot-bar-renderer .jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
         const commentWord = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text .jpdb-reader-word')!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
-        expect(commentWord.querySelector('rt')?.textContent).toBe('はいしん');
+        expect(commentWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
         expect(document.querySelector('ytm-comment-renderer #content-text .jpdb-reader-text-mirror')).not.toBeNull();
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
@@ -36223,7 +36224,7 @@ describe('reader helpers', () => {
 
         const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
         expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '期間', '表示']);
-        expect(noticeWords.map(word => word.querySelector('rt')?.textContent)).toEqual(['とうろくしゃ', 'きかん', 'ひょうじ']);
+        expect(noticeWords.map(word => word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent)).toEqual(['とうろくしゃ', 'きかん', 'ひょうじ']);
         expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
         expect(readerWordSurfaceText(detailWord)).toBe('詳細');
@@ -36502,7 +36503,7 @@ describe('reader helpers', () => {
 
         const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
         expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '表示']);
-        expect(noticeWords.map(word => word.querySelector('rt')?.textContent)).toEqual(['とうろくしゃ', 'ひょうじ']);
+        expect(noticeWords.map(word => word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent)).toEqual(['とうろくしゃ', 'ひょうじ']);
         expect(document.querySelectorAll('yt-live-chat-renderer #chat-messages > .jpdb-reader-text-mirror')).toHaveLength(0);
         expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;

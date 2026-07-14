@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.152] - 2026-07-14
+
+### Fixed
+
+- Reactive pages such as YouTube, Reddit, Twitch, and live chats now keep their native text intact while Yomu paints a source-preserving annotation layer. Hovering, recycling, or rerendering can no longer leave only coloured bars, and tapping a word resolves from that word's original text range instead of opening a neighbour.
+- Late-loaded menus, comments, dropdown choices, and content beyond the initial scan budget continue through the generic scanner. Compact controls keep pitch and lookup even when there is no safe lane for furigana; only the unsafe reading is omitted, preventing adjacent readings and previous lines from overlapping.
+- Composite words retain their per-component pitch colours in source-preserving mirrors, while passive and shadow-root content receives an at-rest pitch signal instead of waiting for a press.
+- YouTube Shorts now expose the movable, persistent subtitle rail. Subtitle annotations return hit testing to overlapping native Share and fullscreen controls, and annotating Share no longer corrupts its label.
+- The canonical homepage install link opens the named `yomu.user.js` userscript directly, avoiding generic attachment downloads that some userscript managers fail to recognise.
+
 ## [1.6.151] - 2026-07-14
 
 ### Fixed

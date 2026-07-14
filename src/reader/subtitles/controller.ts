@@ -264,6 +264,8 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 ] as const;
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
+const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
+const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -480,6 +482,25 @@ function karaokeWordClass(progress: number, start: number, end: number): string 
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function rectsOverlap(first: DOMRect, second: DOMRect): boolean {
+    return first.right > second.left
+        && second.right > first.left
+        && first.bottom > second.top
+        && second.bottom > first.top;
+}
+
+function nativePlayerControlIsInteractive(control: HTMLElement): boolean {
+    if (control.hidden
+        || control.getAttribute('aria-hidden') === 'true'
+        || control.getAttribute('aria-disabled') === 'true'
+        || control.matches(':disabled')) return false;
+    const style = getComputedStyle(control);
+    return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.pointerEvents !== 'none'
+        && Number.parseFloat(style.opacity || '1') > .01;
 }
 
 // Position + size signature of the video's on-screen box, rounded so sub-pixel
@@ -1514,7 +1535,11 @@ export class SubtitlePlayerController {
         body.appendChild(root);
         body.appendChild(this.transcriptPanel);
         this.root = root;
-        this.subtitleControlRail = bindSubtitleControlRail(root, () => this.showControlsTemporarily({ independentOfPlayerChrome: true })) ?? undefined;
+        this.subtitleControlRail = bindSubtitleControlRail(
+            root,
+            () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+            { getReservedRects: () => this.nativePlayerControlSafeZones() },
+        ) ?? undefined;
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
         this.refresh();
@@ -2107,6 +2132,8 @@ export class SubtitlePlayerController {
         this.realignIfVideoMoved();
         this.syncPlayerChromeIdleState();
         this.syncNativeControlsInset();
+        this.syncNativePlayerControlHitProtection();
+        this.subtitleControlRail?.syncPosition();
         this.syncAsbPlayerSubtitleMoveHandles(settings);
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
@@ -2357,6 +2384,8 @@ export class SubtitlePlayerController {
         applyElementLayout(this.root, layout);
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.fitSubtitleTextToVideo();
+        this.syncNativePlayerControlHitProtection();
+        this.subtitleControlRail?.syncPosition();
     }
 
     private updateFromLoadedCues(): void {
@@ -2710,6 +2739,7 @@ export class SubtitlePlayerController {
     private applyRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
         this.applyRenderedPrimaryKaraoke(primary);
         this.fitSubtitleTextToVideo();
+        this.syncNativePlayerControlHitProtection();
         this.cacheRenderedPrimarySubtitle(primary);
         this.requestParsedPrimaryIfNeeded(primary, text);
     }
@@ -2763,6 +2793,7 @@ export class SubtitlePlayerController {
             this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
             this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
             this.fitSubtitleTextToVideo();
+            this.syncNativePlayerControlHitProtection();
             return primary as HTMLElement;
         }
         return null;
@@ -4440,6 +4471,12 @@ export class SubtitlePlayerController {
     }
 
     private videoPlayerChromeHidden(): boolean {
+        // Shorts keep their side action rail visible while #movie_player stays
+        // permanently stamped ytp-autohide. That class describes the standard
+        // watch-player bottom chrome, not the Shorts control topology. Treating
+        // it as a real fade made Yomu hide even its collapsed grip, leaving no
+        // touch target with which to expand or move the subtitle controls.
+        if (this.isYouTubeShortsControlSurface()) return false;
         // m.youtube.com renders its controls in #player-control-overlay and
         // toggles a fadein class; the desktop ytp-* classes never appear there.
         const mobileOverlay = this.mobileYouTubeControlOverlay();
@@ -4448,6 +4485,60 @@ export class SubtitlePlayerController {
         return Boolean(player?.classList.contains('ytp-autohide')
             || player?.classList.contains('ytp-hide-controls')
             || player?.classList.contains('ytp-player-minimized'));
+    }
+
+    private isYouTubeShortsControlSurface(): boolean {
+        return Boolean(this.video
+            && isYouTubePage()
+            && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
+    }
+
+    // Native player controls must win when a moved/long subtitle crosses them.
+    // The overlay frame is already click-through, but individual lookup words
+    // opt back into pointer events. Mark only words whose painted box overlaps
+    // a small, visible native control; CSS then returns that word's hit testing
+    // to the player while every other subtitle word remains lookupable.
+    private syncNativePlayerControlHitProtection(): void {
+        const words = Array.from(this.root?.querySelectorAll<HTMLElement>(
+            '.jpdb-subtitle-primary .jpdb-reader-word,.jpdb-subtitle-secondary .jpdb-reader-word',
+        ) ?? []);
+        words.forEach(word => word.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
+        const safeZones = this.nativePlayerControlSafeZones();
+        if (!safeZones.length) return;
+        for (const word of words) {
+            const rect = word.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            if (safeZones.some(zone => rectsOverlap(rect, zone))) {
+                word.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, 'true');
+            }
+        }
+    }
+
+    private nativePlayerControlSafeZones(): DOMRect[] {
+        if (!this.video || !isYouTubePage()) return [];
+        const surface = this.youtubeNativeControlSurface();
+        if (!surface) return [];
+        const videoRect = this.videoLayoutRect();
+        const maxWidth = Math.min(240, Math.max(72, videoRect.width * .42));
+        const maxHeight = Math.min(180, Math.max(56, videoRect.height * .28));
+        return Array.from(surface.querySelectorAll<HTMLElement>(NATIVE_PLAYER_CONTROL_SELECTOR))
+            .filter(control => !control.closest('[data-jpdb-reader-root="true"]'))
+            .filter(control => nativePlayerControlIsInteractive(control))
+            .map(control => control.getBoundingClientRect())
+            .filter(rect => rect.width > 0
+                && rect.height > 0
+                && rect.width <= maxWidth
+                && rect.height <= maxHeight
+                && rectsOverlap(rect, videoRect));
+    }
+
+    private youtubeNativeControlSurface(): HTMLElement | null {
+        if (!this.video) return null;
+        if (this.isYouTubeShortsControlSurface()) {
+            return this.video.closest<HTMLElement>('ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts')
+                ?? this.video.closest<HTMLElement>('#movie_player,.html5-video-player');
+        }
+        return this.video.closest<HTMLElement>('#movie_player,.html5-video-player,ytm-player,ytd-player,#player');
     }
 
     private pointInOpenTranscriptPanel(x: number, y: number): boolean {

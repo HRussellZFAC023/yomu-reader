@@ -70,17 +70,11 @@ afterEach(() => {
     restoreRect = null;
 });
 
-// A framework-managed app shell (here Reddit's <shreddit-app>, but any React/Vue/
-// Angular/Svelte/Next/Nuxt/Astro root behaves identically) forces every scan
-// target to render non-destructively via an overlay mirror that hides the whole
-// host element. A mixed-script block (non-Japanese prose with an inline CJK run,
-// often split further by inline <a> links) is scanned as a target covering only
-// the CJK-bearing text node, so the mirror must still reproduce the host's FULL
-// text — otherwise the surrounding English/links vanish with the host. The blocks
-// below sit in a [class*="comment"] container so the generic-prose scan skips them
-// and the residual visible-Japanese pass produces the sub-range target that
-// reproduces the original bug.
-describe('non-destructive mirror keeps mixed-script host text visible', () => {
+// Mixed-script surfaces must preserve every page-owned text node. The generic
+// scanner may annotate the Japanese leaf inline or choose a source-preserving
+// mirror when real framework ownership is detected; neither path may flatten or
+// hide the surrounding English and links.
+describe('mixed-script annotation keeps page-owned host text visible', () => {
     it('preserves every word of a link-interspersed paragraph on a managed app shell', () => {
         mockVisibleRects();
         document.body.innerHTML = `<shreddit-app><div class="comment"><p>You collect your package at a pick-up point.</p><p>Cainiao operates a network of <a href="#">courier</a> pick-up points known as Cainiao Stations (<a href="#">Chinese</a>: 菜鸟驿站) across <a href="#">the Chinese mainland</a>. These stations are strategically situated in residential neighborhoods.</p><p><a href="#">https://en.wikipedia.org/wiki/Cainiao</a></p></div></shreddit-app>`;
@@ -99,12 +93,12 @@ describe('non-destructive mirror keeps mixed-script host text visible', () => {
 
         scanAndAnnotate();
 
-        const mirror = document.querySelector('.jpdb-reader-text-mirror');
-        expect(mirror, 'expected a non-destructive mirror').toBeTruthy();
-        expect(mirror!.querySelector('rt, .jpdb-reader-furi'), 'expected rendered furigana').toBeTruthy();
-        // Surrounding English must remain present (as plain text) in the same mirror.
-        expect(normalize(visibleText(mirror!))).toContain('as Cainiao Stations');
-        expect(normalize(visibleText(mirror!))).toContain('across the mainland');
+        const annotatedWord = document.querySelector('.jpdb-reader-word');
+        expect(annotatedWord, 'expected the Japanese leaf to be annotated').toBeTruthy();
+        expect(annotatedWord!.querySelector('rt, .jpdb-reader-furi'), 'expected rendered furigana').toBeTruthy();
+        const visible = normalize(visibleText(document.body));
+        expect(visible).toContain('as Cainiao Stations');
+        expect(visible).toContain('across the mainland');
     });
 
     it('is generic: preserves surrounding text on a React (#root) shell too', () => {

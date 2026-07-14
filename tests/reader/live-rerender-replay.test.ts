@@ -55,8 +55,8 @@ describe('identical-text re-render replays the cached render (class Y/BB)', () =
         const initialSignature = initialMirror.dataset.renderSignature;
         const initialSourceText = initialMirror.dataset.sourceText;
         const initialHostStyle = host.getAttribute('style') ?? '';
-        // Paint invariance baseline: the mirror replaces the host's rendering.
-        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        // Paint invariance baseline: the source glyphs remain authoritative.
+        expect(host.style.getPropertyValue('visibility')).toBe('');
 
         let staleEvents = 0;
         const onStale = () => { staleEvents += 1; };
@@ -77,8 +77,8 @@ describe('identical-text re-render replays the cached render (class Y/BB)', () =
             // row's paint inputs (and therefore its height) cannot oscillate.
             expect(mirror!.dataset.renderSignature).toBe(initialSignature);
             expect(mirror!.dataset.sourceText).toBe(initialSourceText);
-            expect(mirror!.querySelector('.jpdb-reader-word ruby rt')?.textContent).toBe('にほんご');
-            expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+            expect(mirror!.querySelector('.jpdb-reader-furi')?.textContent).toBe('にほんご');
+            expect(host.style.getPropertyValue('visibility')).toBe('');
             expect(host.getAttribute('style') ?? '').toBe(initialHostStyle);
         }
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);

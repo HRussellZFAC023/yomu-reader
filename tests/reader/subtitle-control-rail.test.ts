@@ -118,4 +118,39 @@ describe('movable subtitle control rail', () => {
         expect(click).toHaveBeenCalledOnce();
         binding.destroy();
     });
+
+    it('moves and restores the rail outside native player control safe zones', () => {
+        const root = document.getElementById('root')!;
+        const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;
+        const handle = rail.querySelector<HTMLElement>('[data-subtitle-rail-drag-handle]')!;
+        const nativeControl = new DOMRect(130, 110, 110, 60);
+        const options = { getReservedRects: () => [nativeControl] };
+        const binding = bindSubtitleControlRail(root, vi.fn(), options)!;
+
+        handle.dispatchEvent(pointerEvent('pointerdown', { pointerId: 14, clientX: 20, clientY: 30 }));
+        window.dispatchEvent(pointerEvent('pointermove', { pointerId: 14, clientX: 140, clientY: 120 }));
+        window.dispatchEvent(pointerEvent('pointerup', { pointerId: 14, clientX: 140, clientY: 120 }));
+
+        expect(rectsOverlap(rail.getBoundingClientRect(), nativeControl)).toBe(false);
+        expect(loadSubtitleControlRailPosition()).not.toBeNull();
+        const persistedPosition = loadSubtitleControlRailPosition();
+        binding.destroy();
+
+        // A freshly bound rail uses the persisted location, but re-runs safe
+        // placement in case the native control topology changed meanwhile.
+        rail.style.left = '8px';
+        rail.style.top = '8px';
+        const restored = bindSubtitleControlRail(root, vi.fn(), options)!;
+        restored.syncPosition();
+        expect(rectsOverlap(rail.getBoundingClientRect(), nativeControl)).toBe(false);
+        expect(loadSubtitleControlRailPosition()).toEqual(persistedPosition);
+        restored.destroy();
+    });
 });
+
+function rectsOverlap(first: DOMRect, second: DOMRect): boolean {
+    return first.right > second.left
+        && second.right > first.left
+        && first.bottom > second.top
+        && second.bottom > first.top;
+}

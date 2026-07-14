@@ -22,10 +22,8 @@ function markReactOwned(element: Element): void {
     (element as unknown as Record<string, unknown>).__reactFiber$abc123 = {};
     (element as unknown as Record<string, unknown>).__reactProps$abc123 = {};
 }
-// A STYLED framework host -> concealTextOnly mirror, whose state.concealedText
-// captures the host element itself (the [host, ...descendants] walk). This is
-// the case where a WeakRef on host alone did NOT break retention, because the
-// observer callback also closed over `state`.
+// A styled framework host receives an additive mirror while page-owned paint
+// remains untouched. Observer state must still be fully reaped on detach.
 function paintStyledConcealHost(): HTMLElement {
     document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown" style="background-color: rgb(31, 41, 55); border: 1px solid rgb(99, 102, 241);">${TEXT}</div></div>`;
     const host = document.getElementById('host')!;
@@ -34,8 +32,7 @@ function paintStyledConcealHost(): HTMLElement {
     expect(target).toBeTruthy();
     applyTokensToScanTarget(target, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
     expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
-    // Confirm it really is the conceal path (host text transparent, not hidden).
-    expect(host.style.getPropertyValue('color')).toBe('transparent');
+    expect(host.style.getPropertyValue('color')).not.toBe('transparent');
     return host;
 }
 
@@ -59,8 +56,7 @@ describe('mirror observer retention (FINDING 1)', () => {
     // entry — the observable signal that `state` (and its host ref) was released.
     it('runs full teardown (not just disconnect) for a detached concealTextOnly host on sweep', () => {
         const host = paintStyledConcealHost();
-        // conceal path pins the host's real colour transparent inside `state`.
-        expect(host.style.getPropertyValue('color')).toBe('transparent');
+        expect(host.style.getPropertyValue('color')).not.toBe('transparent');
 
         // Framework detaches the subtree WITHOUT Yomu teardown.
         host.parentElement!.remove();

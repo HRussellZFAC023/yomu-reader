@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.151
+// @version 1.6.152
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.151#sha256=EcrUhb8TpArLzf02xvsOTwMK6pOJUgQhwBGAOqvkUF8=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.151#sha256=bd7uE6WJZTJZU+3orSJn3HHmmpzWt3h+ylRhln48G4A=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.151#sha256=IcOrrRA7G1GZ1OOucrFyCQF7yvcF9h1yxXeW38UBARY=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.151#sha256=AKb7NeXRAXwXs41d9p/76b1Xh/8GlA6e2azhXD2kJHg=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.151#sha256=HUIeucJLxmAWSkKcoIguO5DB0jJVQORj6Zpvjd9Kf28=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.151#sha256=r/fcppa1qzafIeFpXW2dY1ijNbwvhhiwEnzStO0IDUY=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.151#sha256=GtUc+NeeSMgHA0e+igUoUw82gMBcBMG2f92FVOqGn3U=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.152#sha256=8Wr8xySUy96BFXVRG/3qQS6o6kN5ttLiktPU+Cr4iDw=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.152#sha256=VrF6pmwGE5aez6j14VC9mns0JZgshwkKfBqHcwfl0kM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.152#sha256=lgATb3aACxVwPpxtgVp/Wa9qMdeYig9xlozPnt+secw=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.152#sha256=AKb7NeXRAXwXs41d9p/76b1Xh/8GlA6e2azhXD2kJHg=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.152#sha256=2lyWlUs7hD07gR7I3fAkQ269bEljmajPODsxT78C6g8=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.152#sha256=L6cIyP4P6ZG+t3GpOMn2jxi/nDnC6vCzj/DlW1WbOgI=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.152#sha256=r9Nk/MDqyVuZCDdfL7sfL6WRJf1Knm3cim626rTTFnE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -430,14 +430,6 @@ function safeComputedStyle(element2) {
   return element2.style;
   }
 }
-function safePseudoContent(element2, pseudo) {
-  if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)) return "";
-  try {
-  return getComputedStyle(element2, pseudo).content;
-  } catch {
-  return "";
-  }
-}
 function compactLength(value) {
   return Array.from(value.replace(/\s+/g, "")).length;
 }
@@ -539,35 +531,6 @@ function contentClipRowShowsRestReadings(decoration, clipRow) {
   if (Number.isFinite(clampLines) && clampLines > 1) return false;
   const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
   return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
-}
-const MIRROR_BARE_DESCENDANT_LIMIT = 16;
-function hostIsVisuallyBareForMirror(host) {
-  if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
-  if (!elementHasNoOwnPaint(host)) return false;
-  const descendants = host.querySelectorAll("*");
-  if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
-  for (const descendant of Array.from(descendants)) {
-  if (descendant.closest(".jpdb-reader-text-mirror")) continue;
-  if (!elementHasNoOwnPaint(descendant)) return false;
-  }
-  return true;
-}
-function elementHasNoOwnPaint(element2) {
-  const style = safeComputedStyle(element2);
-  if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
-  const background = style.backgroundColor;
-  if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
-  if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
-  if (style.boxShadow && style.boxShadow !== "none") return false;
-  if (borderPaints(style)) return false;
-  for (const pseudo of ["::before", "::after"]) {
-  const content = safePseudoContent(element2, pseudo);
-  if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
-  }
-  return true;
-}
-function borderPaints(style) {
-  return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
 }
 const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -917,10 +880,14 @@ function isCompactMediaContext(element2) {
   const compact = rect.width === 0 || rect.width <= 560;
   return structured && compact;
 }
-const EDITABLE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="listbox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
+const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
 const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
 function isEditableComposingContext(element2) {
-  if (element2.closest(EDITABLE_SKIP_SELECTOR)) return true;
+  if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+  if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+  if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
   return isComboboxOwnedPopup(element2);
 }
 const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
@@ -5803,7 +5770,6 @@ function scanHostIsRepaintLooping(host, text2) {
 }
 const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
 const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
-const LIVE_FRAMEWORK_CHAT_HOST_SELECTOR = '[data-message-author-role],[data-message-id],[data-testid*="conversation-turn" i],[data-testid*="chat-message" i],[data-testid*="message-content" i],[data-testid*="message-bubble" i],[data-test-id*="chat-message" i],[data-test-id*="message-content" i],.markdown,.markdown-body,.markdown-content,.message,.message-body,.message-content,.messageContent,.chat-message,.conversation-turn,.model-response,.model-response-text,.response-content,.font-claude-message';
 const frameworkManagedElements = new WeakSet();
 function elementHasFrameworkOwnershipMarker(element2) {
   for (const key of Object.getOwnPropertyNames(element2)) {
@@ -5822,18 +5788,9 @@ function elementIsFrameworkManaged(element2) {
   }
   return false;
 }
-function hostInConversationContext(host) {
-  if (host.closest(LIVE_FRAMEWORK_CHAT_HOST_SELECTOR)) return true;
-  let current = host;
-  for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
-  if (isConversationTextClass(current)) return true;
-  }
-  return false;
-}
-function scanHostIsLiveFrameworkRegion(host) {
+function scanHostRequiresSourcePreservingMirror(host) {
   if (host.closest('[contenteditable="true"]')) return false;
-  if (!elementIsFrameworkManaged(host)) return false;
-  return hostInConversationContext(host);
+  return elementIsFrameworkManaged(host);
 }
 function stampTargetDecoration(target, host) {
   const decoration = target.decoration;
@@ -5858,13 +5815,17 @@ function applyTokensToScanTarget(target, tokens, settings) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
+  if (isFragmentTextTarget$1(target) && targetRequiresReactiveLeafMirrors(target)) {
+  applyTokensToReactiveLeafMirrors(target, tokens, settings);
+  return;
+  }
   const nonDestructiveHost = nonDestructiveScanHost(target);
   stampTargetDecoration(target, nonDestructiveHost);
-  const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
-  const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
+  const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+  const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
   const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
+  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
@@ -5874,8 +5835,75 @@ function applyTokensToScanTarget(target, tokens, settings) {
 function nonDestructiveTargetShouldRenderInline(target, host) {
   if (!isFragmentTextTarget$1(target)) return false;
   if (!target.fragments.length) return false;
-  if (scanHostIsLiveFrameworkRegion(host)) return false;
+  if (scanHostRequiresSourcePreservingMirror(host)) return false;
   return targetLeavesVisibleBlockDescendantTextUncovered(target, host);
+}
+function targetRequiresReactiveLeafMirrors(target) {
+  const parents = target.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
+  const uniqueParents = [...new Set(parents)];
+  if (uniqueParents.length < 2) return false;
+  if (uniqueParents.some((parent) => uniqueParents.every((candidate) => parent.contains(candidate)))) return false;
+  return Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+}
+function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
+  const indexed = indexTextFragments(target.fragments);
+  for (const run of reactiveLeafRuns(indexed)) {
+  const text2 = target.text.slice(run.globalStart, run.globalEnd);
+  const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
+  if (!runTokens.length || !HAS_JAPANESE$1.test(text2)) continue;
+  const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
+  const leafTarget = {
+    ...target,
+    text: text2,
+    parent: run.parent,
+    fragments: run.fragments.map((fragment) => ({
+      node: fragment.node,
+      start: fragment.start,
+      end: fragment.end,
+      hasNativeRuby: fragment.hasNativeRuby,
+      layoutSensitive: fragment.layoutSensitive,
+      passiveInteraction: fragment.passiveInteraction
+    })),
+    nonDestructive: true,
+    suppressRuby: target.suppressRuby || crossesLeafBoundary
+  };
+  const host = nonDestructiveScanHost(leafTarget);
+  stampTargetDecoration(leafTarget, host);
+  applyTokensToNonDestructiveScanTarget(leafTarget, runTokens, settings);
+  }
+}
+function reactiveLeafRuns(fragments) {
+  const runs = [];
+  for (const fragment of fragments) {
+  const parent = fragment.node.parentElement;
+  if (!parent) continue;
+  const previous = runs[runs.length - 1];
+  if (previous?.parent === parent && previous.globalEnd === fragment.globalStart) {
+    previous.fragments.push(fragment);
+    previous.globalEnd = fragment.globalEnd;
+  } else {
+    runs.push({
+      parent,
+      fragments: [fragment],
+      globalStart: fragment.globalStart,
+      globalEnd: fragment.globalEnd
+    });
+  }
+  }
+  return runs;
+}
+function tokenPieceForReactiveLeaf(token, runStart, runEnd) {
+  const start = Math.max(token.start, runStart);
+  const end = Math.min(token.end, runEnd);
+  if (end <= start) return null;
+  const delta = -runStart;
+  return {
+  ...token,
+  start: start + delta,
+  end: end + delta,
+  length: end - start,
+  rubies: token.rubies.filter((ruby) => ruby.start >= start && ruby.end <= end).map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
+  };
 }
 function targetLeavesVisibleBlockDescendantTextUncovered(target, host) {
   if (!host.querySelector(":scope p,:scope div,:scope li,:scope dl,:scope dt,:scope dd,:scope section,:scope article,:scope blockquote")) return false;
@@ -6162,7 +6190,7 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
-  const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host, suppressRuby, safeTokens);
+  const { clipRow, detachedReadings } = textMirrorClipMode(host, safeTokens);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
@@ -6173,8 +6201,6 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   signature,
   whitespaceJointsKey,
   clipRow,
-  hasRenderedRuby,
-  clipHoverOnly,
   detachedReadings,
   suppressRuby,
   hostText: plan.hostText
@@ -6196,8 +6222,7 @@ function reuseCurrentTextMirror(host, context) {
   existing?.dataset.sourceText === context.text,
   existing?.dataset.renderSignature === context.signature,
   (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
-  existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly,
-  existing?.classList.contains("jpdb-reader-additive-text-mirror") === context.detachedReadings
+  existing?.classList.contains("jpdb-reader-additive-text-mirror")
   ].every(Boolean);
   if (!matches) return false;
   const state = textMirrorHosts.get(host);
@@ -6212,32 +6237,19 @@ function createNonDestructiveTextMirror(context) {
   mirror.dataset.renderSignature = context.signature;
   mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
   mirror.setAttribute("aria-hidden", "true");
-  if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
-  if (context.detachedReadings) {
   mirror.classList.add("jpdb-reader-additive-text-mirror");
-  mirror.dataset.yomuDetachedReadings = "true";
-  }
+  if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = "true";
   return mirror;
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
-  const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
-  const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
-  const stableDetachedMirror = context.detachedReadings && Boolean(context.clipRow) && prefersStableClippedMirror();
-  if (stableClippedMirror || stableDetachedMirror) mirror.dataset.yomuStableClippedMirror = "true";
-  const state = styleTextMirrorHost(
-  host,
-  mirrorRubyLayout || stableDetachedMirror,
-  context.clipHoverOnly && !stableClippedMirror,
-  Boolean(context.clipRow),
-  context.detachedReadings
-  );
+  const state = styleTextMirrorHost(host);
   try {
-  styleTextMirror(mirror, host, mirrorRubyLayout);
+  styleTextMirror(mirror, host, false);
   if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
-  styleConstrainedTextMirror(mirror, host, context.clipRow, context.clipHoverOnly, context.detachedReadings);
+  styleConstrainedTextMirror(mirror, context.clipRow, context.detachedReadings);
   mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
@@ -6251,17 +6263,14 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     removeTextMirror(host);
     return;
   }
-  if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
+  stampMirrorWordSourceRanges(mirror, context.safeTokens);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
   state.mirror = new WeakRef(mirror);
   if (context.detachedReadings) {
     styleDetachedReadingElements(mirror, host);
-    openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
-  } else tightenMirrorRubyOverhang(mirror);
-  withdrawUnfitTextMirrorOverflow(host, state, mirror);
-  hideTextMirrorHost(host, state, mirror);
+  }
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -6274,22 +6283,67 @@ function stabilizeReadingFreeControlMirror(mirror, host) {
   const height = host.getBoundingClientRect().height;
   if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
 }
-function prefersStableClippedMirror() {
-  const coarseOrNoHover = typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
-  return coarseOrNoHover || typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+function stampMirrorWordSourceRanges(mirror, tokens) {
+  const words = Array.from(mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word"));
+  for (const [index, word] of words.entries()) {
+  const token = tokens[index];
+  if (!token) continue;
+  word.dataset.yomuSourceStart = String(token.start);
+  word.dataset.yomuSourceEnd = String(token.end);
+  }
 }
-function stabilizeClippedTextMirror(mirror) {
-  mirror.style.setProperty("visibility", "visible", "important");
-  for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi:not(.jpdb-reader-detached-furi)")) {
-  reading.style.setProperty("display", "none", "important");
-  reading.style.setProperty("visibility", "hidden", "important");
+function readerWordSourcePointScore(word, x, y) {
+  const mirror = word.closest(".jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror");
+  if (!mirror || typeof Range.prototype.getClientRects !== "function") return null;
+  const host = registeredTextMirrorHostFor(mirror);
+  if (!host?.isConnected) return null;
+  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  const source = hostOriginalTextWithNodeOffsets(host);
+  if (mirror.dataset.sourceText !== source.hostText || end > source.hostText.length) return null;
+  const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, "start");
+  const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, "end");
+  if (!startBoundary || !endBoundary) return null;
+  const range = host.ownerDocument.createRange();
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  let best = null;
+  for (const rect of Array.from(range.getClientRects())) {
+  const score = sourceRectPointScore(rect, x, y);
+  if (score !== null && (best === null || score < best)) best = score;
   }
-  for (const segment of mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word, ruby")) {
-  segment.style.setProperty("white-space", "normal", "important");
-  segment.style.setProperty("word-break", "normal", "important");
-  segment.style.setProperty("overflow-wrap", "break-word", "important");
-  segment.style.setProperty("line-break", "auto", "important");
+  return best;
+}
+function readerWordAtSourcePointInScope(scope, x, y, accepts = () => true) {
+  let best = null;
+  const selector = ".jpdb-reader-additive-text-mirror .jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]";
+  for (const word of scope.querySelectorAll(selector)) {
+  if (!accepts(word)) continue;
+  const score = readerWordSourcePointScore(word, x, y);
+  if (score !== null && (!best || score < best.score)) best = { word, score };
   }
+  return best?.word ?? null;
+}
+function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
+  let boundary = null;
+  for (const [node, nodeStart] of nodeOffsets) {
+  const nodeEnd = nodeStart + node.data.length;
+  if (sourceOffset < nodeStart || sourceOffset > nodeEnd) continue;
+  const candidate = { node, offset: sourceOffset - nodeStart };
+  if (side === "start" && sourceOffset < nodeEnd) return candidate;
+  boundary = candidate;
+  if (side === "end" && sourceOffset > nodeStart) return candidate;
+  }
+  return boundary;
+}
+function sourceRectPointScore(rect, x, y) {
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const slack = 0.75;
+  if (x < rect.left - slack || x > rect.right + slack || y < rect.top - slack || y > rect.bottom + slack) return null;
+  const dx = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
+  const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+  return dx * dx + dy * dy;
 }
 function styleDetachedReadingElements(root, host) {
   const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
@@ -6299,7 +6353,11 @@ function styleDetachedReadingElements(root, host) {
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
   const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
   const additive = root.classList.contains("jpdb-reader-additive-text-mirror");
-  const pitchUnderline = document.documentElement.classList.contains("jpdb-reader-word-underline-pitch");
+  const pitchDecoration = [
+  "jpdb-reader-word-highlight-pitch",
+  "jpdb-reader-word-underline-pitch",
+  "jpdb-reader-word-text-pitch"
+  ].some((className) => document.documentElement.classList.contains(className));
   for (const wrapper of detachedRubies) {
   wrapper.style.setProperty("position", "relative", "important");
   wrapper.style.setProperty("display", "inline-block", "important");
@@ -6335,7 +6393,7 @@ function styleDetachedReadingElements(root, host) {
   element2.style.setProperty("-webkit-text-fill-color", "transparent", "important");
   element2.style.setProperty("text-shadow", "none", "important");
   }
-  if (!pitchUnderline) return;
+  if (!pitchDecoration) return;
   for (const word of root.querySelectorAll(".jpdb-reader-word[data-pitch-class]")) {
   const pitchClass = safePitchClass(word.dataset.pitchClass ?? "unknown");
   if (pitchClass === "unknown") continue;
@@ -6485,7 +6543,6 @@ function restoreUnsafeDetachedReading(reading) {
   reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
 }
 function detachedReadingRestHidden(reading) {
-  if (reading.closest('[data-yomu-stable-clipped-mirror="true"]')) return false;
   const row = reading.closest('[data-yomu-clip-constrained="true"]');
   return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
 }
@@ -6608,33 +6665,21 @@ function closeOrphanedDetachedReadingClips(element2) {
   }
   }
 }
-function styleConstrainedTextMirror(mirror, host, clipRow, clipHoverOnly, detachedReadings = false) {
+function styleConstrainedTextMirror(mirror, clipRow, detachedReadings = false) {
   if (!clipRow) return;
   if (detachedReadings) {
   const height = clipRow.clientHeight;
   if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
   mirror.style.setProperty("overflow", "visible");
   } else constrainMirrorToClampBox(mirror, clipRow);
-  if (!clipHoverOnly) return;
-  mirror.classList.add("jpdb-reader-clip-hover-mirror");
-  mirror.style.setProperty("visibility", "hidden");
-  const hostColor = safeComputedStyle(host).color;
-  if (hostColor) {
-  mirror.style.setProperty("color", hostColor);
-  mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-  }
-  host.dataset.yomuClipHoverHost = "true";
 }
-function textMirrorClipMode(host, suppressRuby, tokens, allowDetachedReadings = true) {
+function textMirrorClipMode(host, tokens) {
   const clipRow = closestRubyFragileConstrainedRow(host);
   const hasReadings = tokens.some((token) => token.rubies.length > 0);
-  const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
-  const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
+  const detachedReadings = hasReadings;
   return {
   clipRow,
-  hasRenderedRuby,
-  detachedReadings,
-  clipHoverOnly: Boolean(clipRow && hasRenderedRuby)
+  detachedReadings
   };
 }
 function constrainMirrorToClampBox(mirror, clipRow) {
@@ -6734,10 +6779,6 @@ function currentTextMirror(host) {
 function textMirrorAlreadyRenders(host, text2) {
   const mirror = currentTextMirror(host);
   if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
-  const shouldClipHover = Boolean(
-  closestRubyFragileConstrainedRow(host) && mirror.dataset.jpdbReaderHasRuby === "true"
-  );
-  if (mirror.classList.contains("jpdb-reader-clip-hover-mirror") !== shouldClipHover) return false;
   const source = mirror.dataset.sourceText ?? "";
   const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text2);
   if (renders && mirror.style.getPropertyValue("visibility") === "hidden") {
@@ -6996,6 +7037,7 @@ function targetForcesAllFurigana(parent) {
 function nonDestructiveScanHost(target) {
   if (!isFragmentTextTarget$1(target)) return target.parent;
   const parents = target.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
+  if (parents.length && parents.every((parent) => parent === target.parent)) return target.parent;
   return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
 }
 function preferredNonDestructiveTextHost(elements) {
@@ -7017,138 +7059,18 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false, preserveConstrainedLayout = false, nativeTextVisible = false) {
+function styleTextMirrorHost(host) {
   const computed = safeComputedStyle(host);
   const state = {
   observer: new MutationObserver(() => void 0),
   sourceText: "",
-  visibility: host.style.getPropertyValue("visibility"),
-  visibilityPriority: host.style.getPropertyPriority("visibility"),
-  overflow: host.style.getPropertyValue("overflow"),
-  overflowPriority: host.style.getPropertyPriority("overflow"),
-  overflowAdjusted: allowOverflow && !clipHoverOnly,
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
-  positioned: computed.position === "static",
-  display: host.style.getPropertyValue("display"),
-  displayPriority: host.style.getPropertyPriority("display"),
-  displayAdjusted: computed.display === "inline" && !preserveConstrainedLayout,
-  concealTextOnly: !hostIsVisuallyBareForMirror(host),
-  concealedText: [],
-  clipHoverOnly,
-  nativeTextVisible
+  positioned: computed.position === "static"
   };
   textMirrorHosts.set(host, state);
-  if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
   if (state.positioned) host.style.setProperty("position", "relative", "important");
-  if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   return state;
-}
-function withdrawUnfitTextMirrorOverflow(host, state, mirror) {
-  if (!state.overflowAdjusted) return;
-  if (mirror.dataset.yomuClipConstrained === "true") return;
-  if (!mirrorBaseTextOverflowsBox(mirror)) return;
-  restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
-  state.overflowAdjusted = false;
-}
-function mirrorBaseTextOverflowsBox(mirror) {
-  const restores = [];
-  const neutralize = (element2, property, value, priority2) => {
-  const saved = { value: element2.style.getPropertyValue(property), priority: element2.style.getPropertyPriority(property) };
-  restores.push(() => {
-    if (saved.value) element2.style.setProperty(property, saved.value, saved.priority);
-    else element2.style.removeProperty(property);
-  });
-  if (value) element2.style.setProperty(property, value, priority2);
-  else element2.style.removeProperty(property);
-  };
-  for (const rt of mirror.querySelectorAll("rt")) {
-  neutralize(rt, "display", "none", "important");
-  }
-  for (const ruby of mirror.querySelectorAll("ruby")) {
-  if (ruby.style.getPropertyValue("margin-left")) neutralize(ruby, "margin-left", "", "");
-  if (ruby.style.getPropertyValue("margin-right")) neutralize(ruby, "margin-right", "", "");
-  }
-  try {
-  return mirror.scrollWidth > mirror.clientWidth + 1;
-  } finally {
-  restores.forEach((restore) => restore());
-  }
-}
-function hideTextMirrorHost(host, state, mirror) {
-  textMirrorHosts.set(host, state);
-  if (state.clipHoverOnly || state.nativeTextVisible) return;
-  if (state.concealTextOnly) {
-  if (mirror) {
-    const hostColor = safeComputedStyle(host).color;
-    if (hostColor) {
-      mirror.style.setProperty("color", hostColor);
-      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-    }
-  }
-  concealTextMirrorHostText(host, state);
-  } else host.style.setProperty("visibility", "hidden", "important");
-  if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
-  if (state.positioned) host.style.setProperty("position", "relative", "important");
-  if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
-}
-const CONCEALED_TEXT_PROPERTIES = ["color", "-webkit-text-fill-color", "text-decoration-color", "text-shadow"];
-const CONCEALED_TEXT_MAX_ELEMENTS = 60;
-function concealTextMirrorHostText(host, state) {
-  const descendants = Array.from(host.querySelectorAll("*")).filter((element2) => !element2.closest(READER_TEXT_MIRROR_SELECTOR));
-  if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
-  state.concealTextOnly = false;
-  host.style.setProperty("visibility", "hidden", "important");
-  return;
-  }
-  for (const svg of host.querySelectorAll("svg")) {
-  if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue("color")) continue;
-  const computed = safeComputedStyle(svg).color;
-  if (computed) {
-    state.concealedText.push({ element: svg, values: [{ property: "color", value: "", priority: "" }] });
-    svg.style.setProperty("color", computed, "important");
-  }
-  }
-  for (const element2 of [host, ...descendants]) {
-  if (element2 instanceof SVGElement || element2.closest("svg")) continue;
-  concealElementText(element2, state);
-  }
-}
-function concealElementText(element2, state) {
-  if (state.concealedText.some((record) => record.element === element2 && record.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
-  const values = CONCEALED_TEXT_PROPERTIES.map((property) => ({
-  property,
-  value: element2.style.getPropertyValue(property),
-  priority: element2.style.getPropertyPriority(property)
-  }));
-  state.concealedText.push({ element: element2, values });
-  for (const property of CONCEALED_TEXT_PROPERTIES) {
-  element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
-  }
-}
-function reassertConcealedTextMirrorHostText(host, state) {
-  if (host.style.getPropertyValue("color") !== "transparent") concealElementText(host, state);
-  for (const record of state.concealedText) {
-  const element2 = record.element;
-  if (!element2.isConnected || element2 instanceof SVGElement) continue;
-  if (element2.style.getPropertyValue("color") !== "transparent") {
-    for (const property of CONCEALED_TEXT_PROPERTIES) {
-      element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
-    }
-  }
-  }
-}
-function restoreConcealedTextMirrorHostText(state) {
-  for (const record of state.concealedText) {
-  for (const { property, value, priority: priority2 } of record.values) {
-    const injected = property === "text-shadow" ? "none" : "transparent";
-    const current = record.element.style.getPropertyValue(property);
-    if (record.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
-    if (value) record.element.style.setProperty(property, value, priority2);
-    else record.element.style.removeProperty(property);
-  }
-  }
-  state.concealedText = [];
 }
 function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
@@ -7169,7 +7091,7 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   mirror.style.setProperty("height", "auto");
   mirror.style.setProperty("overflow", "visible");
   mirror.style.setProperty("visibility", "visible", "important");
-  mirror.style.setProperty("pointer-events", "auto");
+  mirror.style.setProperty("pointer-events", "none");
   mirror.style.setProperty("white-space", style.whiteSpace);
   mirror.style.setProperty("font", style.font);
   mirror.style.setProperty("font-size", style.fontSize);
@@ -7184,90 +7106,6 @@ function hostCentersTextVertically(host, style) {
   const itemized = style.display.includes("flex") || style.display.includes("grid");
   if (itemized) return style.alignItems === "center" || style.alignContent === "center";
   return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
-}
-function tightenMirrorRubyOverhang(mirror) {
-  if (typeof Range.prototype.getBoundingClientRect !== "function") return;
-  const measures = [];
-  const byRuby = new Map();
-  for (const ruby of mirror.querySelectorAll("ruby")) {
-  const base = ruby.querySelector(".jpdb-reader-ruby-base");
-  if (!base || !base.textContent) continue;
-  const rubyRect = ruby.getBoundingClientRect();
-  const baseRect = glyphRangeRect(base);
-  if (!baseRect) continue;
-  const measure = {
-    ruby,
-    baseRect,
-    insetLeft: Math.max(0, baseRect.left - rubyRect.left),
-    insetRight: Math.max(0, rubyRect.right - baseRect.right),
-    marginLeft: 0,
-    marginRight: 0
-  };
-  measures.push(measure);
-  byRuby.set(ruby, measure);
-  }
-  for (const measure of measures) {
-  if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
-  const previous = adjacentGlyph(mirror, measure.ruby, "previous");
-  if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
-    const gap = measure.baseRect.left - previous.rect.right;
-    measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
-  }
-  const next = adjacentGlyph(mirror, measure.ruby, "next");
-  if (next && rectsShareLine(measure.baseRect, next.rect)) {
-    const gap = next.rect.left - measure.baseRect.right;
-    const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
-    measure.marginRight = Math.min(needed, measure.insetRight);
-    const neighbour = next.ruby ? byRuby.get(next.ruby) : void 0;
-    if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
-  }
-  }
-  for (const measure of measures) {
-  if (measure.marginLeft > 0) measure.ruby.style.setProperty("margin-left", `${-measure.marginLeft}px`, "important");
-  if (measure.marginRight > 0) measure.ruby.style.setProperty("margin-right", `${-measure.marginRight}px`, "important");
-  }
-}
-const RUBY_GAP_KEEP_PX = 0.5;
-function rectsShareLine(a, b) {
-  return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
-}
-function glyphRangeRect(element2) {
-  const range = document.createRange();
-  range.selectNodeContents(element2);
-  const rect = range.getBoundingClientRect();
-  return rect.width > 0 ? rect : null;
-}
-function adjacentGlyph(mirror, ruby, direction) {
-  const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
-  acceptNode: (node) => node.parentElement?.closest("rt,rp") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
-  });
-  let candidate = null;
-  const position = direction === "previous" ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
-  while (walker.nextNode()) {
-  const node = walker.currentNode;
-  if (ruby.contains(node) || !node.data) continue;
-  if (!(ruby.compareDocumentPosition(node) & position)) continue;
-  if (direction === "previous") candidate = node;
-  else {
-    candidate = node;
-    break;
-  }
-  }
-  if (!candidate?.data) return null;
-  const characters = Array.from(candidate.data);
-  const character = direction === "previous" ? characters[characters.length - 1] : characters[0];
-  if (!character || !isCjkChar(character)) return null;
-  const range = document.createRange();
-  if (direction === "previous") {
-  range.setStart(candidate, candidate.data.length - character.length);
-  range.setEnd(candidate, candidate.data.length);
-  } else {
-  range.setStart(candidate, 0);
-  range.setEnd(candidate, character.length);
-  }
-  const rect = range.getBoundingClientRect();
-  if (rect.width <= 0) return null;
-  return { rect, ruby: candidate.parentElement?.closest("ruby") };
 }
 function rubyFriendlyMirrorLineHeight(style) {
   const fontSize = cssPixels(style.fontSize) || 16;
@@ -7488,11 +7326,9 @@ function removeTextMirror(host) {
   if (tracked?.isConnected) tracked.remove();
   closeOrphanedDetachedReadingClips(host);
   if (state) restoreTextMirrorHost(host, state);
-  delete host.dataset.yomuClipHoverHost;
   textMirrorHosts.delete(host);
 }
 function syncTextMirrorVisibilityToPage(host, mirror) {
-  if (mirror.classList.contains("jpdb-reader-clip-hover-mirror")) return;
   mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
 }
 function pageConcealsTextMirrorHost(host) {
@@ -7519,28 +7355,12 @@ function reassertTextMirrorHostStyles(host, state) {
   return;
   }
   syncTextMirrorVisibilityToPage(host, mirror);
-  if (state.clipHoverOnly || state.nativeTextVisible) ;
-  else if (state.concealTextOnly) {
-  reassertConcealedTextMirrorHostText(host, state);
-  } else if (host.style.getPropertyValue("visibility") !== "hidden") {
-  host.style.setProperty("visibility", "hidden", "important");
-  }
-  if (state.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
-  host.style.setProperty("overflow", "visible", "important");
-  }
   if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
   host.style.setProperty("position", "relative", "important");
   }
-  if (state.displayAdjusted && host.style.getPropertyValue("display") !== "inline-block") {
-  host.style.setProperty("display", "inline-block", "important");
-  }
 }
 function restoreTextMirrorHost(host, state) {
-  if (state.concealTextOnly) restoreConcealedTextMirrorHostText(state);
-  else restoreStyleProperty(host, "visibility", "hidden", state.visibility, state.visibilityPriority);
-  if (state.overflowAdjusted) restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
   if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
-  if (state.displayAdjusted) restoreStyleProperty(host, "display", "inline-block", state.display, state.displayPriority);
 }
 function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   const current = host.style.getPropertyValue(property);
@@ -29673,7 +29493,6 @@ function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
 }
 function* scanTargetCollectionSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
-  const useNonDestructiveGenericScan = isGenericManagedAppShell();
   const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
   const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
   const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
@@ -29731,13 +29550,12 @@ function* scanTargetCollectionSteps(limit, href, options) {
   ];
   yield;
   const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles, options);
-  if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
+  if (targetsWithResidual.length) return targetsWithResidual;
   yield;
   const broadTargets = collectWholePageScanTargets(effectiveLimit);
   const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
-  if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
-  const visibleTargets = collectVisibleTextTargets(effectiveLimit);
-  return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
+  if (broadWithResidual.length) return broadWithResidual;
+  return collectVisibleTextTargets(effectiveLimit);
 }
 function markTargetsPassive(targets, options = {}) {
   return targets.map((target) => ({
@@ -29752,29 +29570,6 @@ function markTargetsPassive(targets, options = {}) {
   } : {}
   }));
 }
-function isGenericManagedAppShell() {
-  return Boolean(document.querySelector([
-  'script[src*="/_next/static/"]',
-  'script[id="__NEXT_DATA__"]',
-  "#__next",
-  "#__nuxt",
-  "#root",
-  "#app",
-  "[data-reactroot]",
-  '[data-server-rendered="true"]',
-  "[data-v-app]",
-  "[data-sveltekit-preload-data]",
-  'script[src*="/_app/immutable/"]',
-  'script[type="module"][src*="/assets/"]',
-  'script[type="module"][src*="/build/assets/"]',
-  'script[src*="/build/assets/"]',
-  "astro-island",
-  "shreddit-app",
-  "ytd-app",
-  "ytm-app",
-  "[ng-version]"
-  ].join(",")));
-}
 function profilePhaseTargetLimit(profiles, effectiveLimit) {
   if (!profiles.length || !Number.isFinite(effectiveLimit) || effectiveLimit < PROFILE_PHASE_GENERIC_RESERVE_THRESHOLD || profiles.some((profile) => profile.disableGenericDomScan || profile.suppressResidualVisibleScan)) return effectiveLimit;
   const reserve = Math.min(
@@ -29787,12 +29582,6 @@ function genericUiChromeTargetLimit(remaining) {
   if (remaining <= 0) return 0;
   if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
   return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
-}
-function markTargetsNonDestructive(targets) {
-  return targets.map((target) => ({
-  ...target,
-  nonDestructive: true
-  }));
 }
 function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
   const remaining = effectiveLimit - targets.length;
@@ -29808,7 +29597,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   limit
   };
   const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
-  const nonDestructiveShell = profiles.some((profile) => profile.nonDestructive) || isGenericManagedAppShell();
+  const nonDestructiveProfile = profiles.some((profile) => profile.nonDestructive);
   const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
   allowUiText: true,
   includeUiChrome: true,
@@ -29817,7 +29606,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   includePlayerChrome: isYouTubeHost(),
   includePassiveInteractions: true,
   heading: true,
-  allowShortCenteredHeadings: nonDestructiveShell,
+  allowShortCenteredHeadings: nonDestructiveProfile,
   minLength: 1
   });
   for (const target of collected) {
@@ -31471,7 +31260,7 @@ function nodeTreeTextMayContainJapanese(root) {
   if (HAS_JAPANESE.test(text2)) return true;
   if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT) break;
   }
-  return false;
+  return inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT;
 }
 function mutationMayAffectJpdbPageEnhancements(mutation) {
   if (mutation.type === "attributes") return jpdbPageEnhancementAttributeMayAffect(mutation);
@@ -36253,8 +36042,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.151"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.151"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.152"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.152"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -36371,7 +36160,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.151"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.152"}`;
   } catch {
   return null;
   }
@@ -39112,7 +38901,9 @@ class ReaderApp {
   const tap = this.tapLookup;
   if (!tap || tap.id !== event.pointerId) return;
   this.tapLookup = void 0;
-  const word = this.readerWordForPointerEvent(event, { clickLookup: true }) ?? tap.word;
+  const releaseWord = this.readerWordForPointerEvent(event, { clickLookup: true });
+  const fallbackWord = tap.word?.isConnected && this.readerWordMatchesPointerGeometry(tap.word, event.clientX, event.clientY) ? tap.word : void 0;
+  const word = releaseWord ?? fallbackWord;
   if (!word?.isConnected) return;
   const surfaces = this.readerWordClickSurfaces(event, word);
   if (!surfaces) return;
@@ -39699,7 +39490,7 @@ class ReaderApp {
   if (typeof document.elementsFromPoint !== "function") return null;
   for (const element2 of document.elementsFromPoint(x, y)) {
     const word = element2.closest?.(".jpdb-reader-word");
-    if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word)) return word;
+    if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
   }
   return null;
   }
@@ -39707,7 +39498,7 @@ class ReaderApp {
   if (typeof document.elementsFromPoint !== "function") return null;
   for (const element2 of document.elementsFromPoint(x, y)) {
     const word = element2.closest?.(".jpdb-reader-word");
-    if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word)) return word;
+    if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
   }
   return null;
   }
@@ -39951,7 +39742,7 @@ class ReaderApp {
     if (options.clickLookup) return this.canClickLookupReaderWord(word);
     return this.canLookupReaderWord(word);
   };
-  if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
+  if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct) && this.readerWordMatchesPointerGeometry(direct, event.clientX, event.clientY)) return direct;
   return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord)) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
   }
   readerPointerSurfaceForTarget(target) {
@@ -39959,6 +39750,11 @@ class ReaderApp {
   }
   readerWordBelongsToPointerSurface(word, surface) {
   return !surface || surface.contains(word);
+  }
+  readerWordMatchesPointerGeometry(word, x, y) {
+  if (!word.closest(".jpdb-reader-additive-text-mirror")) return true;
+  if (typeof Range.prototype.getClientRects !== "function") return true;
+  return readerWordSourcePointScore(word, x, y) !== null;
   }
   isMiningDrawerHandlePointerEvent(event) {
   return Boolean(this.miningDrawerHandleFromEventTarget(event.target) ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
@@ -39989,10 +39785,17 @@ class ReaderApp {
   }
   readerWordFromRenderedGeometry(target, x, y, canUseWord = (word) => this.canLookupReaderWord(word)) {
   const scope = this.readerWordGeometryScope(target);
-  return scope ? readerWordAtPointInScope(scope, x, y, canUseWord) : null;
+  if (!scope) return null;
+  return readerWordAtSourcePointInScope(scope, x, y, canUseWord) ?? readerWordAtPointInScope(scope, x, y, (word) => canUseWord(word) && this.readerWordMatchesPointerGeometry(word, x, y));
   }
   readerWordGeometryScope(target) {
   if (!target) return null;
+  let current = target;
+  for (let depth = 0; current && depth < 12; depth += 1, current = current.parentElement) {
+    const shadowRoot = current.shadowRoot;
+    if (shadowRoot?.querySelector(".jpdb-reader-additive-text-mirror .jpdb-reader-word")) return shadowRoot;
+    if (current.querySelector(":scope > .jpdb-reader-additive-text-mirror .jpdb-reader-word")) return current;
+  }
   const scope = target.closest(HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR);
   return scope && scope.querySelector(".jpdb-reader-word") ? scope : null;
   }

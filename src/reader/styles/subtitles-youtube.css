@@ -69,6 +69,12 @@
 .jpdb-subtitle-secondary .jpdb-reader-word {
   pointer-events: auto;
 }
+/* Parsed words normally opt back into hit testing for dictionary lookup. If a
+   moved subtitle crosses a native player action, however, that small overlap
+   must remain click-through so Share/fullscreen/settings still work. */
+.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"] {
+  pointer-events: none !important;
+}
 .jpdb-subtitle-drag-handle {
   position: absolute;
   left: 50%;

@@ -5072,6 +5072,130 @@ Watch the cat
         }
     });
 
+    it('keeps the collapsed rail available on portrait YouTube Shorts with persistent ytp-autohide', async () => {
+        vi.useFakeTimers();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/shorts/short123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytd-shorts>
+                <ytd-reel-video-renderer>
+                    <div id="movie_player" class="html5-video-player ytp-autohide"><video class="html5-main-video"></video></div>
+                </ytd-reel-video-renderer>
+            </ytd-shorts>
+        `;
+        const { controller, settings } = createSubtitleController(makeSubtitleSettings({
+            subtitleOverlayVisible: true,
+            subtitleControlsMode: 'auto',
+        }));
+        controller.init();
+        try {
+            const movie = document.querySelector<HTMLElement>('#movie_player')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            mockElementRect(movie, new DOMRect(40, 0, 390, 780));
+            mockElementRect(video, new DOMRect(40, 0, 390, 780));
+            attachVideo(controller, { video });
+            const internals = controllerInternals<{
+                hideControlsImmediately: () => void;
+                syncPlayerChromeIdleState: () => void;
+            }>(controller);
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const grip = root.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
+
+            internals.hideControlsImmediately();
+            internals.syncPlayerChromeIdleState();
+            await vi.advanceTimersByTimeAsync(400);
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+            expect(grip.getAttribute('aria-expanded')).toBe('false');
+
+            grip.click();
+            expect(settings.subtitleControlsMode).toBe('always');
+            expect(root.classList.contains('jpdb-subtitle-controls-always')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+            expect(grip.getAttribute('aria-expanded')).toBe('true');
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
+    it('returns subtitle word hit testing to overlapping YouTube native controls only', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/shorts/short123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytd-shorts>
+                <ytd-reel-video-renderer>
+                    <div id="movie_player" class="html5-video-player">
+                        <video class="html5-main-video"></video>
+                        <button id="shorts-share" aria-label="Share">共有</button>
+                        <button id="shorts-fullscreen" aria-label="Fullscreen">⛶</button>
+                    </div>
+                </ytd-reel-video-renderer>
+            </ytd-shorts>
+        `;
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        controller.init();
+        try {
+            const movie = document.querySelector<HTMLElement>('#movie_player')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            mockElementRect(movie, new DOMRect(40, 0, 390, 780));
+            mockElementRect(video, new DOMRect(40, 0, 390, 780));
+            attachVideo(controller, { video });
+
+            const primary = document.querySelector<HTMLElement>('.jpdb-subtitle-primary')
+                ?? (() => {
+                    const element = document.createElement('div');
+                    element.className = 'jpdb-subtitle-primary';
+                    document.querySelector('.jpdb-subtitle-lines')!.appendChild(element);
+                    return element;
+                })();
+            primary.innerHTML = `
+                <span id="share-word" class="jpdb-reader-word">共有</span>
+                <span id="fullscreen-word" class="jpdb-reader-word">全画面</span>
+                <span id="clear-word" class="jpdb-reader-word">字幕</span>
+            `;
+            const share = document.querySelector<HTMLElement>('#shorts-share')!;
+            const fullscreen = document.querySelector<HTMLElement>('#shorts-fullscreen')!;
+            const shareWord = document.querySelector<HTMLElement>('#share-word')!;
+            const fullscreenWord = document.querySelector<HTMLElement>('#fullscreen-word')!;
+            const clearWord = document.querySelector<HTMLElement>('#clear-word')!;
+            mockElementRect(share, new DOMRect(330, 610, 48, 48));
+            mockElementRect(fullscreen, new DOMRect(330, 680, 48, 48));
+            mockElementRect(shareWord, new DOMRect(320, 605, 72, 58));
+            mockElementRect(fullscreenWord, new DOMRect(320, 675, 72, 58));
+            mockElementRect(clearWord, new DOMRect(140, 605, 72, 58));
+
+            const internals = controllerInternals<{ syncNativePlayerControlHitProtection: () => void }>(controller);
+            internals.syncNativePlayerControlHitProtection();
+
+            expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
+            expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
+            expect(clearWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            expect(SUBTITLES_YOUTUBE_CSS).toContain(
+                '.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]',
+            );
+            expect(SUBTITLES_YOUTUBE_CSS).toMatch(/native-control-safe-zone="true"[^}]+pointer-events:\s*none\s*!important/s);
+
+            mockElementRect(share, new DOMRect(500, 610, 48, 48));
+            mockElementRect(fullscreen, new DOMRect(500, 680, 48, 48));
+            internals.syncNativePlayerControlHitProtection();
+            expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
     it('does not strobe the rail away when the player chrome fade flickers (hover-autoplay)', async () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player" tabindex="-1"><video></video></div>';

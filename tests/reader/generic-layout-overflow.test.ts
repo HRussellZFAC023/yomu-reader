@@ -139,7 +139,7 @@ describe('generic reader layout overflow guards', () => {
         expect(titleTarget?.suppressRuby).not.toBe(true);
     });
 
-    it('reserves room for unclamped YouTube section headings with ruby mirrors', () => {
+    it('keeps unclamped YouTube section headings source-sized with detached readings', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
             origin: 'https://www.youtube.com',
@@ -175,14 +175,14 @@ describe('generic reader layout overflow guards', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        expect(word.querySelector('rt')).toBeTruthy();
+        expect(word.querySelector('rt, .jpdb-reader-detached-furi')).toBeTruthy();
         expect(heading.querySelector('.jpdb-reader-text-mirror')).toBe(mirror);
         mockOverflow(host, 20, 20);
         mockOverflow(heading, 58, 20);
         mockOverflow(mirror, 58, 58);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(heading.style.minHeight).toBe('58px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(heading.style.minHeight).toBe('');
     });
 
     it('keeps compact media tiles passive while rendering their furigana', () => {

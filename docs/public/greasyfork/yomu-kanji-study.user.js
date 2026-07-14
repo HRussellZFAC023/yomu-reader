@@ -2612,6 +2612,7 @@
   `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
   `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
   `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
   `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
   roleSelectors("menu,menubar,toolbar,tablist");
   let trustedHtmlPolicy;

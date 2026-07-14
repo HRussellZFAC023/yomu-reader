@@ -157,7 +157,12 @@ function nodeTreeTextMayContainJapanese(root: Node): boolean {
         if (HAS_JAPANESE.test(text)) return true;
         if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT) break;
     }
-    return false;
+    // Reaching the sampling budget is not evidence that the remaining subtree
+    // is English-only. Treat an exhausted sample as a potential match so the
+    // caller schedules its normal bounded scan/continuation; otherwise a large
+    // framework insertion can permanently strand Japanese text after the
+    // sampled head.
+    return inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT;
 }
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {

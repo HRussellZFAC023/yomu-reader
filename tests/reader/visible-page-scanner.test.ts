@@ -1074,8 +1074,8 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('ytd-compact-video-renderer .jpdb-reader-word[data-expression="講座"]')).not.toBeNull();
             expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
             expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
-            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="東京"] rt')?.textContent).toBe('とうきょう');
-            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="春"] rt')?.textContent).toBe('はる');
+            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="東京"] .jpdb-reader-furi')?.textContent).toBe('とうきょう');
+            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="春"] .jpdb-reader-furi')?.textContent).toBe('はる');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();

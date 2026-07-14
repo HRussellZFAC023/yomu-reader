@@ -36,6 +36,8 @@ import {
     nearestReadableSentenceForElement,
     readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
+    readerWordAtSourcePointInScope,
+    readerWordSourcePointScore,
     readerWordSurfaceText,
     releaseRubyRoomGrowth,
     removeNonDestructiveScanMirrors,
@@ -2645,7 +2647,12 @@ export class ReaderApp {
         const tap = this.tapLookup;
         if (!tap || tap.id !== event.pointerId) return;
         this.tapLookup = undefined;
-        const word = this.readerWordForPointerEvent(event, { clickLookup: true }) ?? tap.word;
+        const releaseWord = this.readerWordForPointerEvent(event, { clickLookup: true });
+        const fallbackWord = tap.word?.isConnected
+            && this.readerWordMatchesPointerGeometry(tap.word, event.clientX, event.clientY)
+            ? tap.word
+            : undefined;
+        const word = releaseWord ?? fallbackWord;
         if (!word?.isConnected) return;
         const surfaces = this.readerWordClickSurfaces(event, word);
         if (!surfaces) return;
@@ -3424,7 +3431,10 @@ export class ReaderApp {
         if (typeof document.elementsFromPoint !== 'function') return null;
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word)) return word;
+            if (word
+                && this.readerWordBelongsToPointerSurface(word, surface)
+                && canUseWord(word)
+                && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
         }
         return null;
     }
@@ -3433,7 +3443,10 @@ export class ReaderApp {
         if (typeof document.elementsFromPoint !== 'function') return null;
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word)) return word;
+            if (word
+                && this.readerWordBelongsToPointerSurface(word, surface)
+                && this.canHoverLookupReaderWord(word)
+                && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
         }
         return null;
     }
@@ -3744,7 +3757,10 @@ export class ReaderApp {
             if (options.clickLookup) return this.canClickLookupReaderWord(word);
             return this.canLookupReaderWord(word);
         };
-        if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
+        if (direct
+            && this.readerWordBelongsToPointerSurface(direct, surface)
+            && canUseWord(direct)
+            && this.readerWordMatchesPointerGeometry(direct, event.clientX, event.clientY)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
             ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord))
             ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
@@ -3756,6 +3772,14 @@ export class ReaderApp {
 
     private readerWordBelongsToPointerSurface(word: HTMLElement, surface: HTMLElement | null): boolean {
         return !surface || surface.contains(word);
+    }
+
+    private readerWordMatchesPointerGeometry(word: HTMLElement, x: number, y: number): boolean {
+        if (!word.closest('.jpdb-reader-additive-text-mirror')) return true;
+        // jsdom and older embedded engines have no range-rect API; keep the
+        // direct-target fallback there. Real browsers validate source geometry.
+        if (typeof Range.prototype.getClientRects !== 'function') return true;
+        return readerWordSourcePointScore(word, x, y) !== null;
     }
 
     private isMiningDrawerHandlePointerEvent(event: MouseEvent | PointerEvent): boolean {
@@ -3802,11 +3826,27 @@ export class ReaderApp {
         canUseWord: (word: HTMLElement) => boolean = word => this.canLookupReaderWord(word),
     ): HTMLElement | null {
         const scope = this.readerWordGeometryScope(target);
-        return scope ? readerWordAtPointInScope(scope, x, y, canUseWord) : null;
+        if (!scope) return null;
+        return readerWordAtSourcePointInScope(scope, x, y, canUseWord)
+            ?? readerWordAtPointInScope(scope, x, y, word => canUseWord(word)
+                && this.readerWordMatchesPointerGeometry(word, x, y));
     }
 
     private readerWordGeometryScope(target: Element | null): ParentNode | null {
         if (!target) return null;
+        // Additive mirrors deliberately never receive pointer events: the
+        // page-owned source element stays the event target. Discover the
+        // nearest mirror-bearing ancestor structurally before falling back to
+        // the legacy prose/control scope list, otherwise a framework label in
+        // an unfamiliar component is visibly annotated but cannot be tapped.
+        // An open shadow root is also a valid scope after event retargeting at
+        // its custom-element host.
+        let current: Element | null = target;
+        for (let depth = 0; current && depth < 12; depth += 1, current = current.parentElement) {
+            const shadowRoot = current.shadowRoot;
+            if (shadowRoot?.querySelector('.jpdb-reader-additive-text-mirror .jpdb-reader-word')) return shadowRoot;
+            if (current.querySelector(':scope > .jpdb-reader-additive-text-mirror .jpdb-reader-word')) return current;
+        }
         const scope = target.closest<HTMLElement>(HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR);
         return scope && scope.querySelector('.jpdb-reader-word') ? scope : null;
     }

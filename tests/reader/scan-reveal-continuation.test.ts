@@ -64,6 +64,20 @@ describe('auto-scan observer style/class reveal detection (class E)', () => {
         const sheet = document.getElementById('sheet')!;
         expect(mutationMayContainJapaneseText(attributeMutation(sheet, 'class', 'sheet'))).toBe(false);
     });
+
+    it('schedules a scan when the bounded mutation sample is exhausted before late Japanese', () => {
+        const insertion = document.createElement('section');
+        insertion.innerHTML = `${'<span>English only</span>'.repeat(80)}<span>最後の日本語</span>`;
+
+        expect(mutationMayContainJapaneseText(childListMutation(document.body, insertion))).toBe(true);
+    });
+
+    it('still ignores a fully inspected small insertion without Japanese', () => {
+        const insertion = document.createElement('section');
+        insertion.innerHTML = '<span>Settings</span><span>Playback speed</span>';
+
+        expect(mutationMayContainJapaneseText(childListMutation(document.body, insertion))).toBe(false);
+    });
 });
 
 describe('post-click dynamic UI reveal detection', () => {
@@ -131,6 +145,20 @@ function attributeMutation(target: Element, attributeName: string, oldValue: str
         attributeName,
         oldValue,
         addedNodes: emptyNodeList(),
+        removedNodes: emptyNodeList(),
+        previousSibling: null,
+        nextSibling: null,
+        attributeNamespace: null,
+    } as unknown as MutationRecord;
+}
+
+function childListMutation(target: Node, ...addedNodes: Node[]): MutationRecord {
+    return {
+        type: 'childList',
+        target,
+        attributeName: null,
+        oldValue: null,
+        addedNodes: addedNodes as unknown as NodeList,
         removedNodes: emptyNodeList(),
         previousSibling: null,
         nextSibling: null,
