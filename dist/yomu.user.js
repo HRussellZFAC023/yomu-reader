@@ -6488,10 +6488,17 @@ function openSafeDetachedReadingClips(element2) {
   const rect = current.getBoundingClientRect();
   const measured = current.clientWidth > 0 && current.clientHeight > 0;
   const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
-  const baseFits = measured && detachedBaseContentFits(current);
+  const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
   if (compact && baseFits) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
   }
+}
+function openedDetachedReadingChildFits(box) {
+  const child = box.querySelector('[data-yomu-detached-reading-overflow="true"]');
+  if (!child || child === box) return false;
+  const boxRect = box.getBoundingClientRect();
+  const childRect = child.getBoundingClientRect();
+  return box.scrollWidth <= Math.max(box.clientWidth, boxRect.width) + 1 && box.scrollHeight <= Math.max(box.clientHeight, boxRect.height) + 1 && childRect.left >= boxRect.left - 1 && childRect.right <= boxRect.right + 1 && childRect.top >= boxRect.top - 1 && childRect.bottom <= boxRect.bottom + 1;
 }
 function detachedClipRowIsMultiLineClamp(style) {
   const clamp = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);

@@ -2583,10 +2583,30 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
         const compact = rect.height > 0
             && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT
             && !detachedClipRowIsMultiLineClamp(style);
-        const baseFits = measured && detachedBaseContentFits(current);
+        const baseFits = measured && (detachedBaseContentFits(current)
+            || openedDetachedReadingChildFits(current));
         if (compact && baseFits) openDetachedReadingClip(current);
         else restoreDetachedReadingClip(current);
     }
+}
+
+// A compact label can prove its own detached-reading lane safe before its
+// overflow-hidden parent row is visited. Range line boxes on that parent are
+// not reliable in every engine once the label has been fragment-painted, so
+// accept the already-verified child only when both its base and the parent's
+// complete scroll box still fit inside the parent. This opens the outer clip
+// without weakening the multi-line/truncated-row guard above.
+function openedDetachedReadingChildFits(box: HTMLElement): boolean {
+    const child = box.querySelector<HTMLElement>('[data-yomu-detached-reading-overflow="true"]');
+    if (!child || child === box) return false;
+    const boxRect = box.getBoundingClientRect();
+    const childRect = child.getBoundingClientRect();
+    return box.scrollWidth <= Math.max(box.clientWidth, boxRect.width) + 1
+        && box.scrollHeight <= Math.max(box.clientHeight, boxRect.height) + 1
+        && childRect.left >= boxRect.left - 1
+        && childRect.right <= boxRect.right + 1
+        && childRect.top >= boxRect.top - 1
+        && childRect.bottom <= boxRect.bottom + 1;
 }
 
 // A clip may only open when its base is a single text line. A multi-line

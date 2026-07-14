@@ -11,6 +11,7 @@
 - Help now shows the installed Yomu version in split userscript builds instead of `dev`. On Chromium with Tampermonkey, Update opens the dashboard update-check instructions instead of triggering Chrome’s blocked website-install banner; release verification also rejects a settings companion that loses its version or canonical Study update endpoint.
 - Popup grammar tags such as `uk`, `abbr`, and `arch` are expanded into readable labels instead of exposing dictionary shorthand.
 - Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.
+- Furigana in compact single-line tabs and “show more” rows now opens every safe ancestor clip, so readings are no longer cut off even when both the label and its fixed-height parent hide overflow.
 
 ## [1.6.149] - 2026-07-13
 
