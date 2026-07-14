@@ -36,7 +36,7 @@ export function expectFirstRenderedAnkiCardOpen(renderedCards: HTMLElement[]): v
     expect(renderedCards[1]?.hasAttribute('open')).toBe(false);
 }
 
-export function expectRenderedAnkiPopoverScrollCss(): void {
+function expectRenderedAnkiPopoverScrollCss(): void {
     expectCssToMatch(
         /\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*max-height:\s*none;/,
         /\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*overflow:\s*visible;/,
@@ -59,25 +59,6 @@ export function expectReadableAnkiLabelCss(): void {
     expectCssNotToMatch(
         /\.jpdb-reader-anki-field\s*>\s*strong,[^}]*text-transform:\s*uppercase;/,
         /\.jpdb-reader-anki-audio-merge span\s*\{[^}]*text-transform:\s*uppercase;/,
-    );
-}
-
-export function expectCollapsibleAnkiNoteCss(): void {
-    expectCssToMatch(
-        /\.jpdb-reader-anki-existing-note-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*20px;/,
-        /\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"\+";/,
-        /\.jpdb-reader-anki-existing-note\[open\]\s*>\s*\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"-";/,
-        /\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/,
-        /\.jpdb-reader-anki-match-summary-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/,
-    );
-}
-
-export function expectCollapsibleRenderedAnkiCardCss(): void {
-    expectCssToMatch(
-        /\.jpdb-reader-anki-rendered-card-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*20px;/,
-        /\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"\+";/,
-        /\.jpdb-reader-anki-rendered-card\[open\]\s*>\s*\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"-";/,
-        /\.jpdb-reader-anki-rendered-side-body :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-size:\s*clamp\(16px,\s*1\.35em,\s*30px\);/,
     );
 }
 
