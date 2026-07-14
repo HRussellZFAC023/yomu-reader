@@ -256,121 +256,177 @@ export function learnerEventsAreEquivalent(left: LearnerEvent, right: LearnerEve
     return JSON.stringify(leftPayload) === JSON.stringify(rightPayload);
 }
 
-export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerProjection {
-    const activities: Record<string, ActivityProjection> = {};
-    const reviewRatings: Record<string, ReviewRating> = {};
-    const grammarKnowledge: Record<string, GrammarKnowledge> = {};
-    const completedScenes = new Set<string>();
-    const bonds: Record<string, number> = {};
-    const unlockedAssets = new Set<string>();
-    let profile: LearnerProfileSnapshot | null = null;
-    let latestPlacement: Extract<LearnerEvent, { kind: 'placement-assessed' }> | null = null;
-    let curriculumEntry: Extract<LearnerEvent, { kind: 'curriculum-entry-chosen' }> | null = null;
-    const scheduledReviews: Record<string, Extract<LearnerEvent, { kind: 'review-scheduled' }>> = {};
-    const vocabularyCollection: Record<string, Extract<LearnerEvent, { kind: 'vocabulary-collected' }>> = {};
-    const closedDays: Record<string, Extract<LearnerEvent, { kind: 'academy-day-closed' }>> = {};
-    const seenAchievementCeremonies = new Set<string>();
-    const relationshipJournal: Record<string, { chapters: Set<number>; majorTurns: Set<'recognition' | 'friction' | 'support'> }> = {};
-    const supportUses: Extract<LearnerEvent, { kind: 'support-used' }>[] = [];
-    const neutralizedReviewScheduleIds = reviewScheduleNeutralizations(events);
-    let lastEventAt: number | null = null;
+type LearnerEventOfKind<Kind extends LearnerEvent['kind']> = Extract<LearnerEvent, { kind: Kind }>;
+type MutableRelationshipJournal = Record<string, {
+    chapters: Set<number>;
+    majorTurns: Set<'recognition' | 'friction' | 'support'>;
+}>;
 
-    for (const event of events.map(validateEvent)) {
-        lastEventAt = lastEventAt === null ? event.at : Math.max(lastEventAt, event.at);
-        switch (event.kind) {
-            case 'attempt-recorded': {
-                const previous = activities[event.activityId];
-                activities[event.activityId] = {
-                    activityId: event.activityId,
-                    attemptCount: (previous?.attemptCount ?? 0) + 1,
-                    lapseCount: (previous?.lapseCount ?? 0) + (event.outcome === 'lapse' ? 1 : 0),
-                    lastOutcome: event.outcome,
-                    lastAttemptAt: event.at,
-                    ...(event.sourceQuestionId ? { sourceQuestionId: event.sourceQuestionId } : {}),
-                    conceptIds: unique(event.conceptIds),
-                };
-                break;
-            }
-            case 'review-rated':
-                reviewRatings[event.reviewItemId] = event.rating;
-                break;
-            case 'grammar-known-changed':
-                grammarKnowledge[event.conceptId] = event.knowledge;
-                break;
-            case 'scene-completed':
-                completedScenes.add(event.sceneId);
-                break;
-            case 'bond-changed':
-                bonds[event.characterId] = Math.max(0, (bonds[event.characterId] ?? 0) + event.delta);
-                break;
-            case 'asset-unlocked':
-                unlockedAssets.add(event.assetId);
-                break;
-            case 'profile-changed':
-                profile = clone(event.profile);
-                break;
-            case 'placement-assessed':
-                latestPlacement = clone(event);
-                break;
-            case 'curriculum-entry-chosen':
-                curriculumEntry = clone(event);
-                break;
-            case 'review-scheduled':
-                if (!neutralizedReviewScheduleIds.has(event.eventId)) {
-                    scheduledReviews[event.reviewItemId] = clone(event);
-                }
-                break;
-            case 'review-schedule-neutralized':
-                break;
-            case 'learning-evidence-recorded':
-                break;
-            case 'vocabulary-collected':
-                vocabularyCollection[event.collectionItemId] ??= clone(event);
-                break;
-            case 'vocabulary-collection-undone': {
-                const collected = vocabularyCollection[event.collectionItemId];
-                if (collected?.eventId === event.collectedEventId) delete vocabularyCollection[event.collectionItemId];
-                break;
-            }
-            case 'academy-day-closed':
-                closedDays[event.dayId] = clone(event);
-                break;
-            case 'achievement-ceremony-seen':
-                seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
-                break;
-            case 'relationship-chapter-unlocked': {
-                const journal = relationshipJournal[event.characterId] ??= { chapters: new Set(), majorTurns: new Set() };
-                journal.chapters.add(event.chapter);
-                if (event.majorTurn) journal.majorTurns.add(event.majorTurn);
-                break;
-            }
-            case 'support-used':
-                supportUses.push(clone(event));
-                break;
+interface LearnerProjectionState {
+    readonly activities: Record<string, ActivityProjection>;
+    readonly reviewRatings: Record<string, ReviewRating>;
+    readonly grammarKnowledge: Record<string, GrammarKnowledge>;
+    readonly completedScenes: Set<string>;
+    readonly bonds: Record<string, number>;
+    readonly unlockedAssets: Set<string>;
+    profile: LearnerProfileSnapshot | null;
+    latestPlacement: LearnerEventOfKind<'placement-assessed'> | null;
+    curriculumEntry: LearnerEventOfKind<'curriculum-entry-chosen'> | null;
+    readonly scheduledReviews: Record<string, LearnerEventOfKind<'review-scheduled'>>;
+    readonly vocabularyCollection: Record<string, LearnerEventOfKind<'vocabulary-collected'>>;
+    readonly closedDays: Record<string, LearnerEventOfKind<'academy-day-closed'>>;
+    readonly seenAchievementCeremonies: Set<string>;
+    readonly relationshipJournal: MutableRelationshipJournal;
+    readonly supportUses: LearnerEventOfKind<'support-used'>[];
+    readonly neutralizedReviewScheduleIds: ReadonlySet<string>;
+    lastEventAt: number | null;
+}
+
+type LearnerProjectionReducers = {
+    readonly [Kind in LearnerEvent['kind']]: (
+        state: LearnerProjectionState,
+        event: LearnerEventOfKind<Kind>,
+    ) => void;
+};
+
+const LEARNER_PROJECTION_REDUCERS: LearnerProjectionReducers = {
+    'attempt-recorded': projectAttempt,
+    'review-rated': (state, event) => {
+        state.reviewRatings[event.reviewItemId] = event.rating;
+    },
+    'grammar-known-changed': (state, event) => {
+        state.grammarKnowledge[event.conceptId] = event.knowledge;
+    },
+    'scene-completed': (state, event) => {
+        state.completedScenes.add(event.sceneId);
+    },
+    'bond-changed': (state, event) => {
+        state.bonds[event.characterId] = Math.max(0, (state.bonds[event.characterId] ?? 0) + event.delta);
+    },
+    'asset-unlocked': (state, event) => {
+        state.unlockedAssets.add(event.assetId);
+    },
+    'profile-changed': (state, event) => {
+        state.profile = clone(event.profile);
+    },
+    'placement-assessed': (state, event) => {
+        state.latestPlacement = clone(event);
+    },
+    'curriculum-entry-chosen': (state, event) => {
+        state.curriculumEntry = clone(event);
+    },
+    'review-scheduled': (state, event) => {
+        if (!state.neutralizedReviewScheduleIds.has(event.eventId)) {
+            state.scheduledReviews[event.reviewItemId] = clone(event);
         }
-    }
+    },
+    'review-schedule-neutralized': () => undefined,
+    'learning-evidence-recorded': () => undefined,
+    'vocabulary-collected': (state, event) => {
+        state.vocabularyCollection[event.collectionItemId] ??= clone(event);
+    },
+    'vocabulary-collection-undone': projectVocabularyUndo,
+    'academy-day-closed': (state, event) => {
+        state.closedDays[event.dayId] = clone(event);
+    },
+    'achievement-ceremony-seen': (state, event) => {
+        state.seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
+    },
+    'relationship-chapter-unlocked': projectRelationshipChapter,
+    'support-used': (state, event) => {
+        state.supportUses.push(clone(event));
+    },
+};
 
+export function projectLearnerRecord(events: readonly LearnerEvent[]): LearnerProjection {
+    const state = createLearnerProjectionState(events);
+    events.map(validateEvent).forEach(event => applyLearnerProjectionEvent(state, event));
+    return learnerProjectionFromState(events.length, state);
+}
+
+function createLearnerProjectionState(events: readonly LearnerEvent[]): LearnerProjectionState {
     return {
-        eventCount: events.length,
-        lastEventAt,
-        activities,
-        reviewRatings,
-        grammarKnowledge,
-        completedScenes: [...completedScenes].sort(),
-        bonds,
-        unlockedAssets: [...unlockedAssets].sort(),
-        profile,
-        latestPlacement,
-        curriculumEntry,
-        scheduledReviews,
-        vocabularyCollection,
-        closedDays,
-        seenAchievementCeremonies: [...seenAchievementCeremonies].sort(),
-        relationshipJournal: Object.fromEntries(Object.entries(relationshipJournal).map(([characterId, journal]) => [characterId, {
+        activities: {},
+        reviewRatings: {},
+        grammarKnowledge: {},
+        completedScenes: new Set(),
+        bonds: {},
+        unlockedAssets: new Set(),
+        profile: null,
+        latestPlacement: null,
+        curriculumEntry: null,
+        scheduledReviews: {},
+        vocabularyCollection: {},
+        closedDays: {},
+        seenAchievementCeremonies: new Set(),
+        relationshipJournal: {},
+        supportUses: [],
+        neutralizedReviewScheduleIds: reviewScheduleNeutralizations(events),
+        lastEventAt: null,
+    };
+}
+
+function applyLearnerProjectionEvent(state: LearnerProjectionState, event: LearnerEvent): void {
+    state.lastEventAt = state.lastEventAt === null ? event.at : Math.max(state.lastEventAt, event.at);
+    LEARNER_PROJECTION_REDUCERS[event.kind](state, event as never);
+}
+
+function projectAttempt(state: LearnerProjectionState, event: LearnerEventOfKind<'attempt-recorded'>): void {
+    const previous = state.activities[event.activityId];
+    state.activities[event.activityId] = {
+        activityId: event.activityId,
+        attemptCount: (previous?.attemptCount ?? 0) + 1,
+        lapseCount: (previous?.lapseCount ?? 0) + Number(event.outcome === 'lapse'),
+        lastOutcome: event.outcome,
+        lastAttemptAt: event.at,
+        ...sourceQuestionProjection(event.sourceQuestionId),
+        conceptIds: unique(event.conceptIds),
+    };
+}
+
+function sourceQuestionProjection(sourceQuestionId: string | undefined): { sourceQuestionId?: string } {
+    return sourceQuestionId ? { sourceQuestionId } : {};
+}
+
+function projectVocabularyUndo(
+    state: LearnerProjectionState,
+    event: LearnerEventOfKind<'vocabulary-collection-undone'>,
+): void {
+    const collected = state.vocabularyCollection[event.collectionItemId];
+    if (collected?.eventId === event.collectedEventId) delete state.vocabularyCollection[event.collectionItemId];
+}
+
+function projectRelationshipChapter(
+    state: LearnerProjectionState,
+    event: LearnerEventOfKind<'relationship-chapter-unlocked'>,
+): void {
+    const journal = state.relationshipJournal[event.characterId] ??= { chapters: new Set(), majorTurns: new Set() };
+    journal.chapters.add(event.chapter);
+    if (event.majorTurn) journal.majorTurns.add(event.majorTurn);
+}
+
+function learnerProjectionFromState(eventCount: number, state: LearnerProjectionState): LearnerProjection {
+    return {
+        eventCount,
+        lastEventAt: state.lastEventAt,
+        activities: state.activities,
+        reviewRatings: state.reviewRatings,
+        grammarKnowledge: state.grammarKnowledge,
+        completedScenes: [...state.completedScenes].sort(),
+        bonds: state.bonds,
+        unlockedAssets: [...state.unlockedAssets].sort(),
+        profile: state.profile,
+        latestPlacement: state.latestPlacement,
+        curriculumEntry: state.curriculumEntry,
+        scheduledReviews: state.scheduledReviews,
+        vocabularyCollection: state.vocabularyCollection,
+        closedDays: state.closedDays,
+        seenAchievementCeremonies: [...state.seenAchievementCeremonies].sort(),
+        relationshipJournal: Object.fromEntries(Object.entries(state.relationshipJournal).map(([characterId, journal]) => [characterId, {
             chapters: [...journal.chapters].sort((left, right) => left - right),
             majorTurns: [...journal.majorTurns].sort(),
         }])),
-        supportUses,
+        supportUses: state.supportUses,
     };
 }
 
@@ -417,65 +473,42 @@ function validateEventEnvelope(event: LearnerEvent): void {
     if (!Number.isSafeInteger(event.at) || event.at < 0) throw new TypeError('Event timestamp must be a non-negative integer.');
 }
 
+type LearnerEventValidators = {
+    readonly [Kind in LearnerEvent['kind']]: (event: LearnerEventOfKind<Kind>) => void;
+};
+
+const LEARNER_EVENT_VALIDATORS: LearnerEventValidators = {
+    'attempt-recorded': validateAttemptRecorded,
+    'review-rated': validateReviewRated,
+    'grammar-known-changed': validateGrammarKnownChanged,
+    'scene-completed': event => {
+        requireText(event.sceneId, 'sceneId');
+    },
+    'bond-changed': validateBondChanged,
+    'asset-unlocked': event => {
+        requireText(event.assetId, 'assetId');
+    },
+    'profile-changed': validateProfileChanged,
+    'placement-assessed': validatePlacementAssessed,
+    'curriculum-entry-chosen': validateCurriculumEntryChosen,
+    'review-scheduled': validateReviewScheduled,
+    'review-schedule-neutralized': validateReviewScheduleNeutralized,
+    'learning-evidence-recorded': validateLearningEvidence,
+    'vocabulary-collected': validateVocabularyCollected,
+    'vocabulary-collection-undone': validateVocabularyCollectionUndone,
+    'academy-day-closed': validateAcademyDayClosed,
+    'achievement-ceremony-seen': validateAchievementCeremonySeen,
+    'relationship-chapter-unlocked': validateRelationshipChapterUnlocked,
+    'support-used': validateSupportUsed,
+};
+
 function validateEventPayload(event: LearnerEvent): void {
-    switch (event.kind) {
-        case 'attempt-recorded':
-            validateAttemptRecorded(event);
-            break;
-        case 'review-rated':
-            validateReviewRated(event);
-            break;
-        case 'grammar-known-changed':
-            validateGrammarKnownChanged(event);
-            break;
-        case 'scene-completed':
-            requireText(event.sceneId, 'sceneId');
-            break;
-        case 'bond-changed':
-            validateBondChanged(event);
-            break;
-        case 'asset-unlocked':
-            requireText(event.assetId, 'assetId');
-            break;
-        case 'profile-changed':
-            validateProfileChanged(event);
-            break;
-        case 'placement-assessed':
-            validatePlacementAssessed(event);
-            break;
-        case 'curriculum-entry-chosen':
-            validateCurriculumEntryChosen(event);
-            break;
-        case 'review-scheduled':
-            validateReviewScheduled(event);
-            break;
-        case 'review-schedule-neutralized':
-            validateReviewScheduleNeutralized(event);
-            break;
-        case 'learning-evidence-recorded':
-            validateLearningEvidence(event);
-            break;
-        case 'vocabulary-collected':
-            validateVocabularyCollected(event);
-            break;
-        case 'vocabulary-collection-undone':
-            validateVocabularyCollectionUndone(event);
-            break;
-        case 'academy-day-closed':
-            validateAcademyDayClosed(event);
-            break;
-        case 'achievement-ceremony-seen':
-            validateAchievementCeremonySeen(event);
-            break;
-        case 'relationship-chapter-unlocked':
-            validateRelationshipChapterUnlocked(event);
-            break;
-        case 'support-used':
-            validateSupportUsed(event);
-            break;
-        default:
-            throw new TypeError('Unknown learner event kind.');
-    }
+    const validators = LEARNER_EVENT_VALIDATORS as unknown as Readonly<Record<string, (value: LearnerEvent) => void>>;
+    const validator = Object.prototype.hasOwnProperty.call(validators, event.kind)
+        ? validators[event.kind]
+        : undefined;
+    if (!validator) throw new TypeError('Unknown learner event kind.');
+    validator(event);
 }
 
 function validateBondChanged(event: Extract<LearnerEvent, { kind: 'bond-changed' }>): void {
@@ -578,20 +611,50 @@ function validateReviewScheduled(event: Extract<LearnerEvent, { kind: 'review-sc
 function validateLearningEvidence(event: Extract<LearnerEvent, { kind: 'learning-evidence-recorded' }>): void {
     requireText(event.activityId, 'activityId');
     requireText(event.modeId, 'modeId');
-    if (!['kana', 'kanji', 'vocabulary', 'grammar', 'reading', 'listening', 'speaking', 'writing', 'repair', 'transfer'].includes(event.skill)) {
+    validateLearningSkill(event.skill);
+    validateLearningAction(event.action);
+    validateLearningOutcome(event.outcome);
+    validateLearningConcepts(event.conceptIds);
+    validateLearningIndependence(event.independent);
+    validateLearningDuration(event.durationMs);
+    validateLearningKanji(event.kanji);
+}
+
+function validateLearningSkill(skill: LearningSkill): void {
+    if (!['kana', 'kanji', 'vocabulary', 'grammar', 'reading', 'listening', 'speaking', 'writing', 'repair', 'transfer'].includes(skill)) {
         throw new TypeError('Invalid learning skill.');
     }
-    if (!['recognise', 'recall', 'produce', 'listen', 'speak', 'write', 'repair', 'review', 'read', 'explore', 'source-complete', 'transfer'].includes(event.action)) {
+}
+
+function validateLearningAction(action: LearningAction): void {
+    if (!['recognise', 'recall', 'produce', 'listen', 'speak', 'write', 'repair', 'review', 'read', 'explore', 'source-complete', 'transfer'].includes(action)) {
         throw new TypeError('Invalid learning action.');
     }
-    if (event.outcome !== 'pass' && event.outcome !== 'lapse') throw new TypeError('Invalid learning outcome.');
-    if (!event.conceptIds.length) throw new TypeError('Learning evidence needs at least one conceptId.');
-    unique(event.conceptIds.map(id => requireText(id, 'conceptId')));
-    if (typeof event.independent !== 'boolean') throw new TypeError('Learning independent must be boolean.');
-    if (event.durationMs !== undefined && (!Number.isSafeInteger(event.durationMs) || event.durationMs < 0)) {
+}
+
+function validateLearningOutcome(outcome: AttemptOutcome): void {
+    if (outcome !== 'pass' && outcome !== 'lapse') throw new TypeError('Invalid learning outcome.');
+}
+
+function validateLearningConcepts(conceptIds: readonly string[]): void {
+    if (!conceptIds.length) throw new TypeError('Learning evidence needs at least one conceptId.');
+    unique(conceptIds.map(id => requireText(id, 'conceptId')));
+}
+
+function validateLearningIndependence(independent: boolean): void {
+    if (typeof independent !== 'boolean') throw new TypeError('Learning independent must be boolean.');
+}
+
+function validateLearningDuration(durationMs: number | undefined): void {
+    if (durationMs !== undefined && (!Number.isSafeInteger(durationMs) || durationMs < 0)) {
         throw new TypeError('Learning durationMs must be a non-negative integer.');
     }
-    if (event.kanji !== undefined && Array.from(event.kanji).length !== 1) throw new TypeError('Learning kanji must be one character.');
+}
+
+function validateLearningKanji(kanji: string | undefined): void {
+    if (kanji !== undefined && Array.from(kanji).length !== 1) {
+        throw new TypeError('Learning kanji must be one character.');
+    }
 }
 
 function validateVocabularyCollected(event: Extract<LearnerEvent, { kind: 'vocabulary-collected' }>): void {

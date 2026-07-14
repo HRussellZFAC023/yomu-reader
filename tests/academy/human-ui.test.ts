@@ -261,12 +261,7 @@ describe('Academy human interface', () => {
     });
 
     it('puts every journal cutout on one visual-height rail while preserving Rie paper overlap', () => {
-        const screen = renderJournalScreen(
-            'en',
-            { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
-            { rieChapters: [1], aakashChapters: [], aakashUnlocked: false },
-            { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
-        );
+        const screen = renderLockedJournalScreen();
         const rie = screen.querySelector<HTMLImageElement>('[data-character="rie"]')!;
         const rieProfile = rie.closest('.academy-journal-profile');
 
@@ -304,12 +299,7 @@ describe('Academy human interface', () => {
     });
 
     it('keeps Peter and Shaun together in the first-term scrapbook spread', () => {
-        const screen = renderJournalScreen(
-            'en',
-            { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
-            { rieChapters: [1], aakashChapters: [], aakashUnlocked: false },
-            { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
-        );
+        const screen = renderLockedJournalScreen();
         const spread = screen.querySelector<HTMLElement>('[data-scrapbook-entry="first-term"]')!;
         const shaun = spread.querySelector<HTMLImageElement>('img[data-character="shaun"]')!;
 
@@ -341,3 +331,12 @@ describe('Academy human interface', () => {
         expect(manifest.icons.some(icon => icon.src === '/yomu-icon.svg')).toBe(true);
     });
 });
+
+function renderLockedJournalScreen(): HTMLElement {
+    return renderJournalScreen(
+        'en',
+        { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
+        { rieChapters: [1], aakashChapters: [], aakashUnlocked: false },
+        { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
+    );
+}

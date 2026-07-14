@@ -66,11 +66,20 @@ function validateOverview(
     questionIds: ReadonlySet<string>,
 ): void {
     const overview = record(lesson.overview, 'lesson.overview') as unknown as LessonZeroDefinition['overview'];
+    validateOverviewCopy(overview);
+    validateOverviewPeopleAndLocations(overview);
+    validateOverviewMaterials(overview, activities, questionIds);
+}
+
+function validateOverviewCopy(overview: LessonZeroDefinition['overview']): void {
     localized(overview.title, 'lesson.overview.title');
     localized(overview.summary, 'lesson.overview.summary');
     const goals = array(overview.goals, 'lesson.overview.goals');
     if (goals.length < 3) fail('Lesson 0 overview needs concrete learning goals.');
     goals.forEach((goal, index) => localized(goal, `lesson.overview.goals.${index}`));
+}
+
+function validateOverviewPeopleAndLocations(overview: LessonZeroDefinition['overview']): void {
     nonEmpty(overview.peopleIds, 'lesson.overview.peopleIds');
     for (const personId of overview.peopleIds) {
         if (!isAcademyCastMemberId(personId)) fail(`Lesson 0 overview invents cast id ${personId}.`);
@@ -78,37 +87,73 @@ function validateOverview(
     if (new Set(overview.peopleIds).size !== overview.peopleIds.length) fail('Lesson 0 overview repeats a person.');
     nonEmpty(overview.locationIds, 'lesson.overview.locationIds');
     if (new Set(overview.locationIds).size !== overview.locationIds.length) fail('Lesson 0 overview repeats a location.');
+}
+
+function validateOverviewMaterials(
+    overview: LessonZeroDefinition['overview'],
+    activities: ReadonlyMap<string, LessonZeroActivity>,
+    questionIds: ReadonlySet<string>,
+): void {
     const materials = array(overview.materials, 'lesson.overview.materials') as LessonZeroDefinition['overview']['materials'];
     const materialIds = new Set<string>();
     for (const material of materials) {
-        text(material.id, 'lesson.overview.material.id');
-        if (materialIds.has(material.id)) fail(`Lesson 0 overview repeats material ${material.id}.`);
-        materialIds.add(material.id);
-        localized(material.title, `lesson.overview material ${material.id}`);
-        if (!['source-handout', 'writing-surface', 'kana-surface', 'dialogue-audio'].includes(material.kind)) {
-            fail(`Lesson 0 overview material ${material.id} has an invalid kind.`);
-        }
-        if (!['ready', 'release-blocked'].includes(material.state)) {
-            fail(`Lesson 0 overview material ${material.id} has an invalid state.`);
-        }
-        nonEmpty(material.activityIds, `lesson.overview material ${material.id} activityIds`);
-        for (const activityId of material.activityIds) {
-            if (!activities.has(activityId)) {
-                fail(`Lesson 0 overview material ${material.id} references unknown activity ${activityId}.`);
-            }
-        }
-        for (const questionId of material.sourceQuestionIds ?? []) {
-            if (!questionIds.has(questionId)) {
-                fail(`Lesson 0 overview material ${material.id} references unknown source question ${questionId}.`);
-            }
-        }
-        if (material.state === 'release-blocked' && !material.blockerId) {
-            fail(`Blocked material ${material.id} needs a blocker.`);
-        }
-        if (material.state === 'ready' && material.blockerId) {
-            fail(`Ready material ${material.id} cannot retain a blocker.`);
+        validateOverviewMaterial(material, materialIds, activities, questionIds);
+    }
+}
+
+function validateOverviewMaterial(
+    material: LessonZeroDefinition['overview']['materials'][number],
+    materialIds: Set<string>,
+    activities: ReadonlyMap<string, LessonZeroActivity>,
+    questionIds: ReadonlySet<string>,
+): void {
+    validateOverviewMaterialIdentity(material, materialIds);
+    validateOverviewMaterialReferences(material, activities, questionIds);
+    validateOverviewMaterialBlocker(material);
+}
+
+function validateOverviewMaterialIdentity(
+    material: LessonZeroDefinition['overview']['materials'][number],
+    materialIds: Set<string>,
+): void {
+    text(material.id, 'lesson.overview.material.id');
+    if (materialIds.has(material.id)) fail(`Lesson 0 overview repeats material ${material.id}.`);
+    materialIds.add(material.id);
+    localized(material.title, `lesson.overview material ${material.id}`);
+    if (!['source-handout', 'writing-surface', 'kana-surface', 'dialogue-audio'].includes(material.kind)) {
+        fail(`Lesson 0 overview material ${material.id} has an invalid kind.`);
+    }
+    if (!['ready', 'release-blocked'].includes(material.state)) {
+        fail(`Lesson 0 overview material ${material.id} has an invalid state.`);
+    }
+}
+
+function validateOverviewMaterialReferences(
+    material: LessonZeroDefinition['overview']['materials'][number],
+    activities: ReadonlyMap<string, LessonZeroActivity>,
+    questionIds: ReadonlySet<string>,
+): void {
+    nonEmpty(material.activityIds, `lesson.overview material ${material.id} activityIds`);
+    for (const activityId of material.activityIds) {
+        if (!activities.has(activityId)) {
+            fail(`Lesson 0 overview material ${material.id} references unknown activity ${activityId}.`);
         }
     }
+    for (const questionId of material.sourceQuestionIds ?? []) {
+        if (!questionIds.has(questionId)) {
+            fail(`Lesson 0 overview material ${material.id} references unknown source question ${questionId}.`);
+        }
+    }
+}
+
+function validateOverviewMaterialBlocker(
+    material: LessonZeroDefinition['overview']['materials'][number],
+): void {
+    if (material.state === 'release-blocked') {
+        if (!material.blockerId) fail(`Blocked material ${material.id} needs a blocker.`);
+        return;
+    }
+    if (material.blockerId) fail(`Ready material ${material.id} cannot retain a blocker.`);
 }
 
 function validateLessonIdentity(lesson: LessonZeroDefinition): void {
@@ -146,18 +191,36 @@ function validateActivities(
     const allowedModes = new Set<string>(LESSON_ZERO_RESPONSE_MODES);
     const usedModes = new Set<LessonZeroResponseMode>();
     for (const activity of activities) {
-        if (!sections.has(activity.sectionId)) fail(`Activity ${activity.id} references an unknown section.`);
-        if (!allowedModes.has(activity.responseMode)) fail(`Activity ${activity.id} has an unsupported response mode.`);
+        validateActivity(activity, sections, questionIds, allowedModes);
         usedModes.add(activity.responseMode);
-        nonEmpty(activity.conceptIds, `activity ${activity.id} conceptIds`);
-        for (const sourceQuestionId of activity.sourceQuestionIds) {
-            if (!questionIds.has(sourceQuestionId)) fail(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
-        }
-        if (activity.assessed && !hasAssessedSupport(activity.support)) {
-            fail(`Activity ${activity.id} exposes assessed support before commitment.`);
-        }
     }
     exactSet(usedModes, LESSON_ZERO_RESPONSE_MODES, 'lesson activity response modes');
+    validateSectionActivityReferences(sections, activityById);
+    validateProductionCoverage(activities);
+    return activityById;
+}
+
+function validateActivity(
+    activity: LessonZeroActivity,
+    sections: ReadonlyMap<string, LessonZeroSection>,
+    questionIds: ReadonlySet<string>,
+    allowedModes: ReadonlySet<string>,
+): void {
+    if (!sections.has(activity.sectionId)) fail(`Activity ${activity.id} references an unknown section.`);
+    if (!allowedModes.has(activity.responseMode)) fail(`Activity ${activity.id} has an unsupported response mode.`);
+    nonEmpty(activity.conceptIds, `activity ${activity.id} conceptIds`);
+    for (const sourceQuestionId of activity.sourceQuestionIds) {
+        if (!questionIds.has(sourceQuestionId)) fail(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
+    }
+    if (activity.assessed && !hasAssessedSupport(activity.support)) {
+        fail(`Activity ${activity.id} exposes assessed support before commitment.`);
+    }
+}
+
+function validateSectionActivityReferences(
+    sections: ReadonlyMap<string, LessonZeroSection>,
+    activityById: ReadonlyMap<string, LessonZeroActivity>,
+): void {
     for (const section of sections.values()) {
         for (const activityId of section.activityIds) {
             const activity = activityById.get(activityId);
@@ -165,8 +228,6 @@ function validateActivities(
             if (activity.sectionId !== section.id) fail(`Activity ${activityId} is assigned to two sections.`);
         }
     }
-    validateProductionCoverage(activities);
-    return activityById;
 }
 
 function validateScripts(lesson: LessonZeroDefinition): readonly LessonZeroInputScript[] {
@@ -231,21 +292,7 @@ function validateScriptLearnerTurns(
     const learnerTurns = script.learnerTurns ?? [];
     const learnerTurnIds = new Set<string>();
     for (const turn of learnerTurns) {
-        text(turn.id, `script ${script.id} learner turn id`);
-        if (learnerTurnIds.has(turn.id)) fail(`Script ${script.id} repeats learner turn id ${turn.id}.`);
-        learnerTurnIds.add(turn.id);
-        if (!lineIds.has(turn.afterLineId)) {
-            fail(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
-        }
-        if (turn.capture?.kind !== 'microphone-recording' || turn.capture.evidenceKind !== 'spoken-turn') {
-            fail(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
-        }
-        if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
-            fail(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
-        }
-        if (!hasAssessedSupport(turn.support)) {
-            fail(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
-        }
+        validateScriptLearnerTurn(script, turn, learnerTurnIds, lineIds);
     }
     if (script.kind === 'sound-sequence' && learnerTurns.length) {
         fail(`Sound sequence ${script.id} cannot contain a learner speaking turn.`);
@@ -254,6 +301,29 @@ function validateScriptLearnerTurns(
         activity.inputScriptId === script.id
         && activity.expectedEvidence.kind === 'spoken-turn')) {
         fail(`Script ${script.id} has a learner turn without a spoken-turn activity.`);
+    }
+}
+
+function validateScriptLearnerTurn(
+    script: LessonZeroInputScript,
+    turn: NonNullable<LessonZeroInputScript['learnerTurns']>[number],
+    learnerTurnIds: Set<string>,
+    lineIds: ReadonlySet<string>,
+): void {
+    text(turn.id, `script ${script.id} learner turn id`);
+    if (learnerTurnIds.has(turn.id)) fail(`Script ${script.id} repeats learner turn id ${turn.id}.`);
+    learnerTurnIds.add(turn.id);
+    if (!lineIds.has(turn.afterLineId)) {
+        fail(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
+    }
+    if (turn.capture?.kind !== 'microphone-recording' || turn.capture.evidenceKind !== 'spoken-turn') {
+        fail(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
+    }
+    if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
+        fail(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
+    }
+    if (!hasAssessedSupport(turn.support)) {
+        fail(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
     }
 }
 
@@ -278,22 +348,50 @@ function validateSpeechActivityContracts(
     lesson: LessonZeroDefinition,
     scriptById: ReadonlyMap<string, LessonZeroInputScript>,
 ): void {
-    const vowelActivity = lesson.activities.find(activity => activity.id === 'activity:lesson-zero-vowel-listen');
-    const vowelScript = vowelActivity?.inputScriptId ? scriptById.get(vowelActivity.inputScriptId) : undefined;
+    validateVowelActivityContract(lesson, scriptById);
+    validateSpeakingActivityContract(lesson, scriptById);
+}
+
+function validateVowelActivityContract(
+    lesson: LessonZeroDefinition,
+    scriptById: ReadonlyMap<string, LessonZeroInputScript>,
+): void {
+    const vowelScript = activityInputScript(lesson, 'activity:lesson-zero-vowel-listen', scriptById);
     if (!vowelScript || vowelScript.kind !== 'sound-sequence') {
         fail('Lesson 0 vowel listening must use its own sound-sequence script.');
     }
     const vowelTranscript = vowelScript.lines.map(line => line.japanese).join('')
         .replace(/[\s・、。]/gu, '');
     if (vowelTranscript !== 'あいうえお') fail('Lesson 0 vowel script must contain the exact ordered vowel row.');
+}
 
-    const speakingActivity = lesson.activities.find(activity => activity.id === 'activity:lesson-zero-speaking-input');
-    const speakingScript = speakingActivity?.inputScriptId ? scriptById.get(speakingActivity.inputScriptId) : undefined;
-    const learnerTurn = speakingScript?.learnerTurns?.find(turn => turn.capture.evidenceKind === 'spoken-turn');
-    const cueLine = learnerTurn && speakingScript?.lines.find(line => line.id === learnerTurn.afterLineId);
-    if (!learnerTurn || !cueLine || cueLine.speakerId !== 'aakash') {
+function validateSpeakingActivityContract(
+    lesson: LessonZeroDefinition,
+    scriptById: ReadonlyMap<string, LessonZeroInputScript>,
+): void {
+    const speakingScript = requiredSpeakingScript(
+        activityInputScript(lesson, 'activity:lesson-zero-speaking-input', scriptById),
+    );
+    const learnerTurn = speakingScript.learnerTurns?.find(turn => turn.capture.evidenceKind === 'spoken-turn');
+    if (!learnerTurn) fail('Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.');
+    const cueLine = speakingScript.lines.find(line => line.id === learnerTurn.afterLineId);
+    if (!cueLine || cueLine.speakerId !== 'aakash') {
         fail('Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.');
     }
+}
+
+function requiredSpeakingScript(script: LessonZeroInputScript | undefined): LessonZeroInputScript {
+    if (!script) fail('Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.');
+    return script;
+}
+
+function activityInputScript(
+    lesson: LessonZeroDefinition,
+    activityId: string,
+    scriptById: ReadonlyMap<string, LessonZeroInputScript>,
+): LessonZeroInputScript | undefined {
+    const activity = lesson.activities.find(candidate => candidate.id === activityId);
+    return activity?.inputScriptId ? scriptById.get(activity.inputScriptId) : undefined;
 }
 
 function validateLessonZeroCastUsage(
@@ -360,18 +458,34 @@ function validateAudio(
     const assetById = uniqueIndex(array(assets, 'lesson.audioAssets') as readonly LessonZeroAudioAsset[], 'audio asset');
     const blockerById = uniqueIndex(array(blockers, 'lesson.releaseBlockers') as readonly LessonZeroReleaseBlocker[], 'release blocker');
     for (const asset of assetById.values()) {
-        if (asset.browserTtsAllowed !== false || asset.learnerVisiblePlaceholder !== false) fail(`Audio ${asset.id} permits a fake or learner-visible fallback.`);
-        if (asset.state === 'ready') {
-            if (!asset.runtimeUrl || asset.verifiedPairing !== true) fail(`Ready audio ${asset.id} lacks a verified pairing.`);
-        } else {
-            if (asset.runtimeUrl) fail(`Blocked audio ${asset.id} must not expose an unverified runtime file.`);
-            if (!asset.blockerId || !blockerById.has(asset.blockerId)) fail(`Blocked audio ${asset.id} lacks an internal blocker.`);
-        }
+        validateAudioAsset(asset, blockerById);
     }
     for (const script of scripts) if (!assetById.has(script.audioAssetId)) fail(`Script ${script.id} references unknown audio ${script.audioAssetId}.`);
     for (const blocker of blockerById.values()) {
-        if (blocker.kind !== 'audio' || blocker.learnerVisible !== false) fail(`Release blocker ${blocker.id} is not internal audio state.`);
-        for (const assetId of blocker.assetIds) if (!assetById.has(assetId)) fail(`Release blocker ${blocker.id} references unknown audio ${assetId}.`);
+        validateAudioBlocker(blocker, assetById);
+    }
+}
+
+function validateAudioAsset(
+    asset: LessonZeroAudioAsset,
+    blockerById: ReadonlyMap<string, LessonZeroReleaseBlocker>,
+): void {
+    if (asset.browserTtsAllowed !== false || asset.learnerVisiblePlaceholder !== false) fail(`Audio ${asset.id} permits a fake or learner-visible fallback.`);
+    if (asset.state === 'ready') {
+        if (!asset.runtimeUrl || asset.verifiedPairing !== true) fail(`Ready audio ${asset.id} lacks a verified pairing.`);
+        return;
+    }
+    if (asset.runtimeUrl) fail(`Blocked audio ${asset.id} must not expose an unverified runtime file.`);
+    if (!asset.blockerId || !blockerById.has(asset.blockerId)) fail(`Blocked audio ${asset.id} lacks an internal blocker.`);
+}
+
+function validateAudioBlocker(
+    blocker: LessonZeroReleaseBlocker,
+    assetById: ReadonlyMap<string, LessonZeroAudioAsset>,
+): void {
+    if (blocker.kind !== 'audio' || blocker.learnerVisible !== false) fail(`Release blocker ${blocker.id} is not internal audio state.`);
+    for (const assetId of blocker.assetIds) {
+        if (!assetById.has(assetId)) fail(`Release blocker ${blocker.id} references unknown audio ${assetId}.`);
     }
 }
 

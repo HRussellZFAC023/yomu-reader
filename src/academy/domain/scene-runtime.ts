@@ -107,116 +107,236 @@ export function createSceneRuntime(): SceneRuntime {
     return { play: playScene, validate: validateScene };
 }
 
+interface SceneExecutionState {
+    readonly script: SceneScript;
+    readonly options: ScenePlayOptions;
+    readonly labels: ReadonlyMap<string, number>;
+    readonly flags: Record<string, SceneValue>;
+    readonly choices: string[];
+    readonly readLineIds: Set<string>;
+    cursor: number;
+    completed: boolean;
+    steps: number;
+    readonly guardLimit: number;
+}
+
+type SceneNodeOfKind<Kind extends SceneNode['kind']> = Extract<SceneNode, { kind: Kind }>;
+type SceneNodeHandlers = {
+    readonly [Kind in SceneNode['kind']]: (
+        node: SceneNodeOfKind<Kind>,
+        state: SceneExecutionState,
+    ) => void | Promise<void>;
+};
+
+const SCENE_NODE_HANDLERS: SceneNodeHandlers = {
+    label: (_node, state) => advanceScene(state),
+    jump: (node, state) => {
+        state.cursor = requireLabel(state.labels, node.to, state.script.id);
+    },
+    gate: (node, state) => {
+        state.cursor = gateMatches(state.flags[node.flag], node)
+            ? requireLabel(state.labels, node.to, state.script.id)
+            : state.cursor + 1;
+    },
+    set: (node, state) => {
+        Object.assign(state.flags, node.flags);
+        advanceScene(state);
+    },
+    stage: async (node, state) => {
+        await state.options.host.direct(node);
+        advanceScene(state);
+    },
+    line: async (node, state) => {
+        await state.options.host.line(node);
+        state.readLineIds.add(node.id);
+        advanceScene(state);
+    },
+    choice: applySceneChoice,
+    activity: async (node, state) => {
+        Object.assign(state.flags, await state.options.host.activity(node));
+        advanceScene(state);
+    },
+    complete: async (node, state) => {
+        if (node.result) Object.assign(state.flags, node.result);
+        state.cursor = state.script.nodes.length;
+        state.completed = true;
+        await state.options.host.finish();
+    },
+};
+
 async function playScene(script: SceneScript, options: ScenePlayOptions): Promise<SceneResult> {
     const issues = validateScene(script);
     if (issues.length) throw new Error(`Scene ${script.id} is invalid: ${issues.join('; ')}`);
-    const labels = labelIndex(script);
-    const restored = compatibleSnapshot(script, options.snapshot);
-    const flags: Record<string, SceneValue> = { ...options.flags, ...restored.flags };
-    const choices = [...restored.choices];
-    const readLineIds = new Set(restored.readLineIds);
-    let cursor = restored.cursor;
-    let completed = false;
-    let steps = 0;
-    const guardLimit = Math.max(100, script.nodes.length * 50);
-
-    const snapshot = (): SceneSnapshot => ({
-        sceneId: script.id,
-        revision: script.revision,
-        cursor,
-        flags: { ...flags },
-        choices: [...choices],
-        readLineIds: [...readLineIds],
-    });
-    const checkpoint = async (): Promise<void> => options.onCheckpoint?.(snapshot());
+    const state = createSceneExecutionState(script, options);
 
     try {
-        while (cursor < script.nodes.length && !options.signal?.aborted) {
-            if (++steps > guardLimit) throw new Error(`Scene ${script.id} exceeded its control-flow guard.`);
-            const node = script.nodes[cursor];
-            switch (node.kind) {
-                case 'label':
-                    cursor += 1;
-                    break;
-                case 'jump':
-                    cursor = requireLabel(labels, node.to, script.id);
-                    break;
-                case 'gate':
-                    cursor = gateMatches(flags[node.flag], node)
-                        ? requireLabel(labels, node.to, script.id)
-                        : cursor + 1;
-                    break;
-                case 'set':
-                    Object.assign(flags, node.flags);
-                    cursor += 1;
-                    break;
-                case 'stage':
-                    await options.host.direct(node);
-                    cursor += 1;
-                    break;
-                case 'line':
-                    await options.host.line(node);
-                    readLineIds.add(node.id);
-                    cursor += 1;
-                    break;
-                case 'choice': {
-                    const choiceId = await options.host.choice(node);
-                    const choice = node.options.find(option => option.id === choiceId);
-                    if (!choice) throw new Error(`Scene ${script.id} host returned unknown choice ${choiceId}.`);
-                    choices.push(choice.id);
-                    if (choice.set) Object.assign(flags, choice.set);
-                    cursor = choice.to ? requireLabel(labels, choice.to, script.id) : cursor + 1;
-                    break;
-                }
-                case 'activity':
-                    Object.assign(flags, await options.host.activity(node));
-                    cursor += 1;
-                    break;
-                case 'complete':
-                    if (node.result) Object.assign(flags, node.result);
-                    cursor = script.nodes.length;
-                    completed = true;
-                    await options.host.finish();
-                    break;
-            }
-            await checkpoint();
-        }
-        return { completed, snapshot: snapshot() };
+        await runScene(state);
+        return { completed: state.completed, snapshot: sceneSnapshot(state) };
     } finally {
         options.host.dispose();
     }
 }
 
+function createSceneExecutionState(script: SceneScript, options: ScenePlayOptions): SceneExecutionState {
+    const restored = compatibleSnapshot(script, options.snapshot);
+    return {
+        script,
+        options,
+        labels: labelIndex(script),
+        flags: { ...options.flags, ...restored.flags },
+        choices: [...restored.choices],
+        readLineIds: new Set(restored.readLineIds),
+        cursor: restored.cursor,
+        completed: false,
+        steps: 0,
+        guardLimit: Math.max(100, script.nodes.length * 50),
+    };
+}
+
+async function runScene(state: SceneExecutionState): Promise<void> {
+    while (sceneCanContinue(state)) {
+        assertWithinControlFlowGuard(state);
+        await executeSceneNode(state.script.nodes[state.cursor], state);
+        await state.options.onCheckpoint?.(sceneSnapshot(state));
+    }
+}
+
+function sceneCanContinue(state: SceneExecutionState): boolean {
+    return state.cursor < state.script.nodes.length && !state.options.signal?.aborted;
+}
+
+function assertWithinControlFlowGuard(state: SceneExecutionState): void {
+    state.steps += 1;
+    if (state.steps > state.guardLimit) {
+        throw new Error(`Scene ${state.script.id} exceeded its control-flow guard.`);
+    }
+}
+
+async function executeSceneNode(node: SceneNode, state: SceneExecutionState): Promise<void> {
+    const handlers = SCENE_NODE_HANDLERS as unknown as Readonly<Record<string, (
+        value: SceneNode,
+        execution: SceneExecutionState,
+    ) => void | Promise<void>>>;
+    const handler = Object.prototype.hasOwnProperty.call(handlers, node.kind)
+        ? handlers[node.kind]
+        : undefined;
+    if (handler) await handler(node, state);
+}
+
+async function applySceneChoice(node: SceneChoice, state: SceneExecutionState): Promise<void> {
+    const choiceId = await state.options.host.choice(node);
+    const choice = node.options.find(option => option.id === choiceId);
+    if (!choice) throw new Error(`Scene ${state.script.id} host returned unknown choice ${choiceId}.`);
+    state.choices.push(choice.id);
+    if (choice.set) Object.assign(state.flags, choice.set);
+    state.cursor = choice.to
+        ? requireLabel(state.labels, choice.to, state.script.id)
+        : state.cursor + 1;
+}
+
+function advanceScene(state: SceneExecutionState): void {
+    state.cursor += 1;
+}
+
+function sceneSnapshot(state: SceneExecutionState): SceneSnapshot {
+    return {
+        sceneId: state.script.id,
+        revision: state.script.revision,
+        cursor: state.cursor,
+        flags: { ...state.flags },
+        choices: [...state.choices],
+        readLineIds: [...state.readLineIds],
+    };
+}
+
 function validateScene(script: SceneScript): string[] {
     const issues: string[] = [];
+    validateSceneEnvelope(script, issues);
+    const labels = indexSceneNodes(script.nodes, issues);
+    script.nodes.forEach(node => validateSceneNodeReferences(node, labels, issues));
+    if (!script.nodes.some(node => node.kind === 'complete')) issues.push('scene has no complete node');
+    return issues;
+}
+
+function validateSceneEnvelope(script: SceneScript, issues: string[]): void {
     if (!script.id.trim()) issues.push('missing scene id');
     if (!script.revision.trim()) issues.push('missing revision');
     if (!script.nodes.length) issues.push('empty node list');
+}
+
+function indexSceneNodes(nodes: readonly SceneNode[], issues: string[]): ReadonlySet<string> {
     const ids = new Set<string>();
     const labels = new Set<string>();
-    for (const node of script.nodes) {
-        if (ids.has(node.id)) issues.push(`duplicate node id ${node.id}`);
-        ids.add(node.id);
-        if (node.kind === 'label') {
-            if (labels.has(node.name)) issues.push(`duplicate label ${node.name}`);
-            labels.add(node.name);
-        }
-        if (node.kind === 'line' && !node.ja?.trim() && !node.en?.trim()) issues.push(`line ${node.id} has no text`);
-        if (node.kind === 'choice' && !node.options.length) issues.push(`choice ${node.id} has no options`);
+    nodes.forEach(node => indexSceneNode(node, ids, labels, issues));
+    return labels;
+}
+
+function indexSceneNode(
+    node: SceneNode,
+    ids: Set<string>,
+    labels: Set<string>,
+    issues: string[],
+): void {
+    if (ids.has(node.id)) issues.push(`duplicate node id ${node.id}`);
+    ids.add(node.id);
+    indexSceneLabel(node, labels, issues);
+    validateSceneNodeContent(node, issues);
+}
+
+function indexSceneLabel(node: SceneNode, labels: Set<string>, issues: string[]): void {
+    if (node.kind !== 'label') return;
+    if (labels.has(node.name)) issues.push(`duplicate label ${node.name}`);
+    labels.add(node.name);
+}
+
+function validateSceneNodeContent(node: SceneNode, issues: string[]): void {
+    if (node.kind === 'line' && !node.ja?.trim() && !node.en?.trim()) {
+        issues.push(`line ${node.id} has no text`);
     }
-    for (const node of script.nodes) {
-        if ((node.kind === 'jump' || node.kind === 'gate') && !labels.has(node.to)) issues.push(`${node.kind} ${node.id} targets missing label ${node.to}`);
-        if (node.kind === 'choice') {
-            const optionIds = new Set<string>();
-            for (const option of node.options) {
-                if (optionIds.has(option.id)) issues.push(`choice ${node.id} repeats option ${option.id}`);
-                optionIds.add(option.id);
-                if (option.to && !labels.has(option.to)) issues.push(`choice ${node.id} targets missing label ${option.to}`);
-            }
-        }
+    if (node.kind === 'choice' && !node.options.length) {
+        issues.push(`choice ${node.id} has no options`);
     }
-    if (!script.nodes.some(node => node.kind === 'complete')) issues.push('scene has no complete node');
-    return issues;
+}
+
+function validateSceneNodeReferences(
+    node: SceneNode,
+    labels: ReadonlySet<string>,
+    issues: string[],
+): void {
+    validateDirectSceneTarget(node, labels, issues);
+    if (node.kind === 'choice') validateSceneChoiceTargets(node, labels, issues);
+}
+
+function validateDirectSceneTarget(
+    node: SceneNode,
+    labels: ReadonlySet<string>,
+    issues: string[],
+): void {
+    if (node.kind !== 'jump' && node.kind !== 'gate') return;
+    if (!labels.has(node.to)) issues.push(`${node.kind} ${node.id} targets missing label ${node.to}`);
+}
+
+function validateSceneChoiceTargets(
+    node: SceneChoice,
+    labels: ReadonlySet<string>,
+    issues: string[],
+): void {
+    const optionIds = new Set<string>();
+    node.options.forEach(option => validateSceneChoiceOption(node, option, optionIds, labels, issues));
+}
+
+function validateSceneChoiceOption(
+    node: SceneChoice,
+    option: SceneChoiceOption,
+    optionIds: Set<string>,
+    labels: ReadonlySet<string>,
+    issues: string[],
+): void {
+    if (optionIds.has(option.id)) issues.push(`choice ${node.id} repeats option ${option.id}`);
+    optionIds.add(option.id);
+    if (option.to && !labels.has(option.to)) {
+        issues.push(`choice ${node.id} targets missing label ${option.to}`);
+    }
 }
 
 function compatibleSnapshot(script: SceneScript, candidate?: SceneSnapshot): SceneSnapshot {

@@ -131,14 +131,12 @@ describe('complete Lesson 0 content package', () => {
         ]);
         expect(lesson.missions.find(mission => mission.id === 'sound')?.locationId)
             .toBe('location:language-lab');
-        for (const script of lesson.inputScripts.filter(candidate => candidate.kind === 'dialogue')) {
-            for (const speakerId of new Set(script.lines.map(line => line.speakerId))) {
-                const firstName = exactFirstNames.get(speakerId);
-                const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
-                expect(firstName, `confirmed Latin name for ${speakerId}`).toBeDefined();
-                expect(speakerLines.some(line => line.japanese.includes(firstName!))).toBe(true);
-                expect(speakerLines.some(line => line.reading.includes(firstName!))).toBe(true);
-            }
+        for (const { script, speakerId } of dialogueSpeakerEntries(lesson)) {
+            const firstName = exactFirstNames.get(speakerId);
+            const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
+            expect(firstName, `confirmed Latin name for ${speakerId}`).toBeDefined();
+            expect(speakerLines.some(line => line.japanese.includes(firstName!))).toBe(true);
+            expect(speakerLines.some(line => line.reading.includes(firstName!))).toBe(true);
         }
     });
 
@@ -161,11 +159,9 @@ describe('complete Lesson 0 content package', () => {
         );
         expect(authoredDialogue).not.toContain('日本語の学生です');
         expect(authoredDialogue).not.toMatch(/Samさんは先生ですか|先生じゃありません|are you the teacher|not the teacher/iu);
-        for (const script of lesson.inputScripts.filter(candidate => candidate.kind === 'dialogue')) {
-            for (const speakerId of new Set(script.lines.map(line => line.speakerId))) {
-                expect(script.lines.some(line =>
-                    line.speakerId === speakerId && line.japanese.includes('日本語を勉強しています'))).toBe(true);
-            }
+        for (const { script, speakerId } of dialogueSpeakerEntries(lesson)) {
+            expect(script.lines.some(line =>
+                line.speakerId === speakerId && line.japanese.includes('日本語を勉強しています'))).toBe(true);
         }
         const speaking = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts');
         expect(speaking?.lines.find(line => line.speakerId === 'aakash')?.japanese).toContain('これは教科書ですか');
@@ -365,3 +361,12 @@ describe('complete Lesson 0 content package', () => {
         expect(() => validateLessonZeroPackage(candidate)).toThrow(/references unknown activity/i);
     });
 });
+
+type LessonZero = Awaited<ReturnType<typeof loadLessonZeroContent>>['lesson'];
+
+function dialogueSpeakerEntries(lesson: LessonZero) {
+    return lesson.inputScripts
+        .filter(script => script.kind === 'dialogue')
+        .flatMap(script => [...new Set(script.lines.map(line => line.speakerId))]
+            .map(speakerId => ({ script, speakerId })));
+}

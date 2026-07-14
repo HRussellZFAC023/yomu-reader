@@ -48,26 +48,16 @@ const claim: GroundedAnswerConcealmentEvidence = {
 describe('grounded definition registry', () => {
     it('replays a renderer-bound pre-commit DOM audit against registered answers', () => {
         const audit = cleanAudit(claim);
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, audit),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(audit);
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry)).not.toThrow();
     });
 
     it('rejects a self-asserted claim that never audited renderer DOM', () => {
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, {
-                learnerFacingPreCommit: claim.learnerFacingPreCommit,
-                revealPolicy: claim.revealPolicy,
-            }),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact({
+            learnerFacingPreCommit: claim.learnerFacingPreCommit,
+            revealPolicy: claim.revealPolicy,
+        });
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/not an executable DOM audit artifact/i);
@@ -92,12 +82,7 @@ describe('grounded definition registry', () => {
             ...claim,
             auditBinding: { ...claim.auditBinding, ...update },
         };
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, cleanAudit(claim)),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(cleanAudit(claim));
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(staleClaim), registry))
             .toThrow(/stale for the current lesson content|does not match its registered revision/i);
@@ -107,12 +92,7 @@ describe('grounded definition registry', () => {
         const audit = cleanAudit(claim, '正解');
         expect(audit.result).toBe('fail');
         const dishonest = { ...audit, result: 'pass' as const };
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, dishonest),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(dishonest);
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/answer-bearing learner DOM/i);
@@ -124,12 +104,7 @@ describe('grounded definition registry', () => {
             ...audit,
             snapshot: audit.snapshot.replace('</form>', '<span>正解</span></form>'),
         };
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, tampered),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(tampered);
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/findings do not match its stored DOM snapshot/i);
@@ -195,12 +170,7 @@ describe('grounded definition registry', () => {
             ...audit,
             snapshot: audit.snapshot.replace('</form>', `<span>${encoded}解</span></form>`),
         };
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, tampered),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(tampered);
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/findings do not match its stored DOM snapshot/i);
@@ -208,12 +178,7 @@ describe('grounded definition registry', () => {
 
     it('rejects an audit corpus that omits a registered accepted answer', () => {
         const audit = cleanAudit(claim, 'Type your response.', { acceptedAnswers: [] });
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, audit),
-            rendererRecord(),
-            answerBearingRecord({ acceptedAnswers: [] }),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(audit, { acceptedAnswers: [] });
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/omits registered accepted answers/i);
@@ -221,24 +186,14 @@ describe('grounded definition registry', () => {
 
     it('rejects an audit that omits content-derived translation or transcript values', () => {
         const audit = cleanAudit(claim, 'Type your response.', { translations: [], transcripts: [] });
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, audit),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(audit);
 
         expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry))
             .toThrow(/omits content-derived answer-bearing values/i);
     });
 
     it('replays stored evidence without browser globals', () => {
-        const registry = createGroundedDefinitionRegistry([
-            surfaceRecord(claim, cleanAudit(claim)),
-            rendererRecord(),
-            answerBearingRecord(),
-            ...assessmentRecords(),
-        ]);
+        const registry = registryWithSurfaceArtifact(cleanAudit(claim));
         vi.stubGlobal('document', undefined);
         try {
             expect(() => assertGroundedLessonDefinitionsResolve(lessonWithClaim(claim), registry)).not.toThrow();
@@ -360,6 +315,18 @@ function answerBearingRecord(update: Partial<Readonly<{
             ...update,
         },
     };
+}
+
+function registryWithSurfaceArtifact(
+    artifact: unknown,
+    answerUpdate: Parameters<typeof answerBearingRecord>[0] = {},
+) {
+    return createGroundedDefinitionRegistry([
+        surfaceRecord(claim, artifact),
+        rendererRecord(),
+        answerBearingRecord(answerUpdate),
+        ...assessmentRecords(),
+    ]);
 }
 
 function lessonWithClaim(value: GroundedAnswerConcealmentEvidence): GroundedLessonContract {

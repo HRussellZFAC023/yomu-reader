@@ -8172,11 +8172,18 @@ export class NewTabController {
         if (!this.studyStepRendersKanji(session)) return false;
         // A late-resolving enrichment for a PREVIOUS kanji step must not
         // overwrite the trace/prompt after advancing to the next kanji.
-        if (kanji && session.activeStep.kind === 'kanji-doodle' && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
+        if (this.isStaleKanjiStepEnrichment(session, kanji)) return false;
         const study = slots.prompt?.closest<HTMLElement>('[data-newtab-study]')
             ?? slots.answer?.closest<HTMLElement>('[data-newtab-study]');
         if (!study) return true;
         return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
+    }
+
+    private isStaleKanjiStepEnrichment(session: NewTabStudySession, kanji?: string): boolean {
+        return Boolean(kanji
+            && session.activeStep.kind === 'kanji-doodle'
+            && session.activeStep.kanji
+            && session.activeStep.kanji !== kanji);
     }
 
     private applyEnrichedKanjiKeyword(slots: NewTabStudySlots, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
@@ -10505,91 +10512,128 @@ export class NewTabController {
         // straight away instead of attempting a doomed submit. The queue syncs on
         // reconnect (eventually consistent), so no review is ever lost.
         if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-            const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
-            // A deliberately opened offline source never prompts, and neither
-            // does a local-only grade (Academy/dictionary needs no network); a
-            // live provider session that lost the connection asks once per
-            // outage (WaniKani-style).
-            if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
-                const choice = await this.confirmOfflineReviewing(target.root);
-                if (choice === 'stop') return false;
-                if (choice === 'retry') return this.gradeCurrentCardUnlocked(grade, selectedTarget);
-            }
-            if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
-                this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-                this.setStatus(target.root, this.text('offlineGradeReconnect'));
-                if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-                this.advanceAfterGrade(target.root, target.card, grade);
-                return true;
-            } else {
-                this.setStatus(target.root, this.text('couldNotSubmitGrade'));
-            }
-            return false;
+            return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection);
         }
         try {
-            this.setStatus(target.root, this.text('grading'));
-            const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
-            // A landed submit proves the connection is back even if no
-            // 'online' event fired; the next outage must ask again.
-            this.offlineReviewingAccepted = false;
-            this.invalidateReviewSourceCache(target.card);
-            this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-            if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-            // Bunpro review ids belong to the current live session and become
-            // stale as soon as the grade lands. Never reinsert one through the
-            // local undo path; the fresh Bunpro queue is the only source of
-            // any wrap-up/ghost retry. Other providers retain UT-57 undo.
-            this.lastUndoableReview = target.card.reviewSource === 'bunpro-api' || target.card.source === 'bunpro'
-                ? undefined
-                : {
-                    card: target.card,
-                    at: Date.now(),
-                    serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
-                    counted: !isCorrection,
-                };
-            await this.advanceAfterGrade(target.root, target.card, grade);
-            return true;
+            return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection);
         } catch (error) {
-            log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
-            if (target.card.source === 'bunpro' || target.card.reviewSource === 'bunpro-api') {
-                // A lost response is ambiguous: Bunpro may have accepted the
-                // grade and consumed this session review id. Retire the local
-                // card and wait for a fresh live queue before accepting input,
-                // rather than ever retrying the old id.
-                await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
-                return true;
-            }
-            const queueTargets = selectedTarget
-                ? this.offlineGradeTargetsForSelection(target.card, selectedTarget)
-                : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
-            // Only a genuine connection loss raises the dialog, and only when
-            // NOTHING landed: a partial dual-target failure (one provider
-            // already recorded the grade) must not offer Stop (it would strand
-            // the recorded half) or Retry (it would double-grade it) — it
-            // keeps the silent queue + status line, as does a provider failing
-            // while the browser is online (Anki closed). Fresh onLine read via
-            // window: the submit awaited, so the earlier check is stale.
-            if (this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) {
-                const choice = await this.confirmOfflineReviewing(target.root);
-                if (choice === 'stop') return false;
-                if (choice === 'retry') {
-                    // The visible card can change while the dialog is open
-                    // (cross-tab updates); never replay the grade onto it.
-                    const current = this.currentGradeTarget();
-                    if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
-                    return this.gradeCurrentCardUnlocked(grade, selectedTarget);
-                }
-            }
-            if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
-                this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
-                this.setStatus(target.root, this.text('offlineGradeReconnect'));
-                if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-                this.advanceAfterGrade(target.root, target.card, grade);
-                return true;
-            }
-            this.setStatus(target.root, this.text('couldNotSubmitGrade'));
+            return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error);
         }
-        return false;
+    }
+
+    private async gradeOfflineCard(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+    ): Promise<boolean> {
+        const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+        // A deliberately opened offline source never prompts, and neither
+        // does a local-only grade (Academy/dictionary needs no network); a
+        // live provider session that lost the connection asks once per
+        // outage (WaniKani-style).
+        if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
+            const choice = await this.confirmOfflineReviewing(target.root);
+            if (choice === 'stop') return false;
+            if (choice === 'retry') return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        }
+        return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+    }
+
+    private async submitCurrentGrade(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+    ): Promise<boolean> {
+        this.setStatus(target.root, this.text('grading'));
+        const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+        // A landed submit proves the connection is back even if no
+        // 'online' event fired; the next outage must ask again.
+        this.offlineReviewingAccepted = false;
+        this.invalidateReviewSourceCache(target.card);
+        this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
+        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+        // Bunpro review ids belong to the current live session and become
+        // stale as soon as the grade lands. Never reinsert one through the
+        // local undo path; the fresh Bunpro queue is the only source of
+        // any wrap-up/ghost retry. Other providers retain UT-57 undo.
+        this.lastUndoableReview = target.card.reviewSource === 'bunpro-api' || target.card.source === 'bunpro'
+            ? undefined
+            : {
+                card: target.card,
+                at: Date.now(),
+                serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
+                counted: !isCorrection,
+            };
+        await this.advanceAfterGrade(target.root, target.card, grade);
+        return true;
+    }
+
+    private async handleFailedGrade(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+        error: unknown,
+    ): Promise<boolean> {
+        log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
+        if (target.card.source === 'bunpro' || target.card.reviewSource === 'bunpro-api') {
+            // A lost response is ambiguous: Bunpro may have accepted the
+            // grade and consumed this session review id. Retire the local
+            // card and wait for a fresh live queue before accepting input,
+            // rather than ever retrying the old id.
+            await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
+            return true;
+        }
+        const queueTargets = selectedTarget
+            ? this.offlineGradeTargetsForSelection(target.card, selectedTarget)
+            : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+        const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error);
+        if (promptResult !== null) return promptResult;
+        return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+    }
+
+    private async resolveFailedGradePrompt(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        queueTargets: QueuedNewTabGradeTarget[],
+        error: unknown,
+    ): Promise<boolean | null> {
+        // Only a genuine connection loss raises the dialog, and only when
+        // NOTHING landed: a partial dual-target failure (one provider
+        // already recorded the grade) must not offer Stop (it would strand
+        // the recorded half) or Retry (it would double-grade it) — it
+        // keeps the silent queue + status line, as does a provider failing
+        // while the browser is online (Anki closed). Fresh onLine read via
+        // window: the submit awaited, so the earlier check is stale.
+        if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) return null;
+        const choice = await this.confirmOfflineReviewing(target.root);
+        if (choice === 'stop') return false;
+        if (choice !== 'retry') return null;
+        // The visible card can change while the dialog is open
+        // (cross-tab updates); never replay the grade onto it.
+        const current = this.currentGradeTarget();
+        if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
+        return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+    }
+
+    private async queueGradeForLater(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        queueTargets: QueuedNewTabGradeTarget[],
+        isCorrection: boolean,
+    ): Promise<boolean> {
+        if (!queueTargets.length || !await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
+            this.setStatus(target.root, this.text('couldNotSubmitGrade'));
+            return false;
+        }
+        this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
+        this.setStatus(target.root, this.text('offlineGradeReconnect'));
+        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+        this.advanceAfterGrade(target.root, target.card, grade);
+        return true;
     }
 
     // Local grading (Academy SRS) needs no connection, so it never raises the

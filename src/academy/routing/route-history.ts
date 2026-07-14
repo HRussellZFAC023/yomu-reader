@@ -74,42 +74,71 @@ export function transitionAcademyRoute<State extends AcademyRouteHistoryState>(
 ): TransitionedRouteState<State> {
     switch (transition.kind) {
         case 'push':
-            {
-                const next = mergeRouteFrame(state, transition.route, transition.context);
-                if (routeFramesAreEqual(state, next)) return state;
-                return withRouteFrame(
-                    state,
-                    next,
-                    [...state.routeHistory, routeFrame(state)].slice(-MAX_BACK_ROUTES),
-                );
-            }
+            return pushRoute(state, transition.route, transition.context);
         case 'replace':
-            {
-                const next = mergeRouteFrame(state, transition.route, transition.context);
-                if (routeFramesAreEqual(state, next)) return state;
-                return withRouteFrame(state, next, state.routeHistory);
-            }
-        case 'back': {
-            const origin = state.routeHistory.at(-1);
-            if (!origin) return state;
-            return withRouteFrame(state, origin, state.routeHistory.slice(0, -1));
-        }
+            return replaceRoute(state, transition.route, transition.context);
+        case 'back':
+            return backRoute(state);
         case 'reset':
-            {
-                const next = mergeRouteFrame(state, transition.route, transition.context);
-                if (routeFramesAreEqual(state, next) && state.routeHistory.length === 0) return state;
-                return withRouteFrame(state, next, []);
-            }
-        case 'presentation': {
-            const route = transition.mode === 'course' && state.route === 'campus'
-                ? 'class'
-                : transition.mode === 'story' && state.route === 'class'
-                    ? 'campus'
-                    : state.route;
-            if (transition.mode === state.presentationMode && route === state.route) return state;
-            return { ...state, route, presentationMode: transition.mode } as TransitionedRouteState<State>;
-        }
+            return resetRoute(state, transition.route, transition.context);
+        case 'presentation':
+            return presentRoute(state, transition.mode);
     }
+}
+
+function pushRoute<State extends AcademyRouteHistoryState>(
+    state: State,
+    route: AcademyRoute,
+    context: Partial<AcademyRouteContextState> | undefined,
+): TransitionedRouteState<State> {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next)) return state;
+    return withRouteFrame(
+        state,
+        next,
+        [...state.routeHistory, routeFrame(state)].slice(-MAX_BACK_ROUTES),
+    );
+}
+
+function replaceRoute<State extends AcademyRouteHistoryState>(
+    state: State,
+    route: AcademyRoute,
+    context: Partial<AcademyRouteContextState> | undefined,
+): TransitionedRouteState<State> {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next)) return state;
+    return withRouteFrame(state, next, state.routeHistory);
+}
+
+function backRoute<State extends AcademyRouteHistoryState>(state: State): TransitionedRouteState<State> {
+    const origin = state.routeHistory.at(-1);
+    if (!origin) return state;
+    return withRouteFrame(state, origin, state.routeHistory.slice(0, -1));
+}
+
+function resetRoute<State extends AcademyRouteHistoryState>(
+    state: State,
+    route: AcademyRoute,
+    context: Partial<AcademyRouteContextState> | undefined,
+): TransitionedRouteState<State> {
+    const next = mergeRouteFrame(state, route, context);
+    if (routeFramesAreEqual(state, next) && state.routeHistory.length === 0) return state;
+    return withRouteFrame(state, next, []);
+}
+
+function presentRoute<State extends AcademyRouteHistoryState>(
+    state: State,
+    mode: AcademyPresentationMode,
+): TransitionedRouteState<State> {
+    const route = presentationRoute(state.route, mode);
+    if (mode === state.presentationMode && route === state.route) return state;
+    return { ...state, route, presentationMode: mode } as TransitionedRouteState<State>;
+}
+
+function presentationRoute(route: AcademyRoute, mode: AcademyPresentationMode): AcademyRoute {
+    if (mode === 'course' && route === 'campus') return 'class';
+    if (mode === 'story' && route === 'class') return 'campus';
+    return route;
 }
 
 const ROUTE_CONTEXT_KEYS = [

@@ -199,15 +199,28 @@ function validatePdfCountAggregates(pdfPayloads, pdfCensus, violations) {
 
 function validateAudioCensus(status, violations) {
     const audioCensus = status.census?.audio ?? {};
-    if ((audioCensus.probed ?? 0) + (audioCensus.failed ?? 0) !== status.audioPayloads.length) {
+    validateAudioCensusCoverage(audioCensus, status.audioPayloads.length, violations);
+    validateAudioPayloadStates(status.audioPayloads, violations);
+}
+
+function validateAudioCensusCoverage(audioCensus, payloadCount, violations) {
+    const accountedPayloads = (audioCensus.probed ?? 0) + (audioCensus.failed ?? 0);
+    if (accountedPayloads !== payloadCount) {
         violations.push('audio census probed+failed does not cover every unique audio payload');
     }
-    for (const row of status.audioPayloads) {
-        if (!row.status || (row.status !== 'probed' && !row.status.startsWith('failed:'))) {
+}
+
+function validateAudioPayloadStates(audioPayloads, violations) {
+    for (const row of audioPayloads) {
+        if (!audioProbeStateIsValid(row.status)) {
             violations.push(`audio payload ${row.payloadSha256} lacks an explicit probe state`);
             break;
         }
     }
+}
+
+function audioProbeStateIsValid(status) {
+    return Boolean(status) && (status === 'probed' || status.startsWith('failed:'));
 }
 
 function validateMigrationCounts(migration, violations) {

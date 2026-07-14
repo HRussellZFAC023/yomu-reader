@@ -125,7 +125,7 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
 
 // Compounds whose pitch was composed from constituents paint the one
 // underline with each part's own colour (it is one word, but two accents).
-export function applyRenderedWordCompoundPitch(word: HTMLElement, card: JPDBCard): void {
+function applyRenderedWordCompoundPitch(word: HTMLElement, card: JPDBCard): void {
     const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : '';
     if (gradient) {
         word.classList.add('jpdb-reader-pitch-compound');

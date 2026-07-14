@@ -66,6 +66,10 @@ interface ProgressDbRow {
     updated_at: number;
 }
 
+function retainedProgressValue(current: number | undefined, incoming: unknown): number {
+    return Math.max(current ?? 0, incoming as number);
+}
+
 class FakeAcademyDb implements D1Database {
     readonly invites: InviteRow[] = [];
     readonly sessions: SessionRow[] = [];
@@ -131,12 +135,20 @@ class FakeStatement implements D1PreparedStatement {
             this.executeProgressWriteQuery,
             this.executeProgressReadQuery,
         ];
+        const result = this.executeFirstMatching(handlers);
+        if (result !== undefined) return result;
+
+        throw new Error(`FakeAcademyDb has no handler for SQL: ${this.sql}`);
+    }
+
+    private executeFirstMatching(
+        handlers: ReadonlyArray<(this: FakeStatement) => unknown[] | undefined>,
+    ): unknown[] | undefined {
         for (const handler of handlers) {
             const result = handler.call(this);
             if (result !== undefined) return result;
         }
-
-        throw new Error(`FakeAcademyDb has no handler for SQL: ${this.sql}`);
+        return undefined;
     }
 
     private executeRateLimitQuery(): unknown[] | undefined {
@@ -216,130 +228,174 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private executeSessionQuery(): unknown[] | undefined {
-        const db = this.db;
-        const sql = this.sql;
-        const v = this.values;
+        return this.executeFirstMatching([
+            this.insertSessionFromInvite,
+            this.insertSession,
+            this.selectSession,
+            this.revokeSession,
+            this.linkSessionAccount,
+        ]);
+    }
 
-        if (sql.startsWith('INSERT INTO sessions') && sql.includes('SELECT')) {
-            const now = v[2] as number;
-            const invite = db.invites.find(row =>
-                row.code_hash === v[5] && row.uses_remaining > 0 && row.revoked_at === null
-                && (row.expires_at === null || row.expires_at > now));
-            if (!invite) return [];
-            db.sessions.push({
-                token_hash: v[0] as string,
-                public_id: v[1] as string,
-                invite_id: invite.id,
-                created_at: now,
-                expires_at: v[3] as number,
-                offline_resume_until: v[4] as number,
-                revoked_at: null,
-                account_id: null,
-            });
+    private insertSessionFromInvite(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT INTO sessions') || !this.sql.includes('SELECT')) return undefined;
+        const v = this.values;
+        const now = v[2] as number;
+        const invite = this.db.invites.find(row => this.inviteAllowsSession(row, v[5], now));
+        if (!invite) return [];
+        this.db.sessions.push({
+            token_hash: v[0] as string,
+            public_id: v[1] as string,
+            invite_id: invite.id,
+            created_at: now,
+            expires_at: v[3] as number,
+            offline_resume_until: v[4] as number,
+            revoked_at: null,
+            account_id: null,
+        });
+        this.lastChanges = 1;
+        return [{ public_id: v[1] }];
+    }
+
+    private inviteAllowsSession(invite: InviteRow, codeHash: unknown, now: number): boolean {
+        if (invite.code_hash !== codeHash) return false;
+        if (invite.uses_remaining <= 0) return false;
+        if (invite.revoked_at !== null) return false;
+        return this.inviteHasNotExpired(invite, now);
+    }
+
+    private inviteHasNotExpired(invite: InviteRow, now: number): boolean {
+        return invite.expires_at === null || invite.expires_at > now;
+    }
+
+    private insertSession(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT INTO sessions')) return undefined;
+        const v = this.values;
+        this.db.sessions.push({
+            token_hash: v[0] as string,
+            public_id: v[1] as string,
+            invite_id: v[2] as string,
+            created_at: v[3] as number,
+            expires_at: v[4] as number,
+            offline_resume_until: v[5] as number,
+            revoked_at: null,
+            account_id: null,
+        });
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private selectSession(): unknown[] | undefined {
+        if (!this.sql.startsWith('SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions')) return undefined;
+        const v = this.values;
+        const now = v[1] as number;
+        const session = this.db.sessions.find(row => row.token_hash === v[0] && row.revoked_at === null && row.expires_at > now);
+        return session
+            ? [{ public_id: session.public_id, invite_id: session.invite_id, account_id: session.account_id, expires_at: session.expires_at, offline_resume_until: session.offline_resume_until }]
+            : [];
+    }
+
+    private revokeSession(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE sessions SET revoked_at')) return undefined;
+        const session = this.db.sessions.find(row => row.token_hash === this.values[1] && row.revoked_at === null);
+        if (session) {
+            session.revoked_at = this.values[0] as number;
             this.lastChanges = 1;
-            return [{ public_id: v[1] }];
         }
-        if (sql.startsWith('INSERT INTO sessions')) {
-            db.sessions.push({
-                token_hash: v[0] as string,
-                public_id: v[1] as string,
-                invite_id: v[2] as string,
-                created_at: v[3] as number,
-                expires_at: v[4] as number,
-                offline_resume_until: v[5] as number,
-                revoked_at: null,
-                account_id: null,
-            });
+        return [];
+    }
+
+    private linkSessionAccount(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE sessions SET account_id')) return undefined;
+        const session = this.db.sessions.find(row => row.public_id === this.values[1] && row.revoked_at === null);
+        if (session) {
+            session.account_id = this.values[0] as string;
             this.lastChanges = 1;
-            return [];
         }
-        if (sql.startsWith('SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions')) {
-            const now = v[1] as number;
-            const session = db.sessions.find(row => row.token_hash === v[0] && row.revoked_at === null && row.expires_at > now);
-            return session
-                ? [{ public_id: session.public_id, invite_id: session.invite_id, account_id: session.account_id, expires_at: session.expires_at, offline_resume_until: session.offline_resume_until }]
-                : [];
-        }
-        if (sql.startsWith('UPDATE sessions SET revoked_at')) {
-            const session = db.sessions.find(row => row.token_hash === v[1] && row.revoked_at === null);
-            if (session) {
-                session.revoked_at = v[0] as number;
-                this.lastChanges = 1;
-            }
-            return [];
-        }
-        if (sql.startsWith('UPDATE sessions SET account_id')) {
-            const session = db.sessions.find(row => row.public_id === v[1] && row.revoked_at === null);
-            if (session) {
-                session.account_id = v[0] as string;
-                this.lastChanges = 1;
-            }
-            return [];
-        }
-        return undefined;
+        return [];
     }
 
     private executePurchaseQuery(): unknown[] | undefined {
+        return this.executeFirstMatching([
+            this.insertPurchase,
+            this.updatePurchaseCheckoutSession,
+            this.insertWebhookEvent,
+            this.markPurchasePaid,
+            this.updatePurchaseInvite,
+            this.selectPurchaseForClaim,
+        ]);
+    }
+
+    private insertPurchase(): unknown[] | undefined {
         const db = this.db;
         const sql = this.sql;
         const v = this.values;
+        if (!sql.startsWith('INSERT INTO purchases')) return undefined;
+        db.purchases.push({
+            id: v[0] as string,
+            claim_hash: v[1] as string,
+            checkout_session_id: null,
+            amount_pence: v[2] as number,
+            status: 'pending',
+            created_at: v[3] as number,
+            fulfilled_at: null,
+            invite_id: null,
+        });
+        this.lastChanges = 1;
+        return [];
+    }
 
-        if (sql.startsWith('INSERT INTO purchases')) {
-            db.purchases.push({
-                id: v[0] as string,
-                claim_hash: v[1] as string,
-                checkout_session_id: null,
-                amount_pence: v[2] as number,
-                status: 'pending',
-                created_at: v[3] as number,
-                fulfilled_at: null,
-                invite_id: null,
-            });
+    private updatePurchaseCheckoutSession(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE purchases SET checkout_session_id')) return undefined;
+        const purchase = this.db.purchases.find(row => row.id === this.values[1] && row.checkout_session_id === null);
+        if (purchase) {
+            purchase.checkout_session_id = this.values[0] as string;
             this.lastChanges = 1;
-            return [];
         }
-        if (sql.startsWith('UPDATE purchases SET checkout_session_id')) {
-            const purchase = db.purchases.find(row => row.id === v[1] && row.checkout_session_id === null);
-            if (purchase) {
-                purchase.checkout_session_id = v[0] as string;
-                this.lastChanges = 1;
-            }
-            return [];
-        }
-        if (sql.startsWith('INSERT OR IGNORE INTO webhook_events')) {
-            const eventId = v[0] as string;
-            if (db.webhookEvents.has(eventId)) return [];
-            db.webhookEvents.add(eventId);
+        return [];
+    }
+
+    private insertWebhookEvent(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT OR IGNORE INTO webhook_events')) return undefined;
+        const eventId = this.values[0] as string;
+        if (this.db.webhookEvents.has(eventId)) return [];
+        this.db.webhookEvents.add(eventId);
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private markPurchasePaid(): unknown[] | undefined {
+        if (!this.sql.startsWith("UPDATE purchases SET status = 'paid'")) return undefined;
+        const v = this.values;
+        const purchase = this.db.purchases.find(row =>
+            row.id === v[1]
+            && row.checkout_session_id === v[2]
+            && row.amount_pence === v[3]
+            && (row.status === 'pending' || row.status === 'paid'));
+        if (!purchase) return [];
+        purchase.status = 'paid';
+        purchase.fulfilled_at ??= v[0] as number;
+        this.lastChanges = 1;
+        return [{ id: purchase.id }];
+    }
+
+    private updatePurchaseInvite(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE purchases SET invite_id')) return undefined;
+        const purchase = this.db.purchases.find(row => row.id === this.values[1]);
+        if (purchase) {
+            purchase.invite_id ??= this.values[0] as string;
             this.lastChanges = 1;
-            return [];
         }
-        if (sql.startsWith("UPDATE purchases SET status = 'paid'")) {
-            const purchase = db.purchases.find(row =>
-                row.id === v[1]
-                && row.checkout_session_id === v[2]
-                && row.amount_pence === v[3]
-                && (row.status === 'pending' || row.status === 'paid'));
-            if (!purchase) return [];
-            purchase.status = 'paid';
-            purchase.fulfilled_at ??= v[0] as number;
-            this.lastChanges = 1;
-            return [{ id: purchase.id }];
-        }
-        if (sql.startsWith('UPDATE purchases SET invite_id')) {
-            const purchase = db.purchases.find(row => row.id === v[1]);
-            if (purchase) {
-                purchase.invite_id ??= v[0] as string;
-                this.lastChanges = 1;
-            }
-            return [];
-        }
-        if (sql.startsWith('SELECT id, status, invite_id FROM purchases')) {
-            const cutoff = v[2] as number;
-            const purchase = db.purchases.find(row =>
-                row.claim_hash === v[0] && row.checkout_session_id === v[1] && row.created_at > cutoff);
-            return purchase ? [{ id: purchase.id, status: purchase.status, invite_id: purchase.invite_id }] : [];
-        }
-        return undefined;
+        return [];
+    }
+
+    private selectPurchaseForClaim(): unknown[] | undefined {
+        if (!this.sql.startsWith('SELECT id, status, invite_id FROM purchases')) return undefined;
+        const v = this.values;
+        const cutoff = v[2] as number;
+        const purchase = this.db.purchases.find(row =>
+            row.claim_hash === v[0] && row.checkout_session_id === v[1] && row.created_at > cutoff);
+        return purchase ? [{ id: purchase.id, status: purchase.status, invite_id: purchase.invite_id }] : [];
     }
 
     private executeOauthQuery(): unknown[] | undefined {
@@ -419,96 +475,126 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private executeClassQuery(): unknown[] | undefined {
-        const db = this.db;
-        const sql = this.sql;
-        const v = this.values;
+        return this.executeFirstMatching([
+            this.insertInvitedClassMembership,
+            this.selectAccountClasses,
+            this.upsertClass,
+            this.updateClassMembershipRole,
+            this.selectClassMembership,
+            this.updateClassBoardVisibility,
+        ]);
+    }
 
-        if (sql.startsWith('INSERT OR IGNORE INTO class_memberships') && sql.includes('SELECT i.class_id')) {
-            const session = db.sessions.find(row => row.public_id === v[1]);
-            const invite = session ? db.invites.find(row => row.id === session.invite_id) : undefined;
-            if (!invite?.class_id || db.memberships.some(row => row.class_id === invite.class_id && row.account_id === v[0])) return [];
-            db.memberships.push({ class_id: invite.class_id, account_id: v[0] as string, role: 'learner', board_hidden: 0, joined_at: v[2] as number });
-            this.lastChanges = 1;
-            return [];
+    private insertInvitedClassMembership(): unknown[] | undefined {
+        const sql = this.sql;
+        if (!sql.startsWith('INSERT OR IGNORE INTO class_memberships') || !sql.includes('SELECT i.class_id')) return undefined;
+        const v = this.values;
+        const session = this.db.sessions.find(row => row.public_id === v[1]);
+        const invite = session ? this.db.invites.find(row => row.id === session.invite_id) : undefined;
+        if (!invite?.class_id || this.db.memberships.some(row => row.class_id === invite.class_id && row.account_id === v[0])) return [];
+        this.db.memberships.push({ class_id: invite.class_id, account_id: v[0] as string, role: 'learner', board_hidden: 0, joined_at: v[2] as number });
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private selectAccountClasses(): unknown[] | undefined {
+        if (!this.sql.startsWith('SELECT m.class_id, c.name, m.role, m.board_hidden FROM class_memberships')) return undefined;
+        return this.db.memberships.filter(row => row.account_id === this.values[0]).flatMap(row => {
+            const klass = this.db.classes.find(item => item.id === row.class_id && item.archived_at === null);
+            return klass ? [{ class_id: row.class_id, name: klass.name, role: row.role, board_hidden: row.board_hidden }] : [];
+        });
+    }
+
+    private upsertClass(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT INTO classes')) return undefined;
+        const v = this.values;
+        const existing = this.db.classes.find(row => row.id === v[0]);
+        if (existing) {
+            existing.name = v[1] as string;
+            existing.archived_at = null;
+        } else {
+            this.db.classes.push({ id: v[0] as string, name: v[1] as string, created_at: v[2] as number, archived_at: null });
         }
-        if (sql.startsWith('SELECT m.class_id, c.name, m.role, m.board_hidden FROM class_memberships')) {
-            return db.memberships.filter(row => row.account_id === v[0]).flatMap(row => {
-                const klass = db.classes.find(item => item.id === row.class_id && item.archived_at === null);
-                return klass ? [{ class_id: row.class_id, name: klass.name, role: row.role, board_hidden: row.board_hidden }] : [];
-            });
-        }
-        if (sql.startsWith('INSERT INTO classes')) {
-            const existing = db.classes.find(row => row.id === v[0]);
-            if (existing) {
-                existing.name = v[1] as string;
-                existing.archived_at = null;
-            } else {
-                db.classes.push({ id: v[0] as string, name: v[1] as string, created_at: v[2] as number, archived_at: null });
-            }
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('UPDATE class_memberships SET role')) {
-            const account = db.accounts.find(row => row.public_id === v[2]);
-            const membership = account ? db.memberships.find(row => row.class_id === v[1] && row.account_id === account.id) : undefined;
-            if (!membership) return [];
-            membership.role = v[0] as 'learner' | 'sensei';
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('SELECT m.role, m.board_hidden FROM class_memberships')) {
-            const membership = db.memberships.find(row => row.class_id === v[0] && row.account_id === v[1]);
-            const klass = membership ? db.classes.find(row => row.id === membership.class_id && row.archived_at === null) : undefined;
-            return membership && klass ? [{ role: membership.role, board_hidden: membership.board_hidden }] : [];
-        }
-        if (sql.startsWith('UPDATE class_memberships SET board_hidden')) {
-            const account = db.accounts.find(row => row.public_id === v[3]);
-            const membership = account ? db.memberships.find(row => row.class_id === v[1] && row.account_id === account.id && row.role === v[2]) : undefined;
-            if (!membership) return [];
-            membership.board_hidden = v[0] as number;
-            this.lastChanges = 1;
-            return [];
-        }
-        return undefined;
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private updateClassMembershipRole(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE class_memberships SET role')) return undefined;
+        const v = this.values;
+        const account = this.db.accounts.find(row => row.public_id === v[2]);
+        const membership = account ? this.db.memberships.find(row => row.class_id === v[1] && row.account_id === account.id) : undefined;
+        if (!membership) return [];
+        membership.role = v[0] as 'learner' | 'sensei';
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private selectClassMembership(): unknown[] | undefined {
+        if (!this.sql.startsWith('SELECT m.role, m.board_hidden FROM class_memberships')) return undefined;
+        const v = this.values;
+        const membership = this.db.memberships.find(row => row.class_id === v[0] && row.account_id === v[1]);
+        const klass = membership ? this.db.classes.find(row => row.id === membership.class_id && row.archived_at === null) : undefined;
+        return membership && klass ? [{ role: membership.role, board_hidden: membership.board_hidden }] : [];
+    }
+
+    private updateClassBoardVisibility(): unknown[] | undefined {
+        if (!this.sql.startsWith('UPDATE class_memberships SET board_hidden')) return undefined;
+        const v = this.values;
+        const account = this.db.accounts.find(row => row.public_id === v[3]);
+        const membership = account ? this.db.memberships.find(row => row.class_id === v[1] && row.account_id === account.id && row.role === v[2]) : undefined;
+        if (!membership) return [];
+        membership.board_hidden = v[0] as number;
+        this.lastChanges = 1;
+        return [];
     }
 
     private executeProgressWriteQuery(): unknown[] | undefined {
-        const db = this.db;
-        const sql = this.sql;
-        const v = this.values;
+        return this.executeFirstMatching([
+            this.insertProgressImport,
+            this.insertStudyDay,
+            this.upsertProgressSnapshot,
+        ]);
+    }
 
-        if (sql.startsWith('INSERT OR IGNORE INTO progress_imports')) {
-            const key = `${v[0]}|${v[1]}`;
-            if (db.progressImports.has(key)) return [];
-            db.progressImports.set(key, { guard: v[2] as string, received_at: v[3] as number });
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('INSERT OR IGNORE INTO study_days')) {
-            const imported = db.progressImports.get(`${v[0]}|${v[2]}`);
-            if (!imported || imported.guard !== v[3]) return [];
-            const key = `${v[0]}|${v[1]}`;
-            if (db.studyDays.has(key)) return [];
-            db.studyDays.add(key);
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('INSERT INTO progress_snapshots')) {
-            const imported = db.progressImports.get(`${v[0]}|${v[7]}`);
-            if (!imported || imported.guard !== v[8]) return [];
-            const current = db.progress.get(v[0] as string);
-            db.progress.set(v[0] as string, {
-                known_word_count: Math.max(current?.known_word_count ?? 0, v[1] as number),
-                reviews_completed: Math.max(current?.reviews_completed ?? 0, v[2] as number),
-                reviews_due: v[3] as number,
-                lessons_completed: Math.max(current?.lessons_completed ?? 0, v[4] as number),
-                lessons_total: Math.max(current?.lessons_total ?? 0, v[5] as number),
-                updated_at: v[6] as number,
-            });
-            this.lastChanges = 1;
-            return [];
-        }
-        return undefined;
+    private insertProgressImport(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT OR IGNORE INTO progress_imports')) return undefined;
+        const v = this.values;
+        const key = `${v[0]}|${v[1]}`;
+        if (this.db.progressImports.has(key)) return [];
+        this.db.progressImports.set(key, { guard: v[2] as string, received_at: v[3] as number });
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private insertStudyDay(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT OR IGNORE INTO study_days')) return undefined;
+        const v = this.values;
+        const imported = this.db.progressImports.get(`${v[0]}|${v[2]}`);
+        if (!imported || imported.guard !== v[3]) return [];
+        const key = `${v[0]}|${v[1]}`;
+        if (this.db.studyDays.has(key)) return [];
+        this.db.studyDays.add(key);
+        this.lastChanges = 1;
+        return [];
+    }
+
+    private upsertProgressSnapshot(): unknown[] | undefined {
+        if (!this.sql.startsWith('INSERT INTO progress_snapshots')) return undefined;
+        const v = this.values;
+        const imported = this.db.progressImports.get(`${v[0]}|${v[7]}`);
+        if (!imported || imported.guard !== v[8]) return [];
+        const current = this.db.progress.get(v[0] as string);
+        this.db.progress.set(v[0] as string, {
+            known_word_count: retainedProgressValue(current?.known_word_count, v[1]),
+            reviews_completed: retainedProgressValue(current?.reviews_completed, v[2]),
+            reviews_due: v[3] as number,
+            lessons_completed: retainedProgressValue(current?.lessons_completed, v[4]),
+            lessons_total: retainedProgressValue(current?.lessons_total, v[5]),
+            updated_at: v[6] as number,
+        });
+        this.lastChanges = 1;
+        return [];
     }
 
     private executeProgressReadQuery(): unknown[] | undefined {

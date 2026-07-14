@@ -98,65 +98,133 @@ function assertProofSet(
     label: string,
     context: Readonly<{ lessonId: string; contentRevision: string; subjectId: string }>,
 ): void {
+    assertCurriculumProof(proofs, registry);
+    assertInstructionProof(proofs, registry);
+    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
+    assertAnswerConcealmentProof(proofs, registry, label, context, registeredAnswers);
+    assertRepairProof(proofs, registry);
+    assertLearnerEvidenceProof(proofs, registry, label);
+}
+
+function assertCurriculumProof(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+): void {
     if (proofs.curriculum.state === 'ready') {
         for (const conceptId of proofs.curriculum.evidence.conceptIds) registry.resolveId(conceptId, 'concept');
         for (const outcomeId of proofs.curriculum.evidence.outcomeIds) registry.resolveId(outcomeId, 'outcome');
-        const prerequisites = proofs.curriculum.evidence.prerequisites;
-        if (prerequisites.kind === 'resolved') {
-            for (const conceptId of prerequisites.conceptIds) registry.resolveId(conceptId, 'concept');
-            registry.resolve(prerequisites.resolution, 'prerequisite-resolution');
-        }
+        assertPrerequisiteProof(proofs.curriculum.evidence.prerequisites, registry);
     }
+}
+
+function assertPrerequisiteProof(
+    prerequisites: Extract<GroundingProofSet['curriculum'], { state: 'ready' }>['evidence']['prerequisites'],
+    registry: GroundedDefinitionRegistry,
+): void {
+    if (prerequisites.kind !== 'resolved') return;
+    for (const conceptId of prerequisites.conceptIds) registry.resolveId(conceptId, 'concept');
+    registry.resolve(prerequisites.resolution, 'prerequisite-resolution');
+}
+
+function assertInstructionProof(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+): void {
     if (proofs.instruction.state === 'ready') {
         for (const coverage of proofs.instruction.evidence.conceptCoverage) {
             coverage.explanationRefs.forEach(ref => registry.resolve(ref, 'explanation'));
             coverage.workedExampleRefs.forEach(ref => registry.resolve(ref, 'worked-example'));
         }
     }
-    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
-    if (proofs.answerConcealment.state === 'ready') {
-        const claim = proofs.answerConcealment.evidence;
-        const audit = registry.resolve(claim.surfaceAudit, 'surface-audit');
-        const renderer = registry.resolve(claim.auditBinding.renderer, 'surface-renderer');
-        const answerBearingContent = registry.resolve(claim.answerBearingContent, 'answer-bearing-content');
-        if (claim.auditBinding.contentRevision !== context.contentRevision) {
-            throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
-        }
-        if (claim.answerBearingContent.revision !== context.contentRevision) {
-            throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
-        }
-        if (!registeredAnswers) {
-            throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
-        }
-        const rendererValue = renderer.value as Readonly<Record<string, unknown>>;
-        if (!rendererValue || typeof rendererValue !== 'object'
-            || rendererValue.surfaceId !== claim.auditBinding.surfaceId) {
-            throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
-        }
-        const forbiddenValues = answerBearingValues(answerBearingContent.value);
-        assertGroundedAnswerConcealmentAudit(audit.value, {
-            lessonId: context.lessonId,
-            subjectId: context.subjectId,
-            binding: claim.auditBinding,
-            forbiddenValues,
-        }, registeredAnswers);
+}
+
+function assertAnswerConcealmentProof(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+    label: string,
+    context: Readonly<{ lessonId: string; contentRevision: string; subjectId: string }>,
+    registeredAnswers: Readonly<{ acceptedAnswers: readonly string[]; modelAnswers: readonly string[] }> | undefined,
+): void {
+    if (proofs.answerConcealment.state !== 'ready') return;
+    const claim = proofs.answerConcealment.evidence;
+    const audit = registry.resolve(claim.surfaceAudit, 'surface-audit');
+    const renderer = registry.resolve(claim.auditBinding.renderer, 'surface-renderer');
+    const answerBearingContent = registry.resolve(claim.answerBearingContent, 'answer-bearing-content');
+    assertAnswerConcealmentRevisions(label, claim, context.contentRevision);
+    const answers = requireRegisteredAnswers(label, registeredAnswers);
+    assertRendererOwnsSurface(label, renderer.value, claim.auditBinding.surfaceId);
+    assertGroundedAnswerConcealmentAudit(audit.value, {
+        lessonId: context.lessonId,
+        subjectId: context.subjectId,
+        binding: claim.auditBinding,
+        forbiddenValues: answerBearingValues(answerBearingContent.value),
+    }, answers);
+}
+
+function assertAnswerConcealmentRevisions(
+    label: string,
+    claim: Extract<GroundingProofSet['answerConcealment'], { state: 'ready' }>['evidence'],
+    contentRevision: string,
+): void {
+    if (claim.auditBinding.contentRevision !== contentRevision) {
+        throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
     }
+    if (claim.answerBearingContent.revision !== contentRevision) {
+        throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
+    }
+}
+
+function requireRegisteredAnswers(
+    label: string,
+    registeredAnswers: Readonly<{ acceptedAnswers: readonly string[]; modelAnswers: readonly string[] }> | undefined,
+): Readonly<{ acceptedAnswers: readonly string[]; modelAnswers: readonly string[] }> {
+    if (!registeredAnswers) {
+        throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
+    }
+    return registeredAnswers;
+}
+
+function assertRendererOwnsSurface(label: string, value: unknown, surfaceId: string): void {
+    const renderer = value as Readonly<Record<string, unknown>>;
+    if (!renderer || typeof renderer !== 'object' || renderer.surfaceId !== surfaceId) {
+        throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
+    }
+}
+
+function assertRepairProof(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+): void {
     if (proofs.repair.state === 'ready') {
         proofs.repair.evidence.errorTagIds.forEach(id => registry.resolveId(id, 'error-tag'));
         proofs.repair.evidence.feedbackIds.forEach(id => registry.resolveId(id, 'feedback'));
         proofs.repair.evidence.nearbyExampleIds.forEach(id => registry.resolveId(id, 'nearby-example'));
     }
+}
+
+function assertLearnerEvidenceProof(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+    label: string,
+): void {
     if (proofs.learnerEvidence.state === 'ready') {
         for (const item of proofs.learnerEvidence.evidence.reviewItems) {
             const seed = registry.resolveId(item.seedId, 'review-seed');
             const value = seed.value as Readonly<Record<string, unknown>>;
-            if (value.conceptId !== item.conceptId
-                || value.expressionKey !== item.expressionKey
-                || value.readingKey !== item.readingKey) {
+            if (!reviewSeedMatches(value, item)) {
                 throw new TypeError(`${label} review seed ${item.seedId} does not match its canonical Yomu key.`);
             }
         }
     }
+}
+
+function reviewSeedMatches(
+    value: Readonly<Record<string, unknown>>,
+    item: Extract<GroundingProofSet['learnerEvidence'], { state: 'ready' }>['evidence']['reviewItems'][number],
+): boolean {
+    return value.conceptId === item.conceptId
+        && value.expressionKey === item.expressionKey
+        && value.readingKey === item.readingKey;
 }
 
 function resolveAssessmentDefinitions(
@@ -243,16 +311,36 @@ function resolveId(
 
 function validateRecord(definition: GroundedDefinitionRecord): void {
     if (!definition || typeof definition !== 'object') throw new TypeError('Grounded definition must be an object.');
+    validateDefinitionId(definition);
+    validateDefinitionRegistry(definition);
+    validateDefinitionRevision(definition);
+    validateDefinitionDigest(definition);
+    validateDefinitionSource(definition);
+}
+
+function validateDefinitionId(definition: GroundedDefinitionRecord): void {
     if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(definition.ref.id)) {
         throw new TypeError('Grounded definition needs a stable namespaced id.');
     }
+}
+
+function validateDefinitionRegistry(definition: GroundedDefinitionRecord): void {
     if (definition.ref.registry !== 'academy-content' && definition.ref.registry !== 'activity-plugin') {
         throw new TypeError(`Grounded definition ${definition.ref.id} has an invalid registry.`);
     }
+}
+
+function validateDefinitionRevision(definition: GroundedDefinitionRecord): void {
     if (!definition.ref.revision.trim()) throw new TypeError(`Grounded definition ${definition.ref.id} needs a revision.`);
+}
+
+function validateDefinitionDigest(definition: GroundedDefinitionRecord): void {
     if (!/^[a-f0-9]{64}$/u.test(definition.ref.sha256)) {
         throw new TypeError(`Grounded definition ${definition.ref.id} needs a SHA-256.`);
     }
+}
+
+function validateDefinitionSource(definition: GroundedDefinitionRecord): void {
     if (!definition.source.contentId.trim() || !definition.source.locator.trim()) {
         throw new TypeError(`Grounded definition ${definition.ref.id} needs a source locator.`);
     }

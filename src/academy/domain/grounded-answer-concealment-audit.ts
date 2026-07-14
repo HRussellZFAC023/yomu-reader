@@ -214,16 +214,24 @@ function captureSnapshot(root: HTMLElement): string {
     for (const [index, source] of sourceControls.entries()) {
         const target = clonedControls[index];
         if (!target) throw new TypeError('Surface audit could not capture live form state.');
-        if (source instanceof HTMLInputElement && target instanceof HTMLInputElement) {
-            target.setAttribute('value', source.value);
-            if (source.checked) target.setAttribute('checked', '');
-        } else if (source instanceof HTMLTextAreaElement && target instanceof HTMLTextAreaElement) {
-            target.textContent = source.value;
-        } else if (source instanceof HTMLOptionElement && target instanceof HTMLOptionElement && source.selected) {
-            target.setAttribute('selected', '');
-        }
+        captureLiveControlState(source, target);
     }
     return clone.outerHTML;
+}
+
+function captureLiveControlState(source: HTMLElement, target: HTMLElement): void {
+    if (source instanceof HTMLInputElement && target instanceof HTMLInputElement) {
+        target.setAttribute('value', source.value);
+        if (source.checked) target.setAttribute('checked', '');
+        return;
+    }
+    if (source instanceof HTMLTextAreaElement && target instanceof HTMLTextAreaElement) {
+        target.textContent = source.value;
+        return;
+    }
+    if (source instanceof HTMLOptionElement && target instanceof HTMLOptionElement && source.selected) {
+        target.setAttribute('selected', '');
+    }
 }
 
 function assertInspectableSurface(root: HTMLElement): void {

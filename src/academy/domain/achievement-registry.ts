@@ -106,43 +106,102 @@ export function projectAchievementTiers(
     }));
 }
 
+type AchievementValueProjector = (
+    events: readonly LearnerEvent[],
+    criterion: AchievementCriterion,
+) => number;
+
+const ACHIEVEMENT_VALUE_PROJECTORS: Readonly<Record<AchievementEvidenceSource, AchievementValueProjector>> = {
+    learning: learningAchievementValue,
+    review: reviewAchievementValue,
+    collection: (events, criterion) => collectionValue(events, criterion.measure),
+    day: dayAchievementValue,
+    scene: sceneAchievementValue,
+    relationship: relationshipAchievementValue,
+};
+
 function achievementValue(criterion: AchievementCriterion, events: readonly LearnerEvent[]): number {
-    if (criterion.source === 'learning') {
-        const relevant = events.filter((event): event is Extract<LearnerEvent, { kind: 'learning-evidence-recorded' }> => {
-            if (event.kind !== 'learning-evidence-recorded') return false;
-            if (criterion.skill && event.skill !== criterion.skill) return false;
-            if (criterion.action && event.action !== criterion.action) return false;
-            if (criterion.outcome && event.outcome !== criterion.outcome) return false;
-            if (criterion.independent !== undefined && event.independent !== criterion.independent) return false;
-            if (criterion.modeId && event.modeId !== criterion.modeId) return false;
-            if (criterion.conceptPrefix && !event.conceptIds.some(id => id.startsWith(criterion.conceptPrefix ?? ''))) return false;
-            return true;
-        });
-        return measured(relevant, criterion.measure);
+    const projectors = ACHIEVEMENT_VALUE_PROJECTORS as Readonly<Record<string, AchievementValueProjector>>;
+    const projector = projectors[criterion.source];
+    return projector ? projector(events, criterion) : 0;
+}
+
+function learningAchievementValue(events: readonly LearnerEvent[], criterion: AchievementCriterion): number {
+    const relevant = events.filter(isLearningEvidence).filter(event => learningEvidenceMatches(event, criterion));
+    return measured(relevant, criterion.measure);
+}
+
+function isLearningEvidence(event: LearnerEvent): event is Extract<LearnerEvent, { kind: 'learning-evidence-recorded' }> {
+    return event.kind === 'learning-evidence-recorded';
+}
+
+function learningEvidenceMatches(
+    event: Extract<LearnerEvent, { kind: 'learning-evidence-recorded' }>,
+    criterion: AchievementCriterion,
+): boolean {
+    return matchesOptional(criterion.skill, event.skill)
+        && matchesOptional(criterion.action, event.action)
+        && matchesOptional(criterion.outcome, event.outcome)
+        && matchesOptional(criterion.independent, event.independent)
+        && matchesOptional(criterion.modeId, event.modeId)
+        && matchesConceptPrefix(criterion.conceptPrefix, event.conceptIds);
+}
+
+function matchesOptional<Value>(expected: Value | undefined, actual: Value): boolean {
+    return expected === undefined || actual === expected;
+}
+
+function matchesConceptPrefix(prefix: string | undefined, conceptIds: readonly string[]): boolean {
+    if (!prefix) return true;
+    return conceptIds.some(id => id.startsWith(prefix));
+}
+
+function reviewAchievementValue(events: readonly LearnerEvent[], criterion: AchievementCriterion): number {
+    const reviews = events.filter((event): event is Extract<LearnerEvent, { kind: 'review-rated' }> =>
+        event.kind === 'review-rated');
+    return measured(reviews.filter(event => matchesOptional(criterion.rating, event.rating)), criterion.measure);
+}
+
+function dayAchievementValue(events: readonly LearnerEvent[], criterion: AchievementCriterion): number {
+    const days = events.filter((event): event is Extract<LearnerEvent, { kind: 'academy-day-closed' }> =>
+        event.kind === 'academy-day-closed');
+    if (criterion.measure === 'optional-activities') {
+        return days.reduce((sum, day) => sum + day.optionalActivityIds.length, 0);
     }
-    if (criterion.source === 'review') {
-        const relevant = events.filter((event): event is Extract<LearnerEvent, { kind: 'review-rated' }> =>
-            event.kind === 'review-rated' && (!criterion.rating || event.rating === criterion.rating));
-        return measured(relevant, criterion.measure);
+    if (criterion.measure === 'count') return new Set(days.map(day => day.dayId)).size;
+    return measured(days, criterion.measure);
+}
+
+function sceneAchievementValue(events: readonly LearnerEvent[], criterion: AchievementCriterion): number {
+    const scenes = events.filter((event): event is Extract<LearnerEvent, { kind: 'scene-completed' }> =>
+        event.kind === 'scene-completed')
+        .filter(event => matchesScenePrefix(criterion.sceneIdPrefix, event.sceneId));
+    if (criterion.measure === 'count') return new Set(scenes.map(scene => scene.sceneId)).size;
+    return measured(scenes, criterion.measure);
+}
+
+function matchesScenePrefix(prefix: string | undefined, sceneId: string): boolean {
+    return !prefix || sceneId.startsWith(prefix);
+}
+
+function relationshipAchievementValue(events: readonly LearnerEvent[], criterion: AchievementCriterion): number {
+    const chapters = events.filter((event): event is Extract<LearnerEvent, { kind: 'relationship-chapter-unlocked' }> =>
+        event.kind === 'relationship-chapter-unlocked')
+        .filter(event => matchesOptional(criterion.majorTurn, event.majorTurn));
+    return relationshipMeasureValue(chapters, criterion.measure);
+}
+
+function relationshipMeasureValue(
+    chapters: readonly Extract<LearnerEvent, { kind: 'relationship-chapter-unlocked' }>[],
+    measure: AchievementMeasure,
+): number {
+    if (measure === 'relationship-chapters') {
+        return new Set(chapters.map(event => `${event.characterId}:${event.chapter}`)).size;
     }
-    if (criterion.source === 'collection') return collectionValue(events, criterion.measure);
-    if (criterion.source === 'day') {
-        const days = events.filter((event): event is Extract<LearnerEvent, { kind: 'academy-day-closed' }> => event.kind === 'academy-day-closed');
-        if (criterion.measure === 'optional-activities') return days.reduce((sum, day) => sum + day.optionalActivityIds.length, 0);
-        if (criterion.measure === 'count') return new Set(days.map(day => day.dayId)).size;
-        return measured(days, criterion.measure);
-    }
-    if (criterion.source === 'scene') {
-        const scenes = events.filter((event): event is Extract<LearnerEvent, { kind: 'scene-completed' }> =>
-            event.kind === 'scene-completed' && (!criterion.sceneIdPrefix || event.sceneId.startsWith(criterion.sceneIdPrefix)));
-        if (criterion.measure === 'count') return new Set(scenes.map(scene => scene.sceneId)).size;
-        return measured(scenes, criterion.measure);
-    }
-    if (criterion.source === 'relationship') {
-        const chapters = events.filter((event): event is Extract<LearnerEvent, { kind: 'relationship-chapter-unlocked' }> =>
-            event.kind === 'relationship-chapter-unlocked' && (!criterion.majorTurn || event.majorTurn === criterion.majorTurn));
-        if (criterion.measure === 'relationship-chapters') return new Set(chapters.map(event => `${event.characterId}:${event.chapter}`)).size;
-        if (criterion.measure === 'relationship-turns') return new Set(chapters.flatMap(event => event.majorTurn ? [`${event.characterId}:${event.majorTurn}`] : [])).size;
+    if (measure === 'relationship-turns') {
+        return new Set(chapters.flatMap(event => event.majorTurn
+            ? [`${event.characterId}:${event.majorTurn}`]
+            : [])).size;
     }
     return 0;
 }
@@ -197,24 +256,61 @@ function validateCriterionCompatibility(id: string, criterion: AchievementCriter
 }
 
 function validateCriterionSourceFilters(id: string, criterion: AchievementCriterion): void {
-    if (criterion.source !== 'learning' && (criterion.skill || criterion.action || criterion.outcome || criterion.independent !== undefined || criterion.modeId || criterion.conceptPrefix)) {
+    if (criterion.source !== 'learning' && hasLearningCriterionFilter(criterion)) {
         throw new TypeError(`${id} has learning filters on non-learning evidence.`);
     }
-    if (criterion.source !== 'scene' && criterion.sceneIdPrefix) throw new TypeError(`${id} has a scene filter on non-scene evidence.`);
-    if (criterion.source !== 'relationship' && criterion.majorTurn) throw new TypeError(`${id} has a relationship filter on unrelated evidence.`);
-    if (criterion.source !== 'review' && criterion.rating) throw new TypeError(`${id} has a review rating on non-review evidence.`);
+    validateSourceSpecificFilter(id, criterion.source, 'scene', criterion.sceneIdPrefix, 'scene filter on non-scene evidence');
+    validateSourceSpecificFilter(id, criterion.source, 'relationship', criterion.majorTurn, 'relationship filter on unrelated evidence');
+    validateSourceSpecificFilter(id, criterion.source, 'review', criterion.rating, 'review rating on non-review evidence');
+}
+
+function hasLearningCriterionFilter(criterion: AchievementCriterion): boolean {
+    return [
+        criterion.skill,
+        criterion.action,
+        criterion.outcome,
+        criterion.independent,
+        criterion.modeId,
+        criterion.conceptPrefix,
+    ].some(value => value !== undefined);
+}
+
+function validateSourceSpecificFilter(
+    id: string,
+    source: AchievementEvidenceSource,
+    expectedSource: AchievementEvidenceSource,
+    value: unknown,
+    message: string,
+): void {
+    if (source !== expectedSource && value) throw new TypeError(`${id} has a ${message}.`);
 }
 
 function validateCriterionFilterValues(id: string, criterion: AchievementCriterion): void {
-    if (criterion.skill && !SKILLS.includes(criterion.skill)) throw new TypeError(`${id} has an invalid learning skill.`);
-    if (criterion.action && !ACTIONS.includes(criterion.action)) throw new TypeError(`${id} has an invalid learning action.`);
-    if (criterion.outcome && criterion.outcome !== 'pass' && criterion.outcome !== 'lapse') throw new TypeError(`${id} has an invalid outcome.`);
-    if (criterion.independent !== undefined && typeof criterion.independent !== 'boolean') throw new TypeError(`${id} has an invalid independent filter.`);
-    if (criterion.modeId !== undefined) text(criterion.modeId, `${id}.criterion.modeId`);
-    if (criterion.conceptPrefix !== undefined) text(criterion.conceptPrefix, `${id}.criterion.conceptPrefix`);
-    if (criterion.sceneIdPrefix !== undefined) text(criterion.sceneIdPrefix, `${id}.criterion.sceneIdPrefix`);
-    if (criterion.rating && !RATINGS.includes(criterion.rating)) throw new TypeError(`${id} has an invalid rating.`);
-    if (criterion.majorTurn && !['recognition', 'friction', 'support'].includes(criterion.majorTurn)) throw new TypeError(`${id} has an invalid relationship turn.`);
+    validateOptionalEnum(criterion.skill, SKILLS, `${id} has an invalid learning skill.`);
+    validateOptionalEnum(criterion.action, ACTIONS, `${id} has an invalid learning action.`);
+    validateOptionalEnum(criterion.outcome, ['pass', 'lapse'], `${id} has an invalid outcome.`);
+    validateOptionalBoolean(criterion.independent, `${id} has an invalid independent filter.`);
+    validateOptionalText(criterion.modeId, `${id}.criterion.modeId`);
+    validateOptionalText(criterion.conceptPrefix, `${id}.criterion.conceptPrefix`);
+    validateOptionalText(criterion.sceneIdPrefix, `${id}.criterion.sceneIdPrefix`);
+    validateOptionalEnum(criterion.rating, RATINGS, `${id} has an invalid rating.`);
+    validateOptionalEnum(criterion.majorTurn, ['recognition', 'friction', 'support'], `${id} has an invalid relationship turn.`);
+}
+
+function validateOptionalEnum<Value>(
+    value: Value | undefined,
+    allowed: readonly Value[],
+    message: string,
+): void {
+    if (value !== undefined && !allowed.includes(value)) throw new TypeError(message);
+}
+
+function validateOptionalBoolean(value: boolean | undefined, message: string): void {
+    if (value !== undefined && typeof value !== 'boolean') throw new TypeError(message);
+}
+
+function validateOptionalText(value: string | undefined, label: string): void {
+    if (value !== undefined) text(value, label);
 }
 
 function validateCriterionMeasure(id: string, criterion: AchievementCriterion): void {
