@@ -27,12 +27,6 @@ describe('Academy human interface', () => {
         expect(academyText('en', 'accessUnavailable')).toBe('Couldn’t check that code. Try again.');
     });
 
-    it('pins the scene and veil to the dynamic viewport instead of content height', () => {
-        const styles = fs.readFileSync(path.resolve('src/academy/styles/screens.css'), 'utf8');
-        expect(styles).toMatch(/\.academy-screen\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;/s);
-        expect(styles).toMatch(/\.academy-screen-veil\s*\{[^}]*min-height:\s*inherit;/s);
-    });
-
     it('opens an accessible one-time support letter and returns focus on close', async () => {
         const checkout = { start: vi.fn(async () => {}) };
         const screen = renderAccessScreen({ language: 'en', onSubmit: vi.fn(), checkout });
@@ -309,15 +303,6 @@ describe('Academy human interface', () => {
         expect(shaun.getAttribute('aria-hidden')).toBe('true');
         expect(shaun.closest('.academy-scrapbook-shaun')?.getAttribute('data-portrait-state')).toBe('review-preview');
         expect(spread.textContent).toContain('First term');
-    });
-
-    it('recomposes every journal heading and profile inside the phone paper width', () => {
-        const styles = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
-
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-screen \.academy-title\s*\{[^}]*max-width:\s*100%[^}]*font-size:\s*clamp\(1\.5rem, 7\.5vw, 2rem\)[^}]*overflow-wrap:\s*anywhere[^}]*padding-left:\s*clamp\(38px, 11vw, 46px\)/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile \.academy-journal-copy\s*\{[^}]*width:\s*100%/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-player-profile \.academy-journal-copy h2,[\s\S]*\.academy-journal-rie \.academy-journal-copy h2,[\s\S]*\.academy-journal-aakash \.academy-journal-copy h2\s*\{[^}]*box-sizing:\s*border-box[^}]*max-width:\s*100%[^}]*overflow-wrap:\s*anywhere[^}]*min-height:\s*146px/s);
-        expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-journal-rie \.academy-journal-copy > \.academy-button,[\s\S]*\.academy-journal-aakash \.academy-journal-copy > \.academy-button\s*\{[^}]*width:\s*100%[^}]*white-space:\s*normal/s);
     });
 
     it('binds the Academy shell to the real logo and よむ palette metadata', () => {

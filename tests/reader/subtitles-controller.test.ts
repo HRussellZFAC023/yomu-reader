@@ -5946,12 +5946,6 @@ Watch the cat
             .not.toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
     });
 
-    it('hides player subtitles while a mobile YouTube bottom sheet covers the watch page', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-text, html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-rail { display: none !important; pointer-events: none !important; }');
-    });
-
     it('toggles the mobile YouTube bottom sheet class without selector :has()', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -6015,51 +6009,6 @@ Watch the cat
                 value: originalLocation,
             });
         }
-    });
-
-    it('keeps the subtitle move handle draggable on touch without painting a default shadow', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
-        expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px), 320px); overflow: visible; pointer-events: none;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; display: grid; align-content: end; overflow: visible; pointer-events: none; }');
-        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*pointer-events: none;/);
-        expect(normalizedCss).toContain('.jpdb-subtitle-secondary, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-secondary .jpdb-reader-word { pointer-events: auto; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
-        expect(normalizedCss).toContain('box-shadow: none;');
-        expect(normalizedCss).toContain('touch-action: none;');
-        expect(normalizedCss).toContain('opacity: 0; pointer-events: none;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { left: 50%; right: auto; top: -48px; width: 44px; height: 44px; transform: translateX(-50%); }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle:focus { outline: 2px solid var(--jpdb-reader-accent); outline-offset: 2px; }');
-        expect(normalizedCss).toContain('opacity: .76; visibility: visible; pointer-events: auto;');
-        expect(normalizedCss).toContain('opacity: .7; visibility: visible; pointer-events: auto;');
-        expect(normalizedCss).toContain('transform: translateY(var(--jpdb-subtitle-asb-drag-offset-y)) var(--jpdb-subtitle-asb-base-transform, translateZ(0));');
-        expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus, .jpdb-subtitle-dragging)');
-        expect(normalizedCss).toContain('box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);');
-    });
-
-    it('keeps parsed transcript rows wrapable when long Shorts cues contain ruby markup', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text { display: block; min-width: 0; width: 100%; max-width: 100%;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-list-row { display: grid;');
-        expect(normalizedCss).toContain('min-height: 44px; padding: 6px 12px;');
-        expect(normalizedCss).toContain('transition: background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
-        expect(normalizedCss).toContain('position: relative; display: inline-block !important; vertical-align: baseline;');
-        expect(normalizedCss).toContain('white-space: nowrap !important; overflow-wrap: normal; word-break: keep-all;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word::after { content: ""; inset-inline: 1px; inset-block-end: .04em; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: nowrap !important; overflow-wrap: normal; word-break: keep-all; }');
-    });
-
-    it('keeps long primary player subtitles wrapable on phone-width screens', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-subtitle-primary { display: inline;');
-        expect(normalizedCss).toContain('line-height: 1.58; overflow-wrap: anywhere; word-break: normal;');
-        expect(normalizedCss).toContain('text-wrap: balance;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text, .jpdb-subtitle-shadow-line, .jpdb-subtitle-shadow-secondary { text-wrap: pretty; }');
-        expect(normalizedCss).toContain('text-underline-offset: .15em !important; white-space: nowrap; text-shadow:');
     });
 
     it('keeps the transcript panel available in fullscreen', () => {

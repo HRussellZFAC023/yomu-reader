@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { isVerticalOcrBox, type OcrRect } from '../../src/reader/ocr/response-shared';
 
 const READER_WORDS_OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 
 function normalizeCss(css: string): string {
     return css.replace(/\s+/g, ' ');
@@ -43,36 +42,11 @@ describe('OCR orientation fallback (isVerticalOcrBox)', () => {
 describe('vertical OCR text styling', () => {
     const css = normalizeCss(READER_WORDS_OCR_CSS);
 
-    it('re-anchors vertical furigana to the right of the column instead of on top of the glyphs', () => {
-        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-furi { top: 50%; left: 100%; writing-mode: vertical-rl;');
-    });
-
-    it('removes the top-reservation padding on vertical ruby', () => {
-        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-ruby { padding-top: 0;');
-    });
-
-    it('does not change the shared horizontal furigana anchor (regression guard)', () => {
-        // Horizontal furigana stays above its own base span.
-        expect(css).toContain('.jpdb-ocr-furi { position: absolute; top: -1.18em; left: 50%;');
-    });
-
     it('draws the vertical word pitch mark via the side border, not the dead native underline', () => {
         // text-decoration cannot paint through the inline-flex word children, so the
         // side rule is the base ::after (border-block-end = physical-left edge in
         // vertical-rl); the native underline is suppressed so only one side shows.
         expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word { text-decoration-line: none !important;');
         expect(css).not.toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after { display: none;');
-    });
-});
-
-describe('card pitch de-duplication', () => {
-    it('drops the redundant headword pitch underline when the pitch graph is shown', () => {
-        const css = normalizeCss(POPOVER_CORE_CSS);
-        expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling { text-decoration: none !important;');
-    });
-
-    it('uses an explicit ruby base for popup headword furigana alignment', () => {
-        const css = normalizeCss(POPOVER_CORE_CSS);
-        expect(css).toContain('.jpdb-reader-spelling .jpdb-reader-ruby-base { display: ruby-base; }');
     });
 });

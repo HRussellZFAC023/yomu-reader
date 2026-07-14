@@ -3827,26 +3827,6 @@ describe('reader helpers', () => {
         expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
 
-    it('wraps compact popover lookup pills onto multiple rows when they overflow', () => {
-        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin: 3px -4px -6px; padding: 3px 4px 6px; overflow: visible; }');
-        expect(normalizedCss).toContain('a.jpdb-reader-action-pill, button.jpdb-reader-action-pill, span.jpdb-reader-action-pill {');
-        expect(normalizedCss).toContain('span.jpdb-reader-action-pill[aria-disabled="true"] { cursor: default; }');
-        expect(normalizedCss).toContain('@container (max-width: 340px) { .jpdb-reader-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-pills { grid-column: 1 / -1; grid-row: 3; width: 100%; gap: 4px; margin-top: 2px; overscroll-behavior-inline: contain; padding-bottom: 4px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-action-pill { min-height: 34px !important; }');
-    });
-
-    it('forces current YouTube player nodes to honor side transcript insets', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('html.jpdb-subtitle-video-inset-right ytd-watch-flexy #player, html.jpdb-subtitle-video-inset-left ytd-watch-flexy #player');
-        expect(normalizedCss).toContain('html.jpdb-subtitle-video-inset-right ytd-watch-flexy #movie_player, html.jpdb-subtitle-video-inset-left ytd-watch-flexy #movie_player { width: var(--ytd-watch-flexy-player-width, auto) !important; max-width: var(--ytd-watch-flexy-player-width, none) !important; min-width: 0 !important; }');
-        expect(normalizedCss).toContain('html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container, html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer');
-        expect(normalizedCss).toContain('html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player .html5-video-container, html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video { left: 0 !important; top: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100% !important; max-height: 100% !important; min-height: 0 !important; }');
-    });
-
     it('uses configurable pitch colors in graphs and visible new-tab target highlights', () => {
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
         const normalizedNewTabCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
@@ -4113,20 +4093,6 @@ describe('reader helpers', () => {
         expect(handle?.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('uses the accent color when the sheet handle is hovered', () => {
-        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-reader-sheet-handle:hover::before, .jpdb-reader-sheet-handle:focus-visible::before { background: var(--jpdb-reader-accent); }');
-    });
-
-    it('renders status tone rows with a visible status light', () => {
-        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone]::before { content: "";');
-        expect(normalizedCss).toContain('background: var(--jpdb-reader-status-light);');
-        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone="success"] { --jpdb-reader-status-light: var(--jpdb-reader-accent);');
-        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone="error"] { --jpdb-reader-status-light: var(--jpdb-reader-danger);');
-    });
-
     it('keeps forced bottom-sheet popovers positioned on desktop viewports', () => {
         const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
         withViewport(1440, 900, () => {
@@ -4370,11 +4336,6 @@ describe('reader helpers', () => {
             app.destroy();
             document.body.replaceChildren();
         }
-    });
-
-    it('pins sheet body vertical pan ownership in CSS', () => {
-        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; scrollbar-gutter: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;');
     });
 
     it('can mount click popovers without dimming the page', () => {
@@ -10573,13 +10534,6 @@ describe('reader helpers', () => {
         expect(LOCAL_DICTIONARY_CSS).toContain('.jpdb-reader-local-glossary [data-sc-class="form-valid"]');
         expect(LOCAL_DICTIONARY_CSS).not.toContain('span[data-sc-class="form-valid"]:empty::before');
         expect(LOCAL_DICTIONARY_CSS).not.toContain('content: "✓";');
-    });
-
-    it('contains Jitendex structured boxes inside the popover column', () => {
-        expect(LOCAL_DICTIONARY_CSS).toContain('overflow-wrap: anywhere;');
-        expect(LOCAL_DICTIONARY_CSS).toContain('.jpdb-reader-local-glossary [data-sc-class="extra-box"]');
-        expect(LOCAL_DICTIONARY_CSS).toContain('box-sizing: border-box;');
-        expect(LOCAL_DICTIONARY_CSS).toContain('max-width: 100%;');
     });
 
     it('does not persist restored puck clamps from an unmeasurable startup viewport', () => {

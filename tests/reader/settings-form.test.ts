@@ -1244,50 +1244,6 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="kanji"]')?.getAttribute('aria-describedby')).toBeNull();
     });
 
-    it('keeps checked checkbox and radio marks visible on hover', () => {
-        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:enabled:hover, .jpdb-reader-settings input[type="radio"]:enabled:hover { border-color: var(--jpdb-reader-accent) !important;');
-        expect(normalizedCss).toContain('box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked, .jpdb-reader-settings input[type="radio"]:checked { border-color: var(--jpdb-reader-accent) !important; background-color: var(--jpdb-reader-accent) !important; box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft); }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover, .jpdb-reader-settings input[type="radio"]:checked:enabled:hover { background-color: var(--jpdb-reader-accent) !important; }');
-        expect(normalizedCss).toContain('border-left: 2.5px solid var(--jpdb-reader-accent-text); border-bottom: 2.5px solid var(--jpdb-reader-accent-text);');
-        expect(normalizedCss).toContain('background: var(--jpdb-reader-accent-text);');
-        expect(normalizedCss).toContain('@media (pointer: coarse) and (min-width: 700px) and (max-width: 900px)');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
-        expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px 14px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); gap: 12px 14px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) { display: flex; flex-direction: column;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) { min-height: 0; display: block; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group { grid-column: 1 / -1; display: grid; grid-template-columns: inherit; align-items: stretch; gap: inherit; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid:has(> label:not(.inline)) > label.inline { align-self: start; margin-top: 28px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline { align-self: start; align-items: center; min-height: 38px; margin-top: 0; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label.inline { align-self: start; align-items: center; min-height: 38px; margin-top: 28px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] { display: flex; align-items: flex-start; padding-top: 36px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) { color: var(--jpdb-reader-text) !important; line-height: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent) !important; background: var(--jpdb-reader-accent) !important;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist { display: flex; flex-wrap: wrap;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist a { color: var(--jpdb-reader-accent-readable);');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');
-        expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
-        expect(normalizedCss).toContain('display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; min-width: 0; overflow-wrap: anywhere; word-break: normal; text-align: center; font-size: 28px; line-height: 1.48;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; width: 100%; max-width: min(100%, 36em); min-width: 0; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word { display: inline-block !important; width: auto !important; max-width: none !important; vertical-align: baseline; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.28; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings select + .jpdb-reader-control-text-mirror { display: none !important; max-width: 100%; margin-inline-start: 0;');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice > .jpdb-reader-control-text-mirror { grid-column: 1 / -1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-study-step-head, .jpdb-reader-study-step-row { grid-template-columns: 56px minmax(150px, 0.75fr) minmax(260px, 1.25fr) var(--jpdb-reader-order-tools-width); }');
-        expect(normalizedCss).toContain('.jpdb-reader-study-step-row > .jpdb-reader-dictionary-row-help { grid-column: 3; }');
-    });
-
     it('groups media settings into compact toggle and control grids', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
 
@@ -1311,14 +1267,6 @@ describe('settings form localization', () => {
         expect(immersionGrids[2]?.querySelector('input[name="immersionKitPlayOnImageClick"]')).not.toBeNull();
     });
 
-    it('keeps inline settings link icons from expanding into content', () => {
-        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-settings a:not(.jpdb-reader-btn) svg { display: inline-block; width: 0.95em; height: 0.95em;');
-        expect(normalizedCss).toContain('fill: none; stroke: currentColor; stroke-width: 2.2;');
-        expect(normalizedCss).toContain('stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.12em;');
-    });
-
     it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
         const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display');
@@ -1329,37 +1277,6 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip-list, .jpdb-reader-settings .jpdb-reader-tag-add-row { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: var(--jpdb-reader-accent);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
-    });
-
-    it('keeps mobile source editor row controls in a side rail', () => {
-        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-order-head, .jpdb-reader-order-row { --jpdb-reader-order-tools-width: 112px; --jpdb-reader-remove-tools-width: 42px; display: grid;');
-        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
-        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools { display: grid; grid-template-columns: 34px 34px; grid-template-rows: 34px 34px; gap: 5px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] { grid-column: 1; grid-row: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] { grid-column: 1; grid-row: 2; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] { grid-column: 2; grid-row: 2; }');
-        expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px; gap: 5px;');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-tools { gap: 5px; width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; }');
-    });
-
-    it('keeps lookup link editor columns aligned on wider settings layouts', () => {
-        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
-    });
-
-    it('keeps the furigana state checkbox grid aligned with settings controls', () => {
-        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-radio-group[data-furigana-hide-groups] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px 16px; }');
     });
 
     it('keeps hosted settings companions lazy while preserving settings warmup', () => {

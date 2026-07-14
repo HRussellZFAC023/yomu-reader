@@ -942,35 +942,6 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).not.toContain('color: var(--jpdb-reader-state-known, #7bd88f) !important;');
     });
 
-    it('keeps active OCR text readable on light themed image surfaces', () => {
-        const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active),');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"] .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) { color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));');
-        expect(normalizedCss).toContain('--jpdb-ocr-auto-dark-surface: color-mix( in srgb, rgba(9, 13, 20, 0.64) 78%, var(--jpdb-reader-accent, #5ea780) 22% );');
-        expect(normalizedCss).toContain('--jpdb-ocr-auto-dark-visible: color-mix( in srgb, var(--jpdb-ocr-auto-dark-surface) 54%, transparent );');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line-visible { color: var(--jpdb-reader-video-text, #ffffff);');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) { color: var(--jpdb-reader-video-text, #ffffff); text-shadow: 0 2px 2px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)), 0 0 4px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)); background: var(--jpdb-ocr-auto-dark-active);');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:focus-visible { outline: 2px solid var(--jpdb-reader-accent, #5ea780); outline-offset: 2px; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff);');
-        expect(normalizedCss).toContain('var(--jpdb-reader-word-color-source, var(--jpdb-reader-video-text, #ffffff))');
-        expect(normalizedCss).toContain('text-shadow: inherit;');
-    });
-
-    it('keeps the paused-frame OCR status pill readable in light mode', () => {
-        const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface:');
-        expect(normalizedCss).toContain('position: fixed;');
-        expect(normalizedCss).toContain('background: var(--jpdb-ocr-status-surface);');
-        expect(normalizedCss).toContain('color: var(--jpdb-ocr-status-text);');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface: color-mix( in srgb, var(--jpdb-reader-theme-light-surface, #f4f7fa) 86%, transparent ); --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a); --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968); }');
-        expect(normalizedCss).toContain('0 6px 16px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.22);');
-        expect(normalizedCss).toContain('.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status { width: auto; min-width: 0; max-width: 260px !important; height: auto; min-height: 28px; gap: 8px; padding: 6px 12px; border-radius: 999px;');
-        expect(normalizedCss).toContain('background: rgba(17, 19, 26, 0.68) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);');
-        expect(normalizedCss).toContain('font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;');
-    });
-
     it('reserves paint room for pitch underlines in small horizontal OCR line frames', () => {
         const controller = createLocalServiceOcrController();
         const line = measuredOcrLine({

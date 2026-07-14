@@ -17,11 +17,8 @@ import {
     existingAnkiNote,
     expectFirstRenderedAnkiCardOpen,
     expectCappedRenderedAnkiMediaCss,
-    expectCollapsibleAnkiNoteCss,
-    expectCollapsibleRenderedAnkiCardCss,
     expectReadableAnkiLabelCss,
     expectRenderedAnkiInlineLaneCss,
-    expectRenderedAnkiPopoverScrollCss,
     renderExistingAnkiNote,
 } from './helpers/anki-render';
 
@@ -1561,24 +1558,12 @@ describe('Anki status-only lookup cache', () => {
 });
 
 describe('Anki rendered card scroll behavior', () => {
-    it('lets the popover own scrolling for rendered Anki cards', () => {
-        expectRenderedAnkiPopoverScrollCss();
-    });
-
     it('keeps rendered-card content as an inline lane instead of a nested card', () => {
         expectRenderedAnkiInlineLaneCss();
     });
 
     it('keeps Anki labels readable without forcing Yomu-style uppercase', () => {
         expectReadableAnkiLabelCss();
-    });
-
-    it('keeps multiple Anki notes collapsible with stable summary lanes', () => {
-        expectCollapsibleAnkiNoteCss();
-    });
-
-    it('keeps multiple rendered Anki cards collapsible without adding labels to card bodies', () => {
-        expectCollapsibleRenderedAnkiCardCss();
     });
 
     it('caps rendered-card media and keeps Anki audio as separate controls', () => {

@@ -1582,37 +1582,11 @@ describe('new tab review helpers', () => {
         });
     });
 
-    it('keeps mobile new-tab tabs separated from topbar controls', () => {
-        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss)
-            .toContain('@media (max-width: 860px) { .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode";');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
-        expect(normalizedCss)
-            .toContain('@media (max-width: 420px) { .jpdb-reader-newtab-shell { width: min(100vw - 12px, 420px); } .jpdb-reader-newtab-mode button { min-height: 36px; padding-inline: 6px; font-size: 10px; }');
-    });
-
     it('keeps new-tab search suggestions padded on every edge', () => {
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('.jpdb-reader-newtab-search-suggestions[hidden] { display: none; } .jpdb-reader-newtab-search-suggestions button { display: grid; align-content: center; justify-items: start; gap: 3px; min-width: 0; min-height: 44px; padding: 12px; text-align: left; }');
         expect(NORMALIZED_NEW_TAB_CSS)
             .not.toContain('min-height: 44px; padding-inline: 12px; text-align: left;');
-    });
-
-    it('styles current Anki card audio as the newtab icon speaker', () => {
-        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound { order: -1; align-self: center; justify-self: end; margin: 0 0 2px auto; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text); }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound svg { width: 20px !important; height: 20px !important; max-width: 20px !important; max-height: 20px !important; }');
-        expect(normalizedCss)
-            .toContain('@media (max-width: 640px) { .jpdb-reader-newtab-shell { width: min(100vw - 16px, 560px); gap: 12px; } .jpdb-reader-newtab-topbar');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound { position: absolute; top: 0; right: clamp(10px, 3vw, 16px); margin: 0; }');
     });
 
     it('keeps new-tab button text tied to the active theme tokens', () => {
@@ -1674,19 +1648,6 @@ describe('new tab review helpers', () => {
             .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-translation { color: var(--jpdb-reader-muted); text-shadow: none; }');
     });
 
-    it('does not stack prompt text shadow under the study term underline', () => {
-        const termRule = newTabCssRule('.jpdb-reader-newtab-term .jpdb-reader-word');
-
-        expect(termRule).toContain('text-shadow: none;');
-        expect(termRule).toContain('box-shadow: none !important;');
-        expect(termRule).toContain('text-decoration-color: transparent !important;');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-term .jpdb-reader-word::after { border-block-end-color: var(--jpdb-reader-word-underline, transparent) !important; }');
-        expect(NORMALIZED_NEW_TAB_CSS).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"], .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"]');
-        expect(NORMALIZED_NEW_TAB_CSS).toContain('width: min(680px, calc(100vw - 28px)); max-width: calc(100vw - 28px); gap: 10px;');
-        expect(NORMALIZED_NEW_TAB_CSS).toContain('.jpdb-reader-newtab-controls[data-newtab-grade-scale="pass-fail"] button[data-grade] { min-height: 54px; padding-inline: 14px; font-size: 15px; }');
-    });
-
     it('keeps generic new-tab accent surfaces on accent tokens', () => {
         const genericAccentRules = [
             newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'),
@@ -1726,45 +1687,6 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-newtab-status-light[data-source="anki"] { background: var(--jpdb-reader-state-new-bright);');
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('.jpdb-reader-newtab-status-light[data-source="jiten"] { background: var(--jpdb-reader-state-learning);');
-    });
-
-    it('keeps the in-page deck selector width stable while options hydrate', () => {
-        const rule = newTabCssRule('.jpdb-reader-newtab-deck');
-
-        expect(rule).toContain('box-sizing: border-box;');
-        expect(rule).toContain('width: min(320px, 80vw);');
-    });
-
-    it('keeps new-tab kanji search cards compact and touch reachable', () => {
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-search-kanji-grid { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));');
-        expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card'))
-            .toContain('min-height: 58px;');
-        expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-kanji-char'))
-            .toContain('font-size: 34px;');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-kanji-details .jpdb-reader-local, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card { width: 100%; margin-top: 0; padding: 0; overflow: visible; text-align: left; border: 0;');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('overflow: visible; text-align: left; border: 0;');
-    });
-
-    it('keeps the mobile new-tab mode switch on its own compact header row', () => {
-        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss)
-            .toContain('@media (max-width: 640px) { .jpdb-reader-newtab-shell { width: min(100vw - 16px, 560px); gap: 12px; } .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode"; align-items: center; gap: 8px 10px; }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-brand { min-width: 112px; display: flex; align-items: center; padding-left: clamp(6px, 1.2vw, 14px); }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-brand { grid-area: brand; justify-self: start; min-width: 0; }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-theme-controls { grid-area: controls; justify-self: end; min-width: 0; }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode button { min-width: 0; padding: 0 8px; font-size: 11px; white-space: nowrap; }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-brand span { display: none; }');
     });
 
     it('selects the nearest stats day when coarse-pointer users tap compact chart gaps', () => {

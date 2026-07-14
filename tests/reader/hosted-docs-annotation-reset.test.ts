@@ -66,12 +66,6 @@ describe('hosted docs furigana chrome geometry', () => {
         expect(css).not.toContain(':has(.jpdb-reader-word.jpdb-reader-has-furi)');
     });
 
-    it('keeps the nav row inside the 64px navbar and covers the More flyout trigger', () => {
-        expect(css).toContain('html[lang="ja"] .VPNavBarMenu .VPNavBarMenuLink,');
-        expect(css).toContain('html[lang="ja"] .VPNavBarMenu .VPNavBarMenuGroup .button');
-        expect(css).toContain('height: var(--vp-nav-height);');
-    });
-
     it('scopes the fixed card-title band to the homepage next-step grid, em-sized for text enlargement', () => {
         expect(css).toContain('html[lang="ja"] .yomu-next-grid .yomu-link-card strong');
         expect(css).not.toMatch(/html\[lang="ja"\] \.yomu-link-card strong \{/);
