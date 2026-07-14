@@ -11,7 +11,7 @@ import {
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
-import { localPitchPatternsFromMetaLookup } from './pitch-meta';
+import { localPitchResolutionFromMetaLookup } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
@@ -552,11 +552,15 @@ export class ReaderParser {
         const key = localPitchCacheKey(card, settings);
         const cached = this.localPitchCache.get(key);
         if (cached) return cached;
-        const promise = localPitchPatternsFromMetaLookup(
+        const promise = localPitchResolutionFromMetaLookup(
             card.spelling,
             card.reading,
             expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-        ).then(patterns => patterns[0] ?? '').catch(error => {
+        ).then(resolution => {
+            if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+            else if (resolution.patterns.length) delete card.pitchSegments;
+            return resolution.patterns[0] ?? '';
+        }).catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return '';
         });

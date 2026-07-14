@@ -10,7 +10,7 @@ import { lookupBunproDefinition, type BunproDefinitionInfo } from '../bunpro/def
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
-import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
+import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
 import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
@@ -524,15 +524,18 @@ export class CardRenderDataLoader {
     private async applyLocalPitchAccent(card: JPDBCard, metaEntries: YomitanMetaEntry[]): Promise<void> {
         const settings = this.settings();
         if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-        const patterns = await localPitchPatternsFromMetaLookup(
+        const resolution = await localPitchResolutionFromMetaLookup(
             card.spelling,
             card.reading,
             expression => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
             { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length },
         ).catch(error => {
             log.warn('Local pitch lookup failed', { term: card.spelling }, error);
-            return [] as string[];
+            return { patterns: [] } as import('../lookup/pitch-meta').LocalPitchResolution;
         });
+        const patterns = resolution.patterns;
+        if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+        else if (patterns.length) delete card.pitchSegments;
         if (!patterns.length) return;
         if (!card.pitchAccent.length) {
             card.pitchAccent = patterns;

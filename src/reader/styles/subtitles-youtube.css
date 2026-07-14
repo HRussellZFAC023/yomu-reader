@@ -712,12 +712,19 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
 .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
-  opacity: 1;
+  opacity: .55;
   pointer-events: auto;
   transform: translateY(0);
 }
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) > :not(.jpdb-subtitle-rail-move) {
   display: none !important;
+}
+/* Player chrome faded out = the viewer is watching, not controlling: hide the
+   rail entirely instead of leaving even the minimised grip over the video. */
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 .jpdb-subtitle-controls-always .jpdb-subtitle-rail {
   opacity: 1;
@@ -760,7 +767,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-rail-move { cursor: grab; touch-action: none; }
 .jpdb-subtitle-rail-dragging .jpdb-subtitle-rail-move { cursor: grabbing; }
-.jpdb-subtitle-rail-pin[aria-pressed="true"] {
+.jpdb-subtitle-controls-always .jpdb-subtitle-rail-move {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
@@ -919,12 +926,17 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
     pointer-events: none;
   }
   .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) {
-    opacity: 1;
+    opacity: .55;
     pointer-events: auto;
     transform: translateY(0);
   }
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move) {
     display: none !important;
+  }
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 .jpdb-subtitle-list[hidden] { display: none; }

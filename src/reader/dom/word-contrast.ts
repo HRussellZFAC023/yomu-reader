@@ -298,16 +298,26 @@ function pageBackgroundFor(word: HTMLElement): PageBackground | null {
 
     let found = false;
     let hasImageBackdrop = false;
+    let unknownBase = false;
     let rgba: RgbaColor = { red: 255, green: 255, blue: 255, alpha: 1 };
     for (const element of ancestors.reverse()) {
         const style = getComputedStyle(element);
         hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== 'none');
         const color = cssColorToRgba(style.backgroundColor);
-        if (!color || color.alpha <= 0) continue;
+        if (!color) {
+            // A painted layer we cannot parse: everything blended so far may
+            // sit on a surface of unknown darkness. Never let the white seed
+            // stand in for it — that painted dark-on-dark "redaction bars" on
+            // Discord dark themes whose colors used unhandled formats.
+            unknownBase = true;
+            continue;
+        }
+        if (color.alpha <= 0) continue;
+        if (color.alpha >= 1) unknownBase = false;
         rgba = blendRgba(color, rgba);
         found = true;
     }
-    if (!found) {
+    if (unknownBase || !found) {
         if (hasImageBackdrop) return null;
         return inferredTransparentPageBackground(word);
     }
@@ -320,7 +330,9 @@ function inferredTransparentPageBackground(word: HTMLElement): PageBackground {
     const bodyStyle = getComputedStyle(document.body);
     const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
     if (colorScheme.includes('dark')) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    const pageTextColors = [bodyStyle.color, rootStyle.color]
+    // The word's own context colour first: a dark embedded shell on a light
+    // page has light LOCAL text while body/root still read as a light theme.
+    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color]
         .map(color => cssColorToHex(color))
         .filter((color): color is string => Boolean(color));
     if (pageTextColors.some(color => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {

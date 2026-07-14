@@ -36,10 +36,10 @@ describe('new-tab study session model', () => {
         expect(session.steps.map(step => step.kind)).toEqual([
             'kanji-doodle',
             'word',
+            'type-word',
             'recall-cloze',
             'listen-pitch',
             'speaking',
-            'type-word',
             'final-reveal',
         ]);
         expect(session.steps.filter(step => step.gradeable).map(step => step.kind)).toEqual(['final-reveal']);

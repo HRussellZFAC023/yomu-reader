@@ -50,7 +50,7 @@ afterEach(() => {
 // hover-only channel: WebKit can otherwise crop the base while leaving rt, or
 // grow a flex card into the large empty gap reported on iPad.
 describe('clamped content preserves base text and bounded geometry', () => {
-    it('stamps a semantic article paragraph as "content" (readings visible at rest)', () => {
+    it('stamps a MULTI-line clamped article paragraph as "true" (rest-hidden readings)', () => {
         document.body.innerHTML = `
             <main><article>
                 <p class="prose" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</p>
@@ -59,9 +59,12 @@ describe('clamped content preserves base text and bounded geometry', () => {
         const row = document.querySelector<HTMLElement>('.prose')!;
         applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'prose-full'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
-        // The in-place channel stamps "content", NOT "true": readings stay
-        // visible at rest, but use detached geometry so the clamp cannot grow.
-        expect(row.dataset.yomuClipConstrained).toBe('content');
+        // Even semantic prose loses at-rest readings on a MULTI-line clamp:
+        // ruby-room never grows clamped rows, so a rest reading would sit in
+        // the fixed inter-line leading and paint over the line above (the
+        // Google-snippet overlap class). The reading stays in the DOM for
+        // hover/lookup, rest-hidden like every other clamped row.
+        expect(row.dataset.yomuClipConstrained).toBe('true');
         expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
@@ -106,9 +109,18 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(false);
         expect(contentClipRowShowsRestReadings('prose-full', row)).toBe(false);
 
+        // A MULTI-line clamp cannot grow (ruby-room never grows clamped rows),
+        // so its at-rest readings would paint into the fixed inter-line
+        // leading — the Google-snippet overlap class. It stays rest-hidden.
         document.body.innerHTML = `<main><p id="prose" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</p></main>`;
         const prose = document.querySelector<HTMLElement>('#prose')!;
-        expect(contentClipRowShowsRestReadings('prose-full', prose)).toBe(true);
+        expect(contentClipRowShowsRestReadings('prose-full', prose)).toBe(false);
+
+        // A single-line ellipsis prose row has no internal line boundary and
+        // keeps the in-flow exception.
+        document.body.innerHTML = `<main><p id="single" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${SNIPPET}</p></main>`;
+        const single = document.querySelector<HTMLElement>('#single')!;
+        expect(contentClipRowShowsRestReadings('prose-full', single)).toBe(true);
     });
 
     it('ships the hover-only override CSS keyed on the root stamp and keeps the rest-hide rule value-exact', () => {

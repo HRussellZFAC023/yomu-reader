@@ -477,7 +477,7 @@ describe('SubtitlePlayerController', () => {
         expect(meta.title).toBe(full);
     });
 
-    it('keeps the movable rail to expansion, prev/next, OCR, visibility, panel, style, and pin controls', () => {
+    it('keeps the movable rail to expansion, prev/next, OCR, visibility, panel, and style controls', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -495,7 +495,9 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['rail-expand', 'previous', 'next', 'ocr', 'visibility', 'panel', 'style', 'rail-pin']);
+        expect(actions).toEqual(['rail-expand', 'previous', 'next', 'ocr', 'visibility', 'panel', 'style']);
+        // The pin is gone: the grip itself toggles the persisted expansion.
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="rail-pin"]')).toBeNull();
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="previous"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="next"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="visibility"]')).toHaveLength(1);
@@ -510,23 +512,21 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
-    it('pins and unpins the expanded rail through the existing persisted controls mode', () => {
+    it('expands and collapses the rail through the grip via the persisted controls mode', () => {
         const onSettingsChange = vi.fn();
         const { controller, settings } = createInstalledSubtitleController({ subtitleControlsMode: 'auto' }, { onSettingsChange });
         try {
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const pin = root.querySelector<HTMLButtonElement>('[data-action="rail-pin"]')!;
-            expect(pin.getAttribute('aria-pressed')).toBe('false');
+            const grip = root.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
 
-            pin.click();
+            grip.click();
             expect(settings.subtitleControlsMode).toBe('always');
             expect(root.classList.contains('jpdb-subtitle-controls-always')).toBe(true);
-            expect(pin.getAttribute('aria-pressed')).toBe('true');
+            expect(grip.getAttribute('aria-expanded')).toBe('true');
 
-            pin.click();
+            grip.click();
             expect(settings.subtitleControlsMode).toBe('auto');
             expect(root.classList.contains('jpdb-subtitle-controls-auto')).toBe(true);
-            expect(pin.getAttribute('aria-pressed')).toBe('false');
             expect(onSettingsChange).toHaveBeenCalledTimes(2);
         } finally {
             controller.destroy();
@@ -4947,7 +4947,7 @@ Watch the cat
         });
     });
 
-    it('wakes transient controls from a subtitle moved below autohidden YouTube chrome on hover or tap', async () => {
+    it('keeps the rail idle on subtitle taps while still shielding clicks below autohidden YouTube chrome', async () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div><a id="subtitle-underlay" href="#unexpected">Under subtitle</a>';
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
@@ -5005,11 +5005,11 @@ Watch the cat
                 pointerType: 'touch',
             }));
 
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
-            // The host chrome is still autohidden, but a deliberate subtitle
-            // tap owns the short reveal window instead of disappearing next tick.
+            // Reading interactions never reveal the rail: a subtitle tap is a
+            // lookup gesture, so the controls stay minimised.
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
             internals.syncPlayerChromeIdleState();
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
             const underlay = document.querySelector<HTMLAnchorElement>('#subtitle-underlay')!;
             const underlayClick = vi.fn();
@@ -5028,6 +5028,8 @@ Watch the cat
             await vi.advanceTimersByTimeAsync(2600);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
+            // Hovering the displaced line is also a reading gesture — with the
+            // player chrome hidden the rail stays minimised rather than waking.
             subtitleFrame.dispatchEvent(pointerEvent('pointermove', {
                 clientX: 320,
                 clientY: 430,
@@ -5035,10 +5037,30 @@ Watch the cat
                 pointerType: 'mouse',
             }));
             await vi.advanceTimersByTimeAsync(20);
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
-
-            await vi.advanceTimersByTimeAsync(2600);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('marks the rail away while the player chrome is hidden so it disappears entirely', () => {
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div>';
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        controller.init();
+        try {
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            mockElementRect(video, new DOMRect(0, 0, 640, 360));
+            attachVideo(controller, { video });
+            const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+
+            internals.syncPlayerChromeIdleState();
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(true);
+
+            document.querySelector('#movie_player')!.classList.remove('ytp-autohide');
+            internals.syncPlayerChromeIdleState();
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
         } finally {
             controller.destroy();
             document.body.innerHTML = '';
@@ -5709,11 +5731,13 @@ Watch the cat
         });
     });
 
-    it('collapses the idle subtitle rail to its move and pin chip', () => {
+    it('collapses the idle subtitle rail to its move grip and fully hides it when the player chrome is away', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 1;\n  pointer-events: auto;\n  transform: translateY(0);\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .55;\n  pointer-events: auto;\n  transform: translateY(0);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('> :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {\n  display: none !important;');
+            .toContain('> :not(.jpdb-subtitle-rail-move) {\n  display: none !important;');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  visibility: hidden;\n  pointer-events: none;\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
         expect(SUBTITLES_YOUTUBE_CSS)
@@ -5815,8 +5839,8 @@ Watch the cat
 
         expect(normalizedCss).toContain('@media (hover: none) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:not(:focus):not(.jpdb-subtitle-dragging), .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-controls-idle > .jpdb-subtitle-asb-drag-handle:not(:focus):not(.jpdb-subtitle-dragging) { opacity: 0; pointer-events: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) { opacity: 1; pointer-events: auto; transform: translateY(0); }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) { display: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) { opacity: .55; pointer-events: auto; transform: translateY(0); }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move) { display: none !important; }');
         expect(normalizedCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 

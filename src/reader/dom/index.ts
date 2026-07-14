@@ -1,4 +1,5 @@
 import { primaryCardState } from '../cards/state';
+import { compoundPitchGradientCss } from '../lookup/pitch-accent';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import {
@@ -594,8 +595,12 @@ function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visible
         && !isAnnotatableChipControl(blocked)
         && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
-    if (isShortCenteredDisplayHeading(parent, text)) return true;
-    return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
+    // Fragile UI text and short centered headings are no longer REJECTED:
+    // rejection also removed them from word lookup, leaving display-language
+    // pages (Twitch chrome, metadata rows) entirely unannotated. They are
+    // collected and downgraded to the passive channel instead — colour/pitch
+    // underline and lookup, no ruby geometry (see textTargetFromAcceptedNode).
+    return shouldRejectTextTargetPresentation(parent, visibleOnly);
 }
 
 function isCompactControlDescendantTextTarget(parent: HTMLElement, text: string): boolean {
@@ -608,13 +613,21 @@ function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetColl
     return Boolean(parent.closest(READER_ROOT_SELECTOR));
 }
 
-function shouldRejectTextTargetPresentation(parent: HTMLElement, text: string, visibleOnly: boolean): boolean {
-    if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
-    return isFragileUiText(parent, text);
+function shouldRejectTextTargetPresentation(parent: HTMLElement, visibleOnly: boolean): boolean {
+    return shouldRejectInvisibleTextTarget(parent, visibleOnly);
 }
 
 function shouldSkipTextTargetParent(parent: HTMLElement): boolean {
-    return parent.childNodes.length > 6;
+    // Raw childNodes counted whitespace-only text nodes and inline markup
+    // (links, emphasised query terms), silently dropping legitimate prose
+    // paragraphs. Count only meaningful children, with a higher ceiling.
+    let meaningful = 0;
+    for (const node of parent.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) continue;
+        meaningful += 1;
+        if (meaningful > 12) return true;
+    }
+    return false;
 }
 
 function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boolean): boolean {
@@ -625,11 +638,18 @@ function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boole
 function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
-    const decoration = classifyDecoration(parent);
+    let decoration = classifyDecoration(parent);
     if (decoration === 'skip') return null;
+    const text = nodeTextContent(node).trim();
+    // Fragile UI text and short centered display headings ride the passive
+    // channel: annotated and lookupable, but never ruby geometry that could
+    // wrap, clip, or grow their fixed chrome boxes.
+    if (decoration !== 'interactive-passive'
+        && (isFragileUiText(parent, text) || isShortCenteredDisplayHeading(parent, text))) {
+        decoration = 'interactive-passive';
+    }
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
-    const text = nodeTextContent(node).trim();
     return {
         node: node as Text,
         text,
@@ -2304,7 +2324,11 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         reading.style.setProperty('z-index', '2');
         reading.style.setProperty('inset-inline-start', '50%');
         reading.style.setProperty('inset-block-end', 'calc(100% + 1px)');
-        reading.style.setProperty('display', 'block', 'important');
+        // A reading inside a clip-constrained row whose clip was NOT safely
+        // opened (multi-line clamps never open) sits in the fixed inter-line
+        // leading and paints over the line above — same at-rest rule as
+        // in-place rt, applied here because inline !important is what wins.
+        reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
         reading.style.setProperty('width', 'max-content');
         reading.style.setProperty('max-width', 'none');
         reading.style.setProperty('font-size', `${readingFontSize}px`);
@@ -2444,7 +2468,13 @@ function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): 
             .filter((element): element is HTMLElement => element instanceof HTMLElement));
     }));
     for (const hit of hits) {
-        if (ownWord && hit.closest('.jpdb-reader-word') === ownWord) continue;
+        const hitWord = hit.closest<HTMLElement>('.jpdb-reader-word');
+        if (ownWord && hitWord === ownWord) continue;
+        // Another word's annotated surface counts as covered text even when
+        // the sampled point lands on a wrapper with no direct text node (the
+        // point-sampling blind spot that let inter-line readings survive).
+        if (hitWord && hitWord !== ownWord && !hitWord.contains(reading)
+            && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
         for (const node of hit.childNodes) {
             if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
             const range = document.createRange();
@@ -2491,7 +2521,15 @@ function hideUnsafeDetachedReading(reading: HTMLElement): void {
 function restoreUnsafeDetachedReading(reading: HTMLElement): void {
     if (reading.dataset.yomuDetachedReadingHidden !== 'unsafe-lane') return;
     delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty('display', 'block', 'important');
+    reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+}
+
+// At-rest readings are hidden inside a clip-constrained row unless the row's
+// clip was verified safe to open (single-line, base fits). This mirrors the
+// in-place rt policy so the two channels can never disagree on a row.
+function detachedReadingRestHidden(reading: HTMLElement): boolean {
+    const row = reading.closest<HTMLElement>('[data-yomu-clip-constrained="true"]');
+    return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== 'true');
 }
 
 // Individual targets are applied one at a time, but neighboring menu rows and
@@ -2542,11 +2580,35 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
         if (!clips) continue;
         const rect = current.getBoundingClientRect();
         const measured = current.clientWidth > 0 && current.clientHeight > 0;
-        const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT;
+        const compact = rect.height > 0
+            && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT
+            && detachedClipRowIsSingleLine(style, rect);
         const baseFits = measured && detachedBaseContentFits(current);
         if (compact && baseFits) openDetachedReadingClip(current);
         else restoreDetachedReadingClip(current);
     }
+}
+
+// A clip may only open when its base is a single text line. A multi-line
+// clamp (Google's 2-3 line result snippets, feed titles) has internal line
+// boundaries; opening it reveals line-2 readings that sit ON line 1 — the
+// "furigana painted over the text" class. Line-clamp above 1, or a box taller
+// than ~1.5 line-heights, is multi-line and stays closed (its overhanging
+// readings are then clipped and the lane settle pass hides them).
+function detachedClipRowIsSingleLine(style: CSSStyleDeclaration, rect: DOMRect): boolean {
+    const clamp = Number.parseInt(style.getPropertyValue('-webkit-line-clamp'), 10);
+    if (Number.isFinite(clamp) && clamp > 1) return false;
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    const fontSize = Number.parseFloat(style.fontSize) || 16;
+    const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
+    // Compare the CONTENT height: padding and borders are not text lines
+    // (a padded single-line row otherwise reads as multi-line and loses its
+    // reading lane).
+    const chrome = (Number.parseFloat(style.paddingTop) || 0)
+        + (Number.parseFloat(style.paddingBottom) || 0)
+        + (Number.parseFloat(style.borderTopWidth) || 0)
+        + (Number.parseFloat(style.borderBottomWidth) || 0);
+    return Math.max(0, rect.height - chrome) <= line * 1.5;
 }
 
 function openDetachedReadingClip(box: HTMLElement): void {
@@ -2560,6 +2622,16 @@ function openDetachedReadingClip(box: HTMLElement): void {
     // Inline is required for open Shadow DOM: document-level Yomu CSS cannot
     // cross the component boundary. The saved value is restored on teardown.
     box.style.setProperty('overflow', 'visible', 'important');
+    syncDetachedReadingRestVisibility(box);
+}
+
+// Styling can run before the open/close verdict lands; re-evaluate the
+// at-rest visibility of the box's readings whenever that verdict changes.
+function syncDetachedReadingRestVisibility(box: HTMLElement): void {
+    box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi').forEach(reading => {
+        if (reading.dataset.yomuDetachedReadingHidden) return;
+        reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
+    });
 }
 
 function restoreDetachedReadingClip(box: HTMLElement): void {
@@ -2570,6 +2642,7 @@ function restoreDetachedReadingClip(box: HTMLElement): void {
     }
     detachedReadingClipStyles.delete(box);
     delete box.dataset.yomuDetachedReadingOverflow;
+    syncDetachedReadingRestVisibility(box);
 }
 
 function detachedBaseContentFits(box: HTMLElement): boolean {
@@ -5246,9 +5319,24 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join('|');
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent) applyCompoundPitchDecoration(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
+}
+
+// Compound words composed from constituent accents paint the one underline
+// with each part's own colour; clearing when absent keeps recycled spans and
+// later whole-word resolutions honest.
+export function applyCompoundPitchDecoration(word: HTMLElement, card: JPDBCard): void {
+    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : '';
+    if (gradient) {
+        word.classList.add('jpdb-reader-pitch-compound');
+        word.style.setProperty('--jpdb-reader-pitch-compound-gradient', gradient);
+    } else {
+        word.classList.remove('jpdb-reader-pitch-compound');
+        word.style.removeProperty('--jpdb-reader-pitch-compound-gradient');
+    }
 }
 
 function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
@@ -5284,11 +5372,16 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : '';
+    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length
+        ? compoundPitchGradientCss(token.card.pitchSegments)
+        : '';
     const classes = [
         readerWordClassName(state, token, settings),
         hasRuby ? 'jpdb-reader-has-furi' : '',
         hasMiningInsight ? 'jpdb-reader-i-plus-one' : '',
+        compoundGradient ? 'jpdb-reader-pitch-compound' : '',
     ].filter(Boolean).join(' ');
+    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml(compoundGradient)}"` : '';
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -5302,7 +5395,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {

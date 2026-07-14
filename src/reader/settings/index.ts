@@ -239,10 +239,10 @@ const NEW_TAB_KANJI_KEYWORD_SOURCES = ['auto', 'rtk', 'jpdb', 'local'] as const 
 export const DEFAULT_NEW_TAB_STUDY_STEP_ORDER: NewTabStudyChallengeStep[] = [
     'kanji-doodle',
     'word',
+    'type-word',
     'recall-cloze',
     'listen-pitch',
     'speaking',
-    'type-word',
 ];
 const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set<NewTabStudyChallengeStep>(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const NEW_TAB_TYPE_WORD_INPUT_MODES = ['keyboard', 'handwriting'] as const satisfies readonly ReaderSettings['newTabTypeWordInputMode'][];
@@ -849,6 +849,10 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
 
 function normalizeNewTabStudyStepOrder(value: unknown): NewTabStudyChallengeStep[] {
     const ordered = normalizeStudyStepList(value);
+    // Installs that never customised the order carry the previous default
+    // verbatim; keep them on the product default (writing follows word).
+    const legacyDefault: NewTabStudyChallengeStep[] = ['kanji-doodle', 'word', 'recall-cloze', 'listen-pitch', 'speaking', 'type-word'];
+    if (ordered.join(',') === legacyDefault.join(',')) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
     return [
         ...ordered,
         ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter(step => !ordered.includes(step)),

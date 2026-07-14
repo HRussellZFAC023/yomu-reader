@@ -124,7 +124,7 @@ afterEach(() => {
 });
 
 describe('type-word step sequencing and gating', () => {
-    it('places the type-word step after speaking and before the final reveal', () => {
+    it('places the writing (type-word) step right after the word step', () => {
         // Single-kanji spelling keeps exactly one kanji-doodle step (a word card
         // yields one doodle step per distinct kanji), so this asserts ordering.
         const session = createNewTabStudySession(typeCard({ spelling: '水', reading: 'みず', sentence: '水を飲む。' }), {
@@ -137,10 +137,10 @@ describe('type-word step sequencing and gating', () => {
         expect(session.steps.map(step => step.kind)).toEqual([
             'kanji-doodle',
             'word',
+            'type-word',
             'recall-cloze',
             'listen-pitch',
             'speaking',
-            'type-word',
             'final-reveal',
         ]);
     });
@@ -179,7 +179,9 @@ describe('type-word typed answers', () => {
             renderTypeWordStep(internals, root, card);
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             expect(input).not.toBeNull();
-            input!.value = '飲み物';
+            // Writing is a copy exercise now: the full sentence with the
+            // blank filled by the kanji spelling is a full "correct".
+            input!.value = '冷たい飲み物が欲しい。';
             internals.submitTypeWordAnswer(root);
             expect(internals.typeOutcomes.get(cardKey(card))).toBe('correct');
             expect(root.querySelector('[data-newtab-type-result]')?.getAttribute('data-newtab-type-result')).toBe('correct');
@@ -205,6 +207,37 @@ describe('type-word typed answers', () => {
             input!.value = 'のみもの';
             internals.submitTypeWordAnswer(root);
             expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('grades the copied sentence with the reading filled in as accepted', () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            internals.bindRootEvents(root);
+            renderTypeWordStep(internals, root, card);
+            const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
+            input!.value = '冷たいのみものが欲しい。';
+            internals.submitTypeWordAnswer(root);
+            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('never shows the answer in the copy prompt sentence', () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            internals.bindRootEvents(root);
+            renderTypeWordStep(internals, root, card);
+            const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
+            expect(prompt?.textContent).not.toContain('飲み物');
+            expect(prompt?.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
         } finally {
             controller.destroy();
         }

@@ -1,4 +1,5 @@
 import type { JPDBCard } from '../app/types';
+import { compoundPitchGradientCss } from '../lookup/pitch-accent';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
@@ -122,6 +123,19 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
 
+// Compounds whose pitch was composed from constituents paint the one
+// underline with each part's own colour (it is one word, but two accents).
+export function applyRenderedWordCompoundPitch(word: HTMLElement, card: JPDBCard): void {
+    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : '';
+    if (gradient) {
+        word.classList.add('jpdb-reader-pitch-compound');
+        word.style.setProperty('--jpdb-reader-pitch-compound-gradient', gradient);
+    } else {
+        word.classList.remove('jpdb-reader-pitch-compound');
+        word.style.removeProperty('--jpdb-reader-pitch-compound-gradient');
+    }
+}
+
 export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): void {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
@@ -140,6 +154,7 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     const pitchAccent = card.pitchAccent.join('|');
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
+    applyRenderedWordCompoundPitch(word, card);
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);

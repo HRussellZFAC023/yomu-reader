@@ -24,9 +24,28 @@ export interface NewTabGradeQueueDeps {
 // storage (deduped per target+card, capped) and flushed back to the providers on
 // reconnect, retrying with an attempt count so a wedged grade never blocks the rest.
 export class NewTabGradeQueue {
+    // Read-modify-write mutex: a flush that snapshotted the queue while an
+    // enqueue landed would otherwise clobber the fresh grade with its stale
+    // snapshot on the final write — a silently deleted review.
+    private serial: Promise<unknown> = Promise.resolve();
+
     constructor(private readonly deps: NewTabGradeQueueDeps) {}
 
-    async enqueue(card: JPDBCard, grade: JPDBGrade, targets: QueuedNewTabGradeTarget[]): Promise<boolean> {
+    enqueue(card: JPDBCard, grade: JPDBGrade, targets: QueuedNewTabGradeTarget[]): Promise<boolean> {
+        return this.locked(() => this.enqueueUnlocked(card, grade, targets));
+    }
+
+    flush(): Promise<number> {
+        return this.locked(() => this.flushUnlocked());
+    }
+
+    private locked<T>(operation: () => Promise<T>): Promise<T> {
+        const next = this.serial.then(operation, operation);
+        this.serial = next.then(() => undefined, () => undefined);
+        return next;
+    }
+
+    private async enqueueUnlocked(card: JPDBCard, grade: JPDBGrade, targets: QueuedNewTabGradeTarget[]): Promise<boolean> {
         const queueTargets = queueableNewTabReviewTargets(targets);
         if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
         const queue = await this.read();
@@ -51,7 +70,7 @@ export class NewTabGradeQueue {
     }
 
     // Flushes the queue and returns how many grades still remain unsynced.
-    async flush(): Promise<number> {
+    private async flushUnlocked(): Promise<number> {
         const queue = await this.read();
         if (!queue.length) return 0;
         const pending: QueuedNewTabGrade[] = [];

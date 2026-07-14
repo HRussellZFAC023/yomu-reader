@@ -1191,8 +1191,7 @@ export class SubtitlePlayerController {
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.toggleRowTranslationPeek(target),
         'jump-current': () => this.jumpToCurrentTranscriptRow(),
-        'rail-expand': () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
-        'rail-pin': () => this.toggleSubtitleControlRailPin(),
+        'rail-expand': () => this.toggleSubtitleControlRailExpanded(),
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
@@ -1415,6 +1414,7 @@ export class SubtitlePlayerController {
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         this.root.classList.toggle('jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
+        if (settings.subtitleControlsMode !== 'auto') this.root.classList.remove('jpdb-subtitle-controls-away');
         if (!this.video) {
             this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
             this.root.classList.add('jpdb-subtitle-video-out-of-view');
@@ -1466,7 +1466,6 @@ export class SubtitlePlayerController {
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         const moveAccessibleLabel = uiText(settings.interfaceLanguage, 'moveSubtitlesAccessible');
         const moveControlsLabel = uiText(settings.interfaceLanguage, 'moveSubtitleControls');
-        const pinControlsLabel = uiText(settings.interfaceLanguage, settings.subtitleControlsMode === 'always' ? 'unpinSubtitleControls' : 'pinSubtitleControls');
         const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? 'readVideoFrameStop' : 'readVideoFrame');
         const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
             ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? ' jpdb-subtitle-ocr-active' : ''}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon('scan')}</button>`
@@ -1482,7 +1481,6 @@ export class SubtitlePlayerController {
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
-                <button class="jpdb-subtitle-rail-pin" type="button" data-action="rail-pin" title="${escapeHtml(pinControlsLabel)}" aria-label="${escapeHtml(pinControlsLabel)}" aria-pressed="${settings.subtitleControlsMode === 'always'}">${subtitleIcon('pin')}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
@@ -2113,18 +2111,29 @@ export class SubtitlePlayerController {
     // so the player's fade state is the only "controls are visible" signal
     // the viewer has — the rail must appear and disappear in lockstep.
     private syncPlayerChromeIdleState(): void {
-        if (!this.root || !this.hasAutoIdleMode(this.options.getSettings())) return;
+        if (!this.root) return;
         const chromeHidden = this.videoPlayerChromeHidden();
+        // Mobile taps leave the last rail button focused; focus inside the
+        // player subtree (fullscreen reparents the rail into it) blocks
+        // YouTube's own autohide in EVERY controls mode, so blur whenever the
+        // player chrome has faded — not only in auto mode.
+        if (chromeHidden) this.blurFocusedRailControl();
+        if (!this.hasAutoIdleMode(this.options.getSettings())) {
+            this.root.classList.remove('jpdb-subtitle-controls-away');
+            this.lastPlayerChromeHidden = chromeHidden;
+            return;
+        }
         if (chromeHidden) {
-            // Mobile taps leave the last rail button focused, which would
-            // otherwise block idling forever via :focus-within.
-            this.blurFocusedRailControl();
             if (this.shouldAutoIdleControls() && !this.subtitleSurfaceWakeActive) this.hideControlsImmediately();
         } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
             // Chrome just re-appeared (e.g. the viewer tapped the video):
             // re-reveal the rail alongside the player's own controls.
             this.showControlsTemporarily();
         }
+        // An unfocused player hides the rail entirely (not just minimised):
+        // it tracks the player's own chrome fade so the video stays clean.
+        this.root.classList.toggle('jpdb-subtitle-controls-away',
+            chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi());
         this.lastPlayerChromeHidden = chromeHidden;
     }
 
@@ -3777,15 +3786,16 @@ export class SubtitlePlayerController {
         this.syncPointerActivity(event.clientX, event.clientY);
     }
 
+    // Tapping the subtitle line (e.g. looking up a word) deliberately does
+    // NOT reveal the rail: the rail follows the player's own chrome instead,
+    // so reading interactions stay free of control-cluster flicker.
     private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
-        this.lastControlsInputWasKeyboard = false;
         if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
-        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+        this.lastControlsInputWasKeyboard = false;
     }
 
     private handleSubtitleSurfaceClick(event: MouseEvent): void {
         if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
-        this.showControlsTemporarily({ independentOfPlayerChrome: true });
         const target = event.target instanceof Element ? event.target : null;
         const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
         if (hitSubtitleContent) return;
@@ -3842,10 +3852,6 @@ export class SubtitlePlayerController {
     }
 
     private syncPointerActivity(clientX: number, clientY: number): void {
-        if (this.pointInVisibleSubtitleSurface(clientX, clientY)) {
-            this.showControlsTemporarily({ independentOfPlayerChrome: true });
-            return;
-        }
         if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
             this.showControlsTemporarily();
         } else {
@@ -3927,7 +3933,6 @@ export class SubtitlePlayerController {
         dragRoot?.classList.add('jpdb-subtitle-dragging');
         if (dragRoot !== this.root) this.root?.classList.add('jpdb-subtitle-dragging');
         document.documentElement.classList.add('jpdb-subtitle-dragging');
-        this.showControlsDuringSubtitleDrag();
         return session;
     }
 
@@ -3955,7 +3960,8 @@ export class SubtitlePlayerController {
             this.resetLegacySubtitleDragOffset();
         }
         else this.persistSubtitleDragOffset();
-        this.showControlsTemporarily();
+        // Repositioning the subtitle line is a reading gesture: releasing the
+        // drag must not pop the control rail open.
     }
 
     private applySubtitleDragPreview(session: SubtitleDragSession, clientY: number): void {
@@ -3971,7 +3977,6 @@ export class SubtitlePlayerController {
             this.setSubtitleDragOffset(session.startOffset + deltaY, session.dragFrame, session.bounds);
             session.previewOffset = this.subtitleDragOffsetYPx;
         }
-        this.showControlsDuringSubtitleDrag();
     }
 
     private flushSubtitleDragPreview(session: SubtitleDragSession): void {
@@ -4283,12 +4288,6 @@ export class SubtitlePlayerController {
         this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.syncSubtitleControlRailButtons();
         this.syncAsbPlayerSubtitleMoveHandles();
-        this.scheduleControlsIdle();
-    }
-
-    private showControlsDuringSubtitleDrag(): void {
-        if (!this.root) return;
-        this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.scheduleControlsIdle();
     }
 
@@ -5248,27 +5247,25 @@ export class SubtitlePlayerController {
         setInnerHtml(button, subtitleIcon(visible ? 'eye' : 'eye-off'));
     }
 
-    private toggleSubtitleControlRailPin(): void {
+    // The grip is both the drag handle and the expand/collapse toggle: a
+    // stationary tap flips the persisted mode so an expanded rail stays
+    // expanded, while collapsing minimises back to the grip immediately.
+    private toggleSubtitleControlRailExpanded(): void {
         const settings = this.options.getSettings();
-        settings.subtitleControlsMode = settings.subtitleControlsMode === 'always' ? 'auto' : 'always';
+        const expanded = settings.subtitleControlsMode === 'always';
+        settings.subtitleControlsMode = expanded ? 'auto' : 'always';
         this.options.onSettingsChange();
         this.syncRootVisibility(settings);
-        this.showControlsTemporarily({ independentOfPlayerChrome: true });
+        if (expanded) this.hideControlsImmediately();
+        else this.showControlsTemporarily({ independentOfPlayerChrome: true });
         this.syncControls();
     }
 
     private syncSubtitleControlRailButtons(): void {
         const settings = this.options.getSettings();
-        const pinned = settings.subtitleControlsMode === 'always';
-        const pin = this.root?.querySelector<HTMLButtonElement>('[data-action="rail-pin"]');
-        if (pin) {
-            const label = uiText(settings.interfaceLanguage, pinned ? 'unpinSubtitleControls' : 'pinSubtitleControls');
-            pin.title = label;
-            pin.setAttribute('aria-label', label);
-            pin.setAttribute('aria-pressed', String(pinned));
-        }
+        const expandedMode = settings.subtitleControlsMode === 'always';
         const expand = this.root?.querySelector<HTMLButtonElement>('[data-action="rail-expand"]');
-        if (expand) expand.setAttribute('aria-expanded', String(!this.root?.classList.contains('jpdb-subtitle-controls-idle') || pinned));
+        if (expand) expand.setAttribute('aria-expanded', String(!this.root?.classList.contains('jpdb-subtitle-controls-idle') || expandedMode));
     }
 
     private syncVideoFrameOcrButton(): void {

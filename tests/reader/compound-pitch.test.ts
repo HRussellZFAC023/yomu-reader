@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { composeCompoundPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../../src/reader/lookup/pitch-meta';
+import { composeCompoundPitchPatternFromMeta, composeCompoundPitchSegmentsFromMeta, localPitchPatternsFromMetaLookup, localPitchResolutionFromMetaLookup } from '../../src/reader/lookup/pitch-meta';
+import { compoundPitchGradientCss } from '../../src/reader/lookup/pitch-accent';
+import { renderPitchGraphSvg } from '../../src/reader/popup/pitch';
 import type { YomitanMetaEntry } from '../../src/reader/dictionaries/yomitan';
 
 function pitchEntry(reading: string, position: number): YomitanMetaEntry {
@@ -199,5 +201,59 @@ describe('localPitchPatternsFromMetaLookup', () => {
 
         await expect(localPitchPatternsFromMetaLookup('登録者数', 'とうろくしゃすう', lookup, { includeCompound: false })).resolves.toEqual([]);
         expect(lookup).not.toHaveBeenCalledWith('登録');
+    });
+});
+
+describe('compound pitch segments', () => {
+    it('exposes per-constituent segments with their readings for two-colour rendering', async () => {
+        const lookup = bankLookup({
+            登録: [pitchEntry('とうろく', 0)],
+            者: [pitchEntry('しゃ', 1)],
+            数: [pitchEntry('すう', 1)],
+        });
+        const segments = await composeCompoundPitchSegmentsFromMeta('登録者数', 'とうろくしゃすう', lookup);
+        expect(segments.map(segment => segment.reading)).toEqual(['とうろく', 'しゃ', 'すう']);
+        expect(segments.map(segment => segment.pattern).join('')).toBe('LHHHHHLL');
+    });
+
+    it('resolution reports compound segments alongside the composed pattern', async () => {
+        const lookup = bankLookup({
+            登録: [pitchEntry('とうろく', 0)],
+            者: [pitchEntry('しゃ', 1)],
+            数: [pitchEntry('すう', 1)],
+        });
+        const resolution = await localPitchResolutionFromMetaLookup('登録者数', 'とうろくしゃすう', lookup);
+        expect(resolution.patterns).toEqual(['LHHHHHLL']);
+        expect(resolution.compoundSegments).toHaveLength(3);
+    });
+
+    it('direct bank hits carry no compound segments', async () => {
+        const lookup = bankLookup({ 安定: [pitchEntry('あんてい', 0)] });
+        const resolution = await localPitchResolutionFromMetaLookup('安定', 'あんてい', lookup);
+        expect(resolution.patterns.length).toBeGreaterThan(0);
+        expect(resolution.compoundSegments).toBeUndefined();
+    });
+
+    it('builds a two-colour underline gradient weighted by contributed morae', () => {
+        const gradient = compoundPitchGradientCss([
+            { pattern: 'LHHH', reading: 'とうろく' },
+            { pattern: 'HLL', reading: 'しゃすう' },
+        ]);
+        expect(gradient).toContain('linear-gradient(to right');
+        expect(gradient).toContain('var(--jpdb-reader-pitch-heiban) 0.0% 57.1%');
+        expect(gradient).toContain('var(--jpdb-reader-pitch-atamadaka) 57.1% 100.0%');
+    });
+
+    it('draws the compound graph with per-constituent colours and a connected contour', () => {
+        const svg = renderPitchGraphSvg('とうろくしゃすう', 'LHHHHHLL', {
+            segments: [
+                { pattern: 'LHHHH', reading: 'とうろくしゃ' },
+                { pattern: 'HLL', reading: 'すう' },
+            ],
+        });
+        expect(svg).toContain('polyline class="heiban"');
+        expect(svg).toContain('polyline class="atamadaka"');
+        expect(svg).toContain('circle class="heiban"');
+        expect(svg).toContain('circle class="atamadaka"');
     });
 });

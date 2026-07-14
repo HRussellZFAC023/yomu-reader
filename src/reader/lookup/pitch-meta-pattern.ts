@@ -12,6 +12,7 @@ const KANA_RE = /[぀-ヿー]/u;
 interface CompoundSegment {
     pattern: string;
     moraCount: number;
+    reading: string;
 }
 
 interface CompoundLookupState {
@@ -24,27 +25,50 @@ export interface LocalPitchPatternLookupOptions {
     includeCompound?: boolean;
 }
 
+// A compound's combined pattern keeps its constituent boundaries: each
+// segment carries the pattern slice it contributed plus its own reading, so
+// renderers can colour the one word with each part's own accent colour.
+export interface CompoundPitchSegment {
+    pattern: string;
+    reading: string;
+}
+
+export interface LocalPitchResolution {
+    patterns: string[];
+    compoundSegments?: CompoundPitchSegment[];
+}
+
 export async function localPitchPatternsFromMetaLookup(
     spelling: string,
     reading: string,
     lookupMeta: PitchMetaLookup,
     options: LocalPitchPatternLookupOptions = {},
 ): Promise<string[]> {
+    return (await localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options)).patterns;
+}
+
+export async function localPitchResolutionFromMetaLookup(
+    spelling: string,
+    reading: string,
+    lookupMeta: PitchMetaLookup,
+    options: LocalPitchPatternLookupOptions = {},
+): Promise<LocalPitchResolution> {
     const expression = spelling.trim();
     const pronunciation = reading.trim();
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
     let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return patterns;
+    if (patterns.length) return { patterns };
 
     if (pronunciation && pronunciation !== expression) {
         const readingEntries = await lookupMeta(pronunciation);
         patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-        if (patterns.length) return patterns;
+        if (patterns.length) return { patterns };
     }
 
-    if (options.includeCompound === false) return [];
-    const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
-    return compoundPattern ? [compoundPattern] : [];
+    if (options.includeCompound === false) return { patterns: [] };
+    const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+    if (!segments.length) return { patterns: [] };
+    return { patterns: [segments.map(segment => segment.pattern).join('')], compoundSegments: segments };
 }
 
 // Compound expressions (登録者数) rarely have a whole-word row in a pitch
@@ -60,15 +84,26 @@ export async function composeCompoundPitchPatternFromMeta(
     reading: string,
     lookupMeta: PitchMetaLookup,
 ): Promise<string> {
+    return (await composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta))
+        .map(segment => segment.pattern)
+        .join('');
+}
+
+export async function composeCompoundPitchSegmentsFromMeta(
+    spelling: string,
+    reading: string,
+    lookupMeta: PitchMetaLookup,
+): Promise<CompoundPitchSegment[]> {
     const characters = Array.from(spelling.trim());
     const kana = kanaNormalized(reading.trim());
-    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return '';
+    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return [];
     const state: CompoundLookupState = { lookups: 0, cache: new Map() };
     const segments = await composeSegments(characters, 0, kana, lookupMeta, state, COMPOUND_MAX_SEGMENTS);
-    if (!segments || segments.length < 2) return '';
-    return segments
-        .map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount))
-        .join('');
+    if (!segments || segments.length < 2) return [];
+    return segments.map((segment, index) => ({
+        pattern: index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount),
+        reading: segment.reading,
+    }));
 }
 
 async function composeSegments(
@@ -92,7 +127,7 @@ async function composeSegments(
         const segment = await constituentSegment(candidate, readingRest, lookupMeta, state, isFinal);
         if (!segment) continue;
         const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
-        if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+        if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount, reading: readingRest.slice(0, segment.readingLength) }, ...rest];
     }
     return null;
 }

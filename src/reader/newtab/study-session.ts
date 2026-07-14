@@ -124,10 +124,10 @@ function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrde
         ...configured,
         'kanji-doodle',
         'word',
+        'type-word',
         'recall-cloze',
         'listen-pitch',
         'speaking',
-        'type-word',
     ]);
 }
 

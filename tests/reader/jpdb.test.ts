@@ -1498,6 +1498,19 @@ function expectBodyTextTargets(html: string, expected: string[]): void {
     expect(collectTextTargetsIn(document.body, 10, false).map(target => target.text)).toEqual(expected);
 }
 
+// Fragile UI text and short centered headings are collected on the PASSIVE
+// channel (lookupable, no ruby geometry) instead of being rejected outright.
+function expectBodyPassiveTextTargets(html: string, expectedPassive: string[]): void {
+    document.body.innerHTML = html;
+    const targets = collectTextTargetsIn(document.body, 10, false);
+    for (const text of expectedPassive) {
+        const target = targets.find(candidate => candidate.text === text);
+        expect(target, text).toBeTruthy();
+        expect(target?.decoration, text).toBe('interactive-passive');
+        expect(target?.suppressRuby, text).toBe(true);
+    }
+}
+
 function parseTestAnkiConnectRequest(data: string): TestAnkiConnectRequest {
     return JSON.parse(data) as TestAnkiConnectRequest;
 }
@@ -37859,12 +37872,16 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toContain('あの仕事は少なくとも１０日はかかるな。');
     });
 
-    it('does not scan form labels, required badges, or compact UI chips', () => {
-        expectBodyTextTargets(`
+    it('keeps form chrome out of scans but collects compact UI chips as passive', () => {
+        expectBodyPassiveTextTargets(`
             <form><label>パスワードの設定<span class="required">必須</span></label></form>
             <span class="badge">予約</span>
             <p>今日は本を読みます。</p>
-        `, ['今日は本を読みます。']);
+        `, ['予約']);
+        const texts = collectTextTargetsIn(document.body, 10, false).map(target => target.text);
+        // Form labels stay excluded by the form-chrome gate (unchanged).
+        expect(texts).not.toContain('パスワードの設定');
+        expect(texts).toContain('今日は本を読みます。');
     });
 
     it('keeps prose parseable when content class names contain UI-ish words', () => {
@@ -37881,30 +37898,36 @@ describe('reader helpers', () => {
         ]);
     });
 
-    it('does not rewrite short centered display headings that can break page layout', () => {
-        expectBodyTextTargets(`
+    it('collects short centered display headings on the passive channel (never ruby that breaks layout)', () => {
+        expectBodyPassiveTextTargets(`
             <h2 style="text-align:center;font-size:22px;line-height:1.1">ポストに届いて、受取ラクラク</h2>
             <p>食卓やリビングなど、おうちのちょっとしたところに飾れる。</p>
-        `, ['食卓やリビングなど、おうちのちょっとしたところに飾れる。']);
+        `, ['ポストに届いて、受取ラクラク']);
+        expect(collectTextTargetsIn(document.body, 10, false).map(target => target.text)).toContain('食卓やリビングなど、おうちのちょっとしたところに飾れる。');
     });
 
     it('keeps primary readable h1 text in main parseable even when centered', () => {
-        expectBodyTextTargets(`
+        document.body.innerHTML = `
             <main>
                 <h1 style="text-align:center;font-size:48px;line-height:1.1">
                     <span class="name">よむ</span>
                     <span class="text">好きなものを読んで日本語を学ぶ</span>
                 </h1>
             </main>
-        `, ['好きなものを読んで日本語を学ぶ']);
+        `;
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        const hero = targets.find(target => target.text === '好きなものを読んで日本語を学ぶ');
+        expect(hero).toBeTruthy();
+        // The readable primary heading is NOT downgraded: full decoration.
+        expect(hero?.decoration).not.toBe('interactive-passive');
     });
 
-    it('keeps nested text inside short centered headings out of text-node scans', () => {
-        expectBodyTextTargets(`
+    it('collects nested text inside short centered headings as passive', () => {
+        expectBodyPassiveTextTargets(`
             <main>
                 <h2 style="text-align:center;font-size:22px;line-height:1.1"><span>お花のプラン</span></h2>
             </main>
-        `, []);
+        `, ['お花のプラン']);
     });
 
     it('keeps short centered display headings out of broad page scans too', () => {

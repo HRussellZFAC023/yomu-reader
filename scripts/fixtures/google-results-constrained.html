@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日本語の勉強 - Google 検索</title>
+<style>
+  /* Faithful to real Google (iPad/desktop) result DOM + clamp metrics. */
+  html, body { margin: 0; background: #fff; color: #202124; font: 16px/1.4 arial, sans-serif; }
+  #cnt { max-width: 652px; margin: 0 auto; padding: 16px 16px 80px; }
+  .MjjYud { padding: 14px 0; border-bottom: 1px solid #ececec; }
+  .g { display: block; }
+  .yuRUbf { display: block; }
+  .site { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; color: #4d5156; }
+  .icon { width: 26px; height: 26px; border-radius: 50%; background: #dadce0; flex: none; }
+  h3.LC20lb { margin: 0 0 3px; color: #1a0dab; font-size: 20px; line-height: 26px; font-weight: 400;
+              display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  /* The canonical Google snippet: 2-line clamp, ~20px line box. rt on the
+     SECOND line paints up into the FIRST line. */
+  .VwiC3b { color: #4d5156; font-size: 14px; line-height: 20px;
+            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* People-also-ask / "検索結果を表示" chip: single fixed-height clip row. */
+  .related-chip { display: inline-flex; align-items: center; gap: 8px; height: 34px; max-height: 34px;
+                  overflow: hidden; margin-top: 12px; padding: 0 16px; border-radius: 18px; border: 1px solid #dadce0;
+                  color: #1a0dab; line-height: 18px; }
+  .paa-q { border-top: 1px solid #ececec; padding: 14px 0; font-size: 16px; line-height: 22px;
+           display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="cnt">
+  <div id="search"><div id="rso">
+
+    <div class="MjjYud"><div class="g"><div class="yuRUbf">
+      <div class="site"><span class="icon"></span><span>Weblio辞書 · https://ejje.weblio.jp</span></div>
+      <a href="#"><h3 class="LC20lb">日本語の勉強に役立つ無料の辞書とアプリの一覧をまとめて紹介します</h3></a>
+      <div class="VwiC3b">日本語の勉強を効率よく進めるには、毎日少しずつ新しい単語と文法を復習することが大切です。初心者から上級者まで、自分の水準に合った教材を選んで継続する方法を詳しく解説しています。</div>
+      <div class="related-chip"><span>検索結果を表示</span><span aria-hidden="true">⌄</span></div>
+    </div></div></div>
+
+    <div class="MjjYud"><div class="g"><div class="yuRUbf">
+      <div class="site"><span class="icon"></span><span>NHK · https://www3.nhk.or.jp</span></div>
+      <a href="#"><h3 class="LC20lb">外国人のための日本語能力試験の勉強方法と過去問題の活用</h3></a>
+      <div class="VwiC3b">試験に合格するためには、読解と聴解の両方を鍛える必要があります。過去の問題を繰り返し解き、間違えた箇所を分析して弱点を克服することが合格への近道だと専門家は指摘しています。</div>
+    </div></div></div>
+
+    <div class="MjjYud"><div class="g"><div class="yuRUbf">
+      <div class="site"><span class="icon"></span><span>文化庁 · https://www.bunka.go.jp</span></div>
+      <a href="#"><h3 class="LC20lb">地域の日本語教室で学ぶ会話と漢字の実践的な学習支援について</h3></a>
+      <div class="VwiC3b">地域の教室では、生活に必要な会話表現を中心に、実際の場面を想定した練習を行います。漢字の読み書きや敬語の使い方も段階的に指導し、参加者が安心して学べる環境を整えています。</div>
+    </div></div></div>
+
+    <div class="paa-q">日本語の勉強はどこから始めるべきですか</div>
+    <div class="paa-q">漢字を効率よく覚える方法はありますか</div>
+
+    <!-- DEPTH PROBE: real Google nests snippet text in span/em wrappers. The
+         clamp is on .VwiC3b but the text node is 6+ elements deep, past the
+         5-ancestor walk in closestRubyFragileConstrainedRow. -->
+    <div class="MjjYud"><div class="g"><div class="yuRUbf">
+      <div class="site"><span class="icon"></span><span>Deep辞書 · https://deep.example.jp</span></div>
+      <a href="#"><h3 class="LC20lb">日本語の文法を基礎から学ぶ</h3></a>
+      <div class="VwiC3b"><span><span><span><span><span><span>日本語の勉強を毎日続けると文法と漢字の理解が深まり読解力も向上します。初心者でも継続すれば必ず上達すると多くの教師が指摘しています。</span></span></span></span></span></span></div>
+    </div></div></div>
+
+  </div></div>
+</div>
+</body>
+</html>

@@ -7511,6 +7511,123 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
+    it('asks before queueing offline when the connection is lost, and continues offline', async () => {
+        const card = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const { controller, root } = newTabVisibleWordFixture(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, immersionKitEnabled: false }), {
+            card,
+            sourceLabel: 'JPDB',
+            source: 'jpdb',
+        });
+        const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+        try {
+            const pending = (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-connection-lost')).toBeTruthy();
+            });
+            document.querySelector<HTMLButtonElement>('[data-connection-lost-action="continue"]')?.click();
+            await expect(pending).resolves.toBe(true);
+            expect(document.querySelector('.jpdb-reader-connection-lost')).toBeNull();
+            const queue = readNewTabGradeQueue();
+            expect(queue).toHaveLength(1);
+            expect(queue[0]).toMatchObject({ target: 'jpdb-api', grade: 'okay' });
+        } finally {
+            onLine.mockRestore();
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('never raises the connection-lost dialog for local Academy (yomu-local) grades while offline', async () => {
+        const card = newTabTestCard({ vid: 4, sid: 1, spelling: '学園', reading: 'がくえん', source: 'local', reviewSource: 'yomu-local' });
+        const { controller, root } = newTabVisibleWordFixture(() => ({ ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: true, immersionKitEnabled: false }), {
+            card,
+            sourceLabel: 'Academy',
+            source: 'yomu-local',
+        });
+        const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+        try {
+            const graded = await (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
+            // Local grading needs no connection: no dialog, grade queued silently.
+            expect(document.querySelector('.jpdb-reader-connection-lost')).toBeNull();
+            expect(graded).toBe(true);
+            const queue = readNewTabGradeQueue();
+            expect(queue).toHaveLength(1);
+            expect(queue[0]).toMatchObject({ target: 'yomu-local', grade: 'okay' });
+        } finally {
+            onLine.mockRestore();
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('stop reviewing leaves the connection-lost grade unqueued and unsubmitted', async () => {
+        const card = newTabTestCard({ vid: 2, sid: 1, spelling: '休止', reading: 'きゅうし', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const { controller, root } = newTabVisibleWordFixture(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, immersionKitEnabled: false }), {
+            card,
+            sourceLabel: 'JPDB',
+            source: 'jpdb',
+        });
+        const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+        try {
+            const pending = (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-connection-lost')).toBeTruthy();
+            });
+            document.querySelector<HTMLButtonElement>('[data-connection-lost-action="stop"]')?.click();
+            await expect(pending).resolves.toBe(false);
+            expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+        } finally {
+            onLine.mockRestore();
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('retry re-attempts the grade and re-prompts while still offline', async () => {
+        const card = newTabTestCard({ vid: 3, sid: 1, spelling: '再試', reading: 'さいし', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const { controller, root } = newTabVisibleWordFixture(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, immersionKitEnabled: false }), {
+            card,
+            sourceLabel: 'JPDB',
+            source: 'jpdb',
+        });
+        const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+        try {
+            const pending = (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
+            await waitForExpect(() => {
+                expect(document.querySelector('[data-connection-lost-action="retry"]')).toBeTruthy();
+            });
+            document.querySelector<HTMLButtonElement>('[data-connection-lost-action="retry"]')?.click();
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-connection-lost')).toBeTruthy();
+            });
+            document.querySelector<HTMLButtonElement>('[data-connection-lost-action="stop"]')?.click();
+            await expect(pending).resolves.toBe(false);
+            expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+        } finally {
+            onLine.mockRestore();
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('clears the accepted offline choice when the browser comes back online', async () => {
+        const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }), {
+            jpdb: { reviewCard: vi.fn(async () => {}) } as never,
+        });
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const internals = controller as unknown as { bindRootEvents(root: HTMLElement): void; offlineReviewingAccepted: boolean };
+        internals.bindRootEvents(root);
+        internals.offlineReviewingAccepted = true;
+
+        window.dispatchEvent(new Event('online'));
+
+        await waitForExpect(() => {
+            expect(internals.offlineReviewingAccepted).toBe(false);
+        });
+        controller.destroy();
+        root.remove();
+    });
+
     it('hides grade buttons for offline live JPDB review cards that cannot be replayed', () => {
         const card = newTabTestCard({ vid: 0, sid: 0, rid: 0, spelling: '記', reading: 'record', source: 'jpdb', reviewSource: 'jpdb-live', jpdbReviewId: 'kb,記' });
         const { controller, root } = newTabVisibleWordFixture(() => ({
@@ -9299,7 +9416,9 @@ describe('new tab review helpers', () => {
             expect(term.querySelector('ruby')?.textContent).toContain('かえ');
             expect(tools.textContent).not.toContain('#777');
             expect(tools.querySelector('.jpdb-reader-frequency-pill')).toBeNull();
-            expect(tools.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
+            // The pitch graph left the reveal: the learner already answered the
+            // pitch step, so only the underline colour carries pitch here.
+            expect(tools.querySelector('.jpdb-reader-pitch svg')).toBeNull();
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
                 expect(renderStudyDefinitionSources).toHaveBeenCalledWith(card, expect.any(Object), card.sentence || card.spelling);

@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.6.149] - 2026-07-13
+
+### Added
+
+- The Study page now asks what to do when the connection is lost mid-review — Stop Reviewing, Continue Offline, or Retry — and grades made offline queue and sync when you are back online.
+- The writing step shows the full example sentence as a copy-and-fill exercise right after the word step: words you have not graded out keep furigana, the studied word is blanked, and the whole typed sentence is checked with the filled word deciding correct versus accepted.
+- Study example sentences are now chosen n+1 style: candidates from the card, JPDB, and Immersion Kit are scored against your known words, and the sentence introducing at most one new word wins so you always read just above your level.
+
+### Fixed
+
+- Furigana no longer paints over the line above inside multi-line clamped rows (Google-style result snippets, feed previews): such rows keep pitch underlines and hover lookup but hide at-rest readings, single-line rows keep their reading lane even when padded, and late-enriched readings obey the same rule instead of flickering in.
+- A rail button left focused after a tap no longer blocks YouTube's own player controls from fading, in every rail mode including the new stays-expanded one.
+- Grades queued offline can no longer be silently lost when a reconnect sync overlaps a new offline grade: queue writes are serialized, a landed grade re-arms the connection-lost prompt, and partial multi-provider failures keep the silent queue instead of offering a retry that could double-grade.
+- Discord and other dark app shells whose computed colors use formats outside Yomu's analytic parsers no longer render annotated text as solid dark bars: every CSS color now normalises through a canvas probe, and an unparseable painted backdrop falls back to the dark page surface instead of white.
+- Tapping the studied word on the study reveal opens the word's own popover again instead of a per-kanji popup; kanji drilldown stays available through the popover's composed-of chips.
+- The study reveal no longer repeats the pitch graph after the pitch step — the headword keeps its pitch-coloured underline — and the Immersion Kit example always renders above the dictionary sources.
+- Compound words whose pitch is composed from constituent accents now paint both colours on the one word: the page underline splits per constituent and the popover graph draws each constituent's contour in its own colour, while the composed-of chips keep linking the sub-words.
+
+### Changed
+
+- The subtitle control rail lost its pin button: the drag grip itself toggles between stays-expanded and minimised, the rail hides entirely while the player chrome is hidden, starts minimised and less prominent, and no longer appears when you tap subtitle words or move the subtitle line.
+
 ## [1.6.148] - 2026-07-12
 
 ### Fixed

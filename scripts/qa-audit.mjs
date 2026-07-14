@@ -4637,20 +4637,20 @@ function hasSettledSubtitleWordState(snapshot) {
 function assertCompactIdleRailSnapshot(snapshot) {
     assertAudit(
         isSubtitleRailVisuallyAvailable(snapshot),
-        `idle compact subtitle rail should keep its move/pin chip visible: ${JSON.stringify(snapshot)}`,
+        `idle compact subtitle rail should keep its move grip visible: ${JSON.stringify(snapshot)}`,
     );
     assertAudit(
         (snapshot.rail?.width ?? Number.POSITIVE_INFINITY) <= 120,
         `idle compact subtitle rail should collapse to a small chip: ${JSON.stringify(snapshot)}`,
     );
-    for (const action of ['rail-expand', 'rail-pin']) {
+    for (const action of ['rail-expand']) {
         const button = snapshot.buttons?.find(candidate => candidate.action === action);
         assertAudit(
             isAtLeast(button?.style?.width, 28) && isAtLeast(button?.style?.height, 28),
             `idle compact subtitle rail is missing its visible ${action} control: ${JSON.stringify(snapshot)}`,
         );
     }
-    const expandedControls = snapshot.buttons?.filter(candidate => !['rail-expand', 'rail-pin'].includes(candidate.action)) ?? [];
+    const expandedControls = snapshot.buttons?.filter(candidate => candidate.action !== 'rail-expand') ?? [];
     assertAudit(
         expandedControls.every(button => button.style?.display === 'none' || !isAtLeast(button.style?.width, 1)),
         `idle compact subtitle rail left expanded controls visible: ${JSON.stringify(snapshot)}`,

@@ -11,7 +11,7 @@ const NEW_TAB_CSS_ENTRY = readFileSync('src/reader/styles.css', 'utf8');
 const SHIPPED_TEXT_ARTIFACTS = [
     'dist/yomu.user.js',
     'docs/public/yomu.user.js',
-    'docs/public/newtab/app.js',
+    'docs/public/study/app.js',
     'docs/public/greasyfork/yomu-settings-surface.user.js',
     'docs/public/greasyfork/yomu-video.user.js',
 ].map(path => [path, readFileSync(path, 'utf8')] as const);

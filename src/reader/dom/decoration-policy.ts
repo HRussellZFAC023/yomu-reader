@@ -188,7 +188,10 @@ export function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean
 
 export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < 5; depth += 1) {
+    // Deep enough to escape inline formatting wrappers: search snippets nest
+    // text in span/em/b chains 6+ deep, which a 5-ancestor walk never
+    // escaped, so the clamped row was invisible to the fragile-row check.
+    for (let depth = 0; current && depth < 10; depth += 1) {
         const facts = constrainedRowStyleFacts(current);
         if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
         current = current.parentElement;
@@ -250,6 +253,12 @@ export function contentClipRowShowsRestReadings(
     const style = safeComputedStyle(clipRow);
     if (hasDefiniteCssSize(style.maxHeight)) return false;
     if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
+    // A MULTI-line clamp cannot actually grow: the clamp caps its line count
+    // while ruby-room deliberately never grows clamped rows (the 1.6.115
+    // blow-up guard), so at-rest readings would sit in the fixed inter-line
+    // leading and paint over the line above (Google snippet overlap class).
+    const clampLines = Number.parseInt(style.getPropertyValue('-webkit-line-clamp'), 10);
+    if (Number.isFinite(clampLines) && clampLines > 1) return false;
     const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : '';
     return !parentDisplay.includes('flex')
         && !parentDisplay.includes('grid')

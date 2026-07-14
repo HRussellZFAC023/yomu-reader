@@ -146,6 +146,10 @@ export interface JPDBCard {
     meanings: JPDBMeaning[];
     cardState: CardState[];
     pitchAccent: string[];
+    // For compounds whose pitch was composed from constituents: the pattern
+    // slice + reading of each constituent, so renderers can colour the single
+    // word's underline/graph with each part's own accent colour.
+    pitchSegments?: Array<{ pattern: string; reading: string }>;
     // jpdb API due_at (unix seconds): the card's next scheduled review.
     // Sorting due cards ascending reproduces jpdb's exact Learn queue order.
     dueAt?: number | null;

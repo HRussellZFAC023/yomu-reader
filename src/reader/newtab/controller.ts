@@ -33,7 +33,7 @@ import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
-import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
+import { applyCompoundPitchDecoration, escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
 import { cardPronunciationReading, isKanjiCharacter } from '../popup/pitch';
@@ -89,8 +89,6 @@ import {
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
-    renderExpressionComponentPitches,
-    renderPitch,
     renderRtkInfo,
 } from '../popup/render';
 import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
@@ -148,7 +146,7 @@ import {
     type NewTabLookupReviewTargetSelection,
     type NewTabReviewSourceSummary,
 } from './review-controls';
-import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallOutcome } from './recall-practice';
+import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, evaluateNewTabSentenceCopyAnswer, type NewTabRecallCloze, type NewTabRecallOutcome } from './recall-practice';
 import { PitchSrsStore, pitchItemKey, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
@@ -211,6 +209,8 @@ import {
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
+import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
+
 import { NewTabImmersionAudioPlayer } from './immersion-audio';
 import {
     ankiCardKindLabel,
@@ -813,6 +813,15 @@ export class NewTabController {
     private offlineWarmRetryTimer: number | undefined;
     private syncPendingCount = 0;
     private lastSyncedAt: number | null = null;
+    // n+1 sentence selection: once per card the example sentences from every
+    // source are scored against the learner's known words and the best one
+    // (all known + at most one new word) replaces the card's own sentence.
+    private studySentenceOverrides = new Map<string, string>();
+    private nPlusOneSentenceRequests = new Set<string>();
+    // Set once the user chooses "Continue offline" in the connection-lost
+    // dialog; later drops in the same outage queue silently. Cleared when the
+    // browser reports it is back online so the next outage asks again.
+    private offlineReviewingAccepted = false;
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
@@ -1138,6 +1147,7 @@ export class NewTabController {
     destroy(): void {
         if (this.destroyed) return;
         this.destroyed = true;
+        cancelConnectionLostDialog();
         this.stopSessionClock();
         if (this.ownsSessionClock) this.sessionClock.dispose();
         this.clearListenRecording();
@@ -1149,6 +1159,8 @@ export class NewTabController {
         this.clearSearchHandwritingDebounce();
         this.frontSentenceCache.clear();
         this.parsedSentenceCache.clear();
+        this.studySentenceOverrides.clear();
+        this.nPlusOneSentenceRequests.clear();
         this.rootEventController = undefined;
         const root = this.currentRoot();
         if (root) delete root.dataset.newtabBound;
@@ -1278,6 +1290,8 @@ export class NewTabController {
         this.immersionExampleIndex.clear();
         this.frontSentenceCache.clear();
         this.parsedSentenceCache.clear();
+        this.studySentenceOverrides.clear();
+        this.nPlusOneSentenceRequests.clear();
         this.doodlePreviewCache.clear();
         this.recallAnswers.clear();
         this.recallOutcomes.clear();
@@ -1641,7 +1655,10 @@ export class NewTabController {
         window.addEventListener('popstate', () => this.handleLocationPopstate(root), { signal: controller.signal });
 
         const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
-        window.addEventListener('online', syncQueuedGrades, { signal: controller.signal });
+        window.addEventListener('online', () => {
+            this.offlineReviewingAccepted = false;
+            syncQueuedGrades();
+        }, { signal: controller.signal });
         window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) syncQueuedGrades();
@@ -6467,6 +6484,7 @@ export class NewTabController {
     }
 
     private renderRecallQuestion(prompt: HTMLElement, card: JPDBCard): void {
+        this.ensureNPlusOneStudySentence(card);
         const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
         const meaning = firstCardMeaning(card) || this.text('recallPromptFallback');
         prompt.lang = cloze.hasCloze ? 'ja' : 'en';
@@ -6601,9 +6619,10 @@ export class NewTabController {
     // ----- Type-word: reproduce the recall word (typed or handwritten) -----
 
     private renderTypeWordPrompt(slots: NewTabStudySlots, card: JPDBCard): void {
-        // The prompt is the SAME blanked example sentence recall uses, so the
-        // learner produces the word from meaning + context (not just reading).
-        if (slots.prompt) this.renderRecallQuestion(slots.prompt, card);
+        // Writing is a copy-and-fill exercise: the FULL example sentence stays
+        // visible (furigana on words the learner has not graded out), only the
+        // target word is blanked, and the learner types the whole sentence.
+        if (slots.prompt) this.renderTypeWordQuestion(slots.prompt, card);
         this.renderTypeWordAnswer(slots.answer, card);
         this.renderRecallMeaning(slots.meaning, card);
         if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
@@ -6611,6 +6630,65 @@ export class NewTabController {
 
     private typeWordInputMode(): NewTabTypeWordInputMode {
         return this.dependencies.getSettings().newTabTypeWordInputMode === 'handwriting' ? 'handwriting' : 'keyboard';
+    }
+
+    private renderTypeWordQuestion(prompt: HTMLElement, card: JPDBCard): void {
+        this.ensureNPlusOneStudySentence(card);
+        const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
+        // Handwriting reproduces the word character by character, and a card
+        // without a sentence has nothing to copy — both keep the recall prompt.
+        if (!cloze.hasCloze || this.typeWordInputMode() === 'handwriting') {
+            this.renderRecallQuestion(prompt, card);
+            return;
+        }
+        const meaning = firstCardMeaning(card) || this.text('recallPromptFallback');
+        prompt.lang = 'ja';
+        delete prompt.dataset.newtabExpression;
+        delete prompt.dataset.newtabSentenceRequest;
+        delete prompt.dataset.newtabPromptParseRequest;
+        prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card', 'jpdb-reader-newtab-prompt-has-sentence', 'jpdb-reader-newtab-kanji-prompt');
+        prompt.classList.add('jpdb-reader-newtab-recall-prompt', 'jpdb-reader-newtab-copy-prompt');
+        prompt.closest<HTMLElement>('.jpdb-reader-newtab-study')?.classList.remove('jpdb-reader-newtab-study-anki-card');
+        const sentenceNode = renderNewTabFrontSentence(card, cloze.sentence, this.studySentenceRenderSettings(), this.cachedParsedNewTabSentenceTokens(cloze.sentence));
+        this.blankTypeWordSentenceTargets(sentenceNode, cloze);
+        replaceChildrenWith(prompt,
+            el('span', { class: 'jpdb-reader-newtab-recall-question jpdb-reader-newtab-recall-cloze' },
+                el('span', { class: 'jpdb-reader-newtab-recall-cloze-sentence' }, sentenceNode),
+                el('span', { class: 'jpdb-reader-newtab-recall-hint', lang: resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en' }, meaning),
+            ));
+        void this.parseNewTabPromptSentence(prompt, card).then(() => {
+            // The prompt node is reused across cards: a slow parse for card A
+            // finishing after navigation must never blank card B's prompt.
+            if (!prompt.isConnected) return;
+            const current = this.visibleWords[this.index];
+            if (!current || cardKey(current) !== cardKey(card)) return;
+            if (this.studySessionForCard(current).activeStep.kind !== 'type-word') return;
+            this.blankTypeWordSentenceTargets(prompt, cloze);
+        });
+    }
+
+    // The copy prompt must never show the answer: every rendered occurrence of
+    // the target word becomes a gap. If highlighting failed to mark it (parse
+    // fallback), rebuild the line from the cloze's before/after halves.
+    private blankTypeWordSentenceTargets(root: ParentNode, cloze: NewTabRecallCloze): void {
+        const gapNode = () => el('span', { class: 'jpdb-reader-newtab-recall-gap', 'aria-label': this.text('recallAnswer') });
+        const targets = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-example-target')];
+        if (targets.length) {
+            targets.forEach(word => word.replaceWith(gapNode()));
+            return;
+        }
+        if (root.querySelector('.jpdb-reader-newtab-recall-gap')) return;
+        const sentence = root instanceof HTMLElement && root.matches('[data-newtab-sentence-render]')
+            ? root
+            : root.querySelector<HTMLElement>('[data-newtab-sentence-render]');
+        if (!sentence || !cloze.answer) return;
+        // Highlighting missed the target (segmented tokens, ruby interleaving
+        // the surface text): rebuild the plain cloze line. Losing furigana
+        // here is fine; showing the answer is not.
+        replaceChildrenWith(sentence,
+            document.createTextNode(cloze.before),
+            gapNode(),
+            document.createTextNode(cloze.after));
     }
 
     private renderTypeWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
@@ -6654,12 +6732,13 @@ export class NewTabController {
     }
 
     private renderTypeWordKeyboard(card: JPDBCard): HTMLElement {
+        const copySentence = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze;
         return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
             el('input', {
                 class: 'jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input',
                 dataset: { newtabTypeInput: true },
                 value: this.typeAnswers.get(cardKey(card)) ?? '',
-                placeholder: this.text('typeWordPlaceholder'),
+                placeholder: this.text(copySentence ? 'typeSentencePlaceholder' : 'typeWordPlaceholder'),
                 autocomplete: 'off',
                 autocapitalize: 'none',
                 autocorrect: 'off',
@@ -6667,7 +6746,7 @@ export class NewTabController {
                 inputmode: 'text',
                 enterkeyhint: 'done',
                 lang: 'ja',
-                'aria-label': this.text('typeWordPlaceholder'),
+                'aria-label': this.text(copySentence ? 'typeSentencePlaceholder' : 'typeWordPlaceholder'),
                 disabled: this.state.revealAnswer,
             }),
             el('button', {
@@ -6788,7 +6867,10 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
         if (!card || !input) return;
-        const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
+        const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
+        const evaluation = this.typeWordInputMode() === 'keyboard'
+            ? evaluateNewTabSentenceCopyAnswer(card, input.value, cloze, newTabCardReading(card))
+            : evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
         this.typeAnswers.set(cardKey(card), input.value);
         if (evaluation.outcome === 'empty') {
             this.renderWord(root, card);
@@ -6946,7 +7028,7 @@ export class NewTabController {
         });
     }
 
-    private renderWordPromptTools(card: JPDBCard, data?: CardRenderData): HTMLElement {
+    private renderWordPromptTools(card: JPDBCard): HTMLElement {
         const settings = this.dependencies.getSettings();
         if (!this.state.revealAnswer) {
             return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } });
@@ -6955,20 +7037,14 @@ export class NewTabController {
         const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: 'all', showFurigana: true }, rawReading)
             ? rawReading
             : '';
-        let pitch = '';
-        if (settings.showPitchAccent) {
-            pitch = renderPitch(card, data?.metaEntries ?? [], { primary: this.text('pitchVariantPrimary'), alternative: this.text('pitchVariantAlso') })
-                || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '');
-        }
-        const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
-        // Source pills (Jiten/JPDB/Jisho/コピー/Yomu/Jiten live) are intentionally NOT
-        // shown on the study card front — they stay in the lookup/detail view. The
-        // front keeps only the reading and pitch as compact centered meta.
+        // No pitch graph on the reveal: the learner just answered the pitch
+        // step, so the headword's pitch-coloured underline is enough. Source
+        // pills likewise stay in the lookup/detail view; the front keeps only
+        // the reading as compact centered meta.
         return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } },
             el('span', { class: 'jpdb-reader-newtab-study-tool-main' },
                 reading ? el('span', { class: 'jpdb-reader-reading' }, reading) : null,
             ),
-            pitchNode ? el('span', { class: 'jpdb-reader-card-tools' }, pitchNode) : null,
         );
     }
 
@@ -7011,7 +7087,7 @@ export class NewTabController {
         const term = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term');
         if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
         prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]')
-            ?.replaceWith(this.renderWordPromptTools(card, data));
+            ?.replaceWith(this.renderWordPromptTools(card));
         this.dependencies.installDictionarySourceTracking?.(prompt);
     }
 
@@ -7108,17 +7184,15 @@ export class NewTabController {
         const word = this.renderReaderWord(card, state, card.spelling, sentence);
         word.classList.add('jpdb-reader-parseable');
         const revealAnswer = this.state.revealAnswer;
-        // Kanji drilldown only after reveal — on the unrevealed prompt a click
-        // on the headword must open the word itself, not its component kanji.
-        if (revealAnswer) {
-            word.dataset.jpdbReaderKanjiNav = 'true';
-            word.dataset.jpdbReaderKanjiNavLabel = this.text('showKanji');
-        }
+        // The headword always opens the WORD popover, revealed or not: per-kanji
+        // buttons used to cover the entire revealed surface, so the word itself
+        // became unreachable. Kanji drilldown lives in the popover's
+        // composed-of chips instead.
         setInnerHtml(word, renderCardSpellingWithFurigana(card, {
             ...this.dependencies.getSettings(),
             furiganaMode: revealAnswer ? 'all' : 'off',
             showFurigana: revealAnswer,
-        }, { enabled: revealAnswer, label: this.text('showKanji') }));
+        }, { enabled: false, label: this.text('showKanji') }));
         if (!revealAnswer) this.hidePromptPronunciation(word);
         return word;
     }
@@ -7161,7 +7235,18 @@ export class NewTabController {
 
     private studySentenceRenderSettings(): ReaderSettings {
         const settings = this.dependencies.getSettings();
-        return this.state.revealAnswer ? settings : hiddenNewTabStudySentenceSettings(settings);
+        if (this.state.revealAnswer) return settings;
+        // The writing step keeps furigana scaffolding on the sentence (the
+        // target itself is blanked, so nothing leaks); every other pre-reveal
+        // prompt hides pronunciation so it cannot feed the answer.
+        if (this.activeStudyStepKindForCurrentCard() === 'type-word') return settings;
+        return hiddenNewTabStudySentenceSettings(settings);
+    }
+
+    private activeStudyStepKindForCurrentCard(): string | null {
+        const card = this.visibleWords[this.index];
+        if (!card) return null;
+        return this.studySessionForCard(card).activeStep.kind;
     }
 
     private async parseNewTabPromptSentence(prompt: HTMLElement, card: JPDBCard): Promise<void> {
@@ -7244,7 +7329,87 @@ export class NewTabController {
     // the Word step's context sentence). Gating recall behind it silently
     // dropped the step for every card that carries a sentence.
     private recallSentenceFromCard(card: JPDBCard): string {
-        return normalizePromptContextSentence(card.sentence, card);
+        return this.studySentenceOverrides.get(cardKey(card))
+            ?? normalizePromptContextSentence(card.sentence, card);
+    }
+
+    private ensureNPlusOneStudySentence(card: JPDBCard): void {
+        const key = cardKey(card);
+        if (this.nPlusOneSentenceRequests.has(key)) return;
+        this.nPlusOneSentenceRequests.add(key);
+        void this.selectNPlusOneStudySentence(card).then(sentence => {
+            if (!sentence || sentence === this.recallSentenceFromCard(card)) return;
+            const root = this.currentRoot();
+            const active = this.visibleWords[this.index];
+            const isCurrent = Boolean(root && active && cardKey(active) === key);
+            if (isCurrent) {
+                // Never swap the sentence under the learner: a submitted
+                // answer, un-submitted typed text, or an open reveal all pin
+                // the displayed sentence — the override would otherwise be
+                // graded against a sentence the learner never saw.
+                if (this.recallAnswers.get(key) || this.typeAnswers.get(key) || this.state.revealAnswer) return;
+                const typed = root!.querySelector<HTMLInputElement>('[data-newtab-type-input], [data-newtab-recall-input]');
+                if (typed?.value.trim()) return;
+            }
+            this.studySentenceOverrides.set(key, sentence);
+            if (isCurrent) this.renderWord(root!, active!);
+        });
+    }
+
+    // jpdb-style n+1: aggregate example sentences from the card itself, the
+    // front-sentence provider (JPDB), and Immersion Kit, then pick the one the
+    // learner can read — every non-target word known, ideally introducing
+    // exactly one new thing. Reading just above your level, never far above.
+    private async selectNPlusOneStudySentence(card: JPDBCard): Promise<string> {
+        const reading = newTabCardReading(card);
+        const base = normalizePromptContextSentence(card.sentence, card);
+        const candidates = new Set<string>();
+        if (base) candidates.add(base);
+        const [front, examples] = await Promise.all([
+            this.loadFrontSentence(card).catch(() => ''),
+            this.dependencies.getSettings().immersionKitEnabled
+                ? this.loadImmersionExamples(card).catch(() => [] as ImmersionKitExample[])
+                : Promise.resolve([] as ImmersionKitExample[]),
+        ]);
+        const normalizedFront = normalizePromptContextSentence(front, card);
+        if (normalizedFront) candidates.add(normalizedFront);
+        for (const example of examples.slice(0, 8)) {
+            const sentence = normalizePromptContextSentence(example.sentence, card);
+            if (sentence) candidates.add(sentence);
+        }
+        const clozeable = [...candidates].filter(sentence => buildNewTabRecallCloze(card, sentence, reading).hasCloze);
+        if (clozeable.length <= 1) return clozeable[0] ?? '';
+        const scored = await Promise.all(clozeable.map(async sentence => ({
+            sentence,
+            score: await this.nPlusOneSentenceScore(card, sentence),
+        })));
+        scored.sort((a, b) => b.score - a.score);
+        return scored[0]?.sentence ?? '';
+    }
+
+    private async nPlusOneSentenceScore(card: JPDBCard, sentence: string): Promise<number> {
+        const tokens = await this.parsedNewTabSentenceTokens(sentence).catch(() => [] as JPDBToken[]);
+        const targetKey = cardKey(card);
+        let known = 0;
+        let fresh = 0;
+        let total = 0;
+        for (const token of tokens) {
+            const tokenCard = token.card;
+            if (!tokenCard?.spelling) continue;
+            if (cardKey(tokenCard) === targetKey || tokenCard.spelling === card.spelling) continue;
+            const state = primaryCardState(tokenCard.cardState);
+            total += 1;
+            if (state === 'new' || state === 'not-in-deck' || state === 'in-deck' || state === 'unparsed') fresh += 1;
+            else known += 1;
+        }
+        if (!total) return sentence === normalizePromptContextSentence(card.sentence, card) ? 0.5 : 0;
+        // Exactly one new word is the jpdb n+1 sweet spot; fully known is next
+        // best; each further unknown drops the sentence hard.
+        const noveltyScore = fresh === 1 ? 4 : fresh === 0 ? 3 : fresh === 2 ? 1 : 0;
+        const knownRatio = known / total;
+        const length = sentence.length;
+        const lengthScore = length >= 8 && length <= 42 ? 1 : length < 8 ? 0.25 : 0.5;
+        return noveltyScore * 10 + knownRatio * 5 + lengthScore;
     }
 
     private loadFrontSentence(card: JPDBCard): Promise<string> {
@@ -7312,7 +7477,11 @@ export class NewTabController {
         const index = this.normalizedImmersionExampleIndex(key, examples);
         const immersion = this.renderNewTabImmersionCard(card, examples, index);
         meaning.querySelectorAll(':scope > .jpdb-reader-newtab-immersion').forEach(element => element.remove());
-        meaning.append(immersion);
+        // Immersion Kit sits above the dictionaries regardless of which async
+        // loader finishes first: the reveal reads example → sources.
+        const dictionaries = meaning.querySelector(':scope > .jpdb-reader-newtab-reveal-dictionaries');
+        if (dictionaries) dictionaries.before(immersion);
+        else meaning.append(immersion);
         this.loadNewTabImmersionImage(immersion, examples[index]);
         await this.parseNewTabImmersionExample(immersion, card, key);
     }
@@ -7448,6 +7617,7 @@ export class NewTabController {
             }
         }
         word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
+        applyCompoundPitchDecoration(word, card);
         word.dataset.vid = String(card.vid);
         word.dataset.sid = String(card.sid);
         word.dataset.expression = card.spelling;
@@ -10309,6 +10479,15 @@ export class NewTabController {
         // reconnect (eventually consistent), so no review is ever lost.
         if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
             const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+            // A deliberately opened offline source never prompts, and neither
+            // does a local-only grade (Academy/dictionary needs no network); a
+            // live provider session that lost the connection asks once per
+            // outage (WaniKani-style).
+            if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
+                const choice = await this.confirmOfflineReviewing(target.root);
+                if (choice === 'stop') return false;
+                if (choice === 'retry') return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+            }
             if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
                 this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
@@ -10323,6 +10502,9 @@ export class NewTabController {
         try {
             this.setStatus(target.root, this.text('grading'));
             const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+            // A landed submit proves the connection is back even if no
+            // 'online' event fired; the next outage must ask again.
+            this.offlineReviewingAccepted = false;
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
             if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -10353,6 +10535,26 @@ export class NewTabController {
             const queueTargets = selectedTarget
                 ? this.offlineGradeTargetsForSelection(target.card, selectedTarget)
                 : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+            // Only a genuine connection loss raises the dialog, and only when
+            // NOTHING landed: a partial dual-target failure (one provider
+            // already recorded the grade) must not offer Stop (it would strand
+            // the recorded half) or Retry (it would double-grade it) — it
+            // keeps the silent queue + status line, as does a provider failing
+            // while the browser is online (Anki closed). Fresh onLine read via
+            // window: the submit awaited, so the earlier check is stale.
+            if (this.networkGradeTargets(queueTargets)
+                && window.navigator.onLine === false
+                && !this.partialGradeSubmission(target.card, selectedTarget, error)) {
+                const choice = await this.confirmOfflineReviewing(target.root);
+                if (choice === 'stop') return false;
+                if (choice === 'retry') {
+                    // The visible card can change while the dialog is open
+                    // (cross-tab updates); never replay the grade onto it.
+                    const current = this.currentGradeTarget();
+                    if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
+                    return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+                }
+            }
             if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
                 this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
@@ -10363,6 +10565,39 @@ export class NewTabController {
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
         }
         return false;
+    }
+
+    // Local grading (Academy SRS) needs no connection, so it never raises the
+    // connection-lost dialog; only queued grades bound for a network provider do.
+    private networkGradeTargets(targets: QueuedNewTabGradeTarget[]): boolean {
+        return targets.some(target => target !== 'yomu-local');
+    }
+
+    // True when a multi-target submit failed for only SOME of its providers:
+    // at least one provider already recorded this grade.
+    private partialGradeSubmission(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection | undefined, error: unknown): boolean {
+        if (!(error instanceof NewTabGradeSubmissionError)) return false;
+        const attempted = selectedTarget
+            ? this.offlineGradeTargetsForSelection(card, selectedTarget).length
+            : this.reviewSourceSummary(card).targets.length;
+        return attempted > error.failures.length;
+    }
+
+    // Asks once per outage whether to keep reviewing offline. "Continue" is
+    // remembered until the browser comes back online; "stop" leaves the card
+    // ungraded so nothing is queued or lost behind the user's back.
+    private async confirmOfflineReviewing(root: HTMLElement): Promise<ConnectionLostChoice> {
+        if (this.offlineReviewingAccepted) return 'continue';
+        const choice = await showConnectionLostDialog(root.ownerDocument, {
+            title: this.text('connectionLostTitle'),
+            body: this.text('connectionLostBody'),
+            stop: this.text('connectionLostStop'),
+            continueOffline: this.text('connectionLostContinue'),
+            retry: this.text('connectionLostRetry'),
+        });
+        if (choice === 'continue') this.offlineReviewingAccepted = true;
+        if (choice === 'stop') this.setStatus(root, this.text('reviewsPausedOffline'));
+        return choice;
     }
 
     private async reloadAfterAmbiguousBunproGrade(root: HTMLElement, card: JPDBCard): Promise<void> {

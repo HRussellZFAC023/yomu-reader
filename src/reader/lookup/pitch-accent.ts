@@ -85,6 +85,28 @@ export function pitchClassNameForPattern(pattern: string, reading: string): Pitc
     return pitchProfileForPattern(pattern, reading).className;
 }
 
+// CSS gradient painting one compound underline with each constituent's own
+// accent colour, stops weighted by the morae each constituent contributes.
+// Horizontal-first: vertical writing keeps the blend (graphics-tier tradeoff).
+export function compoundPitchGradientCss(segments: Array<{ pattern: string; reading: string }>): string {
+    if (segments.length < 2) return '';
+    // Weight by the MORAE each constituent spans in the visible text: the
+    // final constituent's pattern also carries the unwritten particle level,
+    // which must not widen its share of the underline.
+    const moraCounts = segments.map(segment => splitMorae(segment.reading).length);
+    const total = moraCounts.reduce((sum, count) => sum + count, 0);
+    if (!total) return '';
+    let cursor = 0;
+    const stops = segments.map((segment, index) => {
+        const from = (cursor / total) * 100;
+        cursor += moraCounts[index];
+        const to = (cursor / total) * 100;
+        const className = pitchClassNameForPattern(segment.pattern, segment.reading) || 'unknown';
+        return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+}
+
 // One accepted accent variant of a reading. `commonality` is a real percentage
 // (0–100) when a source ever provides one; today's sources (jpdb array order,
 // Kanjium row order) are ordinal-only — the FIRST variant is the primary/most

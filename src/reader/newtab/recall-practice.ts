@@ -66,6 +66,48 @@ function newTabRecallAnswerCandidates(card: JPDBCard, reading = card.reading): {
     };
 }
 
+// Sentence-copy evaluation for the writing step: the learner reproduces the
+// WHOLE example sentence — copying the visible context and filling the blank.
+// Whitespace and punctuation are forgiving; the filled target decides the
+// tier (spelling → correct, reading → accepted). Typing only the missing
+// word still earns "accepted": producing the word is the SRS-relevant part.
+export function evaluateNewTabSentenceCopyAnswer(
+    card: JPDBCard,
+    answer: string,
+    cloze: NewTabRecallCloze,
+    reading = card.reading,
+): NewTabRecallEvaluation {
+    const wordEvaluation = evaluateNewTabRecallAnswer(card, answer, reading);
+    if (!cloze.hasCloze) return wordEvaluation;
+    const normalized = normalizeSentenceCopyAnswer(answer);
+    if (!normalized) return { ...wordEvaluation, outcome: 'empty' };
+    const frame = (fill: string) => normalizeSentenceCopyAnswer(cloze.before + fill + cloze.after);
+    // The sentence may cloze the READING (のみもの) rather than the spelling:
+    // reproducing kana is only ever "accepted" — "correct" needs the kanji.
+    const answerIsSpelling = splitRecallAnswers(card.spelling)
+        .some(candidate => normalizeNewTabRecallAnswer(candidate) === normalizeNewTabRecallAnswer(cloze.answer));
+    if (normalized === frame(card.spelling) || (answerIsSpelling && normalized === frame(cloze.answer))) {
+        return { ...wordEvaluation, outcome: 'correct' };
+    }
+    const readings = [cloze.answer, reading, ...(card.fallbackLookupTerms ?? [])].flatMap(value => splitRecallAnswers(value));
+    if (readings.some(candidate => candidate && normalized === frame(candidate))) {
+        return { ...wordEvaluation, outcome: 'accepted' };
+    }
+    if (wordEvaluation.outcome === 'correct' || wordEvaluation.outcome === 'accepted') {
+        return { ...wordEvaluation, outcome: 'accepted' };
+    }
+    return { ...wordEvaluation, outcome: 'incorrect' };
+}
+
+// NOTE: the long-vowel mark ー is meaningful kana and must never be stripped.
+function normalizeSentenceCopyAnswer(value: string): string {
+    return value
+        .normalize('NFKC')
+        .replace(/[\s\u3000]/gu, '')
+        .replace(/[。、．，,.!！?？・「」『』（）()［］[\]〔〕【】…‥:：;；〜~"'“”‘’]/gu, '')
+        .toLowerCase();
+}
+
 export function normalizeNewTabRecallAnswer(value: string): string {
     return value
         .normalize('NFKC')

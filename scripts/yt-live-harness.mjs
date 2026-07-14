@@ -363,7 +363,7 @@ const DIAGS = {
                 gear: gearRect ? { left: gearRect.left, top: gearRect.top, right: gearRect.right, bottom: gearRect.bottom } : null,
                 overlapsSettings: overlap,
                 actions: Array.from(rail.querySelectorAll('button')).map(button => button.dataset.action),
-                pinned: rail.querySelector('[data-action="rail-pin"]')?.getAttribute('aria-pressed'),
+                pinned: rail.querySelector('[data-action="rail-expand"]')?.getAttribute('aria-expanded'),
                 moveHandle: Boolean(rail.querySelector('[data-subtitle-rail-drag-handle]')),
                 primaryPointerEvents: primary instanceof HTMLElement ? getComputedStyle(primary).pointerEvents : null,
                 wordPointerEvents: word instanceof HTMLElement ? getComputedStyle(word).pointerEvents : null,
@@ -371,7 +371,7 @@ const DIAGS = {
             };
         };
         const before = snapshot();
-        rail.querySelector('[data-action="rail-pin"]')?.click();
+        rail.querySelector('[data-action="rail-expand"]')?.click();
         await sleep(120);
         return { found: true, before, afterPin: snapshot() };
     },

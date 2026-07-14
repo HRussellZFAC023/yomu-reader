@@ -514,18 +514,18 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
         }
     });
 
-    it('still opens the kanji popup for inline kanji on the REVEALED headword', () => {
-        const { controller, root, showKanjiCard } = headwordController(true);
+    it('opens the WORD popover from the revealed headword instead of a per-kanji popup', () => {
+        const { controller, root, showKanjiCard, showLookupCard, lookupText } = headwordController(true);
         try {
             const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
-            // The revealed headword IS a kanji-nav host, so its inline kanji are
-            // legitimate drilldowns.
-            expect(word!.dataset.jpdbReaderKanjiNav).toBe('true');
-            const kanjiBtn = word!.querySelector<HTMLElement>('[data-action="kanji"][data-kanji]');
-            expect(kanjiBtn).not.toBeNull();
+            // The revealed headword is no longer a kanji-nav host: per-kanji
+            // buttons covered the whole surface, making the word unreachable.
+            expect(word!.dataset.jpdbReaderKanjiNav).toBeUndefined();
+            expect(word!.querySelector('[data-action="kanji"][data-kanji]')).toBeNull();
             const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 8, clientY: 8 });
-            kanjiBtn!.dispatchEvent(event);
-            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+            word!.dispatchEvent(event);
+            expect(showKanjiCard).not.toHaveBeenCalled();
+            expect(showLookupCard.mock.calls.length + lookupText.mock.calls.length).toBe(1);
         } finally {
             controller.destroy();
         }

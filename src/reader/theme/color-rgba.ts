@@ -24,7 +24,81 @@ export function cssColorToRgba(value: string): RgbaColor | null {
     if (color.startsWith('color(srgb ')) return parseSrgbFunction(color);
     if (color.startsWith('oklab(')) return parseOklabFunction(color);
     if (color.startsWith('oklch(')) return parseOklchFunction(color);
-    return null;
+    return probeCssColor(color);
+}
+
+// Enumerating color spaces above will always lag the platform (Discord dark
+// themes have already shipped oklab, then other spaces). The canvas fillStyle
+// setter understands every color the browser can compute and serialises it
+// back to hex/rgba/color(srgb), which the analytic parsers handle — so any
+// format we don't model analytically is normalised by the engine itself.
+const probedColors = new Map<string, RgbaColor | null>();
+let probeContext: CanvasRenderingContext2D | null | undefined;
+
+// jsdom has no 2d canvas, so the probe caches a null context on first use;
+// tests that install a canvas mock need to clear that negative cache.
+export function resetCssColorProbeForTests(): void {
+    probedColors.clear();
+    probeContext = undefined;
+}
+
+function probeCssColor(color: string): RgbaColor | null {
+    const cached = probedColors.get(color);
+    if (cached !== undefined) return cached;
+    if (probeContext === undefined) {
+        try {
+            probeContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+        } catch {
+            probeContext = null;
+        }
+    }
+    let parsed: RgbaColor | null = null;
+    if (probeContext) {
+        try {
+            // Sentinel first: an invalid color assignment leaves fillStyle
+            // untouched, so "still the sentinel" means unparseable — without
+            // this, genuine near-black colors would be indistinguishable.
+            probeContext.fillStyle = '#010203';
+            probeContext.fillStyle = color;
+            const serialized = String(probeContext.fillStyle).toLowerCase();
+            // Literal hex was parsed analytically before the probe, so the
+            // sentinel can never collide with a genuine #010203 input here.
+            if (serialized !== '#010203') {
+                if (serialized.startsWith('#')) {
+                    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+                    parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+                } else if (serialized.startsWith('rgb')) {
+                    parsed = parseRgbFunction(serialized);
+                } else if (serialized.startsWith('color(srgb ')) {
+                    parsed = parseSrgbFunction(serialized);
+                }
+                // Some engines serialise wide-gamut colors in their authored
+                // space (lab(), color(display-p3 …)). Painting one pixel and
+                // reading it back converts through the canvas's sRGB space,
+                // which is exactly the approximation the contrast math needs.
+                if (!parsed) parsed = probePixelColor(probeContext, color);
+            }
+        } catch {
+            parsed = null;
+        }
+    }
+    if (probedColors.size > 512) probedColors.clear();
+    probedColors.set(color, parsed);
+    return parsed;
+}
+
+function probePixelColor(context: CanvasRenderingContext2D, color: string): RgbaColor | null {
+    try {
+        context.canvas.width = 1;
+        context.canvas.height = 1;
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
+        return { red, green, blue, alpha: alphaByte / 255 };
+    } catch {
+        return null;
+    }
 }
 
 export function blendRgba(foreground: RgbaColor, background: RgbaColor): RgbaColor {

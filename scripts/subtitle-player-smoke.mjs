@@ -692,8 +692,8 @@ async function runLocalMobileWrapSmoke(browser) {
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
     // Playback/fullscreen belong to the native player. The rail keeps subtitle
-    // navigation plus its movable, pinnable control shell.
-    assert(controls.actions.join(',') === 'rail-expand,previous,next,ocr,visibility,panel,style,rail-pin', 'Mobile rail actions do not match the movable subtitle-only control set', controls);
+    // navigation plus its movable grip, which also toggles expansion.
+    assert(controls.actions.join(',') === 'rail-expand,previous,next,ocr,visibility,panel,style', 'Mobile rail actions do not match the movable subtitle-only control set', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);
     assert(Math.abs(controls.handleCenterX - controls.subtitleCenterX) <= 3, 'Mobile subtitle drag handle is not centered on the subtitle line', controls);
     assert(!overlaps(controls.handle, controls.rail), 'Mobile subtitle drag handle overlaps the subtitle rail', controls);

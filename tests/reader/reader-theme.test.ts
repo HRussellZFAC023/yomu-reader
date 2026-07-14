@@ -5,6 +5,7 @@ import 'fake-indexeddb/auto';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
+import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshContrastForChangedWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
@@ -202,6 +203,96 @@ describe('reader theme', () => {
 
         expect(discordBody && rgbaToHex(discordBody)).toBe('#121214');
         expect(discordText && rgbaToHex(discordText)).toBe('#efeff1');
+    });
+
+    it('normalises color formats it does not model analytically through the canvas probe', () => {
+        resetCssColorProbeForTests();
+        const canvas = document.createElement('canvas');
+        const serializedByInput: Record<string, string> = {
+            'hwb(210 7% 89%)': '#12161c',
+            'lab(95% 0 0)': 'color(srgb 0.937 0.937 0.937)',
+            'hsl(220 13% 9% / 0.5)': 'rgba(20, 23, 26, 0.5)',
+        };
+        let fillStyle = '#000000';
+        const fakeContext = {
+            canvas,
+            set fillStyle(value: string) {
+                if (value === '#010203') { fillStyle = '#010203'; return; }
+                const serialized = serializedByInput[value];
+                if (serialized) fillStyle = serialized;
+                // Unknown colors leave fillStyle untouched, like the platform.
+            },
+            get fillStyle() { return fillStyle; },
+        } as unknown as CanvasRenderingContext2D;
+        const realCreateElement = document.createElement.bind(document);
+        const createElement = vi.spyOn(document, 'createElement').mockImplementation(((tag: string, options?: ElementCreationOptions) => {
+            if (tag === 'canvas') return { getContext: () => fakeContext } as unknown as HTMLCanvasElement;
+            return realCreateElement(tag, options);
+        }) as typeof document.createElement);
+
+        try {
+            const hwb = cssColorToRgba('hwb(210 7% 89%)');
+            expect(hwb && rgbaToHex(hwb)).toBe('#12161c');
+            const lab = cssColorToRgba('lab(95% 0 0)');
+            expect(lab && rgbaToHex(lab)).toBe('#efefef');
+            const hsla = cssColorToRgba('hsl(220 13% 9% / 0.5)');
+            expect(hsla).toMatchObject({ red: 20, green: 23, blue: 26, alpha: 0.5 });
+            expect(cssColorToRgba('definitely-not-a-color(1 2 3)')).toBeNull();
+        } finally {
+            createElement.mockRestore();
+            resetCssColorProbeForTests();
+        }
+    });
+
+    it('falls back to the dark page surface instead of white when a painted backdrop cannot be parsed', () => {
+        document.body.innerHTML = `
+            <section id="opaque-shell">
+                <div id="translucent-overlay" role="button" data-jpdb-reader-passive-chrome="true">
+                    <span
+                        class="jpdb-reader-word jpdb-mastered jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka"
+                        style="color: rgb(0, 0, 0); text-decoration-color: rgb(53, 158, 255);"
+                    >日本語</span>
+                </div>
+            </section>
+        `;
+        const shell = document.getElementById('opaque-shell')!;
+        const overlay = document.getElementById('translucent-overlay')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const realGetComputedStyle = window.getComputedStyle.bind(window);
+        const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElt) => {
+            const style = realGetComputedStyle(element, pseudoElt);
+            const isShell = element === shell;
+            const isOverlay = element === overlay;
+            const isPage = element === document.body || element === document.documentElement;
+            if (!isShell && !isOverlay && !isPage) return style;
+            return new Proxy(style, {
+                get(target, property, receiver) {
+                    if (property === 'backgroundColor') {
+                        // The dark base uses a format the analytic parsers do
+                        // not know (and jsdom has no canvas probe); a light
+                        // translucent elevation overlay parses fine. The old
+                        // white seed turned this into a near-white backdrop.
+                        if (isShell) return 'lab(7.5% 0.4 -1.3)';
+                        if (isOverlay) return 'rgba(255, 255, 255, 0.08)';
+                        return 'rgba(0, 0, 0, 0)';
+                    }
+                    if (property === 'color') return 'oklab(0.952693 0.000792831 -0.00253612)';
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        });
+
+        try {
+            refreshReaderWordContrastForWord(word);
+        } finally {
+            spy.mockRestore();
+        }
+
+        const pageBg = word.style.getPropertyValue('--jpdb-reader-page-bg');
+        expect(pageBg).toBe('rgb(24, 27, 32)');
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(text).not.toBe('#000000');
+        expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('adjusts page word colors and highlights against the actual website background', () => {
@@ -499,7 +590,7 @@ describe('reader theme', () => {
 
     it('uses the default light canvas without inventing underlines', () => {
         document.body.innerHTML = `
-            <p style="color: rgb(255, 255, 255);">
+            <p style="color: rgb(32, 40, 52);">
                 <span class="jpdb-reader-word" style="color: rgb(255, 209, 102);">読む</span>
             </p>
         `;
@@ -511,6 +602,24 @@ describe('reader theme', () => {
         expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(255, 255, 255)');
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).toBe('');
         expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('infers a dark canvas from light LOCAL text on a transparent backdrop', () => {
+        // White paragraph text with no painted background = a dark embedded
+        // shell (or a dark theme the parsers could not read). Assuming white
+        // here painted dark-on-dark "redaction bars" on such surfaces.
+        document.body.innerHTML = `
+            <p style="color: rgb(255, 255, 255);">
+                <span class="jpdb-reader-word" style="color: rgb(255, 209, 102);">読む</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(24, 27, 32)');
+        expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('derives accessible underlines from Yomu underline variables, not native transparent decoration', () => {

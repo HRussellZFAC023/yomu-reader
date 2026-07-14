@@ -1058,10 +1058,10 @@ function hostedPausedVideoOcrSafe(state) {
 }
 
 async function pinHostedSubtitleControlRail(page) {
-    const pin = page.locator('.jpdb-subtitle-rail [data-action="rail-pin"]');
-    if (await pin.getAttribute('aria-pressed') !== 'true') await pin.click();
+    const grip = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    if (await grip.getAttribute('aria-expanded') !== 'true') await grip.click();
     await page.waitForFunction(() => (
-        document.querySelector('.jpdb-subtitle-rail [data-action="rail-pin"]')?.getAttribute('aria-pressed') === 'true'
+        document.querySelector('.jpdb-subtitle-rail [data-action="rail-expand"]')?.getAttribute('aria-expanded') === 'true'
     ), null, { timeout: 6000 });
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').waitFor({ state: 'visible', timeout: 6000 });
 }
