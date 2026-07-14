@@ -10569,9 +10569,7 @@ export class NewTabController {
             // keeps the silent queue + status line, as does a provider failing
             // while the browser is online (Anki closed). Fresh onLine read via
             // window: the submit awaited, so the earlier check is stale.
-            if (this.networkGradeTargets(queueTargets)
-                && window.navigator.onLine === false
-                && !this.partialGradeSubmission(target.card, selectedTarget, error)) {
+            if (this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) {
                 const choice = await this.confirmOfflineReviewing(target.root);
                 if (choice === 'stop') return false;
                 if (choice === 'retry') {
@@ -10598,6 +10596,17 @@ export class NewTabController {
     // connection-lost dialog; only queued grades bound for a network provider do.
     private networkGradeTargets(targets: QueuedNewTabGradeTarget[]): boolean {
         return targets.some(target => target !== 'yomu-local');
+    }
+
+    private shouldConfirmOfflineReviewAfterFailure(
+        targets: QueuedNewTabGradeTarget[],
+        card: JPDBCard,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        error: unknown,
+    ): boolean {
+        return this.networkGradeTargets(targets)
+            && window.navigator.onLine === false
+            && !this.partialGradeSubmission(card, selectedTarget, error);
     }
 
     // True when a multi-target submit failed for only SOME of its providers:
