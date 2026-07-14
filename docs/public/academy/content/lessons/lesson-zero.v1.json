@@ -181,7 +181,7 @@
   },
   "lesson": {
     "id": "lesson:foundation-00",
-    "contentVersion": "2026-07-13.lesson-zero.v1",
+    "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
     "levelBand": "foundation",
     "estimatedMinutes": { "minimum": 60, "maximum": 90 },
     "overview": {
@@ -396,7 +396,7 @@
         "prompt": { "en": "Listen twice. Mark the five beats in order.", "ja": "二回聞いて、聞こえた五つの音を順番どおりに並べてください。" },
         "conceptIds": ["concept:japanese-vowel-map", "concept:mora-timing", "concept:long-vowel-awareness"],
         "sourceQuestionIds": [],
-        "inputScriptId": "input:lesson-zero-sound-hosts",
+        "inputScriptId": "input:lesson-zero-vowel-row",
         "expectedEvidence": { "kind": "ordered-sound-map", "values": ["あ", "い", "う", "え", "お"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
@@ -601,38 +601,67 @@
     ],
     "inputScripts": [
       {
+        "id": "input:lesson-zero-vowel-row",
+        "kind": "sound-sequence",
+        "audioAssetId": "audio:lesson-zero-vowel-row",
+        "transcriptReveal": "after-commit",
+        "lines": [
+          { "id": "line:lesson-zero-vowel-row", "speakerId": "xingyu", "japanese": "あ・い・う・え・お", "reading": "あ・い・う・え・お", "english": "a, i, u, e, o" }
+        ]
+      },
+      {
         "id": "input:lesson-zero-sound-hosts",
+        "kind": "dialogue",
         "audioAssetId": "audio:lesson-zero-sound-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "speakerId": "xingyu", "japanese": "はじめまして。Xingyuです。日本語を勉強しています。", "reading": "はじめまして。Xingyuです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Xingyu. I'm studying Japanese." },
-          { "speakerId": "mika", "japanese": "Mikaです。わたしも日本語を勉強しています。よろしくお願いします。", "reading": "Mikaです。わたしもにほんごをべんきょうしています。よろしくおねがいします。", "english": "I'm Mika. I'm studying Japanese too. Nice to meet you." }
+          { "id": "line:lesson-zero-sound-xingyu", "speakerId": "xingyu", "japanese": "はじめまして。Xingyuです。日本語を勉強しています。", "reading": "はじめまして。Xingyuです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Xingyu. I'm studying Japanese." },
+          { "id": "line:lesson-zero-sound-mika", "speakerId": "mika", "japanese": "Mikaです。わたしも日本語を勉強しています。よろしくお願いします。", "reading": "Mikaです。わたしもにほんごをべんきょうしています。よろしくおねがいします。", "english": "I'm Mika. I'm studying Japanese too. Nice to meet you." }
         ]
       },
       {
         "id": "input:lesson-zero-text-hosts",
+        "kind": "dialogue",
         "audioAssetId": "audio:lesson-zero-text-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "speakerId": "sophie", "japanese": "はじめまして。Sophieです。日本語を勉強しています。", "reading": "はじめまして。Sophieです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Sophie. I'm studying Japanese." },
-          { "speakerId": "ruparna", "japanese": "Ruparnaです。わたしも日本語を勉強しています。", "reading": "Ruparnaです。わたしもにほんごをべんきょうしています。", "english": "I'm Ruparna. I'm studying Japanese too." }
+          { "id": "line:lesson-zero-text-sophie", "speakerId": "sophie", "japanese": "はじめまして。Sophieです。日本語を勉強しています。", "reading": "はじめまして。Sophieです。にほんごをべんきょうしています。", "english": "Nice to meet you. I'm Sophie. I'm studying Japanese." },
+          { "id": "line:lesson-zero-text-ruparna", "speakerId": "ruparna", "japanese": "Ruparnaです。わたしも日本語を勉強しています。", "reading": "Ruparnaです。わたしもにほんごをべんきょうしています。", "english": "I'm Ruparna. I'm studying Japanese too." }
         ]
       },
       {
         "id": "input:lesson-zero-speaking-hosts",
+        "kind": "dialogue",
         "audioAssetId": "audio:lesson-zero-speaking-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "speakerId": "aakash", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
-          { "speakerId": "sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." }
+          { "id": "line:lesson-zero-speaking-aakash-introduction", "speakerId": "aakash", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
+          { "id": "line:lesson-zero-speaking-sam", "speakerId": "sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." },
+          { "id": "line:lesson-zero-speaking-aakash-cue", "speakerId": "aakash", "japanese": "では、あなたの番です。お名前は何ですか。", "reading": "では、あなたのばんです。おなまえはなんですか。", "english": "Your turn. What's your name?" }
+        ],
+        "learnerTurns": [
+          {
+            "id": "learner-turn:lesson-zero-speaking-introduction",
+            "afterLineId": "line:lesson-zero-speaking-aakash-cue",
+            "capture": { "kind": "microphone-recording", "windowMs": 12000, "evidenceKind": "spoken-turn" },
+            "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+          }
         ]
       }
     ],
     "audioAssets": [
       {
+        "id": "audio:lesson-zero-vowel-row",
+        "state": "release-blocked",
+        "purpose": "Exact human recording of the ordered five-vowel row for listening and mora discrimination.",
+        "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
         "id": "audio:lesson-zero-sound-hosts",
         "state": "release-blocked",
-        "purpose": "Paired multi-speaker introductions and vowel/mora discrimination for the Sound mission.",
+        "purpose": "Paired multi-speaker introductions for the Sound mission.",
         "blockerId": "blocker:lesson-zero-verified-dialogue-audio",
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false
@@ -690,7 +719,7 @@
       {
         "id": "blocker:lesson-zero-verified-dialogue-audio",
         "kind": "audio",
-        "assetIds": ["audio:lesson-zero-sound-hosts", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
+        "assetIds": ["audio:lesson-zero-vowel-row", "audio:lesson-zero-sound-hosts", "audio:lesson-zero-text-hosts", "audio:lesson-zero-speaking-hosts"],
         "internalReason": "No source-paired or reviewed authored recording has yet passed speaker, transcript, timing, and rights verification for these original Lesson 0 scripts.",
         "learnerVisible": false
       }

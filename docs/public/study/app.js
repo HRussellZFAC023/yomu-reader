@@ -3262,6 +3262,7 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
+jpdbPageEnhancementsHelp	JPDBの単語・漢字ページによむの補助表示を追加します。
 fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -3374,6 +3375,7 @@ colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
+colorChannelsHelp	単語の状態やピッチを色で表示します。
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
@@ -3437,6 +3439,7 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
+kanjiHelp	漢字情報・語源・似た漢字を表示します。
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -3645,6 +3648,7 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
+noScannedFields	読み取れるフィールドがありません。
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -10285,20 +10289,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!clips) continue;
       const rect = current.getBoundingClientRect();
       const measured = current.clientWidth > 0 && current.clientHeight > 0;
-      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && detachedClipRowIsSingleLine(style, rect);
+      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
       const baseFits = measured && detachedBaseContentFits(current);
       if (compact && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
     }
   }
-  function detachedClipRowIsSingleLine(style, rect) {
+  function detachedClipRowIsMultiLineClamp(style) {
     const clamp2 = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
-    if (Number.isFinite(clamp2) && clamp2 > 1) return false;
-    const lineHeight = Number.parseFloat(style.lineHeight);
-    const fontSize = Number.parseFloat(style.fontSize) || 16;
-    const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
-    const chrome = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0) + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.borderBottomWidth) || 0);
-    return Math.max(0, rect.height - chrome) <= line * 1.5;
+    return Number.isFinite(clamp2) && clamp2 > 1;
+  }
+  function baseTextLineCount(box) {
+    const range = box.ownerDocument.createRange();
+    range.selectNodeContents(box);
+    const tops = [];
+    for (const lineRect of Array.from(range.getClientRects())) {
+      if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+      if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    }
+    return tops.length;
   }
   function openDetachedReadingClip(box) {
     if (!detachedReadingClipStyles.has(box)) {
@@ -10338,6 +10347,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }));
     hidden.forEach((element) => element.style.setProperty("display", "none", "important"));
     try {
+      if (baseTextLineCount(box) > 1) return false;
       const rect = box.getBoundingClientRect();
       const inlineSize = Math.max(box.clientWidth, rect.width);
       const blockSize = Math.max(box.clientHeight, rect.height);
@@ -25789,7 +25799,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   };
   class KanjiVGClient {
     cache = /* @__PURE__ */ new Map();
-    // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
       const character = Array.from(kanji)[0] ?? "";
       if (!character) return Promise.resolve(null);
@@ -78116,7 +78125,7 @@ ${options.version}`;
     return null;
   }
   function studyStep(kind, mode, gradeable = false, kanji, index = 0) {
-    const id = kanji ? `${kind}:${index}:${kanji}` : kind;
+    const id = kanji ? `${kind}:${index}` : kind;
     return { id, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
   }
   function normalizedChallengeStepOrder(order) {
@@ -79749,6 +79758,13 @@ ${entry.url}`),
     handlingSearchPopstate = false;
     searchActiveSuggestionIndex = -1;
     searchWordCardCache = /* @__PURE__ */ new Map();
+    // The study DOM needs a card identity for nested actions and stale async
+    // guards, but the canonical card key contains the spelling and reading.
+    // Before reveal, expose only this controller-local opaque token and resolve
+    // it back to the card in memory. Revealed cards may use their canonical key.
+    studyCardDomTokenSequence = 0;
+    studyCardDomTokens = /* @__PURE__ */ new Map();
+    studyCardsByDomToken = /* @__PURE__ */ new Map();
     searchHandwritingStrokes = [];
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
@@ -81272,7 +81288,7 @@ ${entry.url}`),
     nestedCardActionCard(target) {
       const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
       if (key) {
-        return this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key));
+        return this.studyCardsByDomToken.get(key) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key));
       }
       return this.visibleWords[this.index];
     }
@@ -81296,7 +81312,7 @@ ${entry.url}`),
     studyWordAudioCard(target) {
       const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
       if (key) {
-        return this.allWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key));
+        return this.studyCardsByDomToken.get(key) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key));
       }
       return this.sourceCardForVisibleCard(this.visibleWords[this.index]);
     }
@@ -83015,6 +83031,17 @@ ${entry.url}`),
     cardSelectionKey(card) {
       return card.sourceCardKey || cardKey(card);
     }
+    studyCardDomToken(card) {
+      const identity = this.cardSelectionKey(card);
+      const existing = this.studyCardDomTokens.get(identity);
+      const token = existing ?? `study-card-${++this.studyCardDomTokenSequence}`;
+      if (!existing) this.studyCardDomTokens.set(identity, token);
+      this.studyCardsByDomToken.set(token, this.sourceCardForVisibleCard(card) ?? card);
+      return token;
+    }
+    renderedStudyCardIdentity(card) {
+      return this.state.revealAnswer ? this.cardSelectionKey(card) : this.studyCardDomToken(card);
+    }
     isReviewHistoryCard(card) {
       if (!card) return false;
       const key = cardKey(card);
@@ -83168,7 +83195,7 @@ ${entry.url}`),
       this.writeStoredWordKey(card);
       this.syncCardUrl(card);
       const study = root.querySelector("[data-newtab-study]");
-      if (study) study.dataset.newtabCard = this.cardSelectionKey(card);
+      if (study) study.dataset.newtabCard = this.renderedStudyCardIdentity(card);
       root.classList.remove("jpdb-reader-newtab-setup-mode", "jpdb-reader-newtab-empty-mode");
       root.classList.toggle("jpdb-reader-newtab-revealed", this.state.revealAnswer);
       const hasKanjiStudyStep = this.shouldRenderCardAsKanji(card);
@@ -83280,7 +83307,6 @@ ${entry.url}`),
             newtabAction: "study-step",
             studyStepId: step.id,
             studyStepKind: step.kind,
-            ...step.kanji ? { studyStepKanji: step.kanji } : {},
             active: String(active),
             gradeable: String(step.gradeable)
           },
@@ -84391,7 +84417,7 @@ ${entry.url}`),
       const more = depth < hints.length;
       return el(
         "div",
-        { class: "jpdb-reader-newtab-study-hint", dataset: { studyHintStep: step, ...kanji ? { studyHintKanji: kanji } : {} } },
+        { class: "jpdb-reader-newtab-study-hint", dataset: { studyHintStep: step } },
         ...revealed.map((hint) => el(
           "span",
           { class: "jpdb-reader-newtab-study-hint-item" },
@@ -84418,7 +84444,7 @@ ${entry.url}`),
       if (!step) return;
       const card = this.visibleWords[this.index];
       if (!card) return;
-      const kanji = panel?.dataset.studyHintKanji ?? "";
+      const kanji = step === "kanji-doodle" ? this.activeStudyKanji(card) ?? "" : "";
       const key = this.studyHintStateKey(card, step, kanji);
       this.studyHintDepth.set(key, (this.studyHintDepth.get(key) ?? 0) + 1);
       this.renderWord(root, card);
@@ -84454,8 +84480,11 @@ ${entry.url}`),
         replaceChildrenWith(slots.answer, this.revealedKanjiAnswer(card, kanji));
         return;
       }
-      replaceChildrenWith(slots.answer, this.kanjiDoodleFront(kanji));
+      replaceChildrenWith(slots.answer, this.kanjiDoodleFront(this.studyStepIdForKanji(card, kanji)));
       this.installNewTabKanjiDoodle(slots, card, kanji);
+    }
+    studyStepIdForKanji(card, kanji) {
+      return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).steps.find((step) => step.kind === "kanji-doodle" && step.kanji === kanji)?.id ?? "kanji-doodle";
     }
     revealedKanjiAnswer(card, kanji) {
       const preview = this.doodlePreviewCache.get(cardKey(card));
@@ -84502,15 +84531,18 @@ ${entry.url}`),
         meaning ? el("span", { class: "jpdb-reader-newtab-kanji-backing-meaning" }, meaning) : null
       );
     }
-    kanjiDoodleFront(kanji) {
+    kanjiDoodleFront(studyStepId = "") {
       return el(
         "div",
         { class: "jpdb-reader-newtab-kanji-front" },
         el(
           "div",
-          { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden", dataset: { kanji } },
+          {
+            class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden",
+            dataset: studyStepId ? { studyDoodleStep: studyStepId } : void 0
+          },
           el("div", { class: "jpdb-reader-doodle-ghost", dataset: { newtabDoodleGhost: true }, hidden: true }),
-          el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": `${this.text("drawKanji")}: ${kanji}` })
+          el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": this.text("drawKanji") })
         ),
         el(
           "div",
@@ -84822,7 +84854,6 @@ ${entry.url}`),
       const target = this.typeWordTarget(card);
       const chars = Array.from(target);
       const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
-      const current = chars[progress] ?? "";
       return el(
         "div",
         { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
@@ -84836,7 +84867,7 @@ ${entry.url}`),
           }, index < progress ? character : "＿"))
         ),
         progress >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
-        this.kanjiDoodleFront(current || "字")
+        this.kanjiDoodleFront()
       );
     }
     installTypeWordDoodle(answer, card) {
@@ -85080,7 +85111,7 @@ ${entry.url}`),
       const audioButton = el("button", {
         class: "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio",
         type: "button",
-        dataset: { action: "study-word-audio", ...card ? { newtabCard: cardKey(card) } : {} },
+        dataset: { action: "study-word-audio", ...card ? { newtabCard: this.renderedStudyCardIdentity(card) } : {} },
         "aria-label": audioTitle,
         title: audioTitle,
         disabled: !settings.audioEnabled
@@ -85938,7 +85969,7 @@ ${entry.url}`),
       const details = await this.loadKanjiDetails(kanji);
       if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
-      this.applyEnrichedKanjiSvg(slots.answer, kanji, details.vg?.svg);
+      this.applyEnrichedKanjiSvg(slots.answer, this.studyStepIdForKanji(card, kanji), details.vg?.svg);
       this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
       void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
@@ -85950,8 +85981,7 @@ ${entry.url}`),
       if (kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
       const study = slots.prompt?.closest("[data-newtab-study]") ?? slots.answer?.closest("[data-newtab-study]");
       if (!study) return true;
-      const renderedKey = study.dataset.newtabCard;
-      return renderedKey === cardKey(card) || renderedKey === this.cardSelectionKey(card);
+      return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
     }
     applyEnrichedKanjiKeyword(slots, card, kanji, details) {
       const keyword = this.keywordFromDetails(card, details.jpdb, details.jiten, details.rtk);
@@ -85972,12 +86002,12 @@ ${entry.url}`),
       if (!slots.prompt || this.state.revealAnswer) return;
       replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
-    applyEnrichedKanjiSvg(answer, kanji, svgMarkup) {
+    applyEnrichedKanjiSvg(answer, studyStepId, svgMarkup) {
       if (!answer || !svgMarkup) return;
       const mounts = this.enrichedKanjiSvgMounts(answer);
       this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
-      const stageKanji = mounts.ghost?.closest(".jpdb-reader-doodle-stage")?.dataset.kanji;
-      if (stageKanji && stageKanji !== kanji) return;
+      const renderedStepId = mounts.ghost?.closest(".jpdb-reader-doodle-stage")?.dataset.studyDoodleStep;
+      if (renderedStepId && renderedStepId !== studyStepId) return;
       this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
     }
     enrichedKanjiSvgMounts(answer) {
@@ -91371,7 +91401,6 @@ ${entry.url}`),
         };
       });
     }
-    // fallow-ignore-next-line unused-class-member
     async queue(limit = 50) {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -91389,7 +91418,6 @@ ${entry.url}`),
         reviewCount: Math.min(due.length, cap)
       };
     }
-    // fallow-ignore-next-line unused-class-member
     async stats() {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -91407,7 +91435,6 @@ ${entry.url}`),
         }
       };
     }
-    // fallow-ignore-next-line unused-class-member
     async review(request) {
       return this.mutateDeck((deck) => {
         const now = this.now();

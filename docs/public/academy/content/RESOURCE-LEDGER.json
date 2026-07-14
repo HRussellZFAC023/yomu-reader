@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-12T16:25:00+01:00",
+  "generatedAt": "2026-07-13T20:28:24+01:00",
   "status": "stage-2-census-complete",
   "provenance": [
     "docs/academy/discovery/DISCOVERY-BASELINE.md",
@@ -37,7 +37,8 @@
   "coverage": {
     "documentsWithVerifiedQuestionCounts": 0,
     "sourceQuestionsAudited": 1,
-    "sourceQuestionsPlayable": 1,
+    "sourceQuestionsImplemented": 1,
+    "sourceQuestionsPlayable": 0,
     "imageDependentQuestionsAudited": 0,
     "imageDependentQuestionsDelivered": 0,
     "listeningQuestionsAudited": 0,
@@ -62,10 +63,12 @@
     },
     "immutableSourceShard": "/academy/content/vertical-slice/source-library.v1.json",
     "augmentationShard": "/academy/content/vertical-slice/augmentation.v1.json",
-    "playableRepresentations": [
+    "implementedRepresentations": [
       "activity:classroom-repair-repeat",
       "activity:language-lab-repeat-listening"
     ],
+    "currentRouteState": "legacy-ungrounded-quarantined",
+    "learnerEvidenceWritesAllowed": false,
     "authoredNonSourceActivities": {
       "bandEntry": 5,
       "bondDirection": 1,

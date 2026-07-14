@@ -1353,6 +1353,11 @@
   }
   function validateAnswerConcealment(value, label) {
     validateDefinitionRef(value.surfaceAudit, `${label}.surfaceAudit`);
+    validateDefinitionRef(value.answerBearingContent, `${label}.answerBearingContent`);
+    const binding = object(value.auditBinding, `${label}.auditBinding`);
+    id$1(binding.surfaceId, `${label}.auditBinding.surfaceId`);
+    validateDefinitionRef(binding.renderer, `${label}.auditBinding.renderer`);
+    text$5(binding.contentRevision, `${label}.auditBinding.contentRevision`);
     const preCommit = object(value.learnerFacingPreCommit, `${label}.learnerFacingPreCommit`);
     for (const key of ["translations", "transcripts", "modelAnswers", "acceptedAnswers"]) {
       if (preCommit[key] !== "absent") fail$3(`${label}.${key} must be absent before commitment.`);
@@ -1772,6 +1777,180 @@
   function fail$2(message) {
     throw new TypeError(message);
   }
+  const GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION = "academy-pre-commit-dom.v1";
+  const SEMANTIC_SELECTORS = {
+    translations: [
+      ".academy-vn-translation",
+      '[data-answer-bearing="translation"]',
+      '[data-support-kind="translation"]',
+      "[data-translation]"
+    ],
+    transcripts: [
+      ".academy-lab-transcript",
+      '[data-answer-bearing="transcript"]',
+      '[data-support-kind="transcript"]',
+      "[data-transcript]"
+    ],
+    modelAnswers: [
+      '[data-answer-bearing="model-answer"]',
+      '[data-support-kind="model-answer"]',
+      "[data-model-answer]"
+    ],
+    acceptedAnswers: [
+      '[data-answer-bearing="accepted-answer"]',
+      "[data-accepted-answer]"
+    ]
+  };
+  function assertGroundedAnswerConcealmentAudit(value, context, registeredAnswers) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError("Surface audit is not an executable DOM audit artifact.");
+    }
+    const artifact = value;
+    if (artifact.schemaVersion !== 1 || artifact.kind !== "grounded-answer-concealment-dom-audit" || artifact.auditRevision !== GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION || artifact.phase !== "pre-commit" || typeof artifact.snapshot !== "string" || !artifact.snapshot.trim() || !artifact.binding || !artifact.forbiddenValues || !Array.isArray(artifact.findings)) {
+      throw new TypeError("Surface audit is not an executable DOM audit artifact.");
+    }
+    const expectedBinding = {
+      lessonId: context.lessonId,
+      subjectId: context.subjectId,
+      surfaceId: context.binding.surfaceId,
+      rendererId: context.binding.renderer.id,
+      rendererRevision: context.binding.renderer.revision,
+      rendererSha256: context.binding.renderer.sha256,
+      contentRevision: context.binding.contentRevision
+    };
+    if (!sameObject(artifact.binding, expectedBinding)) {
+      throw new TypeError("Surface audit is stale for the current lesson content or renderer revision.");
+    }
+    const forbiddenValues = normalizeForbiddenValues(artifact.forbiddenValues);
+    const expectedForbiddenValues = normalizeForbiddenValues(context.forbiddenValues);
+    if (!sameObject(forbiddenValues, expectedForbiddenValues)) {
+      throw new TypeError("Surface audit omits content-derived answer-bearing values.");
+    }
+    assertRegisteredValuesCovered(forbiddenValues.acceptedAnswers, registeredAnswers.acceptedAnswers, "accepted answers");
+    assertRegisteredValuesCovered(forbiddenValues.modelAnswers, registeredAnswers.modelAnswers, "model answers");
+    assertSnapshotBinding(artifact.snapshot, context);
+    const findings = inspectSnapshot(artifact.snapshot, forbiddenValues);
+    if (!sameArray(artifact.findings, findings)) {
+      throw new TypeError("Surface audit findings do not match its stored DOM snapshot.");
+    }
+    if (artifact.result !== "pass" || findings.length) {
+      throw new TypeError("Surface audit found answer-bearing learner DOM before commitment.");
+    }
+  }
+  function inspectSnapshot(snapshot, forbiddenValues) {
+    const findings = [];
+    for (const kind of answerBearingKinds()) {
+      for (const selector of SEMANTIC_SELECTORS[kind]) {
+        if (snapshotHasSelector(snapshot, selector)) {
+          findings.push({ kind, source: "semantic-surface", evidence: selector });
+        }
+      }
+    }
+    const learnerFacing = learnerFacingCorpus(snapshot);
+    for (const kind of answerBearingKinds()) {
+      for (const forbidden of forbiddenValues[kind]) {
+        const needle = normalize(forbidden);
+        if (needle && learnerFacing.some((value) => value.includes(needle))) {
+          findings.push({ kind, source: "learner-facing-value", evidence: forbidden });
+        }
+      }
+    }
+    return dedupeFindings(findings);
+  }
+  function learnerFacingCorpus(snapshot) {
+    const values = [decodeHtml(snapshot.replace(/<[^>]*>/gu, ""))];
+    const learnerAttribute = /\b(?:alt|aria-description|aria-label|aria-roledescription|label|placeholder|title|value)\s*=\s*(?:"([^"]*)"|'([^']*)')/giu;
+    for (const match of snapshot.matchAll(learnerAttribute)) {
+      values.push(decodeHtml(match[1] ?? match[2] ?? ""));
+    }
+    return values.map(normalize).filter(Boolean);
+  }
+  function normalizeForbiddenValues(value) {
+    if (!value || typeof value !== "object") throw new TypeError("Surface audit needs all forbidden-value groups.");
+    return Object.fromEntries(answerBearingKinds().map((kind) => {
+      const entries2 = value[kind];
+      if (!Array.isArray(entries2)) throw new TypeError(`Surface audit needs ${kind} values.`);
+      const normalized2 = [...new Set(entries2.map((entry) => {
+        if (typeof entry !== "string" || !entry.trim()) throw new TypeError(`Surface audit ${kind} values must be text.`);
+        return entry.trim();
+      }))].sort();
+      return [kind, normalized2];
+    }));
+  }
+  function assertRegisteredValuesCovered(audited, registered, label) {
+    const auditedKeys = new Set(audited.map(normalize));
+    const missing2 = registered.filter((value) => !auditedKeys.has(normalize(value)));
+    if (missing2.length) throw new TypeError(`Surface audit omits registered ${label}.`);
+  }
+  function assertSnapshotBinding(snapshot, context) {
+    const expected = {
+      "data-grounded-lesson-id": context.lessonId,
+      "data-grounded-subject-id": context.subjectId,
+      "data-grounded-surface-id": context.binding.surfaceId,
+      "data-grounded-renderer-id": context.binding.renderer.id,
+      "data-grounded-renderer-revision": context.binding.renderer.revision,
+      "data-grounded-renderer-sha256": context.binding.renderer.sha256,
+      "data-grounded-content-revision": context.binding.contentRevision,
+      "data-grounded-commit-state": "pre-commit"
+    };
+    for (const [name, value] of Object.entries(expected)) {
+      if (!snapshot.includes(`${name}="${escapeAttribute(value)}"`)) {
+        throw new TypeError(`Surface audit snapshot is not bound to renderer DOM (${name}).`);
+      }
+    }
+  }
+  function escapeAttribute(value) {
+    return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  }
+  function snapshotHasSelector(snapshot, selector) {
+    const className = /^\.([a-z0-9_-]+)$/iu.exec(selector)?.[1];
+    if (className) {
+      const classAttributes = snapshot.match(/\bclass\s*=\s*(?:"[^"]*"|'[^']*')/giu) ?? [];
+      return classAttributes.some((attribute) => new RegExp(`(?:^|\\s)${escapeRegExp$2(className)}(?:\\s|$)`, "u").test(unquoteAttribute(attribute)));
+    }
+    const valued = /^\[([a-z0-9_-]+)="([^"]*)"\]$/iu.exec(selector);
+    if (valued) {
+      const [, name, value] = valued;
+      return new RegExp(`\\b${escapeRegExp$2(name)}\\s*=\\s*(?:"${escapeRegExp$2(value)}"|'${escapeRegExp$2(value)}')`, "iu").test(snapshot);
+    }
+    const present = /^\[([a-z0-9_-]+)\]$/iu.exec(selector)?.[1];
+    return present ? new RegExp(`\\b${escapeRegExp$2(present)}(?:\\s*=|\\s|/?>)`, "iu").test(snapshot) : false;
+  }
+  function unquoteAttribute(attribute) {
+    const equals = attribute.indexOf("=");
+    return attribute.slice(equals + 1).trim().slice(1, -1);
+  }
+  function escapeRegExp$2(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  }
+  function decodeHtml(value) {
+    const decoded = value.replace(
+      /&#x([a-f0-9]+);?|&#([0-9]+);?|&(amp|lt|gt|quot|apos);/giu,
+      (_match, hex, decimal, named) => {
+        if (hex) return String.fromCodePoint(Number.parseInt(hex, 16));
+        if (decimal) return String.fromCodePoint(Number.parseInt(decimal, 10));
+        const entities = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+        return entities[named.toLowerCase()] ?? _match;
+      }
+    );
+    if (decoded.includes("&#")) throw new TypeError("Surface audit snapshot contains an unresolved numeric character reference.");
+    return decoded;
+  }
+  function normalize(value) {
+    return value.normalize("NFKC").toLocaleLowerCase("ja-JP").replace(/[\s\p{P}\p{S}]+/gu, "");
+  }
+  function sameObject(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  function sameArray(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  function dedupeFindings(findings) {
+    return [...new Map(findings.map((finding) => [JSON.stringify(finding), finding])).values()];
+  }
+  function answerBearingKinds() {
+    return ["translations", "transcripts", "modelAnswers", "acceptedAnswers"];
+  }
   function createGroundedDefinitionRegistry(definitions) {
     const byId = /* @__PURE__ */ new Map();
     for (const definition of definitions) {
@@ -1797,12 +1976,20 @@
     });
   }
   function assertGroundedLessonDefinitionsResolve(lesson, registry) {
-    assertProofSet(lesson.overview.proofs, registry, "overview");
+    assertProofSet(lesson.overview.proofs, registry, "overview", {
+      lessonId: lesson.lessonId,
+      contentRevision: lesson.contentRevision,
+      subjectId: lesson.lessonId
+    });
     for (const activity of lesson.activities) {
-      assertProofSet(activity.proofs, registry, `activity ${activity.id}`);
+      assertProofSet(activity.proofs, registry, `activity ${activity.id}`, {
+        lessonId: lesson.lessonId,
+        contentRevision: lesson.contentRevision,
+        subjectId: activity.id
+      });
     }
   }
-  function assertProofSet(proofs, registry, label) {
+  function assertProofSet(proofs, registry, label, context) {
     if (proofs.curriculum.state === "ready") {
       for (const conceptId of proofs.curriculum.evidence.conceptIds) registry.resolveId(conceptId, "concept");
       for (const outcomeId of proofs.curriculum.evidence.outcomeIds) registry.resolveId(outcomeId, "outcome");
@@ -1818,22 +2005,32 @@
         coverage.workedExampleRefs.forEach((ref) => registry.resolve(ref, "worked-example"));
       }
     }
+    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
     if (proofs.answerConcealment.state === "ready") {
       const claim = proofs.answerConcealment.evidence;
       const audit = registry.resolve(claim.surfaceAudit, "surface-audit");
-      const value = audit.value;
-      if (JSON.stringify(value.learnerFacingPreCommit) !== JSON.stringify(claim.learnerFacingPreCommit) || value.revealPolicy !== claim.revealPolicy) {
-        throw new TypeError(`${label} surface audit does not match its answer-concealment claim.`);
+      const renderer = registry.resolve(claim.auditBinding.renderer, "surface-renderer");
+      const answerBearingContent = registry.resolve(claim.answerBearingContent, "answer-bearing-content");
+      if (claim.auditBinding.contentRevision !== context.contentRevision) {
+        throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
       }
-    }
-    if (proofs.assessment.state === "ready") {
-      const assessment = proofs.assessment.evidence;
-      registry.resolve(assessment.grader, assessment.method === "deterministic" ? "deterministic-grader" : "rubric-grader");
-      if (assessment.method === "deterministic") {
-        assessment.answerSets.forEach((ref) => registry.resolve(ref, "answer-set"));
-      } else {
-        assessment.rubrics.forEach((ref) => registry.resolve(ref, "rubric"));
+      if (claim.answerBearingContent.revision !== context.contentRevision) {
+        throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
       }
+      if (!registeredAnswers) {
+        throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
+      }
+      const rendererValue = renderer.value;
+      if (!rendererValue || typeof rendererValue !== "object" || rendererValue.surfaceId !== claim.auditBinding.surfaceId) {
+        throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
+      }
+      const forbiddenValues = answerBearingValues(answerBearingContent.value);
+      assertGroundedAnswerConcealmentAudit(audit.value, {
+        lessonId: context.lessonId,
+        subjectId: context.subjectId,
+        binding: claim.auditBinding,
+        forbiddenValues
+      }, registeredAnswers);
     }
     if (proofs.repair.state === "ready") {
       proofs.repair.evidence.errorTagIds.forEach((id2) => registry.resolveId(id2, "error-tag"));
@@ -1849,6 +2046,53 @@
         }
       }
     }
+  }
+  function resolveAssessmentDefinitions(proofs, registry) {
+    if (proofs.assessment.state !== "ready") return void 0;
+    const assessment = proofs.assessment.evidence;
+    registry.resolve(assessment.grader, assessment.method === "deterministic" ? "deterministic-grader" : "rubric-grader");
+    const definitions = assessment.method === "deterministic" ? assessment.answerSets.map((ref) => registry.resolve(ref, "answer-set")) : assessment.rubrics.map((ref) => registry.resolve(ref, "rubric"));
+    const acceptedAnswers = uniqueText$1(definitions.flatMap((definition) => namedTextValues(definition.value, ["acceptedAnswer", "acceptedAnswers"])));
+    const modelAnswers = uniqueText$1(definitions.flatMap((definition) => namedTextValues(definition.value, ["modelAnswer", "modelAnswers"])));
+    if (assessment.method === "deterministic" && !acceptedAnswers.length) {
+      throw new TypeError("Deterministic answer definitions expose no auditable accepted answers.");
+    }
+    return { acceptedAnswers, modelAnswers };
+  }
+  function namedTextValues(value, names) {
+    if (Array.isArray(value)) return value.flatMap((item) => namedTextValues(item, names));
+    if (!value || typeof value !== "object") return [];
+    return Object.entries(value).flatMap(([key, child]) => names.includes(key) ? allTextValues(child) : namedTextValues(child, names));
+  }
+  function allTextValues(value) {
+    if (typeof value === "string") return value.trim() ? [value.trim()] : [];
+    if (Array.isArray(value)) return value.flatMap(allTextValues);
+    if (!value || typeof value !== "object") return [];
+    return Object.values(value).flatMap(allTextValues);
+  }
+  function uniqueText$1(values) {
+    return [...new Set(values)].sort();
+  }
+  function answerBearingValues(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError("Answer-bearing content must be a content-derived corpus.");
+    }
+    const record2 = value;
+    return {
+      translations: textArray(record2.translations, "translations"),
+      transcripts: textArray(record2.transcripts, "transcripts"),
+      modelAnswers: textArray(record2.modelAnswers, "modelAnswers"),
+      acceptedAnswers: textArray(record2.acceptedAnswers, "acceptedAnswers")
+    };
+  }
+  function textArray(value, label) {
+    if (!Array.isArray(value)) throw new TypeError(`Answer-bearing content needs ${label}.`);
+    return uniqueText$1(value.map((item) => {
+      if (typeof item !== "string" || !item.trim()) {
+        throw new TypeError(`Answer-bearing content ${label} must contain text.`);
+      }
+      return item.trim();
+    }));
   }
   function resolveId(byId, id2, kind) {
     const definition = byId.get(id2);
@@ -2785,7 +3029,7 @@
     phases,
     expressions
   };
-  const LESSON_ZERO_CONTENT_SHA256 = "239c59fe41aae1d2343b0abd3765f9f889c4b24428b2d21ed01e17b60f82d48b";
+  const LESSON_ZERO_CONTENT_SHA256 = "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c";
   const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a1ac9cb34de4eb585d0ea4ba68e2e3d70ed666bdc0c75be62111798d69d5a4eb";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
@@ -3231,6 +3475,14 @@
     },
     ...REAL_CLASS_MEMBERS,
     {
+      id: "shaun",
+      firstName: "Shaun",
+      category: "classmate",
+      visualEvidence: "reference-confirmed-neutral-pending",
+      eligibility: { story: true, lessons: false, likenessRuntime: false },
+      nameEvidence: "owner-named"
+    },
+    {
       id: "nanako",
       firstName: "Nanako",
       category: "extended-member",
@@ -3283,6 +3535,11 @@
     const member = CAST_BY_ID.get(id2);
     if (!member) throw new TypeError(`Unknown Academy cast id: ${id2}.`);
     return member;
+  }
+  function canRenderAcademyCastPortrait(id2, use) {
+    const member = getAcademyCastMember(id2);
+    if (!member.eligibility.story) return false;
+    return member.visualEvidence !== "missing";
   }
   const ACADEMY_CAST_SPECIALTIES = {
     rie: ["repair", "register", "feedback"],
@@ -3544,7 +3801,7 @@
       for (const sourceQuestionId of activity.sourceQuestionIds) {
         if (!questionIds.has(sourceQuestionId)) fail$1(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
       }
-      if (activity.assessed && JSON.stringify(activity.support) !== JSON.stringify(ASSESSED_SUPPORT)) {
+      if (activity.assessed && !hasAssessedSupport(activity.support)) {
         fail$1(`Activity ${activity.id} exposes assessed support before commitment.`);
       }
     }
@@ -3563,25 +3820,102 @@
     const scripts = array$1(lesson.inputScripts, "lesson.inputScripts");
     const scriptById = uniqueIndex(scripts, "input script");
     for (const script of scripts) {
-      if (script.transcriptReveal !== "after-commit") fail$1(`Script ${script.id} reveals its transcript too early.`);
-      nonEmpty(script.lines, `script ${script.id} lines`);
-      if (new Set(script.lines.map((line) => line.speakerId)).size < 2) fail$1(`Script ${script.id} is not multi-speaker input.`);
-      for (const line of script.lines) {
-        if (!isAcademyCastMemberId(line.speakerId)) fail$1(`Script ${script.id} invents cast id ${line.speakerId}.`);
-        text$3(line.japanese, `script ${script.id} Japanese line`);
-        text$3(line.english, `script ${script.id} English line`);
-        const member = getAcademyCastMember(line.speakerId);
-        if (!line.japanese.includes(`${member.firstName}です`) || !line.reading.includes(`${member.firstName}です`)) {
-          fail$1(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
-        }
+      validateInputScript(script, lesson.activities);
+    }
+    validateScriptActivityReferences(lesson.activities, scriptById);
+    validateSpeechActivityContracts(lesson, scriptById);
+    return scripts;
+  }
+  function validateInputScript(script, activities) {
+    if (script.kind !== "dialogue" && script.kind !== "sound-sequence") {
+      fail$1(`Script ${script.id} has an unsupported input kind.`);
+    }
+    if (script.transcriptReveal !== "after-commit") fail$1(`Script ${script.id} reveals its transcript too early.`);
+    nonEmpty(script.lines, `script ${script.id} lines`);
+    const lineIds = validateScriptLines(script);
+    validateDialogueSpeakers(script);
+    validateScriptLearnerTurns(script, lineIds, activities);
+  }
+  function validateScriptLines(script) {
+    const lineIds = /* @__PURE__ */ new Set();
+    for (const line of script.lines) {
+      text$3(line.id, `script ${script.id} line id`);
+      if (lineIds.has(line.id)) fail$1(`Script ${script.id} repeats line id ${line.id}.`);
+      lineIds.add(line.id);
+      if (!isAcademyCastMemberId(line.speakerId)) fail$1(`Script ${script.id} invents cast id ${line.speakerId}.`);
+      text$3(line.japanese, `script ${script.id} Japanese line`);
+      text$3(line.reading, `script ${script.id} reading line`);
+      text$3(line.english, `script ${script.id} English line`);
+    }
+    return lineIds;
+  }
+  function validateDialogueSpeakers(script) {
+    if (script.kind !== "dialogue") return;
+    const speakers = new Set(script.lines.map((line) => line.speakerId));
+    if (speakers.size < 2) fail$1(`Dialogue script ${script.id} is not multi-speaker input.`);
+    for (const speakerId of speakers) {
+      const member = getAcademyCastMember(speakerId);
+      const speakerLines = script.lines.filter((line) => line.speakerId === speakerId);
+      if (!speakerLines.some((line) => line.japanese.includes(`${member.firstName}です`) && line.reading.includes(`${member.firstName}です`))) {
+        fail$1(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
       }
     }
-    for (const activity of lesson.activities) {
+  }
+  function validateScriptLearnerTurns(script, lineIds, activities) {
+    const learnerTurns = script.learnerTurns ?? [];
+    const learnerTurnIds = /* @__PURE__ */ new Set();
+    for (const turn of learnerTurns) {
+      text$3(turn.id, `script ${script.id} learner turn id`);
+      if (learnerTurnIds.has(turn.id)) fail$1(`Script ${script.id} repeats learner turn id ${turn.id}.`);
+      learnerTurnIds.add(turn.id);
+      if (!lineIds.has(turn.afterLineId)) {
+        fail$1(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
+      }
+      if (turn.capture?.kind !== "microphone-recording" || turn.capture.evidenceKind !== "spoken-turn") {
+        fail$1(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
+      }
+      if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
+        fail$1(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
+      }
+      if (!hasAssessedSupport(turn.support)) {
+        fail$1(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
+      }
+    }
+    if (script.kind === "sound-sequence" && learnerTurns.length) {
+      fail$1(`Sound sequence ${script.id} cannot contain a learner speaking turn.`);
+    }
+    if (learnerTurns.length && !activities.some((activity) => activity.inputScriptId === script.id && activity.expectedEvidence.kind === "spoken-turn")) {
+      fail$1(`Script ${script.id} has a learner turn without a spoken-turn activity.`);
+    }
+  }
+  function validateScriptActivityReferences(activities, scriptById) {
+    for (const activity of activities) {
       if (activity.inputScriptId && !scriptById.has(activity.inputScriptId)) {
         fail$1(`Activity ${activity.id} references unknown script ${activity.inputScriptId}.`);
       }
+      if (activity.expectedEvidence.kind === "spoken-turn" && activity.inputScriptId) {
+        const script = scriptById.get(activity.inputScriptId);
+        if (!script.learnerTurns?.some((turn) => turn.capture.evidenceKind === activity.expectedEvidence.kind)) {
+          fail$1(`Activity ${activity.id} has no authored learner speaking turn.`);
+        }
+      }
     }
-    return scripts;
+  }
+  function validateSpeechActivityContracts(lesson, scriptById) {
+    const vowelActivity = lesson.activities.find((activity) => activity.id === "activity:lesson-zero-vowel-listen");
+    const vowelScript = vowelActivity?.inputScriptId ? scriptById.get(vowelActivity.inputScriptId) : void 0;
+    if (!vowelScript || vowelScript.kind !== "sound-sequence") {
+      fail$1("Lesson 0 vowel listening must use its own sound-sequence script.");
+    }
+    const vowelTranscript = vowelScript.lines.map((line) => line.japanese).join("").replace(/[\s・、。]/gu, "");
+    if (vowelTranscript !== "あいうえお") fail$1("Lesson 0 vowel script must contain the exact ordered vowel row.");
+    const speakingActivity = lesson.activities.find((activity) => activity.id === "activity:lesson-zero-speaking-input");
+    const speakingScript = speakingActivity?.inputScriptId ? scriptById.get(speakingActivity.inputScriptId) : void 0;
+    const learnerTurn = speakingScript?.learnerTurns?.find((turn) => turn.capture.evidenceKind === "spoken-turn");
+    const cueLine = learnerTurn && speakingScript?.lines.find((line) => line.id === learnerTurn.afterLineId);
+    if (!learnerTurn || !cueLine || cueLine.speakerId !== "aakash") {
+      fail$1("Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.");
+    }
   }
   function validateLessonZeroCastUsage(missions, scripts) {
     const requirements = {
@@ -3702,6 +4036,12 @@
     const copy = record$1(value, label);
     text$3(copy.en, `${label}.en`);
     text$3(copy.ja, `${label}.ja`);
+  }
+  function hasAssessedSupport(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const support = value;
+    const keys = Object.keys(ASSESSED_SUPPORT);
+    return Object.keys(value).length === keys.length && keys.every((key) => support[key] === ASSESSED_SUPPORT[key]);
   }
   function fail$1(message) {
     throw new TypeError(message);
@@ -3882,7 +4222,7 @@
       filename: "lesson-zero.v1.json",
       lessonId: "lesson:foundation-00",
       classWeekId: "orientation",
-      expectedContentRevision: "2026-07-13.lesson-zero.v1",
+      expectedContentRevision: "2026-07-13.lesson-zero.v1-audio-contract-2",
       expectedSha256: LESSON_ZERO_CONTENT_SHA256,
       audit: validateLessonZeroGrounding
     },
@@ -4141,8 +4481,7 @@
         requireText(event.sceneId, "sceneId");
         break;
       case "bond-changed":
-        requireText(event.characterId, "characterId");
-        if (!Number.isSafeInteger(event.delta)) throw new TypeError("Bond delta must be an integer.");
+        validateBondChanged(event);
         break;
       case "asset-unlocked":
         requireText(event.assetId, "assetId");
@@ -4160,10 +4499,7 @@
         validateReviewScheduled(event);
         break;
       case "review-schedule-neutralized":
-        requireText(event.scheduledEventId, "scheduledEventId");
-        if (event.reason !== "legacy-ungrounded-academy") {
-          throw new TypeError("Invalid review schedule neutralization reason.");
-        }
+        validateReviewScheduleNeutralized(event);
         break;
       case "learning-evidence-recorded":
         validateLearningEvidence(event);
@@ -4172,32 +4508,57 @@
         validateVocabularyCollected(event);
         break;
       case "vocabulary-collection-undone":
-        requireText(event.collectionItemId, "collectionItemId");
-        requireText(event.collectedEventId, "collectedEventId");
+        validateVocabularyCollectionUndone(event);
         break;
       case "academy-day-closed":
-        requireText(event.dayId, "dayId");
-        if (typeof event.mainLessonCompleted !== "boolean") throw new TypeError("Day mainLessonCompleted must be boolean.");
-        unique$1(event.optionalActivityIds.map((id2) => requireText(id2, "optionalActivityId")));
-        if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError("Day elapsedMs must be a non-negative integer.");
+        validateAcademyDayClosed(event);
         break;
       case "achievement-ceremony-seen":
-        requireText(event.achievementId, "achievementId");
-        if (!["bronze", "silver", "gold", "platinum"].includes(event.tier)) throw new TypeError("Invalid achievement tier.");
+        validateAchievementCeremonySeen(event);
         break;
       case "relationship-chapter-unlocked":
-        requireText(event.characterId, "characterId");
-        if (!Number.isSafeInteger(event.chapter) || event.chapter < 1 || event.chapter > 10) throw new TypeError("Relationship chapter must be from 1 to 10.");
-        if (event.majorTurn && !["recognition", "friction", "support"].includes(event.majorTurn)) throw new TypeError("Invalid relationship major turn.");
+        validateRelationshipChapterUnlocked(event);
         break;
       case "support-used":
-        requireText(event.activityId, "activityId");
-        if (!["hint", "transcript", "translation", "definition", "example-gloss", "model-answer"].includes(event.supportKind)) throw new TypeError("Invalid support kind.");
-        if (event.choiceId !== void 0) requireText(event.choiceId, "choiceId");
+        validateSupportUsed(event);
         break;
       default:
         throw new TypeError("Unknown learner event kind.");
     }
+  }
+  function validateBondChanged(event) {
+    requireText(event.characterId, "characterId");
+    if (!Number.isSafeInteger(event.delta)) throw new TypeError("Bond delta must be an integer.");
+  }
+  function validateReviewScheduleNeutralized(event) {
+    requireText(event.scheduledEventId, "scheduledEventId");
+    if (event.reason !== "legacy-ungrounded-academy") {
+      throw new TypeError("Invalid review schedule neutralization reason.");
+    }
+  }
+  function validateVocabularyCollectionUndone(event) {
+    requireText(event.collectionItemId, "collectionItemId");
+    requireText(event.collectedEventId, "collectedEventId");
+  }
+  function validateAcademyDayClosed(event) {
+    requireText(event.dayId, "dayId");
+    if (typeof event.mainLessonCompleted !== "boolean") throw new TypeError("Day mainLessonCompleted must be boolean.");
+    unique$1(event.optionalActivityIds.map((id2) => requireText(id2, "optionalActivityId")));
+    if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError("Day elapsedMs must be a non-negative integer.");
+  }
+  function validateAchievementCeremonySeen(event) {
+    requireText(event.achievementId, "achievementId");
+    if (!["bronze", "silver", "gold", "platinum"].includes(event.tier)) throw new TypeError("Invalid achievement tier.");
+  }
+  function validateRelationshipChapterUnlocked(event) {
+    requireText(event.characterId, "characterId");
+    if (!Number.isSafeInteger(event.chapter) || event.chapter < 1 || event.chapter > 10) throw new TypeError("Relationship chapter must be from 1 to 10.");
+    if (event.majorTurn && !["recognition", "friction", "support"].includes(event.majorTurn)) throw new TypeError("Invalid relationship major turn.");
+  }
+  function validateSupportUsed(event) {
+    requireText(event.activityId, "activityId");
+    if (!["hint", "transcript", "translation", "definition", "example-gloss", "model-answer"].includes(event.supportKind)) throw new TypeError("Invalid support kind.");
+    if (event.choiceId !== void 0) requireText(event.choiceId, "choiceId");
   }
   function validateAttemptRecorded(event) {
     requireText(event.activityId, "activityId");
@@ -6006,7 +6367,6 @@
         };
       });
     }
-    // fallow-ignore-next-line unused-class-member
     async queue(limit = 50) {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -6024,7 +6384,6 @@
         reviewCount: Math.min(due.length, cap)
       };
     }
-    // fallow-ignore-next-line unused-class-member
     async stats() {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -6042,7 +6401,6 @@
         }
       };
     }
-    // fallow-ignore-next-line unused-class-member
     async review(request2) {
       return this.mutateDeck((deck) => {
         const now = this.now();
@@ -6396,7 +6754,7 @@
         return withRouteFrame(state, next, []);
       }
       case "presentation": {
-        const route = transition.mode === "course" && state.route === "campus" ? "class" : state.route;
+        const route = transition.mode === "course" && state.route === "campus" ? "class" : transition.mode === "story" && state.route === "class" ? "campus" : state.route;
         if (transition.mode === state.presentationMode && route === state.route) return state;
         return { ...state, route, presentationMode: transition.mode };
       }
@@ -6446,6 +6804,17 @@
   }
   function isAcademyPresentationMode(value) {
     return value === "story" || value === "course";
+  }
+  async function loadAcademyCheckpointSafely(store, fallback) {
+    try {
+      return structuredClone(await store.load() ?? fallback);
+    } catch {
+      try {
+        await store.save(fallback);
+      } catch {
+      }
+      return structuredClone(fallback);
+    }
   }
   const DEFAULT_DB_NAME = "yomu-academy-v1";
   const DB_VERSION$1 = 1;
@@ -6870,19 +7239,19 @@
     rieUnlockTitle: "Rie-sensei",
     rieUnlockBody: "“One open chair is enough. We can begin.”",
     rieUnlockContinue: "Choose where to begin",
-    bondFirstStar: "First journal page",
-    relationshipFirstPage: "First journal page opened",
+    bondFirstStar: "First page",
+    relationshipFirstPage: "Rie joined your journal",
     relationshipJournalProgress: "Relationship journal",
-    relationshipStage1: "Introduction",
-    relationshipStage2: "Familiarity",
-    relationshipStage3: "Shared joke",
-    relationshipStage4: "Trust",
-    relationshipStage5: "Friction",
-    relationshipStage6: "Repair",
-    relationshipStage7: "Reciprocity",
-    relationshipStage8: "Support",
-    relationshipStage9: "Shared memory",
-    relationshipStage10: "Enduring bond",
+    relationshipStage1: "First meeting",
+    relationshipStage2: "Familiar faces",
+    relationshipStage3: "Running joke",
+    relationshipStage4: "A little trust",
+    relationshipStage5: "Things unsaid",
+    relationshipStage6: "Making it right",
+    relationshipStage7: "Your turn, my turn",
+    relationshipStage8: "Showed up",
+    relationshipStage9: "Remember when",
+    relationshipStage10: "Still here",
     startEyebrow: "Your starting point",
     startTitle: "Where should we begin?",
     startBody: "You can change this later.",
@@ -6964,9 +7333,7 @@
     kanjiDeskBody: "Start from いち / one. Write one left-to-right stroke.",
     kanjiDeskComplete: "Lesson kanji complete.",
     kanjiDeskContinue: "Open the campus",
-    campusTitle: "Campus",
-    campusObjective: "Next: your first Library review.",
-    campusObjectiveComplete: "Where next?",
+    campusTitle: "キャンパス",
     mapLabel: "学内案内",
     mapEntrance: "入口",
     mapChoose: "行き先",
@@ -7028,6 +7395,9 @@
     journalRieLine: "“One open chair is enough. We can begin.”",
     journalAakash: "Aakash",
     journalAakashLine: "“Straight ahead, then right. Great.”",
+    journalFirstTerm: "First term",
+    journalPeter: "Peter",
+    journalShaun: "Shaun",
     journalBond: "Bond",
     journalReplay: "Replay the opening memory",
     journalReplayAakash: "Replay rainy directions",
@@ -7106,19 +7476,19 @@
     rieUnlockTitle: "りえ先生",
     rieUnlockBody: "「椅子が一つ空いていれば十分。始めましょう。」",
     rieUnlockContinue: "始める場所を選ぶ",
-    bondFirstStar: "日記の最初のページ",
-    relationshipFirstPage: "日記の最初のページが開きました",
+    bondFirstStar: "最初のページ",
+    relationshipFirstPage: "りえ先生が日記に加わりました",
     relationshipJournalProgress: "関係の日記",
-    relationshipStage1: "出会い",
-    relationshipStage2: "親しみ",
-    relationshipStage3: "共通の笑い",
-    relationshipStage4: "信頼",
+    relationshipStage1: "はじめまして",
+    relationshipStage2: "顔なじみ",
+    relationshipStage3: "いつもの冗談",
+    relationshipStage4: "小さな信頼",
     relationshipStage5: "すれ違い",
     relationshipStage6: "仲直り",
-    relationshipStage7: "支え合い",
-    relationshipStage8: "サポート",
-    relationshipStage9: "共通の思い出",
-    relationshipStage10: "続いていく絆",
+    relationshipStage7: "おたがいさま",
+    relationshipStage8: "そばにいる",
+    relationshipStage9: "思い出",
+    relationshipStage10: "これからも",
     startEyebrow: "最初の一歩",
     startTitle: "どこから始めましょうか。",
     startBody: "あとで変更できます。",
@@ -7201,8 +7571,6 @@
     kanjiDeskComplete: "このレッスンの漢字が終わりました。",
     kanjiDeskContinue: "キャンパスを開く",
     campusTitle: "キャンパス",
-    campusObjective: "次：図書館で最初の復習。",
-    campusObjectiveComplete: "次はどこへ？",
     mapLabel: "キャンパスマップ",
     mapEntrance: "入口",
     mapChoose: "行き先を選ぶ",
@@ -7264,6 +7632,9 @@
     journalRieLine: "「椅子が一つ空いていれば十分。始めましょう。」",
     journalAakash: "Aakash",
     journalAakashLine: "「まっすぐ行って、右。よし。」",
+    journalFirstTerm: "最初の学期",
+    journalPeter: "Peter",
+    journalShaun: "Shaun",
     journalBond: "絆",
     journalReplay: "最初の思い出をもう一度見る",
     journalReplayAakash: "雨の道案内をもう一度見る",
@@ -7326,7 +7697,8 @@
       happy: "/academy/art/characters/rie/rie__happy__halfbody__v001.png"
     },
     characters: {
-      aakash: "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png"
+      aakash: "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
+      shaun: "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png"
     },
     portraits: {
       "quality-2": "/academy/art/protagonists/quality-2__picker__v001.png",
@@ -8064,6 +8436,3572 @@
     }));
     return cutout;
   }
+  function renderArrivalBridge(language, band, onContinue) {
+    const { screen, panel, content } = screenFrame({
+      language,
+      className: "academy-bridge-screen",
+      plate: "classroom",
+      eyebrow: "bridgeEyebrow",
+      title: "bridgeTitle",
+      body: "bridgeBody"
+    });
+    panel.classList.add("academy-guide-panel");
+    const bandBadge = element("strong", "academy-band-badge");
+    bandBadge.textContent = band.toUpperCase();
+    const button = copyButton(language, "bridgeContinue", "academy-button academy-button-primary");
+    button.addEventListener("click", onContinue);
+    content.append(bandBadge, button);
+    panel.prepend(rieGuide$1(language));
+    return screen;
+  }
+  function renderOpeningMemory(language, onClose) {
+    const { screen, panel, content } = screenFrame({
+      language,
+      className: "academy-memory-screen",
+      plate: "classroom",
+      title: "memoryTitle",
+      body: "memoryBody"
+    });
+    panel.classList.add("academy-guide-panel");
+    panel.prepend(rieGuide$1(language));
+    const line = element("blockquote", "academy-memory-line");
+    line.lang = "ja";
+    line.dataset.speaker = "rie";
+    line.textContent = "「こんばんは。ここ、空いていますよ。」";
+    const support = element("p", "academy-support");
+    support.lang = "en";
+    support.textContent = "“Good evening. This seat is free.”";
+    const close = copyButton(language, "memoryReturn", "academy-button academy-button-primary");
+    close.addEventListener("click", onClose);
+    content.append(line, support, close);
+    return screen;
+  }
+  function rieGuide$1(language) {
+    const cutout = element("div", "academy-guide-cutout");
+    cutout.dataset.speakerStage = "rie";
+    cutout.append(createAcademySprite({
+      characterId: "rie",
+      alt: language === "ja" ? "りえ先生" : "Rie-sensei",
+      className: "academy-guide-character academy-character-rie",
+      expressions: rieExpressionSources()
+    }));
+    return cutout;
+  }
+  function rieExpressionSources() {
+    const fallback = { still: ACADEMY_ASSETS.rie };
+    return { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback };
+  }
+  const ORIENTATION_MOCK_ITEMS = [
+    {
+      id: "orientation:knowledge:reason",
+      skill: "language-knowledge",
+      prompt: {
+        en: "Choose the form that naturally completes the sentence: 昨日は雨＿＿、出かけませんでした。",
+        ja: "自然な文になる形を選んでください：昨日は雨＿＿、出かけませんでした。"
+      },
+      options: [
+        { id: "because", label: { en: "だったので", ja: "だったので" }, correct: true },
+        { id: "although", label: { en: "なのに", ja: "なのに" }, correct: false },
+        { id: "while", label: { en: "ながら", ja: "ながら" }, correct: false }
+      ]
+    },
+    {
+      id: "orientation:reading:change",
+      skill: "reading",
+      passage: {
+        en: "The meeting was going to begin at six, but Alex’s train stopped, so everyone changed it to half past six.",
+        ja: "会議は六時に始まる予定でしたが、Alexさんの電車が止まったので、みんなで六時半に変えました。"
+      },
+      prompt: { en: "When will the meeting begin?", ja: "会議は何時に始まりますか。" },
+      options: [
+        { id: "six", label: { en: "6:00", ja: "六時" }, correct: false },
+        { id: "six-thirty", label: { en: "6:30", ja: "六時半" }, correct: true },
+        { id: "cancelled", label: { en: "It was cancelled", ja: "中止になりました" }, correct: false }
+      ]
+    },
+    {
+      id: "orientation:listening:library",
+      skill: "listening",
+      spokenJapanese: "図書館は七時に閉まります。六時五十分までに本を返してください。",
+      prompt: { en: "Listen: when does the library close?", ja: "聞いてください：図書館は何時に閉まりますか。" },
+      options: [
+        { id: "six-fifty", label: { en: "6:50", ja: "六時五十分" }, correct: false },
+        { id: "seven", label: { en: "7:00", ja: "七時" }, correct: true },
+        { id: "seven-ten", label: { en: "7:10", ja: "七時十分" }, correct: false }
+      ]
+    }
+  ];
+  function scoreOrientationMock(targetBand, responses, confidence) {
+    const scoreFor = (skill) => {
+      const items = ORIENTATION_MOCK_ITEMS.filter((item) => item.skill === skill);
+      const correct = items.filter((item) => item.options.some((option) => option.id === responses[item.id] && option.correct)).length;
+      return items.length ? correct / items.length : 0;
+    };
+    const scores = {
+      "language-knowledge": scoreFor("language-knowledge"),
+      reading: scoreFor("reading"),
+      listening: scoreFor("listening"),
+      "speaking-confidence": clamp$2(confidence.speaking),
+      "writing-confidence": clamp$2(confidence.writing)
+    };
+    const receptive = (scores["language-knowledge"] + scores.reading + scores.listening) / 3;
+    const retreat = receptive >= 2 / 3 ? 0 : receptive >= 1 / 3 ? 1 : 2;
+    return {
+      assessmentId: "academy-orientation-mock:v1",
+      targetBand,
+      itemIds: ORIENTATION_MOCK_ITEMS.map((item) => item.id),
+      scores,
+      recommendedBand: lowerBand(targetBand, retreat),
+      calibration: "vertical-slice"
+    };
+  }
+  function lowerBand(target, steps) {
+    const bands = ["n5", "n4", "n3", "n2", "n1"];
+    return bands[Math.max(0, bands.indexOf(target) - steps)];
+  }
+  function clamp$2(value) {
+    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+  }
+  const STARTS = [
+    ["lesson-zero", "startLessonZero", "startLessonZeroBody"],
+    ["manual-band", "startManual", "startManualBody"],
+    ["placement-mock", "startMock", "startMockBody"]
+  ];
+  const BANDS = [
+    ["n5", "bandN5"],
+    ["n4", "bandN4"],
+    ["n3", "bandN3"],
+    ["n2", "bandN2"],
+    ["n1", "bandN1"]
+  ];
+  function renderStartScreen(language, onChoose) {
+    const { screen, panel, content } = screenFrame({
+      language,
+      className: "academy-start-screen",
+      plate: "classroom",
+      eyebrow: "startEyebrow",
+      title: "startTitle",
+      body: "startBody"
+    });
+    panel.classList.add("academy-guide-panel");
+    panel.prepend(rieGuide(language));
+    const choices = element("div", "academy-route-choices");
+    STARTS.forEach(([route, title, body]) => {
+      const button = copyButton(language, title, "academy-route-choice");
+      button.dataset.startRoute = route;
+      button.append(copyElement("span", "academy-route-description", language, body));
+      button.addEventListener("click", () => onChoose(route));
+      choices.append(button);
+    });
+    content.append(choices);
+    return screen;
+  }
+  function renderManualBandScreen(language, onChoose, onBack) {
+    const { screen, panel, content } = screenFrame({
+      language,
+      className: "academy-band-screen",
+      plate: "classroom",
+      title: "manualTitle",
+      body: "manualBody"
+    });
+    panel.classList.add("academy-guide-panel");
+    panel.prepend(rieGuide(language));
+    const choices = element("div", "academy-band-choices");
+    BANDS.forEach(([band, label]) => {
+      const button = copyButton(language, label, "academy-band-choice");
+      button.dataset.band = band;
+      button.addEventListener("click", () => onChoose(band));
+      choices.append(button);
+    });
+    const back = copyButton(language, "back", "academy-button academy-button-quiet");
+    back.addEventListener("click", onBack);
+    content.append(choices, back);
+    return screen;
+  }
+  function rieGuide(language) {
+    const cutout = element("div", "academy-guide-cutout");
+    cutout.append(createAcademySprite({
+      characterId: "rie",
+      alt: language === "ja" ? "りえ先生" : "Rie-sensei",
+      className: "academy-guide-character",
+      expressions: { neutral: { still: ACADEMY_ASSETS.rie } }
+    }));
+    return cutout;
+  }
+  function renderPlacementMockScreen(options) {
+    const { screen, content } = screenFrame({
+      language: options.language,
+      className: "academy-placement-screen",
+      plate: "classroom",
+      title: "mockTitle",
+      body: "mockBody"
+    });
+    const form = element("form", "academy-form academy-placement-form");
+    let playback = null;
+    let playbackRequest = 0;
+    let disposed = false;
+    const target = bandSelect(options.language);
+    form.append(target.fieldset);
+    ORIENTATION_MOCK_ITEMS.forEach((item) => {
+      const fieldset = element("fieldset", "academy-mock-item");
+      fieldset.dataset.mockItem = item.id;
+      fieldset.setAttribute("aria-label", item.prompt[options.language]);
+      const legend = localizedElement("legend", "academy-mock-prompt", options.language, item.prompt);
+      fieldset.append(legend);
+      if (item.passage) fieldset.append(localizedElement("p", "academy-mock-passage", "ja", item.passage));
+      if (item.spokenJapanese) {
+        const play = copyButton(options.language, "mockPlayAudio", "academy-button academy-button-secondary");
+        const audioError = element("span", "academy-field-error");
+        play.addEventListener("click", () => {
+          const request2 = ++playbackRequest;
+          playback?.dispose();
+          playback = null;
+          audioError.textContent = "";
+          play.disabled = true;
+          void options.pronunciation.play(item.spokenJapanese).then((active) => {
+            if (disposed || request2 !== playbackRequest) {
+              active.dispose();
+              return;
+            }
+            playback = active;
+          }).catch(() => {
+            if (!disposed && request2 === playbackRequest) {
+              audioError.textContent = academyText(options.language, "mockAudioUnavailable");
+            }
+          }).finally(() => {
+            if (!disposed && request2 === playbackRequest) play.disabled = false;
+          });
+        });
+        fieldset.append(play, audioError);
+      }
+      const choices = element("div", "academy-mock-options");
+      item.options.forEach((option) => {
+        const label = element("label", "academy-mock-option");
+        label.dataset.jpdbReaderSurfaceIgnore = "";
+        const input2 = document.createElement("input");
+        input2.type = "radio";
+        input2.name = item.id;
+        input2.value = option.id;
+        input2.required = true;
+        const copy = element("span", "academy-mock-option-copy");
+        copy.lang = "ja";
+        copy.dataset.jpdbReaderSurfaceIgnore = "";
+        copy.textContent = option.label.ja;
+        label.append(input2, copy);
+        choices.append(label);
+      });
+      fieldset.append(choices);
+      form.append(fieldset);
+    });
+    const confidence = element("div", "academy-confidence-grid");
+    const speaking = confidenceSelect(options.language, "mockSpeakingConfidence", "speaking");
+    const writing = confidenceSelect(options.language, "mockWritingConfidence", "writing");
+    confidence.append(speaking.label, writing.label);
+    const feedback = element("div", "academy-form-feedback");
+    const submit = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
+    submit.type = "submit";
+    const back = copyButton(options.language, "back", "academy-button academy-button-quiet");
+    back.addEventListener("click", options.onBack);
+    form.append(confidence, feedback, submit, back);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) {
+        feedback.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
+        return;
+      }
+      const values = new FormData(form);
+      const responses = Object.fromEntries(ORIENTATION_MOCK_ITEMS.map((item) => [item.id, String(values.get(item.id) ?? "")]));
+      options.onResult(scoreOrientationMock(
+        target.select.value,
+        responses,
+        { speaking: Number(speaking.select.value), writing: Number(writing.select.value) }
+      ));
+    });
+    content.append(form);
+    screen.addEventListener("academy:dispose", () => {
+      disposed = true;
+      playbackRequest += 1;
+      playback?.dispose();
+    }, { once: true });
+    return screen;
+  }
+  function renderPlacementResultScreen(options) {
+    const { screen, content } = screenFrame({
+      language: options.language,
+      className: "academy-placement-result-screen",
+      plate: "classroom",
+      title: "mockResultTitle",
+      body: "mockBody"
+    });
+    const scores = element("dl", "academy-score-grid");
+    const rows = [
+      ["mockKnowledge", options.result.scores["language-knowledge"]],
+      ["mockReading", options.result.scores.reading],
+      ["mockListening", options.result.scores.listening],
+      ["mockProduction", (options.result.scores["speaking-confidence"] + options.result.scores["writing-confidence"]) / 2]
+    ];
+    rows.forEach(([key, value]) => {
+      scores.append(copyElement("dt", "", options.language, key), scoreBar(value, options.language));
+    });
+    const recommendation = element("div", "academy-recommendation");
+    recommendation.append(
+      copyElement("span", "academy-eyebrow", options.language, "mockRecommendation"),
+      element("strong", "academy-recommendation-band")
+    );
+    const band = recommendation.querySelector("strong");
+    if (band) band.textContent = options.result.recommendedBand.toUpperCase();
+    const accept = copyButton(options.language, "mockUseRecommendation", "academy-button academy-button-primary");
+    accept.addEventListener("click", options.onAccept);
+    const choose = copyButton(options.language, "mockChooseMyself", "academy-button academy-button-secondary");
+    choose.addEventListener("click", options.onChoose);
+    content.append(scores, recommendation, accept, choose);
+    return screen;
+  }
+  function bandSelect(language) {
+    const fieldset = element("fieldset", "academy-target-band");
+    fieldset.setAttribute("aria-label", academyText(language, "mockTargetLegend"));
+    fieldset.append(copyElement("legend", "academy-label", language, "mockTargetLegend"));
+    const select2 = element("select", "academy-input");
+    select2.setAttribute("aria-label", academyText(language, "mockTargetLegend"));
+    BANDS.forEach(([value, key]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = academyText(language, key);
+      if (value === "n4") option.selected = true;
+      select2.append(option);
+    });
+    fieldset.append(select2);
+    return { fieldset, select: select2 };
+  }
+  function confidenceSelect(language, key, name) {
+    const label = copyElement("label", "academy-label", language, key);
+    const select2 = element("select", "academy-input");
+    select2.name = name;
+    select2.setAttribute("aria-label", academyText(language, key));
+    for (let index = 0; index <= 4; index += 1) {
+      const option = document.createElement("option");
+      option.value = String(index / 4);
+      option.textContent = `${index} / 4`;
+      if (index === 2) option.selected = true;
+      select2.append(option);
+    }
+    label.append(select2);
+    return { label, select: select2 };
+  }
+  function scoreBar(value, language) {
+    const row = element("dd", "academy-score");
+    const meter = element("span", "academy-score-meter");
+    meter.style.setProperty("--academy-score", String(value));
+    const copy = element("span", "academy-score-value");
+    copy.textContent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 0 }).format(value);
+    row.append(meter, copy);
+    return row;
+  }
+  const PORTRAITS = [
+    ["quality-2", "portraitCamera"],
+    ["quality-3", "portraitPlanner"],
+    ["quality-4", "portraitCards"],
+    ["quality-5", "portraitNotebook"]
+  ];
+  function renderProfileScreen(options) {
+    const { screen, panel, content } = screenFrame({
+      language: options.language,
+      className: "academy-profile-screen",
+      plate: "classroom",
+      title: "academyName"
+    });
+    panel.classList.add("academy-panel-with-character");
+    const rieCutout = element("div", "academy-character-cutout");
+    rieCutout.dataset.speakerStage = "rie";
+    const rie = element("img", "academy-character academy-character-rie");
+    rie.src = ACADEMY_ASSETS.rie;
+    rie.alt = options.language === "ja" ? "りえ先生" : "Rie-sensei";
+    rie.dataset.character = "rie";
+    rieCutout.append(rie);
+    panel.prepend(rieCutout);
+    const greeting = copyElement("p", "academy-rie-greeting", options.language, "rieGreeting");
+    greeting.dataset.speaker = "rie";
+    greeting.lang = "ja";
+    delete greeting.dataset.jpdbReaderSurfaceIgnore;
+    greeting.dataset.yomuRuntimeSurface = "opening-greeting";
+    const greetingSupport = copyElement("p", "academy-rie-greeting-support", options.language, "rieGreetingSupport");
+    greetingSupport.dataset.speaker = "rie";
+    const note = copyElement("p", "academy-fiction-note", options.language, "fictionNote");
+    note.dataset.speaker = "rie";
+    const form = element("form", "academy-form academy-profile-form");
+    form.id = "academy-profile-form";
+    const nameLabel = copyElement("label", "academy-label", options.language, "profileNameLabel");
+    const name = element("input", "academy-input");
+    name.name = "displayName";
+    name.required = true;
+    name.maxLength = 60;
+    name.autocomplete = "name";
+    name.setAttribute("aria-label", academyText(options.language, "profileNameLabel"));
+    name.placeholder = academyText(options.language, "profileNamePlaceholder");
+    name.value = options.profile?.displayName ?? "";
+    nameLabel.append(name);
+    const reasonLabel = copyElement("label", "academy-label", options.language, "profileReasonLabel");
+    const reason = element("textarea", "academy-input academy-textarea");
+    reason.name = "learningReason";
+    reason.required = true;
+    reason.maxLength = 500;
+    reason.setAttribute("aria-label", academyText(options.language, "profileReasonLabel"));
+    reason.placeholder = academyText(options.language, "profileReasonPlaceholder");
+    reason.value = options.profile?.learningReason ?? "";
+    reasonLabel.append(reason);
+    const portraits = element("fieldset", "academy-portrait-fieldset");
+    portraits.setAttribute("aria-label", academyText(options.language, "profilePortraitLegend"));
+    const legend = copyElement("legend", "academy-label", options.language, "profilePortraitLegend");
+    portraits.append(legend);
+    const grid = element("div", "academy-portrait-grid");
+    PORTRAITS.forEach(([id2, labelKey], index) => {
+      const label = element("label", "academy-portrait-option");
+      const input2 = document.createElement("input");
+      input2.type = "radio";
+      input2.name = "portrait";
+      input2.value = id2;
+      input2.required = true;
+      input2.setAttribute("aria-label", academyText(options.language, labelKey));
+      input2.checked = options.profile?.portraitId === id2 || !options.profile && index === 0;
+      const image = element("img", "academy-portrait-image");
+      image.src = ACADEMY_ASSETS.portraits[id2];
+      image.alt = "";
+      const caption = copyElement("span", "academy-portrait-caption", options.language, labelKey);
+      label.append(input2, image, caption);
+      grid.append(label);
+    });
+    portraits.append(grid);
+    const submit = copyButton(options.language, "profileSubmit", "academy-button academy-button-primary");
+    submit.type = "submit";
+    submit.setAttribute("form", form.id);
+    const actions = element("div", "academy-profile-actions");
+    actions.append(submit);
+    form.append(nameLabel, reasonLabel, portraits);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const selected = new FormData(form).get("portrait");
+      if (!selected) return;
+      submit.disabled = true;
+      void Promise.resolve(options.onSubmit({
+        displayName: name.value.trim(),
+        learningReason: reason.value.trim(),
+        portraitId: selected
+      })).catch(() => {
+        submit.disabled = false;
+      });
+    });
+    content.replaceChildren(greeting, greetingSupport, note, form);
+    panel.append(actions);
+    return screen;
+  }
+  function createEnrollmentFlow(options) {
+    return new EnrollmentFlow(options);
+  }
+  class EnrollmentFlow {
+    constructor(options) {
+      this.options = options;
+      this.donationClaim = options.donationClaim ?? createDonationClaimService();
+    }
+    donationClaim;
+    async render(route, context) {
+      switch (route) {
+        case "access":
+          context.shell.replace(renderAccessScreen({
+            language: context.language,
+            onSubmit: (code) => this.openSession(code, context),
+            claim: this.donationClaim
+          }));
+          return true;
+        case "profile":
+          context.shell.replace(renderProfileScreen({
+            language: context.language,
+            profile: context.projection.profile,
+            onSubmit: (profile) => this.saveProfile(profile, context)
+          }));
+          return true;
+        case "rie-unlock":
+          context.shell.replace(renderRieUnlockScreen(context.language, () => void context.go("start")));
+          return true;
+        case "start":
+          context.shell.replace(renderStartScreen(context.language, (choice) => void this.chooseStart(choice, context)));
+          return true;
+        case "manual-band":
+          context.shell.replace(renderManualBandScreen(
+            context.language,
+            (band) => void this.chooseBand(band, context),
+            () => void context.back()
+          ));
+          return true;
+        case "placement-mock":
+          context.shell.replace(renderPlacementMockScreen({
+            language: context.language,
+            pronunciation: this.options.pronunciation,
+            onResult: (result) => void this.savePlacement(result, context),
+            onBack: () => void context.back()
+          }));
+          return true;
+        case "placement-result":
+          this.renderPlacementResult(context);
+          return true;
+        case "arrival-bridge":
+          context.shell.replace(renderArrivalBridge(
+            context.language,
+            requiredBand(context),
+            () => void context.go("class")
+          ));
+          return true;
+        default:
+          return false;
+      }
+    }
+    async openSession(code, context) {
+      const session = await this.options.access.exchange(code);
+      await context.go(context.projection.profile ? "start" : "profile", { session });
+    }
+    async saveProfile(profile, context) {
+      const { firstIntroduction } = await this.options.evidence.saveProfile(profile);
+      await context.go(firstIntroduction ? "rie-unlock" : "start");
+    }
+    async chooseStart(route, context) {
+      if (route === "manual-band") return context.go("manual-band", { placementOverride: false });
+      if (route === "placement-mock") return context.go("placement-mock", { placementOverride: false });
+      await this.options.evidence.chooseCurriculumEntry({ route: "lesson-zero" });
+      await context.go("lesson-overview", {
+        selectedBand: void 0,
+        lessonId: "lesson:foundation-00",
+        sectionId: void 0,
+        activityId: void 0
+      });
+    }
+    async chooseBand(band, context) {
+      const fromPlacement = context.checkpoint.placementOverride === true;
+      await this.options.evidence.chooseCurriculumEntry({
+        route: fromPlacement ? "placement-mock" : "manual-band",
+        band,
+        ...fromPlacement ? { recommendationAccepted: false } : {}
+      });
+      await context.go("arrival-bridge", { selectedBand: band, placementOverride: false });
+    }
+    async savePlacement(result, context) {
+      await this.options.evidence.savePlacement(result);
+      await context.go("placement-result", { selectedBand: result.recommendedBand });
+    }
+    renderPlacementResult(context) {
+      const placement = context.projection.latestPlacement;
+      if (!placement) {
+        void context.go("placement-mock");
+        return;
+      }
+      const result = {
+        assessmentId: "academy-orientation-mock:v1",
+        targetBand: placement.targetBand,
+        itemIds: placement.itemIds,
+        scores: placement.scores,
+        recommendedBand: placement.recommendedBand,
+        calibration: "vertical-slice"
+      };
+      context.shell.replace(renderPlacementResultScreen({
+        language: context.language,
+        result,
+        onAccept: () => void this.acceptPlacement(result, context),
+        onChoose: () => void context.go("manual-band", { placementOverride: true })
+      }));
+    }
+    async acceptPlacement(result, context) {
+      await this.options.evidence.chooseCurriculumEntry({
+        route: "placement-mock",
+        band: result.recommendedBand,
+        recommendationAccepted: true
+      });
+      await context.go("arrival-bridge", { selectedBand: result.recommendedBand, placementOverride: false });
+    }
+  }
+  function requiredBand(context) {
+    const band = context.checkpoint.selectedBand;
+    if (!band) throw new Error("Arrival bridge requires a selected JLPT band.");
+    return band;
+  }
+  let defaultLoad$1 = null;
+  function loadLessonZeroContent(fetcher = fetch) {
+    if (fetcher !== fetch) return load$1(fetcher);
+    defaultLoad$1 ??= load$1(fetcher).catch((error) => {
+      defaultLoad$1 = null;
+      throw error;
+    });
+    return defaultLoad$1;
+  }
+  async function load$1(fetcher) {
+    const response = await fetcher(LESSON_ZERO_CONTENT_URL);
+    if (!response.ok) {
+      throw new Error(`Could not load complete Lesson 0: ${LESSON_ZERO_CONTENT_URL} (${response.status})`);
+    }
+    const data = validateLessonZeroPackage(await response.json());
+    return {
+      sourceLibrary: createSourceLibrary(data.sourceLibrary),
+      lesson: structuredClone(data.lesson),
+      grounding: validateLessonZeroGrounding(data)
+    };
+  }
+  function createLessonOverviewModel(definition, grounding, state) {
+    validateDefinition(definition);
+    if (grounding.lessonId !== definition.id) throw new TypeError("Lesson overview grounding belongs to another lesson.");
+    const groundedActivityIds = new Set(grounding.activities.map((activity) => activity.id));
+    const authoredActivityIds = definition.sections.flatMap((section) => section.activityIds);
+    if (groundedActivityIds.size !== authoredActivityIds.length || authoredActivityIds.some((activityId) => !groundedActivityIds.has(activityId))) {
+      throw new TypeError("Lesson overview and grounding activity coverage do not match.");
+    }
+    rejectUnknownState(state, groundedActivityIds);
+    const sections = definition.sections.map((section) => sectionModel(section, state));
+    const allRuntimeBound = sections.every((section) => section.runtimeStatus === "bound");
+    const blockerIds = allRuntimeBound ? [...grounding.blockerIds] : [.../* @__PURE__ */ new Set([...grounding.blockerIds, "blocker:lesson-runtime-bindings"])].sort();
+    const current = sections.find((section) => section.learningStatus !== "complete" && section.nextActivityId) ?? sections.find((section) => section.learningStatus !== "complete");
+    return {
+      lessonId: definition.id,
+      levelBand: definition.levelBand,
+      estimatedMinutes: { ...definition.estimatedMinutes },
+      presentation: structuredClone(definition.overview),
+      releaseStatus: blockerIds.length ? "review-blocked" : "playable",
+      blockerIds,
+      sections,
+      progress: {
+        completedSections: sections.filter((section) => section.learningStatus === "complete").length,
+        totalSections: sections.length
+      },
+      ...current ? { currentSectionId: current.id } : {},
+      ...current?.nextActivityId ? { resumeActivityId: current.nextActivityId } : {}
+    };
+  }
+  function sectionModel(section, state) {
+    const boundActivityIds = section.activityIds.filter((activityId) => state.boundActivityIds.has(activityId));
+    const runtimeStatus = boundActivityIds.length === 0 ? "not-bound" : boundActivityIds.length === section.activityIds.length ? "bound" : "partial";
+    const completed = section.activityIds.filter((activityId) => state.completedActivityIds.has(activityId));
+    const review = section.activityIds.some((activityId) => state.needsReviewActivityIds.has(activityId));
+    const attempted = section.activityIds.some((activityId) => state.attemptedActivityIds.has(activityId));
+    const learningStatus = completed.length === section.activityIds.length ? "complete" : review ? "needs-review" : attempted ? "in-progress" : "not-started";
+    const nextActivityId = boundActivityIds.find((activityId) => !state.completedActivityIds.has(activityId));
+    return {
+      id: section.id,
+      order: section.order,
+      title: { ...section.title },
+      outcomeIds: [...section.outcomeIds],
+      activityIds: [...section.activityIds],
+      boundActivityIds,
+      runtimeStatus,
+      learningStatus,
+      ...nextActivityId ? { nextActivityId } : {}
+    };
+  }
+  function validateDefinition(definition) {
+    if (!definition.id.trim() || !definition.levelBand.trim()) throw new TypeError("Lesson overview needs an id and level.");
+    if (!Number.isSafeInteger(definition.estimatedMinutes.minimum) || !Number.isSafeInteger(definition.estimatedMinutes.maximum) || definition.estimatedMinutes.minimum <= 0 || definition.estimatedMinutes.maximum < definition.estimatedMinutes.minimum) {
+      throw new TypeError("Lesson overview has invalid estimated minutes.");
+    }
+    if (!definition.sections.length) throw new TypeError("Lesson overview needs sections.");
+    validatePresentation(definition.overview);
+    const sectionIds = /* @__PURE__ */ new Set();
+    const activityIds = /* @__PURE__ */ new Set();
+    definition.sections.forEach((section, index) => {
+      if (!section.id.trim() || sectionIds.has(section.id)) throw new TypeError("Lesson overview has invalid section ids.");
+      sectionIds.add(section.id);
+      if (section.order !== index + 1) throw new TypeError(`Lesson overview section ${section.id} has the wrong order.`);
+      if (!section.title.en.trim() || !section.title.ja.trim() || !section.outcomeIds.length || !section.activityIds.length) {
+        throw new TypeError(`Lesson overview section ${section.id} is incomplete.`);
+      }
+      for (const activityId of section.activityIds) {
+        if (!activityId.trim() || activityIds.has(activityId)) throw new TypeError(`Duplicate lesson activity ${activityId}.`);
+        activityIds.add(activityId);
+      }
+    });
+    for (const material of definition.overview.materials) {
+      for (const activityId of material.activityIds) {
+        if (!activityIds.has(activityId)) {
+          throw new TypeError(`Lesson overview material ${material.id} references unknown activity ${activityId}.`);
+        }
+      }
+    }
+  }
+  function validatePresentation(overview) {
+    localized(overview.title, "title");
+    localized(overview.summary, "summary");
+    if (!overview.goals.length) throw new TypeError("Lesson overview needs learning goals.");
+    overview.goals.forEach((goal, index) => localized(goal, `goal ${index + 1}`));
+    uniqueNonEmpty(overview.peopleIds, "people");
+    uniqueNonEmpty(overview.locationIds, "locations");
+    if (!overview.materials.length) throw new TypeError("Lesson overview needs materials.");
+    const materialIds = /* @__PURE__ */ new Set();
+    for (const material of overview.materials) {
+      if (!material.id.trim() || materialIds.has(material.id)) throw new TypeError("Lesson overview has invalid material ids.");
+      materialIds.add(material.id);
+      if (!material.kind.trim()) throw new TypeError(`Lesson overview material ${material.id} needs a kind.`);
+      localized(material.title, `material ${material.id}`);
+      if (!material.activityIds.length) throw new TypeError(`Lesson overview material ${material.id} needs activities.`);
+      if (material.state === "release-blocked" && !material.blockerId?.trim()) {
+        throw new TypeError(`Blocked lesson overview material ${material.id} needs a blocker.`);
+      }
+      if (material.state === "ready" && material.blockerId) {
+        throw new TypeError(`Ready lesson overview material ${material.id} cannot retain a blocker.`);
+      }
+    }
+  }
+  function localized(value, label) {
+    if (!value?.en?.trim() || !value.ja?.trim()) throw new TypeError(`Lesson overview ${label} needs English and Japanese.`);
+  }
+  function uniqueNonEmpty(values, label) {
+    if (!values.length || values.some((value) => !value.trim()) || new Set(values).size !== values.length) {
+      throw new TypeError(`Lesson overview needs unique ${label}.`);
+    }
+  }
+  function rejectUnknownState(state, activityIds) {
+    for (const [label, values] of Object.entries(state)) {
+      for (const activityId of values) {
+        if (!activityIds.has(activityId)) throw new TypeError(`${label} contains unknown activity ${activityId}.`);
+      }
+    }
+    for (const activityId of state.completedActivityIds) {
+      if (!state.attemptedActivityIds.has(activityId)) throw new TypeError(`Completed activity ${activityId} has no attempt evidence.`);
+    }
+  }
+  function renderLessonOverviewScreen(options) {
+    const { language, model } = options;
+    const screen = element("section", "academy-screen academy-lesson-overview-screen");
+    screen.dataset.academyScreen = "lesson-overview";
+    screen.dataset.lessonId = model.lessonId;
+    screen.dataset.releaseStatus = model.releaseStatus;
+    const paper = element("article", "academy-lesson-overview-paper");
+    const header = element("header", "academy-lesson-overview-header");
+    const back = element("button", "academy-lesson-overview-back");
+    back.type = "button";
+    back.textContent = `← ${academyText(language, "lessonOverviewBack")}`;
+    back.addEventListener("click", options.onBack);
+    const heading = element("div", "academy-lesson-overview-heading");
+    const title = element("h1", "academy-lesson-overview-title");
+    title.textContent = model.presentation.title[language];
+    const summary = element("p", "academy-lesson-overview-summary");
+    summary.textContent = model.presentation.summary[language];
+    const time = element("p", "academy-lesson-overview-time");
+    time.textContent = language === "ja" ? `${model.estimatedMinutes.minimum}〜${model.estimatedMinutes.maximum}分` : `${model.estimatedMinutes.minimum}–${model.estimatedMinutes.maximum} min`;
+    heading.append(title, summary, time);
+    header.append(back, heading, progressBlock(options));
+    const main = element("div", "academy-lesson-overview-body");
+    const goals = element("section", "academy-lesson-overview-goals");
+    goals.append(sectionTitle(language, "lessonOverviewGoals"));
+    const goalList = element("ul", "academy-lesson-overview-goal-list");
+    for (const goal of model.presentation.goals) {
+      const item = element("li", "academy-lesson-overview-goal");
+      item.textContent = goal[language];
+      goalList.append(item);
+    }
+    goals.append(goalList);
+    const sections = element("section", "academy-lesson-overview-sections");
+    sections.append(sectionTitle(language, "lessonOverviewSections"));
+    const sectionList = element("ol", "academy-lesson-overview-section-list");
+    model.sections.forEach((section) => sectionList.append(sectionRow(section, options)));
+    sections.append(sectionList);
+    main.append(goals, sections);
+    const margin = element("footer", "academy-lesson-overview-margin");
+    const readyMaterials = model.presentation.materials.filter((material) => material.state === "ready");
+    if (readyMaterials.length) margin.append(noteLine(
+      academyText(language, "lessonOverviewMaterials"),
+      readyMaterials.map((material) => material.title[language]).join(" · "),
+      "materials"
+    ));
+    margin.append(noteLine(
+      academyText(language, "lessonOverviewPeople"),
+      model.presentation.peopleIds.map((id2) => personName(id2, language)).join(" · "),
+      "people"
+    ));
+    margin.append(noteLine("", model.presentation.locationIds.map(locationName).join(" · "), "locations"));
+    paper.append(header, main, margin);
+    screen.append(academyBackgroundPicture("classroom"), paper);
+    return screen;
+  }
+  function progressBlock(options) {
+    const { language, model } = options;
+    const block = element("section", "academy-lesson-overview-progress");
+    const label = element("span", "academy-lesson-overview-progress-label");
+    label.textContent = academyText(language, "lessonOverviewProgress");
+    const value = element("strong", "academy-lesson-overview-progress-value");
+    value.textContent = `${model.progress.completedSections} / ${model.progress.totalSections}`;
+    const meter = document.createElement("progress");
+    meter.className = "academy-lesson-overview-meter";
+    meter.max = model.progress.totalSections;
+    meter.value = model.progress.completedSections;
+    meter.setAttribute("aria-label", academyText(language, "lessonOverviewProgress"));
+    block.append(label, value, meter);
+    return block;
+  }
+  function sectionRow(section, options) {
+    const { language, model } = options;
+    const item = element("li", "academy-lesson-overview-section");
+    item.dataset.sectionId = section.id;
+    item.dataset.learningStatus = section.learningStatus;
+    item.dataset.runtimeStatus = section.runtimeStatus;
+    if (section.id === model.currentSectionId) item.setAttribute("aria-current", "step");
+    const number = element("span", "academy-lesson-overview-section-number");
+    number.textContent = String(section.order).padStart(2, "0");
+    const copy = element("span", "academy-lesson-overview-section-copy");
+    const title = element("strong", "academy-lesson-overview-section-title");
+    title.textContent = section.title[language];
+    const status = element("span", "academy-lesson-overview-section-status");
+    status.textContent = statusLabel(section.learningStatus, language);
+    copy.append(title, status);
+    const target = section.nextActivityId ?? section.boundActivityIds[0];
+    const canOpen = model.releaseStatus === "playable" && Boolean(target);
+    if (canOpen && target) {
+      const action = element("button", "academy-lesson-overview-section-action");
+      action.type = "button";
+      action.textContent = actionLabel(section.learningStatus, language);
+      action.setAttribute("aria-label", `${action.textContent}: ${section.title[language]}`);
+      action.addEventListener("click", () => options.onOpenActivity(target));
+      item.append(number, copy, action);
+    } else {
+      item.append(number, copy);
+    }
+    return item;
+  }
+  function sectionTitle(language, key) {
+    const title = element("h2", "academy-lesson-overview-kicker");
+    title.textContent = academyText(language, key);
+    return title;
+  }
+  function noteLine(labelText, bodyText, kind) {
+    const line = element("p", "academy-lesson-overview-note");
+    line.dataset.noteKind = kind;
+    if (labelText) {
+      const label = element("strong", "academy-lesson-overview-note-label");
+      label.textContent = labelText;
+      line.append(label);
+    }
+    const body = element("span", "academy-lesson-overview-note-body");
+    body.textContent = bodyText;
+    line.append(body);
+    return line;
+  }
+  function statusLabel(status, language) {
+    const key = {
+      "not-started": "lessonOverviewNotStarted",
+      "in-progress": "lessonOverviewInProgress",
+      "needs-review": "lessonOverviewNeedsReview",
+      complete: "lessonOverviewDone"
+    };
+    return academyText(language, key[status]);
+  }
+  function actionLabel(status, language) {
+    const key = status === "not-started" ? "lessonOverviewStart" : status === "needs-review" || status === "complete" ? "lessonOverviewReview" : "lessonOverviewResume";
+    return academyText(language, key);
+  }
+  function personName(id2, language) {
+    const person = ACADEMY_CAST.find((candidate) => candidate.id === id2);
+    if (!person) throw new TypeError(`Lesson overview references unknown person ${id2}.`);
+    return "teacherSalutation" in person ? person.teacherSalutation[language] : person.firstName;
+  }
+  function locationName(id2) {
+    const name = {
+      "location:classroom": "教室",
+      "location:language-lab": "LL教室",
+      "location:library": "図書館",
+      "location:classroom-entrance": "教室前"
+    }[id2];
+    if (!name) throw new TypeError(`Unknown lesson location ${id2}.`);
+    return name;
+  }
+  function renderLoadingScreen(language, _online) {
+    const { screen } = screenFrame({
+      language,
+      className: "academy-loading-screen",
+      plate: "entrance",
+      title: "loading"
+    });
+    return screen;
+  }
+  const LESSON_ZERO_ID = "lesson:foundation-00";
+  function createLessonFlow() {
+    return new LessonFlow();
+  }
+  class LessonFlow {
+    async render(route, context) {
+      if (route !== "lesson-overview") return false;
+      await this.renderOverview(context);
+      return true;
+    }
+    async renderOverview(context) {
+      const lessonId = context.checkpoint.lessonId ?? LESSON_ZERO_ID;
+      if (lessonId !== LESSON_ZERO_ID) {
+        if (context.checkpoint.routeHistory.length) await context.back();
+        else await context.go("class", { lessonId: void 0, sectionId: void 0, activityId: void 0 });
+        return;
+      }
+      context.shell.replace(renderLoadingScreen(context.language));
+      const content = await loadLessonZeroContent();
+      const model = createLessonOverviewModel(
+        content.lesson,
+        content.grounding,
+        overviewState(content.lesson.activities.map((activity) => activity.id), context.projection)
+      );
+      context.shell.replace(renderLessonOverviewScreen({
+        language: context.language,
+        model,
+        onBack: () => void context.back(),
+        // No action is rendered while the grounded lesson remains blocked.
+        onOpenActivity: (activityId) => void context.go("source-activity", {
+          lessonId: LESSON_ZERO_ID,
+          activityId,
+          selectedFork: activityId === "activity:lesson-zero-reconstruct-repair" ? "text" : context.checkpoint.selectedFork
+        })
+      }));
+    }
+  }
+  function overviewState(authoredActivityIds, projection) {
+    const authored = new Set(authoredActivityIds);
+    const attemptedActivityIds = /* @__PURE__ */ new Set();
+    const completedActivityIds = /* @__PURE__ */ new Set();
+    const needsReviewActivityIds = /* @__PURE__ */ new Set();
+    for (const activity of Object.values(projection.activities)) {
+      if (!authored.has(activity.activityId)) continue;
+      attemptedActivityIds.add(activity.activityId);
+      if (activity.lastOutcome === "pass") completedActivityIds.add(activity.activityId);
+      else needsReviewActivityIds.add(activity.activityId);
+    }
+    return {
+      // Runtime bindings remain explicit. The accepted Stage 1 repair is the
+      // sole current binding; it cannot make the complete lesson playable.
+      boundActivityIds: /* @__PURE__ */ new Set(["activity:lesson-zero-reconstruct-repair"]),
+      attemptedActivityIds,
+      completedActivityIds,
+      needsReviewActivityIds
+    };
+  }
+  const CANONICAL_CLASS_WEEK_INDEX_SHA256 = "966519845a8048229e8d6e158b9d620fb8c9cf0aba11db53690ef10e479a343b";
+  const CANONICAL_CLASS_WEEK_IDS = [
+    "orientation",
+    "l1-kickoff",
+    "l1-l01",
+    "l1-l02",
+    "l1-l03",
+    "l1-l04",
+    "l1-l05",
+    "l1-l06",
+    "l1-l07",
+    "l1-l08",
+    "l1-l09",
+    "l1-l10",
+    "l1-hiragana-1",
+    "l1-hiragana-2",
+    "l1-hiragana-3",
+    "l1-hiragana-4",
+    "l1-hiragana-5",
+    "l1-hiragana-6",
+    "l1-hiragana-7",
+    "l1plus-kickoff",
+    "l1plus-l01",
+    "l1plus-l02",
+    "l1plus-l03",
+    "l1plus-l04",
+    "l1plus-l05",
+    "l1plus-l06",
+    "l1plus-l07",
+    "l1plus-l08",
+    "l1plus-l09",
+    "l1plus-l10",
+    "l1plus-summer-homework",
+    "l1plus-katakana-1",
+    "l1plus-katakana-2",
+    "l1plus-katakana-3",
+    "l1plus-katakana-4",
+    "l1plus-katakana-5",
+    "l2plus-kickoff",
+    "l2plus-l01",
+    "l2plus-l02",
+    "l2plus-l03",
+    "l2plus-l04",
+    "l2plus-l05",
+    "l2plus-l06",
+    "l2plus-l07",
+    "l2plus-l08",
+    "l2plus-l09",
+    "l2plus-l10",
+    "l2plus-kanji-4",
+    "l3-2-kickoff",
+    "l3-2-selfstudy-ch27",
+    "l3-2-l01",
+    "l3-2-l02",
+    "l3-2-l03",
+    "l3-2-l04",
+    "l3-2-l05",
+    "l3-2-l06",
+    "l3-2-l07",
+    "l3-2-prestudy-volitional",
+    "l3-2-l08",
+    "l3-2-l09",
+    "l3-2-l10",
+    "l3-2-kanji-6",
+    "l3plus-kickoff",
+    "l3plus-l01",
+    "l3plus-l02",
+    "l3plus-l03",
+    "l3plus-l04",
+    "l3plus-l05",
+    "l3plus-l06",
+    "l3plus-l07",
+    "l3plus-l08",
+    "l3plus-l09",
+    "l3plus-kanji-7"
+  ];
+  const CLASSMATE_IDS = ACADEMY_CAST.filter((member) => member.category === "classmate" && member.eligibility.lessons).map((member) => member.id);
+  const CLASSMATE_SPECIALTIES = new Set(
+    CLASSMATE_IDS.flatMap((id2) => [
+      ...ACADEMY_CAST_SPECIALTIES[id2] ?? []
+    ])
+  );
+  const EXPECTED_POLICY = Object.freeze({
+    maximumPrimaryShare: 0.18,
+    maximumAppearanceShare: 0.16,
+    maximumTopTwoAppearanceShare: 0.25,
+    maximumConsecutivePrimaryWeeks: 2
+  });
+  function validateClassWeekCastPlan(value) {
+    const plan = record(value, "class-week cast plan");
+    exactKeys(plan, [
+      "schema",
+      "contentVersion",
+      "scope",
+      "runtimeStatus",
+      "authorshipStatus",
+      "sourceIndex",
+      "concentrationPolicy",
+      "weeks"
+    ], "class-week cast plan");
+    if (plan.schema !== "yomu-academy.class-week-cast-plan.v1") fail("Class-week cast plan has the wrong schema.");
+    if (plan.contentVersion !== "1.0.0") fail("Class-week cast plan has the wrong content version.");
+    if (plan.scope !== "appearance-planning" || plan.runtimeStatus !== "not-bound" || plan.authorshipStatus !== "planning-only") {
+      fail("Class-week cast plan must not claim runtime, authored, or playable status.");
+    }
+    validateSourceIndex(plan.sourceIndex);
+    validateConcentrationPolicy(plan.concentrationPolicy);
+    const weeks = array(plan.weeks, "class-week cast plan weeks");
+    if (weeks.length !== CANONICAL_CLASS_WEEK_IDS.length) fail("Class-week cast plan must cover all 73 canonical weeks.");
+    const primaryCounts = /* @__PURE__ */ new Map();
+    const appearanceCounts = /* @__PURE__ */ new Map();
+    let assignedWeekCount = 0;
+    let previousPrimary = null;
+    let consecutivePrimary = 0;
+    for (const [order, week] of weeks.entries()) {
+      validateWeekIdentity(week, order);
+      if (week.status === "review-required") {
+        validateReviewRequiredWeek(week);
+        previousPrimary = null;
+        consecutivePrimary = 0;
+        continue;
+      }
+      if (week.status !== "source-backed") fail(`Week ${week.weekId} has an unknown appearance status.`);
+      assignedWeekCount += 1;
+      validateAssignedWeek(week);
+      const appearances = [week.primary, ...week.supporting];
+      primaryCounts.set(week.primary.id, (primaryCounts.get(week.primary.id) ?? 0) + 1);
+      for (const appearance of appearances) {
+        appearanceCounts.set(appearance.id, (appearanceCounts.get(appearance.id) ?? 0) + 1);
+      }
+      if (previousPrimary === week.primary.id) consecutivePrimary += 1;
+      else consecutivePrimary = 1;
+      previousPrimary = week.primary.id;
+      if (consecutivePrimary > EXPECTED_POLICY.maximumConsecutivePrimaryWeeks) {
+        fail(`${week.primary.firstName} is primary for too many consecutive source-backed weeks.`);
+      }
+    }
+    validateClassmateReach(primaryCounts, appearanceCounts);
+    validateConcentration(primaryCounts, appearanceCounts, assignedWeekCount);
+    return structuredClone(plan);
+  }
+  function validateConcentrationPolicy(policy) {
+    const candidate = record(policy, "concentration policy");
+    exactKeys(candidate, Object.keys(EXPECTED_POLICY), "concentration policy");
+    for (const [key, expected] of Object.entries(EXPECTED_POLICY)) {
+      if (candidate[key] !== expected) {
+        fail("Class-week cast concentration policy may not be loosened in content.");
+      }
+    }
+  }
+  function validateSourceIndex(source) {
+    const index = record(source, "source index");
+    exactKeys(index, ["donor", "file", "weekCount", "sha256"], "source index");
+    if (index.donor !== "academy-rebuild-20260711" || index.file !== "public/academy/content/weeks/index.json" || index.weekCount !== 73) {
+      fail("Class-week cast plan is not pinned to the reviewed 73-week donor index.");
+    }
+    digest(index.sha256, "source index sha256");
+    if (index.sha256 !== CANONICAL_CLASS_WEEK_INDEX_SHA256) {
+      fail("Class-week cast plan source index hash does not match the reviewed donor index.");
+    }
+  }
+  function validateWeekIdentity(week, order) {
+    const allowedKeys = week.status === "review-required" ? ["order", "weekId", "weekKind", "source", "status", "learningSpecialties", "primary", "supporting", "reviewReason"] : ["order", "weekId", "weekKind", "source", "status", "learningSpecialties", "primary", "supporting"];
+    exactKeys(week, allowedKeys, `week ${order}`);
+    if (week.order !== order || week.weekId !== CANONICAL_CLASS_WEEK_IDS[order]) {
+      fail(`Class-week cast plan order ${order} does not match the canonical week index.`);
+    }
+    text$2(week.weekKind, `week ${week.weekId} kind`);
+    const source = record(week.source, `week ${week.weekId} source`);
+    exactKeys(source, ["donor", "file", "title", "topicEvidence", "sha256"], `week ${week.weekId} source`);
+    if (source.donor !== "academy-rebuild-20260711") fail(`Week ${week.weekId} uses an unknown donor.`);
+    const expectedFile = `public/academy/content/weeks/${String(order).padStart(3, "0")}-${week.weekId}.json`;
+    if (source.file !== expectedFile) fail(`Week ${week.weekId} has the wrong donor source file.`);
+    const title = record(source.title, `week ${week.weekId} source title`);
+    exactKeys(title, ["en", "ja"], `week ${week.weekId} source title`);
+    text$2(title.en, `week ${week.weekId} English source title`);
+    text$2(title.ja, `week ${week.weekId} Japanese source title`);
+    digest(source.sha256, `week ${week.weekId} source sha256`);
+    for (const evidence of array(source.topicEvidence, `week ${week.weekId} topic evidence`)) {
+      text$2(evidence, `week ${week.weekId} topic evidence`);
+    }
+  }
+  function validateReviewRequiredWeek(week) {
+    if (week.primary !== null || week.supporting.length !== 0 || week.learningSpecialties.length !== 0) {
+      fail(`Review-required week ${week.weekId} guesses a cast assignment.`);
+    }
+    if (week.reviewReason !== "course-outline-only" && week.reviewReason !== "no-source-topic-metadata") {
+      fail(`Review-required week ${week.weekId} lacks a precise review reason.`);
+    }
+    if (week.reviewReason === "course-outline-only" && week.source.topicEvidence.length === 0) {
+      fail(`Review-required week ${week.weekId} lost its course-outline evidence.`);
+    }
+  }
+  function validateAssignedWeek(week) {
+    if (week.reviewReason !== void 0) fail(`Source-backed week ${week.weekId} carries a review-only reason.`);
+    if (!week.source.topicEvidence.length) fail(`Source-backed week ${week.weekId} has no source topic evidence.`);
+    if (!week.learningSpecialties.length) fail(`Source-backed week ${week.weekId} has no documented learning specialty.`);
+    if (!week.primary || week.supporting.length !== 1) {
+      fail(`Source-backed week ${week.weekId} needs one primary and one supporting classmate.`);
+    }
+    const appearances = [week.primary, ...week.supporting];
+    if (new Set(appearances.map((appearance) => appearance.id)).size !== appearances.length) {
+      fail(`Source-backed week ${week.weekId} repeats the same classmate.`);
+    }
+    for (const specialty of week.learningSpecialties) {
+      if (!CLASSMATE_SPECIALTIES.has(specialty)) {
+        fail(`Source-backed week ${week.weekId} invents learning specialty ${specialty}.`);
+      }
+    }
+    const matchedSpecialties = [...new Set(appearances.map((appearance) => appearance.matchedSpecialty))].sort();
+    const declaredSpecialties = [...new Set(week.learningSpecialties)].sort();
+    if (declaredSpecialties.length !== week.learningSpecialties.length || declaredSpecialties.length !== matchedSpecialties.length || declaredSpecialties.some((specialty, index) => specialty !== matchedSpecialties[index])) {
+      fail(`Source-backed week ${week.weekId} must declare exactly its matched cast specialties.`);
+    }
+    for (const appearance of appearances) validateAppearance(appearance, week);
+  }
+  function validateAppearance(appearance, week) {
+    exactKeys(appearance, ["id", "firstName", "matchedSpecialty"], `week ${week.weekId} appearance`);
+    const member = getAcademyCastMember(appearance.id);
+    if (member.category !== "classmate") fail(`Week ${week.weekId} assigns ${member.firstName}, who is not a documented classmate.`);
+    if (!member.eligibility.lessons) fail(`Week ${week.weekId} assigns ${member.firstName}, who is story-only until lesson evidence exists.`);
+    if (appearance.firstName !== member.firstName) {
+      fail(`Week ${week.weekId} names ${appearance.id} as ${appearance.firstName}; expected ${member.firstName}.`);
+    }
+    const specialties = ACADEMY_CAST_SPECIALTIES[appearance.id] ?? [];
+    if (!specialties.includes(appearance.matchedSpecialty)) {
+      fail(`Week ${week.weekId} assigns ${member.firstName} outside their documented learning specialties.`);
+    }
+    if (!week.learningSpecialties.includes(appearance.matchedSpecialty)) {
+      fail(`Week ${week.weekId} does not bind ${member.firstName}'s specialty to the source topic.`);
+    }
+  }
+  function validateClassmateReach(primaryCounts, appearanceCounts) {
+    for (const id2 of CLASSMATE_IDS) {
+      if (!appearanceCounts.has(id2)) fail(`Class-week cast plan never represents documented classmate ${id2}.`);
+      if (!primaryCounts.has(id2)) fail(`Documented classmate ${id2} never receives a primary lesson appearance.`);
+    }
+  }
+  function validateConcentration(primaryCounts, appearanceCounts, assignedWeekCount) {
+    const totalAppearances = [...appearanceCounts.values()].reduce((sum, count) => sum + count, 0);
+    for (const [id2, count] of primaryCounts) {
+      if (count / assignedWeekCount > EXPECTED_POLICY.maximumPrimaryShare) {
+        fail(`${id2} exceeds the primary lesson concentration limit.`);
+      }
+    }
+    for (const [id2, count] of appearanceCounts) {
+      if (count / totalAppearances > EXPECTED_POLICY.maximumAppearanceShare) {
+        fail(`${id2} exceeds the total lesson appearance concentration limit.`);
+      }
+    }
+    const topTwo = [...appearanceCounts.values()].sort((left, right) => right - left).slice(0, 2).reduce((sum, count) => sum + count, 0);
+    if (topTwo / totalAppearances > EXPECTED_POLICY.maximumTopTwoAppearanceShare) {
+      fail("The two most-used classmates exceed the combined appearance concentration limit.");
+    }
+  }
+  function exactKeys(value, expected, label) {
+    const actual = Object.keys(value).sort();
+    const wanted = [...expected].sort();
+    if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+      fail(`${label} has unsupported or missing fields.`);
+    }
+  }
+  function array(value, label) {
+    if (!Array.isArray(value)) fail(`${label} must be an array.`);
+    return value;
+  }
+  function record(value, label) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object.`);
+    return value;
+  }
+  function text$2(value, label) {
+    if (typeof value !== "string" || !value.trim()) fail(`${label} must be non-empty.`);
+    return value.trim();
+  }
+  function digest(value, label) {
+    if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) fail(`${label} must be a SHA-256 digest.`);
+  }
+  function fail(message) {
+    throw new TypeError(message);
+  }
+  const CLASS_WEEK_CAST_PLAN_URL = "/academy/content/curriculum/class-week-cast.v1.json";
+  let defaultLoad = null;
+  function loadClassWeekCastPlan(fetcher = fetch) {
+    if (fetcher !== fetch) return load(fetcher);
+    defaultLoad ??= load(fetcher).catch((error) => {
+      defaultLoad = null;
+      throw error;
+    });
+    return defaultLoad;
+  }
+  async function load(fetcher) {
+    const response = await fetcher(CLASS_WEEK_CAST_PLAN_URL);
+    if (!response.ok) throw new Error(`Could not load the class path (${response.status}).`);
+    return validateClassWeekCastPlan(await response.json());
+  }
+  async function loadClassWeekDeliveryCatalog(planValue, fetcher = fetch) {
+    const plan = validateClassWeekCastPlan(planValue);
+    const canonicalWeekIds = new Set(plan.weeks.map((week) => week.weekId));
+    const auditedByWeek = /* @__PURE__ */ new Map();
+    const resolver = createGroundedLessonResolver(fetcher);
+    for (const registration of ACADEMY_LESSON_CONTENT_REGISTRY) {
+      if (registration.kind !== "lesson" || !registration.classWeekId) continue;
+      if (!canonicalWeekIds.has(registration.classWeekId)) {
+        throw new TypeError(`Complete lesson ${registration.lessonId} names a non-canonical class Week.`);
+      }
+      const weekId = registration.classWeekId;
+      if (auditedByWeek.has(weekId)) {
+        throw new TypeError(`Class Week ${weekId} has more than one complete lesson registration.`);
+      }
+      const audit = await resolver.resolve(registration.lessonId);
+      if (audit.lessonId !== registration.lessonId) {
+        throw new TypeError(`Complete lesson registration ${registration.lessonId} resolved to another lesson.`);
+      }
+      auditedByWeek.set(weekId, { lessonId: audit.lessonId, status: audit.status });
+    }
+    const weeks = Object.freeze(plan.weeks.map((week) => {
+      const audit = auditedByWeek.get(week.weekId);
+      if (!audit) return blockedEntry(week.order, week.weekId, "planning-only");
+      if (audit.status === "review-blocked") {
+        return blockedEntry(week.order, week.weekId, "review-blocked");
+      }
+      return Object.freeze({
+        order: week.order,
+        weekId: week.weekId,
+        state: "grounded-playable",
+        lessonId: audit.lessonId
+      });
+    }));
+    const byId = new Map(weeks.map((week) => [week.weekId, week]));
+    const playableCount = weeks.filter((week) => week.state === "grounded-playable").length;
+    return Object.freeze({
+      weeks,
+      playableCount,
+      get(weekId) {
+        const week = byId.get(weekId);
+        if (!week) throw new TypeError(`Unknown canonical class Week: ${weekId}`);
+        return week;
+      }
+    });
+  }
+  function blockedEntry(order, weekId, state) {
+    return Object.freeze({ order, weekId, state, lessonId: null });
+  }
+  const NEW_TAB_COPY = {
+    en: {
+      switchReviewSource: "Switch review source",
+      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.",
+      newTabMode: "New tab mode",
+      study: "Study",
+      recall: "Recall",
+      recallAnswer: "Answer",
+      recallCheck: "Check",
+      recallCorrect: "Correct",
+      recallAccepted: "Reading accepted",
+      recallIncorrect: "Not quite",
+      recallEmpty: "Enter an answer",
+      recallPromptFallback: "Meaning",
+      studyTourIntro: "One review, a few quick checks. Grade once at the reveal.",
+      studyTourKanji: "Draw it before the answers appear.",
+      studyTourWord: "Read the word in context.",
+      studyTourRecall: "Type the missing Japanese.",
+      studyTourListen: "Listen and choose the pitch shape.",
+      studyTourSpeaking: "Say it aloud and compare your pitch.",
+      studyTourReveal: "Check the details, then grade.",
+      studyTourStart: "Start",
+      supportBannerLabel: "Yomu support status",
+      supportBannerDismiss: "Dismiss support status",
+      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
+      listen: "Listen",
+      listenSubModeGroup: "Listen practice mode",
+      listenPerceive: "Perceive",
+      listenRecall: "Recall",
+      listenShadow: "Shadow",
+      listenPerceivePrompt: "Which pitch did you hear?",
+      listenRecallPrompt: "Recall the pitch accent",
+      listenShadowPrompt: "Say it aloud, matching the rise and fall",
+      listenPlay: "Play",
+      listenReplay: "Replay",
+      listenPlayBoth: "Play both",
+      listenReveal: "Reveal",
+      listenCorrect: "Correct!",
+      listenTryAgain: "Not quite",
+      pitchVariantPrimary: "Most common",
+      pitchVariantAlso: "Also used",
+      listenAccuracy: "Accuracy",
+      listenDue: "pitch due",
+      listenNew: "new",
+      listenNoAudio: "No audio found yet",
+      listenEmptyTitle: "No pitch items yet",
+      listenEmpty: "Study some words first — your pitch deck grows automatically as you review, or open Perceive to start from your current words.",
+      listenEmptyDictionary: "Listen needs pitch data. Yomu adds it from studied words; connected sources add more coverage.",
+      listenSeedFrom: "Seeded from your study words",
+      listenMicListenBack: "Record",
+      listenMicRecording: "Recording...",
+      listenMicHint: "Records for about 3 seconds. Scored on this device.",
+      listenMicScoring: "Scoring...",
+      listenMicNoPitch: "No clear pitch",
+      listenMicScoreGood: "Good",
+      listenMicScoreClose: "Close",
+      listenMicScoreRetry: "Practice",
+      listenMicExpected: "Model",
+      listenMicYouContour: "You",
+      listenMicTipMatched: "Contour matched",
+      listenMicTipStartLow: "Start lower, then rise",
+      listenMicTipStartHigh: "Start high, then drop",
+      listenMicTipMakeDropClear: "Make the drop clearer",
+      listenMicTipMakeRiseClear: "Make the rise clearer",
+      listenMicTipListenAgain: "Listen once, then record again",
+      listenMicModel: "Model",
+      listenMicYou: "You",
+      listenMicUnavailable: "Microphone unavailable",
+      pitchClassHeiban: "平板",
+      pitchClassAtamadaka: "頭高",
+      pitchClassNakadaka: "中高",
+      pitchClassOdaka: "尾高",
+      stats: "Stats",
+      statsRefresh: "Refresh stats",
+      statsCombined: "Combined",
+      statsConnections: "Connections",
+      statsReviewsToday: "Reviews today",
+      statsDueNow: "Due now",
+      statsNewToday: "new",
+      statsTotalReviews: "Total reviews",
+      statsCurrentStreak: "Current streak",
+      statsLongestStreak: "Longest streak",
+      statsRetention: "Retention",
+      statsAverageSpeed: "Average speed",
+      statsCardsPerMinute: "cards/min",
+      statsEstimatedDueTime: "Due estimate",
+      statsCards: "Cards",
+      statsDailyActivity: "Daily activity",
+      statsMonthlyHeatmap: "Monthly heatmap",
+      statsAccuracy: "Accuracy",
+      statsStreak: "Streak",
+      statsActivityReviews: "Reviews",
+      statsActivityMinutes: "Minutes",
+      statsActivityNewCards: "New cards",
+      statsCardDistribution: "Card distribution",
+      browseAllSources: "All sources",
+      browseAllChip: "All",
+      browsePreviousPage: "Previous page",
+      browseNextPage: "Next page",
+      browseNoCards: "No cards match this filter yet.",
+      studyDeckSelector: "Study deck",
+      showOnlyFilter: "Show only",
+      browseSelectPage: "Select page",
+      statsNext7d: "Next 7d",
+      statsNext30d: "Next 30d",
+      partOfDeck: "Part of the {deck} deck",
+      composedOf: "Composed of",
+      allVocabularyDeck: "All vocabulary",
+      statsLearningProgress: "Learning progress",
+      statsWordsRow: "Words",
+      statsLearningColumn: "Learning",
+      statsKnownColumn: "You know",
+      statsTotalKnownVocabulary: "Total known non-redundant vocabulary",
+      statsStudyTroubleCards: "Study due/failed",
+      statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
+      statsChooseJpdbFile: "Choose reviews.json",
+      statsConnectAnki: "Connect Anki",
+      statsOpenApiSettings: "API settings",
+      statsOpenJpdbSettings: "JPDB settings",
+      statsOpenAnkiSettings: "Anki settings",
+      statsLoading: "Loading stats...",
+      statsNoData: "No stats yet.",
+      statsJpdbLoaded: "JPDB card states loaded.",
+      statsJitenLoaded: "Jiten SRS loaded.",
+      statsApiLoaded: "{providers} SRS loaded.",
+      statsApiKeyMissing: "Add a Jiten or JPDB API key.",
+      statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
+      statsAnkiDecks: "Anki decks",
+      statsAnkiConnected: "Connected to Anki.",
+      statsAnkiNoDecksSelected: "Connected to Anki. 0 of {total} decks selected.",
+      statsAnkiDecksSelected: "Connected to {count} deck{plural}.",
+      statsAnkiPartialDecksSelected: "Connected to {count} of {total} decks.",
+      statsImportFailed: "Could not import that file.",
+      statsImportReady: "JPDB review history imported.",
+      statsDropJpdbFile: "Drop reviews.json here or choose a file.",
+      statsDays: "days",
+      statsDue: "Due",
+      statsKnown: "Known",
+      sessionDone: "Done",
+      sessionLeft: "Left",
+      sessionCached: "Cached",
+      sessionPause: "Pause",
+      sessionResume: "Resume",
+      sessionComplete: "Study time complete",
+      syncPending: "⟳ To sync",
+      syncSynced: "✓ Synced",
+      dailyGoalUnit: "min",
+      dailyGoalReached: "Goal reached",
+      browseSortLabel: "Sort",
+      browseSortQueue: "Queue order",
+      browseSortAlpha: "A→Z",
+      browseSortFrequency: "Frequency",
+      browseSortHistory: "History",
+      browseSortAscending: "Ascending",
+      browseSortDescending: "Descending",
+      browseSelectMode: "Select",
+      undoReview: "Undo",
+      batchComplete: "Batch complete",
+      continueStudying: "Continue",
+      reviewUndone: "Review undone.",
+      undoReviewFailed: "Could not undo the review.",
+      searchWordsOrKanji: "Search words or kanji",
+      draw: "Draw",
+      drawKanji: "Draw kanji",
+      clearSearch: "Clear search",
+      searchSuggestions: "Search suggestions",
+      studyNavigation: "Study navigation",
+      previousWord: "Previous word",
+      nextWord: "Next word",
+      getYomu: `Get ${APP_NAME}`,
+      installStudyApp: "Install app",
+      installStudyAppManual: "Use your browser install button, or Share -> Add to Home Screen on iPhone/iPad.",
+      installStudyAppReady: "Install the Study app on this device.",
+      installStudyAppInstalled: "Study app installed.",
+      offlineCache: "Offline cache",
+      offlineSourceSuffix: "offline",
+      noWordsYet: "Looking for more words...",
+      noKanjiCardsYet: "Looking for more kanji...",
+      noCards: "No cards.",
+      noReviewWordsReady: "No review cards ready.",
+      starterWords: "Starter words",
+      reviewFallbackNotice: "No reviews ready — showing practice words",
+      connectSrsCta: "Connect Jiten / JPDB / Anki",
+      jpdbKanjiDueChip: "+{count} kanji on jpdb.io",
+      reviewRequeuedLocally: "Returned to the queue — the recorded review still counts upstream",
+      noReviewKanjiReady: "No kanji review cards ready.",
+      noKanjiKeyword: "No kanji keyword found.",
+      kanjiSourcesUnavailable: "Kanji sources are unavailable. Check the proxy or try again.",
+      couldNotLoadWords: "Could not load words.",
+      bunproTokenMissing: "No Bunpro token. Open bunpro.jp settings while signed in and press the Yomu import button.",
+      bunproTokenExpired: "Bunpro token expired. Open bunpro.jp settings and re-import it.",
+      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when Jiten, JPDB, or Anki reconnects.",
+      startWithDictionary: "Start with a dictionary",
+      addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
+      dictionaryReadyNewTabs: "Public lookup works without an API key.",
+      addDictionary: "Add dictionary",
+      hide: "Hide",
+      yourDrawing: "Your drawing",
+      couldNotSubmitGrade: "Could not submit grade.",
+      updatingJpdbKanji: "Updating JPDB kanji...",
+      jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
+      grading: "Grading...",
+      gradeTargetSelector: "Grade target",
+      gradeTargetBoth: "Both",
+      gradeTargetJpdb: "Grades JPDB",
+      gradeTargetJiten: "Grades Jiten",
+      gradeTargetBunpro: "Grades Bunpro",
+      gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+      gradeTargetAnki: "Grades Anki card: {target}",
+      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      gradeTargetJpdbAndJiten: "Grades Jiten + JPDB",
+      gradeTargetAllProviders: "Grades Jiten + JPDB + Anki card: {target}",
+      offlineGradeReconnect: "Grade saved offline. It will sync when Jiten, JPDB, or Anki reconnects.",
+      connectionLostTitle: "The connection has been lost.",
+      connectionLostBody: "Would you like to continue reviews offline? They will sync when you are back online.",
+      connectionLostStop: "Stop reviewing",
+      connectionLostContinue: "Continue offline",
+      connectionLostRetry: "Retry",
+      reviewsPausedOffline: "Reviews paused. Your answer was not saved.",
+      typeSentencePlaceholder: "Type the full sentence",
+      missingAnkiCardId: "Missing Anki card id.",
+      noDefinitionsFound: "No definitions found.",
+      cachedReviews: "Cached reviews",
+      noSource: "No source",
+      liveReview: "live review",
+      searchRecognizing: "Recognizing...",
+      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
+      typeOrPasteKanji: "Type or paste kanji",
+      searching: "Searching...",
+      searchLocalDictionariesFailed: "Could not search local dictionaries.",
+      externalDictionarySearch: "External dictionary search",
+      words: "Words",
+      noLocalResults: "No matching results.",
+      addDictionaryForLocalResults: "No API matches found.",
+      factWordFrequency: "Word frequency",
+      lookUp: "Look up",
+      looksRight: "Looks right",
+      checkStrokeCount: "Check stroke count",
+      checkStrokeShapeOrder: "Check stroke shape/order",
+      checkStrokeCountOrder: "Check stroke count/order",
+      miningActions: "Mining actions",
+      studyHintReveal: "Hint",
+      studyHintMore: "Another hint",
+      studyHintMeaning: "Meaning",
+      studyHintKanjiKeyword: "Kanji",
+      studyHintFirstKana: "Starts with",
+      studyHintLength: "Length",
+      studyHintUsedOne: "Used 1 hint",
+      studyHintUsedMany: "Used {count} hints",
+      typeWordModeGroup: "Type-word input mode",
+      typeWordModeKeyboard: "Type",
+      typeWordModeHandwriting: "Write",
+      typeWordPlaceholder: "Write the word",
+      typeWordSkip: "Skip",
+      typeWordSkipped: "Skipped",
+      typeWordWriteChar: "Write the next character",
+      typeWordProgress: "Handwriting progress",
+      typeWordAllDone: "Whole word written",
+      studyTourType: "Produce the word — type or write it.",
+      studySummaryLabel: "Step results",
+      studySummaryKanji: "Kanji",
+      studySummaryRecall: "Recall",
+      studySummaryListen: "Listen",
+      studySummarySpeaking: "Speak",
+      studySummaryType: "Type",
+      studySummaryWord: "Word",
+      studySummaryStateCorrect: "Correct",
+      studySummaryStateWrong: "Missed",
+      studySummaryStateSkipped: "Skipped",
+      studySummaryStateNone: "Not attempted",
+      gradeSuggested: "suggested",
+      newTabOff: "Yomu Study is off for new tabs",
+      newTabOffBody: "New tabs stay blank. You can turn Study back on here, or open it any time.",
+      newTabTurnOn: "Turn Study on",
+      newTabOpenStudy: "Open Study"
+    }
+  };
+  const JA_NEW_TAB_COPY = {
+    switchReviewSource: "復習ソースを切り替え",
+    dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
+    newTabMode: "新しいタブのモード",
+    study: "学習",
+    recall: "思い出す",
+    recallAnswer: "答え",
+    recallCheck: "確認",
+    recallCorrect: "正解",
+    recallAccepted: "読みも正解",
+    recallIncorrect: "惜しい",
+    recallEmpty: "答えを入力",
+    recallPromptFallback: "意味",
+    studyTourIntro: "ひとつの復習で、短い確認を順番に。採点は最後だけです。",
+    studyTourKanji: "答えを見る前に書いて確認します。",
+    studyTourWord: "文の中で単語を読みます。",
+    studyTourRecall: "空欄の日本語を入力します。",
+    studyTourListen: "音声を聞いてアクセントを選びます。",
+    studyTourSpeaking: "声に出してアクセントを確認します。",
+    studyTourReveal: "内容を確認してから採点します。",
+    studyTourStart: "開始",
+    supportBannerLabel: "よむ支援状況",
+    supportBannerDismiss: "支援状況を閉じる",
+    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
+    listen: "リスニング",
+    listenSubModeGroup: "リスニング練習モード",
+    listenPerceive: "聞き取り",
+    listenRecall: "想起",
+    listenShadow: "シャドーイング",
+    listenPerceivePrompt: "どのアクセントに聞こえましたか？",
+    listenRecallPrompt: "アクセントを思い出してください",
+    listenShadowPrompt: "高低に合わせて声に出してみましょう",
+    listenPlay: "再生",
+    listenReplay: "もう一度",
+    listenPlayBoth: "両方再生",
+    listenReveal: "答えを見る",
+    listenCorrect: "正解！",
+    listenTryAgain: "惜しい",
+    pitchVariantPrimary: "最も一般的",
+    pitchVariantAlso: "他の型",
+    listenAccuracy: "正答率",
+    listenDue: "件のアクセント復習",
+    listenNew: "新規",
+    listenNoAudio: "音声がまだありません",
+    listenEmptyTitle: "アクセント項目がまだありません",
+    listenEmpty: "まず単語を学習してください。復習するとアクセントデッキが自動的に増えます。「聞き取り」で今の単語から始めることもできます。",
+    listenEmptyDictionary: "リスニングにはアクセントデータが必要です。よむは学習した単語から追加し、連携ソースでさらに増やせます。",
+    listenSeedFrom: "学習した単語から追加されました",
+    listenMicListenBack: "録音",
+    listenMicRecording: "録音中...",
+    listenMicHint: "約3秒録音し、この端末で採点します。",
+    listenMicScoring: "採点中...",
+    listenMicNoPitch: "音程が取れませんでした",
+    listenMicScoreGood: "良い",
+    listenMicScoreClose: "近い",
+    listenMicScoreRetry: "練習",
+    listenMicExpected: "お手本",
+    listenMicYouContour: "あなた",
+    listenMicTipMatched: "高低が合っています",
+    listenMicTipStartLow: "低く始めて上げます",
+    listenMicTipStartHigh: "高く始めて下げます",
+    listenMicTipMakeDropClear: "下がり目をはっきり",
+    listenMicTipMakeRiseClear: "上がり目をはっきり",
+    listenMicTipListenAgain: "一度聞いてからもう一度",
+    listenMicModel: "お手本",
+    listenMicYou: "あなた",
+    listenMicUnavailable: "マイクを使用できません",
+    pitchClassHeiban: "平板",
+    pitchClassAtamadaka: "頭高",
+    pitchClassNakadaka: "中高",
+    pitchClassOdaka: "尾高",
+    stats: "統計",
+    statsRefresh: "統計を更新",
+    statsCombined: "合計",
+    statsConnections: "接続",
+    statsReviewsToday: "今日の復習",
+    statsDueNow: "現在の期限",
+    statsNewToday: "新規",
+    statsTotalReviews: "総復習数",
+    statsCurrentStreak: "現在の連続日数",
+    statsLongestStreak: "最長連続日数",
+    statsRetention: "定着率",
+    statsAverageSpeed: "平均速度",
+    statsCardsPerMinute: "カード/分",
+    statsEstimatedDueTime: "期限分の目安",
+    statsCards: "カード",
+    statsDailyActivity: "日別アクティビティ",
+    statsMonthlyHeatmap: "月別ヒートマップ",
+    statsAccuracy: "正答率",
+    statsStreak: "連続",
+    statsActivityReviews: "復習",
+    statsActivityMinutes: "分",
+    statsActivityNewCards: "新規",
+    statsCardDistribution: "カード分布",
+    browseAllSources: "すべてのソース",
+    browseAllChip: "すべて",
+    browsePreviousPage: "前のページ",
+    browseNextPage: "次のページ",
+    browseNoCards: "このフィルタに一致するカードはまだありません。",
+    studyDeckSelector: "学習デッキ",
+    showOnlyFilter: "表示対象",
+    browseSelectPage: "ページを選択",
+    statsNext7d: "今後7日",
+    statsNext30d: "今後30日",
+    partOfDeck: "デッキ「{deck}」に含まれています",
+    composedOf: "構成漢字",
+    allVocabularyDeck: "すべての語彙",
+    statsLearningProgress: "学習の進捗",
+    statsWordsRow: "単語",
+    statsLearningColumn: "学習中",
+    statsKnownColumn: "習得済み",
+    statsTotalKnownVocabulary: "習得済み語彙の合計（重複除く）",
+    statsStudyTroubleCards: "期限/失敗を学習",
+    statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
+    statsChooseJpdbFile: "reviews.jsonを選択",
+    statsConnectAnki: "Ankiに接続",
+    statsOpenApiSettings: "API設定",
+    statsOpenJpdbSettings: "JPDB設定",
+    statsOpenAnkiSettings: "Anki設定",
+    statsLoading: "統計を読み込み中...",
+    statsNoData: "統計はまだありません。",
+    statsJpdbLoaded: "JPDBカード状態を読み込みました。",
+    statsJitenLoaded: "Jiten SRSを読み込みました。",
+    statsApiLoaded: "{providers} SRSを読み込みました。",
+    statsApiKeyMissing: "JitenまたはJPDB APIキーを追加してください。",
+    statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
+    statsAnkiDecks: "Ankiデッキ",
+    statsAnkiConnected: "Ankiに接続しました。",
+    statsAnkiNoDecksSelected: "Ankiに接続しました。{total}件中0件のデッキを選択中です。",
+    statsAnkiDecksSelected: "{count}件のデッキに接続しました。",
+    statsAnkiPartialDecksSelected: "{total}件中{count}件のデッキに接続しました。",
+    statsImportFailed: "このファイルを読み込めませんでした。",
+    statsImportReady: "JPDB復習履歴を読み込みました。",
+    statsDropJpdbFile: "reviews.jsonをドロップするか、ファイルを選択してください。",
+    statsDays: "日",
+    statsDue: "期限",
+    statsKnown: "既知",
+    sessionDone: "完了",
+    sessionLeft: "残り",
+    sessionCached: "キャッシュ",
+    sessionPause: "一時停止",
+    sessionResume: "再開",
+    sessionComplete: "学習時間が終わりました",
+    syncPending: "⟳ 同期待ち",
+    syncSynced: "✓ 同期済み",
+    dailyGoalUnit: "分",
+    dailyGoalReached: "目標達成",
+    browseSortLabel: "並び替え",
+    browseSortQueue: "復習順",
+    browseSortAlpha: "あいうえお順",
+    browseSortFrequency: "頻度順",
+    browseSortHistory: "履歴順",
+    browseSortAscending: "昇順",
+    browseSortDescending: "降順",
+    browseSelectMode: "選択",
+    undoReview: "取り消す",
+    batchComplete: "バッチ完了",
+    continueStudying: "続ける",
+    reviewUndone: "レビューを取り消しました。",
+    undoReviewFailed: "レビューを取り消せませんでした。",
+    searchWordsOrKanji: "単語・漢字を検索",
+    draw: "手書き",
+    drawKanji: "漢字を書く",
+    clearSearch: "検索をクリア",
+    searchSuggestions: "検索候補",
+    studyNavigation: "学習ナビゲーション",
+    previousWord: "前の単語",
+    nextWord: "次の単語",
+    getYomu: `${APP_NAME}を入手`,
+    installStudyApp: "アプリをインストール",
+    installStudyAppManual: "ブラウザのインストールボタン、またはiPhone/iPadでは共有 → ホーム画面に追加を使ってください。",
+    installStudyAppReady: "この端末にStudyアプリをインストールします。",
+    installStudyAppInstalled: "Studyアプリをインストールしました。",
+    offlineCache: "オフラインキャッシュ",
+    offlineSourceSuffix: "オフライン",
+    noWordsYet: "さらに単語を探しています…",
+    noKanjiCardsYet: "さらに漢字を探しています…",
+    noCards: "カードなし。",
+    noReviewWordsReady: "復習する単語カードは今ありません。",
+    starterWords: "入門単語",
+    reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
+    connectSrsCta: "Jiten / JPDB / Anki と連携",
+    jpdbKanjiDueChip: "+{count} 漢字（jpdb.io）",
+    reviewRequeuedLocally: "キューに戻しました（送信済みのレビューは取り消されません）",
+    noReviewKanjiReady: "復習する漢字カードは今ありません。",
+    noKanjiKeyword: "漢字キーワードが見つかりません。",
+    kanjiSourcesUnavailable: "漢字情報ソースに接続できません。プロキシを確認するか、もう一度お試しください。",
+    couldNotLoadWords: "単語を読み込めませんでした。",
+    bunproTokenMissing: "Bunproトークンなし。bunpro.jpの設定を開き、Yomuインポートボタンを押してください。",
+    bunproTokenExpired: "Bunproトークンの期限切れ。bunpro.jpの設定で再インポートしてください。",
+    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、Jiten・JPDB・Ankiへの再接続時に同期されます。",
+    startWithDictionary: "辞書から始める",
+    addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
+    dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
+    addDictionary: "辞書を追加",
+    hide: "隠す",
+    yourDrawing: "あなたの手書き",
+    couldNotSubmitGrade: "採点を送信できませんでした。",
+    updatingJpdbKanji: "JPDB漢字を更新中...",
+    jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
+    grading: "採点中...",
+    gradeTargetSelector: "採点先",
+    gradeTargetBoth: "両方",
+    gradeTargetJpdb: "JPDBを採点",
+    gradeTargetJiten: "Jitenを採点",
+    gradeTargetBunpro: "Bunproを採点",
+    gradeTargetYomuLocal: "Academyに記録",
+    gradeTargetAnki: "Ankiカードを採点: {target}",
+    gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
+    gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
+    gradeTargetJpdbAndJiten: "Jiten + JPDBを採点",
+    gradeTargetAllProviders: "Jiten + JPDB + Ankiカードを採点: {target}",
+    offlineGradeReconnect: "採点をオフラインで保存しました。Jiten・JPDB・Ankiへの再接続時に同期されます。",
+    connectionLostTitle: "接続が切断されました。",
+    connectionLostBody: "オフラインでレビューを続けますか？オンラインに戻ると同期されます。",
+    connectionLostStop: "レビューを中止",
+    connectionLostContinue: "オフラインで続行",
+    connectionLostRetry: "再試行",
+    reviewsPausedOffline: "レビューを一時停止しました。回答は保存されていません。",
+    typeSentencePlaceholder: "文全体を入力",
+    missingAnkiCardId: "AnkiカードIDがありません。",
+    noDefinitionsFound: "定義が見つかりませんでした。",
+    cachedReviews: "キャッシュ済みレビュー",
+    noSource: "ソースなし",
+    liveReview: "ライブレビュー",
+    searchRecognizing: "認識中...",
+    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
+    typeOrPasteKanji: "漢字を入力または貼り付け",
+    searching: "検索中...",
+    searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
+    externalDictionarySearch: "外部辞書検索",
+    words: "単語",
+    noLocalResults: "一致する結果がありません。",
+    addDictionaryForLocalResults: "APIの一致が見つかりません。",
+    factWordFrequency: "単語頻度",
+    lookUp: "検索",
+    looksRight: "いい感じです",
+    checkStrokeCount: "画数を確認",
+    checkStrokeShapeOrder: "字形・筆順を確認",
+    checkStrokeCountOrder: "画数・筆順を確認",
+    miningActions: "マイニング操作",
+    studyHintReveal: "ヒント",
+    studyHintMore: "もう一つヒント",
+    studyHintMeaning: "意味",
+    studyHintKanjiKeyword: "漢字",
+    studyHintFirstKana: "最初の音",
+    studyHintLength: "長さ",
+    studyHintUsedOne: "ヒント1回",
+    studyHintUsedMany: "ヒント{count}回",
+    typeWordModeGroup: "単語入力モード",
+    typeWordModeKeyboard: "入力",
+    typeWordModeHandwriting: "手書き",
+    typeWordPlaceholder: "単語を書く",
+    typeWordSkip: "スキップ",
+    typeWordSkipped: "スキップ",
+    typeWordWriteChar: "次の文字を書いてください",
+    typeWordProgress: "手書きの進捗",
+    typeWordAllDone: "単語をすべて書けました",
+    studyTourType: "単語を書き出します。入力か手書きで。",
+    studySummaryLabel: "ステップの結果",
+    studySummaryKanji: "漢字",
+    studySummaryRecall: "想起",
+    studySummaryListen: "聞き取り",
+    studySummarySpeaking: "発音",
+    studySummaryType: "入力",
+    studySummaryWord: "単語",
+    studySummaryStateCorrect: "正解",
+    studySummaryStateWrong: "不正解",
+    studySummaryStateSkipped: "スキップ",
+    studySummaryStateNone: "未実施",
+    gradeSuggested: "おすすめ",
+    newTabOff: "新しいタブの学習はオフです",
+    newTabOffBody: "新しいタブは空白のままになります。ここで学習を再びオンにするか、いつでも開けます。",
+    newTabTurnOn: "学習をオンにする",
+    newTabOpenStudy: "学習を開く"
+  };
+  const NEW_TAB_COPY_BY_LANGUAGE = {
+    en: NEW_TAB_COPY.en,
+    ja: { ...NEW_TAB_COPY.en, ...JA_NEW_TAB_COPY }
+  };
+  const NEW_TAB_COPY_KEYS = new Set(Object.keys(NEW_TAB_COPY.en));
+  function isNewTabCopyKey(key) {
+    return NEW_TAB_COPY_KEYS.has(key);
+  }
+  function newTabText(language, key) {
+    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key] ?? NEW_TAB_COPY.en[key];
+  }
+  function resolveNewTabLanguage(language) {
+    return language === "ja" ? "ja" : "en";
+  }
+  const MIN_STUDY_DURATION_MS = 60 * 1e3;
+  const MAX_STUDY_DURATION_MS = 3 * 60 * 60 * 1e3;
+  function createStudySessionClock(options = {}) {
+    const durationMs = studySessionDuration(options.durationMs ?? DEFAULT_STUDY_DURATION_MS);
+    const now = options.now ?? (() => Date.now());
+    const tickEveryMs = options.tickEveryMs ?? 1e3;
+    const schedule = options.schedule ?? defaultSchedule;
+    const cancel = options.cancel ?? defaultCancel;
+    const pauseReasons = /* @__PURE__ */ new Set();
+    const listeners = /* @__PURE__ */ new Set();
+    let accumulatedMs = 0;
+    let runningSince = now();
+    let ticker;
+    let disposed = false;
+    const elapsedAt = (time) => {
+      const runningMs = runningSince === null ? 0 : Math.max(0, time - runningSince);
+      return Math.min(durationMs, accumulatedMs + runningMs);
+    };
+    const stopTicker = () => {
+      if (ticker === void 0) return;
+      cancel(ticker);
+      ticker = void 0;
+    };
+    const stateAt = (elapsedMs) => {
+      if (elapsedMs >= durationMs) return "complete";
+      return pauseReasons.size ? "paused" : "running";
+    };
+    const snapshotAt = (time) => {
+      const elapsedMs = elapsedAt(time);
+      const remainingMs = Math.max(0, durationMs - elapsedMs);
+      const state = stateAt(elapsedMs);
+      if (state === "complete") {
+        accumulatedMs = durationMs;
+        runningSince = null;
+        stopTicker();
+      }
+      return {
+        mode: "countdown",
+        durationMs,
+        elapsedMs,
+        remainingMs,
+        label: formatStudySessionRemaining(remainingMs),
+        state,
+        complete: state === "complete",
+        pausedByUser: pauseReasons.has("user"),
+        pausedByVisibility: pauseReasons.has("visibility")
+      };
+    };
+    const notify = () => {
+      const snapshot = snapshotAt(now());
+      listeners.forEach((listener) => listener(snapshot));
+      return snapshot;
+    };
+    const startTicker = () => {
+      if (disposed || ticker !== void 0 || !listeners.size) return;
+      const snapshot = snapshotAt(now());
+      if (snapshot.complete) return;
+      ticker = schedule(notify, tickEveryMs);
+    };
+    const pause = (reason) => {
+      if (disposed) return snapshotAt(now());
+      const time = now();
+      const before = snapshotAt(time);
+      if (before.complete || pauseReasons.has(reason)) return before;
+      if (!pauseReasons.size) {
+        accumulatedMs = before.elapsedMs;
+        runningSince = null;
+      }
+      pauseReasons.add(reason);
+      return notify();
+    };
+    const resume = (reason) => {
+      if (disposed || !pauseReasons.has(reason)) return snapshotAt(now());
+      pauseReasons.delete(reason);
+      if (!pauseReasons.size && accumulatedMs < durationMs) runningSince = now();
+      const snapshot = notify();
+      startTicker();
+      return snapshot;
+    };
+    const visibility = options.visibility;
+    const onVisibilityChange = () => {
+      if (visibility?.hidden) pause("visibility");
+      else resume("visibility");
+    };
+    if (visibility) {
+      visibility.addEventListener("visibilitychange", onVisibilityChange);
+      if (visibility.hidden) {
+        accumulatedMs = 0;
+        runningSince = null;
+        pauseReasons.add("visibility");
+      }
+    }
+    return {
+      mode: "countdown",
+      durationMs,
+      snapshot: () => snapshotAt(now()),
+      pause: (reason = "user") => pause(reason),
+      resume: (reason = "user") => resume(reason),
+      toggleUserPause: () => pauseReasons.has("user") ? resume("user") : pause("user"),
+      setVisible: (visible) => visible ? resume("visibility") : pause("visibility"),
+      subscribe(listener) {
+        if (disposed) throw new Error("Study session clock is disposed.");
+        listeners.add(listener);
+        const snapshot = snapshotAt(now());
+        listener(snapshot);
+        startTicker();
+        return {
+          dispose() {
+            listeners.delete(listener);
+            if (!listeners.size) stopTicker();
+          }
+        };
+      },
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        stopTicker();
+        listeners.clear();
+        visibility?.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+    };
+  }
+  function mountStudySessionClockControl(host2, clock, options) {
+    const root = document.createElement("div");
+    root.className = ["jpdb-reader-study-clock", options.className].filter(Boolean).join(" ");
+    root.dataset.studySessionClock = "";
+    const output = document.createElement("output");
+    output.className = ["jpdb-reader-study-clock-output", options.outputClassName].filter(Boolean).join(" ");
+    output.dataset.studyClock = "countdown";
+    output.setAttribute("role", "timer");
+    output.setAttribute("aria-live", "off");
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = ["jpdb-reader-study-clock-toggle", options.buttonClassName].filter(Boolean).join(" ");
+    toggle.dataset.studyClockAction = "toggle";
+    root.append(output, toggle);
+    host2.replaceChildren(root);
+    let completeAnnounced = false;
+    const render = (snapshot) => {
+      output.value = snapshot.label;
+      output.textContent = snapshot.label;
+      output.dataset.remainingMs = String(snapshot.remainingMs);
+      output.dataset.elapsedMs = String(snapshot.elapsedMs);
+      output.dataset.clockState = snapshot.state;
+      output.setAttribute("aria-label", snapshot.label);
+      toggle.textContent = snapshot.pausedByUser ? options.labels.resume : options.labels.pause;
+      toggle.setAttribute("aria-label", toggle.textContent);
+      toggle.setAttribute("aria-pressed", String(snapshot.pausedByUser));
+      toggle.disabled = snapshot.complete;
+      if (snapshot.complete && !completeAnnounced) {
+        completeAnnounced = true;
+        options.onComplete?.();
+      }
+    };
+    const subscription = clock.subscribe(render);
+    const onToggle = () => {
+      clock.toggleUserPause();
+    };
+    toggle.addEventListener("click", onToggle);
+    return {
+      dispose() {
+        toggle.removeEventListener("click", onToggle);
+        subscription.dispose();
+        host2.replaceChildren();
+      }
+    };
+  }
+  function formatStudySessionRemaining(remainingMs) {
+    const seconds = Math.max(0, Math.ceil(remainingMs / 1e3));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    const displaySeconds = seconds % 60;
+    return hours > 0 ? `${hours}:${padClockPart(minutes)}:${padClockPart(displaySeconds)}` : `${padClockPart(minutes)}:${padClockPart(displaySeconds)}`;
+  }
+  function studySessionDuration(value) {
+    if (!Number.isSafeInteger(value) || value < MIN_STUDY_DURATION_MS || value > MAX_STUDY_DURATION_MS) {
+      throw new TypeError("Study duration must be a whole number of milliseconds from 1 minute to 3 hours.");
+    }
+    return value;
+  }
+  function defaultSchedule(listener, intervalMs) {
+    return typeof window === "undefined" ? -1 : window.setInterval(listener, intervalMs);
+  }
+  function defaultCancel(handle) {
+    if (typeof window !== "undefined" && handle >= 0) window.clearInterval(handle);
+  }
+  function padClockPart(value) {
+    return String(value).padStart(2, "0");
+  }
+  const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
+  function createCanonicalAcademyStudyModule(loadRuntime = () => Promise.resolve().then(() => runtime)) {
+    return {
+      async mount(host2, context) {
+        const runtime2 = await loadRuntime();
+        return runtime2.mountNewTabStudySurface(host2, {
+          language: context.language,
+          sessionClock: context.countdown
+        });
+      }
+    };
+  }
+  async function mountAcademyStudyModule(host2, module, options) {
+    const countdown = createStudySessionClock({
+      durationMs: options.durationMs ?? DEFAULT_ACADEMY_STUDY_DURATION_MS,
+      now: options.now,
+      visibility: document
+    });
+    const chrome = document.createElement("div");
+    chrome.className = "academy-study-chrome";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "academy-study-back";
+    back.textContent = academyText(options.language, "back");
+    const clockHost = document.createElement("div");
+    clockHost.className = "academy-study-clock-host";
+    chrome.append(back, clockHost);
+    const completionStatus = document.createElement("span");
+    completionStatus.className = "academy-sr-only";
+    completionStatus.setAttribute("role", "status");
+    completionStatus.setAttribute("aria-live", "polite");
+    const moduleHost = document.createElement("div");
+    moduleHost.className = "academy-study-module-host";
+    moduleHost.dataset.yomuStudyModuleHost = "";
+    host2.classList.add("academy-study-mount");
+    host2.dataset.studySurface = "academy";
+    host2.dataset.studyTheme = "living-paper";
+    host2.dataset.studySessionMode = countdown.mode;
+    host2.replaceChildren(chrome, completionStatus, moduleHost);
+    const onExit = () => options.onExit();
+    back.addEventListener("click", onExit);
+    const clockControl = mountStudySessionClockControl(clockHost, countdown, {
+      labels: {
+        pause: newTabText(options.language, "sessionPause"),
+        resume: newTabText(options.language, "sessionResume")
+      },
+      className: "academy-study-clock",
+      outputClassName: "academy-study-countdown",
+      buttonClassName: "academy-study-clock-toggle",
+      onComplete: () => {
+        completionStatus.textContent = newTabText(options.language, "sessionComplete");
+        options.onSessionComplete?.();
+      }
+    });
+    let mounted;
+    try {
+      mounted = await module.mount(moduleHost, {
+        language: options.language,
+        surface: { id: "academy", theme: "living-paper" },
+        countdown,
+        onExit: options.onExit
+      });
+    } catch (error) {
+      back.removeEventListener("click", onExit);
+      clockControl.dispose();
+      countdown.dispose();
+      host2.replaceChildren();
+      throw error;
+    }
+    return {
+      dispose() {
+        back.removeEventListener("click", onExit);
+        mounted.dispose();
+        clockControl.dispose();
+        countdown.dispose();
+        host2.replaceChildren();
+        host2.classList.remove("academy-study-mount");
+        delete host2.dataset.studySurface;
+        delete host2.dataset.studyTheme;
+        delete host2.dataset.studySessionMode;
+      }
+    };
+  }
+  const ACADEMY_CLASS_EVENTS = [
+    { id: "event:open-doors", season: "foundation", title: { en: "The open doors", ja: "ひらいた扉" }, castIds: ["rie"], status: "playable" },
+    { id: "event:first-term-photo", season: "foundation", title: { en: "First term", ja: "最初の学期" }, castIds: ["peter", "shaun"], status: "planned" },
+    { id: "event:first-page", season: "foundation", title: { en: "The handwritten page", ja: "手書きのページ" }, castIds: ["rie", "sophie", "ruparna"], status: "planned" },
+    { id: "event:after-class", season: "n5", title: { en: "After class", ja: "授業のあと" }, castIds: ["aakash", "sam", "robert"], status: "planned" },
+    { id: "event:plans-promises", season: "n4", title: { en: "Plans and promises", ja: "予定と約束" }, castIds: ["alex", "tom", "shin"], status: "planned" },
+    { id: "event:different-speeds", season: "n3", title: { en: "Different speeds", ja: "それぞれの速さ" }, castIds: ["jenny", "sophie", "peter"], status: "planned" },
+    { id: "event:public-evening", season: "n2", title: { en: "The public Japanese evening", ja: "日本語の夕べ" }, castIds: ["angel", "francis", "xingyu"], status: "planned" },
+    { id: "event:journey", season: "n1", title: { en: "The journey", ja: "旅" }, castIds: ["rie", "rose", "jodi"], status: "planned" },
+    { id: "event:graduation", season: "alumni", title: { en: "Graduation and the next page", ja: "卒業と次のページ" }, castIds: ["rie", "henry", "aakash", "tom"], status: "planned" }
+  ];
+  const PATH_GROUPS = [
+    { id: "level-1", label: { en: "Foundation", ja: "基礎" }, from: 0, to: 18, seasons: ["foundation"] },
+    { id: "level-1-plus", label: { en: "N5", ja: "N5" }, from: 19, to: 35, seasons: ["n5"] },
+    { id: "level-2-plus", label: { en: "N4", ja: "N4" }, from: 36, to: 47, seasons: ["n4"] },
+    { id: "level-3-2", label: { en: "N3", ja: "N3" }, from: 48, to: 61, seasons: ["n3"] },
+    { id: "level-3-plus", label: { en: "N2 → N1", ja: "N2 → N1" }, from: 62, to: 72, seasons: ["n2", "n1", "alumni"] }
+  ];
+  function renderClassPathScreen(options) {
+    const screen = element("section", "academy-screen academy-class-path-screen");
+    screen.dataset.academyScreen = "class-path";
+    screen.dataset.plate = "classroom";
+    const plate = academyBackgroundPicture("classroom");
+    const paper = element("article", "academy-class-path-paper");
+    const header = element("header", "academy-class-path-header");
+    header.append(copyElement("h1", "academy-class-path-title", options.language, "classPathTitle"), localIndex(options.language));
+    const path = element("section", "academy-class-path-section");
+    path.id = "academy-class-path-weeks";
+    path.append(copyElement("h2", "academy-class-section-title", options.language, "classPathWeeks"));
+    const groups = element("div", "academy-class-path-groups");
+    const activeGroup = groupForOrder(options.currentOrder);
+    const people = sectionShell("academy-class-path-people", "academy-class-people", options.language, "classPathPeople");
+    const events = sectionShell("academy-class-path-events", "academy-class-events", options.language, "classPathEvents");
+    const groupDetails = PATH_GROUPS.map((group) => renderGroup(group, options));
+    groupDetails.forEach((details) => groups.append(details));
+    updateRelatedSections(people, events, activeGroup, options);
+    for (const [index, details] of groupDetails.entries()) {
+      details.addEventListener("toggle", () => {
+        if (!details.open) return;
+        groupDetails.forEach((candidate, candidateIndex) => {
+          if (candidateIndex !== index) candidate.open = false;
+        });
+        updateRelatedSections(people, events, PATH_GROUPS[index], options);
+      });
+    }
+    path.append(groups);
+    paper.append(header, path, people, events);
+    screen.append(plate, paper);
+    return screen;
+  }
+  function localIndex(language) {
+    const nav = element("nav", "academy-class-path-index");
+    nav.setAttribute("aria-label", academyText(language, "classPathTitle"));
+    const links = [
+      ["academy-class-path-weeks", "classPathWeeks"],
+      ["academy-class-path-people", "classPathPeople"],
+      ["academy-class-path-events", "classPathEvents"]
+    ];
+    for (const [target, key] of links) {
+      const link = document.createElement("a");
+      link.href = `#${target}`;
+      link.textContent = academyText(language, key);
+      nav.append(link);
+    }
+    return nav;
+  }
+  function renderGroup(group, options) {
+    const details = document.createElement("details");
+    details.className = "academy-class-path-group";
+    details.dataset.pathGroup = group.id;
+    details.open = containsOrder(group, options.currentOrder);
+    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
+    const completed = weeks.filter((week) => options.completedWeekIds?.has(week.weekId)).length;
+    const summary = document.createElement("summary");
+    summary.className = "academy-class-path-group-summary";
+    const heading = element("span", "academy-class-path-group-title");
+    heading.textContent = group.label[options.language];
+    const progress = element("span", "academy-class-path-group-progress");
+    progress.textContent = options.language === "ja" ? `${completed} / ${weeks.length}` : `${completed} of ${weeks.length}`;
+    summary.append(heading, progress);
+    const list2 = element("ol", "academy-class-week-spine");
+    for (const week of weeks) list2.append(renderWeek(week, options));
+    details.append(summary, list2);
+    return details;
+  }
+  function renderWeek(week, options) {
+    const item = element("li", "academy-class-week-node");
+    item.dataset.weekId = week.weekId;
+    const playable = options.playableWeekIds.has(week.weekId);
+    item.dataset.weekRuntime = playable ? "playable" : "not-bound";
+    item.dataset.weekStatus = options.completedWeekIds?.has(week.weekId) ? "complete" : week.order === options.currentOrder ? "current" : "planned";
+    if (week.order === options.currentOrder) item.setAttribute("aria-current", "step");
+    const content = playable ? element("button", "academy-class-week-entry") : element("span", "academy-class-week-entry");
+    if (content instanceof HTMLButtonElement) {
+      content.type = "button";
+      content.addEventListener("click", () => options.onOpenWeek(week.weekId));
+    } else {
+      content.setAttribute("aria-disabled", "true");
+    }
+    const number = element("span", "academy-class-week-number");
+    number.textContent = String(week.order).padStart(2, "0");
+    const label = element("span", "academy-class-week-label");
+    label.textContent = week.source.title[options.language];
+    const kind = element("span", "academy-class-week-kind");
+    kind.textContent = weekKindMark(week.weekKind);
+    kind.setAttribute("aria-hidden", "true");
+    content.append(number, label, kind);
+    item.append(content);
+    return item;
+  }
+  function updateRelatedSections(people, events, group, options) {
+    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
+    people.dataset.pathGroup = group.id;
+    events.dataset.pathGroup = group.id;
+    people.querySelector(".academy-class-section-context")?.remove();
+    events.querySelector(".academy-class-section-context")?.remove();
+    const peopleContext = contextLabel(group, options.language);
+    const eventsContext = contextLabel(group, options.language);
+    people.querySelector("h2")?.after(peopleContext);
+    events.querySelector("h2")?.after(eventsContext);
+    people.querySelector(".academy-class-register")?.remove();
+    events.querySelector(".academy-class-event-line")?.remove();
+    people.append(renderPeople(weeks, group, options.language));
+    events.append(renderEvents(group, options.language));
+  }
+  function renderPeople(weeks, group, language) {
+    const ids2 = /* @__PURE__ */ new Set(["rie"]);
+    for (const week of weeks) {
+      if (week.primary) ids2.add(week.primary.id);
+      week.supporting.forEach((member) => ids2.add(member.id));
+    }
+    eventsForGroup(group).forEach((event) => event.castIds.forEach((id2) => ids2.add(id2)));
+    const list2 = element("ul", "academy-class-register");
+    for (const member of ACADEMY_CAST.filter((candidate) => ids2.has(candidate.id))) {
+      const item = element("li", "academy-class-register-entry");
+      item.dataset.castId = member.id;
+      item.dataset.castCategory = member.category;
+      const mark = element("span", "academy-class-register-mark");
+      mark.textContent = member.firstName.slice(0, 1);
+      mark.setAttribute("aria-hidden", "true");
+      const name = element("span", "academy-class-register-name");
+      name.textContent = "teacherSalutation" in member ? member.teacherSalutation[language] : member.firstName;
+      item.append(mark, name);
+      list2.append(item);
+    }
+    return list2;
+  }
+  function renderEvents(group, language) {
+    const list2 = element("ol", "academy-class-event-line");
+    for (const event of eventsForGroup(group)) {
+      const item = element("li", "academy-class-event");
+      item.dataset.eventId = event.id;
+      item.dataset.eventStatus = event.status;
+      const season = element("span", "academy-class-event-season");
+      season.textContent = event.season.toUpperCase();
+      const title = element("span", "academy-class-event-title");
+      title.textContent = event.title[language];
+      const cast = element("span", "academy-class-event-cast");
+      cast.textContent = event.castIds.map((id2) => ACADEMY_CAST.find((member) => member.id === id2)?.firstName ?? id2).join(" · ");
+      item.append(season, title, cast);
+      list2.append(item);
+    }
+    return list2;
+  }
+  function eventsForGroup(group) {
+    return ACADEMY_CLASS_EVENTS.filter((candidate) => group.seasons.includes(candidate.season));
+  }
+  function sectionShell(id2, className, language, key) {
+    const section = element("section", `academy-class-path-section ${className}`);
+    section.id = id2;
+    section.append(copyElement("h2", "academy-class-section-title", language, key));
+    return section;
+  }
+  function contextLabel(group, language) {
+    const label = element("p", "academy-class-section-context");
+    label.textContent = group.label[language];
+    return label;
+  }
+  function groupForOrder(order) {
+    return PATH_GROUPS.find((group) => containsOrder(group, order)) ?? PATH_GROUPS[0];
+  }
+  function containsOrder(group, order) {
+    return order >= group.from && order <= group.to;
+  }
+  function weekKindMark(kind) {
+    if (kind.includes("kanji")) return "漢";
+    if (kind.includes("hiragana") || kind.includes("katakana") || kind.includes("script")) return "かな";
+    if (kind.includes("kickoff") || kind === "orientation") return "始";
+    if (kind.includes("listening")) return "聴";
+    if (kind.includes("writing")) return "書";
+    return "授";
+  }
+  function renderDayEndScene(options) {
+    const actionLifecycle = new AbortController();
+    const stage = createAcademyVnStage({ label: academyText(options.language, "dayEndStageLabel") });
+    stage.element.dataset.academyScreen = "day-end";
+    stage.element.dataset.academyRoute = "day-end";
+    stage.setDirection({
+      plate: {
+        id: "classroom-day-end",
+        wide: ACADEMY_ASSETS.locations.classroom.wide,
+        mobile: ACADEMY_ASSETS.locations.classroom.mobile,
+        label: academyText(options.language, "dayEndStageLabel")
+      },
+      transition: "dissolve",
+      focus: { x: 52, y: 46 }
+    });
+    stage.setCast([{
+      characterId: "rie",
+      displayName: academyText(options.language, "journalRie"),
+      alt: academyText(options.language, "dayEndRieAlt"),
+      position: "left",
+      expression: "happy",
+      expressions: {
+        neutral: { still: ACADEMY_ASSETS.rie },
+        happy: { still: ACADEMY_ASSETS.rieExpressions.happy }
+      }
+    }]);
+    stage.setLine({
+      id: "day-end:goodbye",
+      speakerId: "rie",
+      speakerName: academyText(options.language, "journalRie"),
+      japanese: academyText(options.language, "dayEndLine"),
+      reading: {
+        showLabel: academyText(options.language, "readingShow"),
+        hideLabel: academyText(options.language, "readingHide")
+      },
+      ...options.language === "en" ? { translation: academyText(options.language, "dayEndSupport"), translationEarned: true } : {}
+    });
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "academy-vn-primary-action academy-day-end-return";
+    action.textContent = academyText(options.language, "dayEndReturn");
+    action.addEventListener("click", options.onReturn, { once: true, signal: actionLifecycle.signal });
+    stage.setAction({ element: action, dispose: () => actionLifecycle.abort() });
+    return stage.element;
+  }
+  const LOCATIONS = [
+    ["classroom", "locationClassroom", "locationClassroomBody"],
+    ["library", "locationLibrary", "locationLibraryBody"],
+    ["lab", "locationLab", "locationLabBody"],
+    ["cafe", "locationCafe", "locationCafeBody"]
+  ];
+  function renderCampusScreen(language, reviewComplete, onEnter, preference, unavailableLocations = /* @__PURE__ */ new Set()) {
+    const { screen, content } = screenFrame({
+      language,
+      className: "academy-campus-screen",
+      plate: "entrance",
+      title: "campusTitle"
+    });
+    screen.dataset.preference = preference ?? "none";
+    const preferredLocation = preference === "sound" ? "lab" : preference === "text" ? "library" : preference === "speaking" ? "cafe" : void 0;
+    const map = element("div", "academy-place-map");
+    map.setAttribute("role", "group");
+    map.setAttribute("aria-label", academyText(language, "mapLabel"));
+    map.append(routeNetwork(), mapEntrance(language));
+    const minimap = createMinimap(language, "mapEntrance", "mapChoose");
+    let travelTimer = 0;
+    LOCATIONS.forEach(([location2, title, body]) => {
+      const unavailable = unavailableLocations.has(location2);
+      const locked = unavailable || !reviewComplete && (location2 === "lab" || location2 === "cafe") && location2 !== preferredLocation;
+      const button = copyButton(language, title, `academy-location academy-location-${location2}`);
+      button.dataset.location = location2;
+      button.disabled = locked;
+      button.append(copyElement(
+        "span",
+        "academy-location-purpose",
+        language,
+        unavailable ? "locationNotOpen" : locked ? "locationUnavailable" : body
+      ));
+      const showDestination = () => {
+        minimap.destination.textContent = academyText(language, title);
+        minimap.root.dataset.destination = location2;
+        map.dataset.destination = location2;
+      };
+      const clearDestination = () => {
+        if (screen.dataset.traveling) return;
+        minimap.destination.textContent = academyText(language, "mapChoose");
+        delete minimap.root.dataset.destination;
+        delete map.dataset.destination;
+      };
+      button.addEventListener("pointerenter", showDestination);
+      button.addEventListener("pointerleave", clearDestination);
+      button.addEventListener("focus", showDestination);
+      button.addEventListener("blur", clearDestination);
+      button.addEventListener("click", () => {
+        if (screen.dataset.traveling) return;
+        showDestination();
+        screen.dataset.traveling = location2;
+        map.querySelectorAll(".academy-location").forEach((candidate) => {
+          candidate.disabled = true;
+        });
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+        if (reduceMotion) {
+          onEnter(location2);
+          return;
+        }
+        travelTimer = window.setTimeout(() => onEnter(location2), 360);
+      });
+      map.append(button);
+    });
+    content.append(map);
+    screen.append(minimap.root);
+    screen.addEventListener("academy:dispose", () => window.clearTimeout(travelTimer), { once: true });
+    return screen;
+  }
+  function renderLocationScreen(language, location2, onBack) {
+    const definition = LOCATIONS.find(([id2]) => id2 === location2);
+    if (!definition) throw new Error(`Unknown campus location: ${location2}`);
+    const [, title, body] = definition;
+    const plate = location2 === "cafe" ? "cafe" : "classroom";
+    const { screen, content } = screenFrame({ language, className: `academy-location-screen academy-${location2}-screen`, plate, title, body });
+    const back = copyButton(language, "locationReturn", "academy-button academy-button-primary");
+    back.addEventListener("click", onBack);
+    content.append(back);
+    screen.append(createMinimap(language, title).root);
+    return screen;
+  }
+  function renderJournalScreen(language, profile, state, callbacks) {
+    const { screen, content } = screenFrame({
+      language,
+      className: "academy-journal-screen",
+      plate: "classroom",
+      title: "journalTitle"
+    });
+    const profileCard = element("article", "academy-journal-profile academy-player-profile");
+    const portrait = element("img", "academy-journal-portrait");
+    portrait.src = ACADEMY_ASSETS.portraits[profile.portraitId] ?? ACADEMY_ASSETS.portraits["quality-2"];
+    portrait.alt = profile.displayName;
+    const profileCopy = element("div", "academy-journal-copy");
+    const name = element("h2");
+    name.textContent = profile.displayName;
+    const reasonLabel = copyElement("span", "academy-eyebrow", language, "journalReason");
+    const reason = element("p");
+    reason.textContent = profile.learningReason;
+    profileCopy.append(name, reasonLabel, reason);
+    profileCard.append(portrait, profileCopy);
+    const rieCard = element("article", "academy-journal-profile academy-journal-rie");
+    const rie = element("img", "academy-journal-portrait");
+    rie.src = ACADEMY_ASSETS.rie;
+    rie.alt = language === "ja" ? "りえ先生" : "Rie-sensei";
+    rie.dataset.character = "rie";
+    const rieCopy = element("div", "academy-journal-copy");
+    const rieLine = copyElement("blockquote", "", language, "journalRieLine");
+    rieLine.dataset.speaker = "rie";
+    rieCopy.append(
+      copyElement("h2", "", language, "journalRie"),
+      relationshipPages(language, state.rieChapters),
+      rieLine
+    );
+    const replay = copyButton(language, "journalReplay", "academy-button academy-button-secondary");
+    replay.addEventListener("click", callbacks.onReplayRie);
+    rieCopy.append(replay);
+    rieCard.append(rie, rieCopy);
+    content.append(profileCard, rieCard);
+    if (state.aakashUnlocked) {
+      const aakashCard = element("article", "academy-journal-profile academy-journal-aakash");
+      aakashCard.dataset.character = "aakash";
+      const aakash = element("img", "academy-journal-portrait academy-journal-aakash-portrait");
+      aakash.src = ACADEMY_ASSETS.characters.aakash;
+      aakash.alt = "Aakash";
+      aakash.dataset.character = "aakash";
+      const aakashCopy = element("div", "academy-journal-copy");
+      const aakashLine = copyElement("blockquote", "", language, "journalAakashLine");
+      aakashLine.dataset.speaker = "aakash";
+      aakashCopy.append(
+        copyElement("h2", "", language, "journalAakash"),
+        relationshipPages(language, state.aakashChapters),
+        aakashLine
+      );
+      const replayAakash = copyButton(language, "journalReplayAakash", "academy-button academy-button-secondary");
+      replayAakash.addEventListener("click", callbacks.onReplayAakash);
+      aakashCopy.append(replayAakash);
+      aakashCard.append(aakash, aakashCopy);
+      content.append(aakashCard);
+    } else {
+      content.append(copyElement("p", "academy-journal-locked", language, "journalLocked"));
+    }
+    content.append(firstTermScrapbook(language));
+    return screen;
+  }
+  function firstTermScrapbook(language) {
+    const spread = element("section", "academy-scrapbook-spread");
+    spread.dataset.scrapbookEntry = "first-term";
+    spread.append(copyElement("h2", "academy-scrapbook-title", language, "journalFirstTerm"));
+    const people = element("div", "academy-scrapbook-people");
+    const peter = element("article", "academy-scrapbook-person academy-scrapbook-peter");
+    peter.dataset.character = "peter";
+    peter.append(copyElement("h3", "academy-scrapbook-name", language, "journalPeter"));
+    const shaun = element("article", "academy-scrapbook-person academy-scrapbook-shaun");
+    shaun.dataset.character = "shaun";
+    if (canRenderAcademyCastPortrait("shaun")) {
+      const portrait = element("img", "academy-scrapbook-portrait");
+      portrait.src = ACADEMY_ASSETS.characters.shaun;
+      portrait.alt = "";
+      portrait.setAttribute("aria-hidden", "true");
+      portrait.dataset.character = "shaun";
+      portrait.addEventListener("error", () => {
+        shaun.dataset.portraitState = "unavailable";
+        portrait.remove();
+      }, { once: true });
+      shaun.dataset.portraitState = "review-preview";
+      shaun.append(portrait);
+    }
+    shaun.append(copyElement("h3", "academy-scrapbook-name", language, "journalShaun"));
+    people.append(peter, shaun);
+    spread.append(people);
+    return spread;
+  }
+  function relationshipPages(language, chapters) {
+    const unlocked = new Set(chapters);
+    const root = element("ol", "academy-relationship-pages");
+    root.setAttribute("aria-label", academyText(language, "relationshipJournalProgress"));
+    const keys = [
+      "relationshipStage1",
+      "relationshipStage2",
+      "relationshipStage3",
+      "relationshipStage4",
+      "relationshipStage5",
+      "relationshipStage6",
+      "relationshipStage7",
+      "relationshipStage8",
+      "relationshipStage9",
+      "relationshipStage10"
+    ];
+    keys.forEach((key, index) => {
+      const page = index + 1;
+      const item = element("li", "academy-relationship-page");
+      item.dataset.unlocked = String(unlocked.has(page));
+      item.setAttribute("aria-disabled", String(!unlocked.has(page)));
+      const number = element("span", "academy-relationship-page-number");
+      number.textContent = String(page).padStart(2, "0");
+      number.setAttribute("aria-hidden", "true");
+      item.append(number, copyElement("span", "academy-relationship-page-name", language, key));
+      root.append(item);
+    });
+    return root;
+  }
+  function createMinimap(language, currentKey, destinationKey) {
+    const root = element("aside", "academy-minimap");
+    root.setAttribute("aria-label", academyText(language, "mapLabel"));
+    const label = copyElement("span", "academy-minimap-label", language, "mapLabel");
+    const route = element("div", "academy-minimap-route");
+    const current = copyElement("strong", "academy-minimap-place", language, currentKey);
+    const arrow = element("span", "academy-minimap-arrow");
+    arrow.textContent = "→";
+    arrow.setAttribute("aria-hidden", "true");
+    const destination = destinationKey ? copyElement("span", "academy-minimap-destination", language, destinationKey) : element("span", "academy-minimap-destination");
+    route.append(current);
+    if (destinationKey) route.append(arrow, destination);
+    root.append(label, route);
+    return { root, destination };
+  }
+  function routeNetwork() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("academy-route-network");
+    svg.setAttribute("viewBox", "0 0 100 62");
+    svg.setAttribute("aria-hidden", "true");
+    const routes = [
+      ["classroom", "M50 58 C43 48 28 39 18 21"],
+      ["library", "M50 58 C58 48 73 39 83 24"],
+      ["lab", "M50 58 C42 52 32 50 28 45"],
+      ["cafe", "M50 58 C60 53 69 51 77 45"]
+    ];
+    routes.forEach(([location2, d]) => {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.dataset.routeTo = location2;
+      path.setAttribute("d", d);
+      svg.append(path);
+    });
+    return svg;
+  }
+  function mapEntrance(language) {
+    const entrance = copyElement("span", "academy-map-entrance", language, "mapEntrance");
+    entrance.setAttribute("aria-hidden", "true");
+    return entrance;
+  }
+  function createWorldFlow(options) {
+    return new WorldFlow(options);
+  }
+  class WorldFlow {
+    constructor(options) {
+      this.options = options;
+    }
+    async render(route, context) {
+      switch (route) {
+        case "campus":
+          context.shell.replace(renderCampusScreen(
+            context.language,
+            Object.keys(context.projection.reviewRatings).length > 0,
+            (location2) => void this.enterLocation(location2, context),
+            context.checkpoint.selectedFork,
+            /* @__PURE__ */ new Set(["lab"])
+          ));
+          return true;
+        case "class":
+          await this.renderClassPath(context);
+          return true;
+        case "review":
+          await this.renderReview(context);
+          return true;
+        case "journal":
+          await this.renderJournal(context);
+          return true;
+        case "day-end":
+          context.shell.replace(renderDayEndScene({
+            language: context.language,
+            onReturn: () => void context.go("campus")
+          }));
+          return true;
+        default:
+          return false;
+      }
+    }
+    async enterLocation(location2, context) {
+      if (location2 === "library") return context.go("review");
+      if (location2 === "classroom") {
+        return context.projection.curriculumEntry?.band ? context.go("class", { selectedBand: context.projection.curriculumEntry.band }) : context.go("lesson-overview", { lessonId: "lesson:foundation-00" });
+      }
+      if (location2 === "lab") return;
+      await this.options.audio.setTheme("cafe.social");
+      context.shell.setNavigation(true, "campus");
+      context.shell.replace(renderLocationScreen(context.language, location2, () => void context.go("campus")));
+    }
+    async renderClassPath(context) {
+      context.shell.replace(renderLoadingScreen(context.language));
+      const plan = await loadClassWeekCastPlan();
+      const delivery = await loadClassWeekDeliveryCatalog(plan);
+      const currentOrder = classOrderForBand(context.projection.curriculumEntry?.band);
+      context.shell.replace(renderClassPathScreen({
+        language: context.language,
+        plan,
+        currentOrder,
+        playableWeekIds: new Set(delivery.weeks.filter((week) => week.state === "grounded-playable").map((week) => week.weekId)),
+        onOpenWeek: (weekId) => {
+          const lesson = delivery.weeks.find((entry) => entry.weekId === weekId);
+          if (!lesson || lesson.state !== "grounded-playable") return;
+          void context.go("lesson-overview", { lessonId: lesson.lessonId });
+        }
+      }));
+    }
+    async renderReview(context) {
+      context.shell.replace(renderLoadingScreen(context.language));
+      const screen = document.createElement("section");
+      screen.className = "academy-study-screen";
+      screen.dataset.academyScreen = "study";
+      screen.dataset.academyRoute = "review";
+      context.shell.replace(screen);
+      let lifecycle;
+      let disposed = false;
+      screen.addEventListener("academy:dispose", () => {
+        disposed = true;
+        lifecycle?.dispose();
+      }, { once: true });
+      const mounted = await mountAcademyStudyModule(
+        screen,
+        this.options.study ?? createCanonicalAcademyStudyModule(),
+        {
+          language: context.language,
+          onExit: () => void context.back()
+        }
+      );
+      if (disposed) mounted.dispose();
+      else lifecycle = mounted;
+    }
+    async renderJournal(context) {
+      const profile = context.projection.profile;
+      if (!profile) {
+        await context.go("profile");
+        return;
+      }
+      context.shell.replace(renderJournalScreen(
+        context.language,
+        profile,
+        {
+          rieChapters: context.projection.relationshipJournal.rie?.chapters ?? legacyRelationshipChapters(context.projection.bonds.rie),
+          aakashChapters: context.projection.relationshipJournal.aakash?.chapters ?? legacyRelationshipChapters(context.projection.bonds.aakash),
+          aakashUnlocked: context.projection.unlockedAssets.includes("character:aakash")
+        },
+        {
+          onReplayRie: () => this.replayOpening(context),
+          onReplayAakash: () => this.replayAakash(context)
+        }
+      ));
+    }
+    replayOpening(context) {
+      context.shell.setNavigation(true, "journal");
+      context.shell.replace(renderOpeningMemory(context.language, () => void context.go("journal")));
+    }
+    replayAakash(context) {
+      context.shell.setNavigation(true, "journal");
+      context.shell.replace(renderAakashMemory(context.language, () => void context.go("journal")));
+    }
+  }
+  function classOrderForBand(band) {
+    return band === "n5" ? 19 : band === "n4" ? 36 : band === "n3" ? 48 : band === "n2" || band === "n1" ? 62 : 0;
+  }
+  function legacyRelationshipChapters(bond) {
+    return bond && bond > 0 ? [1] : [];
+  }
+  function createAcademyShell(host2, options) {
+    const lifecycle = new AbortController();
+    const previousDocumentLanguage = document.documentElement.lang;
+    document.documentElement.lang = options.language;
+    const root = element("div", "academy-root");
+    const header = element("header", "academy-header");
+    const utility = element("details", "academy-utility");
+    const utilityToggle = element("summary", "academy-utility-toggle");
+    utilityToggle.textContent = "•••";
+    const actions = element("div", "academy-header-actions");
+    const languageButton = copyButton(options.language, "languageToggle", "academy-chrome-button");
+    const audioButton = copyButton(options.language, "navAudioOn", "academy-chrome-button");
+    utility.append(utilityToggle, actions);
+    header.append(utility);
+    const screen = element("main", "academy-screen-host");
+    screen.id = "academy-screen";
+    screen.tabIndex = -1;
+    const navigation = element("nav", "academy-navigation");
+    navigation.setAttribute("aria-label", "Academy");
+    const navButtons = /* @__PURE__ */ new Map();
+    [["campus", "navCampus"], ["review", "navReview"], ["journal", "navJournal"]].forEach(([route, key]) => {
+      const button = copyButton(options.language, key, "academy-nav-button");
+      button.dataset.route = route;
+      button.addEventListener("click", () => {
+        utility.open = false;
+        options.onNavigate(route);
+      }, { signal: lifecycle.signal });
+      navigation.append(button);
+      navButtons.set(route, button);
+    });
+    const learnerActions = element("div", "academy-learner-actions");
+    learnerActions.hidden = true;
+    const classPath = copyButton(options.language, "navClass", "academy-nav-button academy-class-path-button");
+    const endForToday = copyButton(options.language, "navEndToday", "academy-nav-button academy-end-today-button");
+    const presentation = copyButton(options.language, "navPresentationStory", "academy-nav-button academy-presentation-button");
+    learnerActions.append(classPath, endForToday, presentation);
+    navButtons.set("class", classPath);
+    const classBoard = copyButton(options.language, "navClassBoardAccount", "academy-nav-button academy-class-board-button");
+    const settings = copyButton(options.language, "navSettings", "academy-nav-button academy-settings-button");
+    actions.append(learnerActions, navigation, classBoard, settings, audioButton, languageButton);
+    const live = element("div", "academy-sr-only");
+    live.setAttribute("aria-live", "polite");
+    root.append(header, screen, live);
+    host2.replaceChildren(root);
+    let language = options.language;
+    let muted = false;
+    let classBoardAccess = "account-required";
+    let presentationMode = "story";
+    const refreshCopy = () => {
+      utilityToggle.setAttribute("aria-label", academyText(language, "utilityMenu"));
+      setCopy(languageButton, language, "languageToggle");
+      setCopy(audioButton, language, muted ? "navAudioMuted" : "navAudioOn");
+      setCopy(classBoard, language, classBoardAccess === "available" ? "navClassBoard" : "navClassBoardAccount");
+      classBoard.dataset.access = classBoardAccess;
+      classBoard.hidden = !options.onClassBoard;
+      setCopy(settings, language, "navSettings");
+      setCopy(classPath, language, "navClass");
+      setCopy(endForToday, language, "navEndToday");
+      setCopy(presentation, language, presentationMode === "course" ? "navPresentationCourse" : "navPresentationStory");
+      presentation.dataset.presentationMode = presentationMode;
+      root.dataset.presentationMode = presentationMode;
+      presentation.setAttribute("aria-pressed", String(presentationMode === "course"));
+      const presentationAction = academyText(
+        language,
+        presentationMode === "course" ? "navSwitchToStory" : "navSwitchToCourse"
+      );
+      presentation.setAttribute("aria-label", `${presentation.textContent}. ${presentationAction}`);
+      [["campus", "navCampus"], ["class", "navClass"], ["review", "navReview"], ["journal", "navJournal"]].forEach(([route, key]) => {
+        const button = navButtons.get(route);
+        if (button) setCopy(button, language, key);
+      });
+    };
+    languageButton.addEventListener("click", () => {
+      utility.open = false;
+      options.onLanguage();
+    }, { signal: lifecycle.signal });
+    audioButton.addEventListener("click", () => {
+      utility.open = false;
+      options.onMute();
+    }, { signal: lifecycle.signal });
+    classPath.addEventListener("click", () => {
+      utility.open = false;
+      options.onNavigate("class");
+    }, { signal: lifecycle.signal });
+    endForToday.addEventListener("click", () => {
+      utility.open = false;
+      options.onEndForToday?.();
+    }, { signal: lifecycle.signal });
+    presentation.addEventListener("click", () => {
+      utility.open = false;
+      options.onPresentationMode(presentationMode === "story" ? "course" : "story");
+    }, { signal: lifecycle.signal });
+    settings.addEventListener("click", () => {
+      utility.open = false;
+      if (options.onSettings) options.onSettings();
+      else window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
+    }, { signal: lifecycle.signal });
+    classBoard.addEventListener("click", () => {
+      utility.open = false;
+      options.onClassBoard?.(classBoardAccess);
+    }, { signal: lifecycle.signal });
+    document.addEventListener("pointerdown", (event) => {
+      if (utility.open && event.target instanceof Node && !utility.contains(event.target)) utility.open = false;
+    }, { capture: true, signal: lifecycle.signal });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !utility.open) return;
+      event.preventDefault();
+      utility.open = false;
+      utilityToggle.focus({ preventScroll: true });
+    }, { signal: lifecycle.signal });
+    refreshCopy();
+    return {
+      screen,
+      replace(view) {
+        Array.from(screen.children).forEach((child) => child.dispatchEvent(new CustomEvent("academy:dispose")));
+        screen.replaceChildren(view);
+        requestAnimationFrame(() => screen.focus({ preventScroll: true }));
+      },
+      setLanguage(next) {
+        language = next;
+        document.documentElement.lang = next;
+        refreshCopy();
+      },
+      setNavigation(visible, active) {
+        navigation.hidden = !visible;
+        navButtons.forEach((button, route) => {
+          if (route === active) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+      },
+      setLearnerActionsVisible(visible) {
+        learnerActions.hidden = !visible;
+      },
+      setClassBoardAccess(next) {
+        classBoardAccess = next;
+        refreshCopy();
+      },
+      setPresentationMode(next) {
+        presentationMode = next;
+        refreshCopy();
+      },
+      setMuted(next) {
+        muted = next;
+        refreshCopy();
+      },
+      announce(message) {
+        live.textContent = "";
+        requestAnimationFrame(() => {
+          live.textContent = message;
+        });
+      },
+      dispose() {
+        lifecycle.abort();
+        document.documentElement.lang = previousDocumentLanguage;
+        root.remove();
+      }
+    };
+  }
+  const LANGUAGE_KEY = "yomu:academy:language:v1";
+  class AcademyApp {
+    access;
+    suppliedPersistence;
+    review;
+    pronunciation;
+    databaseName;
+    audio;
+    lifecycle = new AbortController();
+    language = loadLanguage();
+    shell;
+    persistence;
+    evidence;
+    enrollment;
+    lesson;
+    world;
+    checkpoint = {
+      schemaVersion: 2,
+      route: "access",
+      routeHistory: [],
+      presentationMode: "story",
+      updatedAt: Date.now()
+    };
+    get projection() {
+      return this.evidence.projection;
+    }
+    constructor(host2, options = {}) {
+      this.access = options.access ?? createAccessGateway();
+      this.suppliedPersistence = options.persistence;
+      this.review = options.review ?? createYomuLocalReviewService();
+      this.databaseName = options.databaseName;
+      this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
+      this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
+      this.shell = createAcademyShell(host2, {
+        language: this.language,
+        onLanguage: () => this.toggleLanguage(),
+        onMute: () => this.toggleMuted(),
+        onNavigate: (route) => void this.go(route, {}, true),
+        onPresentationMode: (mode) => void this.setPresentationMode(mode),
+        onEndForToday: () => void this.go("day-end"),
+        onClassBoard: options.onClassBoard
+      });
+      this.shell.setNavigation(false);
+      this.shell.setMuted(this.audio.settings.muted);
+    }
+    async start() {
+      this.shell.replace(renderLoadingScreen(this.language));
+      this.persistence = this.suppliedPersistence ?? await openAcademyPersistence(indexedDB, this.databaseName).catch(() => createMemoryAcademyPersistence());
+      await quarantineLegacyUngroundedReviews({ learnerEvents: this.persistence.events });
+      this.evidence = createLearnerEvidence(this.persistence.events, this.review);
+      await this.evidence.initialize();
+      this.enrollment = createEnrollmentFlow({
+        access: this.access,
+        evidence: this.evidence,
+        pronunciation: this.pronunciation
+      });
+      this.lesson = createLessonFlow();
+      this.world = createWorldFlow({
+        evidence: this.evidence,
+        pronunciation: this.pronunciation,
+        audio: this.audio
+      });
+      const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+      this.checkpoint = normalizeResumeCheckpoint(
+        restoredCheckpoint,
+        this.projection,
+        Date.now(),
+        navigator.onLine
+      );
+      if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
+      this.shell.setPresentationMode(this.checkpoint.presentationMode);
+      this.bindLifecycle();
+      await this.render();
+    }
+    dispose() {
+      this.lifecycle.abort();
+      this.audio.dispose();
+      this.persistence?.close();
+      this.shell.dispose();
+    }
+    bindLifecycle() {
+      const unlock = () => {
+        void this.audio.unlock();
+      };
+      window.addEventListener("pointerdown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
+      window.addEventListener("keydown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
+      document.addEventListener("visibilitychange", () => void this.audio.handleVisibility(document.hidden), { signal: this.lifecycle.signal });
+    }
+    async render() {
+      const route = this.checkpoint.route;
+      await this.audio.setTheme(themeForRoute(route));
+      const navigation = navigationForRoute(route);
+      const globalNavigationAvailable = globalNavigationIsAvailable(this.checkpoint, Boolean(this.projection.profile));
+      this.shell.setNavigation(globalNavigationAvailable, navigation);
+      this.shell.setLearnerActionsVisible(globalNavigationAvailable);
+      this.shell.setPresentationMode(this.checkpoint.presentationMode);
+      const context = {
+        language: this.language,
+        checkpoint: this.checkpoint,
+        projection: this.projection,
+        shell: this.shell,
+        go: (next, update) => this.go(next, update),
+        back: () => this.back()
+      };
+      if (await this.enrollment.render(route, context)) return;
+      if (await this.lesson.render(route, context)) return;
+      if (await this.world.render(route, context)) return;
+      await this.commitNavigation({ kind: "replace", route: "class" });
+    }
+    async go(requestedRoute, update = {}, explicitDestination = false) {
+      const route = !explicitDestination && requestedRoute === "campus" && this.checkpoint.presentationMode === "course" ? "class" : requestedRoute;
+      const establishesSession = this.checkpoint.route === "access" && route !== "access" && update.session !== void 0;
+      await this.commitNavigation(
+        {
+          kind: establishesSession ? "reset" : "push",
+          route,
+          context: routeContextUpdate(update)
+        },
+        update
+      );
+    }
+    async back() {
+      await this.commitNavigation({ kind: "back" });
+    }
+    async setPresentationMode(mode) {
+      await this.commitNavigation({ kind: "presentation", mode });
+    }
+    async commitNavigation(transition, update = {}) {
+      const navigation = transitionAcademyRoute(this.checkpoint, transition);
+      const now = Date.now();
+      const candidate = {
+        ...navigation,
+        ...update,
+        schemaVersion: 2,
+        updatedAt: now
+      };
+      this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine);
+      await this.persistence.checkpoint.save(this.checkpoint);
+      await this.render();
+    }
+    toggleLanguage() {
+      this.language = this.language === "en" ? "ja" : "en";
+      try {
+        localStorage.setItem(LANGUAGE_KEY, this.language);
+      } catch {
+      }
+      this.shell.setLanguage(this.language);
+      void this.render();
+    }
+    toggleMuted() {
+      this.audio.setMuted(!this.audio.settings.muted);
+      this.shell.setMuted(this.audio.settings.muted);
+    }
+  }
+  function loadLanguage() {
+    try {
+      const stored = localStorage.getItem(LANGUAGE_KEY);
+      if (stored === "en" || stored === "ja") return stored;
+    } catch {
+    }
+    return navigator.language.toLowerCase().startsWith("ja") ? "ja" : "en";
+  }
+  function safeLocalStorage() {
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  }
+  function routeContextUpdate(update) {
+    const context = {};
+    const keys = ["selectedBand", "selectedFork", "placementOverride", "lessonId", "sectionId", "activityId"];
+    for (const key of keys) {
+      if (Object.hasOwn(update, key)) Object.assign(context, { [key]: update[key] });
+    }
+    return context;
+  }
+  let sandboxCompanions = {};
+  function yomuAnkiCompanion() {
+    return yomuCompanions().anki;
+  }
+  function yomuNormalizeOcrRenderedText() {
+    return yomuCompanions().ocr?.normalizeOcrRenderedText;
+  }
+  function yomuKanjiStudyCompanion() {
+    return yomuCompanions().kanjiStudy;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  const READER_RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
+  const READER_RUNTIME_HEALTH_VERSION = 1;
+  const READER_RUNTIME_SERVICES = [
+    "localization",
+    "local-dictionary",
+    "jiten",
+    "yomu-srs",
+    "jpdb",
+    "bunpro",
+    "translation",
+    "grammar",
+    "mining",
+    "anki",
+    "pitch",
+    "audio",
+    "nested-lookup"
+  ];
+  function readReaderRuntimeHealth(root = document) {
+    const marker = root.querySelector(`#${READER_RUNTIME_MARKER_ID}`);
+    if (!marker) return null;
+    const version2 = Number(marker.dataset.yomuRuntimeHealthVersion);
+    if (version2 !== READER_RUNTIME_HEALTH_VERSION) return null;
+    const services = readerRuntimeServices(marker.dataset.yomuRuntimeServices);
+    const missing2 = readerRuntimeServices(marker.dataset.yomuRuntimeMissingServices);
+    const state = marker.dataset.yomuRuntimeHealth;
+    if (state !== "ready" && state !== "degraded") return null;
+    return { version: READER_RUNTIME_HEALTH_VERSION, state, services, missing: missing2 };
+  }
+  function readerRuntimeConforms(health, required2 = READER_RUNTIME_SERVICES) {
+    if (!health || health.state !== "ready") return false;
+    const available = new Set(health.services);
+    return required2.every((service) => available.has(service));
+  }
+  function readerRuntimeServices(value) {
+    const values = new Set((value ?? "").split(",").map((item) => item.trim()).filter(Boolean));
+    return READER_RUNTIME_SERVICES.filter((service) => values.has(service));
+  }
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stablePositiveHashId(value) {
+    return stableHash32(value) || 1;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
+  }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function normalizePitchPatternsForReading(patterns, reading) {
+    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+  }
+  function pitchLevelsForDisplay(pattern, reading) {
+    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized2 = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized2, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized2,
+      className: pitchClassNameFromProfile(normalized2, morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function compoundPitchGradientCss(segments) {
+    if (segments.length < 2) return "";
+    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
+    const total = moraCounts.reduce((sum, count) => sum + count, 0);
+    if (!total) return "";
+    let cursor = 0;
+    const stops = segments.map((segment, index) => {
+      const from = cursor / total * 100;
+      cursor += moraCounts[index];
+      const to = cursor / total * 100;
+      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
+      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function collectPitchVariants(reading, patterns, max2 = Infinity) {
+    const seen = /* @__PURE__ */ new Set();
+    const variants = [];
+    for (const pattern of patterns) {
+      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+      const position = pitchNumberFromPattern(pattern, reading);
+      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      variants.push({ pattern, position });
+      if (variants.length >= max2) break;
+    }
+    return variants;
+  }
+  function validPitchPositions(reading, patterns) {
+    const positions = /* @__PURE__ */ new Set();
+    for (const variant of collectPitchVariants(reading, patterns)) {
+      if (variant.position != null) positions.add(variant.position);
+    }
+    return positions;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+    return dropAt;
+  }
+  function looksLikeShortHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+    return hasComplexPitchShape(pattern) ? "kifuku" : "";
+  }
+  function hasComplexPitchShape(pattern) {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized2 = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized2.length && SMALL_KANA.has(chars[index])) continue;
+      normalized2.push(levels[index]);
+    }
+    return normalized2.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
+  function encodeAuthoredVocabularyAnnotations(annotations) {
+    return JSON.stringify(annotations);
+  }
+  const AAKASH_DIRECTIONS_READER_ANNOTATIONS = [{
+    surface: "行って",
+    lemma: "行く",
+    reading: "いって",
+    pitch: {
+      pattern: "LHHH",
+      source: "Jiten vocabulary 1578850/0 (行く pitch 0); Academy te-form surface reading"
+    }
+  }];
+  const ACADEMY_AUTHORED_VOCABULARY = [
+    ...AAKASH_DIRECTIONS_READER_ANNOTATIONS
+  ];
+  function academyAuthoredVocabularyForText(text2) {
+    return ACADEMY_AUTHORED_VOCABULARY.filter((annotation) => text2.includes(annotation.surface));
+  }
+  const ACADEMY_READER_COMPANIONS = [
+    {
+      fileName: "greasyfork/yomu-ui-copy.user.js",
+      services: ["localization"]
+    },
+    {
+      fileName: "greasyfork/yomu-settings-surface.user.js",
+      services: ["local-dictionary"]
+    },
+    {
+      fileName: "greasyfork/yomu-kanji-study.user.js",
+      services: ["translation", "grammar", "mining"]
+    },
+    {
+      fileName: "greasyfork/yomu-anki.user.js",
+      services: ["anki"]
+    }
+  ];
+  const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
+  const CORE_SCRIPT_ID = "yomu-hosted-academy-runtime";
+  const CSS_ATTRIBUTE = "data-yomu-hosted-academy-css";
+  const SCRIPT_ATTRIBUTE = "data-yomu-hosted-academy-script";
+  const COMPANION_ATTRIBUTE = "data-yomu-hosted-academy-settings";
+  const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface]';
+  const SETTINGS_KEY = "jpdb-popup-reader-settings";
+  const RUNTIME_READY_TIMEOUT_MS = 6e3;
+  const SURFACE_WAIT_TIMEOUT_MS = 15e3;
+  const ACADEMY_ROOT_ID = "yomu-academy";
+  const READER_OWNED_SURFACE_QUERY = [
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-word",
+    ".jpdb-reader-text-mirror",
+    ".jpdb-reader-control-text-mirror",
+    ".jpdb-reader-furi",
+    ".jpdb-ocr-furi"
+  ].join(",");
+  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  let bootPromise = null;
+  let annotationLifecycle = null;
+  function initYomuReaderRuntime() {
+    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+    ensureAcademyAnnotationLifecycle();
+    bootPromise ??= bootWhenJapaneseAppears().catch(() => false);
+    return bootPromise;
+  }
+  function observeAcademyAnnotationSurfaces(root) {
+    refreshAcademyAnnotationSurfaces(root);
+    if (typeof MutationObserver === "undefined") return { dispose() {
+    } };
+    const observer = new MutationObserver(() => refreshAcademyAnnotationSurfaces(root));
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["lang", "data-yomu-runtime-surface"]
+    });
+    return { dispose: () => observer.disconnect() };
+  }
+  function refreshAcademyAnnotationSurfaces(root) {
+    const candidates = root instanceof HTMLElement && root.matches(JAPANESE_SURFACE_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JAPANESE_SURFACE_SELECTOR))] : Array.from(root.querySelectorAll(JAPANESE_SURFACE_SELECTOR));
+    let marked = 0;
+    for (const element2 of candidates) {
+      if (!isAcademyJapaneseSurface(element2)) continue;
+      let changed = false;
+      if (element2.dataset.yomuRuntimeSurface === void 0) {
+        element2.dataset.yomuRuntimeSurface = "academy-copy";
+        changed = true;
+      }
+      if (element2.dataset.yomuFuriganaMode !== "all") {
+        element2.dataset.yomuFuriganaMode = "all";
+        changed = true;
+      }
+      const annotations = academyAuthoredVocabularyForText(element2.textContent ?? "");
+      const encodedAnnotations = annotations.length ? encodeAuthoredVocabularyAnnotations(annotations) : "";
+      if (encodedAnnotations && element2.getAttribute(AUTHORED_VOCABULARY_ATTRIBUTE) !== encodedAnnotations) {
+        element2.setAttribute(AUTHORED_VOCABULARY_ATTRIBUTE, encodedAnnotations);
+        changed = true;
+      } else if (!encodedAnnotations && element2.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) {
+        element2.removeAttribute(AUTHORED_VOCABULARY_ATTRIBUTE);
+        changed = true;
+      }
+      if (changed) marked += 1;
+    }
+    return marked;
+  }
+  function isAcademyJapaneseSurface(element2) {
+    if (element2.closest("[data-jpdb-reader-surface-ignore]")) return false;
+    if (element2.matches('script, style, noscript, textarea, input, select, option, [aria-hidden="true"]')) return false;
+    if (element2.closest(READER_OWNED_SURFACE_QUERY)) return false;
+    return HAS_JAPANESE$1.test(element2.textContent ?? "");
+  }
+  function ensureAcademyAnnotationLifecycle() {
+    const root = document.getElementById(ACADEMY_ROOT_ID);
+    if (!(root instanceof HTMLElement)) return;
+    if (annotationLifecycle?.root === root && root.isConnected) return;
+    annotationLifecycle?.dispose();
+    const lifecycle = observeAcademyAnnotationSurfaces(root);
+    annotationLifecycle = { root, dispose: lifecycle.dispose };
+  }
+  function academyRuntimeAssetCandidates(fileName, href = window.location.href) {
+    const current = new URL(href);
+    const urls = [
+      new URL(`../${fileName}`, current),
+      new URL(`./${fileName}`, current),
+      new URL(`/${fileName}`, current.origin),
+      new URL(`/yomu-reader/${fileName}`, current.origin)
+    ];
+    return [...new Set(urls.map((url) => url.href))];
+  }
+  async function bootWhenJapaneseAppears() {
+    if (hasConformingYomuRuntime()) return true;
+    await waitForJapaneseSurface();
+    if (hasConformingYomuRuntime()) return true;
+    if (hasYomuRuntime()) return waitForRuntimeReady();
+    seedAcademyReaderDefaults();
+    await loadStylesheet();
+    if (!await loadReaderCompanions()) return false;
+    const loaded = await loadCoreRuntime();
+    return loaded && waitForRuntimeReady();
+  }
+  function hasYomuRuntime() {
+    const runtimeWindow = window;
+    return Boolean(runtimeWindow.__yomuReaderAppInitialized || document.getElementById(RUNTIME_MARKER_ID));
+  }
+  function hasConformingYomuRuntime() {
+    return readerRuntimeConforms(readReaderRuntimeHealth());
+  }
+  function waitForJapaneseSurface() {
+    if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        observer?.disconnect();
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const observer = typeof MutationObserver === "undefined" ? void 0 : new MutationObserver(() => {
+        if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) finish();
+      });
+      observer?.observe(document.documentElement, { childList: true, subtree: true });
+      const timer = window.setTimeout(finish, SURFACE_WAIT_TIMEOUT_MS);
+    });
+  }
+  function seedAcademyReaderDefaults() {
+    try {
+      if (localStorage.getItem(SETTINGS_KEY) !== null) return;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        showFurigana: true,
+        furiganaMode: "all",
+        showPitchAccent: true
+      }));
+    } catch {
+    }
+  }
+  function loadStylesheet() {
+    if (document.querySelector(`link[${CSS_ATTRIBUTE}], link[href$="/yomu.css"], link[href*="/yomu.css?"]`)) {
+      return Promise.resolve(true);
+    }
+    return loadLinkChain(academyRuntimeAssetCandidates("yomu.css"));
+  }
+  function loadCoreRuntime() {
+    if (hasYomuRuntime()) return Promise.resolve(true);
+    if (document.getElementById(CORE_SCRIPT_ID) || document.querySelector(`script[${SCRIPT_ATTRIBUTE}]`)) {
+      return waitForRuntimeReady();
+    }
+    return loadScriptChain(academyRuntimeAssetCandidates("yomu.user.js"));
+  }
+  async function loadReaderCompanions() {
+    for (const companion of ACADEMY_READER_COMPANIONS) {
+      if (!await loadCompanion(companion.fileName)) return false;
+    }
+    return true;
+  }
+  function loadCompanion(fileName) {
+    const loaded = Array.from(document.querySelectorAll(`script[${COMPANION_ATTRIBUTE}]`)).some((script) => script.getAttribute(COMPANION_ATTRIBUTE) === fileName);
+    return loaded ? Promise.resolve(true) : loadPlainScriptChain(academyRuntimeAssetCandidates(fileName), fileName);
+  }
+  function loadPlainScriptChain(candidates, fileName, index = 0) {
+    if (index >= candidates.length) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.async = false;
+      script.src = candidates[index];
+      script.setAttribute(COMPANION_ATTRIBUTE, fileName);
+      script.addEventListener("load", () => resolve(true), { once: true });
+      script.addEventListener("error", () => {
+        script.remove();
+        void loadPlainScriptChain(candidates, fileName, index + 1).then(resolve);
+      }, { once: true });
+      (document.head ?? document.documentElement).append(script);
+    });
+  }
+  function loadScriptChain(candidates, index = 0) {
+    if (index >= candidates.length) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.id = CORE_SCRIPT_ID;
+      script.async = false;
+      script.src = candidates[index];
+      script.setAttribute(SCRIPT_ATTRIBUTE, "true");
+      const tryNext = () => {
+        script.remove();
+        void loadScriptChain(candidates, index + 1).then(resolve);
+      };
+      script.addEventListener("load", () => {
+        void waitForRuntimeReady().then((ready2) => ready2 ? resolve(true) : tryNext());
+      }, { once: true });
+      script.addEventListener("error", tryNext, { once: true });
+      (document.head ?? document.documentElement).append(script);
+    });
+  }
+  function loadLinkChain(candidates, index = 0) {
+    if (index >= candidates.length) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = candidates[index];
+      link.setAttribute(CSS_ATTRIBUTE, "true");
+      link.addEventListener("load", () => resolve(true), { once: true });
+      link.addEventListener("error", () => {
+        link.remove();
+        void loadLinkChain(candidates, index + 1).then(resolve);
+      }, { once: true });
+      (document.head ?? document.documentElement).append(link);
+    });
+  }
+  function waitForRuntimeReady(timeoutMs = RUNTIME_READY_TIMEOUT_MS) {
+    if (hasConformingYomuRuntime()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const startedAt = performance.now();
+      const check = () => {
+        if (hasConformingYomuRuntime()) return resolve(true);
+        if (performance.now() - startedAt >= timeoutMs) return resolve(false);
+        window.setTimeout(check, 60);
+      };
+      check();
+    });
+  }
+  const host = document.getElementById("yomu-academy");
+  if (host) {
+    const app = new AcademyApp(host, { databaseName: localQaDatabaseName() });
+    window.__yomuAcademy = app;
+    const disposeOnRealUnload = (event) => {
+      if (event.persisted) return;
+      window.removeEventListener("pagehide", disposeOnRealUnload);
+      app.dispose();
+    };
+    window.addEventListener("pagehide", disposeOnRealUnload);
+    void app.start().catch((error) => {
+      host.dataset.bootError = "true";
+      const message = document.createElement("p");
+      message.setAttribute("role", "alert");
+      message.textContent = error instanceof Error ? error.message : String(error);
+      host.replaceChildren(message);
+    });
+    void initYomuReaderRuntime();
+  }
+  function localQaDatabaseName() {
+    if (location.hostname !== "127.0.0.1" && location.hostname !== "localhost" && location.hostname !== "::1") return void 0;
+    const run = new URL(location.href).searchParams.get("qa-run")?.trim();
+    return run && /^[a-z0-9-]{1,40}$/i.test(run) ? `yomu-academy-qa-${run}` : void 0;
+  }
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      void navigator.serviceWorker.register("/academy/sw.js", { scope: "/academy/" });
+    }, { once: true });
+  }
   const CORE_COLOR_TOKENS = {
     black: "#000000",
     white: "#ffffff",
@@ -8139,6 +12077,374 @@
     warn: "#a15c00",
     error: "#b91c1c"
   };
+  const JITEN_API_KEY_PREFIX = "ak_";
+  function combinedApiCredentialLabel(settings) {
+    const jpdb = Boolean(effectiveJpdbApiKey(settings));
+    const jiten = Boolean(effectiveJitenApiKey(settings));
+    if (jpdb && jiten) return "Jiten + JPDB";
+    if (jiten) return "Jiten";
+    return "JPDB";
+  }
+  function effectiveJpdbApiKey(settings) {
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? "" : apiKey;
+  }
+  function effectiveJitenApiKey(settings) {
+    const explicit = settings.jitenApiKey.trim();
+    if (explicit) return explicit;
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? apiKey : "";
+  }
+  function hasJpdbApiCredential(settings) {
+    return Boolean(effectiveJpdbApiKey(settings));
+  }
+  function hasJitenApiCredential(settings) {
+    return Boolean(effectiveJitenApiKey(settings));
+  }
+  function effectiveBunproFrontendApiToken(settings) {
+    return settings.bunproFrontendApiToken?.trim() ?? "";
+  }
+  function effectiveBunproLegacyApiKey(settings) {
+    return settings.bunproApiKey?.trim() ?? "";
+  }
+  function hasBunproFrontendCredential(settings) {
+    return Boolean(effectiveBunproFrontendApiToken(settings));
+  }
+  function isBunproFrontendCredentialExpired(settings, now = Date.now()) {
+    const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
+    if (!raw || !hasBunproFrontendCredential(settings)) return false;
+    const expiresAt = Date.parse(raw);
+    return Number.isFinite(expiresAt) && expiresAt <= now;
+  }
+  function splitApiCredential(value) {
+    const credential = value.trim();
+    if (!credential) return { apiKey: "", jitenApiKey: "" };
+    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
+  }
+  function readApiCredentialsFromFormData(data) {
+    const bunpro = readBunproCredentialsFromFormData(data);
+    if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
+      return {
+        ...mergeApiCredentialValues(
+          String(data.get("apiCredentialJpdb") ?? ""),
+          String(data.get("apiCredentialJiten") ?? "")
+        ),
+        ...bunpro
+      };
+    }
+    if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro };
+    return {
+      apiKey: String(data.get("apiKey") ?? "").trim(),
+      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim(),
+      ...bunpro
+    };
+  }
+  function mergeApiCredentialValues(jpdbValue, jitenValue) {
+    const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
+    const jitenApiKey = values.find(isJitenApiCredential) ?? "";
+    const apiKey = values.find((value) => !isJitenApiCredential(value)) ?? "";
+    return { apiKey, jitenApiKey };
+  }
+  function isJitenApiCredential(value) {
+    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+  }
+  function readBunproCredentialsFromFormData(data) {
+    return {
+      bunproApiKey: String(data.get("apiCredentialBunproLegacy") ?? data.get("bunproApiKey") ?? "").trim(),
+      bunproFrontendApiToken: String(data.get("apiCredentialBunpro") ?? data.get("bunproFrontendApiToken") ?? "").trim(),
+      bunproFrontendApiTokenExpiresAt: String(data.get("bunproFrontendApiTokenExpiresAt") ?? "").trim()
+    };
+  }
+  const __vite_import_meta_env__ = { "DEV": false };
+  const LOG_PREFIX = "[Yomu]";
+  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+  const RUNTIME_LOG_KEY = "yomu:enable-logs";
+  const REDACTED = "[redacted]";
+  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
+  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+  const env = __vite_import_meta_env__;
+  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+  class ScopedLogger {
+    constructor(parent, scopeName) {
+      this.parent = parent;
+      this.scopeName = scopeName;
+    }
+    debug(message, ...args) {
+      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+    }
+    info(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.info, "");
+    }
+    warn(message, ...args) {
+      const optional = args.some(isOptionalCorsBridgeError);
+      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
+    }
+    error(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+    }
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+    }
+    time(label, ...args) {
+      if (!this.parent.isEnabled()) return () => void 0;
+      const start = nowMs();
+      this.debug(`${label} started`, ...args);
+      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+    }
+  }
+  class LoggerImpl {
+    settingsProvider;
+    forceEnabled = false;
+    onceKeys = /* @__PURE__ */ new Set();
+    configure(options) {
+      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+    }
+    scope(scopeName) {
+      return new ScopedLogger(this, scopeName);
+    }
+    isEnabled() {
+      if (BUILD_LOGGING_ENABLED) return true;
+      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+      try {
+        return this.settingsProvider?.().enableLogging === true;
+      } catch {
+        return false;
+      }
+    }
+    isDevMode() {
+      return isDevMode();
+    }
+    enable(persist = false) {
+      this.forceEnabled = true;
+      if (persist) setRuntimeLoggingOverride(true);
+      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+    }
+    disable(persist = false) {
+      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+      this.forceEnabled = false;
+      if (persist) setRuntimeLoggingOverride(false);
+    }
+    reset() {
+      this.onceKeys.clear();
+    }
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
+      this.write(scope, message, args, console.warn, WARN_STYLE);
+    }
+    write(scope, message, args, writer, levelStyle) {
+      if (!this.isEnabled()) return;
+      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+    }
+  }
+  const Logger = new LoggerImpl();
+  function configureLogger(options) {
+    Logger.configure(options);
+  }
+  function loggingSettingsSummary(settings) {
+    return {
+      enableLogging: settings.enableLogging,
+      hasApiKey: hasJpdbApiCredential(settings),
+      hasJitenApiKey: hasJitenApiCredential(settings),
+      localDictionariesEnabled: settings.localDictionariesEnabled,
+      localDictionarySources: settings.dictionaryPreferences.length,
+      ankiEnabled: settings.ankiEnabled,
+      newTabEnabled: settings.newTabEnabled,
+      newTabSource: settings.newTabSource,
+      ocrEnabled: settings.ocrEnabled,
+      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
+    };
+  }
+  function isDevMode() {
+    return BUILD_IS_DEV_MODE;
+  }
+  function writeDebugToConsole(...args) {
+    if (isDevMode()) console.log(...args);
+    else console.debug(...args);
+  }
+  function isOptionalCorsBridgeError(value) {
+    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
+  }
+  function getRuntimeLoggingOverride() {
+    try {
+      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+    } catch {
+      return false;
+    }
+  }
+  function setRuntimeLoggingOverride(enabled) {
+    try {
+      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+    } catch {
+    }
+  }
+  function nowMs() {
+    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }
+  function sanitizeForConsole(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value === null || value === void 0 || typeof value !== "object") return value;
+    const sanitized = sanitizeSpecialConsoleValue(value);
+    if (sanitized.handled) return sanitized.value;
+    if (Array.isArray(value)) return value.map(sanitizeForConsole);
+    return sanitizeRecordForConsole(value);
+  }
+  function sanitizeSpecialConsoleValue(value) {
+    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+      const sanitized = sanitizer(value);
+      if (sanitized.handled) return sanitized;
+    }
+    return { handled: false };
+  }
+  const CONSOLE_VALUE_SANITIZERS = [
+    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+  ];
+  function sanitizeRecordForConsole(record2) {
+    return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+    ]));
+  }
+  function sanitizeFlatValue(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value instanceof Error) return { name: value.name, message: value.message };
+    return value;
+  }
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
+    return true;
+  }
+  function redactString(value) {
+    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+  }
+  if (typeof window !== "undefined") {
+    window.__YOMU_LOGGER__ = Logger;
+    window.YomuLogger = Logger;
+  }
+  const log$r = Logger.scope("CardStateSignal");
+  const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
+  const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
+  const SEEN_SIGNAL_LIMIT = 32;
+  function cardStateSignalCard(card) {
+    return {
+      vid: card.vid,
+      sid: card.sid,
+      rid: card.rid,
+      spelling: card.spelling,
+      reading: card.reading,
+      cardState: [...card.cardState],
+      pitchAccent: [...card.pitchAccent],
+      source: card.source,
+      deckNames: card.deckNames ? [...card.deckNames] : void 0,
+      ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
+      jpdbDeckMembership: card.jpdbDeckMembership,
+      sourceDeckName: card.sourceDeckName
+    };
+  }
+  function cardFromCardStateSignal(card) {
+    return {
+      ...card,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      wordWithReading: null
+    };
+  }
+  function publishCardStateSignal(card) {
+    const signal = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+      at: Date.now(),
+      card: cardStateSignalCard(card)
+    };
+    try {
+      gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
+    } catch (error) {
+      log$r.debug("GM card-state publish failed", error);
+    }
+    publishBroadcastCardStateSignal(signal);
+  }
+  function publishBroadcastCardStateSignal(signal) {
+    if (typeof BroadcastChannel !== "function") return;
+    try {
+      const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+      channel.postMessage(signal);
+      channel.close();
+    } catch (error) {
+      log$r.debug("Broadcast card-state publish failed", error);
+    }
+  }
+  function subscribeToCardStateSignals(onCard) {
+    const cleanups = [];
+    const seenIds = [];
+    const handle = (value) => {
+      const signal = parseCardStateSignal(value);
+      if (!signal || seenIds.includes(signal.id)) return;
+      seenIds.push(signal.id);
+      if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
+      onCard(cardFromCardStateSignal(signal.card));
+    };
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      try {
+        const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+          if (remote) handle(newValue);
+        });
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        log$r.debug("GM card-state listener failed", error);
+      }
+    }
+    if (typeof BroadcastChannel === "function") {
+      try {
+        const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+        channel.onmessage = (event) => handle(event.data);
+        cleanups.push(() => channel.close());
+      } catch (error) {
+        log$r.debug("Broadcast card-state listener failed", error);
+      }
+    }
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }
+  function parseCardStateSignal(value) {
+    if (!value || typeof value !== "object") return null;
+    const signal = value;
+    const card = signal.card;
+    if (typeof signal.id !== "string" || !card || typeof card.spelling !== "string" || !card.spelling) return null;
+    if (!Array.isArray(card.cardState)) return null;
+    return {
+      id: signal.id,
+      at: Number(signal.at) || Date.now(),
+      card: {
+        vid: Number(card.vid) || 0,
+        sid: Number(card.sid) || 0,
+        rid: Number(card.rid) || 0,
+        spelling: card.spelling,
+        reading: typeof card.reading === "string" ? card.reading : "",
+        cardState: card.cardState,
+        pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
+        source: card.source ?? "jpdb",
+        deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
+        ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
+        jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
+        sourceDeckName: typeof card.sourceDeckName === "string" ? card.sourceDeckName : void 0
+      }
+    };
+  }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
     [167772160, 184549375],
@@ -10767,6 +15073,7 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
+jpdbPageEnhancementsHelp	JPDBの単語・漢字ページによむの補助表示を追加します。
 fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -10879,6 +15186,7 @@ colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
+colorChannelsHelp	単語の状態やピッチを色で表示します。
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
@@ -10942,6 +15250,7 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
+kanjiHelp	漢字情報・語源・似た漢字を表示します。
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -11150,6 +15459,7 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
+noScannedFields	読み取れるフィールドがありません。
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -11443,4509 +15753,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     custom: "audioSourceCustom",
     "custom-json": "audioSourceCustomJson"
   };
-  const JITEN_API_KEY_PREFIX = "ak_";
-  function combinedApiCredentialLabel(settings) {
-    const jpdb = Boolean(effectiveJpdbApiKey(settings));
-    const jiten = Boolean(effectiveJitenApiKey(settings));
-    if (jpdb && jiten) return "Jiten + JPDB";
-    if (jiten) return "Jiten";
-    return "JPDB";
-  }
-  function effectiveJpdbApiKey(settings) {
-    const apiKey = settings.apiKey.trim();
-    return isJitenApiCredential(apiKey) ? "" : apiKey;
-  }
-  function effectiveJitenApiKey(settings) {
-    const explicit = settings.jitenApiKey.trim();
-    if (explicit) return explicit;
-    const apiKey = settings.apiKey.trim();
-    return isJitenApiCredential(apiKey) ? apiKey : "";
-  }
-  function hasJpdbApiCredential(settings) {
-    return Boolean(effectiveJpdbApiKey(settings));
-  }
-  function hasJitenApiCredential(settings) {
-    return Boolean(effectiveJitenApiKey(settings));
-  }
-  function effectiveBunproFrontendApiToken(settings) {
-    return settings.bunproFrontendApiToken?.trim() ?? "";
-  }
-  function effectiveBunproLegacyApiKey(settings) {
-    return settings.bunproApiKey?.trim() ?? "";
-  }
-  function hasBunproFrontendCredential(settings) {
-    return Boolean(effectiveBunproFrontendApiToken(settings));
-  }
-  function isBunproFrontendCredentialExpired(settings, now = Date.now()) {
-    const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
-    if (!raw || !hasBunproFrontendCredential(settings)) return false;
-    const expiresAt = Date.parse(raw);
-    return Number.isFinite(expiresAt) && expiresAt <= now;
-  }
-  function splitApiCredential(value) {
-    const credential = value.trim();
-    if (!credential) return { apiKey: "", jitenApiKey: "" };
-    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
-  }
-  function readApiCredentialsFromFormData(data) {
-    const bunpro = readBunproCredentialsFromFormData(data);
-    if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
-      return {
-        ...mergeApiCredentialValues(
-          String(data.get("apiCredentialJpdb") ?? ""),
-          String(data.get("apiCredentialJiten") ?? "")
-        ),
-        ...bunpro
-      };
-    }
-    if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro };
-    return {
-      apiKey: String(data.get("apiKey") ?? "").trim(),
-      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim(),
-      ...bunpro
-    };
-  }
-  function mergeApiCredentialValues(jpdbValue, jitenValue) {
-    const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
-    const jitenApiKey = values.find(isJitenApiCredential) ?? "";
-    const apiKey = values.find((value) => !isJitenApiCredential(value)) ?? "";
-    return { apiKey, jitenApiKey };
-  }
-  function isJitenApiCredential(value) {
-    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
-  }
-  function readBunproCredentialsFromFormData(data) {
-    return {
-      bunproApiKey: String(data.get("apiCredentialBunproLegacy") ?? data.get("bunproApiKey") ?? "").trim(),
-      bunproFrontendApiToken: String(data.get("apiCredentialBunpro") ?? data.get("bunproFrontendApiToken") ?? "").trim(),
-      bunproFrontendApiTokenExpiresAt: String(data.get("bunproFrontendApiTokenExpiresAt") ?? "").trim()
-    };
-  }
-  const __vite_import_meta_env__ = { "DEV": false };
-  const LOG_PREFIX = "[Yomu]";
-  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-  const RUNTIME_LOG_KEY = "yomu:enable-logs";
-  const REDACTED = "[redacted]";
-  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
-  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-  const env = __vite_import_meta_env__;
-  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-  class ScopedLogger {
-    constructor(parent, scopeName) {
-      this.parent = parent;
-      this.scopeName = scopeName;
-    }
-    debug(message, ...args) {
-      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-    }
-    info(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.info, "");
-    }
-    warn(message, ...args) {
-      const optional = args.some(isOptionalCorsBridgeError);
-      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
-    }
-    error(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-    }
-    warnOnce(key, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-    }
-    time(label, ...args) {
-      if (!this.parent.isEnabled()) return () => void 0;
-      const start = nowMs();
-      this.debug(`${label} started`, ...args);
-      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-    }
-  }
-  class LoggerImpl {
-    settingsProvider;
-    forceEnabled = false;
-    onceKeys = /* @__PURE__ */ new Set();
-    configure(options) {
-      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-    }
-    scope(scopeName) {
-      return new ScopedLogger(this, scopeName);
-    }
-    isEnabled() {
-      if (BUILD_LOGGING_ENABLED) return true;
-      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-      try {
-        return this.settingsProvider?.().enableLogging === true;
-      } catch {
-        return false;
-      }
-    }
-    isDevMode() {
-      return isDevMode();
-    }
-    enable(persist = false) {
-      this.forceEnabled = true;
-      if (persist) setRuntimeLoggingOverride(true);
-      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-    }
-    disable(persist = false) {
-      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-      this.forceEnabled = false;
-      if (persist) setRuntimeLoggingOverride(false);
-    }
-    reset() {
-      this.onceKeys.clear();
-    }
-    warnOnce(key, scope, message, args) {
-      if (this.onceKeys.has(key)) return;
-      this.onceKeys.add(key);
-      this.write(scope, message, args, console.warn, WARN_STYLE);
-    }
-    write(scope, message, args, writer, levelStyle) {
-      if (!this.isEnabled()) return;
-      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-    }
-  }
-  const Logger = new LoggerImpl();
-  function configureLogger(options) {
-    Logger.configure(options);
-  }
-  function loggingSettingsSummary(settings) {
-    return {
-      enableLogging: settings.enableLogging,
-      hasApiKey: hasJpdbApiCredential(settings),
-      hasJitenApiKey: hasJitenApiCredential(settings),
-      localDictionariesEnabled: settings.localDictionariesEnabled,
-      localDictionarySources: settings.dictionaryPreferences.length,
-      ankiEnabled: settings.ankiEnabled,
-      newTabEnabled: settings.newTabEnabled,
-      newTabSource: settings.newTabSource,
-      ocrEnabled: settings.ocrEnabled,
-      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
-    };
-  }
-  function isDevMode() {
-    return BUILD_IS_DEV_MODE;
-  }
-  function writeDebugToConsole(...args) {
-    if (isDevMode()) console.log(...args);
-    else console.debug(...args);
-  }
-  function isOptionalCorsBridgeError(value) {
-    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
-  }
-  function getRuntimeLoggingOverride() {
-    try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-    } catch {
-      return false;
-    }
-  }
-  function setRuntimeLoggingOverride(enabled) {
-    try {
-      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-    } catch {
-    }
-  }
-  function nowMs() {
-    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-  }
-  function sanitizeForConsole(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value === null || value === void 0 || typeof value !== "object") return value;
-    const sanitized = sanitizeSpecialConsoleValue(value);
-    if (sanitized.handled) return sanitized.value;
-    if (Array.isArray(value)) return value.map(sanitizeForConsole);
-    return sanitizeRecordForConsole(value);
-  }
-  function sanitizeSpecialConsoleValue(value) {
-    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-      const sanitized = sanitizer(value);
-      if (sanitized.handled) return sanitized;
-    }
-    return { handled: false };
-  }
-  const CONSOLE_VALUE_SANITIZERS = [
-    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-  ];
-  function sanitizeRecordForConsole(record2) {
-    return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
-      key,
-      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-    ]));
-  }
-  function sanitizeFlatValue(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value instanceof Error) return { name: value.name, message: value.message };
-    return value;
-  }
-  function shouldRedactEntry(key, value) {
-    if (!SECRET_KEY_PATTERN.test(key)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key)) return false;
-    return true;
-  }
-  function redactString(value) {
-    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-  }
-  if (typeof window !== "undefined") {
-    window.__YOMU_LOGGER__ = Logger;
-    window.YomuLogger = Logger;
-  }
-  const log$r = Logger.scope("KanjiDoodle");
-  const PEN_MIN_DISTANCE = 8e-4;
-  const POINTER_MIN_DISTANCE = 16e-4;
-  const GHOST_VIEWBOX_UNITS = 109;
-  const GHOST_STROKE_UNITS = 3;
-  const GHOST_FALLBACK_RATIO = 0.82;
-  const GHOST_FALLBACK_MAX_PX = 220;
-  const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
-  const NATIVE_GESTURE_SUPPRESS_MS = 900;
-  const KANJI_DOODLE_CLEAR_EVENT = "yomu:kanji-doodle-clear";
-  function installKanjiDoodle(popover, getLanguage, options = {}) {
-    const root = popover;
-    root.__yomuKanjiDoodleCleanup?.();
-    delete root.__yomuKanjiDoodleCleanup;
-    const elements = kanjiDoodleElements(popover);
-    const clear = popover.querySelector("[data-doodle-clear]");
-    const trace = popover.querySelector("[data-doodle-trace]");
-    if (!elements) return;
-    const { stage, canvas, ghost } = elements;
-    let context = null;
-    try {
-      context = canvas.getContext("2d");
-    } catch (error) {
-      log$r.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
-      return;
-    }
-    if (!context) {
-      log$r.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
-      return;
-    }
-    let dpr = 1;
-    let drawing = false;
-    let pointerId = -1;
-    let pointerType = "";
-    let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
-    let points = [];
-    let strokes = [];
-    let canvasRect = canvas.getBoundingClientRect();
-    let suppressNativeGestureUntil = 0;
-    let activeClassRemovalTimer = 0;
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const keepDoodleInteractionActive = (durationMs = NATIVE_GESTURE_SUPPRESS_MS) => {
-      suppressNativeGestureUntil = Math.max(suppressNativeGestureUntil, Date.now() + durationMs);
-      document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
-      if (activeClassRemovalTimer) {
-        window.clearTimeout(activeClassRemovalTimer);
-        activeClassRemovalTimer = 0;
-      }
-    };
-    const shouldSuppressNativeGesture = () => drawing || Date.now() < suppressNativeGestureUntil;
-    const releaseDoodleInteractionSoon = () => {
-      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
-      activeClassRemovalTimer = window.setTimeout(() => {
-        activeClassRemovalTimer = 0;
-        if (shouldSuppressNativeGesture()) {
-          releaseDoodleInteractionSoon();
-          return;
-        }
-        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
-      }, NATIVE_GESTURE_SUPPRESS_MS);
-    };
-    const suppressNativeGestureIfActive = (event) => {
-      if (!shouldSuppressNativeGesture()) return;
-      suppressNativeCanvasGesture(event);
-    };
-    const resize = () => {
-      const rect = stage.getBoundingClientRect();
-      dpr = Math.max(window.devicePixelRatio || 1, 1);
-      const width = Math.max(1, Math.round(rect.width * dpr));
-      const height = Math.max(1, Math.round(rect.height * dpr));
-      canvasRect = canvas.getBoundingClientRect();
-      measureGhost();
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-        redraw();
-      }
-    };
-    const toPoint = (event) => {
-      return {
-        x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
-        y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
-        pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
-      };
-    };
-    let measuredGhostSize = 0;
-    const measureGhost = () => {
-      const svg = ghost.querySelector("svg");
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const size = Math.min(rect.width, rect.height);
-      if (size > 0) measuredGhostSize = size;
-    };
-    const ghostDisplaySize = () => {
-      if (measuredGhostSize > 0) return measuredGhostSize;
-      const stageSize = Math.min(canvasRect.width, canvasRect.height);
-      return Math.min(stageSize * GHOST_FALLBACK_RATIO, GHOST_FALLBACK_MAX_PX);
-    };
-    const strokeWidth = (point) => {
-      const base = Math.max(2.4, GHOST_STROKE_UNITS / GHOST_VIEWBOX_UNITS * ghostDisplaySize() * dpr);
-      return base * (0.78 + (point?.pressure ?? 0.5) * 0.44);
-    };
-    const setupStroke = (point) => {
-      context.strokeStyle = resolvedDoodleInk(stage);
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = strokeWidth(point);
-    };
-    const drawStroke = (stroke) => {
-      if (!stroke.length) return;
-      if (stroke.length === 1) {
-        drawPoint(stroke[0]);
-        return;
-      }
-      if (typeof context.quadraticCurveTo === "function") {
-        drawSmoothedStroke(stroke);
-        return;
-      }
-      for (let index = 1; index < stroke.length; index += 1) {
-        drawSegment(stroke[index - 1], stroke[index]);
-      }
-    };
-    const drawSmoothedStroke = (stroke) => {
-      context.save();
-      setupStroke(averagePressurePoint(stroke));
-      context.beginPath();
-      context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
-      for (let index = 1; index < stroke.length - 1; index += 1) {
-        const control = stroke[index];
-        const next = stroke[index + 1];
-        context.quadraticCurveTo(
-          control.x * canvas.width,
-          control.y * canvas.height,
-          (control.x + next.x) / 2 * canvas.width,
-          (control.y + next.y) / 2 * canvas.height
-        );
-      }
-      const last = stroke[stroke.length - 1];
-      context.lineTo(last.x * canvas.width, last.y * canvas.height);
-      context.stroke();
-      context.restore();
-    };
-    const drawPoint = (point) => {
-      context.save();
-      setupStroke(point);
-      context.beginPath();
-      if (typeof context.arc === "function" && typeof context.fill === "function") {
-        context.fillStyle = context.strokeStyle;
-        context.arc(point.x * canvas.width, point.y * canvas.height, Math.max(1.2, context.lineWidth / 2), 0, Math.PI * 2);
-        context.fill();
-      } else {
-        const x2 = point.x * canvas.width;
-        const y = point.y * canvas.height;
-        context.moveTo(x2, y);
-        context.lineTo(x2 + Math.max(1, context.lineWidth / 2), y);
-        context.stroke();
-      }
-      context.restore();
-    };
-    const drawSegment = (from, to) => {
-      context.save();
-      setupStroke(to);
-      context.beginPath();
-      context.moveTo(from.x * canvas.width, from.y * canvas.height);
-      context.lineTo(to.x * canvas.width, to.y * canvas.height);
-      context.stroke();
-      context.restore();
-    };
-    const redraw = () => {
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      for (const stroke of strokes) drawStroke(stroke);
-      drawStroke(points);
-    };
-    const appendPoint = (point) => {
-      const last = points.at(-1);
-      const minDistance = pointerType === "pen" ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
-      if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
-      points.push(point);
-      if (typeof context.quadraticCurveTo === "function") redraw();
-      else if (last) drawSegment(last, point);
-      else drawPoint(point);
-    };
-    const applyPointerSamples = (event) => {
-      for (const sample of pointerSamples(event)) appendPoint(toPoint(sample));
-    };
-    const start = (event) => {
-      const computedCanvas = getComputedStyle(canvas);
-      if (computedCanvas.pointerEvents === "none" || computedCanvas.visibility === "hidden") return;
-      if (drawing) {
-        if (event.pointerId === pointerId) return;
-        finishStroke(false);
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      drawing = true;
-      pointerId = event.pointerId;
-      pointerType = event.pointerType;
-      keepDoodleInteractionActive();
-      clearSelection();
-      canvasRect = canvas.getBoundingClientRect();
-      points = [];
-      appendPoint(toPoint(event));
-      setDoodlePointerCapture(canvas, event.pointerId);
-    };
-    const move = (event) => {
-      if (!drawing || event.pointerId !== pointerId) return;
-      event.preventDefault();
-      event.stopPropagation();
-      keepDoodleInteractionActive();
-      applyPointerSamples(event);
-    };
-    const end = (event) => {
-      if (!drawing || event.pointerId !== pointerId) return;
-      event.preventDefault();
-      event.stopPropagation();
-      applyPointerSamples(event);
-      finishStroke();
-    };
-    const finishAfterLostCapture = (event) => {
-      if (!drawing || event.pointerId !== pointerId) return;
-      keepDoodleInteractionActive();
-    };
-    const clearActiveSelection = () => {
-      if (shouldSuppressNativeGesture()) clearSelection();
-    };
-    const finishStroke = (releaseCapture = true) => {
-      if (points.length) strokes = [...strokes, points];
-      points = [];
-      drawing = false;
-      const activePointerId = pointerId;
-      pointerId = -1;
-      pointerType = "";
-      if (releaseCapture) releaseDoodlePointerCapture(canvas, activePointerId);
-      keepDoodleInteractionActive();
-      releaseDoodleInteractionSoon();
-      clearSelection();
-      options.onChange?.(strokes.map((stroke) => [...stroke]));
-    };
-    const clearDoodle = () => {
-      strokes = [];
-      points = [];
-      redraw();
-      options.onClear?.();
-      options.onChange?.([]);
-    };
-    canvas.addEventListener("pointerdown", start, { passive: false, signal });
-    canvas.addEventListener("lostpointercapture", finishAfterLostCapture, { signal });
-    document.addEventListener("pointermove", move, { passive: false, signal });
-    document.addEventListener("pointerup", end, { passive: false, signal });
-    document.addEventListener("pointercancel", end, { passive: false, signal });
-    window.addEventListener("pointermove", move, { passive: false, signal });
-    window.addEventListener("pointerup", end, { passive: false, signal });
-    window.addEventListener("pointercancel", end, { passive: false, signal });
-    document.addEventListener("selectionchange", clearActiveSelection, { signal });
-    document.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
-    document.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
-    document.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
-    window.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
-    window.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
-    window.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
-    popover.addEventListener(KANJI_DOODLE_CLEAR_EVENT, clearDoodle, { signal });
-    for (const target of [stage, canvas, clear, trace]) {
-      if (!target) continue;
-      target.addEventListener("contextmenu", suppressNativeCanvasGesture, { signal });
-      target.addEventListener("selectstart", suppressNativeCanvasGesture, { signal });
-      target.addEventListener("dragstart", suppressNativeCanvasGesture, { signal });
-    }
-    clear?.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      clearDoodle();
-    }, { signal });
-    trace?.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      traceVisible = !traceVisible;
-      ghost.hidden = !traceVisible;
-      stage.classList.toggle("trace-hidden", !traceVisible);
-      trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
-      if (traceVisible) {
-        measureGhost();
-        redraw();
-      }
-    }, { signal });
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(stage);
-    root.__yomuKanjiDoodleCleanup = () => {
-      controller.abort();
-      resizeObserver.disconnect();
-      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
-      document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
-      clearSelection();
-      if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
-    };
-    const disconnectWhenDetached = () => {
-      if (!popover.isConnected) {
-        root.__yomuKanjiDoodleCleanup?.();
-        return;
-      }
-      requestAnimationFrame(disconnectWhenDetached);
-    };
-    requestAnimationFrame(resize);
-    requestAnimationFrame(disconnectWhenDetached);
-  }
-  function suppressNativeCanvasGesture(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    clearSelection();
-  }
-  function averagePressurePoint(stroke) {
-    const pressure = stroke.reduce((sum, point) => sum + point.pressure, 0) / stroke.length;
-    return { ...stroke[stroke.length - 1], pressure };
-  }
-  function pointerSamples(event) {
-    const coalesced = safeCoalescedPointerEvents(event);
-    if (!coalesced.length) return [event];
-    const last = coalesced.at(-1);
-    return last && samePointerPosition(last, event) ? coalesced : [...coalesced, event];
-  }
-  function safeCoalescedPointerEvents(event) {
-    try {
-      return typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
-    } catch {
-      return [];
-    }
-  }
-  function samePointerPosition(a, b) {
-    return a.clientX === b.clientX && a.clientY === b.clientY && a.pressure === b.pressure;
-  }
-  function setDoodlePointerCapture(canvas, activePointerId) {
-    try {
-      canvas.setPointerCapture?.(activePointerId);
-    } catch {
-    }
-  }
-  function releaseDoodlePointerCapture(canvas, activePointerId) {
-    try {
-      canvas.releasePointerCapture?.(activePointerId);
-    } catch {
-    }
-  }
-  function clearSelection() {
-    const selection = document.getSelection?.();
-    if (selection && !selection.isCollapsed) selection.removeAllRanges();
-  }
-  function resolvedDoodleInk(stage) {
-    const ink = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim();
-    return ink && !ink.startsWith("var(") ? ink : DOODLE_COLOR_TOKENS.ink;
-  }
-  function kanjiDoodleElements(popover) {
-    const stage = popover.querySelector(".jpdb-reader-doodle-stage");
-    const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
-    const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
-    if (stage && canvas && ghost) return { stage, canvas, ghost };
-    return null;
-  }
-  const FEATURE_INTERVAL = 20;
-  const NORMALIZED_SIZE = 256;
-  const SHAPE_PASS_SCORE = 0.5;
-  const TOTAL_PASS_SCORE = 62;
-  function assessKanjiStrokes(strokes, expectedStrokes, referenceStrokes) {
-    const validStrokes = strokes.filter((stroke) => stroke.length > 1);
-    const actualStrokes = validStrokes.length;
-    const expected = Math.max(1, Math.round(expectedStrokes || actualStrokes || 1));
-    const strokeScore = Math.max(0, 1 - Math.abs(actualStrokes - expected) / Math.max(expected, 1));
-    const coverageScore = Math.min(1, totalDistance(strokes) / Math.max(expected * 0.28, 0.28));
-    const directionScore = averageForwardMotion(strokes);
-    const shapeScore = assessStrokeShape(validStrokes, referenceStrokes, expected);
-    const score = Math.round((shapeScore == null ? strokeScore * 0.62 + coverageScore * 0.24 + directionScore * 0.14 : strokeScore * 0.18 + coverageScore * 0.06 + directionScore * 0.04 + shapeScore * 0.72) * 100);
-    const shapePassed = shapeScore == null || shapeScore >= SHAPE_PASS_SCORE;
-    const passed = actualStrokes === expected && score >= TOTAL_PASS_SCORE && shapePassed;
-    const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
-    return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? void 0, message };
-  }
-  function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
-    const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
-    if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
-    return candidates.map((candidate) => kanjiShapeMatch(candidate, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
-  }
-  function totalDistance(strokes) {
-    return strokes.reduce((sum, stroke) => {
-      let distance = 0;
-      for (let index = 1; index < stroke.length; index += 1) {
-        const previous = stroke[index - 1];
-        const current = stroke[index];
-        distance += Math.hypot(current.x - previous.x, current.y - previous.y);
-      }
-      return sum + distance;
-    }, 0);
-  }
-  function averageForwardMotion(strokes) {
-    const scored = strokes.filter((stroke) => stroke.length > 1).map((stroke) => {
-      const first2 = stroke[0];
-      const last = stroke[stroke.length - 1];
-      const horizontal = Math.abs(last.x - first2.x);
-      const vertical = Math.abs(last.y - first2.y);
-      if (horizontal >= vertical) return last.x >= first2.x ? 1 : 0.45;
-      return last.y >= first2.y ? 1 : 0.45;
-    });
-    return scored.length ? scored.reduce((sum, value) => sum + value, 0) / scored.length : 0;
-  }
-  function assessmentMessage(passed, actualStrokes, expectedStrokes, shapeScore) {
-    if (passed) return `Looks right: ${actualStrokes}/${expectedStrokes} strokes`;
-    if (actualStrokes !== expectedStrokes) return `Check stroke count: ${actualStrokes}/${expectedStrokes} strokes`;
-    if (shapeScore != null && shapeScore < SHAPE_PASS_SCORE) return `Check stroke shape/order: ${actualStrokes}/${expectedStrokes} strokes`;
-    return `Check stroke count/order: ${actualStrokes}/${expectedStrokes} strokes`;
-  }
-  function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
-    if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
-    if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
-    const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const worst = Math.min(...scores);
-    return average * 0.8 + worst * 0.2;
-  }
-  function kanjiShapeMatch(candidate, written, actualStrokes) {
-    const referenceStrokes = candidate.strokeShapes.filter((stroke) => stroke.length > 1);
-    if (!referenceStrokes.length) return null;
-    const expectedStrokes = referenceStrokes.length;
-    const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
-    const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
-    if (strokeDelta > allowedDelta) return null;
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
-    if (!reference.length) return null;
-    const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
-    const skeletonScore = wholeSkeletonScore(written, reference);
-    const occupancyScore = strokeOccupancyScore(written, reference);
-    const countScore = Math.max(0, 1 - strokeDelta / Math.max(actualStrokes, expectedStrokes, 1));
-    const score = skeletonScore * 0.44 + strokeShapeScore * 0.34 + occupancyScore * 0.12 + countScore * 0.1;
-    if (score < 0.38) return null;
-    return { kanji: candidate.kanji, score, expectedStrokes, actualStrokes };
-  }
-  function unorderedStrokeShapeScore(written, reference) {
-    const pairScores = [];
-    written.forEach((stroke, writtenIndex) => {
-      reference.forEach((referenceStroke, referenceIndex) => {
-        pairScores.push({
-          writtenIndex,
-          referenceIndex,
-          score: reversibleStrokeCorrespondenceScore(stroke, referenceStroke)
-        });
-      });
-    });
-    pairScores.sort((a, b) => b.score - a.score);
-    const usedWritten = /* @__PURE__ */ new Set();
-    const usedReference = /* @__PURE__ */ new Set();
-    const scores = [];
-    for (const pair of pairScores) {
-      if (usedWritten.has(pair.writtenIndex) || usedReference.has(pair.referenceIndex)) continue;
-      usedWritten.add(pair.writtenIndex);
-      usedReference.add(pair.referenceIndex);
-      scores.push(pair.score);
-      if (scores.length >= Math.min(written.length, reference.length)) break;
-    }
-    if (!scores.length) return 0;
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const worst = Math.min(...scores);
-    const coverage = scores.length / Math.max(written.length, reference.length);
-    return average * 0.64 + worst * 0.18 + coverage * 0.18;
-  }
-  function wholeSkeletonScore(written, reference) {
-    const writtenPoints = written.flat();
-    const referencePoints = reference.flat();
-    if (!writtenPoints.length || !referencePoints.length) return 0;
-    const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
-    return clamp$2(1 - distance / 54, 0, 1);
-  }
-  function averageNearestDistance(points, targets) {
-    return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
-  }
-  function nearestDistance(point, targets) {
-    let best = Number.POSITIVE_INFINITY;
-    for (const target of targets) best = Math.min(best, manhattan(point, target));
-    return best;
-  }
-  function strokeOccupancyScore(written, reference) {
-    const writtenCells = occupancyCells(written.flat(), 5);
-    const referenceCells = occupancyCells(reference.flat(), 5);
-    if (!writtenCells.size || !referenceCells.size) return 0;
-    let overlap = 0;
-    writtenCells.forEach((cell) => {
-      if (referenceCells.has(cell)) overlap++;
-    });
-    return overlap / Math.max(writtenCells.size, referenceCells.size);
-  }
-  function occupancyCells(points, cellCount) {
-    const cells = /* @__PURE__ */ new Set();
-    points.forEach((point) => {
-      const x2 = Math.max(0, Math.min(cellCount - 1, Math.floor(point.x / NORMALIZED_SIZE * cellCount)));
-      const y = Math.max(0, Math.min(cellCount - 1, Math.floor(point.y / NORMALIZED_SIZE * cellCount)));
-      cells.add(`${x2}:${y}`);
-    });
-    return cells;
-  }
-  function toPattern(strokes) {
-    return strokes.map((stroke) => stroke.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y)).map((point) => ({
-      x: Math.max(0, Math.min(1, point.x)) * NORMALIZED_SIZE,
-      y: Math.max(0, Math.min(1, point.y)) * NORMALIZED_SIZE
-    }))).filter((stroke) => stroke.length > 1);
-  }
-  function momentNormalize(pattern) {
-    const points = pattern.flat();
-    if (!points.length) return pattern;
-    const width = NORMALIZED_SIZE;
-    const height = NORMALIZED_SIZE;
-    const minX = Math.min(...points.map((point) => point.x));
-    const maxX = Math.max(...points.map((point) => point.x));
-    const minY = Math.min(...points.map((point) => point.y));
-    const maxY = Math.max(...points.map((point) => point.y));
-    const oldWidth = Math.max(maxX - minX, 1e-3);
-    const oldHeight = Math.max(maxY - minY, 1e-3);
-    const aspectScale = aspectPreservingScale(oldWidth, oldHeight);
-    const targetWidth = oldHeight > oldWidth ? aspectScale * width : width;
-    const targetHeight = oldHeight > oldWidth ? height : aspectScale * height;
-    const offsetX = (width - targetWidth) / 2;
-    const offsetY = (height - targetHeight) / 2;
-    const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
-    const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
-    const varianceX = points.reduce((sum, point) => sum + (point.x - centerX) ** 2, 0) / points.length;
-    const varianceY = points.reduce((sum, point) => sum + (point.y - centerY) ** 2, 0) / points.length;
-    const scaleX = finiteScale(targetWidth / (4 * Math.sqrt(varianceX)));
-    const scaleY = finiteScale(targetHeight / (4 * Math.sqrt(varianceY)));
-    return pattern.map((stroke) => stroke.map((point) => ({
-      x: clamp$2(scaleX * (point.x - centerX) + targetWidth / 2 + offsetX, 0, NORMALIZED_SIZE),
-      y: clamp$2(scaleY * (point.y - centerY) + targetHeight / 2 + offsetY, 0, NORMALIZED_SIZE)
-    })));
-  }
-  function aspectPreservingScale(width, height) {
-    const ratio = height > width ? width / height : height / width;
-    return Math.sqrt(Math.sin(Math.PI / 2 * ratio));
-  }
-  function finiteScale(value) {
-    return Number.isFinite(value) ? value : 0;
-  }
-  function extractFeatures(pattern, interval) {
-    return pattern.map((stroke) => {
-      const extracted = [];
-      let distance = 0;
-      for (let index = 0; index < stroke.length; index += 1) {
-        if (index === 0) extracted.push(stroke[0]);
-        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-        if (distance >= interval && index > 1) {
-          distance -= interval;
-          extracted.push(stroke[index]);
-        }
-      }
-      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-      return extracted;
-    });
-  }
-  function strokeCorrespondenceScore(stroke, reference) {
-    const whole = wholeWholeDistance(stroke, reference);
-    const endpoints = endPointDistance(stroke, reference) / 2;
-    const direction = directionDistance(stroke, reference) * 128;
-    const distance = whole * 0.58 + endpoints * 0.32 + direction * 0.1;
-    return clamp$2(1 - distance / 96, 0, 1);
-  }
-  function reversibleStrokeCorrespondenceScore(stroke, reference) {
-    return Math.max(
-      strokeCorrespondenceScore(stroke, reference),
-      strokeCorrespondenceScore([...stroke].reverse(), reference)
-    );
-  }
-  function wholeWholeDistance(pattern1, pattern2) {
-    const [larger, smaller] = pattern1.length >= pattern2.length ? [pattern1, pattern2] : [pattern2, pattern1];
-    if (!larger.length || !smaller.length) return NORMALIZED_SIZE;
-    let distance = 0;
-    for (let index = 0; index < smaller.length; index += 1) {
-      const largerIndex = Math.min(larger.length - 1, Math.floor(larger.length / smaller.length * index));
-      distance += manhattan(larger[largerIndex], smaller[index]);
-    }
-    return distance / smaller.length;
-  }
-  function endPointDistance(pattern1, pattern2) {
-    if (!pattern1.length || !pattern2.length) return NORMALIZED_SIZE;
-    return manhattan(pattern1[0], pattern2[0]) + manhattan(pattern1[pattern1.length - 1], pattern2[pattern2.length - 1]);
-  }
-  function directionDistance(pattern1, pattern2) {
-    const vector1 = strokeVector(pattern1);
-    const vector2 = strokeVector(pattern2);
-    const length1 = Math.hypot(vector1.x, vector1.y);
-    const length2 = Math.hypot(vector2.x, vector2.y);
-    if (!length1 || !length2) return 1;
-    const dot = (vector1.x * vector2.x + vector1.y * vector2.y) / (length1 * length2);
-    return (1 - clamp$2(dot, -1, 1)) / 2;
-  }
-  function strokeVector(stroke) {
-    return {
-      x: stroke[stroke.length - 1].x - stroke[0].x,
-      y: stroke[stroke.length - 1].y - stroke[0].y
-    };
-  }
-  function euclid(point1, point2) {
-    return Math.hypot(point1.x - point2.x, point1.y - point2.y);
-  }
-  function manhattan(point1, point2) {
-    return Math.abs(point1.x - point2.x) + Math.abs(point1.y - point2.y);
-  }
-  function clamp$2(value, min, max2) {
-    return Math.max(min, Math.min(max2, value));
-  }
-  function renderArrivalBridge(language, band, onContinue) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-bridge-screen",
-      plate: "classroom",
-      eyebrow: "bridgeEyebrow",
-      title: "bridgeTitle",
-      body: "bridgeBody"
-    });
-    panel.classList.add("academy-guide-panel");
-    const bandBadge = element("strong", "academy-band-badge");
-    bandBadge.textContent = band.toUpperCase();
-    const button = copyButton(language, "bridgeContinue", "academy-button academy-button-primary");
-    button.addEventListener("click", onContinue);
-    content.append(bandBadge, button);
-    panel.prepend(rieGuide$1(language));
-    return screen;
-  }
-  function renderOpeningMemory(language, onClose) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-memory-screen",
-      plate: "classroom",
-      title: "memoryTitle",
-      body: "memoryBody"
-    });
-    panel.classList.add("academy-guide-panel");
-    panel.prepend(rieGuide$1(language));
-    const line = element("blockquote", "academy-memory-line");
-    line.lang = "ja";
-    line.dataset.speaker = "rie";
-    line.textContent = "「こんばんは。ここ、空いていますよ。」";
-    const support = element("p", "academy-support");
-    support.lang = "en";
-    support.textContent = "“Good evening. This seat is free.”";
-    const close = copyButton(language, "memoryReturn", "academy-button academy-button-primary");
-    close.addEventListener("click", onClose);
-    content.append(line, support, close);
-    return screen;
-  }
-  function rieGuide$1(language) {
-    const cutout = element("div", "academy-guide-cutout");
-    cutout.dataset.speakerStage = "rie";
-    cutout.append(createAcademySprite({
-      characterId: "rie",
-      alt: language === "ja" ? "りえ先生" : "Rie-sensei",
-      className: "academy-guide-character academy-character-rie",
-      expressions: rieExpressionSources()
-    }));
-    return cutout;
-  }
-  function rieExpressionSources() {
-    const fallback = { still: ACADEMY_ASSETS.rie };
-    return { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback };
-  }
-  const ORIENTATION_MOCK_ITEMS = [
-    {
-      id: "orientation:knowledge:reason",
-      skill: "language-knowledge",
-      prompt: {
-        en: "Choose the form that naturally completes the sentence: 昨日は雨＿＿、出かけませんでした。",
-        ja: "自然な文になる形を選んでください：昨日は雨＿＿、出かけませんでした。"
-      },
-      options: [
-        { id: "because", label: { en: "だったので", ja: "だったので" }, correct: true },
-        { id: "although", label: { en: "なのに", ja: "なのに" }, correct: false },
-        { id: "while", label: { en: "ながら", ja: "ながら" }, correct: false }
-      ]
-    },
-    {
-      id: "orientation:reading:change",
-      skill: "reading",
-      passage: {
-        en: "The meeting was going to begin at six, but Alex’s train stopped, so everyone changed it to half past six.",
-        ja: "会議は六時に始まる予定でしたが、Alexさんの電車が止まったので、みんなで六時半に変えました。"
-      },
-      prompt: { en: "When will the meeting begin?", ja: "会議は何時に始まりますか。" },
-      options: [
-        { id: "six", label: { en: "6:00", ja: "六時" }, correct: false },
-        { id: "six-thirty", label: { en: "6:30", ja: "六時半" }, correct: true },
-        { id: "cancelled", label: { en: "It was cancelled", ja: "中止になりました" }, correct: false }
-      ]
-    },
-    {
-      id: "orientation:listening:library",
-      skill: "listening",
-      spokenJapanese: "図書館は七時に閉まります。六時五十分までに本を返してください。",
-      prompt: { en: "Listen: when does the library close?", ja: "聞いてください：図書館は何時に閉まりますか。" },
-      options: [
-        { id: "six-fifty", label: { en: "6:50", ja: "六時五十分" }, correct: false },
-        { id: "seven", label: { en: "7:00", ja: "七時" }, correct: true },
-        { id: "seven-ten", label: { en: "7:10", ja: "七時十分" }, correct: false }
-      ]
-    }
-  ];
-  function scoreOrientationMock(targetBand, responses, confidence) {
-    const scoreFor = (skill) => {
-      const items = ORIENTATION_MOCK_ITEMS.filter((item) => item.skill === skill);
-      const correct = items.filter((item) => item.options.some((option) => option.id === responses[item.id] && option.correct)).length;
-      return items.length ? correct / items.length : 0;
-    };
-    const scores = {
-      "language-knowledge": scoreFor("language-knowledge"),
-      reading: scoreFor("reading"),
-      listening: scoreFor("listening"),
-      "speaking-confidence": clamp$1(confidence.speaking),
-      "writing-confidence": clamp$1(confidence.writing)
-    };
-    const receptive = (scores["language-knowledge"] + scores.reading + scores.listening) / 3;
-    const retreat = receptive >= 2 / 3 ? 0 : receptive >= 1 / 3 ? 1 : 2;
-    return {
-      assessmentId: "academy-orientation-mock:v1",
-      targetBand,
-      itemIds: ORIENTATION_MOCK_ITEMS.map((item) => item.id),
-      scores,
-      recommendedBand: lowerBand(targetBand, retreat),
-      calibration: "vertical-slice"
-    };
-  }
-  function lowerBand(target, steps) {
-    const bands = ["n5", "n4", "n3", "n2", "n1"];
-    return bands[Math.max(0, bands.indexOf(target) - steps)];
-  }
-  function clamp$1(value) {
-    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
-  }
-  const STARTS = [
-    ["lesson-zero", "startLessonZero", "startLessonZeroBody"],
-    ["manual-band", "startManual", "startManualBody"],
-    ["placement-mock", "startMock", "startMockBody"]
-  ];
-  const BANDS = [
-    ["n5", "bandN5"],
-    ["n4", "bandN4"],
-    ["n3", "bandN3"],
-    ["n2", "bandN2"],
-    ["n1", "bandN1"]
-  ];
-  function renderStartScreen(language, onChoose) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-start-screen",
-      plate: "classroom",
-      eyebrow: "startEyebrow",
-      title: "startTitle",
-      body: "startBody"
-    });
-    panel.classList.add("academy-guide-panel");
-    panel.prepend(rieGuide(language));
-    const choices = element("div", "academy-route-choices");
-    STARTS.forEach(([route, title, body]) => {
-      const button = copyButton(language, title, "academy-route-choice");
-      button.dataset.startRoute = route;
-      button.append(copyElement("span", "academy-route-description", language, body));
-      button.addEventListener("click", () => onChoose(route));
-      choices.append(button);
-    });
-    content.append(choices);
-    return screen;
-  }
-  function renderManualBandScreen(language, onChoose, onBack) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-band-screen",
-      plate: "classroom",
-      title: "manualTitle",
-      body: "manualBody"
-    });
-    panel.classList.add("academy-guide-panel");
-    panel.prepend(rieGuide(language));
-    const choices = element("div", "academy-band-choices");
-    BANDS.forEach(([band, label]) => {
-      const button = copyButton(language, label, "academy-band-choice");
-      button.dataset.band = band;
-      button.addEventListener("click", () => onChoose(band));
-      choices.append(button);
-    });
-    const back = copyButton(language, "back", "academy-button academy-button-quiet");
-    back.addEventListener("click", onBack);
-    content.append(choices, back);
-    return screen;
-  }
-  function rieGuide(language) {
-    const cutout = element("div", "academy-guide-cutout");
-    cutout.append(createAcademySprite({
-      characterId: "rie",
-      alt: language === "ja" ? "りえ先生" : "Rie-sensei",
-      className: "academy-guide-character",
-      expressions: { neutral: { still: ACADEMY_ASSETS.rie } }
-    }));
-    return cutout;
-  }
-  function renderPlacementMockScreen(options) {
-    const { screen, content } = screenFrame({
-      language: options.language,
-      className: "academy-placement-screen",
-      plate: "classroom",
-      title: "mockTitle",
-      body: "mockBody"
-    });
-    const form = element("form", "academy-form academy-placement-form");
-    let playback = null;
-    let playbackRequest = 0;
-    let disposed = false;
-    const target = bandSelect(options.language);
-    form.append(target.fieldset);
-    ORIENTATION_MOCK_ITEMS.forEach((item) => {
-      const fieldset = element("fieldset", "academy-mock-item");
-      fieldset.dataset.mockItem = item.id;
-      fieldset.setAttribute("aria-label", item.prompt[options.language]);
-      const legend = localizedElement("legend", "academy-mock-prompt", options.language, item.prompt);
-      fieldset.append(legend);
-      if (item.passage) fieldset.append(localizedElement("p", "academy-mock-passage", "ja", item.passage));
-      if (item.spokenJapanese) {
-        const play = copyButton(options.language, "mockPlayAudio", "academy-button academy-button-secondary");
-        const audioError = element("span", "academy-field-error");
-        play.addEventListener("click", () => {
-          const request2 = ++playbackRequest;
-          playback?.dispose();
-          playback = null;
-          audioError.textContent = "";
-          play.disabled = true;
-          void options.pronunciation.play(item.spokenJapanese).then((active) => {
-            if (disposed || request2 !== playbackRequest) {
-              active.dispose();
-              return;
-            }
-            playback = active;
-          }).catch(() => {
-            if (!disposed && request2 === playbackRequest) {
-              audioError.textContent = academyText(options.language, "mockAudioUnavailable");
-            }
-          }).finally(() => {
-            if (!disposed && request2 === playbackRequest) play.disabled = false;
-          });
-        });
-        fieldset.append(play, audioError);
-      }
-      const choices = element("div", "academy-mock-options");
-      item.options.forEach((option) => {
-        const label = element("label", "academy-mock-option");
-        const input2 = document.createElement("input");
-        input2.type = "radio";
-        input2.name = item.id;
-        input2.value = option.id;
-        input2.required = true;
-        input2.setAttribute("aria-label", option.label.ja);
-        label.append(input2, localizedElement("span", "academy-mock-option-copy", "ja", option.label));
-        choices.append(label);
-      });
-      fieldset.append(choices);
-      form.append(fieldset);
-    });
-    const confidence = element("div", "academy-confidence-grid");
-    const speaking = confidenceSelect(options.language, "mockSpeakingConfidence", "speaking");
-    const writing = confidenceSelect(options.language, "mockWritingConfidence", "writing");
-    confidence.append(speaking.label, writing.label);
-    const feedback = element("div", "academy-form-feedback");
-    const submit = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
-    submit.type = "submit";
-    const back = copyButton(options.language, "back", "academy-button academy-button-quiet");
-    back.addEventListener("click", options.onBack);
-    form.append(confidence, feedback, submit, back);
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (!form.reportValidity()) {
-        feedback.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
-        return;
-      }
-      const values = new FormData(form);
-      const responses = Object.fromEntries(ORIENTATION_MOCK_ITEMS.map((item) => [item.id, String(values.get(item.id) ?? "")]));
-      options.onResult(scoreOrientationMock(
-        target.select.value,
-        responses,
-        { speaking: Number(speaking.select.value), writing: Number(writing.select.value) }
-      ));
-    });
-    content.append(form);
-    screen.addEventListener("academy:dispose", () => {
-      disposed = true;
-      playbackRequest += 1;
-      playback?.dispose();
-    }, { once: true });
-    return screen;
-  }
-  function renderPlacementResultScreen(options) {
-    const { screen, content } = screenFrame({
-      language: options.language,
-      className: "academy-placement-result-screen",
-      plate: "classroom",
-      title: "mockResultTitle",
-      body: "mockBody"
-    });
-    const scores = element("dl", "academy-score-grid");
-    const rows = [
-      ["mockKnowledge", options.result.scores["language-knowledge"]],
-      ["mockReading", options.result.scores.reading],
-      ["mockListening", options.result.scores.listening],
-      ["mockProduction", (options.result.scores["speaking-confidence"] + options.result.scores["writing-confidence"]) / 2]
-    ];
-    rows.forEach(([key, value]) => {
-      scores.append(copyElement("dt", "", options.language, key), scoreBar(value, options.language));
-    });
-    const recommendation = element("div", "academy-recommendation");
-    recommendation.append(
-      copyElement("span", "academy-eyebrow", options.language, "mockRecommendation"),
-      element("strong", "academy-recommendation-band")
-    );
-    const band = recommendation.querySelector("strong");
-    if (band) band.textContent = options.result.recommendedBand.toUpperCase();
-    const accept = copyButton(options.language, "mockUseRecommendation", "academy-button academy-button-primary");
-    accept.addEventListener("click", options.onAccept);
-    const choose = copyButton(options.language, "mockChooseMyself", "academy-button academy-button-secondary");
-    choose.addEventListener("click", options.onChoose);
-    content.append(scores, recommendation, accept, choose);
-    return screen;
-  }
-  function bandSelect(language) {
-    const fieldset = element("fieldset", "academy-target-band");
-    fieldset.setAttribute("aria-label", academyText(language, "mockTargetLegend"));
-    fieldset.append(copyElement("legend", "academy-label", language, "mockTargetLegend"));
-    const select2 = element("select", "academy-input");
-    select2.setAttribute("aria-label", academyText(language, "mockTargetLegend"));
-    BANDS.forEach(([value, key]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = academyText(language, key);
-      if (value === "n4") option.selected = true;
-      select2.append(option);
-    });
-    fieldset.append(select2);
-    return { fieldset, select: select2 };
-  }
-  function confidenceSelect(language, key, name) {
-    const label = copyElement("label", "academy-label", language, key);
-    const select2 = element("select", "academy-input");
-    select2.name = name;
-    select2.setAttribute("aria-label", academyText(language, key));
-    for (let index = 0; index <= 4; index += 1) {
-      const option = document.createElement("option");
-      option.value = String(index / 4);
-      option.textContent = `${index} / 4`;
-      if (index === 2) option.selected = true;
-      select2.append(option);
-    }
-    label.append(select2);
-    return { label, select: select2 };
-  }
-  function scoreBar(value, language) {
-    const row = element("dd", "academy-score");
-    const meter = element("span", "academy-score-meter");
-    meter.style.setProperty("--academy-score", String(value));
-    const copy = element("span", "academy-score-value");
-    copy.textContent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 0 }).format(value);
-    row.append(meter, copy);
-    return row;
-  }
-  const PORTRAITS = [
-    ["quality-2", "portraitCamera"],
-    ["quality-3", "portraitPlanner"],
-    ["quality-4", "portraitCards"],
-    ["quality-5", "portraitNotebook"]
-  ];
-  function renderProfileScreen(options) {
-    const { screen, panel, content } = screenFrame({
-      language: options.language,
-      className: "academy-profile-screen",
-      plate: "classroom",
-      title: "academyName"
-    });
-    panel.classList.add("academy-panel-with-character");
-    const rieCutout = element("div", "academy-character-cutout");
-    rieCutout.dataset.speakerStage = "rie";
-    const rie = element("img", "academy-character academy-character-rie");
-    rie.src = ACADEMY_ASSETS.rie;
-    rie.alt = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    rie.dataset.character = "rie";
-    rieCutout.append(rie);
-    panel.prepend(rieCutout);
-    const greeting = copyElement("p", "academy-rie-greeting", options.language, "rieGreeting");
-    greeting.dataset.speaker = "rie";
-    greeting.lang = "ja";
-    delete greeting.dataset.jpdbReaderSurfaceIgnore;
-    greeting.dataset.yomuRuntimeSurface = "opening-greeting";
-    const greetingSupport = copyElement("p", "academy-rie-greeting-support", options.language, "rieGreetingSupport");
-    greetingSupport.dataset.speaker = "rie";
-    const note = copyElement("p", "academy-fiction-note", options.language, "fictionNote");
-    note.dataset.speaker = "rie";
-    const form = element("form", "academy-form academy-profile-form");
-    form.id = "academy-profile-form";
-    const nameLabel = copyElement("label", "academy-label", options.language, "profileNameLabel");
-    const name = element("input", "academy-input");
-    name.name = "displayName";
-    name.required = true;
-    name.maxLength = 60;
-    name.autocomplete = "name";
-    name.setAttribute("aria-label", academyText(options.language, "profileNameLabel"));
-    name.placeholder = academyText(options.language, "profileNamePlaceholder");
-    name.value = options.profile?.displayName ?? "";
-    nameLabel.append(name);
-    const reasonLabel = copyElement("label", "academy-label", options.language, "profileReasonLabel");
-    const reason = element("textarea", "academy-input academy-textarea");
-    reason.name = "learningReason";
-    reason.required = true;
-    reason.maxLength = 500;
-    reason.setAttribute("aria-label", academyText(options.language, "profileReasonLabel"));
-    reason.placeholder = academyText(options.language, "profileReasonPlaceholder");
-    reason.value = options.profile?.learningReason ?? "";
-    reasonLabel.append(reason);
-    const portraits = element("fieldset", "academy-portrait-fieldset");
-    portraits.setAttribute("aria-label", academyText(options.language, "profilePortraitLegend"));
-    const legend = copyElement("legend", "academy-label", options.language, "profilePortraitLegend");
-    portraits.append(legend);
-    const grid = element("div", "academy-portrait-grid");
-    PORTRAITS.forEach(([id2, labelKey], index) => {
-      const label = element("label", "academy-portrait-option");
-      const input2 = document.createElement("input");
-      input2.type = "radio";
-      input2.name = "portrait";
-      input2.value = id2;
-      input2.required = true;
-      input2.setAttribute("aria-label", academyText(options.language, labelKey));
-      input2.checked = options.profile?.portraitId === id2 || !options.profile && index === 0;
-      const image = element("img", "academy-portrait-image");
-      image.src = ACADEMY_ASSETS.portraits[id2];
-      image.alt = "";
-      const caption = copyElement("span", "academy-portrait-caption", options.language, labelKey);
-      label.append(input2, image, caption);
-      grid.append(label);
-    });
-    portraits.append(grid);
-    const submit = copyButton(options.language, "profileSubmit", "academy-button academy-button-primary");
-    submit.type = "submit";
-    submit.setAttribute("form", form.id);
-    const actions = element("div", "academy-profile-actions");
-    actions.append(submit);
-    form.append(nameLabel, reasonLabel, portraits);
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const selected = new FormData(form).get("portrait");
-      if (!selected) return;
-      submit.disabled = true;
-      void Promise.resolve(options.onSubmit({
-        displayName: name.value.trim(),
-        learningReason: reason.value.trim(),
-        portraitId: selected
-      })).catch(() => {
-        submit.disabled = false;
-      });
-    });
-    content.replaceChildren(greeting, greetingSupport, note, form);
-    panel.append(actions);
-    return screen;
-  }
-  function createEnrollmentFlow(options) {
-    return new EnrollmentFlow(options);
-  }
-  class EnrollmentFlow {
-    constructor(options) {
-      this.options = options;
-      this.donationClaim = options.donationClaim ?? createDonationClaimService();
-    }
-    donationClaim;
-    async render(route, context) {
-      switch (route) {
-        case "access":
-          context.shell.replace(renderAccessScreen({
-            language: context.language,
-            onSubmit: (code) => this.openSession(code, context),
-            claim: this.donationClaim
-          }));
-          return true;
-        case "profile":
-          context.shell.replace(renderProfileScreen({
-            language: context.language,
-            profile: context.projection.profile,
-            onSubmit: (profile) => this.saveProfile(profile, context)
-          }));
-          return true;
-        case "rie-unlock":
-          context.shell.replace(renderRieUnlockScreen(context.language, () => void context.go("start")));
-          return true;
-        case "start":
-          context.shell.replace(renderStartScreen(context.language, (choice) => void this.chooseStart(choice, context)));
-          return true;
-        case "manual-band":
-          context.shell.replace(renderManualBandScreen(
-            context.language,
-            (band) => void this.chooseBand(band, context),
-            () => void context.back()
-          ));
-          return true;
-        case "placement-mock":
-          context.shell.replace(renderPlacementMockScreen({
-            language: context.language,
-            pronunciation: this.options.pronunciation,
-            onResult: (result) => void this.savePlacement(result, context),
-            onBack: () => void context.back()
-          }));
-          return true;
-        case "placement-result":
-          this.renderPlacementResult(context);
-          return true;
-        case "arrival-bridge":
-          context.shell.replace(renderArrivalBridge(
-            context.language,
-            requiredBand(context),
-            () => void context.go("class")
-          ));
-          return true;
-        default:
-          return false;
-      }
-    }
-    async openSession(code, context) {
-      const session = await this.options.access.exchange(code);
-      await context.go(context.projection.profile ? "start" : "profile", { session });
-    }
-    async saveProfile(profile, context) {
-      const { firstIntroduction } = await this.options.evidence.saveProfile(profile);
-      await context.go(firstIntroduction ? "rie-unlock" : "start");
-    }
-    async chooseStart(route, context) {
-      if (route === "manual-band") return context.go("manual-band", { placementOverride: false });
-      if (route === "placement-mock") return context.go("placement-mock", { placementOverride: false });
-      await this.options.evidence.chooseCurriculumEntry({ route: "lesson-zero" });
-      await context.go("lesson-overview", {
-        selectedBand: void 0,
-        lessonId: "lesson:foundation-00",
-        sectionId: void 0,
-        activityId: void 0
-      });
-    }
-    async chooseBand(band, context) {
-      const fromPlacement = context.checkpoint.placementOverride === true;
-      await this.options.evidence.chooseCurriculumEntry({
-        route: fromPlacement ? "placement-mock" : "manual-band",
-        band,
-        ...fromPlacement ? { recommendationAccepted: false } : {}
-      });
-      await context.go("arrival-bridge", { selectedBand: band, placementOverride: false });
-    }
-    async savePlacement(result, context) {
-      await this.options.evidence.savePlacement(result);
-      await context.go("placement-result", { selectedBand: result.recommendedBand });
-    }
-    renderPlacementResult(context) {
-      const placement = context.projection.latestPlacement;
-      if (!placement) {
-        void context.go("placement-mock");
-        return;
-      }
-      const result = {
-        assessmentId: "academy-orientation-mock:v1",
-        targetBand: placement.targetBand,
-        itemIds: placement.itemIds,
-        scores: placement.scores,
-        recommendedBand: placement.recommendedBand,
-        calibration: "vertical-slice"
-      };
-      context.shell.replace(renderPlacementResultScreen({
-        language: context.language,
-        result,
-        onAccept: () => void this.acceptPlacement(result, context),
-        onChoose: () => void context.go("manual-band", { placementOverride: true })
-      }));
-    }
-    async acceptPlacement(result, context) {
-      await this.options.evidence.chooseCurriculumEntry({
-        route: "placement-mock",
-        band: result.recommendedBand,
-        recommendationAccepted: true
-      });
-      await context.go("arrival-bridge", { selectedBand: result.recommendedBand, placementOverride: false });
-    }
-  }
-  function requiredBand(context) {
-    const band = context.checkpoint.selectedBand;
-    if (!band) throw new Error("Arrival bridge requires a selected JLPT band.");
-    return band;
-  }
-  let defaultLoad$1 = null;
-  function loadLessonZeroContent(fetcher = fetch) {
-    if (fetcher !== fetch) return load$1(fetcher);
-    defaultLoad$1 ??= load$1(fetcher).catch((error) => {
-      defaultLoad$1 = null;
-      throw error;
-    });
-    return defaultLoad$1;
-  }
-  async function load$1(fetcher) {
-    const response = await fetcher(LESSON_ZERO_CONTENT_URL);
-    if (!response.ok) {
-      throw new Error(`Could not load complete Lesson 0: ${LESSON_ZERO_CONTENT_URL} (${response.status})`);
-    }
-    const data = validateLessonZeroPackage(await response.json());
-    return {
-      sourceLibrary: createSourceLibrary(data.sourceLibrary),
-      lesson: structuredClone(data.lesson),
-      grounding: validateLessonZeroGrounding(data)
-    };
-  }
-  function createLessonOverviewModel(definition, grounding, state) {
-    validateDefinition(definition);
-    if (grounding.lessonId !== definition.id) throw new TypeError("Lesson overview grounding belongs to another lesson.");
-    const groundedActivityIds = new Set(grounding.activities.map((activity) => activity.id));
-    const authoredActivityIds = definition.sections.flatMap((section) => section.activityIds);
-    if (groundedActivityIds.size !== authoredActivityIds.length || authoredActivityIds.some((activityId) => !groundedActivityIds.has(activityId))) {
-      throw new TypeError("Lesson overview and grounding activity coverage do not match.");
-    }
-    rejectUnknownState(state, groundedActivityIds);
-    const sections = definition.sections.map((section) => sectionModel(section, state));
-    const allRuntimeBound = sections.every((section) => section.runtimeStatus === "bound");
-    const blockerIds = allRuntimeBound ? [...grounding.blockerIds] : [.../* @__PURE__ */ new Set([...grounding.blockerIds, "blocker:lesson-runtime-bindings"])].sort();
-    const current = sections.find((section) => section.learningStatus !== "complete" && section.nextActivityId) ?? sections.find((section) => section.learningStatus !== "complete");
-    return {
-      lessonId: definition.id,
-      levelBand: definition.levelBand,
-      estimatedMinutes: { ...definition.estimatedMinutes },
-      presentation: structuredClone(definition.overview),
-      releaseStatus: blockerIds.length ? "review-blocked" : "playable",
-      blockerIds,
-      sections,
-      progress: {
-        completedSections: sections.filter((section) => section.learningStatus === "complete").length,
-        totalSections: sections.length
-      },
-      ...current ? { currentSectionId: current.id } : {},
-      ...current?.nextActivityId ? { resumeActivityId: current.nextActivityId } : {}
-    };
-  }
-  function sectionModel(section, state) {
-    const boundActivityIds = section.activityIds.filter((activityId) => state.boundActivityIds.has(activityId));
-    const runtimeStatus = boundActivityIds.length === 0 ? "not-bound" : boundActivityIds.length === section.activityIds.length ? "bound" : "partial";
-    const completed = section.activityIds.filter((activityId) => state.completedActivityIds.has(activityId));
-    const review = section.activityIds.some((activityId) => state.needsReviewActivityIds.has(activityId));
-    const attempted = section.activityIds.some((activityId) => state.attemptedActivityIds.has(activityId));
-    const learningStatus = completed.length === section.activityIds.length ? "complete" : review ? "needs-review" : attempted ? "in-progress" : "not-started";
-    const nextActivityId = boundActivityIds.find((activityId) => !state.completedActivityIds.has(activityId));
-    return {
-      id: section.id,
-      order: section.order,
-      title: { ...section.title },
-      outcomeIds: [...section.outcomeIds],
-      activityIds: [...section.activityIds],
-      boundActivityIds,
-      runtimeStatus,
-      learningStatus,
-      ...nextActivityId ? { nextActivityId } : {}
-    };
-  }
-  function validateDefinition(definition) {
-    if (!definition.id.trim() || !definition.levelBand.trim()) throw new TypeError("Lesson overview needs an id and level.");
-    if (!Number.isSafeInteger(definition.estimatedMinutes.minimum) || !Number.isSafeInteger(definition.estimatedMinutes.maximum) || definition.estimatedMinutes.minimum <= 0 || definition.estimatedMinutes.maximum < definition.estimatedMinutes.minimum) {
-      throw new TypeError("Lesson overview has invalid estimated minutes.");
-    }
-    if (!definition.sections.length) throw new TypeError("Lesson overview needs sections.");
-    validatePresentation(definition.overview);
-    const sectionIds = /* @__PURE__ */ new Set();
-    const activityIds = /* @__PURE__ */ new Set();
-    definition.sections.forEach((section, index) => {
-      if (!section.id.trim() || sectionIds.has(section.id)) throw new TypeError("Lesson overview has invalid section ids.");
-      sectionIds.add(section.id);
-      if (section.order !== index + 1) throw new TypeError(`Lesson overview section ${section.id} has the wrong order.`);
-      if (!section.title.en.trim() || !section.title.ja.trim() || !section.outcomeIds.length || !section.activityIds.length) {
-        throw new TypeError(`Lesson overview section ${section.id} is incomplete.`);
-      }
-      for (const activityId of section.activityIds) {
-        if (!activityId.trim() || activityIds.has(activityId)) throw new TypeError(`Duplicate lesson activity ${activityId}.`);
-        activityIds.add(activityId);
-      }
-    });
-    for (const material of definition.overview.materials) {
-      for (const activityId of material.activityIds) {
-        if (!activityIds.has(activityId)) {
-          throw new TypeError(`Lesson overview material ${material.id} references unknown activity ${activityId}.`);
-        }
-      }
-    }
-  }
-  function validatePresentation(overview) {
-    localized(overview.title, "title");
-    localized(overview.summary, "summary");
-    if (!overview.goals.length) throw new TypeError("Lesson overview needs learning goals.");
-    overview.goals.forEach((goal, index) => localized(goal, `goal ${index + 1}`));
-    uniqueNonEmpty(overview.peopleIds, "people");
-    uniqueNonEmpty(overview.locationIds, "locations");
-    if (!overview.materials.length) throw new TypeError("Lesson overview needs materials.");
-    const materialIds = /* @__PURE__ */ new Set();
-    for (const material of overview.materials) {
-      if (!material.id.trim() || materialIds.has(material.id)) throw new TypeError("Lesson overview has invalid material ids.");
-      materialIds.add(material.id);
-      if (!material.kind.trim()) throw new TypeError(`Lesson overview material ${material.id} needs a kind.`);
-      localized(material.title, `material ${material.id}`);
-      if (!material.activityIds.length) throw new TypeError(`Lesson overview material ${material.id} needs activities.`);
-      if (material.state === "release-blocked" && !material.blockerId?.trim()) {
-        throw new TypeError(`Blocked lesson overview material ${material.id} needs a blocker.`);
-      }
-      if (material.state === "ready" && material.blockerId) {
-        throw new TypeError(`Ready lesson overview material ${material.id} cannot retain a blocker.`);
-      }
-    }
-  }
-  function localized(value, label) {
-    if (!value?.en?.trim() || !value.ja?.trim()) throw new TypeError(`Lesson overview ${label} needs English and Japanese.`);
-  }
-  function uniqueNonEmpty(values, label) {
-    if (!values.length || values.some((value) => !value.trim()) || new Set(values).size !== values.length) {
-      throw new TypeError(`Lesson overview needs unique ${label}.`);
-    }
-  }
-  function rejectUnknownState(state, activityIds) {
-    for (const [label, values] of Object.entries(state)) {
-      for (const activityId of values) {
-        if (!activityIds.has(activityId)) throw new TypeError(`${label} contains unknown activity ${activityId}.`);
-      }
-    }
-    for (const activityId of state.completedActivityIds) {
-      if (!state.attemptedActivityIds.has(activityId)) throw new TypeError(`Completed activity ${activityId} has no attempt evidence.`);
-    }
-  }
-  function renderLessonOverviewScreen(options) {
-    const { language, model } = options;
-    const screen = element("section", "academy-screen academy-lesson-overview-screen");
-    screen.dataset.academyScreen = "lesson-overview";
-    screen.dataset.lessonId = model.lessonId;
-    screen.dataset.releaseStatus = model.releaseStatus;
-    const paper = element("article", "academy-lesson-overview-paper");
-    const header = element("header", "academy-lesson-overview-header");
-    const back = element("button", "academy-lesson-overview-back");
-    back.type = "button";
-    back.textContent = `← ${academyText(language, "lessonOverviewBack")}`;
-    back.addEventListener("click", options.onBack);
-    const heading = element("div", "academy-lesson-overview-heading");
-    const title = element("h1", "academy-lesson-overview-title");
-    title.textContent = model.presentation.title[language];
-    const summary = element("p", "academy-lesson-overview-summary");
-    summary.textContent = model.presentation.summary[language];
-    const time = element("p", "academy-lesson-overview-time");
-    time.textContent = language === "ja" ? `${model.estimatedMinutes.minimum}〜${model.estimatedMinutes.maximum}分` : `${model.estimatedMinutes.minimum}–${model.estimatedMinutes.maximum} min`;
-    heading.append(title, summary, time);
-    header.append(back, heading, progressBlock(options));
-    const main = element("div", "academy-lesson-overview-body");
-    const goals = element("section", "academy-lesson-overview-goals");
-    goals.append(sectionTitle(language, "lessonOverviewGoals"));
-    const goalList = element("ul", "academy-lesson-overview-goal-list");
-    for (const goal of model.presentation.goals) {
-      const item = element("li", "academy-lesson-overview-goal");
-      item.textContent = goal[language];
-      goalList.append(item);
-    }
-    goals.append(goalList);
-    const sections = element("section", "academy-lesson-overview-sections");
-    sections.append(sectionTitle(language, "lessonOverviewSections"));
-    const sectionList = element("ol", "academy-lesson-overview-section-list");
-    model.sections.forEach((section) => sectionList.append(sectionRow(section, options)));
-    sections.append(sectionList);
-    main.append(goals, sections);
-    const margin = element("footer", "academy-lesson-overview-margin");
-    const readyMaterials = model.presentation.materials.filter((material) => material.state === "ready");
-    if (readyMaterials.length) margin.append(noteLine(
-      academyText(language, "lessonOverviewMaterials"),
-      readyMaterials.map((material) => material.title[language]).join(" · "),
-      "materials"
-    ));
-    margin.append(noteLine(
-      academyText(language, "lessonOverviewPeople"),
-      model.presentation.peopleIds.map((id2) => personName(id2, language)).join(" · "),
-      "people"
-    ));
-    margin.append(noteLine("", model.presentation.locationIds.map(locationName).join(" · "), "locations"));
-    paper.append(header, main, margin);
-    screen.append(academyBackgroundPicture("classroom"), paper);
-    return screen;
-  }
-  function progressBlock(options) {
-    const { language, model } = options;
-    const block = element("section", "academy-lesson-overview-progress");
-    const label = element("span", "academy-lesson-overview-progress-label");
-    label.textContent = academyText(language, "lessonOverviewProgress");
-    const value = element("strong", "academy-lesson-overview-progress-value");
-    value.textContent = `${model.progress.completedSections} / ${model.progress.totalSections}`;
-    const meter = document.createElement("progress");
-    meter.className = "academy-lesson-overview-meter";
-    meter.max = model.progress.totalSections;
-    meter.value = model.progress.completedSections;
-    meter.setAttribute("aria-label", academyText(language, "lessonOverviewProgress"));
-    block.append(label, value, meter);
-    return block;
-  }
-  function sectionRow(section, options) {
-    const { language, model } = options;
-    const item = element("li", "academy-lesson-overview-section");
-    item.dataset.sectionId = section.id;
-    item.dataset.learningStatus = section.learningStatus;
-    item.dataset.runtimeStatus = section.runtimeStatus;
-    if (section.id === model.currentSectionId) item.setAttribute("aria-current", "step");
-    const number = element("span", "academy-lesson-overview-section-number");
-    number.textContent = String(section.order).padStart(2, "0");
-    const copy = element("span", "academy-lesson-overview-section-copy");
-    const title = element("strong", "academy-lesson-overview-section-title");
-    title.textContent = section.title[language];
-    const status = element("span", "academy-lesson-overview-section-status");
-    status.textContent = statusLabel(section.learningStatus, language);
-    copy.append(title, status);
-    const target = section.nextActivityId ?? section.boundActivityIds[0];
-    const canOpen = model.releaseStatus === "playable" && Boolean(target);
-    if (canOpen && target) {
-      const action = element("button", "academy-lesson-overview-section-action");
-      action.type = "button";
-      action.textContent = actionLabel(section.learningStatus, language);
-      action.setAttribute("aria-label", `${action.textContent}: ${section.title[language]}`);
-      action.addEventListener("click", () => options.onOpenActivity(target));
-      item.append(number, copy, action);
-    } else {
-      item.append(number, copy);
-    }
-    return item;
-  }
-  function sectionTitle(language, key) {
-    const title = element("h2", "academy-lesson-overview-kicker");
-    title.textContent = academyText(language, key);
-    return title;
-  }
-  function noteLine(labelText, bodyText, kind) {
-    const line = element("p", "academy-lesson-overview-note");
-    line.dataset.noteKind = kind;
-    if (labelText) {
-      const label = element("strong", "academy-lesson-overview-note-label");
-      label.textContent = labelText;
-      line.append(label);
-    }
-    const body = element("span", "academy-lesson-overview-note-body");
-    body.textContent = bodyText;
-    line.append(body);
-    return line;
-  }
-  function statusLabel(status, language) {
-    const key = {
-      "not-started": "lessonOverviewNotStarted",
-      "in-progress": "lessonOverviewInProgress",
-      "needs-review": "lessonOverviewNeedsReview",
-      complete: "lessonOverviewDone"
-    };
-    return academyText(language, key[status]);
-  }
-  function actionLabel(status, language) {
-    const key = status === "not-started" ? "lessonOverviewStart" : status === "needs-review" || status === "complete" ? "lessonOverviewReview" : "lessonOverviewResume";
-    return academyText(language, key);
-  }
-  function personName(id2, language) {
-    const person = ACADEMY_CAST.find((candidate) => candidate.id === id2);
-    if (!person) throw new TypeError(`Lesson overview references unknown person ${id2}.`);
-    return "teacherSalutation" in person ? person.teacherSalutation[language] : person.firstName;
-  }
-  function locationName(id2) {
-    const name = {
-      "location:classroom": "教室",
-      "location:language-lab": "LL教室",
-      "location:library": "図書館",
-      "location:classroom-entrance": "教室前"
-    }[id2];
-    if (!name) throw new TypeError(`Unknown lesson location ${id2}.`);
-    return name;
-  }
-  function renderLoadingScreen(language, _online) {
-    const { screen } = screenFrame({
-      language,
-      className: "academy-loading-screen",
-      plate: "entrance",
-      title: "loading"
-    });
-    return screen;
-  }
-  const LESSON_ZERO_ID = "lesson:foundation-00";
-  function createLessonFlow() {
-    return new LessonFlow();
-  }
-  class LessonFlow {
-    async render(route, context) {
-      if (route !== "lesson-overview") return false;
-      await this.renderOverview(context);
-      return true;
-    }
-    async renderOverview(context) {
-      const lessonId = context.checkpoint.lessonId ?? LESSON_ZERO_ID;
-      if (lessonId !== LESSON_ZERO_ID) {
-        if (context.checkpoint.routeHistory.length) await context.back();
-        else await context.go("class", { lessonId: void 0, sectionId: void 0, activityId: void 0 });
-        return;
-      }
-      context.shell.replace(renderLoadingScreen(context.language));
-      const content = await loadLessonZeroContent();
-      const model = createLessonOverviewModel(
-        content.lesson,
-        content.grounding,
-        overviewState(content.lesson.activities.map((activity) => activity.id), context.projection)
-      );
-      context.shell.replace(renderLessonOverviewScreen({
-        language: context.language,
-        model,
-        onBack: () => void context.back(),
-        // No action is rendered while the grounded lesson remains blocked.
-        onOpenActivity: (activityId) => void context.go("source-activity", {
-          lessonId: LESSON_ZERO_ID,
-          activityId,
-          selectedFork: activityId === "activity:lesson-zero-reconstruct-repair" ? "text" : context.checkpoint.selectedFork
-        })
-      }));
-    }
-  }
-  function overviewState(authoredActivityIds, projection) {
-    const authored = new Set(authoredActivityIds);
-    const attemptedActivityIds = /* @__PURE__ */ new Set();
-    const completedActivityIds = /* @__PURE__ */ new Set();
-    const needsReviewActivityIds = /* @__PURE__ */ new Set();
-    for (const activity of Object.values(projection.activities)) {
-      if (!authored.has(activity.activityId)) continue;
-      attemptedActivityIds.add(activity.activityId);
-      if (activity.lastOutcome === "pass") completedActivityIds.add(activity.activityId);
-      else needsReviewActivityIds.add(activity.activityId);
-    }
-    return {
-      // Runtime bindings remain explicit. The accepted Stage 1 repair is the
-      // sole current binding; it cannot make the complete lesson playable.
-      boundActivityIds: /* @__PURE__ */ new Set(["activity:lesson-zero-reconstruct-repair"]),
-      attemptedActivityIds,
-      completedActivityIds,
-      needsReviewActivityIds
-    };
-  }
-  const CANONICAL_CLASS_WEEK_INDEX_SHA256 = "966519845a8048229e8d6e158b9d620fb8c9cf0aba11db53690ef10e479a343b";
-  const CANONICAL_CLASS_WEEK_IDS = [
-    "orientation",
-    "l1-kickoff",
-    "l1-l01",
-    "l1-l02",
-    "l1-l03",
-    "l1-l04",
-    "l1-l05",
-    "l1-l06",
-    "l1-l07",
-    "l1-l08",
-    "l1-l09",
-    "l1-l10",
-    "l1-hiragana-1",
-    "l1-hiragana-2",
-    "l1-hiragana-3",
-    "l1-hiragana-4",
-    "l1-hiragana-5",
-    "l1-hiragana-6",
-    "l1-hiragana-7",
-    "l1plus-kickoff",
-    "l1plus-l01",
-    "l1plus-l02",
-    "l1plus-l03",
-    "l1plus-l04",
-    "l1plus-l05",
-    "l1plus-l06",
-    "l1plus-l07",
-    "l1plus-l08",
-    "l1plus-l09",
-    "l1plus-l10",
-    "l1plus-summer-homework",
-    "l1plus-katakana-1",
-    "l1plus-katakana-2",
-    "l1plus-katakana-3",
-    "l1plus-katakana-4",
-    "l1plus-katakana-5",
-    "l2plus-kickoff",
-    "l2plus-l01",
-    "l2plus-l02",
-    "l2plus-l03",
-    "l2plus-l04",
-    "l2plus-l05",
-    "l2plus-l06",
-    "l2plus-l07",
-    "l2plus-l08",
-    "l2plus-l09",
-    "l2plus-l10",
-    "l2plus-kanji-4",
-    "l3-2-kickoff",
-    "l3-2-selfstudy-ch27",
-    "l3-2-l01",
-    "l3-2-l02",
-    "l3-2-l03",
-    "l3-2-l04",
-    "l3-2-l05",
-    "l3-2-l06",
-    "l3-2-l07",
-    "l3-2-prestudy-volitional",
-    "l3-2-l08",
-    "l3-2-l09",
-    "l3-2-l10",
-    "l3-2-kanji-6",
-    "l3plus-kickoff",
-    "l3plus-l01",
-    "l3plus-l02",
-    "l3plus-l03",
-    "l3plus-l04",
-    "l3plus-l05",
-    "l3plus-l06",
-    "l3plus-l07",
-    "l3plus-l08",
-    "l3plus-l09",
-    "l3plus-kanji-7"
-  ];
-  const CLASSMATE_IDS = ACADEMY_CAST.filter((member) => member.category === "classmate").map((member) => member.id);
-  const CLASSMATE_SPECIALTIES = new Set(
-    CLASSMATE_IDS.flatMap((id2) => [
-      ...ACADEMY_CAST_SPECIALTIES[id2] ?? []
-    ])
-  );
-  const EXPECTED_POLICY = Object.freeze({
-    maximumPrimaryShare: 0.18,
-    maximumAppearanceShare: 0.16,
-    maximumTopTwoAppearanceShare: 0.25,
-    maximumConsecutivePrimaryWeeks: 2
-  });
-  function validateClassWeekCastPlan(value) {
-    const plan = record(value, "class-week cast plan");
-    exactKeys(plan, [
-      "schema",
-      "contentVersion",
-      "scope",
-      "runtimeStatus",
-      "authorshipStatus",
-      "sourceIndex",
-      "concentrationPolicy",
-      "weeks"
-    ], "class-week cast plan");
-    if (plan.schema !== "yomu-academy.class-week-cast-plan.v1") fail("Class-week cast plan has the wrong schema.");
-    if (plan.contentVersion !== "1.0.0") fail("Class-week cast plan has the wrong content version.");
-    if (plan.scope !== "appearance-planning" || plan.runtimeStatus !== "not-bound" || plan.authorshipStatus !== "planning-only") {
-      fail("Class-week cast plan must not claim runtime, authored, or playable status.");
-    }
-    validateSourceIndex(plan.sourceIndex);
-    validateConcentrationPolicy(plan.concentrationPolicy);
-    const weeks = array(plan.weeks, "class-week cast plan weeks");
-    if (weeks.length !== CANONICAL_CLASS_WEEK_IDS.length) fail("Class-week cast plan must cover all 73 canonical weeks.");
-    const primaryCounts = /* @__PURE__ */ new Map();
-    const appearanceCounts = /* @__PURE__ */ new Map();
-    let assignedWeekCount = 0;
-    let previousPrimary = null;
-    let consecutivePrimary = 0;
-    for (const [order, week] of weeks.entries()) {
-      validateWeekIdentity(week, order);
-      if (week.status === "review-required") {
-        validateReviewRequiredWeek(week);
-        previousPrimary = null;
-        consecutivePrimary = 0;
-        continue;
-      }
-      if (week.status !== "source-backed") fail(`Week ${week.weekId} has an unknown appearance status.`);
-      assignedWeekCount += 1;
-      validateAssignedWeek(week);
-      const appearances = [week.primary, ...week.supporting];
-      primaryCounts.set(week.primary.id, (primaryCounts.get(week.primary.id) ?? 0) + 1);
-      for (const appearance of appearances) {
-        appearanceCounts.set(appearance.id, (appearanceCounts.get(appearance.id) ?? 0) + 1);
-      }
-      if (previousPrimary === week.primary.id) consecutivePrimary += 1;
-      else consecutivePrimary = 1;
-      previousPrimary = week.primary.id;
-      if (consecutivePrimary > EXPECTED_POLICY.maximumConsecutivePrimaryWeeks) {
-        fail(`${week.primary.firstName} is primary for too many consecutive source-backed weeks.`);
-      }
-    }
-    validateClassmateReach(primaryCounts, appearanceCounts);
-    validateConcentration(primaryCounts, appearanceCounts, assignedWeekCount);
-    return structuredClone(plan);
-  }
-  function validateConcentrationPolicy(policy) {
-    const candidate = record(policy, "concentration policy");
-    exactKeys(candidate, Object.keys(EXPECTED_POLICY), "concentration policy");
-    for (const [key, expected] of Object.entries(EXPECTED_POLICY)) {
-      if (candidate[key] !== expected) {
-        fail("Class-week cast concentration policy may not be loosened in content.");
-      }
-    }
-  }
-  function validateSourceIndex(source) {
-    const index = record(source, "source index");
-    exactKeys(index, ["donor", "file", "weekCount", "sha256"], "source index");
-    if (index.donor !== "academy-rebuild-20260711" || index.file !== "public/academy/content/weeks/index.json" || index.weekCount !== 73) {
-      fail("Class-week cast plan is not pinned to the reviewed 73-week donor index.");
-    }
-    digest(index.sha256, "source index sha256");
-    if (index.sha256 !== CANONICAL_CLASS_WEEK_INDEX_SHA256) {
-      fail("Class-week cast plan source index hash does not match the reviewed donor index.");
-    }
-  }
-  function validateWeekIdentity(week, order) {
-    const allowedKeys = week.status === "review-required" ? ["order", "weekId", "weekKind", "source", "status", "learningSpecialties", "primary", "supporting", "reviewReason"] : ["order", "weekId", "weekKind", "source", "status", "learningSpecialties", "primary", "supporting"];
-    exactKeys(week, allowedKeys, `week ${order}`);
-    if (week.order !== order || week.weekId !== CANONICAL_CLASS_WEEK_IDS[order]) {
-      fail(`Class-week cast plan order ${order} does not match the canonical week index.`);
-    }
-    text$2(week.weekKind, `week ${week.weekId} kind`);
-    const source = record(week.source, `week ${week.weekId} source`);
-    exactKeys(source, ["donor", "file", "title", "topicEvidence", "sha256"], `week ${week.weekId} source`);
-    if (source.donor !== "academy-rebuild-20260711") fail(`Week ${week.weekId} uses an unknown donor.`);
-    const expectedFile = `public/academy/content/weeks/${String(order).padStart(3, "0")}-${week.weekId}.json`;
-    if (source.file !== expectedFile) fail(`Week ${week.weekId} has the wrong donor source file.`);
-    const title = record(source.title, `week ${week.weekId} source title`);
-    exactKeys(title, ["en", "ja"], `week ${week.weekId} source title`);
-    text$2(title.en, `week ${week.weekId} English source title`);
-    text$2(title.ja, `week ${week.weekId} Japanese source title`);
-    digest(source.sha256, `week ${week.weekId} source sha256`);
-    for (const evidence of array(source.topicEvidence, `week ${week.weekId} topic evidence`)) {
-      text$2(evidence, `week ${week.weekId} topic evidence`);
-    }
-  }
-  function validateReviewRequiredWeek(week) {
-    if (week.primary !== null || week.supporting.length !== 0 || week.learningSpecialties.length !== 0) {
-      fail(`Review-required week ${week.weekId} guesses a cast assignment.`);
-    }
-    if (week.reviewReason !== "course-outline-only" && week.reviewReason !== "no-source-topic-metadata") {
-      fail(`Review-required week ${week.weekId} lacks a precise review reason.`);
-    }
-    if (week.reviewReason === "course-outline-only" && week.source.topicEvidence.length === 0) {
-      fail(`Review-required week ${week.weekId} lost its course-outline evidence.`);
-    }
-  }
-  function validateAssignedWeek(week) {
-    if (week.reviewReason !== void 0) fail(`Source-backed week ${week.weekId} carries a review-only reason.`);
-    if (!week.source.topicEvidence.length) fail(`Source-backed week ${week.weekId} has no source topic evidence.`);
-    if (!week.learningSpecialties.length) fail(`Source-backed week ${week.weekId} has no documented learning specialty.`);
-    if (!week.primary || week.supporting.length !== 1) {
-      fail(`Source-backed week ${week.weekId} needs one primary and one supporting classmate.`);
-    }
-    const appearances = [week.primary, ...week.supporting];
-    if (new Set(appearances.map((appearance) => appearance.id)).size !== appearances.length) {
-      fail(`Source-backed week ${week.weekId} repeats the same classmate.`);
-    }
-    for (const specialty of week.learningSpecialties) {
-      if (!CLASSMATE_SPECIALTIES.has(specialty)) {
-        fail(`Source-backed week ${week.weekId} invents learning specialty ${specialty}.`);
-      }
-    }
-    const matchedSpecialties = [...new Set(appearances.map((appearance) => appearance.matchedSpecialty))].sort();
-    const declaredSpecialties = [...new Set(week.learningSpecialties)].sort();
-    if (declaredSpecialties.length !== week.learningSpecialties.length || declaredSpecialties.length !== matchedSpecialties.length || declaredSpecialties.some((specialty, index) => specialty !== matchedSpecialties[index])) {
-      fail(`Source-backed week ${week.weekId} must declare exactly its matched cast specialties.`);
-    }
-    for (const appearance of appearances) validateAppearance(appearance, week);
-  }
-  function validateAppearance(appearance, week) {
-    exactKeys(appearance, ["id", "firstName", "matchedSpecialty"], `week ${week.weekId} appearance`);
-    const member = getAcademyCastMember(appearance.id);
-    if (member.category !== "classmate") fail(`Week ${week.weekId} assigns ${member.firstName}, who is not a documented classmate.`);
-    if (appearance.firstName !== member.firstName) {
-      fail(`Week ${week.weekId} names ${appearance.id} as ${appearance.firstName}; expected ${member.firstName}.`);
-    }
-    const specialties = ACADEMY_CAST_SPECIALTIES[appearance.id] ?? [];
-    if (!specialties.includes(appearance.matchedSpecialty)) {
-      fail(`Week ${week.weekId} assigns ${member.firstName} outside their documented learning specialties.`);
-    }
-    if (!week.learningSpecialties.includes(appearance.matchedSpecialty)) {
-      fail(`Week ${week.weekId} does not bind ${member.firstName}'s specialty to the source topic.`);
-    }
-  }
-  function validateClassmateReach(primaryCounts, appearanceCounts) {
-    for (const id2 of CLASSMATE_IDS) {
-      if (!appearanceCounts.has(id2)) fail(`Class-week cast plan never represents documented classmate ${id2}.`);
-      if (!primaryCounts.has(id2)) fail(`Documented classmate ${id2} never receives a primary lesson appearance.`);
-    }
-  }
-  function validateConcentration(primaryCounts, appearanceCounts, assignedWeekCount) {
-    const totalAppearances = [...appearanceCounts.values()].reduce((sum, count) => sum + count, 0);
-    for (const [id2, count] of primaryCounts) {
-      if (count / assignedWeekCount > EXPECTED_POLICY.maximumPrimaryShare) {
-        fail(`${id2} exceeds the primary lesson concentration limit.`);
-      }
-    }
-    for (const [id2, count] of appearanceCounts) {
-      if (count / totalAppearances > EXPECTED_POLICY.maximumAppearanceShare) {
-        fail(`${id2} exceeds the total lesson appearance concentration limit.`);
-      }
-    }
-    const topTwo = [...appearanceCounts.values()].sort((left, right) => right - left).slice(0, 2).reduce((sum, count) => sum + count, 0);
-    if (topTwo / totalAppearances > EXPECTED_POLICY.maximumTopTwoAppearanceShare) {
-      fail("The two most-used classmates exceed the combined appearance concentration limit.");
-    }
-  }
-  function exactKeys(value, expected, label) {
-    const actual = Object.keys(value).sort();
-    const wanted = [...expected].sort();
-    if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
-      fail(`${label} has unsupported or missing fields.`);
-    }
-  }
-  function array(value, label) {
-    if (!Array.isArray(value)) fail(`${label} must be an array.`);
-    return value;
-  }
-  function record(value, label) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object.`);
-    return value;
-  }
-  function text$2(value, label) {
-    if (typeof value !== "string" || !value.trim()) fail(`${label} must be non-empty.`);
-    return value.trim();
-  }
-  function digest(value, label) {
-    if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) fail(`${label} must be a SHA-256 digest.`);
-  }
-  function fail(message) {
-    throw new TypeError(message);
-  }
-  const CLASS_WEEK_CAST_PLAN_URL = "/academy/content/curriculum/class-week-cast.v1.json";
-  let defaultLoad = null;
-  function loadClassWeekCastPlan(fetcher = fetch) {
-    if (fetcher !== fetch) return load(fetcher);
-    defaultLoad ??= load(fetcher).catch((error) => {
-      defaultLoad = null;
-      throw error;
-    });
-    return defaultLoad;
-  }
-  async function load(fetcher) {
-    const response = await fetcher(CLASS_WEEK_CAST_PLAN_URL);
-    if (!response.ok) throw new Error(`Could not load the class path (${response.status}).`);
-    return validateClassWeekCastPlan(await response.json());
-  }
-  async function loadClassWeekDeliveryCatalog(planValue, fetcher = fetch) {
-    const plan = validateClassWeekCastPlan(planValue);
-    const canonicalWeekIds = new Set(plan.weeks.map((week) => week.weekId));
-    const auditedByWeek = /* @__PURE__ */ new Map();
-    const resolver = createGroundedLessonResolver(fetcher);
-    for (const registration of ACADEMY_LESSON_CONTENT_REGISTRY) {
-      if (registration.kind !== "lesson" || !registration.classWeekId) continue;
-      if (!canonicalWeekIds.has(registration.classWeekId)) {
-        throw new TypeError(`Complete lesson ${registration.lessonId} names a non-canonical class Week.`);
-      }
-      const weekId = registration.classWeekId;
-      if (auditedByWeek.has(weekId)) {
-        throw new TypeError(`Class Week ${weekId} has more than one complete lesson registration.`);
-      }
-      const audit = await resolver.resolve(registration.lessonId);
-      if (audit.lessonId !== registration.lessonId) {
-        throw new TypeError(`Complete lesson registration ${registration.lessonId} resolved to another lesson.`);
-      }
-      auditedByWeek.set(weekId, { lessonId: audit.lessonId, status: audit.status });
-    }
-    const weeks = Object.freeze(plan.weeks.map((week) => {
-      const audit = auditedByWeek.get(week.weekId);
-      if (!audit) return blockedEntry(week.order, week.weekId, "planning-only");
-      if (audit.status === "review-blocked") {
-        return blockedEntry(week.order, week.weekId, "review-blocked");
-      }
-      return Object.freeze({
-        order: week.order,
-        weekId: week.weekId,
-        state: "grounded-playable",
-        lessonId: audit.lessonId
-      });
-    }));
-    const byId = new Map(weeks.map((week) => [week.weekId, week]));
-    const playableCount = weeks.filter((week) => week.state === "grounded-playable").length;
-    return Object.freeze({
-      weeks,
-      playableCount,
-      get(weekId) {
-        const week = byId.get(weekId);
-        if (!week) throw new TypeError(`Unknown canonical class Week: ${weekId}`);
-        return week;
-      }
-    });
-  }
-  function blockedEntry(order, weekId, state) {
-    return Object.freeze({ order, weekId, state, lessonId: null });
-  }
-  const NEW_TAB_COPY = {
-    en: {
-      switchReviewSource: "Switch review source",
-      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.",
-      newTabMode: "New tab mode",
-      study: "Study",
-      recall: "Recall",
-      recallAnswer: "Answer",
-      recallCheck: "Check",
-      recallCorrect: "Correct",
-      recallAccepted: "Reading accepted",
-      recallIncorrect: "Not quite",
-      recallEmpty: "Enter an answer",
-      recallPromptFallback: "Meaning",
-      studyTourIntro: "One review, a few quick checks. Grade once at the reveal.",
-      studyTourKanji: "Draw it before the answers appear.",
-      studyTourWord: "Read the word in context.",
-      studyTourRecall: "Type the missing Japanese.",
-      studyTourListen: "Listen and choose the pitch shape.",
-      studyTourSpeaking: "Say it aloud and compare your pitch.",
-      studyTourReveal: "Check the details, then grade.",
-      studyTourStart: "Start",
-      supportBannerLabel: "Yomu support status",
-      supportBannerDismiss: "Dismiss support status",
-      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
-      listen: "Listen",
-      listenSubModeGroup: "Listen practice mode",
-      listenPerceive: "Perceive",
-      listenRecall: "Recall",
-      listenShadow: "Shadow",
-      listenPerceivePrompt: "Which pitch did you hear?",
-      listenRecallPrompt: "Recall the pitch accent",
-      listenShadowPrompt: "Say it aloud, matching the rise and fall",
-      listenPlay: "Play",
-      listenReplay: "Replay",
-      listenPlayBoth: "Play both",
-      listenReveal: "Reveal",
-      listenCorrect: "Correct!",
-      listenTryAgain: "Not quite",
-      pitchVariantPrimary: "Most common",
-      pitchVariantAlso: "Also used",
-      listenAccuracy: "Accuracy",
-      listenDue: "pitch due",
-      listenNew: "new",
-      listenNoAudio: "No audio found yet",
-      listenEmptyTitle: "No pitch items yet",
-      listenEmpty: "Study some words first — your pitch deck grows automatically as you review, or open Perceive to start from your current words.",
-      listenEmptyDictionary: "Listen needs pitch data. Yomu adds it from studied words; connected sources add more coverage.",
-      listenSeedFrom: "Seeded from your study words",
-      listenMicListenBack: "Record",
-      listenMicRecording: "Recording...",
-      listenMicHint: "Records for about 3 seconds. Scored on this device.",
-      listenMicScoring: "Scoring...",
-      listenMicNoPitch: "No clear pitch",
-      listenMicScoreGood: "Good",
-      listenMicScoreClose: "Close",
-      listenMicScoreRetry: "Practice",
-      listenMicExpected: "Model",
-      listenMicYouContour: "You",
-      listenMicTipMatched: "Contour matched",
-      listenMicTipStartLow: "Start lower, then rise",
-      listenMicTipStartHigh: "Start high, then drop",
-      listenMicTipMakeDropClear: "Make the drop clearer",
-      listenMicTipMakeRiseClear: "Make the rise clearer",
-      listenMicTipListenAgain: "Listen once, then record again",
-      listenMicModel: "Model",
-      listenMicYou: "You",
-      listenMicUnavailable: "Microphone unavailable",
-      pitchClassHeiban: "平板",
-      pitchClassAtamadaka: "頭高",
-      pitchClassNakadaka: "中高",
-      pitchClassOdaka: "尾高",
-      stats: "Stats",
-      statsRefresh: "Refresh stats",
-      statsCombined: "Combined",
-      statsConnections: "Connections",
-      statsReviewsToday: "Reviews today",
-      statsDueNow: "Due now",
-      statsNewToday: "new",
-      statsTotalReviews: "Total reviews",
-      statsCurrentStreak: "Current streak",
-      statsLongestStreak: "Longest streak",
-      statsRetention: "Retention",
-      statsAverageSpeed: "Average speed",
-      statsCardsPerMinute: "cards/min",
-      statsEstimatedDueTime: "Due estimate",
-      statsCards: "Cards",
-      statsDailyActivity: "Daily activity",
-      statsMonthlyHeatmap: "Monthly heatmap",
-      statsAccuracy: "Accuracy",
-      statsStreak: "Streak",
-      statsActivityReviews: "Reviews",
-      statsActivityMinutes: "Minutes",
-      statsActivityNewCards: "New cards",
-      statsCardDistribution: "Card distribution",
-      browseAllSources: "All sources",
-      browseAllChip: "All",
-      browsePreviousPage: "Previous page",
-      browseNextPage: "Next page",
-      browseNoCards: "No cards match this filter yet.",
-      studyDeckSelector: "Study deck",
-      showOnlyFilter: "Show only",
-      browseSelectPage: "Select page",
-      statsNext7d: "Next 7d",
-      statsNext30d: "Next 30d",
-      partOfDeck: "Part of the {deck} deck",
-      composedOf: "Composed of",
-      allVocabularyDeck: "All vocabulary",
-      statsLearningProgress: "Learning progress",
-      statsWordsRow: "Words",
-      statsLearningColumn: "Learning",
-      statsKnownColumn: "You know",
-      statsTotalKnownVocabulary: "Total known non-redundant vocabulary",
-      statsStudyTroubleCards: "Study due/failed",
-      statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
-      statsChooseJpdbFile: "Choose reviews.json",
-      statsConnectAnki: "Connect Anki",
-      statsOpenApiSettings: "API settings",
-      statsOpenJpdbSettings: "JPDB settings",
-      statsOpenAnkiSettings: "Anki settings",
-      statsLoading: "Loading stats...",
-      statsNoData: "No stats yet.",
-      statsJpdbLoaded: "JPDB card states loaded.",
-      statsJitenLoaded: "Jiten SRS loaded.",
-      statsApiLoaded: "{providers} SRS loaded.",
-      statsApiKeyMissing: "Add a Jiten or JPDB API key.",
-      statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
-      statsAnkiDecks: "Anki decks",
-      statsAnkiConnected: "Connected to Anki.",
-      statsAnkiNoDecksSelected: "Connected to Anki. 0 of {total} decks selected.",
-      statsAnkiDecksSelected: "Connected to {count} deck{plural}.",
-      statsAnkiPartialDecksSelected: "Connected to {count} of {total} decks.",
-      statsImportFailed: "Could not import that file.",
-      statsImportReady: "JPDB review history imported.",
-      statsDropJpdbFile: "Drop reviews.json here or choose a file.",
-      statsDays: "days",
-      statsDue: "Due",
-      statsKnown: "Known",
-      sessionDone: "Done",
-      sessionLeft: "Left",
-      sessionCached: "Cached",
-      sessionPause: "Pause",
-      sessionResume: "Resume",
-      sessionComplete: "Study time complete",
-      syncPending: "⟳ To sync",
-      syncSynced: "✓ Synced",
-      dailyGoalUnit: "min",
-      dailyGoalReached: "Goal reached",
-      browseSortLabel: "Sort",
-      browseSortQueue: "Queue order",
-      browseSortAlpha: "A→Z",
-      browseSortFrequency: "Frequency",
-      browseSortHistory: "History",
-      browseSortAscending: "Ascending",
-      browseSortDescending: "Descending",
-      browseSelectMode: "Select",
-      undoReview: "Undo",
-      batchComplete: "Batch complete",
-      continueStudying: "Continue",
-      reviewUndone: "Review undone.",
-      undoReviewFailed: "Could not undo the review.",
-      searchWordsOrKanji: "Search words or kanji",
-      draw: "Draw",
-      drawKanji: "Draw kanji",
-      clearSearch: "Clear search",
-      searchSuggestions: "Search suggestions",
-      studyNavigation: "Study navigation",
-      previousWord: "Previous word",
-      nextWord: "Next word",
-      getYomu: `Get ${APP_NAME}`,
-      installStudyApp: "Install app",
-      installStudyAppManual: "Use your browser install button, or Share -> Add to Home Screen on iPhone/iPad.",
-      installStudyAppReady: "Install the Study app on this device.",
-      installStudyAppInstalled: "Study app installed.",
-      offlineCache: "Offline cache",
-      offlineSourceSuffix: "offline",
-      noWordsYet: "Looking for more words...",
-      noKanjiCardsYet: "Looking for more kanji...",
-      noCards: "No cards.",
-      noReviewWordsReady: "No review cards ready.",
-      starterWords: "Starter words",
-      reviewFallbackNotice: "No reviews ready — showing practice words",
-      connectSrsCta: "Connect Jiten / JPDB / Anki",
-      jpdbKanjiDueChip: "+{count} kanji on jpdb.io",
-      reviewRequeuedLocally: "Returned to the queue — the recorded review still counts upstream",
-      noReviewKanjiReady: "No kanji review cards ready.",
-      noKanjiKeyword: "No kanji keyword found.",
-      kanjiSourcesUnavailable: "Kanji sources are unavailable. Check the proxy or try again.",
-      couldNotLoadWords: "Could not load words.",
-      bunproTokenMissing: "No Bunpro token. Open bunpro.jp settings while signed in and press the Yomu import button.",
-      bunproTokenExpired: "Bunpro token expired. Open bunpro.jp settings and re-import it.",
-      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when Jiten, JPDB, or Anki reconnects.",
-      startWithDictionary: "Start with a dictionary",
-      addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
-      dictionaryReadyNewTabs: "Public lookup works without an API key.",
-      addDictionary: "Add dictionary",
-      hide: "Hide",
-      yourDrawing: "Your drawing",
-      couldNotSubmitGrade: "Could not submit grade.",
-      updatingJpdbKanji: "Updating JPDB kanji...",
-      jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
-      grading: "Grading...",
-      gradeTargetSelector: "Grade target",
-      gradeTargetBoth: "Both",
-      gradeTargetJpdb: "Grades JPDB",
-      gradeTargetJiten: "Grades Jiten",
-      gradeTargetBunpro: "Grades Bunpro",
-      gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
-      gradeTargetAnki: "Grades Anki card: {target}",
-      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
-      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
-      gradeTargetJpdbAndJiten: "Grades Jiten + JPDB",
-      gradeTargetAllProviders: "Grades Jiten + JPDB + Anki card: {target}",
-      offlineGradeReconnect: "Grade saved offline. It will sync when Jiten, JPDB, or Anki reconnects.",
-      connectionLostTitle: "The connection has been lost.",
-      connectionLostBody: "Would you like to continue reviews offline? They will sync when you are back online.",
-      connectionLostStop: "Stop reviewing",
-      connectionLostContinue: "Continue offline",
-      connectionLostRetry: "Retry",
-      reviewsPausedOffline: "Reviews paused. Your answer was not saved.",
-      typeSentencePlaceholder: "Type the full sentence",
-      missingAnkiCardId: "Missing Anki card id.",
-      noDefinitionsFound: "No definitions found.",
-      cachedReviews: "Cached reviews",
-      noSource: "No source",
-      liveReview: "live review",
-      searchRecognizing: "Recognizing...",
-      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
-      typeOrPasteKanji: "Type or paste kanji",
-      searching: "Searching...",
-      searchLocalDictionariesFailed: "Could not search local dictionaries.",
-      externalDictionarySearch: "External dictionary search",
-      words: "Words",
-      noLocalResults: "No matching results.",
-      addDictionaryForLocalResults: "No API matches found.",
-      factWordFrequency: "Word frequency",
-      lookUp: "Look up",
-      looksRight: "Looks right",
-      checkStrokeCount: "Check stroke count",
-      checkStrokeShapeOrder: "Check stroke shape/order",
-      checkStrokeCountOrder: "Check stroke count/order",
-      miningActions: "Mining actions",
-      studyHintReveal: "Hint",
-      studyHintMore: "Another hint",
-      studyHintMeaning: "Meaning",
-      studyHintKanjiKeyword: "Kanji",
-      studyHintFirstKana: "Starts with",
-      studyHintLength: "Length",
-      studyHintUsedOne: "Used 1 hint",
-      studyHintUsedMany: "Used {count} hints",
-      typeWordModeGroup: "Type-word input mode",
-      typeWordModeKeyboard: "Type",
-      typeWordModeHandwriting: "Write",
-      typeWordPlaceholder: "Write the word",
-      typeWordSkip: "Skip",
-      typeWordSkipped: "Skipped",
-      typeWordWriteChar: "Write the next character",
-      typeWordProgress: "Handwriting progress",
-      typeWordAllDone: "Whole word written",
-      studyTourType: "Produce the word — type or write it.",
-      studySummaryLabel: "Step results",
-      studySummaryKanji: "Kanji",
-      studySummaryRecall: "Recall",
-      studySummaryListen: "Listen",
-      studySummarySpeaking: "Speak",
-      studySummaryType: "Type",
-      studySummaryWord: "Word",
-      studySummaryStateCorrect: "Correct",
-      studySummaryStateWrong: "Missed",
-      studySummaryStateSkipped: "Skipped",
-      studySummaryStateNone: "Not attempted",
-      gradeSuggested: "suggested",
-      newTabOff: "Yomu Study is off for new tabs",
-      newTabOffBody: "New tabs stay blank. You can turn Study back on here, or open it any time.",
-      newTabTurnOn: "Turn Study on",
-      newTabOpenStudy: "Open Study"
-    }
-  };
-  const JA_NEW_TAB_COPY = {
-    switchReviewSource: "復習ソースを切り替え",
-    dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
-    newTabMode: "新しいタブのモード",
-    study: "学習",
-    recall: "思い出す",
-    recallAnswer: "答え",
-    recallCheck: "確認",
-    recallCorrect: "正解",
-    recallAccepted: "読みも正解",
-    recallIncorrect: "惜しい",
-    recallEmpty: "答えを入力",
-    recallPromptFallback: "意味",
-    studyTourIntro: "ひとつの復習で、短い確認を順番に。採点は最後だけです。",
-    studyTourKanji: "答えを見る前に書いて確認します。",
-    studyTourWord: "文の中で単語を読みます。",
-    studyTourRecall: "空欄の日本語を入力します。",
-    studyTourListen: "音声を聞いてアクセントを選びます。",
-    studyTourSpeaking: "声に出してアクセントを確認します。",
-    studyTourReveal: "内容を確認してから採点します。",
-    studyTourStart: "開始",
-    supportBannerLabel: "よむ支援状況",
-    supportBannerDismiss: "支援状況を閉じる",
-    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
-    listen: "リスニング",
-    listenSubModeGroup: "リスニング練習モード",
-    listenPerceive: "聞き取り",
-    listenRecall: "想起",
-    listenShadow: "シャドーイング",
-    listenPerceivePrompt: "どのアクセントに聞こえましたか？",
-    listenRecallPrompt: "アクセントを思い出してください",
-    listenShadowPrompt: "高低に合わせて声に出してみましょう",
-    listenPlay: "再生",
-    listenReplay: "もう一度",
-    listenPlayBoth: "両方再生",
-    listenReveal: "答えを見る",
-    listenCorrect: "正解！",
-    listenTryAgain: "惜しい",
-    pitchVariantPrimary: "最も一般的",
-    pitchVariantAlso: "他の型",
-    listenAccuracy: "正答率",
-    listenDue: "件のアクセント復習",
-    listenNew: "新規",
-    listenNoAudio: "音声がまだありません",
-    listenEmptyTitle: "アクセント項目がまだありません",
-    listenEmpty: "まず単語を学習してください。復習するとアクセントデッキが自動的に増えます。「聞き取り」で今の単語から始めることもできます。",
-    listenEmptyDictionary: "リスニングにはアクセントデータが必要です。よむは学習した単語から追加し、連携ソースでさらに増やせます。",
-    listenSeedFrom: "学習した単語から追加されました",
-    listenMicListenBack: "録音",
-    listenMicRecording: "録音中...",
-    listenMicHint: "約3秒録音し、この端末で採点します。",
-    listenMicScoring: "採点中...",
-    listenMicNoPitch: "音程が取れませんでした",
-    listenMicScoreGood: "良い",
-    listenMicScoreClose: "近い",
-    listenMicScoreRetry: "練習",
-    listenMicExpected: "お手本",
-    listenMicYouContour: "あなた",
-    listenMicTipMatched: "高低が合っています",
-    listenMicTipStartLow: "低く始めて上げます",
-    listenMicTipStartHigh: "高く始めて下げます",
-    listenMicTipMakeDropClear: "下がり目をはっきり",
-    listenMicTipMakeRiseClear: "上がり目をはっきり",
-    listenMicTipListenAgain: "一度聞いてからもう一度",
-    listenMicModel: "お手本",
-    listenMicYou: "あなた",
-    listenMicUnavailable: "マイクを使用できません",
-    pitchClassHeiban: "平板",
-    pitchClassAtamadaka: "頭高",
-    pitchClassNakadaka: "中高",
-    pitchClassOdaka: "尾高",
-    stats: "統計",
-    statsRefresh: "統計を更新",
-    statsCombined: "合計",
-    statsConnections: "接続",
-    statsReviewsToday: "今日の復習",
-    statsDueNow: "現在の期限",
-    statsNewToday: "新規",
-    statsTotalReviews: "総復習数",
-    statsCurrentStreak: "現在の連続日数",
-    statsLongestStreak: "最長連続日数",
-    statsRetention: "定着率",
-    statsAverageSpeed: "平均速度",
-    statsCardsPerMinute: "カード/分",
-    statsEstimatedDueTime: "期限分の目安",
-    statsCards: "カード",
-    statsDailyActivity: "日別アクティビティ",
-    statsMonthlyHeatmap: "月別ヒートマップ",
-    statsAccuracy: "正答率",
-    statsStreak: "連続",
-    statsActivityReviews: "復習",
-    statsActivityMinutes: "分",
-    statsActivityNewCards: "新規",
-    statsCardDistribution: "カード分布",
-    browseAllSources: "すべてのソース",
-    browseAllChip: "すべて",
-    browsePreviousPage: "前のページ",
-    browseNextPage: "次のページ",
-    browseNoCards: "このフィルタに一致するカードはまだありません。",
-    studyDeckSelector: "学習デッキ",
-    showOnlyFilter: "表示対象",
-    browseSelectPage: "ページを選択",
-    statsNext7d: "今後7日",
-    statsNext30d: "今後30日",
-    partOfDeck: "デッキ「{deck}」に含まれています",
-    composedOf: "構成漢字",
-    allVocabularyDeck: "すべての語彙",
-    statsLearningProgress: "学習の進捗",
-    statsWordsRow: "単語",
-    statsLearningColumn: "学習中",
-    statsKnownColumn: "習得済み",
-    statsTotalKnownVocabulary: "習得済み語彙の合計（重複除く）",
-    statsStudyTroubleCards: "期限/失敗を学習",
-    statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
-    statsChooseJpdbFile: "reviews.jsonを選択",
-    statsConnectAnki: "Ankiに接続",
-    statsOpenApiSettings: "API設定",
-    statsOpenJpdbSettings: "JPDB設定",
-    statsOpenAnkiSettings: "Anki設定",
-    statsLoading: "統計を読み込み中...",
-    statsNoData: "統計はまだありません。",
-    statsJpdbLoaded: "JPDBカード状態を読み込みました。",
-    statsJitenLoaded: "Jiten SRSを読み込みました。",
-    statsApiLoaded: "{providers} SRSを読み込みました。",
-    statsApiKeyMissing: "JitenまたはJPDB APIキーを追加してください。",
-    statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
-    statsAnkiDecks: "Ankiデッキ",
-    statsAnkiConnected: "Ankiに接続しました。",
-    statsAnkiNoDecksSelected: "Ankiに接続しました。{total}件中0件のデッキを選択中です。",
-    statsAnkiDecksSelected: "{count}件のデッキに接続しました。",
-    statsAnkiPartialDecksSelected: "{total}件中{count}件のデッキに接続しました。",
-    statsImportFailed: "このファイルを読み込めませんでした。",
-    statsImportReady: "JPDB復習履歴を読み込みました。",
-    statsDropJpdbFile: "reviews.jsonをドロップするか、ファイルを選択してください。",
-    statsDays: "日",
-    statsDue: "期限",
-    statsKnown: "既知",
-    sessionDone: "完了",
-    sessionLeft: "残り",
-    sessionCached: "キャッシュ",
-    sessionPause: "一時停止",
-    sessionResume: "再開",
-    sessionComplete: "学習時間が終わりました",
-    syncPending: "⟳ 同期待ち",
-    syncSynced: "✓ 同期済み",
-    dailyGoalUnit: "分",
-    dailyGoalReached: "目標達成",
-    browseSortLabel: "並び替え",
-    browseSortQueue: "復習順",
-    browseSortAlpha: "あいうえお順",
-    browseSortFrequency: "頻度順",
-    browseSortHistory: "履歴順",
-    browseSortAscending: "昇順",
-    browseSortDescending: "降順",
-    browseSelectMode: "選択",
-    undoReview: "取り消す",
-    batchComplete: "バッチ完了",
-    continueStudying: "続ける",
-    reviewUndone: "レビューを取り消しました。",
-    undoReviewFailed: "レビューを取り消せませんでした。",
-    searchWordsOrKanji: "単語・漢字を検索",
-    draw: "手書き",
-    drawKanji: "漢字を書く",
-    clearSearch: "検索をクリア",
-    searchSuggestions: "検索候補",
-    studyNavigation: "学習ナビゲーション",
-    previousWord: "前の単語",
-    nextWord: "次の単語",
-    getYomu: `${APP_NAME}を入手`,
-    installStudyApp: "アプリをインストール",
-    installStudyAppManual: "ブラウザのインストールボタン、またはiPhone/iPadでは共有 → ホーム画面に追加を使ってください。",
-    installStudyAppReady: "この端末にStudyアプリをインストールします。",
-    installStudyAppInstalled: "Studyアプリをインストールしました。",
-    offlineCache: "オフラインキャッシュ",
-    offlineSourceSuffix: "オフライン",
-    noWordsYet: "さらに単語を探しています…",
-    noKanjiCardsYet: "さらに漢字を探しています…",
-    noCards: "カードなし。",
-    noReviewWordsReady: "復習する単語カードは今ありません。",
-    starterWords: "入門単語",
-    reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
-    connectSrsCta: "Jiten / JPDB / Anki と連携",
-    jpdbKanjiDueChip: "+{count} 漢字（jpdb.io）",
-    reviewRequeuedLocally: "キューに戻しました（送信済みのレビューは取り消されません）",
-    noReviewKanjiReady: "復習する漢字カードは今ありません。",
-    noKanjiKeyword: "漢字キーワードが見つかりません。",
-    kanjiSourcesUnavailable: "漢字情報ソースに接続できません。プロキシを確認するか、もう一度お試しください。",
-    couldNotLoadWords: "単語を読み込めませんでした。",
-    bunproTokenMissing: "Bunproトークンなし。bunpro.jpの設定を開き、Yomuインポートボタンを押してください。",
-    bunproTokenExpired: "Bunproトークンの期限切れ。bunpro.jpの設定で再インポートしてください。",
-    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、Jiten・JPDB・Ankiへの再接続時に同期されます。",
-    startWithDictionary: "辞書から始める",
-    addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
-    dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
-    addDictionary: "辞書を追加",
-    hide: "隠す",
-    yourDrawing: "あなたの手書き",
-    couldNotSubmitGrade: "採点を送信できませんでした。",
-    updatingJpdbKanji: "JPDB漢字を更新中...",
-    jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
-    grading: "採点中...",
-    gradeTargetSelector: "採点先",
-    gradeTargetBoth: "両方",
-    gradeTargetJpdb: "JPDBを採点",
-    gradeTargetJiten: "Jitenを採点",
-    gradeTargetBunpro: "Bunproを採点",
-    gradeTargetYomuLocal: "Academyに記録",
-    gradeTargetAnki: "Ankiカードを採点: {target}",
-    gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
-    gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
-    gradeTargetJpdbAndJiten: "Jiten + JPDBを採点",
-    gradeTargetAllProviders: "Jiten + JPDB + Ankiカードを採点: {target}",
-    offlineGradeReconnect: "採点をオフラインで保存しました。Jiten・JPDB・Ankiへの再接続時に同期されます。",
-    connectionLostTitle: "接続が切断されました。",
-    connectionLostBody: "オフラインでレビューを続けますか？オンラインに戻ると同期されます。",
-    connectionLostStop: "レビューを中止",
-    connectionLostContinue: "オフラインで続行",
-    connectionLostRetry: "再試行",
-    reviewsPausedOffline: "レビューを一時停止しました。回答は保存されていません。",
-    typeSentencePlaceholder: "文全体を入力",
-    missingAnkiCardId: "AnkiカードIDがありません。",
-    noDefinitionsFound: "定義が見つかりませんでした。",
-    cachedReviews: "キャッシュ済みレビュー",
-    noSource: "ソースなし",
-    liveReview: "ライブレビュー",
-    searchRecognizing: "認識中...",
-    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
-    typeOrPasteKanji: "漢字を入力または貼り付け",
-    searching: "検索中...",
-    searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
-    externalDictionarySearch: "外部辞書検索",
-    words: "単語",
-    noLocalResults: "一致する結果がありません。",
-    addDictionaryForLocalResults: "APIの一致が見つかりません。",
-    factWordFrequency: "単語頻度",
-    lookUp: "検索",
-    looksRight: "いい感じです",
-    checkStrokeCount: "画数を確認",
-    checkStrokeShapeOrder: "字形・筆順を確認",
-    checkStrokeCountOrder: "画数・筆順を確認",
-    miningActions: "マイニング操作",
-    studyHintReveal: "ヒント",
-    studyHintMore: "もう一つヒント",
-    studyHintMeaning: "意味",
-    studyHintKanjiKeyword: "漢字",
-    studyHintFirstKana: "最初の音",
-    studyHintLength: "長さ",
-    studyHintUsedOne: "ヒント1回",
-    studyHintUsedMany: "ヒント{count}回",
-    typeWordModeGroup: "単語入力モード",
-    typeWordModeKeyboard: "入力",
-    typeWordModeHandwriting: "手書き",
-    typeWordPlaceholder: "単語を書く",
-    typeWordSkip: "スキップ",
-    typeWordSkipped: "スキップ",
-    typeWordWriteChar: "次の文字を書いてください",
-    typeWordProgress: "手書きの進捗",
-    typeWordAllDone: "単語をすべて書けました",
-    studyTourType: "単語を書き出します。入力か手書きで。",
-    studySummaryLabel: "ステップの結果",
-    studySummaryKanji: "漢字",
-    studySummaryRecall: "想起",
-    studySummaryListen: "聞き取り",
-    studySummarySpeaking: "発音",
-    studySummaryType: "入力",
-    studySummaryWord: "単語",
-    studySummaryStateCorrect: "正解",
-    studySummaryStateWrong: "不正解",
-    studySummaryStateSkipped: "スキップ",
-    studySummaryStateNone: "未実施",
-    gradeSuggested: "おすすめ",
-    newTabOff: "新しいタブの学習はオフです",
-    newTabOffBody: "新しいタブは空白のままになります。ここで学習を再びオンにするか、いつでも開けます。",
-    newTabTurnOn: "学習をオンにする",
-    newTabOpenStudy: "学習を開く"
-  };
-  const NEW_TAB_COPY_BY_LANGUAGE = {
-    en: NEW_TAB_COPY.en,
-    ja: { ...NEW_TAB_COPY.en, ...JA_NEW_TAB_COPY }
-  };
-  const NEW_TAB_COPY_KEYS = new Set(Object.keys(NEW_TAB_COPY.en));
-  function isNewTabCopyKey(key) {
-    return NEW_TAB_COPY_KEYS.has(key);
-  }
-  function newTabText(language, key) {
-    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key] ?? NEW_TAB_COPY.en[key];
-  }
-  function resolveNewTabLanguage(language) {
-    return language === "ja" ? "ja" : "en";
-  }
-  const MIN_STUDY_DURATION_MS = 60 * 1e3;
-  const MAX_STUDY_DURATION_MS = 3 * 60 * 60 * 1e3;
-  function createStudySessionClock(options = {}) {
-    const durationMs = studySessionDuration(options.durationMs ?? DEFAULT_STUDY_DURATION_MS);
-    const now = options.now ?? (() => Date.now());
-    const tickEveryMs = options.tickEveryMs ?? 1e3;
-    const schedule = options.schedule ?? defaultSchedule;
-    const cancel = options.cancel ?? defaultCancel;
-    const pauseReasons = /* @__PURE__ */ new Set();
-    const listeners = /* @__PURE__ */ new Set();
-    let accumulatedMs = 0;
-    let runningSince = now();
-    let ticker;
-    let disposed = false;
-    const elapsedAt = (time) => {
-      const runningMs = runningSince === null ? 0 : Math.max(0, time - runningSince);
-      return Math.min(durationMs, accumulatedMs + runningMs);
-    };
-    const stopTicker = () => {
-      if (ticker === void 0) return;
-      cancel(ticker);
-      ticker = void 0;
-    };
-    const stateAt = (elapsedMs) => {
-      if (elapsedMs >= durationMs) return "complete";
-      return pauseReasons.size ? "paused" : "running";
-    };
-    const snapshotAt = (time) => {
-      const elapsedMs = elapsedAt(time);
-      const remainingMs = Math.max(0, durationMs - elapsedMs);
-      const state = stateAt(elapsedMs);
-      if (state === "complete") {
-        accumulatedMs = durationMs;
-        runningSince = null;
-        stopTicker();
-      }
-      return {
-        mode: "countdown",
-        durationMs,
-        elapsedMs,
-        remainingMs,
-        label: formatStudySessionRemaining(remainingMs),
-        state,
-        complete: state === "complete",
-        pausedByUser: pauseReasons.has("user"),
-        pausedByVisibility: pauseReasons.has("visibility")
-      };
-    };
-    const notify = () => {
-      const snapshot = snapshotAt(now());
-      listeners.forEach((listener) => listener(snapshot));
-      return snapshot;
-    };
-    const startTicker = () => {
-      if (disposed || ticker !== void 0 || !listeners.size) return;
-      const snapshot = snapshotAt(now());
-      if (snapshot.complete) return;
-      ticker = schedule(notify, tickEveryMs);
-    };
-    const pause = (reason) => {
-      if (disposed) return snapshotAt(now());
-      const time = now();
-      const before = snapshotAt(time);
-      if (before.complete || pauseReasons.has(reason)) return before;
-      if (!pauseReasons.size) {
-        accumulatedMs = before.elapsedMs;
-        runningSince = null;
-      }
-      pauseReasons.add(reason);
-      return notify();
-    };
-    const resume = (reason) => {
-      if (disposed || !pauseReasons.has(reason)) return snapshotAt(now());
-      pauseReasons.delete(reason);
-      if (!pauseReasons.size && accumulatedMs < durationMs) runningSince = now();
-      const snapshot = notify();
-      startTicker();
-      return snapshot;
-    };
-    const visibility = options.visibility;
-    const onVisibilityChange = () => {
-      if (visibility?.hidden) pause("visibility");
-      else resume("visibility");
-    };
-    if (visibility) {
-      visibility.addEventListener("visibilitychange", onVisibilityChange);
-      if (visibility.hidden) {
-        accumulatedMs = 0;
-        runningSince = null;
-        pauseReasons.add("visibility");
-      }
-    }
-    return {
-      mode: "countdown",
-      durationMs,
-      snapshot: () => snapshotAt(now()),
-      pause: (reason = "user") => pause(reason),
-      resume: (reason = "user") => resume(reason),
-      toggleUserPause: () => pauseReasons.has("user") ? resume("user") : pause("user"),
-      setVisible: (visible) => visible ? resume("visibility") : pause("visibility"),
-      subscribe(listener) {
-        if (disposed) throw new Error("Study session clock is disposed.");
-        listeners.add(listener);
-        const snapshot = snapshotAt(now());
-        listener(snapshot);
-        startTicker();
-        return {
-          dispose() {
-            listeners.delete(listener);
-            if (!listeners.size) stopTicker();
-          }
-        };
-      },
-      dispose() {
-        if (disposed) return;
-        disposed = true;
-        stopTicker();
-        listeners.clear();
-        visibility?.removeEventListener("visibilitychange", onVisibilityChange);
-      }
-    };
-  }
-  function mountStudySessionClockControl(host2, clock, options) {
-    const root = document.createElement("div");
-    root.className = ["jpdb-reader-study-clock", options.className].filter(Boolean).join(" ");
-    root.dataset.studySessionClock = "";
-    const output = document.createElement("output");
-    output.className = ["jpdb-reader-study-clock-output", options.outputClassName].filter(Boolean).join(" ");
-    output.dataset.studyClock = "countdown";
-    output.setAttribute("role", "timer");
-    output.setAttribute("aria-live", "off");
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = ["jpdb-reader-study-clock-toggle", options.buttonClassName].filter(Boolean).join(" ");
-    toggle.dataset.studyClockAction = "toggle";
-    root.append(output, toggle);
-    host2.replaceChildren(root);
-    let completeAnnounced = false;
-    const render = (snapshot) => {
-      output.value = snapshot.label;
-      output.textContent = snapshot.label;
-      output.dataset.remainingMs = String(snapshot.remainingMs);
-      output.dataset.elapsedMs = String(snapshot.elapsedMs);
-      output.dataset.clockState = snapshot.state;
-      output.setAttribute("aria-label", snapshot.label);
-      toggle.textContent = snapshot.pausedByUser ? options.labels.resume : options.labels.pause;
-      toggle.setAttribute("aria-label", toggle.textContent);
-      toggle.setAttribute("aria-pressed", String(snapshot.pausedByUser));
-      toggle.disabled = snapshot.complete;
-      if (snapshot.complete && !completeAnnounced) {
-        completeAnnounced = true;
-        options.onComplete?.();
-      }
-    };
-    const subscription = clock.subscribe(render);
-    const onToggle = () => {
-      clock.toggleUserPause();
-    };
-    toggle.addEventListener("click", onToggle);
-    return {
-      dispose() {
-        toggle.removeEventListener("click", onToggle);
-        subscription.dispose();
-        host2.replaceChildren();
-      }
-    };
-  }
-  function formatStudySessionRemaining(remainingMs) {
-    const seconds = Math.max(0, Math.ceil(remainingMs / 1e3));
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor(seconds % 3600 / 60);
-    const displaySeconds = seconds % 60;
-    return hours > 0 ? `${hours}:${padClockPart(minutes)}:${padClockPart(displaySeconds)}` : `${padClockPart(minutes)}:${padClockPart(displaySeconds)}`;
-  }
-  function studySessionDuration(value) {
-    if (!Number.isSafeInteger(value) || value < MIN_STUDY_DURATION_MS || value > MAX_STUDY_DURATION_MS) {
-      throw new TypeError("Study duration must be a whole number of milliseconds from 1 minute to 3 hours.");
-    }
-    return value;
-  }
-  function defaultSchedule(listener, intervalMs) {
-    return typeof window === "undefined" ? -1 : window.setInterval(listener, intervalMs);
-  }
-  function defaultCancel(handle) {
-    if (typeof window !== "undefined" && handle >= 0) window.clearInterval(handle);
-  }
-  function padClockPart(value) {
-    return String(value).padStart(2, "0");
-  }
-  const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
-  function createCanonicalAcademyStudyModule(loadRuntime = () => Promise.resolve().then(() => runtime)) {
-    return {
-      async mount(host2, context) {
-        const runtime2 = await loadRuntime();
-        return runtime2.mountNewTabStudySurface(host2, {
-          language: context.language,
-          sessionClock: context.countdown
-        });
-      }
-    };
-  }
-  async function mountAcademyStudyModule(host2, module, options) {
-    const countdown = createStudySessionClock({
-      durationMs: options.durationMs ?? DEFAULT_ACADEMY_STUDY_DURATION_MS,
-      now: options.now,
-      visibility: document
-    });
-    const chrome = document.createElement("div");
-    chrome.className = "academy-study-chrome";
-    const back = document.createElement("button");
-    back.type = "button";
-    back.className = "academy-study-back";
-    back.textContent = academyText(options.language, "back");
-    const clockHost = document.createElement("div");
-    clockHost.className = "academy-study-clock-host";
-    chrome.append(back, clockHost);
-    const completionStatus = document.createElement("span");
-    completionStatus.className = "academy-sr-only";
-    completionStatus.setAttribute("role", "status");
-    completionStatus.setAttribute("aria-live", "polite");
-    const moduleHost = document.createElement("div");
-    moduleHost.className = "academy-study-module-host";
-    moduleHost.dataset.yomuStudyModuleHost = "";
-    host2.classList.add("academy-study-mount");
-    host2.dataset.studySurface = "academy";
-    host2.dataset.studyTheme = "living-paper";
-    host2.dataset.studySessionMode = countdown.mode;
-    host2.replaceChildren(chrome, completionStatus, moduleHost);
-    const onExit = () => options.onExit();
-    back.addEventListener("click", onExit);
-    const clockControl = mountStudySessionClockControl(clockHost, countdown, {
-      labels: {
-        pause: newTabText(options.language, "sessionPause"),
-        resume: newTabText(options.language, "sessionResume")
-      },
-      className: "academy-study-clock",
-      outputClassName: "academy-study-countdown",
-      buttonClassName: "academy-study-clock-toggle",
-      onComplete: () => {
-        completionStatus.textContent = newTabText(options.language, "sessionComplete");
-        options.onSessionComplete?.();
-      }
-    });
-    let mounted;
-    try {
-      mounted = await module.mount(moduleHost, {
-        language: options.language,
-        surface: { id: "academy", theme: "living-paper" },
-        countdown,
-        onExit: options.onExit
-      });
-    } catch (error) {
-      back.removeEventListener("click", onExit);
-      clockControl.dispose();
-      countdown.dispose();
-      host2.replaceChildren();
-      throw error;
-    }
-    return {
-      dispose() {
-        back.removeEventListener("click", onExit);
-        mounted.dispose();
-        clockControl.dispose();
-        countdown.dispose();
-        host2.replaceChildren();
-        host2.classList.remove("academy-study-mount");
-        delete host2.dataset.studySurface;
-        delete host2.dataset.studyTheme;
-        delete host2.dataset.studySessionMode;
-      }
-    };
-  }
-  const ACADEMY_CLASS_EVENTS = [
-    { id: "event:open-doors", season: "foundation", title: { en: "The open doors", ja: "ひらいた扉" }, castIds: ["rie"], status: "playable" },
-    { id: "event:first-page", season: "foundation", title: { en: "The handwritten page", ja: "手書きのページ" }, castIds: ["rie", "sophie", "ruparna"], status: "planned" },
-    { id: "event:after-class", season: "n5", title: { en: "After class", ja: "授業のあと" }, castIds: ["aakash", "sam", "robert"], status: "planned" },
-    { id: "event:plans-promises", season: "n4", title: { en: "Plans and promises", ja: "予定と約束" }, castIds: ["alex", "tom", "shin"], status: "planned" },
-    { id: "event:different-speeds", season: "n3", title: { en: "Different speeds", ja: "それぞれの速さ" }, castIds: ["jenny", "sophie", "peter"], status: "planned" },
-    { id: "event:public-evening", season: "n2", title: { en: "The public Japanese evening", ja: "日本語の夕べ" }, castIds: ["angel", "francis", "xingyu"], status: "planned" },
-    { id: "event:journey", season: "n1", title: { en: "The journey", ja: "旅" }, castIds: ["rie", "rose", "jodi"], status: "planned" },
-    { id: "event:graduation", season: "alumni", title: { en: "Graduation and the next page", ja: "卒業と次のページ" }, castIds: ["rie", "henry", "aakash", "tom"], status: "planned" }
-  ];
-  const PATH_GROUPS = [
-    { id: "level-1", label: { en: "Level 1", ja: "レベル1" }, from: 0, to: 18, seasons: ["foundation"] },
-    { id: "level-1-plus", label: { en: "Level 1+", ja: "レベル1+" }, from: 19, to: 35, seasons: ["n5"] },
-    { id: "level-2-plus", label: { en: "Level 2+", ja: "レベル2+" }, from: 36, to: 47, seasons: ["n4"] },
-    { id: "level-3-2", label: { en: "Level 3.2", ja: "レベル3.2" }, from: 48, to: 61, seasons: ["n3"] },
-    { id: "level-3-plus", label: { en: "Level 3+", ja: "レベル3+" }, from: 62, to: 72, seasons: ["n2", "n1", "alumni"] }
-  ];
-  function renderClassPathScreen(options) {
-    const screen = element("section", "academy-screen academy-class-path-screen");
-    screen.dataset.academyScreen = "class-path";
-    screen.dataset.plate = "classroom";
-    const plate = academyBackgroundPicture("classroom");
-    const paper = element("article", "academy-class-path-paper");
-    const header = element("header", "academy-class-path-header");
-    header.append(copyElement("h1", "academy-class-path-title", options.language, "classPathTitle"), localIndex(options.language));
-    const path = element("section", "academy-class-path-section");
-    path.id = "academy-class-path-weeks";
-    path.append(copyElement("h2", "academy-class-section-title", options.language, "classPathWeeks"));
-    const groups = element("div", "academy-class-path-groups");
-    const activeGroup = groupForOrder(options.currentOrder);
-    const people = sectionShell("academy-class-path-people", "academy-class-people", options.language, "classPathPeople");
-    const events = sectionShell("academy-class-path-events", "academy-class-events", options.language, "classPathEvents");
-    const groupDetails = PATH_GROUPS.map((group) => renderGroup(group, options));
-    groupDetails.forEach((details) => groups.append(details));
-    updateRelatedSections(people, events, activeGroup, options);
-    for (const [index, details] of groupDetails.entries()) {
-      details.addEventListener("toggle", () => {
-        if (!details.open) return;
-        groupDetails.forEach((candidate, candidateIndex) => {
-          if (candidateIndex !== index) candidate.open = false;
-        });
-        updateRelatedSections(people, events, PATH_GROUPS[index], options);
-      });
-    }
-    path.append(groups);
-    paper.append(header, path, people, events);
-    screen.append(plate, paper);
-    return screen;
-  }
-  function localIndex(language) {
-    const nav = element("nav", "academy-class-path-index");
-    nav.setAttribute("aria-label", academyText(language, "classPathTitle"));
-    const links = [
-      ["academy-class-path-weeks", "classPathWeeks"],
-      ["academy-class-path-people", "classPathPeople"],
-      ["academy-class-path-events", "classPathEvents"]
-    ];
-    for (const [target, key] of links) {
-      const link = document.createElement("a");
-      link.href = `#${target}`;
-      link.textContent = academyText(language, key);
-      nav.append(link);
-    }
-    return nav;
-  }
-  function renderGroup(group, options) {
-    const details = document.createElement("details");
-    details.className = "academy-class-path-group";
-    details.dataset.pathGroup = group.id;
-    details.open = containsOrder(group, options.currentOrder);
-    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
-    const completed = weeks.filter((week) => options.completedWeekIds?.has(week.weekId)).length;
-    const summary = document.createElement("summary");
-    summary.className = "academy-class-path-group-summary";
-    const heading = element("span", "academy-class-path-group-title");
-    heading.textContent = group.label[options.language];
-    const progress = element("span", "academy-class-path-group-progress");
-    progress.textContent = options.language === "ja" ? `${completed} / ${weeks.length}` : `${completed} of ${weeks.length}`;
-    summary.append(heading, progress);
-    const list2 = element("ol", "academy-class-week-spine");
-    for (const week of weeks) list2.append(renderWeek(week, options));
-    details.append(summary, list2);
-    return details;
-  }
-  function renderWeek(week, options) {
-    const item = element("li", "academy-class-week-node");
-    item.dataset.weekId = week.weekId;
-    const playable = options.playableWeekIds.has(week.weekId);
-    item.dataset.weekRuntime = playable ? "playable" : "not-bound";
-    item.dataset.weekStatus = options.completedWeekIds?.has(week.weekId) ? "complete" : week.order === options.currentOrder ? "current" : "planned";
-    if (week.order === options.currentOrder) item.setAttribute("aria-current", "step");
-    const content = playable ? element("button", "academy-class-week-entry") : element("span", "academy-class-week-entry");
-    if (content instanceof HTMLButtonElement) {
-      content.type = "button";
-      content.addEventListener("click", () => options.onOpenWeek(week.weekId));
-    } else {
-      content.setAttribute("aria-disabled", "true");
-    }
-    const number = element("span", "academy-class-week-number");
-    number.textContent = String(week.order).padStart(2, "0");
-    const label = element("span", "academy-class-week-label");
-    label.textContent = week.source.title[options.language];
-    const kind = element("span", "academy-class-week-kind");
-    kind.textContent = weekKindMark(week.weekKind);
-    kind.setAttribute("aria-hidden", "true");
-    content.append(number, label, kind);
-    item.append(content);
-    return item;
-  }
-  function updateRelatedSections(people, events, group, options) {
-    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
-    people.dataset.pathGroup = group.id;
-    events.dataset.pathGroup = group.id;
-    people.querySelector(".academy-class-section-context")?.remove();
-    events.querySelector(".academy-class-section-context")?.remove();
-    const peopleContext = contextLabel(group, options.language);
-    const eventsContext = contextLabel(group, options.language);
-    people.querySelector("h2")?.after(peopleContext);
-    events.querySelector("h2")?.after(eventsContext);
-    people.querySelector(".academy-class-register")?.remove();
-    events.querySelector(".academy-class-event-line")?.remove();
-    people.append(renderPeople(weeks, options.language));
-    events.append(renderEvents(group, options.language));
-  }
-  function renderPeople(weeks, language) {
-    const ids2 = /* @__PURE__ */ new Set(["rie"]);
-    for (const week of weeks) {
-      if (week.primary) ids2.add(week.primary.id);
-      week.supporting.forEach((member) => ids2.add(member.id));
-    }
-    const list2 = element("ul", "academy-class-register");
-    for (const member of ACADEMY_CAST.filter((candidate) => ids2.has(candidate.id))) {
-      const item = element("li", "academy-class-register-entry");
-      item.dataset.castId = member.id;
-      item.dataset.castCategory = member.category;
-      const mark = element("span", "academy-class-register-mark");
-      mark.textContent = member.firstName.slice(0, 1);
-      mark.setAttribute("aria-hidden", "true");
-      const name = element("span", "academy-class-register-name");
-      name.textContent = "teacherSalutation" in member ? member.teacherSalutation[language] : member.firstName;
-      item.append(mark, name);
-      list2.append(item);
-    }
-    return list2;
-  }
-  function renderEvents(group, language) {
-    const list2 = element("ol", "academy-class-event-line");
-    for (const event of ACADEMY_CLASS_EVENTS.filter((candidate) => group.seasons.includes(candidate.season))) {
-      const item = element("li", "academy-class-event");
-      item.dataset.eventId = event.id;
-      item.dataset.eventStatus = event.status;
-      const season = element("span", "academy-class-event-season");
-      season.textContent = event.season.toUpperCase();
-      const title = element("span", "academy-class-event-title");
-      title.textContent = event.title[language];
-      const cast = element("span", "academy-class-event-cast");
-      cast.textContent = event.castIds.map((id2) => ACADEMY_CAST.find((member) => member.id === id2)?.firstName ?? id2).join(" · ");
-      item.append(season, title, cast);
-      list2.append(item);
-    }
-    return list2;
-  }
-  function sectionShell(id2, className, language, key) {
-    const section = element("section", `academy-class-path-section ${className}`);
-    section.id = id2;
-    section.append(copyElement("h2", "academy-class-section-title", language, key));
-    return section;
-  }
-  function contextLabel(group, language) {
-    const label = element("p", "academy-class-section-context");
-    label.textContent = group.label[language];
-    return label;
-  }
-  function groupForOrder(order) {
-    return PATH_GROUPS.find((group) => containsOrder(group, order)) ?? PATH_GROUPS[0];
-  }
-  function containsOrder(group, order) {
-    return order >= group.from && order <= group.to;
-  }
-  function weekKindMark(kind) {
-    if (kind.includes("kanji")) return "漢";
-    if (kind.includes("hiragana") || kind.includes("katakana") || kind.includes("script")) return "かな";
-    if (kind.includes("kickoff") || kind === "orientation") return "始";
-    if (kind.includes("listening")) return "聴";
-    if (kind.includes("writing")) return "書";
-    return "授";
-  }
-  function renderDayEndScene(options) {
-    const actionLifecycle = new AbortController();
-    const stage = createAcademyVnStage({ label: academyText(options.language, "dayEndStageLabel") });
-    stage.element.dataset.academyScreen = "day-end";
-    stage.element.dataset.academyRoute = "day-end";
-    stage.setDirection({
-      plate: {
-        id: "classroom-day-end",
-        wide: ACADEMY_ASSETS.locations.classroom.wide,
-        mobile: ACADEMY_ASSETS.locations.classroom.mobile,
-        label: academyText(options.language, "dayEndStageLabel")
-      },
-      transition: "dissolve",
-      focus: { x: 52, y: 46 }
-    });
-    stage.setCast([{
-      characterId: "rie",
-      displayName: academyText(options.language, "journalRie"),
-      alt: academyText(options.language, "dayEndRieAlt"),
-      position: "left",
-      expression: "happy",
-      expressions: {
-        neutral: { still: ACADEMY_ASSETS.rie },
-        happy: { still: ACADEMY_ASSETS.rieExpressions.happy }
-      }
-    }]);
-    stage.setLine({
-      id: "day-end:goodbye",
-      speakerId: "rie",
-      speakerName: academyText(options.language, "journalRie"),
-      japanese: academyText(options.language, "dayEndLine"),
-      reading: {
-        showLabel: academyText(options.language, "readingShow"),
-        hideLabel: academyText(options.language, "readingHide")
-      },
-      ...options.language === "en" ? { translation: academyText(options.language, "dayEndSupport"), translationEarned: true } : {}
-    });
-    const action = document.createElement("button");
-    action.type = "button";
-    action.className = "academy-vn-primary-action academy-day-end-return";
-    action.textContent = academyText(options.language, "dayEndReturn");
-    action.addEventListener("click", options.onReturn, { once: true, signal: actionLifecycle.signal });
-    stage.setAction({ element: action, dispose: () => actionLifecycle.abort() });
-    return stage.element;
-  }
-  const LOCATIONS = [
-    ["classroom", "locationClassroom", "locationClassroomBody"],
-    ["library", "locationLibrary", "locationLibraryBody"],
-    ["lab", "locationLab", "locationLabBody"],
-    ["cafe", "locationCafe", "locationCafeBody"]
-  ];
-  function renderCampusScreen(language, reviewComplete, onEnter, preference, unavailableLocations = /* @__PURE__ */ new Set()) {
-    const { screen, content } = screenFrame({
-      language,
-      className: "academy-campus-screen",
-      plate: "entrance",
-      title: "campusTitle"
-    });
-    screen.dataset.preference = preference ?? "none";
-    const preferredLocation = preference === "sound" ? "lab" : preference === "text" ? "library" : preference === "speaking" ? "cafe" : void 0;
-    if (!preference) {
-      content.append(copyElement(
-        "p",
-        "academy-objective",
-        language,
-        reviewComplete ? "campusObjectiveComplete" : "campusObjective"
-      ));
-    }
-    const map = element("div", "academy-place-map");
-    map.setAttribute("role", "group");
-    map.setAttribute("aria-label", academyText(language, "mapLabel"));
-    map.append(routeNetwork(), mapEntrance(language));
-    const minimap = createMinimap(language, "mapEntrance", "mapChoose");
-    let travelTimer = 0;
-    LOCATIONS.forEach(([location2, title, body]) => {
-      const unavailable = unavailableLocations.has(location2);
-      const locked = unavailable || !reviewComplete && (location2 === "lab" || location2 === "cafe") && location2 !== preferredLocation;
-      const button = copyButton(language, title, `academy-location academy-location-${location2}`);
-      button.dataset.location = location2;
-      button.disabled = locked;
-      button.append(copyElement(
-        "span",
-        "academy-location-purpose",
-        language,
-        unavailable ? "locationNotOpen" : locked ? "locationUnavailable" : body
-      ));
-      const showDestination = () => {
-        minimap.destination.textContent = academyText(language, title);
-        minimap.root.dataset.destination = location2;
-        map.dataset.destination = location2;
-      };
-      const clearDestination = () => {
-        if (screen.dataset.traveling) return;
-        minimap.destination.textContent = academyText(language, "mapChoose");
-        delete minimap.root.dataset.destination;
-        delete map.dataset.destination;
-      };
-      button.addEventListener("pointerenter", showDestination);
-      button.addEventListener("pointerleave", clearDestination);
-      button.addEventListener("focus", showDestination);
-      button.addEventListener("blur", clearDestination);
-      button.addEventListener("click", () => {
-        if (screen.dataset.traveling) return;
-        showDestination();
-        screen.dataset.traveling = location2;
-        map.querySelectorAll(".academy-location").forEach((candidate) => {
-          candidate.disabled = true;
-        });
-        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-        if (reduceMotion) {
-          onEnter(location2);
-          return;
-        }
-        travelTimer = window.setTimeout(() => onEnter(location2), 360);
-      });
-      map.append(button);
-    });
-    content.append(map);
-    screen.append(minimap.root);
-    screen.addEventListener("academy:dispose", () => window.clearTimeout(travelTimer), { once: true });
-    return screen;
-  }
-  function renderLocationScreen(language, location2, onBack) {
-    const definition = LOCATIONS.find(([id2]) => id2 === location2);
-    if (!definition) throw new Error(`Unknown campus location: ${location2}`);
-    const [, title, body] = definition;
-    const plate = location2 === "cafe" ? "cafe" : "classroom";
-    const { screen, content } = screenFrame({ language, className: `academy-location-screen academy-${location2}-screen`, plate, title, body });
-    const back = copyButton(language, "locationReturn", "academy-button academy-button-primary");
-    back.addEventListener("click", onBack);
-    content.append(back);
-    screen.append(createMinimap(language, title).root);
-    return screen;
-  }
-  function renderJournalScreen(language, profile, state, callbacks) {
-    const { screen, content } = screenFrame({
-      language,
-      className: "academy-journal-screen",
-      plate: "classroom",
-      title: "journalTitle"
-    });
-    const profileCard = element("article", "academy-journal-profile academy-player-profile");
-    const portrait = element("img", "academy-journal-portrait");
-    portrait.src = ACADEMY_ASSETS.portraits[profile.portraitId] ?? ACADEMY_ASSETS.portraits["quality-2"];
-    portrait.alt = profile.displayName;
-    const profileCopy = element("div", "academy-journal-copy");
-    const name = element("h2");
-    name.textContent = profile.displayName;
-    const reasonLabel = copyElement("span", "academy-eyebrow", language, "journalReason");
-    const reason = element("p");
-    reason.textContent = profile.learningReason;
-    profileCopy.append(name, reasonLabel, reason);
-    profileCard.append(portrait, profileCopy);
-    const rieCard = element("article", "academy-journal-profile academy-journal-rie");
-    const rie = element("img", "academy-journal-portrait");
-    rie.src = ACADEMY_ASSETS.rie;
-    rie.alt = language === "ja" ? "りえ先生" : "Rie-sensei";
-    rie.dataset.character = "rie";
-    const rieCopy = element("div", "academy-journal-copy");
-    const rieLine = copyElement("blockquote", "", language, "journalRieLine");
-    rieLine.dataset.speaker = "rie";
-    rieCopy.append(
-      copyElement("h2", "", language, "journalRie"),
-      relationshipPages(language, state.rieChapters),
-      rieLine
-    );
-    const replay = copyButton(language, "journalReplay", "academy-button academy-button-secondary");
-    replay.addEventListener("click", callbacks.onReplayRie);
-    rieCopy.append(replay);
-    rieCard.append(rie, rieCopy);
-    content.append(profileCard, rieCard);
-    if (state.aakashUnlocked) {
-      const aakashCard = element("article", "academy-journal-profile academy-journal-aakash");
-      aakashCard.dataset.character = "aakash";
-      const aakash = element("img", "academy-journal-portrait academy-journal-aakash-portrait");
-      aakash.src = ACADEMY_ASSETS.characters.aakash;
-      aakash.alt = "Aakash";
-      aakash.dataset.character = "aakash";
-      const aakashCopy = element("div", "academy-journal-copy");
-      const aakashLine = copyElement("blockquote", "", language, "journalAakashLine");
-      aakashLine.dataset.speaker = "aakash";
-      aakashCopy.append(
-        copyElement("h2", "", language, "journalAakash"),
-        relationshipPages(language, state.aakashChapters),
-        aakashLine
-      );
-      const replayAakash = copyButton(language, "journalReplayAakash", "academy-button academy-button-secondary");
-      replayAakash.addEventListener("click", callbacks.onReplayAakash);
-      aakashCopy.append(replayAakash);
-      aakashCard.append(aakash, aakashCopy);
-      content.append(aakashCard);
-    } else {
-      content.append(copyElement("p", "academy-journal-locked", language, "journalLocked"));
-    }
-    return screen;
-  }
-  function relationshipPages(language, chapters) {
-    const unlocked = new Set(chapters);
-    const root = element("ol", "academy-relationship-pages");
-    root.setAttribute("aria-label", academyText(language, "relationshipJournalProgress"));
-    const keys = [
-      "relationshipStage1",
-      "relationshipStage2",
-      "relationshipStage3",
-      "relationshipStage4",
-      "relationshipStage5",
-      "relationshipStage6",
-      "relationshipStage7",
-      "relationshipStage8",
-      "relationshipStage9",
-      "relationshipStage10"
-    ];
-    keys.forEach((key, index) => {
-      const page = index + 1;
-      const item = element("li", "academy-relationship-page");
-      item.dataset.unlocked = String(unlocked.has(page));
-      item.setAttribute("aria-disabled", String(!unlocked.has(page)));
-      const number = element("span", "academy-relationship-page-number");
-      number.textContent = String(page).padStart(2, "0");
-      number.setAttribute("aria-hidden", "true");
-      item.append(number, copyElement("span", "academy-relationship-page-name", language, key));
-      root.append(item);
-    });
-    return root;
-  }
-  function createMinimap(language, currentKey, destinationKey) {
-    const root = element("aside", "academy-minimap");
-    root.setAttribute("aria-label", academyText(language, "mapLabel"));
-    const label = copyElement("span", "academy-minimap-label", language, "mapLabel");
-    const route = element("div", "academy-minimap-route");
-    const current = copyElement("strong", "academy-minimap-place", language, currentKey);
-    const arrow = element("span", "academy-minimap-arrow");
-    arrow.textContent = "→";
-    arrow.setAttribute("aria-hidden", "true");
-    const destination = destinationKey ? copyElement("span", "academy-minimap-destination", language, destinationKey) : element("span", "academy-minimap-destination");
-    route.append(current);
-    if (destinationKey) route.append(arrow, destination);
-    root.append(label, route);
-    return { root, destination };
-  }
-  function routeNetwork() {
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.classList.add("academy-route-network");
-    svg.setAttribute("viewBox", "0 0 100 62");
-    svg.setAttribute("aria-hidden", "true");
-    const routes = [
-      ["classroom", "M50 58 C43 48 28 39 18 21"],
-      ["library", "M50 58 C58 48 73 39 83 24"],
-      ["lab", "M50 58 C42 52 32 50 28 45"],
-      ["cafe", "M50 58 C60 53 69 51 77 45"]
-    ];
-    routes.forEach(([location2, d]) => {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.dataset.routeTo = location2;
-      path.setAttribute("d", d);
-      svg.append(path);
-    });
-    return svg;
-  }
-  function mapEntrance(language) {
-    const entrance = copyElement("span", "academy-map-entrance", language, "mapEntrance");
-    entrance.setAttribute("aria-hidden", "true");
-    return entrance;
-  }
-  function createWorldFlow(options) {
-    return new WorldFlow(options);
-  }
-  class WorldFlow {
-    constructor(options) {
-      this.options = options;
-    }
-    async render(route, context) {
-      switch (route) {
-        case "campus":
-          context.shell.replace(renderCampusScreen(
-            context.language,
-            Object.keys(context.projection.reviewRatings).length > 0,
-            (location2) => void this.enterLocation(location2, context),
-            context.checkpoint.selectedFork,
-            /* @__PURE__ */ new Set(["lab"])
-          ));
-          return true;
-        case "class":
-          await this.renderClassPath(context);
-          return true;
-        case "review":
-          await this.renderReview(context);
-          return true;
-        case "journal":
-          await this.renderJournal(context);
-          return true;
-        case "day-end":
-          context.shell.replace(renderDayEndScene({
-            language: context.language,
-            onReturn: () => void context.go("campus")
-          }));
-          return true;
-        default:
-          return false;
-      }
-    }
-    async enterLocation(location2, context) {
-      if (location2 === "library") return context.go("review");
-      if (location2 === "classroom") {
-        return context.projection.curriculumEntry?.band ? context.go("class", { selectedBand: context.projection.curriculumEntry.band }) : context.go("lesson-overview", { lessonId: "lesson:foundation-00" });
-      }
-      if (location2 === "lab") return;
-      await this.options.audio.setTheme("cafe.social");
-      context.shell.setNavigation(true, "campus");
-      context.shell.replace(renderLocationScreen(context.language, location2, () => void context.go("campus")));
-    }
-    async renderClassPath(context) {
-      context.shell.replace(renderLoadingScreen(context.language));
-      const plan = await loadClassWeekCastPlan();
-      const delivery = await loadClassWeekDeliveryCatalog(plan);
-      const currentOrder = classOrderForBand(context.projection.curriculumEntry?.band);
-      context.shell.replace(renderClassPathScreen({
-        language: context.language,
-        plan,
-        currentOrder,
-        playableWeekIds: new Set(delivery.weeks.filter((week) => week.state === "grounded-playable").map((week) => week.weekId)),
-        onOpenWeek: (weekId) => {
-          const lesson = delivery.weeks.find((entry) => entry.weekId === weekId);
-          if (!lesson || lesson.state !== "grounded-playable") return;
-          void context.go("lesson-overview", { lessonId: lesson.lessonId });
-        }
-      }));
-    }
-    async renderReview(context) {
-      context.shell.replace(renderLoadingScreen(context.language));
-      const screen = document.createElement("section");
-      screen.className = "academy-study-screen";
-      screen.dataset.academyScreen = "study";
-      screen.dataset.academyRoute = "review";
-      context.shell.replace(screen);
-      let lifecycle;
-      let disposed = false;
-      screen.addEventListener("academy:dispose", () => {
-        disposed = true;
-        lifecycle?.dispose();
-      }, { once: true });
-      const mounted = await mountAcademyStudyModule(
-        screen,
-        this.options.study ?? createCanonicalAcademyStudyModule(),
-        {
-          language: context.language,
-          onExit: () => void context.back()
-        }
-      );
-      if (disposed) mounted.dispose();
-      else lifecycle = mounted;
-    }
-    async renderJournal(context) {
-      const profile = context.projection.profile;
-      if (!profile) {
-        await context.go("profile");
-        return;
-      }
-      context.shell.replace(renderJournalScreen(
-        context.language,
-        profile,
-        {
-          rieChapters: context.projection.relationshipJournal.rie?.chapters ?? legacyRelationshipChapters(context.projection.bonds.rie),
-          aakashChapters: context.projection.relationshipJournal.aakash?.chapters ?? legacyRelationshipChapters(context.projection.bonds.aakash),
-          aakashUnlocked: context.projection.unlockedAssets.includes("character:aakash")
-        },
-        {
-          onReplayRie: () => this.replayOpening(context),
-          onReplayAakash: () => this.replayAakash(context)
-        }
-      ));
-    }
-    replayOpening(context) {
-      context.shell.setNavigation(true, "journal");
-      context.shell.replace(renderOpeningMemory(context.language, () => void context.go("journal")));
-    }
-    replayAakash(context) {
-      context.shell.setNavigation(true, "journal");
-      context.shell.replace(renderAakashMemory(context.language, () => void context.go("journal")));
-    }
-  }
-  function classOrderForBand(band) {
-    return band === "n5" ? 19 : band === "n4" ? 36 : band === "n3" ? 48 : band === "n2" || band === "n1" ? 62 : 0;
-  }
-  function legacyRelationshipChapters(bond) {
-    return bond && bond > 0 ? [1] : [];
-  }
-  function createAcademyShell(host2, options) {
-    const lifecycle = new AbortController();
-    const previousDocumentLanguage = document.documentElement.lang;
-    document.documentElement.lang = options.language;
-    const root = element("div", "academy-root");
-    const header = element("header", "academy-header");
-    const utility = element("details", "academy-utility");
-    const utilityToggle = element("summary", "academy-utility-toggle");
-    utilityToggle.textContent = "•••";
-    const actions = element("div", "academy-header-actions");
-    const languageButton = copyButton(options.language, "languageToggle", "academy-chrome-button");
-    const audioButton = copyButton(options.language, "navAudioOn", "academy-chrome-button");
-    utility.append(utilityToggle, actions);
-    header.append(utility);
-    const screen = element("main", "academy-screen-host");
-    screen.id = "academy-screen";
-    screen.tabIndex = -1;
-    const navigation = element("nav", "academy-navigation");
-    navigation.setAttribute("aria-label", "Academy");
-    const navButtons = /* @__PURE__ */ new Map();
-    [["campus", "navCampus"], ["review", "navReview"], ["journal", "navJournal"]].forEach(([route, key]) => {
-      const button = copyButton(options.language, key, "academy-nav-button");
-      button.dataset.route = route;
-      button.addEventListener("click", () => {
-        utility.open = false;
-        options.onNavigate(route);
-      }, { signal: lifecycle.signal });
-      navigation.append(button);
-      navButtons.set(route, button);
-    });
-    const learnerActions = element("div", "academy-learner-actions");
-    learnerActions.hidden = true;
-    const classPath = copyButton(options.language, "navClass", "academy-nav-button academy-class-path-button");
-    const endForToday = copyButton(options.language, "navEndToday", "academy-nav-button academy-end-today-button");
-    const presentation = copyButton(options.language, "navPresentationStory", "academy-nav-button academy-presentation-button");
-    learnerActions.append(classPath, endForToday, presentation);
-    navButtons.set("class", classPath);
-    const classBoard = copyButton(options.language, "navClassBoardAccount", "academy-nav-button academy-class-board-button");
-    const settings = copyButton(options.language, "navSettings", "academy-nav-button academy-settings-button");
-    actions.append(learnerActions, navigation, classBoard, settings, audioButton, languageButton);
-    const live = element("div", "academy-sr-only");
-    live.setAttribute("aria-live", "polite");
-    root.append(header, screen, live);
-    host2.replaceChildren(root);
-    let language = options.language;
-    let muted = false;
-    let classBoardAccess = "account-required";
-    let presentationMode = "story";
-    const refreshCopy = () => {
-      utilityToggle.setAttribute("aria-label", academyText(language, "utilityMenu"));
-      setCopy(languageButton, language, "languageToggle");
-      setCopy(audioButton, language, muted ? "navAudioMuted" : "navAudioOn");
-      setCopy(classBoard, language, classBoardAccess === "available" ? "navClassBoard" : "navClassBoardAccount");
-      classBoard.dataset.access = classBoardAccess;
-      classBoard.hidden = !options.onClassBoard;
-      setCopy(settings, language, "navSettings");
-      setCopy(classPath, language, "navClass");
-      setCopy(endForToday, language, "navEndToday");
-      setCopy(presentation, language, presentationMode === "course" ? "navPresentationCourse" : "navPresentationStory");
-      presentation.dataset.presentationMode = presentationMode;
-      root.dataset.presentationMode = presentationMode;
-      presentation.setAttribute("aria-pressed", String(presentationMode === "course"));
-      const presentationAction = academyText(
-        language,
-        presentationMode === "course" ? "navSwitchToStory" : "navSwitchToCourse"
-      );
-      presentation.setAttribute("aria-label", `${presentation.textContent}. ${presentationAction}`);
-      [["campus", "navCampus"], ["class", "navClass"], ["review", "navReview"], ["journal", "navJournal"]].forEach(([route, key]) => {
-        const button = navButtons.get(route);
-        if (button) setCopy(button, language, key);
-      });
-    };
-    languageButton.addEventListener("click", () => {
-      utility.open = false;
-      options.onLanguage();
-    }, { signal: lifecycle.signal });
-    audioButton.addEventListener("click", () => {
-      utility.open = false;
-      options.onMute();
-    }, { signal: lifecycle.signal });
-    classPath.addEventListener("click", () => {
-      utility.open = false;
-      options.onNavigate("class");
-    }, { signal: lifecycle.signal });
-    endForToday.addEventListener("click", () => {
-      utility.open = false;
-      options.onEndForToday?.();
-    }, { signal: lifecycle.signal });
-    presentation.addEventListener("click", () => {
-      utility.open = false;
-      options.onPresentationMode(presentationMode === "story" ? "course" : "story");
-    }, { signal: lifecycle.signal });
-    settings.addEventListener("click", () => {
-      utility.open = false;
-      if (options.onSettings) options.onSettings();
-      else window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
-    }, { signal: lifecycle.signal });
-    classBoard.addEventListener("click", () => {
-      utility.open = false;
-      options.onClassBoard?.(classBoardAccess);
-    }, { signal: lifecycle.signal });
-    document.addEventListener("pointerdown", (event) => {
-      if (utility.open && event.target instanceof Node && !utility.contains(event.target)) utility.open = false;
-    }, { capture: true, signal: lifecycle.signal });
-    document.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape" || !utility.open) return;
-      event.preventDefault();
-      utility.open = false;
-      utilityToggle.focus({ preventScroll: true });
-    }, { signal: lifecycle.signal });
-    refreshCopy();
-    return {
-      screen,
-      replace(view) {
-        Array.from(screen.children).forEach((child) => child.dispatchEvent(new CustomEvent("academy:dispose")));
-        screen.replaceChildren(view);
-        requestAnimationFrame(() => screen.focus({ preventScroll: true }));
-      },
-      setLanguage(next) {
-        language = next;
-        document.documentElement.lang = next;
-        refreshCopy();
-      },
-      setNavigation(visible, active) {
-        navigation.hidden = !visible;
-        navButtons.forEach((button, route) => {
-          if (route === active) button.setAttribute("aria-current", "page");
-          else button.removeAttribute("aria-current");
-        });
-      },
-      setLearnerActionsVisible(visible) {
-        learnerActions.hidden = !visible;
-      },
-      setClassBoardAccess(next) {
-        classBoardAccess = next;
-        refreshCopy();
-      },
-      setPresentationMode(next) {
-        presentationMode = next;
-        refreshCopy();
-      },
-      setMuted(next) {
-        muted = next;
-        refreshCopy();
-      },
-      announce(message) {
-        live.textContent = "";
-        requestAnimationFrame(() => {
-          live.textContent = message;
-        });
-      },
-      dispose() {
-        lifecycle.abort();
-        document.documentElement.lang = previousDocumentLanguage;
-        root.remove();
-      }
-    };
-  }
-  const LANGUAGE_KEY = "yomu:academy:language:v1";
-  class AcademyApp {
-    access;
-    suppliedPersistence;
-    review;
-    pronunciation;
-    databaseName;
-    audio;
-    lifecycle = new AbortController();
-    language = loadLanguage();
-    shell;
-    persistence;
-    evidence;
-    enrollment;
-    lesson;
-    world;
-    checkpoint = {
-      schemaVersion: 2,
-      route: "access",
-      routeHistory: [],
-      presentationMode: "story",
-      updatedAt: Date.now()
-    };
-    get projection() {
-      return this.evidence.projection;
-    }
-    constructor(host2, options = {}) {
-      this.access = options.access ?? createAccessGateway();
-      this.suppliedPersistence = options.persistence;
-      this.review = options.review ?? createYomuLocalReviewService();
-      this.databaseName = options.databaseName;
-      this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
-      this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
-      this.shell = createAcademyShell(host2, {
-        language: this.language,
-        onLanguage: () => this.toggleLanguage(),
-        onMute: () => this.toggleMuted(),
-        onNavigate: (route) => void this.go(route, {}, true),
-        onPresentationMode: (mode) => void this.setPresentationMode(mode),
-        onEndForToday: () => void this.go("day-end"),
-        onClassBoard: options.onClassBoard
-      });
-      this.shell.setNavigation(false);
-      this.shell.setMuted(this.audio.settings.muted);
-    }
-    async start() {
-      this.shell.replace(renderLoadingScreen(this.language));
-      this.persistence = this.suppliedPersistence ?? await openAcademyPersistence(indexedDB, this.databaseName).catch(() => createMemoryAcademyPersistence());
-      await quarantineLegacyUngroundedReviews({ learnerEvents: this.persistence.events });
-      this.evidence = createLearnerEvidence(this.persistence.events, this.review);
-      await this.evidence.initialize();
-      this.enrollment = createEnrollmentFlow({
-        access: this.access,
-        evidence: this.evidence,
-        pronunciation: this.pronunciation
-      });
-      this.lesson = createLessonFlow();
-      this.world = createWorldFlow({
-        evidence: this.evidence,
-        pronunciation: this.pronunciation,
-        audio: this.audio
-      });
-      const restoredCheckpoint = await this.persistence.checkpoint.load() ?? this.checkpoint;
-      this.checkpoint = normalizeResumeCheckpoint(
-        restoredCheckpoint,
-        this.projection,
-        Date.now(),
-        navigator.onLine
-      );
-      if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
-      this.shell.setPresentationMode(this.checkpoint.presentationMode);
-      this.bindLifecycle();
-      await this.render();
-    }
-    dispose() {
-      this.lifecycle.abort();
-      this.audio.dispose();
-      this.persistence?.close();
-      this.shell.dispose();
-    }
-    bindLifecycle() {
-      const unlock = () => {
-        void this.audio.unlock();
-      };
-      window.addEventListener("pointerdown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
-      window.addEventListener("keydown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
-      document.addEventListener("visibilitychange", () => void this.audio.handleVisibility(document.hidden), { signal: this.lifecycle.signal });
-    }
-    async render() {
-      const route = this.checkpoint.route;
-      await this.audio.setTheme(themeForRoute(route));
-      const navigation = navigationForRoute(route);
-      const globalNavigationAvailable = globalNavigationIsAvailable(this.checkpoint, Boolean(this.projection.profile));
-      this.shell.setNavigation(globalNavigationAvailable, navigation);
-      this.shell.setLearnerActionsVisible(globalNavigationAvailable);
-      this.shell.setPresentationMode(this.checkpoint.presentationMode);
-      const context = {
-        language: this.language,
-        checkpoint: this.checkpoint,
-        projection: this.projection,
-        shell: this.shell,
-        go: (next, update) => this.go(next, update),
-        back: () => this.back()
-      };
-      if (await this.enrollment.render(route, context)) return;
-      if (await this.lesson.render(route, context)) return;
-      if (await this.world.render(route, context)) return;
-      await this.commitNavigation({ kind: "replace", route: "class" });
-    }
-    async go(requestedRoute, update = {}, explicitDestination = false) {
-      const route = !explicitDestination && requestedRoute === "campus" && this.checkpoint.presentationMode === "course" ? "class" : requestedRoute;
-      const establishesSession = this.checkpoint.route === "access" && route !== "access" && update.session !== void 0;
-      await this.commitNavigation(
-        {
-          kind: establishesSession ? "reset" : "push",
-          route,
-          context: routeContextUpdate(update)
-        },
-        update
-      );
-    }
-    async back() {
-      await this.commitNavigation({ kind: "back" });
-    }
-    async setPresentationMode(mode) {
-      await this.commitNavigation({ kind: "presentation", mode });
-    }
-    async commitNavigation(transition, update = {}) {
-      const navigation = transitionAcademyRoute(this.checkpoint, transition);
-      const now = Date.now();
-      const candidate = {
-        ...navigation,
-        ...update,
-        schemaVersion: 2,
-        updatedAt: now
-      };
-      this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine);
-      await this.persistence.checkpoint.save(this.checkpoint);
-      await this.render();
-    }
-    toggleLanguage() {
-      this.language = this.language === "en" ? "ja" : "en";
-      try {
-        localStorage.setItem(LANGUAGE_KEY, this.language);
-      } catch {
-      }
-      this.shell.setLanguage(this.language);
-      void this.render();
-    }
-    toggleMuted() {
-      this.audio.setMuted(!this.audio.settings.muted);
-      this.shell.setMuted(this.audio.settings.muted);
-    }
-  }
-  function loadLanguage() {
-    try {
-      const stored = localStorage.getItem(LANGUAGE_KEY);
-      if (stored === "en" || stored === "ja") return stored;
-    } catch {
-    }
-    return navigator.language.toLowerCase().startsWith("ja") ? "ja" : "en";
-  }
-  function safeLocalStorage() {
-    try {
-      return localStorage;
-    } catch {
-      return null;
-    }
-  }
-  function routeContextUpdate(update) {
-    const context = {};
-    const keys = ["selectedBand", "selectedFork", "placementOverride", "lessonId", "sectionId", "activityId"];
-    for (const key of keys) {
-      if (Object.hasOwn(update, key)) Object.assign(context, { [key]: update[key] });
-    }
-    return context;
-  }
-  let sandboxCompanions = {};
-  function yomuAnkiCompanion() {
-    return yomuCompanions().anki;
-  }
-  function yomuNormalizeOcrRenderedText() {
-    return yomuCompanions().ocr?.normalizeOcrRenderedText;
-  }
-  function yomuKanjiStudyCompanion() {
-    return yomuCompanions().kanjiStudy;
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
-  const READER_RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
-  const READER_RUNTIME_HEALTH_VERSION = 1;
-  const READER_RUNTIME_SERVICES = [
-    "localization",
-    "local-dictionary",
-    "jiten",
-    "yomu-srs",
-    "jpdb",
-    "bunpro",
-    "translation",
-    "grammar",
-    "mining",
-    "anki",
-    "pitch",
-    "audio",
-    "nested-lookup"
-  ];
-  function readReaderRuntimeHealth(root = document) {
-    const marker = root.querySelector(`#${READER_RUNTIME_MARKER_ID}`);
-    if (!marker) return null;
-    const version2 = Number(marker.dataset.yomuRuntimeHealthVersion);
-    if (version2 !== READER_RUNTIME_HEALTH_VERSION) return null;
-    const services = readerRuntimeServices(marker.dataset.yomuRuntimeServices);
-    const missing2 = readerRuntimeServices(marker.dataset.yomuRuntimeMissingServices);
-    const state = marker.dataset.yomuRuntimeHealth;
-    if (state !== "ready" && state !== "degraded") return null;
-    return { version: READER_RUNTIME_HEALTH_VERSION, state, services, missing: missing2 };
-  }
-  function readerRuntimeConforms(health, required2 = READER_RUNTIME_SERVICES) {
-    if (!health || health.state !== "ready") return false;
-    const available = new Set(health.services);
-    return required2.every((service) => available.has(service));
-  }
-  function readerRuntimeServices(value) {
-    const values = new Set((value ?? "").split(",").map((item) => item.trim()).filter(Boolean));
-    return READER_RUNTIME_SERVICES.filter((service) => values.has(service));
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function normalizePitchPatternsForReading(patterns, reading) {
-    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-  }
-  function pitchLevelsForDisplay(pattern, reading) {
-    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized2 = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized2, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized2,
-      className: pitchClassNameFromProfile(normalized2, morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function compoundPitchGradientCss(segments) {
-    if (segments.length < 2) return "";
-    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
-    const total = moraCounts.reduce((sum, count) => sum + count, 0);
-    if (!total) return "";
-    let cursor = 0;
-    const stops = segments.map((segment, index) => {
-      const from = cursor / total * 100;
-      cursor += moraCounts[index];
-      const to = cursor / total * 100;
-      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
-      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function collectPitchVariants(reading, patterns, max2 = Infinity) {
-    const seen = /* @__PURE__ */ new Set();
-    const variants = [];
-    for (const pattern of patterns) {
-      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-      const position = pitchNumberFromPattern(pattern, reading);
-      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      variants.push({ pattern, position });
-      if (variants.length >= max2) break;
-    }
-    return variants;
-  }
-  function validPitchPositions(reading, patterns) {
-    const positions = /* @__PURE__ */ new Set();
-    for (const variant of collectPitchVariants(reading, patterns)) {
-      if (variant.position != null) positions.add(variant.position);
-    }
-    return positions;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberForReading(patterns, reading) {
-    if (!reading || !patterns?.length) return null;
-    const pattern = contextPitchPattern(patterns, reading);
-    if (!pattern) return null;
-    return pitchNumberFromPattern(pattern, reading);
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
-    }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
-  }
-  function looksLikeShortHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized2 = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized2.length && SMALL_KANA.has(chars[index])) continue;
-      normalized2.push(levels[index]);
-    }
-    return normalized2.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
-  function encodeAuthoredVocabularyAnnotations(annotations) {
-    return JSON.stringify(annotations);
-  }
-  const AAKASH_DIRECTIONS_READER_ANNOTATIONS = [{
-    surface: "行って",
-    lemma: "行く",
-    reading: "いって",
-    pitch: {
-      pattern: "LHHH",
-      source: "Jiten vocabulary 1578850/0 (行く pitch 0); Academy te-form surface reading"
-    }
-  }];
-  const ACADEMY_AUTHORED_VOCABULARY = [
-    ...AAKASH_DIRECTIONS_READER_ANNOTATIONS
-  ];
-  function academyAuthoredVocabularyForText(text2) {
-    return ACADEMY_AUTHORED_VOCABULARY.filter((annotation) => text2.includes(annotation.surface));
-  }
-  const ACADEMY_READER_COMPANIONS = [
-    {
-      fileName: "greasyfork/yomu-ui-copy.user.js",
-      services: ["localization"]
-    },
-    {
-      fileName: "greasyfork/yomu-settings-surface.user.js",
-      services: ["local-dictionary"]
-    },
-    {
-      fileName: "greasyfork/yomu-kanji-study.user.js",
-      services: ["translation", "grammar", "mining"]
-    },
-    {
-      fileName: "greasyfork/yomu-anki.user.js",
-      services: ["anki"]
-    }
-  ];
-  const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
-  const CORE_SCRIPT_ID = "yomu-hosted-academy-runtime";
-  const CSS_ATTRIBUTE = "data-yomu-hosted-academy-css";
-  const SCRIPT_ATTRIBUTE = "data-yomu-hosted-academy-script";
-  const COMPANION_ATTRIBUTE = "data-yomu-hosted-academy-settings";
-  const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface]';
-  const SETTINGS_KEY = "jpdb-popup-reader-settings";
-  const RUNTIME_READY_TIMEOUT_MS = 6e3;
-  const SURFACE_WAIT_TIMEOUT_MS = 15e3;
-  const ACADEMY_ROOT_ID = "yomu-academy";
-  const READER_OWNED_SURFACE_QUERY = [
-    "[data-jpdb-reader-root]",
-    ".jpdb-reader-word",
-    ".jpdb-reader-text-mirror",
-    ".jpdb-reader-control-text-mirror",
-    ".jpdb-reader-furi",
-    ".jpdb-ocr-furi"
-  ].join(",");
-  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  let bootPromise = null;
-  let annotationLifecycle = null;
-  function initYomuReaderRuntime() {
-    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
-    ensureAcademyAnnotationLifecycle();
-    bootPromise ??= bootWhenJapaneseAppears().catch(() => false);
-    return bootPromise;
-  }
-  function observeAcademyAnnotationSurfaces(root) {
-    refreshAcademyAnnotationSurfaces(root);
-    if (typeof MutationObserver === "undefined") return { dispose() {
-    } };
-    const observer = new MutationObserver(() => refreshAcademyAnnotationSurfaces(root));
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["lang", "data-yomu-runtime-surface"]
-    });
-    return { dispose: () => observer.disconnect() };
-  }
-  function refreshAcademyAnnotationSurfaces(root) {
-    const candidates = root instanceof HTMLElement && root.matches(JAPANESE_SURFACE_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JAPANESE_SURFACE_SELECTOR))] : Array.from(root.querySelectorAll(JAPANESE_SURFACE_SELECTOR));
-    let marked = 0;
-    for (const element2 of candidates) {
-      if (!isAcademyJapaneseSurface(element2)) continue;
-      let changed = false;
-      if (element2.dataset.yomuRuntimeSurface === void 0) {
-        element2.dataset.yomuRuntimeSurface = "academy-copy";
-        changed = true;
-      }
-      if (element2.dataset.yomuFuriganaMode !== "all") {
-        element2.dataset.yomuFuriganaMode = "all";
-        changed = true;
-      }
-      const annotations = academyAuthoredVocabularyForText(element2.textContent ?? "");
-      const encodedAnnotations = annotations.length ? encodeAuthoredVocabularyAnnotations(annotations) : "";
-      if (encodedAnnotations && element2.getAttribute(AUTHORED_VOCABULARY_ATTRIBUTE) !== encodedAnnotations) {
-        element2.setAttribute(AUTHORED_VOCABULARY_ATTRIBUTE, encodedAnnotations);
-        changed = true;
-      } else if (!encodedAnnotations && element2.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) {
-        element2.removeAttribute(AUTHORED_VOCABULARY_ATTRIBUTE);
-        changed = true;
-      }
-      if (changed) marked += 1;
-    }
-    return marked;
-  }
-  function isAcademyJapaneseSurface(element2) {
-    if (element2.closest("[data-jpdb-reader-surface-ignore]")) return false;
-    if (element2.matches('script, style, noscript, textarea, input, select, option, [aria-hidden="true"]')) return false;
-    if (element2.closest(READER_OWNED_SURFACE_QUERY)) return false;
-    return HAS_JAPANESE$1.test(element2.textContent ?? "");
-  }
-  function ensureAcademyAnnotationLifecycle() {
-    const root = document.getElementById(ACADEMY_ROOT_ID);
-    if (!(root instanceof HTMLElement)) return;
-    if (annotationLifecycle?.root === root && root.isConnected) return;
-    annotationLifecycle?.dispose();
-    const lifecycle = observeAcademyAnnotationSurfaces(root);
-    annotationLifecycle = { root, dispose: lifecycle.dispose };
-  }
-  function academyRuntimeAssetCandidates(fileName, href = window.location.href) {
-    const current = new URL(href);
-    const urls = [
-      new URL(`../${fileName}`, current),
-      new URL(`./${fileName}`, current),
-      new URL(`/${fileName}`, current.origin),
-      new URL(`/yomu-reader/${fileName}`, current.origin)
-    ];
-    return [...new Set(urls.map((url) => url.href))];
-  }
-  async function bootWhenJapaneseAppears() {
-    if (hasConformingYomuRuntime()) return true;
-    await waitForJapaneseSurface();
-    if (hasConformingYomuRuntime()) return true;
-    if (hasYomuRuntime()) return waitForRuntimeReady();
-    seedAcademyReaderDefaults();
-    await loadStylesheet();
-    if (!await loadReaderCompanions()) return false;
-    const loaded = await loadCoreRuntime();
-    return loaded && waitForRuntimeReady();
-  }
-  function hasYomuRuntime() {
-    const runtimeWindow = window;
-    return Boolean(runtimeWindow.__yomuReaderAppInitialized || document.getElementById(RUNTIME_MARKER_ID));
-  }
-  function hasConformingYomuRuntime() {
-    return readerRuntimeConforms(readReaderRuntimeHealth());
-  }
-  function waitForJapaneseSurface() {
-    if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) return Promise.resolve();
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        observer?.disconnect();
-        window.clearTimeout(timer);
-        resolve();
-      };
-      const observer = typeof MutationObserver === "undefined" ? void 0 : new MutationObserver(() => {
-        if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) finish();
-      });
-      observer?.observe(document.documentElement, { childList: true, subtree: true });
-      const timer = window.setTimeout(finish, SURFACE_WAIT_TIMEOUT_MS);
-    });
-  }
-  function seedAcademyReaderDefaults() {
-    try {
-      if (localStorage.getItem(SETTINGS_KEY) !== null) return;
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        showFurigana: true,
-        furiganaMode: "all",
-        showPitchAccent: true
-      }));
-    } catch {
-    }
-  }
-  function loadStylesheet() {
-    if (document.querySelector(`link[${CSS_ATTRIBUTE}], link[href$="/yomu.css"], link[href*="/yomu.css?"]`)) {
-      return Promise.resolve(true);
-    }
-    return loadLinkChain(academyRuntimeAssetCandidates("yomu.css"));
-  }
-  function loadCoreRuntime() {
-    if (hasYomuRuntime()) return Promise.resolve(true);
-    if (document.getElementById(CORE_SCRIPT_ID) || document.querySelector(`script[${SCRIPT_ATTRIBUTE}]`)) {
-      return waitForRuntimeReady();
-    }
-    return loadScriptChain(academyRuntimeAssetCandidates("yomu.user.js"));
-  }
-  async function loadReaderCompanions() {
-    for (const companion of ACADEMY_READER_COMPANIONS) {
-      if (!await loadCompanion(companion.fileName)) return false;
-    }
-    return true;
-  }
-  function loadCompanion(fileName) {
-    const loaded = Array.from(document.querySelectorAll(`script[${COMPANION_ATTRIBUTE}]`)).some((script) => script.getAttribute(COMPANION_ATTRIBUTE) === fileName);
-    return loaded ? Promise.resolve(true) : loadPlainScriptChain(academyRuntimeAssetCandidates(fileName), fileName);
-  }
-  function loadPlainScriptChain(candidates, fileName, index = 0) {
-    if (index >= candidates.length) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.async = false;
-      script.src = candidates[index];
-      script.setAttribute(COMPANION_ATTRIBUTE, fileName);
-      script.addEventListener("load", () => resolve(true), { once: true });
-      script.addEventListener("error", () => {
-        script.remove();
-        void loadPlainScriptChain(candidates, fileName, index + 1).then(resolve);
-      }, { once: true });
-      (document.head ?? document.documentElement).append(script);
-    });
-  }
-  function loadScriptChain(candidates, index = 0) {
-    if (index >= candidates.length) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.id = CORE_SCRIPT_ID;
-      script.async = false;
-      script.src = candidates[index];
-      script.setAttribute(SCRIPT_ATTRIBUTE, "true");
-      const tryNext = () => {
-        script.remove();
-        void loadScriptChain(candidates, index + 1).then(resolve);
-      };
-      script.addEventListener("load", () => {
-        void waitForRuntimeReady().then((ready2) => ready2 ? resolve(true) : tryNext());
-      }, { once: true });
-      script.addEventListener("error", tryNext, { once: true });
-      (document.head ?? document.documentElement).append(script);
-    });
-  }
-  function loadLinkChain(candidates, index = 0) {
-    if (index >= candidates.length) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = candidates[index];
-      link.setAttribute(CSS_ATTRIBUTE, "true");
-      link.addEventListener("load", () => resolve(true), { once: true });
-      link.addEventListener("error", () => {
-        link.remove();
-        void loadLinkChain(candidates, index + 1).then(resolve);
-      }, { once: true });
-      (document.head ?? document.documentElement).append(link);
-    });
-  }
-  function waitForRuntimeReady(timeoutMs = RUNTIME_READY_TIMEOUT_MS) {
-    if (hasConformingYomuRuntime()) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      const startedAt = performance.now();
-      const check = () => {
-        if (hasConformingYomuRuntime()) return resolve(true);
-        if (performance.now() - startedAt >= timeoutMs) return resolve(false);
-        window.setTimeout(check, 60);
-      };
-      check();
-    });
-  }
-  const host = document.getElementById("yomu-academy");
-  if (host) {
-    const app = new AcademyApp(host, { databaseName: localQaDatabaseName() });
-    window.__yomuAcademy = app;
-    void app.start().catch((error) => {
-      host.dataset.bootError = "true";
-      const message = document.createElement("p");
-      message.setAttribute("role", "alert");
-      message.textContent = error instanceof Error ? error.message : String(error);
-      host.replaceChildren(message);
-    });
-    void initYomuReaderRuntime();
-  }
-  function localQaDatabaseName() {
-    if (location.hostname !== "127.0.0.1" && location.hostname !== "localhost" && location.hostname !== "::1") return void 0;
-    const run = new URL(location.href).searchParams.get("qa-run")?.trim();
-    return run && /^[a-z0-9-]{1,40}$/i.test(run) ? `yomu-academy-qa-${run}` : void 0;
-  }
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      void navigator.serviceWorker.register("/academy/sw.js", { scope: "/academy/" });
-    }, { once: true });
-  }
-  const log$q = Logger.scope("CardStateSignal");
-  const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
-  const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
-  const SEEN_SIGNAL_LIMIT = 32;
-  function cardStateSignalCard(card) {
-    return {
-      vid: card.vid,
-      sid: card.sid,
-      rid: card.rid,
-      spelling: card.spelling,
-      reading: card.reading,
-      cardState: [...card.cardState],
-      pitchAccent: [...card.pitchAccent],
-      source: card.source,
-      deckNames: card.deckNames ? [...card.deckNames] : void 0,
-      ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
-      jpdbDeckMembership: card.jpdbDeckMembership,
-      sourceDeckName: card.sourceDeckName
-    };
-  }
-  function cardFromCardStateSignal(card) {
-    return {
-      ...card,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      wordWithReading: null
-    };
-  }
-  function publishCardStateSignal(card) {
-    const signal = {
-      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
-      at: Date.now(),
-      card: cardStateSignalCard(card)
-    };
-    try {
-      gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
-    } catch (error) {
-      log$q.debug("GM card-state publish failed", error);
-    }
-    publishBroadcastCardStateSignal(signal);
-  }
-  function publishBroadcastCardStateSignal(signal) {
-    if (typeof BroadcastChannel !== "function") return;
-    try {
-      const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
-      channel.postMessage(signal);
-      channel.close();
-    } catch (error) {
-      log$q.debug("Broadcast card-state publish failed", error);
-    }
-  }
-  function subscribeToCardStateSignals(onCard) {
-    const cleanups = [];
-    const seenIds = [];
-    const handle = (value) => {
-      const signal = parseCardStateSignal(value);
-      if (!signal || seenIds.includes(signal.id)) return;
-      seenIds.push(signal.id);
-      if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
-      onCard(cardFromCardStateSignal(signal.card));
-    };
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-          if (remote) handle(newValue);
-        });
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        log$q.debug("GM card-state listener failed", error);
-      }
-    }
-    if (typeof BroadcastChannel === "function") {
-      try {
-        const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
-        channel.onmessage = (event) => handle(event.data);
-        cleanups.push(() => channel.close());
-      } catch (error) {
-        log$q.debug("Broadcast card-state listener failed", error);
-      }
-    }
-    return () => cleanups.forEach((cleanup) => cleanup());
-  }
-  function parseCardStateSignal(value) {
-    if (!value || typeof value !== "object") return null;
-    const signal = value;
-    const card = signal.card;
-    if (typeof signal.id !== "string" || !card || typeof card.spelling !== "string" || !card.spelling) return null;
-    if (!Array.isArray(card.cardState)) return null;
-    return {
-      id: signal.id,
-      at: Number(signal.at) || Date.now(),
-      card: {
-        vid: Number(card.vid) || 0,
-        sid: Number(card.sid) || 0,
-        rid: Number(card.rid) || 0,
-        spelling: card.spelling,
-        reading: typeof card.reading === "string" ? card.reading : "",
-        cardState: card.cardState,
-        pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
-        source: card.source ?? "jpdb",
-        deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
-        ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
-        jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
-        sourceDeckName: typeof card.sourceDeckName === "string" ? card.sourceDeckName : void 0
-      }
-    };
-  }
   class ShuffledAudioDeck {
     constructor(random = Math.random) {
       this.random = random;
@@ -17364,7 +17171,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$p = Logger.scope("Audio");
+  const log$q = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -17402,7 +17209,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const reservedAudio = this.takeGestureAudioElement(request2) ?? this.reserveGestureAudioElement(request2);
       this.stopCurrent(reservedAudio);
       if (!request2.sources.length) return await this.playNoAudioSources(card, request2);
-      const done = log$p.time("play", { term: card.spelling, sources: request2.sources.map((source) => source.type), viaBlob: true });
+      const done = log$q.time("play", { term: card.spelling, sources: request2.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request2.sources, card, request2.settings, request2.requestId, request2.isCurrent, request2.userGesture, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request2.settings, request2.requestId, request2.isCurrent, request2.userGesture, result);
@@ -17457,14 +17264,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request2) {
-      log$p.warn("No audio sources configured", { term: card.spelling });
+      log$q.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request2.settings, request2.requestId, request2.isCurrent, request2.userGesture);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$p.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$q.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
@@ -17633,7 +17440,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$p.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$q.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -17712,7 +17519,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio = fallbackAudio;
-          log$p.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+          log$q.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
         } else {
           errors.push(audioErrorMessage(error));
           if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -18402,7 +18209,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function quoteAnkiSearch$1(term) {
     return `"${escapeAnkiSearchText(term)}"`;
   }
-  const log$o = Logger.scope("AnkiNewTab");
+  const log$p = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
@@ -18458,7 +18265,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (Date.now() < unavailableUntil) throw new AnkiNewTabUnavailableError("AnkiConnect is cooling down after a failed new-tab request.");
     if (!await client.isAvailableForBackground()) throw new AnkiNewTabUnavailableError();
     try {
-      const done = log$o.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+      const done = log$p.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
       const allDeckNames = await newTabAnkiDeckNames(client, settings);
       const scope = normalizeNewTabAnkiDeckScope(deckScope);
       const deckNames = scope ? allDeckNames.filter((deck) => deck === scope || deck.startsWith(`${scope}::`)) : allDeckNames;
@@ -18472,7 +18279,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       done();
       return cards;
     } catch (error) {
-      log$o.warn("Anki new-tab lookup failed", error);
+      log$p.warn("Anki new-tab lookup failed", error);
       unavailableUntil = Date.now() + 3e4;
       throw new AnkiNewTabUnavailableError("AnkiConnect failed while loading new-tab reviews.");
     }
@@ -20842,7 +20649,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$n = Logger.scope("Settings");
+  const log$o = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -22124,7 +21931,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
-      log$n.warn("Settings load failed", { error });
+      log$o.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -22150,13 +21957,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$n.warn("Skipped save during reset");
+      log$o.warn("Skipped save during reset");
       return;
     }
     try {
       await persistSettings(settings);
     } catch (error) {
-      log$n.warn("Settings save failed", { error });
+      log$o.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -23608,20 +23415,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!clips) continue;
       const rect = current.getBoundingClientRect();
       const measured = current.clientWidth > 0 && current.clientHeight > 0;
-      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && detachedClipRowIsSingleLine(style, rect);
+      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
       const baseFits = measured && detachedBaseContentFits(current);
       if (compact && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
     }
   }
-  function detachedClipRowIsSingleLine(style, rect) {
+  function detachedClipRowIsMultiLineClamp(style) {
     const clamp2 = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
-    if (Number.isFinite(clamp2) && clamp2 > 1) return false;
-    const lineHeight = Number.parseFloat(style.lineHeight);
-    const fontSize = Number.parseFloat(style.fontSize) || 16;
-    const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
-    const chrome = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0) + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.borderBottomWidth) || 0);
-    return Math.max(0, rect.height - chrome) <= line * 1.5;
+    return Number.isFinite(clamp2) && clamp2 > 1;
+  }
+  function baseTextLineCount(box) {
+    const range2 = box.ownerDocument.createRange();
+    range2.selectNodeContents(box);
+    const tops = [];
+    for (const lineRect of Array.from(range2.getClientRects())) {
+      if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+      if (!tops.some((top) => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
+    }
+    return tops.length;
   }
   function openDetachedReadingClip(box) {
     if (!detachedReadingClipStyles.has(box)) {
@@ -23661,6 +23473,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }));
     hidden.forEach((element2) => element2.style.setProperty("display", "none", "important"));
     try {
+      if (baseTextLineCount(box) > 1) return false;
       const rect = box.getBoundingClientRect();
       const inlineSize = Math.max(box.clientWidth, rect.width);
       const blockSize = Math.max(box.clientHeight, rect.height);
@@ -28217,7 +28030,7 @@ ${item.sequence ?? ""}`;
     }
     return -1;
   }
-  const log$m = Logger.scope("Yomitan");
+  const log$n = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -28265,7 +28078,7 @@ ${item.sequence ?? ""}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$2(url, proxyUrl, onProgress, language = "en") {
-    const done = log$m.time("Dictionary download", { host: safeHost(url) });
+    const done = log$n.time("Dictionary download", { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -28274,18 +28087,18 @@ ${item.sequence ?? ""}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$m.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+          log$n.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$m.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+          log$n.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$m.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+        log$n.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -28302,19 +28115,19 @@ ${item.sequence ?? ""}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$m.warn("Dictionary download failed", { host: safeHost(url) });
+          log$n.warn("Dictionary download failed", { host: safeHost(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$m.warn("Dictionary download timed out", { host: safeHost(url) });
+          log$n.warn("Dictionary download timed out", { host: safeHost(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$m.warn("Dictionary download failed", { host: safeHost(url) });
+          log$n.warn("Dictionary download failed", { host: safeHost(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -28338,7 +28151,7 @@ ${item.sequence ?? ""}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$m.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+    log$n.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -28370,17 +28183,17 @@ ${item.sequence ?? ""}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$m.warn("Dictionary download HTTP error", { host: safeHost(url), status });
+    log$n.warn("Dictionary download HTTP error", { host: safeHost(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host2 = safeHost(url);
     if (isDictionaryCorsError(error)) {
-      log$m.warn("Dictionary download CORS failed", { host: host2, downloadUrl });
+      log$n.warn("Dictionary download CORS failed", { host: host2, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$m.warn("Dictionary download fetch failed", { host: host2, error });
+    log$n.warn("Dictionary download fetch failed", { host: host2, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -29873,7 +29686,7 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
-  const log$l = Logger.scope("YomitanSettingsImport");
+  const log$m = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -29883,11 +29696,11 @@ ${entry.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language = "en") {
-    const done = log$l.time("Yomitan settings export parse");
+    const done = log$m.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$l.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$m.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -29902,7 +29715,7 @@ ${entry.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$l.info("Yomitan settings import parsed", {
+    log$m.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -30141,14 +29954,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const log$k = Logger.scope("Yomitan");
+  const log$l = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$k.info("Persistent storage request", { granted });
+        log$l.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -30173,7 +29986,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$k.warn("Term search index preparation failed", { error });
+        log$l.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -30207,7 +30020,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$k.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$l.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries2 = await this.getTermLookupEntries(
@@ -30232,7 +30045,7 @@ ${entry.reading}`;
             }).slice(0, limit);
             return results;
           } catch (error) {
-            log$k.warn("Term lookup failed", { expression, reading, error });
+            log$l.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -30242,7 +30055,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$k.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$l.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -30261,7 +30074,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$k.warn("Term search failed", { query: normalizedQuery, error });
+        log$l.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -30271,7 +30084,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$k.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$l.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -30280,7 +30093,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$k.warn("Kanji lookup failed", { length: text2.length, error });
+            log$l.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -30291,14 +30104,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$k.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$l.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$k.warn("Kanji character list failed", { error });
+        log$l.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -30308,7 +30121,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$k.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$l.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -30316,7 +30129,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$k.warn("Term metadata lookup failed", { expression, error });
+            log$l.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -30328,7 +30141,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$k.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$l.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -30338,7 +30151,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$k.warn("Similar terms by kanji lookup failed", { character, error });
+            log$l.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -30347,7 +30160,7 @@ ${entry.reading}`;
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$k.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$l.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -30363,7 +30176,7 @@ ${entry.reading}`;
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$k.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$l.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -30418,7 +30231,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$k.time("Dictionary summary");
+      const done = log$l.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -30438,7 +30251,7 @@ ${entry.reading}`;
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$k.warn("Dictionary summary failed", { error });
+        log$l.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -30451,12 +30264,12 @@ ${entry.reading}`;
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$k.time("Dictionary presence check");
+      const done = log$l.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$k.warn("Dictionary presence check failed", { error });
+        log$l.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -30465,12 +30278,12 @@ ${entry.reading}`;
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
-      const done = log$k.time("Term dictionary presence check");
+      const done = log$l.time("Term dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
-        log$k.warn("Term dictionary presence check failed", { error });
+        log$l.warn("Term dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -30481,7 +30294,7 @@ ${entry.reading}`;
     // mode 'pitch', so sampling the head of each meta dictionary is enough.
     // fallow-ignore-next-line unused-class-member
     async hasPitchMetaDictionaries() {
-      const done = log$k.time("Pitch dictionary presence check");
+      const done = log$l.time("Pitch dictionary presence check");
       try {
         const db = await this.db();
         const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
@@ -30491,27 +30304,27 @@ ${entry.reading}`;
         }
         return false;
       } catch (error) {
-        log$k.warn("Pitch dictionary presence check failed", { error });
+        log$l.warn("Pitch dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$k.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$l.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$k.warn("Random term listing failed", { limit, error });
+        log$l.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$k.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$l.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -30528,7 +30341,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$k.warn("Random top term listing failed", { limit, error });
+        log$l.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -30610,27 +30423,27 @@ ${entry.reading}`;
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$k.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$l.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$k.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$l.info("Dictionary file import started", fileSummary(file, sourceUrl));
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$k.info("Dictionary file import completed", summary);
+        log$l.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$k.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$l.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$k.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      log$l.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$k.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      log$l.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -30661,7 +30474,7 @@ ${entry.reading}`;
       const summary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
       let clearedTermIndexesForImport = false;
       let importedTerms = false;
-      const importBank = async (pattern, label, store, normalize) => {
+      const importBank = async (pattern, label, store, normalize2) => {
         const files = zip.entries().filter((entry) => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
         let pending = [];
         let saved = 0;
@@ -30690,7 +30503,7 @@ ${entry.reading}`;
           onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryParsingBank")} ${bankFile.name} (${index2 + 1}/${files.length})...`);
           const rows = JSON.parse(bankText);
           for (const row of rows) {
-            const entry = normalize(row);
+            const entry = normalize2(row);
             if (!entry) continue;
             if (store === "terms") await inlineStructuredImageDataUrls(zip, entry.glossary);
             pending.push(entry);
@@ -30715,7 +30528,7 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$k.info("ZIP dictionary import parsed", summary);
+      log$l.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -30743,7 +30556,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$k.info("JSON dictionary import parsed", summary);
+      log$l.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -30842,13 +30655,13 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$k.info("Dexie dictionary import parsed", summary);
+      log$l.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$k.time("Dictionary export");
+      const done = log$l.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -30858,7 +30671,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$k.info("Dictionary export prepared", {
+        log$l.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -30876,7 +30689,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$k.warn("Dictionary export failed", { error });
+        log$l.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -30895,26 +30708,26 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$k.warn("Dictionary stylesheet render failed", { error });
+        log$l.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$k.time("Dictionary store clear");
+      const done = log$l.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$k.info("Dictionary store cleared");
+        log$l.info("Dictionary store cleared");
       } catch (error) {
-        log$k.warn("Dictionary store clear failed", { error });
+        log$l.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$k.time("Dictionary database factory reset");
+      const done = log$l.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -30923,10 +30736,10 @@ ${entry.reading}`;
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$k.warn("Dictionary reset pre-clear failed", { error });
+          log$l.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$k.warn("Dictionary delete incomplete after clear", { error });
+        log$l.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -30940,12 +30753,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$k.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$l.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$k.time("Dictionary database delete");
+      const done = log$l.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -30971,30 +30784,30 @@ ${entry.reading}`;
           request2.onerror = () => settle(() => reject(request2.error ?? new Error("Dictionary database reset failed.")));
           request2.onblocked = () => {
             blocked2 = true;
-            log$k.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$l.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$k.info("Dictionary database deleted", { name: DB_NAME });
+        log$l.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$k.warn("Dictionary database delete failed", { error });
+        log$l.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$k.time("Dictionary delete", { dictionary });
+      const done = log$l.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$k.info("Dictionary delete skipped; not installed", { dictionary });
+          log$l.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$k.info("Only installed dictionary cleared", { dictionary });
+          log$l.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -31010,9 +30823,9 @@ ${entry.reading}`;
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$k.info("Dictionary deleted", { dictionary });
+        log$l.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$k.warn("Dictionary delete failed", { dictionary, error });
+        log$l.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -31339,7 +31152,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$k.time("Term search index rebuild");
+      const done = log$l.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -31356,13 +31169,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$k.info("Term search index rebuilt", { terms: indexedTerms });
+        log$l.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$k.time("Term kanji index rebuild");
+      const done = log$l.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -31379,7 +31192,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$k.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$l.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -31466,7 +31279,7 @@ ${entry.reading}`;
         request2.onupgradeneeded = (event) => {
           const db = request2.result;
           const tx = request2.transaction;
-          log$k.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$l.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -31496,7 +31309,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request2.onerror = () => {
-          log$k.warn("Dictionary database open failed", { error: request2.error });
+          log$l.warn("Dictionary database open failed", { error: request2.error });
           reject(request2.error);
         };
       });
@@ -31504,7 +31317,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$k.info("Dictionary DB version change; closing", {
+        log$l.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -32276,7 +32089,7 @@ ${entry.reading || ""}`;
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$j = Logger.scope("MiningContext");
+  const log$k = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -32329,7 +32142,7 @@ ${entry.reading || ""}`;
     fetchImageDataUrl,
     fetchAudioDataUrl
   }) {
-    const done = log$j.time("Resolve mining context", {
+    const done = log$k.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -32406,7 +32219,7 @@ ${entry.reading || ""}`;
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$j.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$k.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -32421,7 +32234,7 @@ ${entry.reading || ""}`;
       const context = parseStoredMiningContext(stored, normalized2);
       return context;
     } catch (error) {
-      log$j.warn("Mining context load failed", { term: normalized2, error });
+      log$k.warn("Mining context load failed", { term: normalized2, error });
       return null;
     }
   }
@@ -35552,7 +35365,7 @@ ${component.reading}`;
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
-  const log$i = Logger.scope("CardRenderData");
+  const log$j = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -35683,7 +35496,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$i.warn("Local term lookup failed", { term: card.spelling }, error);
+        log$j.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -35691,7 +35504,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$i.warn("Local kanji lookup failed", { term: card.spelling }, error);
+        log$j.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -35702,13 +35515,13 @@ ${component.reading}`;
         entries: entries2,
         completed: true
       })).catch((error) => {
-        log$i.warn("Local metadata lookup failed", { term: card.spelling }, error);
+        log$j.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return { entries: [], completed: false };
       });
       return Promise.race([
         lookup,
         delay$2(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-          log$i.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
+          log$j.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
           return { entries: [], completed: false };
         })
       ]);
@@ -35717,7 +35530,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$i.warn("Public pitch lookup failed", { term: card.spelling }, error);
+        log$j.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -35729,7 +35542,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
-        log$i.warn("JPDB page lookup failed", { term: card.spelling }, error);
+        log$j.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -35746,7 +35559,7 @@ ${component.reading}`;
         this.applyJitenVocabularyInfoPitchAccent(card, info);
         return info;
       }).catch((error) => {
-        log$i.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+        log$j.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       });
     }
@@ -35754,7 +35567,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.bunproDefinitionsEnabled || !this.dependencies.bunpro || !hasBunproFrontendCredential(settings) || isBunproFrontendCredentialExpired(settings)) return Promise.resolve(null);
       return lookupBunproDefinition(this.dependencies.bunpro, card).catch((error) => {
-        log$i.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+        log$j.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
         return null;
       });
     }
@@ -35763,14 +35576,14 @@ ${component.reading}`;
       const fallback = sourceCardAnkiLookupOrEmpty(card);
       if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
       return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-        log$i.warn("Cached Anki status failed", { term: card.spelling }, error);
+        log$j.warn("Cached Anki status failed", { term: card.spelling }, error);
         return fallback;
       });
     }
     loadDetailedAnkiLookup(card, fastLookup) {
       if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
       return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-        log$i.warn("Anki lookup failed", { term: card.spelling }, error);
+        log$j.warn("Anki lookup failed", { term: card.spelling }, error);
         return ankiLookupWithUnavailableDetails(fallback);
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -35783,14 +35596,14 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-        log$i.warn("JPDB deck list failed", { term: card.spelling }, error);
+        log$j.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-        log$i.warn("Anki deck list failed", { term: card.spelling }, error);
+        log$j.warn("Anki deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -35798,7 +35611,7 @@ ${component.reading}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-        log$i.warn("Jiten deck list failed", { term: card.spelling }, error);
+        log$j.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -35809,7 +35622,7 @@ ${component.reading}`;
       if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
       if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-        log$i.warn("Anki field target plan failed", { term: card.spelling }, error);
+        log$j.warn("Anki field target plan failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -35820,7 +35633,7 @@ ${component.reading}`;
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-        log$i.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+        log$j.warn("JPDB pool lookup failed", { term: card.spelling }, error);
         return false;
       }), false);
     }
@@ -35931,7 +35744,7 @@ ${component.reading}`;
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
         { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
       ).catch((error) => {
-        log$i.warn("Local pitch lookup failed", { term: card.spelling }, error);
+        log$j.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       const patterns = resolution.patterns;
@@ -36029,7 +35842,7 @@ ${component.reading}`;
     return Promise.race([
       promise,
       delay$2(timeoutMs).then(() => {
-        log$i.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+        log$j.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
     ]);
@@ -36985,7 +36798,7 @@ ${component.reading}`;
       this.options.onRefreshed?.(css.length);
     }
   }
-  const log$h = Logger.scope("FactoryReset");
+  const log$i = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -37037,12 +36850,12 @@ ${component.reading}`;
         const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$h.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+        log$i.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
-        log$h.warn("All-data reset failed", error);
+        log$i.warn("All-data reset failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
       }
     }
@@ -37050,7 +36863,7 @@ ${component.reading}`;
       try {
         return await this.dependencies.resetDictionaryDatabase();
       } catch (error) {
-        log$h.warn("Dictionary reset failed post-settings", error);
+        log$i.warn("Dictionary reset failed post-settings", error);
         this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -37061,7 +36874,7 @@ ${component.reading}`;
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$h.info("Factory reset signal received", {
+      log$i.info("Factory reset signal received", {
         phase: signal.phase,
         href: signal.href,
         remote: source.remote,
@@ -37079,7 +36892,7 @@ ${component.reading}`;
     async assertSettingsStorageDeleted() {
       const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
       if (!settingsKeysStillPresent.length) return;
-      log$h.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+      log$i.warn("Settings keys remained after reset", { settingsKeysStillPresent });
       throw new Error(this.text("factoryResetDeleteSettingsFailed"));
     }
     text(key, values = {}) {
@@ -37130,7 +36943,7 @@ ${component.reading}`;
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$g = Logger.scope("ImmersionKit");
+  const log$h = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -37243,7 +37056,7 @@ ${component.reading}`;
       const cacheInflight = !options.signal;
       const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
       if (inflight) return inflight;
-      const done = log$g.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$h.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -37288,11 +37101,11 @@ ${component.reading}`;
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
         if (isAbortError$2(error)) throw error;
-        log$g.warn("Nadeshiko examples failed", { query }, error);
+        log$h.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
         if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$g.warn("Immersion Kit examples failed", { query }, error);
+        log$h.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
@@ -39588,7 +39401,7 @@ ${component.reading}`;
   const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
   const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-  const log$f = Logger.scope("ReaderParser");
+  const log$g = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
     return { includeLocalPitch: false, ...options, requireApi };
@@ -39611,7 +39424,7 @@ ${component.reading}`;
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
-      const done = log$f.time("parse", {
+      const done = log$g.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -39696,7 +39509,7 @@ ${component.reading}`;
     }
     handleRemoteParseError(source, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$f.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      log$g.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     async parseWithFallbackSource(paragraphs, options) {
@@ -39716,7 +39529,7 @@ ${component.reading}`;
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
       } catch (error) {
-        log$f.warn("Jiten public parse failed; using local or segmented fallback", error);
+        log$g.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
       }
     }
@@ -39833,7 +39646,7 @@ ${spelling}`);
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$f.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$g.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
@@ -39865,7 +39678,7 @@ ${spelling}`);
       if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
-        log$f.warn("Local term dictionary availability check failed", { error });
+        log$g.warn("Local term dictionary availability check failed", { error });
         return void 0;
       });
       return this.localTermDictionaryAvailability;
@@ -40011,7 +39824,7 @@ ${spelling}`);
         else if (resolution.patterns.length) delete card.pitchSegments;
         return resolution.patterns[0] ?? "";
       }).catch((error) => {
-        log$f.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$g.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
       this.rememberLocalPitchCacheEntry(key, promise);
@@ -40212,7 +40025,7 @@ ${spelling}`);
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$e = Logger.scope("ImmersionPopover");
+  const log$f = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -40291,7 +40104,7 @@ ${spelling}`);
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$e.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$f.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -40906,7 +40719,7 @@ ${spelling}`);
     }
     handleExampleAudioError(example, quiet, requestId, error) {
       if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-      log$e.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$f.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     shouldClearAudioAfterExampleError(requestId) {
@@ -41326,7 +41139,7 @@ ${spelling}`);
     "parse",
     "ping"
   ]);
-  const log$d = Logger.scope("JpdbApi");
+  const log$e = Logger.scope("JpdbApi");
   class JpdbApiClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       this.getApiKey = getApiKey;
@@ -41342,7 +41155,7 @@ ${spelling}`);
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       this.assertCanRequest(token, endpoint);
-      const done = log$d.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$e.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await this.postJsonWithReadRetry(url, token, body, endpoint);
       done();
       this.assertSuccessfulResponse(response, endpoint, token);
@@ -41351,35 +41164,35 @@ ${spelling}`);
     }
     assertCanRequest(token, endpoint) {
       if (!token) {
-        log$d.warn("JPDB API key missing", { endpoint });
+        log$e.warn("JPDB API key missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
       if (this.rejectedToken === token) {
-        log$d.warn("JPDB API key was already rejected", { endpoint });
+        log$e.warn("JPDB API key was already rejected", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (Date.now() < this.retryAfter) {
-        log$d.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$e.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
       if (Date.now() < this.connectionRetryAfter) {
-        log$d.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
+        log$e.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
         throw new Error("JPDB connection is cooling down. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$d.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$e.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
         this.rejectedToken = token;
-        log$d.warn("JPDB rejected API key", { endpoint });
+        log$e.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$d.warn("JPDB request failed", { endpoint, status: response.status });
+        log$e.warn("JPDB request failed", { endpoint, status: response.status });
         throw new Error(`JPDB request failed (${response.status}).`);
       }
     }
@@ -41395,7 +41208,7 @@ ${spelling}`);
             if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
             throw normalizeJpdbTransportError(error);
           }
-          log$d.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
+          log$e.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
           await delay(retryableReadDelayMs());
         }
       }
@@ -41404,7 +41217,7 @@ ${spelling}`);
     }
     backOffAfterConnectionFailure(endpoint, error) {
       this.connectionRetryAfter = Date.now() + CONNECTION_FAILURE_BACKOFF_MS;
-      log$d.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
+      log$e.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
     }
   }
   function parseJpdbApiResponse(response, endpoint, responseMode) {
@@ -41412,7 +41225,7 @@ ${spelling}`);
     const json = JSON.parse(response.text);
     const errorMessage2 = jpdbApplicationErrorMessage(json);
     if (errorMessage2) {
-      log$d.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+      log$e.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
       throw new Error(errorMessage2);
     }
     return json;
@@ -41626,7 +41439,7 @@ ${spelling}`);
   const USER_DECK_POOL_CONCURRENCY = 4;
   const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
   const JPDB_ALL_DECKS_ID = "all";
-  const log$c = Logger.scope("JpdbClient");
+  const log$d = Logger.scope("JpdbClient");
   const utf8Encoder = new TextEncoder();
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
@@ -41666,13 +41479,13 @@ ${spelling}`);
     }
     // Used by review controllers to submit JPDB grades.
     async reviewCard(card, grade2) {
-      log$c.info("Reviewing card", { term: card.spelling, grade: grade2 });
+      log$d.info("Reviewing card", { term: card.spelling, grade: grade2 });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade: grade2 });
       await this.refreshCard(card);
     }
     // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
-      log$c.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$d.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       this.clearUserDeckPoolCache();
       if (sentence) await this.setCardSentence(card, sentence);
@@ -41698,7 +41511,7 @@ ${spelling}`);
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id2 = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
-      const done = log$c.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
+      const done = log$d.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
       try {
         if (id2 === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
         const pairs = await this.listDeckVocabularyPairsByRequestId(id2);
@@ -41716,7 +41529,7 @@ ${spelling}`);
     }
     // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId, card) {
-      log$c.info("Removing card from deck", { term: card.spelling, deckId });
+      log$d.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: normalizeDeckRequestId(deckId),
         vocabulary: [[card.vid, card.sid]]
@@ -41757,7 +41570,7 @@ ${spelling}`);
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$c.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$d.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     // Used by the new-tab live-bridge grade path through the client
@@ -41775,7 +41588,7 @@ ${spelling}`);
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$c.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$d.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
@@ -41837,7 +41650,7 @@ ${spelling}`);
       const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
       await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
         pairGroups[index] = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch((error) => {
-          log$c.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
+          log$d.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
           return [];
         });
       });
@@ -41873,7 +41686,7 @@ ${spelling}`);
       this.userDeckPoolCache = void 0;
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$c.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$d.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -43420,7 +43233,7 @@ ${key}`] = { t: now, v: value };
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
   const PARSE_TERM_SEPARATOR = "。";
-  const log$b = Logger.scope("JitenPublicVocabulary");
+  const log$c = Logger.scope("JitenPublicVocabulary");
   const sharedParseGate = new ConcurrencyGate(1);
   let sharedRequestBackoffUntil = 0;
   let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
@@ -43894,7 +43707,7 @@ ${key}`] = { t: now, v: value };
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context, error) {
-    log$b.warn(message, context, error);
+    log$c.warn(message, context, error);
   }
   function errorName(error) {
     return isRecord$2(error) && typeof error.name === "string" ? error.name : "";
@@ -44303,19 +44116,19 @@ ${key}`] = { t: now, v: value };
   function jpdbVocabularyResultRoots(doc) {
     return Array.from(doc.querySelectorAll(".result.vocabulary"));
   }
-  function jpdbVocabularyRootMatches(root, spelling, reading, normalize = compactJpdbText) {
-    return jpdbVocabularyIdentities(root).some((identity) => jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize));
+  function jpdbVocabularyRootMatches(root, spelling, reading, normalize2 = compactJpdbText) {
+    return jpdbVocabularyIdentities(root).some((identity) => jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize2));
   }
-  function jpdbDocumentMatchesVocabulary(doc, spelling, reading, normalize = compactJpdbText) {
+  function jpdbDocumentMatchesVocabulary(doc, spelling, reading, normalize2 = compactJpdbText) {
     const identity = jpdbDocumentVocabularyIdentity(doc);
-    return identity ? jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize) : false;
+    return identity ? jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize2) : false;
   }
   function jpdbDocumentVocabularyIdentity(doc) {
     const canonical = doc.querySelector('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? "";
     return parseJpdbVocabularyUrl(canonical);
   }
-  function hasRequestedJpdbVocabularyIdentity(spelling, reading, normalize = compactJpdbText) {
-    return Boolean(normalize(spelling) || normalize(reading));
+  function hasRequestedJpdbVocabularyIdentity(spelling, reading, normalize2 = compactJpdbText) {
+    return Boolean(normalize2(spelling) || normalize2(reading));
   }
   function requestPublicJpdbText(url, options) {
     return requestText$3(url, options);
@@ -44323,11 +44136,11 @@ ${key}`] = { t: now, v: value };
   function jpdbVocabularyIdentities(root) {
     return Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).filter((link) => !link.closest(".subsection-used-in, .subsection-examples")).map((link) => parseJpdbVocabularyUrl(link.href || link.getAttribute("href") || "")).filter((identity) => identity !== null);
   }
-  function jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize) {
-    const requestedSpelling = normalize(spelling);
-    const requestedReading = normalize(reading);
-    const expression = normalize(identity.expression);
-    const canonicalReading = normalize(identity.reading);
+  function jpdbVocabularyIdentityMatches(identity, spelling, reading, normalize2) {
+    const requestedSpelling = normalize2(spelling);
+    const requestedReading = normalize2(reading);
+    const expression = normalize2(identity.expression);
+    const canonicalReading = normalize2(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
     if (!jpdbVocabularyIdentityIntersectsRequest(requested, expression, canonicalReading)) return false;
@@ -44389,7 +44202,7 @@ ${key}`] = { t: now, v: value };
   const REQUEST_TIMEOUT_MS$1 = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
-  const log$a = Logger.scope("JpdbPublicPitch");
+  const log$b = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -44446,7 +44259,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$a.warn(message, context, error);
+      log$b.warn(message, context, error);
     }
   }
   function requestText$2(url, proxyUrl = "") {
@@ -44764,7 +44577,7 @@ ${normalizedReading}`;
       preferFetch: true
     });
   }
-  const log$9 = Logger.scope("JpdbVocabulary");
+  const log$a = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -44875,7 +44688,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$9.warn(message, context, error);
+      log$a.warn(message, context, error);
     }
   }
   function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
@@ -45167,7 +44980,7 @@ ${normalizedReading}`;
   function openDeckPickerForCardAdd(button, card, sentence, performAction) {
     return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button, card, sentence, performAction) ?? false;
   }
-  const log$8 = Logger.scope("PublicLookupFallback");
+  const log$9 = Logger.scope("PublicLookupFallback");
   function normalizedJitenLookupKey(term) {
     return term.replace(/\s+/g, "");
   }
@@ -45194,7 +45007,7 @@ ${normalizedReading}`;
     const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
     if (!uniqueTerms.length) return cards;
     const parsed = await parse(uniqueTerms).catch((error) => {
-      log$8.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+      log$9.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
       return [];
     });
     uniqueTerms.forEach((term, index) => {
@@ -45207,7 +45020,7 @@ ${normalizedReading}`;
   async function jitenFallbackCards(terms, entryCount, deps, options) {
     if (deps.jitenApiActive()) return batchJitenFallbackCards(terms, deps.parse);
     const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
-      log$8.warn("Jiten fallback failed", { terms: terms.length }, error);
+      log$9.warn("Jiten fallback failed", { terms: terms.length }, error);
       return /* @__PURE__ */ new Map();
     });
     const cards = /* @__PURE__ */ new Map();
@@ -45825,7 +45638,7 @@ ${reading}`);
   function minContrast(color, backgrounds) {
     return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
   }
-  const log$7 = Logger.scope("NewTab");
+  const log$8 = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -45897,7 +45710,7 @@ ${reading}`);
           channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
         } catch (error) {
           isClosed = true;
-          log$7.warn("Failed to publish new tab state update", error);
+          log$8.warn("Failed to publish new tab state update", error);
           try {
             channel.close();
           } catch {
@@ -47220,6 +47033,612 @@ ${options.version}`;
     if (typeof requestIdleCallback !== "function") return false;
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
+  }
+  const log$7 = Logger.scope("KanjiDoodle");
+  const PEN_MIN_DISTANCE = 8e-4;
+  const POINTER_MIN_DISTANCE = 16e-4;
+  const GHOST_VIEWBOX_UNITS = 109;
+  const GHOST_STROKE_UNITS = 3;
+  const GHOST_FALLBACK_RATIO = 0.82;
+  const GHOST_FALLBACK_MAX_PX = 220;
+  const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
+  const NATIVE_GESTURE_SUPPRESS_MS = 900;
+  const KANJI_DOODLE_CLEAR_EVENT = "yomu:kanji-doodle-clear";
+  function installKanjiDoodle(popover, getLanguage, options = {}) {
+    const root = popover;
+    root.__yomuKanjiDoodleCleanup?.();
+    delete root.__yomuKanjiDoodleCleanup;
+    const elements = kanjiDoodleElements(popover);
+    const clear = popover.querySelector("[data-doodle-clear]");
+    const trace = popover.querySelector("[data-doodle-trace]");
+    if (!elements) return;
+    const { stage, canvas, ghost } = elements;
+    let context = null;
+    try {
+      context = canvas.getContext("2d");
+    } catch (error) {
+      log$7.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      return;
+    }
+    if (!context) {
+      log$7.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      return;
+    }
+    let dpr = 1;
+    let drawing = false;
+    let pointerId = -1;
+    let pointerType = "";
+    let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
+    let points = [];
+    let strokes = [];
+    let canvasRect = canvas.getBoundingClientRect();
+    let suppressNativeGestureUntil = 0;
+    let activeClassRemovalTimer = 0;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const keepDoodleInteractionActive = (durationMs = NATIVE_GESTURE_SUPPRESS_MS) => {
+      suppressNativeGestureUntil = Math.max(suppressNativeGestureUntil, Date.now() + durationMs);
+      document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
+      if (activeClassRemovalTimer) {
+        window.clearTimeout(activeClassRemovalTimer);
+        activeClassRemovalTimer = 0;
+      }
+    };
+    const shouldSuppressNativeGesture = () => drawing || Date.now() < suppressNativeGestureUntil;
+    const releaseDoodleInteractionSoon = () => {
+      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
+      activeClassRemovalTimer = window.setTimeout(() => {
+        activeClassRemovalTimer = 0;
+        if (shouldSuppressNativeGesture()) {
+          releaseDoodleInteractionSoon();
+          return;
+        }
+        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+      }, NATIVE_GESTURE_SUPPRESS_MS);
+    };
+    const suppressNativeGestureIfActive = (event) => {
+      if (!shouldSuppressNativeGesture()) return;
+      suppressNativeCanvasGesture(event);
+    };
+    const resize = () => {
+      const rect = stage.getBoundingClientRect();
+      dpr = Math.max(window.devicePixelRatio || 1, 1);
+      const width = Math.max(1, Math.round(rect.width * dpr));
+      const height = Math.max(1, Math.round(rect.height * dpr));
+      canvasRect = canvas.getBoundingClientRect();
+      measureGhost();
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        redraw();
+      }
+    };
+    const toPoint = (event) => {
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
+        y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
+        pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
+      };
+    };
+    let measuredGhostSize = 0;
+    const measureGhost = () => {
+      const svg = ghost.querySelector("svg");
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const size = Math.min(rect.width, rect.height);
+      if (size > 0) measuredGhostSize = size;
+    };
+    const ghostDisplaySize = () => {
+      if (measuredGhostSize > 0) return measuredGhostSize;
+      const stageSize = Math.min(canvasRect.width, canvasRect.height);
+      return Math.min(stageSize * GHOST_FALLBACK_RATIO, GHOST_FALLBACK_MAX_PX);
+    };
+    const strokeWidth = (point) => {
+      const base = Math.max(2.4, GHOST_STROKE_UNITS / GHOST_VIEWBOX_UNITS * ghostDisplaySize() * dpr);
+      return base * (0.78 + (point?.pressure ?? 0.5) * 0.44);
+    };
+    const setupStroke = (point) => {
+      context.strokeStyle = resolvedDoodleInk(stage);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = strokeWidth(point);
+    };
+    const drawStroke = (stroke) => {
+      if (!stroke.length) return;
+      if (stroke.length === 1) {
+        drawPoint(stroke[0]);
+        return;
+      }
+      if (typeof context.quadraticCurveTo === "function") {
+        drawSmoothedStroke(stroke);
+        return;
+      }
+      for (let index = 1; index < stroke.length; index += 1) {
+        drawSegment(stroke[index - 1], stroke[index]);
+      }
+    };
+    const drawSmoothedStroke = (stroke) => {
+      context.save();
+      setupStroke(averagePressurePoint(stroke));
+      context.beginPath();
+      context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+      for (let index = 1; index < stroke.length - 1; index += 1) {
+        const control = stroke[index];
+        const next = stroke[index + 1];
+        context.quadraticCurveTo(
+          control.x * canvas.width,
+          control.y * canvas.height,
+          (control.x + next.x) / 2 * canvas.width,
+          (control.y + next.y) / 2 * canvas.height
+        );
+      }
+      const last = stroke[stroke.length - 1];
+      context.lineTo(last.x * canvas.width, last.y * canvas.height);
+      context.stroke();
+      context.restore();
+    };
+    const drawPoint = (point) => {
+      context.save();
+      setupStroke(point);
+      context.beginPath();
+      if (typeof context.arc === "function" && typeof context.fill === "function") {
+        context.fillStyle = context.strokeStyle;
+        context.arc(point.x * canvas.width, point.y * canvas.height, Math.max(1.2, context.lineWidth / 2), 0, Math.PI * 2);
+        context.fill();
+      } else {
+        const x2 = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        context.moveTo(x2, y);
+        context.lineTo(x2 + Math.max(1, context.lineWidth / 2), y);
+        context.stroke();
+      }
+      context.restore();
+    };
+    const drawSegment = (from, to) => {
+      context.save();
+      setupStroke(to);
+      context.beginPath();
+      context.moveTo(from.x * canvas.width, from.y * canvas.height);
+      context.lineTo(to.x * canvas.width, to.y * canvas.height);
+      context.stroke();
+      context.restore();
+    };
+    const redraw = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      for (const stroke of strokes) drawStroke(stroke);
+      drawStroke(points);
+    };
+    const appendPoint = (point) => {
+      const last = points.at(-1);
+      const minDistance = pointerType === "pen" ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
+      if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
+      points.push(point);
+      if (typeof context.quadraticCurveTo === "function") redraw();
+      else if (last) drawSegment(last, point);
+      else drawPoint(point);
+    };
+    const applyPointerSamples = (event) => {
+      for (const sample of pointerSamples(event)) appendPoint(toPoint(sample));
+    };
+    const start = (event) => {
+      const computedCanvas = getComputedStyle(canvas);
+      if (computedCanvas.pointerEvents === "none" || computedCanvas.visibility === "hidden") return;
+      if (drawing) {
+        if (event.pointerId === pointerId) return;
+        finishStroke(false);
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      drawing = true;
+      pointerId = event.pointerId;
+      pointerType = event.pointerType;
+      keepDoodleInteractionActive();
+      clearSelection();
+      canvasRect = canvas.getBoundingClientRect();
+      points = [];
+      appendPoint(toPoint(event));
+      setDoodlePointerCapture(canvas, event.pointerId);
+    };
+    const move = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      keepDoodleInteractionActive();
+      applyPointerSamples(event);
+    };
+    const end = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyPointerSamples(event);
+      finishStroke();
+    };
+    const finishAfterLostCapture = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      keepDoodleInteractionActive();
+    };
+    const clearActiveSelection = () => {
+      if (shouldSuppressNativeGesture()) clearSelection();
+    };
+    const finishStroke = (releaseCapture = true) => {
+      if (points.length) strokes = [...strokes, points];
+      points = [];
+      drawing = false;
+      const activePointerId = pointerId;
+      pointerId = -1;
+      pointerType = "";
+      if (releaseCapture) releaseDoodlePointerCapture(canvas, activePointerId);
+      keepDoodleInteractionActive();
+      releaseDoodleInteractionSoon();
+      clearSelection();
+      options.onChange?.(strokes.map((stroke) => [...stroke]));
+    };
+    const clearDoodle = () => {
+      strokes = [];
+      points = [];
+      redraw();
+      options.onClear?.();
+      options.onChange?.([]);
+    };
+    canvas.addEventListener("pointerdown", start, { passive: false, signal });
+    canvas.addEventListener("lostpointercapture", finishAfterLostCapture, { signal });
+    document.addEventListener("pointermove", move, { passive: false, signal });
+    document.addEventListener("pointerup", end, { passive: false, signal });
+    document.addEventListener("pointercancel", end, { passive: false, signal });
+    window.addEventListener("pointermove", move, { passive: false, signal });
+    window.addEventListener("pointerup", end, { passive: false, signal });
+    window.addEventListener("pointercancel", end, { passive: false, signal });
+    document.addEventListener("selectionchange", clearActiveSelection, { signal });
+    document.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
+    popover.addEventListener(KANJI_DOODLE_CLEAR_EVENT, clearDoodle, { signal });
+    for (const target of [stage, canvas, clear, trace]) {
+      if (!target) continue;
+      target.addEventListener("contextmenu", suppressNativeCanvasGesture, { signal });
+      target.addEventListener("selectstart", suppressNativeCanvasGesture, { signal });
+      target.addEventListener("dragstart", suppressNativeCanvasGesture, { signal });
+    }
+    clear?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearDoodle();
+    }, { signal });
+    trace?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      traceVisible = !traceVisible;
+      ghost.hidden = !traceVisible;
+      stage.classList.toggle("trace-hidden", !traceVisible);
+      trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
+      if (traceVisible) {
+        measureGhost();
+        redraw();
+      }
+    }, { signal });
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(stage);
+    root.__yomuKanjiDoodleCleanup = () => {
+      controller.abort();
+      resizeObserver.disconnect();
+      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
+      document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+      clearSelection();
+      if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
+    };
+    const disconnectWhenDetached = () => {
+      if (!popover.isConnected) {
+        root.__yomuKanjiDoodleCleanup?.();
+        return;
+      }
+      requestAnimationFrame(disconnectWhenDetached);
+    };
+    requestAnimationFrame(resize);
+    requestAnimationFrame(disconnectWhenDetached);
+  }
+  function suppressNativeCanvasGesture(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearSelection();
+  }
+  function averagePressurePoint(stroke) {
+    const pressure = stroke.reduce((sum, point) => sum + point.pressure, 0) / stroke.length;
+    return { ...stroke[stroke.length - 1], pressure };
+  }
+  function pointerSamples(event) {
+    const coalesced = safeCoalescedPointerEvents(event);
+    if (!coalesced.length) return [event];
+    const last = coalesced.at(-1);
+    return last && samePointerPosition(last, event) ? coalesced : [...coalesced, event];
+  }
+  function safeCoalescedPointerEvents(event) {
+    try {
+      return typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+    } catch {
+      return [];
+    }
+  }
+  function samePointerPosition(a, b) {
+    return a.clientX === b.clientX && a.clientY === b.clientY && a.pressure === b.pressure;
+  }
+  function setDoodlePointerCapture(canvas, activePointerId) {
+    try {
+      canvas.setPointerCapture?.(activePointerId);
+    } catch {
+    }
+  }
+  function releaseDoodlePointerCapture(canvas, activePointerId) {
+    try {
+      canvas.releasePointerCapture?.(activePointerId);
+    } catch {
+    }
+  }
+  function clearSelection() {
+    const selection = document.getSelection?.();
+    if (selection && !selection.isCollapsed) selection.removeAllRanges();
+  }
+  function resolvedDoodleInk(stage) {
+    const ink = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim();
+    return ink && !ink.startsWith("var(") ? ink : DOODLE_COLOR_TOKENS.ink;
+  }
+  function kanjiDoodleElements(popover) {
+    const stage = popover.querySelector(".jpdb-reader-doodle-stage");
+    const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
+    const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
+    if (stage && canvas && ghost) return { stage, canvas, ghost };
+    return null;
+  }
+  const FEATURE_INTERVAL = 20;
+  const NORMALIZED_SIZE = 256;
+  const SHAPE_PASS_SCORE = 0.5;
+  const TOTAL_PASS_SCORE = 62;
+  function assessKanjiStrokes(strokes, expectedStrokes, referenceStrokes) {
+    const validStrokes = strokes.filter((stroke) => stroke.length > 1);
+    const actualStrokes = validStrokes.length;
+    const expected = Math.max(1, Math.round(expectedStrokes || actualStrokes || 1));
+    const strokeScore = Math.max(0, 1 - Math.abs(actualStrokes - expected) / Math.max(expected, 1));
+    const coverageScore = Math.min(1, totalDistance(strokes) / Math.max(expected * 0.28, 0.28));
+    const directionScore = averageForwardMotion(strokes);
+    const shapeScore = assessStrokeShape(validStrokes, referenceStrokes, expected);
+    const score = Math.round((shapeScore == null ? strokeScore * 0.62 + coverageScore * 0.24 + directionScore * 0.14 : strokeScore * 0.18 + coverageScore * 0.06 + directionScore * 0.04 + shapeScore * 0.72) * 100);
+    const shapePassed = shapeScore == null || shapeScore >= SHAPE_PASS_SCORE;
+    const passed = actualStrokes === expected && score >= TOTAL_PASS_SCORE && shapePassed;
+    const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
+    return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? void 0, message };
+  }
+  function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
+    const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
+    if (!writtenStrokes.length) return [];
+    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    return candidates.map((candidate) => kanjiShapeMatch(candidate, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
+  }
+  function totalDistance(strokes) {
+    return strokes.reduce((sum, stroke) => {
+      let distance = 0;
+      for (let index = 1; index < stroke.length; index += 1) {
+        const previous = stroke[index - 1];
+        const current = stroke[index];
+        distance += Math.hypot(current.x - previous.x, current.y - previous.y);
+      }
+      return sum + distance;
+    }, 0);
+  }
+  function averageForwardMotion(strokes) {
+    const scored = strokes.filter((stroke) => stroke.length > 1).map((stroke) => {
+      const first2 = stroke[0];
+      const last = stroke[stroke.length - 1];
+      const horizontal = Math.abs(last.x - first2.x);
+      const vertical = Math.abs(last.y - first2.y);
+      if (horizontal >= vertical) return last.x >= first2.x ? 1 : 0.45;
+      return last.y >= first2.y ? 1 : 0.45;
+    });
+    return scored.length ? scored.reduce((sum, value) => sum + value, 0) / scored.length : 0;
+  }
+  function assessmentMessage(passed, actualStrokes, expectedStrokes, shapeScore) {
+    if (passed) return `Looks right: ${actualStrokes}/${expectedStrokes} strokes`;
+    if (actualStrokes !== expectedStrokes) return `Check stroke count: ${actualStrokes}/${expectedStrokes} strokes`;
+    if (shapeScore != null && shapeScore < SHAPE_PASS_SCORE) return `Check stroke shape/order: ${actualStrokes}/${expectedStrokes} strokes`;
+    return `Check stroke count/order: ${actualStrokes}/${expectedStrokes} strokes`;
+  }
+  function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
+    if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
+    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
+    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
+    const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const worst = Math.min(...scores);
+    return average * 0.8 + worst * 0.2;
+  }
+  function kanjiShapeMatch(candidate, written, actualStrokes) {
+    const referenceStrokes = candidate.strokeShapes.filter((stroke) => stroke.length > 1);
+    if (!referenceStrokes.length) return null;
+    const expectedStrokes = referenceStrokes.length;
+    const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
+    const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
+    if (strokeDelta > allowedDelta) return null;
+    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    if (!reference.length) return null;
+    const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
+    const skeletonScore = wholeSkeletonScore(written, reference);
+    const occupancyScore = strokeOccupancyScore(written, reference);
+    const countScore = Math.max(0, 1 - strokeDelta / Math.max(actualStrokes, expectedStrokes, 1));
+    const score = skeletonScore * 0.44 + strokeShapeScore * 0.34 + occupancyScore * 0.12 + countScore * 0.1;
+    if (score < 0.38) return null;
+    return { kanji: candidate.kanji, score, expectedStrokes, actualStrokes };
+  }
+  function unorderedStrokeShapeScore(written, reference) {
+    const pairScores = [];
+    written.forEach((stroke, writtenIndex) => {
+      reference.forEach((referenceStroke, referenceIndex) => {
+        pairScores.push({
+          writtenIndex,
+          referenceIndex,
+          score: reversibleStrokeCorrespondenceScore(stroke, referenceStroke)
+        });
+      });
+    });
+    pairScores.sort((a, b) => b.score - a.score);
+    const usedWritten = /* @__PURE__ */ new Set();
+    const usedReference = /* @__PURE__ */ new Set();
+    const scores = [];
+    for (const pair of pairScores) {
+      if (usedWritten.has(pair.writtenIndex) || usedReference.has(pair.referenceIndex)) continue;
+      usedWritten.add(pair.writtenIndex);
+      usedReference.add(pair.referenceIndex);
+      scores.push(pair.score);
+      if (scores.length >= Math.min(written.length, reference.length)) break;
+    }
+    if (!scores.length) return 0;
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const worst = Math.min(...scores);
+    const coverage = scores.length / Math.max(written.length, reference.length);
+    return average * 0.64 + worst * 0.18 + coverage * 0.18;
+  }
+  function wholeSkeletonScore(written, reference) {
+    const writtenPoints = written.flat();
+    const referencePoints = reference.flat();
+    if (!writtenPoints.length || !referencePoints.length) return 0;
+    const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
+    return clamp$1(1 - distance / 54, 0, 1);
+  }
+  function averageNearestDistance(points, targets) {
+    return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
+  }
+  function nearestDistance(point, targets) {
+    let best = Number.POSITIVE_INFINITY;
+    for (const target of targets) best = Math.min(best, manhattan(point, target));
+    return best;
+  }
+  function strokeOccupancyScore(written, reference) {
+    const writtenCells = occupancyCells(written.flat(), 5);
+    const referenceCells = occupancyCells(reference.flat(), 5);
+    if (!writtenCells.size || !referenceCells.size) return 0;
+    let overlap = 0;
+    writtenCells.forEach((cell) => {
+      if (referenceCells.has(cell)) overlap++;
+    });
+    return overlap / Math.max(writtenCells.size, referenceCells.size);
+  }
+  function occupancyCells(points, cellCount) {
+    const cells = /* @__PURE__ */ new Set();
+    points.forEach((point) => {
+      const x2 = Math.max(0, Math.min(cellCount - 1, Math.floor(point.x / NORMALIZED_SIZE * cellCount)));
+      const y = Math.max(0, Math.min(cellCount - 1, Math.floor(point.y / NORMALIZED_SIZE * cellCount)));
+      cells.add(`${x2}:${y}`);
+    });
+    return cells;
+  }
+  function toPattern(strokes) {
+    return strokes.map((stroke) => stroke.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y)).map((point) => ({
+      x: Math.max(0, Math.min(1, point.x)) * NORMALIZED_SIZE,
+      y: Math.max(0, Math.min(1, point.y)) * NORMALIZED_SIZE
+    }))).filter((stroke) => stroke.length > 1);
+  }
+  function momentNormalize(pattern) {
+    const points = pattern.flat();
+    if (!points.length) return pattern;
+    const width = NORMALIZED_SIZE;
+    const height = NORMALIZED_SIZE;
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const oldWidth = Math.max(maxX - minX, 1e-3);
+    const oldHeight = Math.max(maxY - minY, 1e-3);
+    const aspectScale = aspectPreservingScale(oldWidth, oldHeight);
+    const targetWidth = oldHeight > oldWidth ? aspectScale * width : width;
+    const targetHeight = oldHeight > oldWidth ? height : aspectScale * height;
+    const offsetX = (width - targetWidth) / 2;
+    const offsetY = (height - targetHeight) / 2;
+    const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const varianceX = points.reduce((sum, point) => sum + (point.x - centerX) ** 2, 0) / points.length;
+    const varianceY = points.reduce((sum, point) => sum + (point.y - centerY) ** 2, 0) / points.length;
+    const scaleX = finiteScale(targetWidth / (4 * Math.sqrt(varianceX)));
+    const scaleY = finiteScale(targetHeight / (4 * Math.sqrt(varianceY)));
+    return pattern.map((stroke) => stroke.map((point) => ({
+      x: clamp$1(scaleX * (point.x - centerX) + targetWidth / 2 + offsetX, 0, NORMALIZED_SIZE),
+      y: clamp$1(scaleY * (point.y - centerY) + targetHeight / 2 + offsetY, 0, NORMALIZED_SIZE)
+    })));
+  }
+  function aspectPreservingScale(width, height) {
+    const ratio = height > width ? width / height : height / width;
+    return Math.sqrt(Math.sin(Math.PI / 2 * ratio));
+  }
+  function finiteScale(value) {
+    return Number.isFinite(value) ? value : 0;
+  }
+  function extractFeatures(pattern, interval) {
+    return pattern.map((stroke) => {
+      const extracted = [];
+      let distance = 0;
+      for (let index = 0; index < stroke.length; index += 1) {
+        if (index === 0) extracted.push(stroke[0]);
+        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
+        if (distance >= interval && index > 1) {
+          distance -= interval;
+          extracted.push(stroke[index]);
+        }
+      }
+      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
+      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
+      return extracted;
+    });
+  }
+  function strokeCorrespondenceScore(stroke, reference) {
+    const whole = wholeWholeDistance(stroke, reference);
+    const endpoints = endPointDistance(stroke, reference) / 2;
+    const direction = directionDistance(stroke, reference) * 128;
+    const distance = whole * 0.58 + endpoints * 0.32 + direction * 0.1;
+    return clamp$1(1 - distance / 96, 0, 1);
+  }
+  function reversibleStrokeCorrespondenceScore(stroke, reference) {
+    return Math.max(
+      strokeCorrespondenceScore(stroke, reference),
+      strokeCorrespondenceScore([...stroke].reverse(), reference)
+    );
+  }
+  function wholeWholeDistance(pattern1, pattern2) {
+    const [larger, smaller] = pattern1.length >= pattern2.length ? [pattern1, pattern2] : [pattern2, pattern1];
+    if (!larger.length || !smaller.length) return NORMALIZED_SIZE;
+    let distance = 0;
+    for (let index = 0; index < smaller.length; index += 1) {
+      const largerIndex = Math.min(larger.length - 1, Math.floor(larger.length / smaller.length * index));
+      distance += manhattan(larger[largerIndex], smaller[index]);
+    }
+    return distance / smaller.length;
+  }
+  function endPointDistance(pattern1, pattern2) {
+    if (!pattern1.length || !pattern2.length) return NORMALIZED_SIZE;
+    return manhattan(pattern1[0], pattern2[0]) + manhattan(pattern1[pattern1.length - 1], pattern2[pattern2.length - 1]);
+  }
+  function directionDistance(pattern1, pattern2) {
+    const vector1 = strokeVector(pattern1);
+    const vector2 = strokeVector(pattern2);
+    const length1 = Math.hypot(vector1.x, vector1.y);
+    const length2 = Math.hypot(vector2.x, vector2.y);
+    if (!length1 || !length2) return 1;
+    const dot = (vector1.x * vector2.x + vector1.y * vector2.y) / (length1 * length2);
+    return (1 - clamp$1(dot, -1, 1)) / 2;
+  }
+  function strokeVector(stroke) {
+    return {
+      x: stroke[stroke.length - 1].x - stroke[0].x,
+      y: stroke[stroke.length - 1].y - stroke[0].y
+    };
+  }
+  function euclid(point1, point2) {
+    return Math.hypot(point1.x - point2.x, point1.y - point2.y);
+  }
+  function manhattan(point1, point2) {
+    return Math.abs(point1.x - point2.x) + Math.abs(point1.y - point2.y);
+  }
+  function clamp$1(value, min, max2) {
+    return Math.max(min, Math.min(max2, value));
   }
   function runningAsBrowserExtension() {
     const global = globalThis;
@@ -49455,7 +49874,7 @@ ${options.version}`;
     return null;
   }
   function studyStep(kind, mode, gradeable = false, kanji, index = 0) {
-    const id2 = kanji ? `${kind}:${index}:${kanji}` : kind;
+    const id2 = kanji ? `${kind}:${index}` : kind;
     return { id: id2, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
   }
   function normalizedChallengeStepOrder(order) {
@@ -51868,6 +52287,13 @@ ${entry.url}`),
     handlingSearchPopstate = false;
     searchActiveSuggestionIndex = -1;
     searchWordCardCache = /* @__PURE__ */ new Map();
+    // The study DOM needs a card identity for nested actions and stale async
+    // guards, but the canonical card key contains the spelling and reading.
+    // Before reveal, expose only this controller-local opaque token and resolve
+    // it back to the card in memory. Revealed cards may use their canonical key.
+    studyCardDomTokenSequence = 0;
+    studyCardDomTokens = /* @__PURE__ */ new Map();
+    studyCardsByDomToken = /* @__PURE__ */ new Map();
     searchHandwritingStrokes = [];
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
@@ -53391,7 +53817,7 @@ ${entry.url}`),
     nestedCardActionCard(target) {
       const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
       if (key) {
-        return this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key));
+        return this.studyCardsByDomToken.get(key) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key));
       }
       return this.visibleWords[this.index];
     }
@@ -53415,7 +53841,7 @@ ${entry.url}`),
     studyWordAudioCard(target) {
       const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
       if (key) {
-        return this.allWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key));
+        return this.studyCardsByDomToken.get(key) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key));
       }
       return this.sourceCardForVisibleCard(this.visibleWords[this.index]);
     }
@@ -55134,6 +55560,17 @@ ${entry.url}`),
     cardSelectionKey(card) {
       return card.sourceCardKey || cardKey(card);
     }
+    studyCardDomToken(card) {
+      const identity = this.cardSelectionKey(card);
+      const existing = this.studyCardDomTokens.get(identity);
+      const token = existing ?? `study-card-${++this.studyCardDomTokenSequence}`;
+      if (!existing) this.studyCardDomTokens.set(identity, token);
+      this.studyCardsByDomToken.set(token, this.sourceCardForVisibleCard(card) ?? card);
+      return token;
+    }
+    renderedStudyCardIdentity(card) {
+      return this.state.revealAnswer ? this.cardSelectionKey(card) : this.studyCardDomToken(card);
+    }
     isReviewHistoryCard(card) {
       if (!card) return false;
       const key = cardKey(card);
@@ -55287,7 +55724,7 @@ ${entry.url}`),
       this.writeStoredWordKey(card);
       this.syncCardUrl(card);
       const study = root.querySelector("[data-newtab-study]");
-      if (study) study.dataset.newtabCard = this.cardSelectionKey(card);
+      if (study) study.dataset.newtabCard = this.renderedStudyCardIdentity(card);
       root.classList.remove("jpdb-reader-newtab-setup-mode", "jpdb-reader-newtab-empty-mode");
       root.classList.toggle("jpdb-reader-newtab-revealed", this.state.revealAnswer);
       const hasKanjiStudyStep = this.shouldRenderCardAsKanji(card);
@@ -55399,7 +55836,6 @@ ${entry.url}`),
             newtabAction: "study-step",
             studyStepId: step.id,
             studyStepKind: step.kind,
-            ...step.kanji ? { studyStepKanji: step.kanji } : {},
             active: String(active),
             gradeable: String(step.gradeable)
           },
@@ -56510,7 +56946,7 @@ ${entry.url}`),
       const more = depth < hints.length;
       return el(
         "div",
-        { class: "jpdb-reader-newtab-study-hint", dataset: { studyHintStep: step, ...kanji ? { studyHintKanji: kanji } : {} } },
+        { class: "jpdb-reader-newtab-study-hint", dataset: { studyHintStep: step } },
         ...revealed.map((hint) => el(
           "span",
           { class: "jpdb-reader-newtab-study-hint-item" },
@@ -56537,7 +56973,7 @@ ${entry.url}`),
       if (!step) return;
       const card = this.visibleWords[this.index];
       if (!card) return;
-      const kanji = panel?.dataset.studyHintKanji ?? "";
+      const kanji = step === "kanji-doodle" ? this.activeStudyKanji(card) ?? "" : "";
       const key = this.studyHintStateKey(card, step, kanji);
       this.studyHintDepth.set(key, (this.studyHintDepth.get(key) ?? 0) + 1);
       this.renderWord(root, card);
@@ -56573,8 +57009,11 @@ ${entry.url}`),
         replaceChildrenWith(slots.answer, this.revealedKanjiAnswer(card, kanji));
         return;
       }
-      replaceChildrenWith(slots.answer, this.kanjiDoodleFront(kanji));
+      replaceChildrenWith(slots.answer, this.kanjiDoodleFront(this.studyStepIdForKanji(card, kanji)));
       this.installNewTabKanjiDoodle(slots, card, kanji);
+    }
+    studyStepIdForKanji(card, kanji) {
+      return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).steps.find((step) => step.kind === "kanji-doodle" && step.kanji === kanji)?.id ?? "kanji-doodle";
     }
     revealedKanjiAnswer(card, kanji) {
       const preview = this.doodlePreviewCache.get(cardKey(card));
@@ -56621,15 +57060,18 @@ ${entry.url}`),
         meaning ? el("span", { class: "jpdb-reader-newtab-kanji-backing-meaning" }, meaning) : null
       );
     }
-    kanjiDoodleFront(kanji) {
+    kanjiDoodleFront(studyStepId = "") {
       return el(
         "div",
         { class: "jpdb-reader-newtab-kanji-front" },
         el(
           "div",
-          { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden", dataset: { kanji } },
+          {
+            class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden",
+            dataset: studyStepId ? { studyDoodleStep: studyStepId } : void 0
+          },
           el("div", { class: "jpdb-reader-doodle-ghost", dataset: { newtabDoodleGhost: true }, hidden: true }),
-          el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": `${this.text("drawKanji")}: ${kanji}` })
+          el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": this.text("drawKanji") })
         ),
         el(
           "div",
@@ -56941,7 +57383,6 @@ ${entry.url}`),
       const target = this.typeWordTarget(card);
       const chars = Array.from(target);
       const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
-      const current = chars[progress] ?? "";
       return el(
         "div",
         { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
@@ -56955,7 +57396,7 @@ ${entry.url}`),
           }, index < progress ? character : "＿"))
         ),
         progress >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
-        this.kanjiDoodleFront(current || "字")
+        this.kanjiDoodleFront()
       );
     }
     installTypeWordDoodle(answer, card) {
@@ -57199,7 +57640,7 @@ ${entry.url}`),
       const audioButton = el("button", {
         class: "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio",
         type: "button",
-        dataset: { action: "study-word-audio", ...card ? { newtabCard: cardKey(card) } : {} },
+        dataset: { action: "study-word-audio", ...card ? { newtabCard: this.renderedStudyCardIdentity(card) } : {} },
         "aria-label": audioTitle,
         title: audioTitle,
         disabled: !settings.audioEnabled
@@ -58057,7 +58498,7 @@ ${entry.url}`),
       const details = await this.loadKanjiDetails(kanji);
       if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
-      this.applyEnrichedKanjiSvg(slots.answer, kanji, details.vg?.svg);
+      this.applyEnrichedKanjiSvg(slots.answer, this.studyStepIdForKanji(card, kanji), details.vg?.svg);
       this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
       void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
@@ -58069,8 +58510,7 @@ ${entry.url}`),
       if (kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
       const study = slots.prompt?.closest("[data-newtab-study]") ?? slots.answer?.closest("[data-newtab-study]");
       if (!study) return true;
-      const renderedKey = study.dataset.newtabCard;
-      return renderedKey === cardKey(card) || renderedKey === this.cardSelectionKey(card);
+      return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
     }
     applyEnrichedKanjiKeyword(slots, card, kanji, details) {
       const keyword = this.keywordFromDetails(card, details.jpdb, details.jiten, details.rtk);
@@ -58091,12 +58531,12 @@ ${entry.url}`),
       if (!slots.prompt || this.state.revealAnswer) return;
       replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
-    applyEnrichedKanjiSvg(answer, kanji, svgMarkup) {
+    applyEnrichedKanjiSvg(answer, studyStepId, svgMarkup) {
       if (!answer || !svgMarkup) return;
       const mounts = this.enrichedKanjiSvgMounts(answer);
       this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
-      const stageKanji = mounts.ghost?.closest(".jpdb-reader-doodle-stage")?.dataset.kanji;
-      if (stageKanji && stageKanji !== kanji) return;
+      const renderedStepId = mounts.ghost?.closest(".jpdb-reader-doodle-stage")?.dataset.studyDoodleStep;
+      if (renderedStepId && renderedStepId !== studyStepId) return;
       this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
     }
     enrichedKanjiSvgMounts(answer) {

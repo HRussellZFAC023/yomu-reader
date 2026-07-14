@@ -670,6 +670,43 @@
   gap: 6px;
 }
 
+.jpdb-reader-study-clock {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.jpdb-reader-study-clock-output {
+  min-width: 4.5ch;
+  color: inherit;
+  text-align: end;
+}
+
+.jpdb-reader-study-clock-toggle {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.jpdb-reader-study-clock-toggle:hover {
+  border-color: var(--jpdb-reader-accent);
+}
+
+.jpdb-reader-study-clock-toggle:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
 .jpdb-reader-newtab-more {
   position: relative;
 }
@@ -4754,6 +4791,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button,
   .jpdb-reader-newtab-kanji-vocab > button,
   .jpdb-reader-newtab-mini-action {
+    min-height: 44px !important;
+  }
+
+  .jpdb-reader-study-clock-toggle {
     min-height: 44px !important;
   }
 
@@ -23863,18 +23904,6 @@ html.jpdb-reader-doodle-active * {
     text-shadow: 0 3px 22px rgba(0, 0, 0, 0.78);
 }
 
-.academy-objective {
-    width: fit-content;
-    margin: 0;
-    padding: 8px 12px;
-    border: 1px solid var(--academy-line-strong);
-    border-radius: 999px;
-    color: var(--academy-paper-ink);
-    background: rgba(241, 234, 217, 0.9);
-    box-shadow: 3px 4px 0 rgba(83, 69, 47, 0.18);
-    font-size: 0.82rem;
-}
-
 .academy-place-map {
     position: relative;
     min-height: 360px;
@@ -24259,6 +24288,111 @@ html.jpdb-reader-doodle-active * {
     line-height: 1.55;
 }
 
+.academy-scrapbook-spread {
+    position: relative;
+    margin: 44px 0 12px;
+    padding: 18px 14px 8px;
+    border-top: 1px solid var(--academy-line);
+    background:
+        linear-gradient(90deg, transparent 49.7%, rgba(83, 69, 47, 0.14) 50%, transparent 50.3%),
+        repeating-linear-gradient(0deg, transparent 0 28px, rgba(90, 107, 88, 0.07) 29px);
+}
+
+.academy-scrapbook-title {
+    width: fit-content;
+    margin: -34px 0 28px 16px;
+    padding: 5px 16px 4px;
+    background: var(--academy-paper);
+    box-shadow: 2px 3px 0 rgba(83, 69, 47, 0.14);
+    font: 750 0.88rem/1.2 var(--academy-font);
+    transform: rotate(-1deg);
+}
+
+.academy-scrapbook-people {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 4vw, 34px);
+    align-items: end;
+}
+
+.academy-scrapbook-person {
+    position: relative;
+    min-height: clamp(230px, 30vw, 292px);
+    border-bottom: 1px solid var(--academy-line);
+    isolation: isolate;
+}
+
+.academy-scrapbook-name {
+    position: absolute;
+    right: 8px;
+    bottom: 10px;
+    z-index: 2;
+    margin: 0;
+    padding: 5px 12px 4px;
+    background: rgba(255, 252, 241, 0.9);
+    box-shadow: 2px 3px 0 rgba(83, 69, 47, 0.14);
+    font: 780 0.9rem/1.1 var(--academy-font);
+    transform: rotate(1deg);
+}
+
+.academy-scrapbook-peter::before {
+    content: "";
+    position: absolute;
+    inset: 24px 12% 24px 8%;
+    z-index: -1;
+    border: 1px solid rgba(83, 69, 47, 0.18);
+    background:
+        repeating-linear-gradient(0deg, transparent 0 27px, rgba(90, 107, 88, 0.1) 28px),
+        rgba(255, 252, 241, 0.72);
+    box-shadow: 3px 5px 0 rgba(83, 69, 47, 0.1);
+    clip-path: polygon(2% 2%, 98% 0, 100% 93%, 94% 100%, 0 97%);
+    transform: rotate(-2deg);
+}
+
+.academy-scrapbook-peter::after {
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: 36%;
+    width: 62px;
+    height: 18px;
+    z-index: 1;
+    background: rgba(194, 213, 187, 0.66);
+    transform: rotate(3deg);
+}
+
+.academy-scrapbook-peter .academy-scrapbook-name {
+    right: auto;
+    bottom: 44%;
+    left: 20%;
+    padding: 8px 20px 6px;
+    font-size: clamp(1rem, 2.3vw, 1.35rem);
+    transform: rotate(-2deg);
+}
+
+.academy-scrapbook-portrait {
+    position: absolute;
+    bottom: -1px;
+    left: 5%;
+    width: auto;
+    height: clamp(220px, 29vw, 292px);
+    max-width: 90%;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(4px 6px 4px rgba(43, 35, 24, 0.18));
+    pointer-events: none;
+}
+
+.academy-scrapbook-shaun[data-portrait-state="unavailable"]::before {
+    content: "";
+    position: absolute;
+    inset: 26px 12% 24px;
+    border: 1px solid rgba(83, 69, 47, 0.18);
+    background: rgba(255, 252, 241, 0.68);
+    box-shadow: 3px 5px 0 rgba(83, 69, 47, 0.1);
+    transform: rotate(1deg);
+}
+
 .academy-relationship-pages {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -24434,6 +24568,20 @@ html.jpdb-reader-doodle-active * {
         max-width: 100%;
         min-width: 0;
         white-space: normal;
+    }
+
+    .academy-scrapbook-spread {
+        margin-top: 34px;
+        padding-inline: 8px;
+    }
+
+    .academy-scrapbook-person {
+        min-height: 214px;
+    }
+
+    .academy-scrapbook-portrait {
+        left: 0;
+        height: clamp(194px, 52vw, 210px);
     }
 }
 .academy-vn-stage {

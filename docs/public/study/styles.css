@@ -657,6 +657,43 @@
   gap: 6px;
 }
 
+.jpdb-reader-study-clock {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.jpdb-reader-study-clock-output {
+  min-width: 4.5ch;
+  color: inherit;
+  text-align: end;
+}
+
+.jpdb-reader-study-clock-toggle {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.jpdb-reader-study-clock-toggle:hover {
+  border-color: var(--jpdb-reader-accent);
+}
+
+.jpdb-reader-study-clock-toggle:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
 .jpdb-reader-newtab-more {
   position: relative;
 }
@@ -4713,6 +4750,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button,
   .jpdb-reader-newtab-kanji-vocab > button,
   .jpdb-reader-newtab-mini-action {
+    min-height: 44px !important;
+  }
+
+  .jpdb-reader-study-clock-toggle {
     min-height: 44px !important;
   }
 
