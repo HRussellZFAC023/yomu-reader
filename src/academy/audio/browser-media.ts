@@ -1,4 +1,4 @@
-import type { AudioTrack, MediaBusPlayback, SfxCue, SfxPlayback } from './types';
+import type { AudioTrack, MediaBusPlayback } from './types';
 
 type MediaFactory = () => HTMLAudioElement;
 
@@ -117,13 +117,6 @@ export class BrowserMediaBus implements MediaBusPlayback {
     private assertActive(): void {
         if (this.disposed) throw new Error('Audio bus has been disposed.');
     }
-}
-
-/** Release-safe fallback: silence is intentional until a reviewed cue exists. */
-export class SilentSfxPlayback implements SfxPlayback {
-    unlock(): void {}
-    play(_cue: SfxCue, _volume: number): void {}
-    dispose(): void {}
 }
 
 function clamp(value: number): number {

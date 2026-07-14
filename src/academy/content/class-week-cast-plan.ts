@@ -16,7 +16,7 @@ import {
 export * from './class-week-cast-plan-schema';
 
 const CLASSMATE_IDS = ACADEMY_CAST
-    .filter(member => member.category === 'classmate')
+    .filter(member => member.category === 'classmate' && member.eligibility.lessons)
     .map(member => member.id);
 
 const CLASSMATE_SPECIALTIES = new Set<string>(
@@ -173,6 +173,7 @@ function validateAppearance(appearance: ClassWeekCastAppearance, week: ClassWeek
     exactKeys(appearance, ['id', 'firstName', 'matchedSpecialty'], `week ${week.weekId} appearance`);
     const member = getAcademyCastMember(appearance.id);
     if (member.category !== 'classmate') fail(`Week ${week.weekId} assigns ${member.firstName}, who is not a documented classmate.`);
+    if (!member.eligibility.lessons) fail(`Week ${week.weekId} assigns ${member.firstName}, who is story-only until lesson evidence exists.`);
     if (appearance.firstName !== member.firstName) {
         fail(`Week ${week.weekId} names ${appearance.id} as ${appearance.firstName}; expected ${member.firstName}.`);
     }

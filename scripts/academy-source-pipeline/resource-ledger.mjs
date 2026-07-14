@@ -2,14 +2,16 @@ import { readJson, writeJsonAtomic } from './io.mjs';
 
 /**
  * Updates the committed RESOURCE-LEDGER from generated pipeline evidence
- * WITHOUT inflating source-question coverage: Stage 1's single audited/playable
- * question stays exactly 1, and donor items are recorded only as
+ * WITHOUT inflating source-question coverage: Stage 1's single audited and
+ * implemented question remains quarantined (zero currently playable), and donor items are recorded only as
  * `migratedSourceItemCandidates`.
  */
 export function updateResourceLedger(roots, { catalog, corpusStatus, packMigration }) {
     const ledger = readJson(roots.resourceLedgerPath);
-    if (ledger.coverage.sourceQuestionsAudited !== 1 || ledger.coverage.sourceQuestionsPlayable !== 1) {
-        throw new Error('RESOURCE-LEDGER Stage 1 coverage drifted from the audited 1/1 baseline; refusing to update.');
+    if (ledger.coverage.sourceQuestionsAudited !== 1
+        || ledger.coverage.sourceQuestionsImplemented !== 1
+        || ledger.coverage.sourceQuestionsPlayable !== 0) {
+        throw new Error('RESOURCE-LEDGER coverage drifted from the audited/implemented/playable 1/1/0 baseline; refusing to update.');
     }
 
     ledger.baselineCounts = {

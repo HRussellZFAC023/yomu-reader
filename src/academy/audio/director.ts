@@ -3,6 +3,7 @@ import { loadAudioSettings, saveAudioSettings, withAudioVolume } from './setting
 import type {
     AudioBus,
     AudioCatalog,
+    AudioDirectorControl,
     AudioDirectorEvent,
     AudioDirectorState,
     AudioSettings,
@@ -30,7 +31,7 @@ type Listener = (event: AudioDirectorEvent) => void;
  * The Academy's sole audio state machine. Views request semantic slots; this
  * module owns unlock, rights gates, transitions, ducking, suspension and cleanup.
  */
-export class AudioDirector {
+export class AudioDirector implements AudioDirectorControl {
     private readonly catalog: AudioCatalog;
     private readonly buses: Record<Exclude<AudioBus, 'sfx'>, MediaBusPlayback>;
     private readonly sfx: SfxPlayback;

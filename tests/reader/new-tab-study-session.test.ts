@@ -95,7 +95,7 @@ describe('new-tab study session model', () => {
 
         const kanjiSteps = session.steps.filter(step => step.kind === 'kanji-doodle');
         expect(kanjiSteps.map(step => step.kanji)).toEqual(['図', '鑑']);
-        expect(kanjiSteps.map(step => step.id)).toEqual(['kanji-doodle:0:図', 'kanji-doodle:1:鑑']);
+        expect(kanjiSteps.map(step => step.id)).toEqual(['kanji-doodle:0', 'kanji-doodle:1']);
         expect(session.activeStep).toMatchObject({ kind: 'kanji-doodle', kanji: '図' });
     });
 

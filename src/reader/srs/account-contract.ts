@@ -40,7 +40,7 @@ export interface AcademyClassBoardView {
     readonly members: readonly AcademyClassBoardMember[];
 }
 
-export function normalizeClassDisplayName(value: string): string {
+function normalizeClassDisplayName(value: string): string {
     const normalized = value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
     if (!normalized || [...normalized].length > 32 || /[#\p{Cc}\p{Cf}\p{Cs}]/u.test(normalized)) {
         throw new TypeError('Class display name is invalid.');

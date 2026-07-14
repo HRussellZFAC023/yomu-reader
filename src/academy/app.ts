@@ -9,6 +9,7 @@ import { quarantineLegacyUngroundedReviews } from './integration/legacy-review-q
 import type { KanjiWritingService, PronunciationService, ReviewQueueService } from './integration/yomu-bridge';
 import {
     createMemoryAcademyPersistence,
+    loadAcademyCheckpointSafely,
     openAcademyPersistence,
     type AcademyCheckpoint,
     type AcademyCheckpointUpdate,
@@ -110,7 +111,7 @@ export class AcademyApp {
             pronunciation: this.pronunciation,
             audio: this.audio,
         });
-        const restoredCheckpoint = await this.persistence.checkpoint.load() ?? this.checkpoint;
+        const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
         this.checkpoint = normalizeResumeCheckpoint(
             restoredCheckpoint,
             this.projection,

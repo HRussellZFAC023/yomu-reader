@@ -392,3 +392,49 @@ The earlier execution blocker was removed in the continuing session; this sectio
 - Rebased the three green Academy commits onto `origin/main` at Yomu 1.6.148. The one conflict was the compound evidence seam: upstream's empty-`matchSurface` path initially hid `もう` / `一度`. The merged resolver now derives component spelling/reading from Jiten `readingFurigana`, prefers Jiten pitch, then local metadata, then the cached public pitch fallback. Compound, expression-pitch, and JPDB helper tests pass 1,023/1,023; TypeScript passes; Fable session `9b885516-6aff-41be-9e99-153be9bc830f` returned `PASS`.
 - Rebuilt canonical `/study/`, its lightweight `/newtab/` alias, and Academy after the rebase. The grounded preflight passes 4/4 and the Academy bundle is `s1-9ec43fae8501`. Protected Reader source remains isolated from generated hosted assets; the non-merging pre-1.6.148 userscript artifact remains recoverable in stash `4571c4c579a01e4083c077b229787d642e7deb76`.
 - Rebuilt the readable userscript and pinned Greasy Fork companion libraries from the rebased source, then resynced Study and docs. `npm run docs:build` and `npm run verify` pass; the userscript is 1,913,406 bytes with 86,594 bytes remaining under the 2 MB limit. Commits `c0eff3ffb`, `ff6049596`, `c9a7f4148`, and `aaa151089` preserve the grounded source, hosted Academy/Study assets, compound fix, and canonical release artifacts as separate green slices.
+## 2026-07-13 — CI recovery and executable grounding evidence
+
+### Release repair
+
+- Fixed the extension compiler's stale `dist/newtab/redirect.html` input while retaining the hosted `/newtab/` compatibility alias. Chrome, Firefox, and Safari packages validate with no redirect traversal errors.
+- Pointed shipped-asset parity at canonical `docs/public/study/app.js`; added the missing Japanese settings/help and hosted Academy copy. The formerly failing CI shards pass 31 files / 337 tests and 33 files / 370 tests.
+- Ran Fallow as a trace-driven cleanup: registered real standalone CLIs and generated Study output, removed the unused Academy audio barrel and legacy band-entry screen, deleted unreachable one-item kanji/Lab/duplicate-review renderers, narrowed internal exports, and retained only targeted documented public/dynamic seams. Fallow reports zero findings.
+- Fixed bfcache lifecycle: persisted `pagehide` keeps Academy alive; real unload disposes once. The behavioral regression passes.
+
+### Grounding hardening
+
+- Added a renderer-bound answer-concealment audit. A ready proof resolves renderer ID/revision/SHA/source, surface ownership, content-derived translations/transcripts/model/accepted answers, and registered assessment definitions, then recomputes findings from stored pre-commit outerHTML in pure JavaScript.
+- The gate rejects self-asserted, dangling, stale, tampered, semicolon-less entity, shadow/custom-element, canvas/frame/object/embed, omitted-corpus, and browser-only evidence. Lesson 0 stays review-blocked because no real lesson surface artifact has passed.
+- Audited every current Lesson 0 speech script against Moodle, the authorized Japanese library, and the approved runtime catalog. Result: 0/3 exact matches. The evidence report pins hashes and recording requirements without publishing source bytes.
+- Corrected the source-question denominator after the stricter route gate quarantined the old Stage 1 activity. The durable source audit and implementation remain 1/1, but current learner-reachable grounded playability is 0. `RESOURCE-LEDGER.json` and both source-pipeline claim guards now enforce audited/implemented/playable `1/1/0` instead of preserving the historical `1/1` claim.
+
+### Verification
+
+- Academy: 75 files / 428 tests passed after placement, checkpoint-recovery, cast, concealment, and complexity coverage landed.
+- Focused grounding/registry/lifecycle: 37/37 passed.
+- TypeScript, Fallow, and `git diff --check`: passed.
+- Fable low first failed four concrete bypasses in session `9ff9f8d1-b1be-4e81-9b15-244e7f0982f0`; all were fixed. Session `5d1ce53e-6c8e-426b-80ee-da979edb3908` returned `PASS`.
+- Fable low session `50baaae3-00bb-4fe3-864a-921dcb1d7524` ruled that `*Playable` is a current learner-reachability/evidence-write claim, not a historical renderer-existence claim; the ledger correction above follows that rule.
+
+### First-term cast addendum
+
+- Added Shaun as a canonical first-term classmate and kept Peter distinct. The Level 1 People list now includes cast named by its Foundation events, the story timeline has a first-term Peter/Shaun entry, and the journal renders one deliberate first-term scrapbook spread rather than duplicating the campus image.
+- Recorded only the owner-supplied likeness digest and non-sensitive visual locks. The source image remains outside Git. Shaun's neutral cutout is a review candidate; Peter remains text-only until a defensible likeness reference exists.
+- Focused cast, 73-week planning, Class path, journal, and bilingual-copy tests pass 5 files / 35 tests.
+- Remaining before push: canonical Reader/Academy/docs rebuilds, userscript verification, full check/QA, living-ledger consistency, commit, workflow green, and hosted smoke.
+
+### Final checkpoint integration
+
+- Reconciled all three Attempt 3 external reviews into [`evidence/attempt3-review/RECONCILIATION.md`](evidence/attempt3-review/RECONCILIATION.md). Accepted blockers remain explicit: 0/73 grounded-playable Weeks, no production `recordActivity` route, incomplete equal Course host, and incomplete full Lesson 0. Requirements that would remove the fiction note, optional placement, Course view, fidelity gate, ten-chapter relationships, or rejected-art gate were not adopted.
+- Placement options are now assessed surfaces: Reader injection/lookup skips them before commitment, native labels remain selectable, and fresh phone Browser proof found no ruby/Reader descendants or answer-bearing ARIA text.
+- Canonical Study now uses controller-local opaque DOM identities before reveal. Nested/audio actions and async kanji enrichment resolve through memory; full spelling/reading keys appear only after reveal. Focused Study tests pass 380/380. Standalone shared-card URL concealment is tracked separately so deep-link semantics are not changed casually.
+- Added Peter and Shaun to the Foundation People/event record and first-term scrapbook. Peter remains a deliberate paper record with no invented portrait. Shaun's OpenAI neutral cutout is a journal review candidate only; `story-runtime` remains false until likeness/cast-scale approval. The generated asset is in the offline manifest.
+- Corrupt checkpoints now recover to a clean start even if the repair write itself fails. Campus copy, Story/Course transition, Japanese world naming, relationship chapters, and journal layout were tightened without restoring card/dashboard chrome.
+- Refactored the five functions over the project complexity ceiling without weakening validation: measured values are 3, 2, 1, 20, and 2 against the ceiling of 30.
+
+### Final verification
+
+- Reader CI passes all four regular shards under controlled concurrency: 244 files, 3,567 passed and one skipped. All eight JPDB shards pass 1,010/1,010. An earlier run shared the machine with another worktree's Vitest pool and timed out; every reported case passed independently and in the complete controlled run.
+- Academy passes 75 files / 428 tests. TypeScript, source/library validation, Fallow (zero findings), complexity, `git diff --check`, canonical userscript/Study build, Academy build, VitePress, and userscript verification pass. The readable userscript remains 1,913,406 bytes with 86,594 bytes remaining.
+- P0 smoke passes, deterministic QA is 13/13, and docs a11y is 66/66. The exact Academy candidate is `s1-5672f965734c` with 15 allowlisted runtime entries.
+- Fable-low final session `b29c8446-9c18-4a8e-b5a2-93095bc02f5f` returned `PASS` with no code blocker. It confirmed Study/placement concealment, 1/1/0 and 0/73 honesty, Peter/Shaun runtime gates, protected access/audio/Stripe boundaries, generated parity, and safe checkpoint commit while the overall Zero-to-N1 goal remains open.

@@ -68,7 +68,7 @@ export function randomBytes(length: number): Uint8Array {
     return bytes;
 }
 
-export function toHex(bytes: Uint8Array): string {
+function toHex(bytes: Uint8Array): string {
     return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 

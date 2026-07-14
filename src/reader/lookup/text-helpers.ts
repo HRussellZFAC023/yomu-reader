@@ -73,7 +73,7 @@ function shouldPreferTokenSentence(nearest: string, tokenSentence: string): bool
     return looksLikeNoisyRenderedContext(nearest);
 }
 
-export function compactLookupText(text: string): string {
+function compactLookupText(text: string): string {
     return normalizedLookupText(text).replace(/\s+/g, '');
 }
 

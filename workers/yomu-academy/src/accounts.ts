@@ -22,7 +22,7 @@ export interface AccountContext {
     readonly account: AccountRow;
 }
 
-export async function googleSubjectHash(env: Env, subject: string): Promise<string> {
+async function googleSubjectHash(env: Env, subject: string): Promise<string> {
     return hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `google-sub:${subject}`);
 }
 

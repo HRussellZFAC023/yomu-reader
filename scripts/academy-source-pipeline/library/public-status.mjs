@@ -127,13 +127,16 @@ export function writeLibraryPublicStatus(roots, ledger, status) {
 
 /**
  * Records the mechanical library census in RESOURCE-LEDGER.json without
- * touching any Moodle denominator or coverage claim: the Stage 1 audited 1/1
- * baseline and the Moodle baselineCounts must be byte-identical afterwards.
+ * touching any Moodle denominator or coverage claim: the Stage 1
+ * audited/implemented/playable 1/1/0 baseline and the Moodle baselineCounts
+ * must be byte-identical afterwards.
  */
 export function updateResourceLedgerLibrarySection(roots, status) {
     const ledger = readJson(roots.resourceLedgerPath);
-    if (ledger.coverage?.sourceQuestionsAudited !== 1 || ledger.coverage?.sourceQuestionsPlayable !== 1) {
-        throw new Error('RESOURCE-LEDGER Stage 1 coverage drifted from the audited 1/1 baseline; refusing to update.');
+    if (ledger.coverage?.sourceQuestionsAudited !== 1
+        || ledger.coverage?.sourceQuestionsImplemented !== 1
+        || ledger.coverage?.sourceQuestionsPlayable !== 0) {
+        throw new Error('RESOURCE-LEDGER coverage drifted from the audited/implemented/playable 1/1/0 baseline; refusing to update.');
     }
     ledger.stage2LibraryCensus = {
         status: 'mechanical-census-complete-review-open',

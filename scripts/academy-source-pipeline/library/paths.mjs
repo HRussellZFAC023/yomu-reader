@@ -19,7 +19,7 @@ export const LIBRARY_SCHEMA_VERSIONS = Object.freeze({
     publicStatus: 'yomu-academy.library.status/v1',
 });
 
-export const LIBRARY_STATUS_FILE = 'library-status.v1.json';
+const LIBRARY_STATUS_FILE = 'library-status.v1.json';
 
 export function resolveLibraryRoots(env = process.env) {
     const base = resolveRoots(env);

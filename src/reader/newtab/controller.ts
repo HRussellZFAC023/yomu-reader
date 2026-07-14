@@ -853,6 +853,13 @@ export class NewTabController {
     private handlingSearchPopstate = false;
     private searchActiveSuggestionIndex = -1;
     private searchWordCardCache = new Map<string, JPDBCard>();
+    // The study DOM needs a card identity for nested actions and stale async
+    // guards, but the canonical card key contains the spelling and reading.
+    // Before reveal, expose only this controller-local opaque token and resolve
+    // it back to the card in memory. Revealed cards may use their canonical key.
+    private studyCardDomTokenSequence = 0;
+    private readonly studyCardDomTokens = new Map<string, string>();
+    private readonly studyCardsByDomToken = new Map<string, JPDBCard>();
     private searchHandwritingStrokes: DoodleStroke[] = [];
     private searchHandwritingGeneration = 0;
     private searchHandwritingDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -2593,7 +2600,8 @@ export class NewTabController {
     private nestedCardActionCard(target: HTMLElement): JPDBCard | undefined {
         const key = cleanNestedLookupValue(target.closest<HTMLElement>('[data-newtab-card]')?.dataset.newtabCard);
         if (key) {
-            return this.searchWordCardCache.get(key)
+            return this.studyCardsByDomToken.get(key)
+                ?? this.searchWordCardCache.get(key)
                 ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key))
                 ?? this.allWords.find(card => this.cardMatchesSelectionKey(card, key));
         }
@@ -2622,7 +2630,8 @@ export class NewTabController {
     private studyWordAudioCard(target: HTMLElement): JPDBCard | undefined {
         const key = cleanNestedLookupValue(target.closest<HTMLElement>('[data-newtab-card]')?.dataset.newtabCard);
         if (key) {
-            return this.allWords.find(card => this.cardMatchesSelectionKey(card, key))
+            return this.studyCardsByDomToken.get(key)
+                ?? this.allWords.find(card => this.cardMatchesSelectionKey(card, key))
                 ?? this.searchWordCardCache.get(key)
                 ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key));
         }
@@ -4701,6 +4710,21 @@ export class NewTabController {
         return card.sourceCardKey || cardKey(card);
     }
 
+    private studyCardDomToken(card: JPDBCard): string {
+        const identity = this.cardSelectionKey(card);
+        const existing = this.studyCardDomTokens.get(identity);
+        const token = existing ?? `study-card-${++this.studyCardDomTokenSequence}`;
+        if (!existing) this.studyCardDomTokens.set(identity, token);
+        // Refresh the token's target when a logical card is rehydrated into a
+        // new object, so nested actions always use the current source record.
+        this.studyCardsByDomToken.set(token, this.sourceCardForVisibleCard(card) ?? card);
+        return token;
+    }
+
+    private renderedStudyCardIdentity(card: JPDBCard): string {
+        return this.state.revealAnswer ? this.cardSelectionKey(card) : this.studyCardDomToken(card);
+    }
+
     private isReviewHistoryCard(card: JPDBCard | undefined): boolean {
         if (!card) return false;
         const key = cardKey(card);
@@ -4888,7 +4912,7 @@ export class NewTabController {
         this.writeStoredWordKey(card);
         this.syncCardUrl(card);
         const study = root.querySelector<HTMLElement>('[data-newtab-study]');
-        if (study) study.dataset.newtabCard = this.cardSelectionKey(card);
+        if (study) study.dataset.newtabCard = this.renderedStudyCardIdentity(card);
         root.classList.remove('jpdb-reader-newtab-setup-mode', 'jpdb-reader-newtab-empty-mode');
         root.classList.toggle('jpdb-reader-newtab-revealed', this.state.revealAnswer);
         const hasKanjiStudyStep = this.shouldRenderCardAsKanji(card);
@@ -5012,7 +5036,6 @@ export class NewTabController {
                 newtabAction: 'study-step',
                 studyStepId: step.id,
                 studyStepKind: step.kind,
-                ...(step.kanji ? { studyStepKanji: step.kanji } : {}),
                 active: String(active),
                 gradeable: String(step.gradeable),
             },
@@ -6334,7 +6357,7 @@ export class NewTabController {
         const depth = Math.min(this.studyHintDepth.get(this.studyHintStateKey(card, step, kanji)) ?? 0, hints.length);
         const revealed = hints.slice(0, depth);
         const more = depth < hints.length;
-        return el('div', { class: 'jpdb-reader-newtab-study-hint', dataset: { studyHintStep: step, ...(kanji ? { studyHintKanji: kanji } : {}) } },
+        return el('div', { class: 'jpdb-reader-newtab-study-hint', dataset: { studyHintStep: step } },
             ...revealed.map(hint => el('span', { class: 'jpdb-reader-newtab-study-hint-item' },
                 el('small', {}, this.text(hint.labelKey)),
                 el('span', hint.kind === 'count' ? {} : { lang: step === 'recall-cloze' ? 'ja' : undefined },
@@ -6358,7 +6381,7 @@ export class NewTabController {
         if (!step) return;
         const card = this.visibleWords[this.index];
         if (!card) return;
-        const kanji = panel?.dataset.studyHintKanji ?? '';
+        const kanji = step === 'kanji-doodle' ? this.activeStudyKanji(card) ?? '' : '';
         const key = this.studyHintStateKey(card, step, kanji);
         this.studyHintDepth.set(key, (this.studyHintDepth.get(key) ?? 0) + 1);
         this.renderWord(root, card);
@@ -6394,8 +6417,13 @@ export class NewTabController {
             replaceChildrenWith(slots.answer, this.revealedKanjiAnswer(card, kanji));
             return;
         }
-        replaceChildrenWith(slots.answer, this.kanjiDoodleFront(kanji));
+        replaceChildrenWith(slots.answer, this.kanjiDoodleFront(this.studyStepIdForKanji(card, kanji)));
         this.installNewTabKanjiDoodle(slots, card, kanji);
+    }
+
+    private studyStepIdForKanji(card: JPDBCard, kanji: string): NewTabStudyStepId {
+        return this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).steps
+            .find(step => step.kind === 'kanji-doodle' && step.kanji === kanji)?.id ?? 'kanji-doodle';
     }
 
     private revealedKanjiAnswer(card: JPDBCard, kanji: string): HTMLElement {
@@ -6437,11 +6465,14 @@ export class NewTabController {
         );
     }
 
-    private kanjiDoodleFront(kanji: string): HTMLElement {
+    private kanjiDoodleFront(studyStepId = ''): HTMLElement {
         return el('div', { class: 'jpdb-reader-newtab-kanji-front' },
-            el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden', dataset: { kanji } },
+            el('div', {
+                class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden',
+                dataset: studyStepId ? { studyDoodleStep: studyStepId } : undefined,
+            },
                 el('div', { class: 'jpdb-reader-doodle-ghost', dataset: { newtabDoodleGhost: true }, hidden: true }),
-                el('canvas', { class: 'jpdb-reader-doodle-canvas', 'aria-label': `${this.text('drawKanji')}: ${kanji}` }),
+                el('canvas', { class: 'jpdb-reader-doodle-canvas', 'aria-label': this.text('drawKanji') }),
             ),
             el('div', { class: 'jpdb-reader-doodle-tools jpdb-reader-newtab-doodle-actions' },
                 el('button', { class: 'jpdb-reader-btn jpdb-reader-doodle-control', type: 'button', dataset: { doodleTrace: true } }, this.text('showTrace')),
@@ -6764,7 +6795,6 @@ export class NewTabController {
         const target = this.typeWordTarget(card);
         const chars = Array.from(target);
         const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
-        const current = chars[progress] ?? '';
         return el('div', { class: 'jpdb-reader-newtab-type-handwriting', dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
             el('div', { class: 'jpdb-reader-newtab-type-handwriting-track', 'aria-label': this.text('typeWordProgress') },
                 chars.map((character, index) => el('span', {
@@ -6775,7 +6805,7 @@ export class NewTabController {
             progress >= chars.length
                 ? el('div', { class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result', dataset: { newtabTypeResult: 'correct' } }, this.text('typeWordAllDone'))
                 : el('div', { class: 'jpdb-reader-newtab-type-handwriting-prompt', lang: 'ja' }, this.text('typeWordWriteChar')),
-            this.kanjiDoodleFront(current || '字'),
+            this.kanjiDoodleFront(),
         );
     }
 
@@ -7056,7 +7086,7 @@ export class NewTabController {
         const audioButton = el('button', {
             class: 'jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio',
             type: 'button',
-            dataset: { action: 'study-word-audio', ...(card ? { newtabCard: cardKey(card) } : {}) },
+            dataset: { action: 'study-word-audio', ...(card ? { newtabCard: this.renderedStudyCardIdentity(card) } : {}) },
             'aria-label': audioTitle,
             title: audioTitle,
             disabled: !settings.audioEnabled,
@@ -8130,7 +8160,7 @@ export class NewTabController {
         if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
 
         this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
-        this.applyEnrichedKanjiSvg(slots.answer, kanji, details.vg?.svg);
+        this.applyEnrichedKanjiSvg(slots.answer, this.studyStepIdForKanji(card, kanji), details.vg?.svg);
         this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
         void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
@@ -8146,8 +8176,7 @@ export class NewTabController {
         const study = slots.prompt?.closest<HTMLElement>('[data-newtab-study]')
             ?? slots.answer?.closest<HTMLElement>('[data-newtab-study]');
         if (!study) return true;
-        const renderedKey = study.dataset.newtabCard;
-        return renderedKey === cardKey(card) || renderedKey === this.cardSelectionKey(card);
+        return study.dataset.newtabCard === this.renderedStudyCardIdentity(card);
     }
 
     private applyEnrichedKanjiKeyword(slots: NewTabStudySlots, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
@@ -8176,14 +8205,12 @@ export class NewTabController {
         replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
 
-    private applyEnrichedKanjiSvg(answer: HTMLElement | null, kanji: string, svgMarkup: string | undefined): void {
+    private applyEnrichedKanjiSvg(answer: HTMLElement | null, studyStepId: NewTabStudyStepId, svgMarkup: string | undefined): void {
         if (!answer || !svgMarkup) return;
         const mounts = this.enrichedKanjiSvgMounts(answer);
         this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
-        // The ghost belongs to the stage stamped with the step's kanji; a stale
-        // enrichment for another kanji must not fill it.
-        const stageKanji = mounts.ghost?.closest<HTMLElement>('.jpdb-reader-doodle-stage')?.dataset.kanji;
-        if (stageKanji && stageKanji !== kanji) return;
+        const renderedStepId = mounts.ghost?.closest<HTMLElement>('.jpdb-reader-doodle-stage')?.dataset.studyDoodleStep;
+        if (renderedStepId && renderedStepId !== studyStepId) return;
         this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
     }
 

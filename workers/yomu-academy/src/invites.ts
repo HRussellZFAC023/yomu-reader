@@ -2,7 +2,7 @@ import { derivePaidInviteCode, hmacSha256Hex, randomToken, timingSafeEqual } fro
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody } from './http';
 
-export const INVITE_CODE_PATTERN = /^[A-Z0-9-]{7,64}$/;
+const INVITE_CODE_PATTERN = /^[A-Z0-9-]{7,64}$/;
 const PAID_INVITE_TTL_MS = 30 * 24 * 60 * 60_000;
 
 export function normalizeInviteCode(raw: unknown): string {

@@ -101,6 +101,7 @@ describe('hosted PWA assets', () => {
         expect(syncScript).toContain("public', 'newtab', 'manifest.webmanifest'");
         expect(syncScript).toContain("join(STUDY_BUILD_DIRECTORY, 'manifest.webmanifest')");
         expect(extensionBuild).toContain('stageNewTabWebManifest');
+        expect(extensionBuild).toContain("await rm(path.join(newtab, 'redirect.html'), { force: true });");
         expect(extensionBuild).toContain("'newtab/manifest.webmanifest'");
         expect(verifier).toContain("['dist/newtab/manifest.webmanifest', 'docs/public/study/manifest.webmanifest']");
         expect(verifier).toContain("assertLightweightNewTabAlias('docs/public/newtab')");

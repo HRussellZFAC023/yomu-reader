@@ -32,7 +32,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',
         classWeekId: 'orientation',
-        expectedContentRevision: '2026-07-13.lesson-zero.v1',
+        expectedContentRevision: '2026-07-13.lesson-zero.v1-audio-contract-2',
         expectedSha256: LESSON_ZERO_CONTENT_SHA256,
         audit: validateLessonZeroGrounding,
     },

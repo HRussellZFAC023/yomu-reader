@@ -1,11 +1,9 @@
 import { academyText, type AcademyCopyKey, type AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ProtagonistPortraitId } from '../assets';
 import { ACADEMY_ASSETS } from '../assets';
-import { choiceActivityPlugin, type ChoiceActivityModel } from '../activities/choice';
+import { canRenderAcademyCastPortrait } from '../domain/cast-registry';
 import type { LessonFork } from '../content/vertical-slice';
-import { createActivityRuntime, type ActivityEvaluation } from '../domain/activity-runtime';
-import type { LearnerProfileSnapshot, ReviewRating } from '../domain/learner-record';
-import type { Disposable, PronunciationService, ReviewQueueItem } from '../integration/yomu-bridge';
+import type { LearnerProfileSnapshot } from '../domain/learner-record';
 import { copyButton, copyElement, element, screenFrame } from './dom';
 
 export type CampusLocation = 'classroom' | 'library' | 'lab' | 'cafe';
@@ -35,14 +33,6 @@ export function renderCampusScreen(
         : preference === 'text' ? 'library'
             : preference === 'speaking' ? 'cafe'
                 : undefined;
-    if (!preference) {
-        content.append(copyElement(
-            'p',
-            'academy-objective',
-            language,
-            reviewComplete ? 'campusObjectiveComplete' : 'campusObjective',
-        ));
-    }
     const map = element('div', 'academy-place-map');
     map.setAttribute('role', 'group');
     map.setAttribute('aria-label', academyText(language, 'mapLabel'));
@@ -114,209 +104,6 @@ export function renderLocationScreen(
     return screen;
 }
 
-const LAB_LINE = 'もう一度お願いします。';
-
-export function renderLanguageLabScreen(
-    language: AcademyLanguage,
-    pronunciation: PronunciationService,
-    state: Readonly<{ transcriptRevealed: boolean; listeningPassed: boolean; shadowed: boolean }>,
-    onEvaluation: (evaluation: ActivityEvaluation) => void | Promise<void>,
-    onShadowed: () => void | Promise<void>,
-    onBack: () => void,
-): HTMLElement {
-    const { screen, content } = screenFrame({
-        language,
-        className: 'academy-location-screen academy-lab-screen',
-        plate: 'languageLab',
-        eyebrow: 'labEyebrow',
-        title: 'labTitle',
-        body: 'labBody',
-    });
-    screen.append(createMinimap(language, 'locationLab').root);
-    const audioRow = element('div', 'academy-lab-audio');
-    const play = copyButton(language, 'labPlay', 'academy-button academy-button-secondary');
-    const timecode = copyElement('span', 'academy-lab-timecode', language, 'labTimecode');
-    const audioStatus = element('span', 'academy-field-error');
-    audioStatus.setAttribute('role', 'status');
-    audioRow.append(play, timecode, audioStatus);
-
-    const activityHost = element('div', 'academy-activity-host');
-    const transcript = element('section', 'academy-lab-transcript');
-    transcript.append(copyElement('h2', '', language, 'labTranscriptTitle'));
-    const transcriptLine = element('p');
-    transcriptLine.lang = 'ja';
-    transcriptLine.dataset.yomuRuntimeSurface = 'listening-transcript';
-    transcriptLine.dataset.yomuFuriganaMode = 'all';
-    transcriptLine.textContent = LAB_LINE;
-    transcript.append(transcriptLine);
-
-    const shadow = element('section', 'academy-lab-shadow');
-    shadow.append(copyElement('h2', '', language, 'labShadowTitle'), copyElement('p', '', language, 'labShadowPrompt'));
-    const shadowDone = copyButton(language, 'labShadowDone', 'academy-button academy-button-primary');
-    const shadowStatus = element('p', 'academy-success-note');
-    shadowDone.disabled = state.shadowed;
-    if (state.shadowed) shadowStatus.textContent = language === 'ja' ? 'シャドーイングを記録しました。' : 'Shadowing evidence recorded.';
-    shadowDone.addEventListener('click', () => {
-        shadowDone.disabled = true;
-        void Promise.resolve(onShadowed()).then(() => {
-            shadowStatus.textContent = language === 'ja' ? 'シャドーイングを記録しました。' : 'Shadowing evidence recorded.';
-        });
-    });
-    shadow.append(shadowDone, shadowStatus);
-
-    const back = copyButton(language, 'locationReturn', 'academy-button academy-button-quiet');
-    back.addEventListener('click', onBack);
-    content.append(audioRow);
-    if (state.transcriptRevealed) content.append(transcript);
-    content.append(activityHost);
-    if (state.listeningPassed) content.append(shadow);
-    content.append(back);
-
-    let playback: Disposable | null = null;
-    let playbackRequest = 0;
-    let disposed = false;
-    play.addEventListener('click', () => {
-        const request = ++playbackRequest;
-        playback?.dispose();
-        playback = null;
-        play.disabled = true;
-        audioStatus.textContent = '';
-        void pronunciation.play(LAB_LINE).then(active => {
-            if (disposed || request !== playbackRequest) {
-                active.dispose();
-                return;
-            }
-            playback = active;
-        }).catch(() => {
-            if (!disposed && request === playbackRequest) {
-                audioStatus.textContent = language === 'ja'
-                    ? 'このブラウザでは日本語音声を再生できません。'
-                    : 'Japanese browser speech is unavailable.';
-            }
-        }).finally(() => {
-            if (!disposed && request === playbackRequest) play.disabled = false;
-        });
-    });
-
-    const runtime = createActivityRuntime([choiceActivityPlugin]);
-    const controller = state.listeningPassed ? null : runtime.mount(languageLabActivity(), {
-        replace(view) { activityHost.replaceChildren(view); },
-        announce(message) { audioStatus.setAttribute('aria-label', message); },
-    }, onEvaluation);
-    if (state.listeningPassed) activityHost.append(copyElement('p', 'academy-success-note', language, 'labListeningComplete'));
-    screen.addEventListener('academy:dispose', () => {
-        disposed = true;
-        playbackRequest += 1;
-        playback?.dispose();
-        controller?.dispose();
-    }, { once: true });
-    return screen;
-}
-
-function languageLabActivity(): ChoiceActivityModel {
-    return {
-        id: 'activity:language-lab-repeat-listening',
-        kind: 'choice',
-        sourceQuestionId: 'source-question:classroom-phrase-09',
-        conceptIds: ['concept:classroom-repair-repeat'],
-        responseKind: 'choice',
-        prompt: {
-            en: 'Listen before opening the transcript. What does the line ask for?',
-            ja: '答える前に音声を聞いてください。何をお願いしていますか。',
-        },
-        payload: {
-            reviewSeedId: 'review:language-lab-repeat',
-            reviewContent: {
-                expression: LAB_LINE,
-                reading: 'もういちどおねがいします',
-                meanings: ['Please say it again.'],
-            },
-            options: [
-                {
-                    id: 'repeat',
-                    label: { en: 'Please say it again.', ja: 'もう一度言ってください。' },
-                    correct: true,
-                    explanation: { en: 'Correct: もう一度 asks for one more repetition.', ja: '正解です。「もう一度」は、もう一回繰り返すよう頼みます。' },
-                },
-                {
-                    id: 'write',
-                    label: { en: 'Please write it.', ja: '書いてください。' },
-                    correct: false,
-                    errorTag: 'listening-action-confusion',
-                    explanation: { en: 'No writing action appears in the line.', ja: 'この文には「書く」という動作はありません。' },
-                    repairPrompt: { en: 'Listen for もう一度: “one more time”.', ja: '「もう一度」（one more time）を聞き取ってください。' },
-                    nearbyExample: { en: 'もう一度言ってください also asks someone to say it again.', ja: '「もう一度言ってください」も、繰り返しを頼む表現です。' },
-                },
-                {
-                    id: 'wait',
-                    label: { en: 'Please wait.', ja: '待ってください。' },
-                    correct: false,
-                    errorTag: 'listening-action-confusion',
-                    explanation: { en: 'The line asks for repetition, not waiting.', ja: '待つのではなく、繰り返しを頼んでいます。' },
-                    repairPrompt: { en: 'Listen for もう一度: “one more time”.', ja: '「もう一度」（one more time）を聞き取ってください。' },
-                    nearbyExample: { en: 'ちょっと待ってください means “Please wait a moment.”', ja: '「ちょっと待ってください」は「少し待ってください」という意味です。' },
-                },
-            ],
-        },
-    };
-}
-
-export function renderReviewScreen(
-    language: AcademyLanguage,
-    items: readonly ReviewQueueItem[],
-    onRate: (item: ReviewQueueItem, rating: ReviewRating) => Promise<void>,
-    onReturn: () => void,
-): HTMLElement {
-    const { screen, content } = screenFrame({
-        language,
-        className: 'academy-review-screen',
-        plate: 'library',
-        title: 'reviewTitle',
-    });
-    screen.append(createMinimap(language, 'locationLibrary').root);
-    const cardHost = element('div', 'academy-review-host');
-    let index = 0;
-    const show = () => {
-        const item = items[index];
-        if (!item) {
-            const empty = copyElement('p', 'academy-lede', language, items.length ? 'reviewComplete' : 'reviewEmpty');
-            const back = copyButton(language, 'reviewReturn', 'academy-button academy-button-primary');
-            back.addEventListener('click', onReturn);
-            cardHost.replaceChildren(empty, back);
-            return;
-        }
-        const prompt = copyElement('p', 'academy-eyebrow', language, 'reviewPrompt');
-        const expression = element('p', 'academy-review-expression');
-        expression.lang = 'ja';
-        expression.textContent = item.expression;
-        const answer = element('div', 'academy-review-answer');
-        answer.hidden = true;
-        const reading = element('p', 'academy-review-reading');
-        reading.lang = 'ja';
-        reading.textContent = item.reading ?? item.expression;
-        const meaning = element('p', 'academy-review-meaning');
-        meaning.textContent = item.meaning ?? '';
-        const ratings = element('div', 'academy-review-ratings');
-        ([['again', 'reviewAgain'], ['hard', 'reviewHard'], ['good', 'reviewGood'], ['easy', 'reviewEasy']] as const)
-            .forEach(([rating, key]) => {
-                const button = copyButton(language, key, 'academy-rating-button');
-                button.dataset.rating = rating;
-                button.addEventListener('click', () => {
-                    ratings.querySelectorAll('button').forEach(candidate => { (candidate as HTMLButtonElement).disabled = true; });
-                    void onRate(item, rating).then(() => { index += 1; show(); });
-                });
-                ratings.append(button);
-            });
-        answer.append(reading, meaning, ratings);
-        const reveal = copyButton(language, 'reviewReveal', 'academy-button academy-button-secondary');
-        reveal.addEventListener('click', () => { answer.hidden = false; reveal.remove(); });
-        cardHost.replaceChildren(prompt, expression, reveal, answer);
-    };
-    show();
-    content.append(cardHost);
-    return screen;
-}
-
 export function renderJournalScreen(
     language: AcademyLanguage,
     profile: LearnerProfileSnapshot,
@@ -382,7 +169,40 @@ export function renderJournalScreen(
     } else {
         content.append(copyElement('p', 'academy-journal-locked', language, 'journalLocked'));
     }
+    content.append(firstTermScrapbook(language));
     return screen;
+}
+
+function firstTermScrapbook(language: AcademyLanguage): HTMLElement {
+    const spread = element('section', 'academy-scrapbook-spread');
+    spread.dataset.scrapbookEntry = 'first-term';
+    spread.append(copyElement('h2', 'academy-scrapbook-title', language, 'journalFirstTerm'));
+    const people = element('div', 'academy-scrapbook-people');
+
+    const peter = element('article', 'academy-scrapbook-person academy-scrapbook-peter');
+    peter.dataset.character = 'peter';
+    peter.append(copyElement('h3', 'academy-scrapbook-name', language, 'journalPeter'));
+
+    const shaun = element('article', 'academy-scrapbook-person academy-scrapbook-shaun');
+    shaun.dataset.character = 'shaun';
+    if (canRenderAcademyCastPortrait('shaun', 'journal-review-preview')) {
+        const portrait = element('img', 'academy-scrapbook-portrait');
+        portrait.src = ACADEMY_ASSETS.characters.shaun;
+        portrait.alt = '';
+        portrait.setAttribute('aria-hidden', 'true');
+        portrait.dataset.character = 'shaun';
+        portrait.addEventListener('error', () => {
+            shaun.dataset.portraitState = 'unavailable';
+            portrait.remove();
+        }, { once: true });
+        shaun.dataset.portraitState = 'review-preview';
+        shaun.append(portrait);
+    }
+    shaun.append(copyElement('h3', 'academy-scrapbook-name', language, 'journalShaun'));
+
+    people.append(peter, shaun);
+    spread.append(people);
+    return spread;
 }
 
 function relationshipPages(language: AcademyLanguage, chapters: readonly number[]): HTMLOListElement {

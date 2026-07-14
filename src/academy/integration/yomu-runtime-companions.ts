@@ -1,6 +1,6 @@
 import type { ReaderRuntimeService } from '../../reader/app/runtime-health';
 
-export interface AcademyReaderCompanion {
+interface AcademyReaderCompanion {
     readonly fileName: `greasyfork/${string}.user.js`;
     readonly services: readonly ReaderRuntimeService[];
 }

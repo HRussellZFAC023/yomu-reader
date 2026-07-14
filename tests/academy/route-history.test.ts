@@ -51,6 +51,17 @@ describe('Academy route history', () => {
             selectedFork: 'sound',
             session: { sessionId: 'still-valid' },
         });
+        expect(transitionAcademyRoute({
+            ...campus,
+            route: 'class',
+            presentationMode: 'course',
+        }, { kind: 'presentation', mode: 'story' })).toEqual({
+            route: 'campus',
+            routeHistory: [{ route: 'review' }],
+            presentationMode: 'story',
+            selectedFork: 'sound',
+            session: { sessionId: 'still-valid' },
+        });
 
         const lesson = state('source-activity', [{ route: 'class' }], 'course');
         expect(transitionAcademyRoute(lesson, { kind: 'presentation', mode: 'story' })).toEqual({

@@ -1,0 +1,38 @@
+{
+  "assetId": "shaun__neutral__halfbody__v001",
+  "characterId": "shaun",
+  "verdict": "owner-review-candidate",
+  "runtimeBinding": "journal-preview-only",
+  "generated": true,
+  "generation": {
+    "mode": "built-in-image-generation-plus-chroma-removal",
+    "sourceOutput": "/Users/heru/.codex/generated_images/019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
+    "deliverySha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1",
+    "dimensions": { "width": 1023, "height": 1537 },
+    "alpha": {
+      "transparentPixels": 804230,
+      "partialPixels": 5903,
+      "opaquePixels": 762218,
+      "subjectCoverage": 0.4885,
+      "transparentCorners": 4,
+      "residualStrongKeyPixels": 0
+    }
+  },
+  "identityEvidence": {
+    "provenance": "owner-supplied first-term likeness reference, 2026-07-13",
+    "sourceSha256": "a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea",
+    "sourceStoredInRepository": false,
+    "ensembleAnchor": "campus-home-ensemble-spring"
+  },
+  "fixedLocks": [
+    "light-brown layered hair",
+    "round wire-frame glasses",
+    "warm open smile",
+    "beige zip fleece with chest pocket",
+    "dark backpack straps",
+    "ordinary adult proportions"
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: Yomu Academy visual-novel character sprite, owner-review candidate. Create one neutral half-body sprite of Shaun, preserving the person’s recognizable likeness from the owner reference. Use the approved campus ensemble for the locked warm pixel-painted anime realism and the approved Rie sprite for framing, scale, edge treatment, and rendering quality only. Preserve round glasses, layered light-brown hair, warm smile, beige zip fleece, dark jeans, and both backpack straps. Use a relaxed upper-thigh crop, gentle warm practical key light with evening-blue fill, and a perfectly flat #00ff00 chroma-key background. No props, hat, text, logo, watermark, cast shadow, extra people, photorealism, childlike proportions, facial hair, school uniform, scenery, or green inside the subject.",
+  "releaseGate": "Owner likeness approval and equal-stage cast-scale approval are required before expression expansion or unrestricted story-scene use.",
+  "privacy": "Only the digest and non-sensitive visual locks are committed. The private likeness source and keyed intermediate remain outside the repository."
+}

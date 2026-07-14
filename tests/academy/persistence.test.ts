@@ -1,8 +1,34 @@
 import { indexedDB as fakeIndexedDB } from 'fake-indexeddb';
-import { migrateAcademyCheckpoint, openAcademyPersistence } from '../../src/academy/persistence/indexeddb';
+import {
+    loadAcademyCheckpointSafely,
+    migrateAcademyCheckpoint,
+    openAcademyPersistence,
+} from '../../src/academy/persistence/indexeddb';
 import type { LearnerEvent } from '../../src/academy/domain/learner-record';
 
 describe('Academy IndexedDB persistence', () => {
+    it('recovers a corrupt checkpoint without discarding learner events or blocking boot', async () => {
+        const fallback = {
+            schemaVersion: 2 as const,
+            route: 'access' as const,
+            routeHistory: [],
+            presentationMode: 'story' as const,
+            updatedAt: 123,
+        };
+        const save = vi.fn(async () => undefined);
+
+        await expect(loadAcademyCheckpointSafely({
+            load: async () => { throw new TypeError('corrupt checkpoint'); },
+            save,
+        }, fallback)).resolves.toEqual(fallback);
+        expect(save).toHaveBeenCalledWith(fallback);
+
+        await expect(loadAcademyCheckpointSafely({
+            load: async () => { throw new TypeError('corrupt checkpoint'); },
+            save: async () => { throw new Error('read-only storage'); },
+        }, fallback)).resolves.toEqual(fallback);
+    });
+
     it('restores idempotent learner events and an offline navigation checkpoint', async () => {
         const name = `academy-test-${crypto.randomUUID()}`;
         const persistence = await openAcademyPersistence(fakeIndexedDB, name);

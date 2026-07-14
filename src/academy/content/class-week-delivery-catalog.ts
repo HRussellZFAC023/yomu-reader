@@ -6,8 +6,6 @@ import {
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from './lesson-content-registry';
 import { createGroundedLessonResolver } from './grounded-lesson-resolver';
 
-export type ClassWeekDeliveryState = 'planning-only' | 'review-blocked' | 'grounded-playable';
-
 export type ClassWeekDeliveryEntry = Readonly<{
     order: number;
     weekId: CanonicalClassWeekId;

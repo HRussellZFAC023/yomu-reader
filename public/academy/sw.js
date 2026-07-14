@@ -17,6 +17,7 @@ const CORE = [
     '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
     '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
     '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+    '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
     '/academy/art/protagonists/quality-2__picker__v001.png',
     '/academy/art/protagonists/quality-3__picker__v001.png',
     '/academy/art/protagonists/quality-4__picker__v001.png',

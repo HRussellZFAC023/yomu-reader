@@ -114,7 +114,10 @@ function activeStudyStepForMode(steps: NewTabStudyStep[], options: NewTabStudySe
 }
 
 function studyStep(kind: NewTabStudyStepKind, mode: NewTabMode, gradeable = false, kanji?: string, index = 0): NewTabStudyStep {
-    const id = kanji ? `${kind}:${index}:${kanji}` : kind;
+    // Step ids are rendered into the DOM so they must remain opaque. The target
+    // kanji stays on the in-memory step model; including it in the id exposed
+    // the answer before a learner committed their drawing.
+    const id = kanji ? `${kind}:${index}` : kind;
     return { id, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
 }
 

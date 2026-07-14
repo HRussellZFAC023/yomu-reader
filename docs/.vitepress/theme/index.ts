@@ -210,8 +210,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Testing': 'テスト',
-    'Academy': 'Academy',
-    'Learn through the guided course with the same vocabulary collection and review history.': '同じ単語コレクションとレビュー履歴を使って、ガイド付きコースで学習できます。',
+    'Academy': 'アカデミー',
+    'Learn through the guided course with the same vocabulary collection and review history.': '同じ単語コレクションと復習履歴を使い、ガイド付きコースで学べます。',
     'Furigana no longer paints over the line above inside multi-line clamped rows (Google-style result snippets, feed previews): such rows keep pitch underlines and hover lookup but hide at-rest readings, single-line rows keep their reading lane even when padded, and late-enriched readings obey the same rule instead of flickering in.': '複数行にクランプされた行（Google風の検索結果スニペットやフィードのプレビュー）で、ふりがなが上の行の文字に重なって描画されなくなりました。こうした行はピッチ下線とホバー辞書を保ちつつ通常時の読みを非表示にします。1行の行はパディングがあっても読み表示のスペースを保ち、後から補完された読みも同じルールに従うため、ちらつきません。',
     "A rail button left focused after a tap no longer blocks YouTube's own player controls from fading, in every rail mode including the new stays-expanded one.": 'タップ後にフォーカスが残ったレールのボタンが、YouTube自身のプレーヤーコントロールのフェードを妨げなくなりました。新しい「展開したまま」モードを含む、すべてのレールモードで適用されます。',
     'Grades queued offline can no longer be silently lost when a reconnect sync overlaps a new offline grade: queue writes are serialized, a landed grade re-arms the connection-lost prompt, and partial multi-provider failures keep the silent queue instead of offering a retry that could double-grade.': 'オフラインで保存した採点が、再接続の同期と新しいオフライン採点が重なった際に静かに失われることがなくなりました。キューへの書き込みは直列化され、送信に成功した採点は接続切断ダイアログを再度有効にし、複数プロバイダーの一部だけが失敗した場合は二重採点になり得る再試行を提示せず、静かなキュー保存を維持します。',

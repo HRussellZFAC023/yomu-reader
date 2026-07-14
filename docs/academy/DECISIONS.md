@@ -127,3 +127,22 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** A learner write names a lesson; it never supplies that lesson's grounding verdict. The runtime resolves the complete lesson from the registry, verifies the shipped bytes against the pinned SHA-256 and content revision, re-runs the audit, and permits the write only for a grounded-playable lesson and activity with matching concepts, source scope, and canonical Yomu review identity. Answer concealment is valid only through a resolvable surface-audit definition whose recorded facts match the claim. Legacy ungrounded routes are removed from current state and Back history.
 
 **Why:** Build-time validation alone cannot stop a stale route or caller-created contract from writing false evidence. One byte-pinned resolver and one normalized review identity make the same academic decision govern navigation, attempts, review scheduling, and the derived Week ledger.
+## D-022 — Learner-facing concealment proof is executable evidence
+
+**Decision:** A lesson cannot assert that answers are hidden. Each ready concealment proof resolves an exact renderer definition (ID, revision, SHA-256, source locator, owned surface), an answer-bearing content corpus, and assessment answer definitions. It replays the captured pre-commit `outerHTML` without browser globals and rejects stale bindings, tampering, encoded answers, custom/shadow surfaces, canvas/frame/object/embed content, or omitted corpus values.
+
+**Why:** A well-shaped JSON reference can certify itself while the real renderer leaks an answer. Learner writes need proof tied to the code and content that produced the surface.
+
+**Consequence:** Lesson 0 remains blocked until its actual renderers generate passing artifacts. Opaque surfaces need a separate auditable contract; they cannot be waived by prose.
+
+## D-023 — Playable is a current learner-reachability claim
+
+**Decision:** A Source Question, activity, lesson, or Week contributes to a `*Playable` count only when a learner can currently reach it through a route that passes the complete grounding contract and may write new learner evidence. Audit completion and implementation existence are durable, separate counts; a quarantined legacy renderer is implemented but not playable.
+
+**Why:** Keeping a historical playable count after raising the academic gate makes the ledger contradict the runtime. The honest gap between audited, implemented, and playable is actionable production state rather than a lost milestone.
+
+## D-024 — First-term memory keeps Shaun and Peter distinct
+
+**Decision:** Shaun is a canonical first-term classmate and Peter remains a separate canonical classmate. Both appear in the Foundation story record and first-term scrapbook spread. Shaun's owner-supplied reference may produce a review sprite; Peter does not receive an invented likeness.
+
+**Why:** A group image is not a substitute for two character records. Keeping name, story membership, and likeness evidence separate prevents forgotten classmates from being merged or visually fabricated.

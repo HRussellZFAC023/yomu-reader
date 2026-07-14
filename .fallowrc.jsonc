@@ -14,7 +14,11 @@
     "src/gaming/renderer/app.ts",
     "src/academy/entrypoint.ts",
     "scripts/academy-baseline-inventory.mjs",
+    // Standalone, documented Academy operations/authoring CLIs. They are
+    // intentionally run directly rather than through the application graph.
+    "scripts/academy-audio-media.mjs",
     "scripts/academy-source-pipeline.mjs",
+    "scripts/generate-academy-achievements.mjs",
     "scripts/qa-audit.mjs",
     "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",
@@ -49,6 +53,20 @@
     "src/reader/study/mining-context-companion.ts",
     "src/reader/study/sources-companion.ts"
   ],
+  "usedClassMembers": [
+    // AudioDirector consumes BrowserMediaBus through this interface, so static
+    // property dispatch cannot associate every concrete implementation method.
+    {
+      "implements": "MediaBusPlayback",
+      "members": ["stop", "setVolume", "pause", "resume", "dispose"]
+    },
+    // These are the deliberately exposed imperative controls for shell/SFX and
+    // contextual volume UI, even while the first grounded lesson is blocked.
+    {
+      "implements": "AudioDirectorControl",
+      "members": ["playSfx", "setVolume"]
+    }
+  ],
   "ignorePatterns": [
     "dist/**",
     "dist-dev/**",
@@ -58,6 +76,10 @@
     "docs/public/newtab/**",
     "docs/public/pdf-reader/**",
     "docs/public/academy/**",
+    // Canonical Study output generated from src/reader/newtab. The hosted
+    // HTML, service worker registration, and static asset URLs are runtime
+    // entry seams that a TypeScript import graph cannot follow.
+    "docs/public/study/**",
     "docs/public/yomu.css",
     "docs/public/yomu.user.js",
     "tests/reader/.vitest-*/**",
@@ -134,6 +156,70 @@
     {
       "file": "src/reader/newtab/card-view.ts",
       "exports": ["newTabImmersionProviderLabel"]
+    },
+    {
+      "file": "src/reader/newtab/runtime.ts",
+      "exports": ["mountNewTabStudySurface"]
+    },
+    {
+      "file": "src/reader/app/i18n.ts",
+      "exports": ["academyCopyHasMissingJapanese", "academyText", "AcademyCopyKey", "AcademyLanguage"]
+    },
+    {
+      "file": "src/academy/content/lesson-zero.ts",
+      "exports": [
+        "AssessedSupportContract",
+        "LessonZeroActivity",
+        "LessonZeroAudioAsset",
+        "LessonZeroCharacterId",
+        "LessonZeroInputScript",
+        "LessonZeroMission",
+        "LessonZeroPackageData",
+        "LessonZeroReleaseBlocker",
+        "LessonZeroResponseMode",
+        "LessonZeroSection"
+      ]
+    },
+    {
+      "file": "src/academy/domain/classroom-expression-session.ts",
+      "exports": [
+        "ClassroomExpressionAttempt",
+        "ClassroomExpressionCursor",
+        "ClassroomExpressionPhaseId",
+        "ClassroomExpressionRepair",
+        "ClassroomExpressionSessionReport"
+      ]
+    },
+    {
+      "file": "src/academy/domain/practice-session.ts",
+      "exports": ["skipPracticeItem"]
+    },
+    {
+      "file": "src/academy/domain/grounded-answer-concealment-audit.ts",
+      "exports": ["GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION"]
+    },
+    {
+      "file": "src/academy/integration/yomu-bridge.ts",
+      "exports": ["YomuBridge"]
+    },
+    {
+      "file": "src/academy/media/library-media-router.ts",
+      "exports": [
+        "LibraryAnkiMetadata",
+        "LibraryAssetPurpose",
+        "LibraryManualReviewReason",
+        "LibraryMediaDestination",
+        "LibraryResourceKind",
+        "LibraryRoutingReadiness",
+        "LibrarySourceRegion",
+        "LibraryTextTrackRef",
+        "LibraryUnsupportedReason",
+        "RoutedLibraryTextTrack"
+      ]
+    },
+    {
+      "file": "src/reader/srs/local-yomu.ts",
+      "exports": ["AcademyVocabularyProvenance", "AcademyVocabularyProvenanceKind"]
     }
   ]
 }

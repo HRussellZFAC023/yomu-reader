@@ -187,7 +187,7 @@ async function playScene(script: SceneScript, options: ScenePlayOptions): Promis
     }
 }
 
-export function validateScene(script: SceneScript): string[] {
+function validateScene(script: SceneScript): string[] {
     const issues: string[] = [];
     if (!script.id.trim()) issues.push('missing scene id');
     if (!script.revision.trim()) issues.push('missing revision');

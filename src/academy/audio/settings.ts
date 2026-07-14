@@ -1,8 +1,8 @@
 import type { AudioBus, AudioSettings } from './types';
 
-export const ACADEMY_AUDIO_SETTINGS_KEY = 'yomu:academy:audio:v1';
+const ACADEMY_AUDIO_SETTINGS_KEY = 'yomu:academy:audio:v1';
 
-export const DEFAULT_AUDIO_SETTINGS: AudioSettings = Object.freeze({
+const DEFAULT_AUDIO_SETTINGS: AudioSettings = Object.freeze({
     muted: false,
     volumes: Object.freeze({ music: 0.7, ambience: 0.65, lesson: 1, sfx: 0.8 }),
 });
@@ -38,7 +38,7 @@ export function withAudioVolume(settings: AudioSettings, bus: AudioBus, value: n
     return { ...settings, volumes: { ...settings.volumes, [bus]: clampVolume(value) } };
 }
 
-export function clampVolume(value: number): number {
+function clampVolume(value: number): number {
     return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 

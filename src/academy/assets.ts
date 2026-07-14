@@ -7,6 +7,7 @@ export const ACADEMY_ASSETS = {
     },
     characters: {
         aakash: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+        shaun: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
     },
     portraits: {
         'quality-2': '/academy/art/protagonists/quality-2__picker__v001.png',

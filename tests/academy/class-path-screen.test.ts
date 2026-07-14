@@ -25,6 +25,9 @@ describe('Class path', () => {
         expect(screen.querySelector('.academy-panel')).toBeNull();
         expect(screen.querySelectorAll('.academy-class-path-group')).toHaveLength(5);
         expect(screen.querySelectorAll('.academy-class-path-group[open]')).toHaveLength(1);
+        expect([...screen.querySelectorAll('.academy-class-path-group-title')].map(node => node.textContent)).toEqual([
+            'Foundation', 'N5', 'N4', 'N3', 'N2 → N1',
+        ]);
         expect(screen.querySelector('[data-path-group="level-1"]')?.hasAttribute('open')).toBe(true);
         expect(screen.querySelectorAll('.academy-class-week-node')).toHaveLength(73);
         expect(screen.querySelector('[data-week-id="l1-l01"]')?.getAttribute('aria-current')).toBe('step');
@@ -67,6 +70,22 @@ describe('Class path', () => {
         expect(screen.querySelector<HTMLElement>('#academy-class-path-people')?.dataset.pathGroup).toBe('level-3-plus');
         expect(screen.querySelector('#academy-class-path-events')?.textContent).toContain('旅');
         expect(screen.querySelector('#academy-class-path-events')?.textContent).not.toContain('ひらいた扉');
+    });
+
+    it('keeps Peter and Shaun in the first-term people and story records', () => {
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 2,
+            playableWeekIds: new Set(['orientation']),
+            onOpenWeek: vi.fn(),
+        });
+
+        expect(screen.querySelector('#academy-class-path-people [data-cast-id="peter"]')?.textContent).toContain('Peter');
+        expect(screen.querySelector('#academy-class-path-people [data-cast-id="shaun"]')?.textContent).toContain('Shaun');
+        const event = screen.querySelector('[data-event-id="event:first-term-photo"]');
+        expect(event?.textContent).toContain('First term');
+        expect(event?.textContent).toContain('Peter · Shaun');
     });
 
     it('uses a vertical syllabus spine instead of horizontal rails', () => {

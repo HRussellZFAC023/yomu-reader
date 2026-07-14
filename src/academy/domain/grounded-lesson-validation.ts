@@ -163,6 +163,11 @@ function validateInstructionCoverage(
 }
 function validateAnswerConcealment(value: GroundedAnswerConcealmentEvidence, label: string): void {
     validateDefinitionRef(value.surfaceAudit, `${label}.surfaceAudit`);
+    validateDefinitionRef(value.answerBearingContent, `${label}.answerBearingContent`);
+    const binding = object(value.auditBinding, `${label}.auditBinding`) as unknown as GroundedAnswerConcealmentEvidence['auditBinding'];
+    id(binding.surfaceId, `${label}.auditBinding.surfaceId`);
+    validateDefinitionRef(binding.renderer, `${label}.auditBinding.renderer`);
+    text(binding.contentRevision, `${label}.auditBinding.contentRevision`);
     const preCommit = object(value.learnerFacingPreCommit, `${label}.learnerFacingPreCommit`) as unknown as GroundedAnswerConcealmentEvidence['learnerFacingPreCommit'];
     for (const key of ['translations', 'transcripts', 'modelAnswers', 'acceptedAnswers'] as const) {
         if (preCommit[key] !== 'absent') fail(`${label}.${key} must be absent before commitment.`);

@@ -1,4 +1,4 @@
-export const ACADEMY_ROUTE_DEFINITIONS = {
+const ACADEMY_ROUTE_DEFINITIONS = {
     access: 'enrollment',
     profile: 'enrollment',
     'rie-unlock': 'enrollment',
@@ -101,7 +101,11 @@ export function transitionAcademyRoute<State extends AcademyRouteHistoryState>(
                 return withRouteFrame(state, next, []);
             }
         case 'presentation': {
-            const route = transition.mode === 'course' && state.route === 'campus' ? 'class' : state.route;
+            const route = transition.mode === 'course' && state.route === 'campus'
+                ? 'class'
+                : transition.mode === 'story' && state.route === 'class'
+                    ? 'campus'
+                    : state.route;
             if (transition.mode === state.presentationMode && route === state.route) return state;
             return { ...state, route, presentationMode: transition.mode } as TransitionedRouteState<State>;
         }

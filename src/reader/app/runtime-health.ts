@@ -6,9 +6,9 @@ import {
 } from '../companions/registry';
 
 export const READER_RUNTIME_MARKER_ID = 'jpdb-reader-runtime-owner';
-export const READER_RUNTIME_HEALTH_VERSION = 1;
+const READER_RUNTIME_HEALTH_VERSION = 1;
 
-export const READER_RUNTIME_SERVICES = [
+const READER_RUNTIME_SERVICES = [
     'localization',
     'local-dictionary',
     'jiten',
@@ -32,15 +32,6 @@ export interface ReaderRuntimeHealth {
     readonly services: readonly ReaderRuntimeService[];
     readonly missing: readonly ReaderRuntimeService[];
 }
-
-const COMPANION_SERVICES = [
-    'localization',
-    'local-dictionary',
-    'translation',
-    'grammar',
-    'mining',
-    'anki',
-] as const satisfies readonly ReaderRuntimeService[];
 
 export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
     const available = new Set<ReaderRuntimeService>([
@@ -113,5 +104,3 @@ function readerRuntimeServices(value: string | undefined): ReaderRuntimeService[
     const values = new Set((value ?? '').split(',').map(item => item.trim()).filter(Boolean));
     return READER_RUNTIME_SERVICES.filter(service => values.has(service));
 }
-
-export const READER_COMPANION_SERVICES = COMPANION_SERVICES;

@@ -35,7 +35,7 @@ export function applyAuthoredVocabularyOverrides(
     return [...kept, ...replacements].sort((left, right) => left.start - right.start || right.length - left.length);
 }
 
-export function readAuthoredVocabularyAnnotations(parent: ParentNode): AuthoredVocabularyAnnotation[] {
+function readAuthoredVocabularyAnnotations(parent: ParentNode): AuthoredVocabularyAnnotation[] {
     const owner = authoredVocabularyOwner(parent);
     const raw = owner?.getAttribute(AUTHORED_VOCABULARY_ATTRIBUTE);
     if (!raw || raw.length > 8_000) return [];

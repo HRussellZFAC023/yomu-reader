@@ -432,8 +432,7 @@ function validateEventPayload(event: LearnerEvent): void {
             requireText(event.sceneId, 'sceneId');
             break;
         case 'bond-changed':
-            requireText(event.characterId, 'characterId');
-            if (!Number.isSafeInteger(event.delta)) throw new TypeError('Bond delta must be an integer.');
+            validateBondChanged(event);
             break;
         case 'asset-unlocked':
             requireText(event.assetId, 'assetId');
@@ -451,10 +450,7 @@ function validateEventPayload(event: LearnerEvent): void {
             validateReviewScheduled(event);
             break;
         case 'review-schedule-neutralized':
-            requireText(event.scheduledEventId, 'scheduledEventId');
-            if (event.reason !== 'legacy-ungrounded-academy') {
-                throw new TypeError('Invalid review schedule neutralization reason.');
-            }
+            validateReviewScheduleNeutralized(event);
             break;
         case 'learning-evidence-recorded':
             validateLearningEvidence(event);
@@ -463,32 +459,64 @@ function validateEventPayload(event: LearnerEvent): void {
             validateVocabularyCollected(event);
             break;
         case 'vocabulary-collection-undone':
-            requireText(event.collectionItemId, 'collectionItemId');
-            requireText(event.collectedEventId, 'collectedEventId');
+            validateVocabularyCollectionUndone(event);
             break;
         case 'academy-day-closed':
-            requireText(event.dayId, 'dayId');
-            if (typeof event.mainLessonCompleted !== 'boolean') throw new TypeError('Day mainLessonCompleted must be boolean.');
-            unique(event.optionalActivityIds.map(id => requireText(id, 'optionalActivityId')));
-            if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError('Day elapsedMs must be a non-negative integer.');
+            validateAcademyDayClosed(event);
             break;
         case 'achievement-ceremony-seen':
-            requireText(event.achievementId, 'achievementId');
-            if (!['bronze', 'silver', 'gold', 'platinum'].includes(event.tier)) throw new TypeError('Invalid achievement tier.');
+            validateAchievementCeremonySeen(event);
             break;
         case 'relationship-chapter-unlocked':
-            requireText(event.characterId, 'characterId');
-            if (!Number.isSafeInteger(event.chapter) || event.chapter < 1 || event.chapter > 10) throw new TypeError('Relationship chapter must be from 1 to 10.');
-            if (event.majorTurn && !['recognition', 'friction', 'support'].includes(event.majorTurn)) throw new TypeError('Invalid relationship major turn.');
+            validateRelationshipChapterUnlocked(event);
             break;
         case 'support-used':
-            requireText(event.activityId, 'activityId');
-            if (!['hint', 'transcript', 'translation', 'definition', 'example-gloss', 'model-answer'].includes(event.supportKind)) throw new TypeError('Invalid support kind.');
-            if (event.choiceId !== undefined) requireText(event.choiceId, 'choiceId');
+            validateSupportUsed(event);
             break;
         default:
             throw new TypeError('Unknown learner event kind.');
     }
+}
+
+function validateBondChanged(event: Extract<LearnerEvent, { kind: 'bond-changed' }>): void {
+    requireText(event.characterId, 'characterId');
+    if (!Number.isSafeInteger(event.delta)) throw new TypeError('Bond delta must be an integer.');
+}
+
+function validateReviewScheduleNeutralized(event: Extract<LearnerEvent, { kind: 'review-schedule-neutralized' }>): void {
+    requireText(event.scheduledEventId, 'scheduledEventId');
+    if (event.reason !== 'legacy-ungrounded-academy') {
+        throw new TypeError('Invalid review schedule neutralization reason.');
+    }
+}
+
+function validateVocabularyCollectionUndone(event: Extract<LearnerEvent, { kind: 'vocabulary-collection-undone' }>): void {
+    requireText(event.collectionItemId, 'collectionItemId');
+    requireText(event.collectedEventId, 'collectedEventId');
+}
+
+function validateAcademyDayClosed(event: Extract<LearnerEvent, { kind: 'academy-day-closed' }>): void {
+    requireText(event.dayId, 'dayId');
+    if (typeof event.mainLessonCompleted !== 'boolean') throw new TypeError('Day mainLessonCompleted must be boolean.');
+    unique(event.optionalActivityIds.map(id => requireText(id, 'optionalActivityId')));
+    if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError('Day elapsedMs must be a non-negative integer.');
+}
+
+function validateAchievementCeremonySeen(event: Extract<LearnerEvent, { kind: 'achievement-ceremony-seen' }>): void {
+    requireText(event.achievementId, 'achievementId');
+    if (!['bronze', 'silver', 'gold', 'platinum'].includes(event.tier)) throw new TypeError('Invalid achievement tier.');
+}
+
+function validateRelationshipChapterUnlocked(event: Extract<LearnerEvent, { kind: 'relationship-chapter-unlocked' }>): void {
+    requireText(event.characterId, 'characterId');
+    if (!Number.isSafeInteger(event.chapter) || event.chapter < 1 || event.chapter > 10) throw new TypeError('Relationship chapter must be from 1 to 10.');
+    if (event.majorTurn && !['recognition', 'friction', 'support'].includes(event.majorTurn)) throw new TypeError('Invalid relationship major turn.');
+}
+
+function validateSupportUsed(event: Extract<LearnerEvent, { kind: 'support-used' }>): void {
+    requireText(event.activityId, 'activityId');
+    if (!['hint', 'transcript', 'translation', 'definition', 'example-gloss', 'model-answer'].includes(event.supportKind)) throw new TypeError('Invalid support kind.');
+    if (event.choiceId !== undefined) requireText(event.choiceId, 'choiceId');
 }
 
 function validateAttemptRecorded(event: Extract<LearnerEvent, { kind: 'attempt-recorded' }>): void {

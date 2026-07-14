@@ -153,7 +153,7 @@ function validateActivities(
         for (const sourceQuestionId of activity.sourceQuestionIds) {
             if (!questionIds.has(sourceQuestionId)) fail(`Activity ${activity.id} references unknown source question ${sourceQuestionId}.`);
         }
-        if (activity.assessed && JSON.stringify(activity.support) !== JSON.stringify(ASSESSED_SUPPORT)) {
+        if (activity.assessed && !hasAssessedSupport(activity.support)) {
             fail(`Activity ${activity.id} exposes assessed support before commitment.`);
         }
     }
@@ -173,25 +173,127 @@ function validateScripts(lesson: LessonZeroDefinition): readonly LessonZeroInput
     const scripts = array(lesson.inputScripts, 'lesson.inputScripts') as readonly LessonZeroInputScript[];
     const scriptById = uniqueIndex(scripts, 'input script');
     for (const script of scripts) {
-        if (script.transcriptReveal !== 'after-commit') fail(`Script ${script.id} reveals its transcript too early.`);
-        nonEmpty(script.lines, `script ${script.id} lines`);
-        if (new Set(script.lines.map(line => line.speakerId)).size < 2) fail(`Script ${script.id} is not multi-speaker input.`);
-        for (const line of script.lines) {
-            if (!isAcademyCastMemberId(line.speakerId)) fail(`Script ${script.id} invents cast id ${line.speakerId}.`);
-            text(line.japanese, `script ${script.id} Japanese line`);
-            text(line.english, `script ${script.id} English line`);
-            const member = getAcademyCastMember(line.speakerId);
-            if (!line.japanese.includes(`${member.firstName}です`) || !line.reading.includes(`${member.firstName}です`)) {
-                fail(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
-            }
+        validateInputScript(script, lesson.activities);
+    }
+    validateScriptActivityReferences(lesson.activities, scriptById);
+    validateSpeechActivityContracts(lesson, scriptById);
+    return scripts;
+}
+
+function validateInputScript(
+    script: LessonZeroInputScript,
+    activities: readonly LessonZeroActivity[],
+): void {
+    if (script.kind !== 'dialogue' && script.kind !== 'sound-sequence') {
+        fail(`Script ${script.id} has an unsupported input kind.`);
+    }
+    if (script.transcriptReveal !== 'after-commit') fail(`Script ${script.id} reveals its transcript too early.`);
+    nonEmpty(script.lines, `script ${script.id} lines`);
+    const lineIds = validateScriptLines(script);
+    validateDialogueSpeakers(script);
+    validateScriptLearnerTurns(script, lineIds, activities);
+}
+
+function validateScriptLines(script: LessonZeroInputScript): ReadonlySet<string> {
+    const lineIds = new Set<string>();
+    for (const line of script.lines) {
+        text(line.id, `script ${script.id} line id`);
+        if (lineIds.has(line.id)) fail(`Script ${script.id} repeats line id ${line.id}.`);
+        lineIds.add(line.id);
+        if (!isAcademyCastMemberId(line.speakerId)) fail(`Script ${script.id} invents cast id ${line.speakerId}.`);
+        text(line.japanese, `script ${script.id} Japanese line`);
+        text(line.reading, `script ${script.id} reading line`);
+        text(line.english, `script ${script.id} English line`);
+    }
+    return lineIds;
+}
+
+function validateDialogueSpeakers(script: LessonZeroInputScript): void {
+    if (script.kind !== 'dialogue') return;
+    const speakers = new Set(script.lines.map(line => line.speakerId));
+    if (speakers.size < 2) fail(`Dialogue script ${script.id} is not multi-speaker input.`);
+    for (const speakerId of speakers) {
+        const member = getAcademyCastMember(speakerId);
+        const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
+        if (!speakerLines.some(line =>
+            line.japanese.includes(`${member.firstName}です`)
+            && line.reading.includes(`${member.firstName}です`))) {
+            fail(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
         }
     }
-    for (const activity of lesson.activities) {
+}
+
+function validateScriptLearnerTurns(
+    script: LessonZeroInputScript,
+    lineIds: ReadonlySet<string>,
+    activities: readonly LessonZeroActivity[],
+): void {
+    const learnerTurns = script.learnerTurns ?? [];
+    const learnerTurnIds = new Set<string>();
+    for (const turn of learnerTurns) {
+        text(turn.id, `script ${script.id} learner turn id`);
+        if (learnerTurnIds.has(turn.id)) fail(`Script ${script.id} repeats learner turn id ${turn.id}.`);
+        learnerTurnIds.add(turn.id);
+        if (!lineIds.has(turn.afterLineId)) {
+            fail(`Script ${script.id} learner turn ${turn.id} references unknown line ${turn.afterLineId}.`);
+        }
+        if (turn.capture?.kind !== 'microphone-recording' || turn.capture.evidenceKind !== 'spoken-turn') {
+            fail(`Script ${script.id} learner turn ${turn.id} lacks spoken response capture.`);
+        }
+        if (!Number.isFinite(turn.capture.windowMs) || turn.capture.windowMs <= 0) {
+            fail(`Script ${script.id} learner turn ${turn.id} has an invalid capture window.`);
+        }
+        if (!hasAssessedSupport(turn.support)) {
+            fail(`Script ${script.id} learner turn ${turn.id} exposes support before commitment.`);
+        }
+    }
+    if (script.kind === 'sound-sequence' && learnerTurns.length) {
+        fail(`Sound sequence ${script.id} cannot contain a learner speaking turn.`);
+    }
+    if (learnerTurns.length && !activities.some(activity =>
+        activity.inputScriptId === script.id
+        && activity.expectedEvidence.kind === 'spoken-turn')) {
+        fail(`Script ${script.id} has a learner turn without a spoken-turn activity.`);
+    }
+}
+
+function validateScriptActivityReferences(
+    activities: readonly LessonZeroActivity[],
+    scriptById: ReadonlyMap<string, LessonZeroInputScript>,
+): void {
+    for (const activity of activities) {
         if (activity.inputScriptId && !scriptById.has(activity.inputScriptId)) {
             fail(`Activity ${activity.id} references unknown script ${activity.inputScriptId}.`);
         }
+        if (activity.expectedEvidence.kind === 'spoken-turn' && activity.inputScriptId) {
+            const script = scriptById.get(activity.inputScriptId)!;
+            if (!script.learnerTurns?.some(turn => turn.capture.evidenceKind === activity.expectedEvidence.kind)) {
+                fail(`Activity ${activity.id} has no authored learner speaking turn.`);
+            }
+        }
     }
-    return scripts;
+}
+
+function validateSpeechActivityContracts(
+    lesson: LessonZeroDefinition,
+    scriptById: ReadonlyMap<string, LessonZeroInputScript>,
+): void {
+    const vowelActivity = lesson.activities.find(activity => activity.id === 'activity:lesson-zero-vowel-listen');
+    const vowelScript = vowelActivity?.inputScriptId ? scriptById.get(vowelActivity.inputScriptId) : undefined;
+    if (!vowelScript || vowelScript.kind !== 'sound-sequence') {
+        fail('Lesson 0 vowel listening must use its own sound-sequence script.');
+    }
+    const vowelTranscript = vowelScript.lines.map(line => line.japanese).join('')
+        .replace(/[\s・、。]/gu, '');
+    if (vowelTranscript !== 'あいうえお') fail('Lesson 0 vowel script must contain the exact ordered vowel row.');
+
+    const speakingActivity = lesson.activities.find(activity => activity.id === 'activity:lesson-zero-speaking-input');
+    const speakingScript = speakingActivity?.inputScriptId ? scriptById.get(speakingActivity.inputScriptId) : undefined;
+    const learnerTurn = speakingScript?.learnerTurns?.find(turn => turn.capture.evidenceKind === 'spoken-turn');
+    const cueLine = learnerTurn && speakingScript?.lines.find(line => line.id === learnerTurn.afterLineId);
+    if (!learnerTurn || !cueLine || cueLine.speakerId !== 'aakash') {
+        fail('Lesson 0 speaking input needs an Aakash cue followed by an authored learner turn.');
+    }
 }
 
 function validateLessonZeroCastUsage(
@@ -334,6 +436,14 @@ function localized(value: unknown, label: string): void {
     const copy = record(value, label) as Readonly<Record<'en' | 'ja', unknown>>;
     text(copy.en, `${label}.en`);
     text(copy.ja, `${label}.ja`);
+}
+
+function hasAssessedSupport(value: unknown): value is AssessedSupportContract {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const support = value as Partial<Record<keyof AssessedSupportContract, unknown>>;
+    const keys = Object.keys(ASSESSED_SUPPORT) as Array<keyof AssessedSupportContract>;
+    return Object.keys(value).length === keys.length
+        && keys.every(key => support[key] === ASSESSED_SUPPORT[key]);
 }
 
 function fail(message: string): never {

@@ -56,6 +56,14 @@ const MEASURES: readonly AchievementMeasure[] = ['count', 'distinct-concepts', '
 const SKILLS: readonly LearningSkill[] = ['kana', 'kanji', 'vocabulary', 'grammar', 'reading', 'listening', 'speaking', 'writing', 'repair', 'transfer'];
 const ACTIONS: readonly LearningAction[] = ['recognise', 'recall', 'produce', 'listen', 'speak', 'write', 'repair', 'review', 'read', 'explore', 'source-complete', 'transfer'];
 const RATINGS = ['again', 'hard', 'good', 'easy'] as const;
+const ALLOWED_MEASURES: Readonly<Record<AchievementEvidenceSource, readonly AchievementMeasure[]>> = {
+    learning: ['count', 'distinct-concepts', 'distinct-sources', 'distinct-days', 'duration-minutes'],
+    review: ['count', 'distinct-days'],
+    collection: ['count', 'active-count'],
+    day: ['count', 'distinct-days', 'optional-activities'],
+    scene: ['count', 'distinct-days'],
+    relationship: ['relationship-chapters', 'relationship-turns'],
+};
 
 export function validateAchievementRegistry(input: unknown): AchievementRegistry {
     const registry = record(input, 'registry');
@@ -183,12 +191,21 @@ function validateDefinition(value: unknown, index: number): AchievementDefinitio
 }
 
 function validateCriterionCompatibility(id: string, criterion: AchievementCriterion): void {
+    validateCriterionSourceFilters(id, criterion);
+    validateCriterionFilterValues(id, criterion);
+    validateCriterionMeasure(id, criterion);
+}
+
+function validateCriterionSourceFilters(id: string, criterion: AchievementCriterion): void {
     if (criterion.source !== 'learning' && (criterion.skill || criterion.action || criterion.outcome || criterion.independent !== undefined || criterion.modeId || criterion.conceptPrefix)) {
         throw new TypeError(`${id} has learning filters on non-learning evidence.`);
     }
     if (criterion.source !== 'scene' && criterion.sceneIdPrefix) throw new TypeError(`${id} has a scene filter on non-scene evidence.`);
     if (criterion.source !== 'relationship' && criterion.majorTurn) throw new TypeError(`${id} has a relationship filter on unrelated evidence.`);
     if (criterion.source !== 'review' && criterion.rating) throw new TypeError(`${id} has a review rating on non-review evidence.`);
+}
+
+function validateCriterionFilterValues(id: string, criterion: AchievementCriterion): void {
     if (criterion.skill && !SKILLS.includes(criterion.skill)) throw new TypeError(`${id} has an invalid learning skill.`);
     if (criterion.action && !ACTIONS.includes(criterion.action)) throw new TypeError(`${id} has an invalid learning action.`);
     if (criterion.outcome && criterion.outcome !== 'pass' && criterion.outcome !== 'lapse') throw new TypeError(`${id} has an invalid outcome.`);
@@ -198,17 +215,12 @@ function validateCriterionCompatibility(id: string, criterion: AchievementCriter
     if (criterion.sceneIdPrefix !== undefined) text(criterion.sceneIdPrefix, `${id}.criterion.sceneIdPrefix`);
     if (criterion.rating && !RATINGS.includes(criterion.rating)) throw new TypeError(`${id} has an invalid rating.`);
     if (criterion.majorTurn && !['recognition', 'friction', 'support'].includes(criterion.majorTurn)) throw new TypeError(`${id} has an invalid relationship turn.`);
+}
+
+function validateCriterionMeasure(id: string, criterion: AchievementCriterion): void {
     if (criterion.measure === 'optional-activities' && criterion.source !== 'day') throw new TypeError(`${id} optional activities must use day evidence.`);
     if (criterion.measure === 'active-count' && criterion.source !== 'collection') throw new TypeError(`${id} active-count must use collection evidence.`);
-    const allowed: Readonly<Record<AchievementEvidenceSource, readonly AchievementMeasure[]>> = {
-        learning: ['count', 'distinct-concepts', 'distinct-sources', 'distinct-days', 'duration-minutes'],
-        review: ['count', 'distinct-days'],
-        collection: ['count', 'active-count'],
-        day: ['count', 'distinct-days', 'optional-activities'],
-        scene: ['count', 'distinct-days'],
-        relationship: ['relationship-chapters', 'relationship-turns'],
-    };
-    if (!allowed[criterion.source].includes(criterion.measure)) throw new TypeError(`${id} has an incompatible evidence measure.`);
+    if (!ALLOWED_MEASURES[criterion.source].includes(criterion.measure)) throw new TypeError(`${id} has an incompatible evidence measure.`);
 }
 
 function localized(value: unknown, label: string): void {

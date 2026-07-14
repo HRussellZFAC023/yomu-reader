@@ -181,7 +181,7 @@ export function createActivityRuntime(plugins: readonly ActivityPlugin[]): Activ
     };
 }
 
-export class ActivityValidationError extends Error {
+class ActivityValidationError extends Error {
     constructor(readonly activityId: string, readonly issues: readonly ValidationIssue[]) {
         super(`Activity ${activityId} is invalid: ${issues.map(issue => `${issue.path}: ${issue.message}`).join('; ')}`);
         this.name = 'ActivityValidationError';

@@ -64,6 +64,10 @@ console.log(`Yomu extension packages written to ${out}`);
 
 async function stageNewTabShell() {
     await mkdir(newtab, { recursive: true });
+    // Vite keeps dist/newtab between builds, so a hosted compatibility alias can
+    // survive there and make the extension compiler follow ../study/. The
+    // extension ships the real Study shell and must not package that redirect.
+    await rm(path.join(newtab, 'redirect.html'), { force: true });
     const appHash = createHash('sha256').update(await readFile(newtabApp)).digest('hex').slice(0, 12);
     const buildId = `${await packageVersion()}-${appHash}`;
     const index = await readFile(publicNewtabIndex, 'utf8');

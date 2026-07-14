@@ -107,6 +107,14 @@ function validateCatalogCounts(catalog, baseline, violations) {
 
 function validateStatusCounts(status, catalog, mediaBaseline, violations) {
     const denominators = status.denominators ?? {};
+    validateStatusDenominators(denominators, catalog, mediaBaseline, violations);
+    validatePayloadCounts(status, denominators, violations);
+    validateDirectResources(status.directResourceOccurrences, denominators, violations);
+    validatePdfCensus(status, violations);
+    validateAudioCensus(status, violations);
+}
+
+function validateStatusDenominators(denominators, catalog, mediaBaseline, violations) {
     if (denominators.archiveOccurrences !== catalog.summary.archiveOccurrenceCount
         || denominators.memberOccurrences !== catalog.summary.memberOccurrenceCount
         || denominators.uniquePayloads !== catalog.summary.uniquePayloadAssetCount) {
@@ -117,6 +125,9 @@ function validateStatusCounts(status, catalog, mediaBaseline, violations) {
             violations.push(`corpus-status.denominators.${key} must equal audited baseline ${expected} (got ${denominators[key]})`);
         }
     }
+}
+
+function validatePayloadCounts(status, denominators, violations) {
     if (status.pdfPayloads.length !== denominators.uniquePdfPayloads) {
         violations.push('corpus-status pdfPayloads length disagrees with uniquePdfPayloads');
     }
@@ -126,21 +137,33 @@ function validateStatusCounts(status, catalog, mediaBaseline, violations) {
     if (status.directResourceOccurrences.length !== denominators.directResources) {
         violations.push('corpus-status directResourceOccurrences length disagrees with directResources');
     }
-    const uniqueDirectShas = new Set(status.directResourceOccurrences.map(resource => resource.payloadSha256));
+}
+
+function validateDirectResources(resources, denominators, violations) {
+    const uniqueDirectShas = new Set(resources.map(resource => resource.payloadSha256));
     if (uniqueDirectShas.size !== denominators.uniqueDirectResourcePayloads) {
         violations.push('corpus-status unique direct-resource count disagrees with directResourceOccurrences');
     }
-    for (const resource of status.directResourceOccurrences) {
+    for (const resource of resources) {
         if (resource.status !== 'stored' || !/^[a-f0-9]{64}$/.test(resource.payloadSha256 ?? '')) {
             violations.push(`direct resource ${resource.id} lacks an explicit stored state or valid payload hash`);
             break;
         }
     }
+}
+
+function validatePdfCensus(status, violations) {
     const pdfCensus = status.census?.pdf ?? {};
     if ((pdfCensus.complete ?? 0) + (pdfCensus.failed ?? 0) !== status.pdfPayloads.length) {
         violations.push('pdf census complete+failed does not cover every unique PDF payload');
     }
-    for (const row of status.pdfPayloads) {
+    validatePdfPayloadStates(status.pdfPayloads, violations);
+    validatePdfFailureAggregates(status.pdfPayloads, pdfCensus, violations);
+    validatePdfCountAggregates(status.pdfPayloads, pdfCensus, violations);
+}
+
+function validatePdfPayloadStates(pdfPayloads, violations) {
+    for (const row of pdfPayloads) {
         if (!row.status || (!row.status.startsWith('census-complete') && !row.status.startsWith('failed:'))) {
             violations.push(`pdf payload ${row.payloadSha256} lacks an explicit census state`);
             break;
@@ -150,22 +173,31 @@ function validateStatusCounts(status, catalog, mediaBaseline, violations) {
             break;
         }
     }
-    const layoutFailures = status.pdfPayloads.filter(row => row.layoutExtractionStatus.startsWith('failed:')).length;
-    const nativeFailures = status.pdfPayloads.filter(row => row.nativeImageExtractionStatus.startsWith('failed:')).length;
-    const vectorFailures = status.pdfPayloads.filter(row => row.vectorExtractionStatus !== 'complete').length;
+}
+
+function validatePdfFailureAggregates(pdfPayloads, pdfCensus, violations) {
+    const layoutFailures = pdfPayloads.filter(row => row.layoutExtractionStatus.startsWith('failed:')).length;
+    const nativeFailures = pdfPayloads.filter(row => row.nativeImageExtractionStatus.startsWith('failed:')).length;
+    const vectorFailures = pdfPayloads.filter(row => row.vectorExtractionStatus !== 'complete').length;
     if (pdfCensus.layoutFailed !== layoutFailures
         || pdfCensus.nativeImageExtractionFailed !== nativeFailures
         || pdfCensus.vectorExtractionFailed !== vectorFailures) {
         violations.push('pdf extraction-failure aggregates disagree with payload states');
     }
+}
+
+function validatePdfCountAggregates(pdfPayloads, pdfCensus, violations) {
     for (const key of [
         'pageCount', 'pagesWithoutTextLayer', 'pagesWithoutLayout', 'nativeImageObjectCount',
         'extractedNativeImageCount', 'positionedMediaRegionCount', 'textBoxCount', 'vectorReviewPageCount',
         'vectorProbeFailedPageCount', 'vectorHeavyPageCount', 'vectorContentPageCount',
     ]) {
-        const expected = status.pdfPayloads.reduce((sum, row) => sum + (Number.isFinite(row[key]) ? row[key] : 0), 0);
+        const expected = pdfPayloads.reduce((sum, row) => sum + (Number.isFinite(row[key]) ? row[key] : 0), 0);
         if (pdfCensus[key] !== expected) violations.push(`pdf census aggregate ${key} disagrees with payload rows`);
     }
+}
+
+function validateAudioCensus(status, violations) {
     const audioCensus = status.census?.audio ?? {};
     if ((audioCensus.probed ?? 0) + (audioCensus.failed ?? 0) !== status.audioPayloads.length) {
         violations.push('audio census probed+failed does not cover every unique audio payload');

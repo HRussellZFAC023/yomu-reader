@@ -64,6 +64,6 @@ The validator pins the 96/916/688 baseline, reconciles every count, checks expli
 
 ## Review contract
 
-The 879 migrated donor items are source-item candidates, not audited source questions. Donor page numbers, answers, media descriptions, and duration matches remain review-required until a reviewer confirms the exact source locus and relationship. The single Stage 1 question remains the only verified/playable Moodle claim until that work is completed.
+The 879 migrated donor items are source-item candidates, not audited source questions. Donor page numbers, answers, media descriptions, and duration matches remain review-required until a reviewer confirms the exact source locus and relationship. The single Stage 1 question remains the only audited and implemented Moodle question, but its legacy ungrounded route is quarantined, so current playable coverage remains zero.
 
 Every PDF page is reviewable even when it has no text layer. Blue overlay boxes mark text-layer regions; orange boxes mark positioned raster/vector candidates. Native images are extracted separately, and image-bearing pages can never silently become text-only activities.

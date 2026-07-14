@@ -22,11 +22,11 @@ interface PathGroup {
 }
 
 const PATH_GROUPS: readonly PathGroup[] = [
-    { id: 'level-1', label: { en: 'Level 1', ja: 'レベル1' }, from: 0, to: 18, seasons: ['foundation'] },
-    { id: 'level-1-plus', label: { en: 'Level 1+', ja: 'レベル1+' }, from: 19, to: 35, seasons: ['n5'] },
-    { id: 'level-2-plus', label: { en: 'Level 2+', ja: 'レベル2+' }, from: 36, to: 47, seasons: ['n4'] },
-    { id: 'level-3-2', label: { en: 'Level 3.2', ja: 'レベル3.2' }, from: 48, to: 61, seasons: ['n3'] },
-    { id: 'level-3-plus', label: { en: 'Level 3+', ja: 'レベル3+' }, from: 62, to: 72, seasons: ['n2', 'n1', 'alumni'] },
+    { id: 'level-1', label: { en: 'Foundation', ja: '基礎' }, from: 0, to: 18, seasons: ['foundation'] },
+    { id: 'level-1-plus', label: { en: 'N5', ja: 'N5' }, from: 19, to: 35, seasons: ['n5'] },
+    { id: 'level-2-plus', label: { en: 'N4', ja: 'N4' }, from: 36, to: 47, seasons: ['n4'] },
+    { id: 'level-3-2', label: { en: 'N3', ja: 'N3' }, from: 48, to: 61, seasons: ['n3'] },
+    { id: 'level-3-plus', label: { en: 'N2 → N1', ja: 'N2 → N1' }, from: 62, to: 72, seasons: ['n2', 'n1', 'alumni'] },
 ];
 
 export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElement {
@@ -147,16 +147,21 @@ function updateRelatedSections(
     events.querySelector('h2')?.after(eventsContext);
     people.querySelector('.academy-class-register')?.remove();
     events.querySelector('.academy-class-event-line')?.remove();
-    people.append(renderPeople(weeks, options.language));
+    people.append(renderPeople(weeks, group, options.language));
     events.append(renderEvents(group, options.language));
 }
 
-function renderPeople(weeks: readonly ClassWeekCastPlanEntry[], language: AcademyLanguage): HTMLElement {
+function renderPeople(
+    weeks: readonly ClassWeekCastPlanEntry[],
+    group: PathGroup,
+    language: AcademyLanguage,
+): HTMLElement {
     const ids = new Set<AcademyCastMemberId>(['rie']);
     for (const week of weeks) {
         if (week.primary) ids.add(week.primary.id);
         week.supporting.forEach(member => ids.add(member.id));
     }
+    eventsForGroup(group).forEach(event => event.castIds.forEach(id => ids.add(id)));
     const list = element('ul', 'academy-class-register');
     for (const member of ACADEMY_CAST.filter(candidate => ids.has(candidate.id))) {
         const item = element('li', 'academy-class-register-entry');
@@ -175,7 +180,7 @@ function renderPeople(weeks: readonly ClassWeekCastPlanEntry[], language: Academ
 
 function renderEvents(group: PathGroup, language: AcademyLanguage): HTMLElement {
     const list = element('ol', 'academy-class-event-line');
-    for (const event of ACADEMY_CLASS_EVENTS.filter(candidate => group.seasons.includes(candidate.season))) {
+    for (const event of eventsForGroup(group)) {
         const item = element('li', 'academy-class-event');
         item.dataset.eventId = event.id;
         item.dataset.eventStatus = event.status;
@@ -189,6 +194,10 @@ function renderEvents(group: PathGroup, language: AcademyLanguage): HTMLElement 
         list.append(item);
     }
     return list;
+}
+
+function eventsForGroup(group: PathGroup): readonly AcademyClassEvent[] {
+    return ACADEMY_CLASS_EVENTS.filter(candidate => group.seasons.includes(candidate.season));
 }
 
 function sectionShell(id: string, className: string, language: AcademyLanguage, key: 'classPathPeople' | 'classPathEvents'): HTMLElement {

@@ -24,6 +24,12 @@ const host = document.getElementById('yomu-academy');
 if (host) {
     const app = new AcademyApp(host, { databaseName: localQaDatabaseName() });
     window.__yomuAcademy = app;
+    const disposeOnRealUnload = (event: PageTransitionEvent): void => {
+        if (event.persisted) return;
+        window.removeEventListener('pagehide', disposeOnRealUnload);
+        app.dispose();
+    };
+    window.addEventListener('pagehide', disposeOnRealUnload);
     void app.start().catch(error => {
         host.dataset.bootError = 'true';
         const message = document.createElement('p');

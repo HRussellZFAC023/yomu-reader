@@ -7,7 +7,7 @@ import type { Env } from '../../../workers/yomu-academy/src/env';
  * the fake does not recognize fails the test loudly instead of passing vacuously.
  */
 
-export interface InviteRow {
+interface InviteRow {
     id: string;
     code_hash: string;
     uses_remaining: number;
@@ -19,7 +19,7 @@ export interface InviteRow {
     class_id?: string | null;
 }
 
-export interface SessionRow {
+interface SessionRow {
     token_hash: string;
     public_id: string;
     invite_id: string;
@@ -30,7 +30,7 @@ export interface SessionRow {
     account_id: string | null;
 }
 
-export interface PurchaseRow {
+interface PurchaseRow {
     id: string;
     claim_hash: string;
     checkout_session_id: string | null;
@@ -41,7 +41,7 @@ export interface PurchaseRow {
     invite_id: string | null;
 }
 
-export interface AccountDbRow {
+interface AccountDbRow {
     id: string;
     public_id: string;
     google_sub_hash: string;
@@ -55,9 +55,9 @@ export interface AccountDbRow {
     updated_at: number;
 }
 
-export interface ClassDbRow { id: string; name: string; created_at: number; archived_at: number | null }
-export interface MembershipDbRow { class_id: string; account_id: string; role: 'learner' | 'sensei'; board_hidden: number; joined_at: number }
-export interface ProgressDbRow {
+interface ClassDbRow { id: string; name: string; created_at: number; archived_at: number | null }
+interface MembershipDbRow { class_id: string; account_id: string; role: 'learner' | 'sensei'; board_hidden: number; joined_at: number }
+interface ProgressDbRow {
     known_word_count: number;
     reviews_completed: number;
     reviews_due: number;
@@ -66,7 +66,7 @@ export interface ProgressDbRow {
     updated_at: number;
 }
 
-export class FakeAcademyDb implements D1Database {
+class FakeAcademyDb implements D1Database {
     readonly invites: InviteRow[] = [];
     readonly sessions: SessionRow[] = [];
     readonly purchases: PurchaseRow[] = [];
@@ -118,10 +118,31 @@ class FakeStatement implements D1PreparedStatement {
     private lastChanges = 0;
 
     private execute(): unknown[] {
+        this.lastChanges = 0;
+
+        const handlers = [
+            this.executeRateLimitQuery,
+            this.executeInviteQuery,
+            this.executeSessionQuery,
+            this.executePurchaseQuery,
+            this.executeOauthQuery,
+            this.executeAccountQuery,
+            this.executeClassQuery,
+            this.executeProgressWriteQuery,
+            this.executeProgressReadQuery,
+        ];
+        for (const handler of handlers) {
+            const result = handler.call(this);
+            if (result !== undefined) return result;
+        }
+
+        throw new Error(`FakeAcademyDb has no handler for SQL: ${this.sql}`);
+    }
+
+    private executeRateLimitQuery(): unknown[] | undefined {
         const db = this.db;
         const sql = this.sql;
         const v = this.values;
-        this.lastChanges = 0;
 
         if (sql.startsWith('INSERT INTO rate_limits')) {
             const key = `${v[0]}|${v[1]}|${v[2]}`;
@@ -131,6 +152,14 @@ class FakeStatement implements D1PreparedStatement {
             return [{ count }];
         }
         if (sql.startsWith('DELETE FROM rate_limits')) return [];
+        return undefined;
+    }
+
+    private executeInviteQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('UPDATE invites SET uses_remaining = uses_remaining - 1')) {
             const now = v[1] as number;
             const invite = db.invites.find(row =>
@@ -158,6 +187,39 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [];
         }
+        if (sql.startsWith('INSERT OR IGNORE INTO invites')) {
+            const purchaseId = v[4] as string;
+            const existing = db.invites.find(row => row.purchase_id === purchaseId || row.id === v[0] || row.code_hash === v[1]);
+            if (existing) return [];
+            db.invites.push({
+                id: v[0] as string,
+                code_hash: v[1] as string,
+                uses_remaining: 1,
+                kind: 'paid',
+                created_at: v[2] as number,
+                expires_at: v[3] as number,
+                revoked_at: null,
+                purchase_id: purchaseId,
+                class_id: null,
+            });
+            this.lastChanges = 1;
+            return [];
+        }
+        if (sql.startsWith('UPDATE invites SET class_id')) {
+            const invite = db.invites.find(row => row.code_hash === v[1] && row.revoked_at === null);
+            if (!invite) return [];
+            invite.class_id = v[0] as string;
+            this.lastChanges = 1;
+            return [];
+        }
+        return undefined;
+    }
+
+    private executeSessionQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('INSERT INTO sessions') && sql.includes('SELECT')) {
             const now = v[2] as number;
             const invite = db.invites.find(row =>
@@ -206,6 +268,22 @@ class FakeStatement implements D1PreparedStatement {
             }
             return [];
         }
+        if (sql.startsWith('UPDATE sessions SET account_id')) {
+            const session = db.sessions.find(row => row.public_id === v[1] && row.revoked_at === null);
+            if (session) {
+                session.account_id = v[0] as string;
+                this.lastChanges = 1;
+            }
+            return [];
+        }
+        return undefined;
+    }
+
+    private executePurchaseQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('INSERT INTO purchases')) {
             db.purchases.push({
                 id: v[0] as string,
@@ -261,24 +339,14 @@ class FakeStatement implements D1PreparedStatement {
                 row.claim_hash === v[0] && row.checkout_session_id === v[1] && row.created_at > cutoff);
             return purchase ? [{ id: purchase.id, status: purchase.status, invite_id: purchase.invite_id }] : [];
         }
-        if (sql.startsWith('INSERT OR IGNORE INTO invites')) {
-            const purchaseId = v[4] as string;
-            const existing = db.invites.find(row => row.purchase_id === purchaseId || row.id === v[0] || row.code_hash === v[1]);
-            if (existing) return [];
-            db.invites.push({
-                id: v[0] as string,
-                code_hash: v[1] as string,
-                uses_remaining: 1,
-                kind: 'paid',
-                created_at: v[2] as number,
-                expires_at: v[3] as number,
-                revoked_at: null,
-                purchase_id: purchaseId,
-                class_id: null,
-            });
-            this.lastChanges = 1;
-            return [];
-        }
+        return undefined;
+    }
+
+    private executeOauthQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('INSERT INTO oauth_flows')) {
             db.oauthFlows.push({
                 state_hash: v[0] as string,
@@ -299,6 +367,14 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [{ state_hash: flow.state_hash }];
         }
+        return undefined;
+    }
+
+    private executeAccountQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar FROM accounts WHERE google_sub_hash')) {
             const account = db.accounts.find(row => row.google_sub_hash === v[0]);
             return account ? [{ ...account }] : [];
@@ -327,14 +403,26 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [];
         }
-        if (sql.startsWith('UPDATE sessions SET account_id')) {
-            const session = db.sessions.find(row => row.public_id === v[1] && row.revoked_at === null);
-            if (session) {
-                session.account_id = v[0] as string;
-                this.lastChanges = 1;
-            }
+        if (sql.startsWith('UPDATE accounts SET display_name')) {
+            const account = db.accounts.find(row => row.id === v[6]);
+            if (!account) return [];
+            account.display_name = v[0] as string;
+            account.name_chosen = v[1] as number;
+            account.avatar_key = v[2] as string | null;
+            account.board_visible = v[3] as number;
+            account.share_avatar = v[4] as number;
+            account.updated_at = v[5] as number;
+            this.lastChanges = 1;
             return [];
         }
+        return undefined;
+    }
+
+    private executeClassQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('INSERT OR IGNORE INTO class_memberships') && sql.includes('SELECT i.class_id')) {
             const session = db.sessions.find(row => row.public_id === v[1]);
             const invite = session ? db.invites.find(row => row.id === session.invite_id) : undefined;
@@ -349,18 +437,6 @@ class FakeStatement implements D1PreparedStatement {
                 return klass ? [{ class_id: row.class_id, name: klass.name, role: row.role, board_hidden: row.board_hidden }] : [];
             });
         }
-        if (sql.startsWith('UPDATE accounts SET display_name')) {
-            const account = db.accounts.find(row => row.id === v[6]);
-            if (!account) return [];
-            account.display_name = v[0] as string;
-            account.name_chosen = v[1] as number;
-            account.avatar_key = v[2] as string | null;
-            account.board_visible = v[3] as number;
-            account.share_avatar = v[4] as number;
-            account.updated_at = v[5] as number;
-            this.lastChanges = 1;
-            return [];
-        }
         if (sql.startsWith('INSERT INTO classes')) {
             const existing = db.classes.find(row => row.id === v[0]);
             if (existing) {
@@ -369,13 +445,6 @@ class FakeStatement implements D1PreparedStatement {
             } else {
                 db.classes.push({ id: v[0] as string, name: v[1] as string, created_at: v[2] as number, archived_at: null });
             }
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('UPDATE invites SET class_id')) {
-            const invite = db.invites.find(row => row.code_hash === v[1] && row.revoked_at === null);
-            if (!invite) return [];
-            invite.class_id = v[0] as string;
             this.lastChanges = 1;
             return [];
         }
@@ -400,6 +469,14 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [];
         }
+        return undefined;
+    }
+
+    private executeProgressWriteQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('INSERT OR IGNORE INTO progress_imports')) {
             const key = `${v[0]}|${v[1]}`;
             if (db.progressImports.has(key)) return [];
@@ -431,6 +508,14 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [];
         }
+        return undefined;
+    }
+
+    private executeProgressReadQuery(): unknown[] | undefined {
+        const db = this.db;
+        const sql = this.sql;
+        const v = this.values;
+
         if (sql.startsWith('SELECT a.id, a.public_id, a.display_name, a.discriminator')) {
             return db.memberships.filter(row => row.class_id === v[0] && row.board_hidden === 0).flatMap(membership => {
                 const account = db.accounts.find(row => row.id === membership.account_id && row.board_visible === 1);
@@ -458,11 +543,11 @@ class FakeStatement implements D1PreparedStatement {
                 .map(key => ({ study_date: key.slice(String(v[0]).length + 1) }))
                 .sort((a, b) => a.study_date.localeCompare(b.study_date));
         }
-        throw new Error(`FakeAcademyDb has no handler for SQL: ${sql}`);
+        return undefined;
     }
 }
 
-export class FakeR2Bucket implements R2Bucket {
+class FakeR2Bucket implements R2Bucket {
     private readonly objects = new Map<string, Uint8Array>();
 
     put(key: string, bytes: Uint8Array): void {

@@ -1,6 +1,6 @@
 import { validateClassWeekCastPlan, type ClassWeekCastPlan } from './class-week-cast-plan';
 
-export const CLASS_WEEK_CAST_PLAN_URL = '/academy/content/curriculum/class-week-cast.v1.json';
+const CLASS_WEEK_CAST_PLAN_URL = '/academy/content/curriculum/class-week-cast.v1.json';
 
 let defaultLoad: Promise<ClassWeekCastPlan> | null = null;
 

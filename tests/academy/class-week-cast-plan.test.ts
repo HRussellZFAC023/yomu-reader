@@ -57,7 +57,7 @@ describe('73-week classmate appearance plan', () => {
     it('represents every documented classmate as a primary and supporting lesson participant', () => {
         const plan = validateClassWeekCastPlan(planJson());
         const documented = ACADEMY_CAST
-            .filter(member => member.category === 'classmate')
+            .filter(member => member.category === 'classmate' && member.eligibility.lessons)
             .map(member => member.id)
             .sort();
         const primaries = [...new Set(plan.weeks.flatMap(week => week.primary ? [week.primary.id] : []))].sort();
@@ -73,6 +73,31 @@ describe('73-week classmate appearance plan', () => {
                 expect(appearance!.firstName).toBe(getAcademyCastMember(appearance!.id).firstName);
             }
         }
+    });
+
+    it('keeps story-only classmates out of fabricated lesson assignments', () => {
+        const plan = validateClassWeekCastPlan(planJson());
+        const appearances = plan.weeks.flatMap(week => [
+            ...(week.primary ? [week.primary.id] : []),
+            ...week.supporting.map(member => member.id),
+        ]);
+
+        expect(getAcademyCastMember('shaun')).toMatchObject({
+            category: 'classmate',
+            eligibility: { story: true, lessons: false },
+        });
+        expect(appearances).not.toContain('shaun');
+
+        const storyOnly = clonePlan() as unknown as {
+            weeks: Array<{
+                status: string;
+                primary: { id: string; firstName: string; matchedSpecialty: string } | null;
+                learningSpecialties: string[];
+            }>;
+        };
+        const assigned = storyOnly.weeks.find(week => week.status === 'source-backed' && week.primary)!;
+        assigned.primary = { id: 'shaun', firstName: 'Shaun', matchedSpecialty: assigned.learningSpecialties[0]! };
+        expect(() => validateClassWeekCastPlan(storyOnly)).toThrow(/story-only until lesson evidence exists/i);
     });
 
     it('rejects missing weeks, invented names, and cast outside a documented specialty', () => {

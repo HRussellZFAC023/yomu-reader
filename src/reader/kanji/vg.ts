@@ -98,7 +98,6 @@ const KANJIVG_AXIS_POSITIONS: Record<KanjiVGDirectionalAxis, KanjiVGAxisPosition
 export class KanjiVGClient {
     private cache = new Map<string, Promise<KanjiVGInfo | null>>();
 
-    // fallow-ignore-next-line unused-class-member
     lookup(kanji: string): Promise<KanjiVGInfo | null> {
         const character = Array.from(kanji)[0] ?? '';
         if (!character) return Promise.resolve(null);

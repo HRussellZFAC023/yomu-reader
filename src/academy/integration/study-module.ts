@@ -2,17 +2,14 @@ import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy
 import { newTabText } from '../../reader/newtab/i18n';
 import {
     createStudySessionClock,
-    formatStudySessionRemaining,
     mountStudySessionClockControl,
     type StudySessionClock,
-    type StudySessionClockSnapshot,
 } from '../../reader/newtab/session-clock';
 import { DEFAULT_STUDY_DURATION_MS } from '../../reader/srs/shared';
 import type { Disposable } from './yomu-bridge';
 
 export const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 
-export type AcademyStudyCountdownSnapshot = StudySessionClockSnapshot;
 export type AcademyStudyCountdown = StudySessionClock;
 
 export interface AcademyStudySurface {
@@ -149,5 +146,3 @@ export async function mountAcademyStudyModule(
         },
     };
 }
-
-export const formatAcademyStudyCountdown = formatStudySessionRemaining;

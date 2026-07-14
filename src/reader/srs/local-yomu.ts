@@ -107,7 +107,6 @@ export class LocalYomuSrsRepository {
         });
     }
 
-    // fallow-ignore-next-line unused-class-member
     async queue(limit = 50): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
@@ -129,7 +128,6 @@ export class LocalYomuSrsRepository {
         };
     }
 
-    // fallow-ignore-next-line unused-class-member
     async stats(): Promise<YomuSrsStatsSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
@@ -148,7 +146,6 @@ export class LocalYomuSrsRepository {
         };
     }
 
-    // fallow-ignore-next-line unused-class-member
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
         return this.mutateDeck(deck => {
             const now = this.now();

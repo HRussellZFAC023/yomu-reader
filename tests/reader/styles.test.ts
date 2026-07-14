@@ -66,6 +66,15 @@ describe('reader stylesheet loading', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });
 
+    it('keeps the shared Study pause control large enough to operate', () => {
+        const css = readFileSync('src/reader/styles/new-tab.css', 'utf8');
+        const rule = css.match(/\.jpdb-reader-study-clock-toggle\s*\{[^}]*\}/)?.[0] ?? '';
+
+        expect(rule).toContain('min-height: 28px');
+        expect(rule).toContain('padding: 4px 8px');
+        expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*\.jpdb-reader-study-clock-toggle\s*\{\s*min-height: 44px !important;/);
+    });
+
     it('keeps a linked hosted stylesheet authoritative over network fallback CSS', () => {
         expect(shouldLoadReaderCssFallback(true, '')).toBe(false);
         expect(shouldLoadReaderCssFallback(false, '')).toBe(true);

@@ -121,7 +121,7 @@ export interface AuthoredCastPolicy {
     readonly maximumIndividualUnitShare: number;
 }
 
-export const DEFAULT_AUTHORED_CAST_POLICY: AuthoredCastPolicy = Object.freeze({
+const DEFAULT_AUTHORED_CAST_POLICY: AuthoredCastPolicy = Object.freeze({
     minimumUnitsForRotation: 3,
     minimumDistinctPeers: 4,
     dominantGroupSize: 2,

@@ -4,7 +4,7 @@ import { clearHostCookie, hostCookie, HttpError, jsonResponse, readCookie, readJ
 import { inviteCodeHash, normalizeInviteCode } from './invites';
 import { clientSubject, enforceRateLimit, SESSION_RATE } from './rate-limit';
 
-export const SESSION_COOKIE = '__Host-academy_session';
+const SESSION_COOKIE = '__Host-academy_session';
 const SESSION_TTL_MS = 8 * 60 * 60_000;
 const OFFLINE_RESUME_MS = 30 * 24 * 60 * 60_000;
 

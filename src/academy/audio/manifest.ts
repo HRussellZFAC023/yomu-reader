@@ -37,7 +37,7 @@ export interface SfxSource {
     readonly gain: number;
 }
 
-export const MEDIA_KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
+const MEDIA_KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
 const MEDIA_ROUTE_PREFIX = '/academy/media/audio/';
 const THEME_SLOTS = new Set<ThemeSlot>([
     'silence', 'opening.invitation', 'campus.evening', 'classroom.focus', 'library.quiet',

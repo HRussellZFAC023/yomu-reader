@@ -41,7 +41,9 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [x] Receive two low-effort Fable architecture/usability reviews and bind the accepted one-route, Course-view, grounded-lesson, living-paper, and usability corrections.
 - [x] Make learner writes resolve a complete lesson from shipped bytes: typed registry entry, pinned lesson ID/revision/SHA-256, full grounding audit, playable lesson/activity check, source scope, and canonical review allow-list.
 - [x] Resolve grading, instruction, prerequisite, repair, review, and surface-audit references through one definition registry; reject dangling definitions, divergent review identities, and self-asserted answer-concealment claims.
+- [x] Make concealment evidence executable and renderer-bound: exact renderer ID/revision/SHA/source, content-derived answer corpus, pure stored-DOM replay, stale/tamper/entity checks, and fail-closed opaque surfaces.
 - [x] Derive all 73 Week delivery states from the lesson audit: orientation review-blocked, 72 planning-only, zero grounded-playable.
+- [x] Make Source Question denominators obey the same current-route rule: 1 audited, 1 implemented, 0 learner-reachable grounded-playable.
 - [x] Classify and sanitize every legacy ungrounded activity route from current navigation and Back history; remove known legacy provenance, retain reviewed cards with an audit tag, and append-only neutralize their former Academy schedules without deleting Study history.
 - [x] Mount the canonical Reader Study surface inside Academy with living-paper tokens, a real 15-minute countdown, Pause, and route-history Back.
 - [ ] Complete Slice 1: persisted Back history, equal Story/Course presentation hosts, one stable `…` menu, and no dead/duplicate navigation.
@@ -58,8 +60,22 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [x] Replace the following Aakash direction card with a sprite-led VN production exchange and remove its three-choice grading.
 - [x] Enlarge the Rie journal cutout, use Aakash's transparent sprite instead of the event CG, and prove both in the current app.
 - [x] Enforce canonical cast names, dossier-backed lesson specialties, and peer-rotation thresholds without inventing identities or unsafe likeness swaps.
+- [x] Add Shaun and retain Peter as distinct first-term story/scrapbook characters; keep Shaun's new neutral sprite behind owner/cast-scale review and Peter behind a defensible likeness gate.
 - [x] Pin a planning-only 73-week classmate appearance package to real donor topics: 67 source-backed assignments, six review-required gaps, all 19 documented classmates represented, no authored/playable inflation.
 - [ ] Record and pair reviewed authored Lesson 0 speech; the canonical Moodle handout has no source audio and browser TTS is forbidden.
+  - Evidence audit: 0/4 current speech inputs have a release-ready recording. The missing vowel row and learner-turn scripts are repaired; recording, transcript/timecode, consent, and exact binding remain. See `evidence/lesson-zero-audio/REPORT.md`.
+
+### Attempt 3 acceptance findings
+
+- [x] Reconcile the three external reviews against current source and binding product decisions; reject proposals that remove the required fiction note, optional placement route, Course view, or fidelity gate.
+- [ ] Ship one complete grounded Lesson 0 route and one complete grounded class Week; zero-playable remains the release-blocking denominator until both are learner-reachable.
+- [ ] Connect a real grounded attempt through `LearnerEvidence.recordActivity` into the canonical Study queue, then prove attempt → repair → review → scene return in the real app.
+- [x] Keep placement answer controls outside automatic lookup/annotation until commitment; native radio selection and the Reader-ignore contract now pass focused tests and fresh 390×844 Browser proof.
+- [x] Ensure canonical Study contains no pre-reveal answer-bearing text or attributes while preserving reveal, grading, statistics, and Academy provenance. Opaque `study-card-N` / indexed Doodle identities preserve in-memory actions and stale guards; the full card key appears only after reveal.
+- [ ] Extend the same concealment invariant to standalone Study URL hashes without breaking intentional shared-card deep links; Academy's embedded route is already clean.
+- [ ] Make Story and Course presentation choices visibly change the current experience without creating a second curriculum or progress model.
+- [ ] Remove duplicated Reader/Academy navigation and settings from the embedded Study host; retain only the contextual controls needed during a study session.
+- [ ] Prove fresh-code profile isolation, corrupt-checkpoint recovery, live class-code access, menu tab order, focus/contrast, and phone/tablet/desktop layout in Browser.
 
 Acceptance: a Japanese teacher can identify what the learner was taught, practised, produced, transferred, and retained; the learner can always orient or leave; the screen reads as a living class rather than a card dashboard.
 
@@ -99,7 +115,7 @@ Acceptance: every advertised level has four-skill evidence while JLPT receptive 
 ## Stage 5 — story and approved art
 
 - [ ] Author the six-season finite story, graduation, New Game Plus, alumni calendar, and recurring postgame learning loop.
-- [ ] Author recognition/friction/support bond steps for every classmate.
+- [ ] Author ten meaningful relationship-journal chapters for every classmate, including recognition, friction, repair, reciprocity, support, shared memory, and an earned enduring bond.
 - [ ] Generate one OpenAI neutral sprite per character, obtain likeness/style approval, then expand expressions/poses.
 - [ ] Complete backgrounds, event CGs, props, worksheet media, unlocks, backlog, auto/read-skip, group chat, radio, transitions, and seasonal states.
 - [ ] Build a resumable main-namespace inventory of the Megami Tensei wiki and convert its mechanic/lore/item patterns into original Academy design prompts without copying names, prose, characters, or lore.
@@ -112,7 +128,7 @@ Acceptance: every scene advances learning/relationship/mystery/world; every spea
 ## Stage 6 — audio and immersion
 
 - [ ] Complete `AudioDirector` buses, gesture unlock, crossfade, ducking, visibility handling, cleanup, offline state, and semantic slots.
-- [ ] Map private prototype OST and audited SFX without shipping uncleared media.
+- [ ] Finish the owner-approved Persona OST and Shinday SFX semantic-slot map, protected delivery, offline-state reporting, and authored scene/location bindings.
 - [ ] Pair every listening question with audio, transcript, timecodes, shadowing, replay, and captions.
 - [ ] Add pronunciation, listen-back, pitch comparison, diegetic radio, and train-home audio mode.
 

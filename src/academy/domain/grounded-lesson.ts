@@ -55,6 +55,14 @@ export interface GroundedInstructionEvidence {
 
 export interface GroundedAnswerConcealmentEvidence {
     readonly surfaceAudit: GroundedDefinitionRef;
+    /** Content-derived answer-bearing values the DOM audit must search for. */
+    readonly answerBearingContent: GroundedDefinitionRef;
+    /** Exact rendered surface whose pre-commit DOM was audited. */
+    readonly auditBinding: Readonly<{
+        surfaceId: string;
+        renderer: GroundedDefinitionRef;
+        contentRevision: string;
+    }>;
     readonly learnerFacingPreCommit: Readonly<{
         translations: 'absent';
         transcripts: 'absent';

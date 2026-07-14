@@ -383,6 +383,13 @@ function renderEnabledNewTabRoot(controller: NewTabController, options: { append
     return root;
 }
 
+function expectOpaqueStudyCardToken(root: ParentNode, ...answerValues: string[]): string {
+    const token = root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard ?? '';
+    expect(token).toMatch(/^study-card-\d+$/);
+    answerValues.filter(Boolean).forEach(value => expect(token).not.toContain(value));
+    return token;
+}
+
 function createNewTabKanjiFrontFixture(
     card: JPDBCard,
     overrides: Partial<NewTabControllerOptions> = {},
@@ -3379,7 +3386,7 @@ describe('new tab review helpers', () => {
             expect(visible.map(card => card.spelling)).toEqual(['暗', '記']);
             expect(visible.every(card => card.source === 'anki')).toBe(true);
             expect(visible.every(card => card.reviewSource === undefined)).toBe(true);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('26263:1:暗記:暗記');
+            expectOpaqueStudyCardToken(root, '暗記');
             expect(root.querySelector('[data-grade]')).toBeNull();
             expect(Array.from(root.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
                 .map(element => element.dataset.newtabAction)).toEqual(['previous', 'next']);
@@ -3460,7 +3467,7 @@ describe('new tab review helpers', () => {
             const visible = (controller as unknown as { visibleWords: JPDBCard[] }).visibleWords;
             expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復', '習']);
             expect((controller as unknown as { index: number }).index).toBe(0);
-            expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe(cardKey(locked));
+            expectOpaqueStudyCardToken(document, locked.spelling, locked.reading);
         } finally {
             restoreCanvas();
             document.body.replaceChildren();
@@ -3859,7 +3866,7 @@ describe('new tab review helpers', () => {
             (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
 
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['難', '波']);
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('38800:1:難波:なにわ');
+            expectOpaqueStudyCardToken(root, '難波', 'なにわ');
             expect(newTabPromptText(root)).toBe('難');
 
             lookup.resolve({ kanji: '難', keyword: 'difficult', meanings: ['difficult'], readings: [], components: [], vocabulary: [], frequencyRank: null });
@@ -8864,19 +8871,19 @@ describe('new tab review helpers', () => {
         const controller = newTabBareController();
         const answer = document.createElement('div');
         answer.innerHTML = `
-            <div class="jpdb-reader-doodle-stage" data-kanji="鑑">
+            <div class="jpdb-reader-doodle-stage" data-study-doodle-step="kanji-doodle:1">
                 <div class="jpdb-reader-doodle-ghost" data-newtab-doodle-ghost></div>
             </div>
         `;
         const ghost = answer.querySelector<HTMLElement>('[data-newtab-doodle-ghost]')!;
-        const applySvg = (kanji: string) => (controller as unknown as {
-            applyEnrichedKanjiSvg(answer: HTMLElement | null, kanji: string, svg: string | undefined): void;
-        }).applyEnrichedKanjiSvg(answer, kanji, '<svg class="jpdb-reader-kanjivg-svg"><g><path d="M0 0L1 1"></path></g></svg>');
+        const applySvg = (stepId: string) => (controller as unknown as {
+            applyEnrichedKanjiSvg(answer: HTMLElement | null, stepId: string, svg: string | undefined): void;
+        }).applyEnrichedKanjiSvg(answer, stepId, '<svg class="jpdb-reader-kanjivg-svg"><g><path d="M0 0L1 1"></path></g></svg>');
 
-        applySvg('図');
+        applySvg('kanji-doodle:0');
         expect(ghost.querySelector('svg')).toBeNull();
 
-        applySvg('鑑');
+        applySvg('kanji-doodle:1');
         expect(ghost.querySelector('svg')).not.toBeNull();
     });
 
@@ -9066,10 +9073,70 @@ describe('new tab review helpers', () => {
 
             root.querySelector<HTMLButtonElement>('[data-study-step-kind="kanji-doodle"]')?.click();
 
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('10:10:月:つき');
+            expect((controller as unknown as { currentVisibleWordKey(): string }).currentVisibleWordKey()).toBe('10:10:月:つき');
+            expectOpaqueStudyCardToken(root, '月', 'つき');
             expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(true);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('moon');
         } finally {
+            restoreCanvas();
+        }
+    });
+
+    it('keeps kanji-draw answers out of the DOM until reveal while preserving the shared reveal flow', () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const card = newTabTestCard({
+            vid: 41,
+            sid: 42,
+            spelling: '買い物',
+            reading: 'かいもの',
+            meanings: [{ glosses: ['shopping'], partOfSpeech: [] }],
+            kanjiKeyword: 'buy',
+        });
+        const playWordAudio = vi.fn();
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: false,
+            newTabKanjiAutogradeEnabled: false,
+            newTabStudyDisabledSteps: [],
+        }, { playWordAudio });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionaries',
+            state: { source: 'dictionary', revealAnswer: false },
+            bindRootEvents: true,
+            studyStepId: 'kanji-doodle:0',
+        });
+
+        try {
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
+            const preRevealMarkup = study.outerHTML;
+
+            expect(study.dataset.newtabCard).toMatch(/^study-card-\d+$/);
+            expect(study.dataset.newtabCard).not.toContain('買');
+            expect(study.dataset.newtabCard).not.toContain('かいもの');
+            expect(study.querySelector('[data-study-step-kanji]')).toBeNull();
+            expect(study.querySelector('[data-study-hint-kanji]')).toBeNull();
+            expect(study.querySelector('.jpdb-reader-doodle-stage')?.hasAttribute('data-kanji')).toBe(false);
+            expect(study.querySelector('.jpdb-reader-doodle-canvas')?.getAttribute('aria-label')).toBe('Draw kanji');
+            expect(preRevealMarkup).not.toContain('買');
+            expect(preRevealMarkup).not.toContain('買い物');
+            expect(preRevealMarkup).toContain('＿い＿');
+
+            root.querySelector<HTMLButtonElement>('[data-study-step-kind="word"]')!.click();
+            const preRevealCardIds = Array.from(study.querySelectorAll<HTMLElement>('[data-newtab-card]'))
+                .map(element => element.dataset.newtabCard);
+            expect(new Set(preRevealCardIds)).toEqual(new Set([study.dataset.newtabCard]));
+            expect(study.dataset.newtabCard).toMatch(/^study-card-\d+$/);
+            study.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')!.click();
+            expect(playWordAudio).toHaveBeenCalledWith(card);
+
+            root.querySelector<HTMLButtonElement>('[data-study-step-kind="final-reveal"]')!.click();
+
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
+            expect(study.dataset.newtabCard).toBe('41:42:買い物:かいもの');
+            expect(study.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('買い物');
+            expect(study.textContent).toContain('shopping');
+        } finally {
+            root.remove();
             restoreCanvas();
         }
     });
@@ -16845,7 +16912,7 @@ describe('new tab review helpers', () => {
             });
 
             expect(newTabPromptText(root)).toBe('書く');
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe(cardKey(write));
+            expectOpaqueStudyCardToken(root, write.spelling, write.reading);
             const params = new URLSearchParams(location.hash.slice(1));
             expect(params.get('card')).toBe(cardKey(write));
             expect(params.get('w')).toBe('書く');
@@ -16977,7 +17044,7 @@ describe('new tab review helpers', () => {
             (controller as unknown as { handleCardPopstate(root: HTMLElement): void }).handleCardPopstate(root);
 
             expect(newTabPromptText(root)).toBe('読む');
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe(cardKey(read));
+            expectOpaqueStudyCardToken(root, read.spelling, read.reading);
             params = new URLSearchParams(location.hash.slice(1));
             expect(params.get('card')).toBe(cardKey(read));
             expect(params.get('w')).toBe('読む');
@@ -17118,14 +17185,17 @@ describe('new tab review helpers', () => {
         try {
             const render = controller.renderPage();
 
+            let readToken = '';
             await waitForExpect(() => {
-                expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('1:1:読む:よむ');
+                readToken = expectOpaqueStudyCardToken(document, '読む', 'よむ');
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
             });
 
             showNextNewTabWord(controller);
+            let writeToken = '';
             await waitForExpect(() => {
-                expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('2:2:書く:かく');
+                writeToken = expectOpaqueStudyCardToken(document, '書く', 'かく');
+                expect(writeToken).not.toBe(readToken);
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('書く');
             });
 
@@ -17138,7 +17208,7 @@ describe('new tab review helpers', () => {
             }]);
             await render;
 
-            expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('2:2:書く:かく');
+            expect(expectOpaqueStudyCardToken(document, '書く', 'かく')).toBe(writeToken);
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('書く');
             expect((controller as unknown as { allWords: JPDBCard[] }).allWords.map(card => card.spelling)).toEqual(['書く', '歩く']);
         } finally {

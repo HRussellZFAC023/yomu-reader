@@ -282,11 +282,17 @@ describe('library public status', () => {
         });
         const ledgerPath = path.join(fixture.base, 'RESOURCE-LEDGER.json');
         writeFileSync(ledgerPath, JSON.stringify({
-            coverage: { sourceQuestionsAudited: 1, sourceQuestionsPlayable: 1 },
+            coverage: {
+                sourceQuestionsAudited: 1,
+                sourceQuestionsImplemented: 1,
+                sourceQuestionsPlayable: 0,
+            },
             baselineCounts: { uniquePayloads: 688 },
         }));
         const updated = updateResourceLedgerLibrarySection({ ...roots, resourceLedgerPath: ledgerPath }, status);
         expect(updated.coverage.sourceQuestionsAudited).toBe(1);
+        expect(updated.coverage.sourceQuestionsImplemented).toBe(1);
+        expect(updated.coverage.sourceQuestionsPlayable).toBe(0);
         expect(updated.baselineCounts.uniquePayloads).toBe(688);
         expect(updated.stage2LibraryCensus.denominators.entryCount).toBe(status.denominators.entryCount);
         expect(updated.stage2LibraryCensus.archives).toEqual({
@@ -299,7 +305,11 @@ describe('library public status', () => {
         expect(updated.stage2LibraryCensus.media.payloadCount).toBe(status.media.payloadCount);
 
         writeFileSync(ledgerPath, JSON.stringify({
-            coverage: { sourceQuestionsAudited: 5, sourceQuestionsPlayable: 1 },
+            coverage: {
+                sourceQuestionsAudited: 5,
+                sourceQuestionsImplemented: 1,
+                sourceQuestionsPlayable: 0,
+            },
         }));
         expect(() => updateResourceLedgerLibrarySection({ ...roots, resourceLedgerPath: ledgerPath }, status))
             .toThrow(/refusing to update/);

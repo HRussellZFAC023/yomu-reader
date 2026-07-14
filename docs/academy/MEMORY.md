@@ -44,7 +44,8 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 - Real classmates supply wholesome chemistry; high-risk real events become fictional but emotionally equivalent.
 - Rose is canon. Nanako and Mira are named extended cast members, not identities for the two phone-number-only contacts, which remain outside the cast. Pho is not canon.
 - Owner-supplied chat evidence informs concise first-name-only voice and wholesome chemistry, never copied dialogue or private facts. Nanako has a private candidate likeness pair, and Mira now has an owner-confirmed private portrait; each still requires a neutral OpenAI likeness review before runtime use.
-- Every classmate needs meaningful learning appearances, three bond steps, a journal profile, replay, expressions, and bond stars.
+- Every classmate needs meaningful learning appearances, at least three authored bond beats carried through the ten relationship chapters, a journal profile, replay, expressions, and durable relationship evidence.
+- Shaun is a first-term classmate under the owner-chosen name `Shaun`; Peter and Shaun both belong in the first-term story and scrapbook record. [`CAST-ADDENDUM.md`](CAST-ADDENDUM.md) carries the post-discovery locks.
 - Authored lesson casts resolve through the canonical cast registry. Visible names must be exact, hosts must fit documented learning specialties, and a small peer pair cannot dominate the chronology. Rie is excluded from peer-rotation concentration because teacher recurrence is expected.
 - Aakash defaults to hat-free normal hair. Tom is blond and clean-shaven. Character likeness expands to expressions only after a neutral sample passes review.
 - Pop-culture references arise naturally and create a language task; Academy never copies protected game/anime UI or characters into its own assets.
@@ -61,6 +62,9 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 - The current Text proof is the first accepted composition reference: full-bleed library, Rie sprite, literal handout, learner-controlled Yomu annotations, IME production, response-specific repair, retry focus, flower mark, and one compact resolution. Evidence is under `docs/academy/evidence/direction-reset/08` through `10`.
 - Rie happy/encouraging/repair plus the standalone Aakash and Xingyu sprites are explicit release-blocked previews, not approved likenesses. Mika, Sophie, and Ruparna remain withheld where the preserved photos do not support a defensible name-to-face match.
 - The canonical classroom-expression Moodle ZIP contains the verified PDF but no audio. No local full-phrase recording passed pairing/provenance review; Lesson 0 must use reviewed authored recordings rather than browser TTS or spliced dictionary clips.
+- The full Lesson 0 audio inventory is 0/4 ready. Existing Moodle/library audio has no exact transcript/speaker/rights binding. The vowel-row and Speaking learner-turn script defects are repaired; reviewed recordings, transcripts, timecodes, consent, exact byte hashes, and activity bindings remain required.
+- Answer concealment is executable evidence, not metadata: the exact renderer and content revisions are pinned, registered answer-bearing values are searched in the stored pre-commit DOM, and opaque or forged surfaces fail closed. This hardens the gate but does not make any current Week playable.
+- Canonical Study uses controller-local `study-card-N` identities and indexed Doodle step IDs before reveal. They preserve nested actions and stale async guards without serializing spelling, reading, or target kanji; the canonical key appears only after reveal. Standalone shared-card URL concealment remains a separate follow-up.
 - `UCL2026` is now a real Cloudflare/D1 session path. The approved Persona and Shinday files stream only through authenticated R2 routes; anonymous media is 401 and the service worker never caches protected media.
 - Stripe Checkout is live and owner-authorized. The browser receives only a validated `checkout.stripe.com` URL; payment return proof is scrubbed from history before bounded claim polling; a generated code is never put in URLs, storage, logs, source, or D1 plaintext.
 - The 73-week classmate plan is planning data, not authorship. Sixty-seven assignments are backed by donor topic metadata and six are review-required; runtime weeks must still be faithfully authored and source-bound before any appearance is claimed delivered.
@@ -69,7 +73,7 @@ Read this before resuming implementation, then follow [`STATUS.md`](STATUS.md), 
 
 ## Current protected local state
 
-The main checkout also contains pre-Academy Reader/NHK work. Do not include it in Academy commits accidentally. See `STATUS.md` for paths and stash `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1` for the pre-fast-forward safety copy.
+The main checkout also contains pre-Academy Reader/NHK work. Do not include it in Academy commits accidentally. See `STATUS.md` for paths and latest protected stash `fcdf50ca1c6b1b5fc734a95a0a916c8adca39e50`; the pre-fast-forward copy remains `0d42a741b00ce1ea6ba09b0fa6e1d12e2e7f1db1`.
 
 ## Implemented Stage 1 truth
 
@@ -82,12 +86,13 @@ The main checkout also contains pre-Academy Reader/NHK work. Do not include it i
 - The service-worker revision is generated from runtime content, not maintained by hand. The isolated rebuild of committed Stage 1 source is live at `s1-bbf9a61f26a3`; the earlier accepted Browser capture used `s1-15dd1d7d700f` before protected local Reader work was excluded from deploy artifacts.
 - Browser evidence at 320, 390, 1024, and 1440 px plus annotated offline resume lives in `docs/academy/evidence/stage-1/`.
 - Definitive `npm run qa` is green: Reader/JPDB/Academy tests, builds, verify, P0 smokes, deterministic QA 13/13, docs a11y 66/66, and complexity 29/30. Final Fable delta review is `PASS`.
+- The current pre-push checkpoint is rebuilt at `s1-5672f965734c`: Reader CI passes four regular shards plus eight JPDB shards, Study 380/380, Academy 75 files / 428 tests, deterministic QA 13/13, docs a11y 66/66, Fallow and complexity. Fable-low session `b29c8446-9c18-4a8e-b5a2-93095bc02f5f` returned `PASS` with no code blocker. It remains 0/73 playable Weeks by design.
 
 ## Resume point
 
 Stage 1 is closed: source `371140513`, hosted assets `c5ef4629d`, branch record `5f759ee5f`, Pages run `29203203144`, and live revision `s1-bbf9a61f26a3` are green.
 
-The Stage 2 Moodle mechanical census is green: 96 archives, 916 member occurrences, 688 unique member payloads, 3 direct resources, 527 unique PDFs / 1,087 pages, and 146 unique audio payloads all have explicit states with zero census failures. All 44 donor packs and 879 items survived as review-required candidates; only the one Stage 1 Source Question is still claimed verified/playable. The private teacher surface and public privacy/claim validators are executable evidence.
+The Stage 2 Moodle mechanical census is green: 96 archives, 916 member occurrences, 688 unique member payloads, 3 direct resources, 527 unique PDFs / 1,087 pages, and 146 unique audio payloads all have explicit states with zero census failures. All 44 donor packs and 879 items survived as review-required candidates. The Stage 1 Source Question is audited and implemented, but its legacy route is quarantined; it contributes zero current playable coverage. The private teacher surface and public privacy/claim validators are executable evidence.
 
 Stage 2 remains active. The authorized shared-library mechanical census and privacy-safe public status account for 15,790 filesystem entries / 13,123 regular files / 11,081 unique payloads in the 42 GB tree, including 68 Moodle-overlap hashes, 89 archive containers, 450 PDFs, and 5,090 media payloads. The five ZIP64 archive failures remain explicit. These are separate denominators and contribute no Moodle or verified-question coverage; all source-question review, rights decisions, transcripts, and media-to-activity pairing remain open.
 

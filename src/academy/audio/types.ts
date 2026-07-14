@@ -96,6 +96,12 @@ export interface SfxPlayback {
     dispose(): void;
 }
 
+/** Imperative controls exposed to Academy shell and contextual settings UI. */
+export interface AudioDirectorControl {
+    playSfx(cue: SfxCue): void;
+    setVolume(bus: AudioBus, value: number): void;
+}
+
 export interface LessonPlayback {
     readonly track: AudioTrack;
     readonly duck?: number;

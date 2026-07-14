@@ -57,6 +57,12 @@ function readyProofs(entry = true): GroundingProofSet {
             state: 'ready',
             evidence: {
                 surfaceAudit: definition('surface-audit:test'),
+                answerBearingContent: definition('answer-bearing-content:test'),
+                auditBinding: {
+                    surfaceId: 'surface:test',
+                    renderer: definition('surface-renderer:test'),
+                    contentRevision: 'test.v1',
+                },
                 learnerFacingPreCommit: {
                     translations: 'absent',
                     transcripts: 'absent',

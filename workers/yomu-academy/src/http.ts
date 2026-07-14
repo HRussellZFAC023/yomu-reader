@@ -63,7 +63,7 @@ export async function readBoundedText(request: Request, maxBytes: number): Promi
     return new TextDecoder().decode(await readBoundedBytes(request, maxBytes));
 }
 
-export async function readBoundedBytes(request: Request, maxBytes: number): Promise<Uint8Array> {
+async function readBoundedBytes(request: Request, maxBytes: number): Promise<Uint8Array> {
     const declaredLength = request.headers.get('content-length');
     if (declaredLength && /^\d+$/.test(declaredLength) && Number(declaredLength) > maxBytes) {
         throw new HttpError(413, 'Request body too large.');

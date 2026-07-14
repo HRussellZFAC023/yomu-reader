@@ -153,6 +153,12 @@ function proofsFor(options: Readonly<{
             state: 'ready',
             evidence: {
                 surfaceAudit: definition(`surface-audit:${suffix(options.activityId)}`),
+                answerBearingContent: definition(`answer-bearing-content:${suffix(options.activityId)}`),
+                auditBinding: {
+                    surfaceId: `surface:${suffix(options.activityId)}`,
+                    renderer: definition('surface-renderer:test-grounded'),
+                    contentRevision: 'test.v1',
+                },
                 learnerFacingPreCommit: {
                     translations: 'absent',
                     transcripts: 'absent',

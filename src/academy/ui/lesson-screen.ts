@@ -1,11 +1,10 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import { choiceActivityPlugin } from '../activities/choice';
-import { createOpeningKanjiActivity, kanjiWritingActivityPlugin } from '../activities/kanji-writing';
 import { createOpeningForkActivity, type LessonFork, type VerticalSliceContent } from '../content/vertical-slice';
 import { createActivityRuntime, type ActivityEvaluation } from '../domain/activity-runtime';
 import type { JlptBand } from '../domain/learner-record';
-import type { Disposable, KanjiWritingModel, PronunciationService } from '../integration/yomu-bridge';
+import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import { copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite, setAcademySpriteExpression, type AcademySpriteExpression } from './sprite';
 
@@ -189,42 +188,6 @@ export function renderSourceActivityScreen(
         playback?.dispose();
         controller.dispose();
     }, { once: true });
-    return screen;
-}
-
-export function renderKanjiDeskScreen(
-    language: AcademyLanguage,
-    trace: KanjiWritingModel,
-    onEvaluation: (evaluation: ActivityEvaluation) => void | Promise<void>,
-    onContinue: () => void,
-): HTMLElement {
-    const { screen, content } = screenFrame({
-        language,
-        className: 'academy-kanji-desk-screen',
-        plate: 'writingStudio',
-        eyebrow: 'kanjiDeskEyebrow',
-        title: 'kanjiDeskTitle',
-        body: 'kanjiDeskBody',
-    });
-    const activityHost = element('div', 'academy-activity-host');
-    const completion = element('div', 'academy-source-completion');
-    const runtime = createActivityRuntime([kanjiWritingActivityPlugin]);
-    const controller = runtime.mount(createOpeningKanjiActivity(trace, language), {
-        replace(view) { activityHost.replaceChildren(view); },
-        announce(message) {
-            const live = activityHost.querySelector<HTMLElement>('[role="status"]');
-            if (live) live.setAttribute('aria-label', message);
-        },
-    }, async evaluation => {
-        await onEvaluation(evaluation);
-        if (!evaluation.result.errorTags.includes('kanji-reading-recalled')) return;
-        const note = copyElement('p', 'academy-success-note', language, 'kanjiDeskComplete');
-        const next = copyButton(language, 'kanjiDeskContinue', 'academy-button academy-button-primary');
-        next.addEventListener('click', onContinue);
-        completion.replaceChildren(note, next);
-    });
-    content.append(activityHost, completion);
-    screen.addEventListener('academy:dispose', () => controller.dispose(), { once: true });
     return screen;
 }
 

@@ -53,8 +53,15 @@ describe('complete Lesson 0 content package', () => {
             'こんばんは', 'はじめまして', 'よろしくお願いします', 'わたし', 'なまえ',
             '先生', '学生', '日本語', '英語', '人', 'クラス', 'くに', 'しごと',
         ]));
-        expect(lesson.inputScripts).toHaveLength(3);
-        expect(lesson.inputScripts.every(script => new Set(script.lines.map(line => line.speakerId)).size >= 2)).toBe(true);
+        expect(lesson.inputScripts).toHaveLength(4);
+        expect(lesson.inputScripts.filter(script => script.kind === 'dialogue')
+            .every(script => new Set(script.lines.map(line => line.speakerId)).size >= 2)).toBe(true);
+        const vowelRow = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-vowel-row');
+        expect(vowelRow).toMatchObject({
+            kind: 'sound-sequence',
+            audioAssetId: 'audio:lesson-zero-vowel-row',
+            lines: [{ japanese: 'あ・い・う・え・お' }],
+        });
     });
 
     it('gives the lesson overview concrete goals, people, places, and honest materials', async () => {
@@ -124,11 +131,14 @@ describe('complete Lesson 0 content package', () => {
         ]);
         expect(lesson.missions.find(mission => mission.id === 'sound')?.locationId)
             .toBe('location:language-lab');
-        for (const line of lesson.inputScripts.flatMap(script => script.lines)) {
-            const firstName = exactFirstNames.get(line.speakerId);
-            expect(firstName, `confirmed Latin name for ${line.speakerId}`).toBeDefined();
-            expect(line.japanese).toContain(firstName);
-            expect(line.reading).toContain(firstName);
+        for (const script of lesson.inputScripts.filter(candidate => candidate.kind === 'dialogue')) {
+            for (const speakerId of new Set(script.lines.map(line => line.speakerId))) {
+                const firstName = exactFirstNames.get(speakerId);
+                const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
+                expect(firstName, `confirmed Latin name for ${speakerId}`).toBeDefined();
+                expect(speakerLines.some(line => line.japanese.includes(firstName!))).toBe(true);
+                expect(speakerLines.some(line => line.reading.includes(firstName!))).toBe(true);
+            }
         }
     });
 
@@ -151,12 +161,27 @@ describe('complete Lesson 0 content package', () => {
         );
         expect(authoredDialogue).not.toContain('日本語の学生です');
         expect(authoredDialogue).not.toMatch(/Samさんは先生ですか|先生じゃありません|are you the teacher|not the teacher/iu);
-        for (const line of lesson.inputScripts.flatMap(script => script.lines)) {
-            expect(line.japanese).toContain('日本語を勉強しています');
+        for (const script of lesson.inputScripts.filter(candidate => candidate.kind === 'dialogue')) {
+            for (const speakerId of new Set(script.lines.map(line => line.speakerId))) {
+                expect(script.lines.some(line =>
+                    line.speakerId === speakerId && line.japanese.includes('日本語を勉強しています'))).toBe(true);
+            }
         }
         const speaking = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts');
         expect(speaking?.lines.find(line => line.speakerId === 'aakash')?.japanese).toContain('これは教科書ですか');
         expect(speaking?.lines.find(line => line.speakerId === 'sam')?.japanese).toContain('教科書じゃありません。プリントです');
+        expect(speaking?.lines.find(line => line.id === 'line:lesson-zero-speaking-aakash-cue')?.japanese)
+            .toBe('では、あなたの番です。お名前は何ですか。');
+        expect(speaking?.learnerTurns).toEqual([
+            expect.objectContaining({
+                afterLineId: 'line:lesson-zero-speaking-aakash-cue',
+                capture: {
+                    kind: 'microphone-recording',
+                    windowMs: 12000,
+                    evidenceKind: 'spoken-turn',
+                },
+            }),
+        ]);
     });
 
     it('makes Sound, Text, and Speaking structurally distinct missions', async () => {
@@ -213,7 +238,7 @@ describe('complete Lesson 0 content package', () => {
     it('keeps unverified dialogue audio as an internal release blocker and forbids browser TTS', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
-        expect(lesson.audioAssets).toHaveLength(3);
+        expect(lesson.audioAssets).toHaveLength(4);
         for (const asset of lesson.audioAssets) {
             expect(asset).toMatchObject({
                 state: 'release-blocked',
@@ -238,6 +263,98 @@ describe('complete Lesson 0 content package', () => {
         };
         candidate.lesson.audioAssets[0]!.browserTtsAllowed = true;
         expect(() => validateLessonZeroPackage(candidate)).toThrow(/fake or learner-visible fallback/i);
+    });
+
+    it('rejects a vowel activity that is detached from the exact sound sequence', () => {
+        const candidate = packageJson() as {
+            lesson: {
+                activities: Array<{ id: string; inputScriptId?: string }>;
+                inputScripts: Array<{ id: string; lines: Array<{ japanese: string }> }>;
+            };
+        };
+        const activity = candidate.lesson.activities.find(item => item.id === 'activity:lesson-zero-vowel-listen')!;
+        activity.inputScriptId = 'input:lesson-zero-sound-hosts';
+        expect(() => validateLessonZeroPackage(candidate)).toThrow(/own sound-sequence script/i);
+
+        const sequence = candidate.lesson.inputScripts.find(script => script.id === 'input:lesson-zero-vowel-row')!;
+        activity.inputScriptId = sequence.id;
+        sequence.lines[0]!.japanese = 'あ・い・え・う・お';
+        expect(() => validateLessonZeroPackage(candidate)).toThrow(/exact ordered vowel row/i);
+    });
+
+    it('rejects dangling or fake learner speaking turns', () => {
+        const candidate = packageJson() as {
+            lesson: {
+                inputScripts: Array<{
+                    id: string;
+                    learnerTurns?: Array<{
+                        afterLineId: string;
+                        capture: { windowMs: number };
+                    }>;
+                }>;
+            };
+        };
+        const speaking = candidate.lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts')!;
+        speaking.learnerTurns![0]!.afterLineId = 'line:missing';
+        expect(() => validateLessonZeroPackage(candidate)).toThrow(/references unknown line/i);
+
+        const invalidWindow = packageJson() as typeof candidate;
+        const invalidSpeaking = invalidWindow.lesson.inputScripts
+            .find(script => script.id === 'input:lesson-zero-speaking-hosts')!;
+        invalidSpeaking.learnerTurns![0]!.capture.windowMs = 0;
+        expect(() => validateLessonZeroPackage(invalidWindow)).toThrow(/invalid capture window/i);
+
+        const absent = packageJson() as typeof candidate;
+        delete absent.lesson.inputScripts.find(script =>
+            script.id === 'input:lesson-zero-speaking-hosts')!.learnerTurns;
+        expect(() => validateLessonZeroPackage(absent)).toThrow(/no authored learner speaking turn/i);
+    });
+
+    it('validates learner support by contract rather than JSON key order', () => {
+        const candidate = packageJson() as {
+            lesson: {
+                inputScripts: Array<{
+                    id: string;
+                    learnerTurns?: Array<{
+                        support: {
+                            reading: string;
+                            pitch: string;
+                            englishMeaning: string;
+                            transcript: string;
+                            modelAnswer: string;
+                        };
+                    }>;
+                }>;
+            };
+        };
+        const turn = candidate.lesson.inputScripts.find(script =>
+            script.id === 'input:lesson-zero-speaking-hosts')!.learnerTurns![0]!;
+        const support = turn.support;
+        turn.support = {
+            modelAnswer: support.modelAnswer,
+            transcript: support.transcript,
+            englishMeaning: support.englishMeaning,
+            pitch: support.pitch,
+            reading: support.reading,
+        };
+        expect(() => validateLessonZeroPackage(candidate)).not.toThrow();
+    });
+
+    it('still requires every dialogue speaker to be named canonically once', () => {
+        const candidate = packageJson() as {
+            lesson: {
+                inputScripts: Array<{
+                    id: string;
+                    lines: Array<{ speakerId: string; japanese: string; reading: string }>;
+                }>;
+            };
+        };
+        const speaking = candidate.lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts')!;
+        for (const line of speaking.lines.filter(item => item.speakerId === 'aakash')) {
+            line.japanese = line.japanese.replace('Aakashです', 'わたしです');
+            line.reading = line.reading.replace('Aakashです', 'わたしです');
+        }
+        expect(() => validateLessonZeroPackage(candidate)).toThrow(/canonical first name Aakash/i);
     });
 
     it('rejects overview material that is detached from the authored lesson', () => {

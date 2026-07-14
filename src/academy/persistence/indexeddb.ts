@@ -7,7 +7,7 @@ import {
     type AcademyRouteHistoryState,
 } from '../routing/route-history';
 
-export type { AcademyPresentationMode, AcademyRoute } from '../routing/route-history';
+export type { AcademyRoute } from '../routing/route-history';
 
 export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly schemaVersion: 2;
@@ -32,6 +32,23 @@ export interface AcademyPersistence {
     readonly events: LearnerEventRepository;
     readonly checkpoint: AcademyCheckpointStore;
     close(): void;
+}
+
+/**
+ * A malformed or partially-written checkpoint must not strand the learner on
+ * boot. Learner events remain canonical; navigation can safely return to the
+ * access screen and be rebuilt from those events.
+ */
+export async function loadAcademyCheckpointSafely(
+    store: AcademyCheckpointStore,
+    fallback: AcademyCheckpoint,
+): Promise<AcademyCheckpoint> {
+    try {
+        return structuredClone(await store.load() ?? fallback);
+    } catch {
+        try { await store.save(fallback); } catch { /* keep this session usable even if storage is read-only */ }
+        return structuredClone(fallback);
+    }
 }
 
 const DEFAULT_DB_NAME = 'yomu-academy-v1';

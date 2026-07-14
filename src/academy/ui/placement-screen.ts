@@ -66,13 +66,23 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
         const choices = element('div', 'academy-mock-options');
         item.options.forEach(option => {
             const label = element('label', 'academy-mock-option');
+            // A placement answer is an assessed surface, not Reader prose.
+            // Keep the whole label lookup-inert so ruby, pitch, and dictionary
+            // popovers cannot reveal or intercept an answer before commitment.
+            label.dataset.jpdbReaderSurfaceIgnore = '';
             const input = document.createElement('input');
             input.type = 'radio';
             input.name = item.id;
             input.value = option.id;
             input.required = true;
-            input.setAttribute('aria-label', option.label.ja);
-            label.append(input, localizedElement('span', 'academy-mock-option-copy', 'ja', option.label));
+            // The wrapping label supplies the accessible name. Do not mirror
+            // the answer into aria-label/title: Reader intentionally scans
+            // those attributes on controls as a separate lookup surface.
+            const copy = element('span', 'academy-mock-option-copy');
+            copy.lang = 'ja';
+            copy.dataset.jpdbReaderSurfaceIgnore = '';
+            copy.textContent = option.label.ja;
+            label.append(input, copy);
             choices.append(label);
         });
         fieldset.append(choices);

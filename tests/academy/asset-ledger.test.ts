@@ -105,6 +105,19 @@ describe('Academy runtime asset ledger', () => {
         ]);
     });
 
+    it('binds Shaun only as a first-term journal review candidate', () => {
+        const preview = ledger.assets.find(asset => asset.id === 'shaun-neutral-halfbody-v001');
+        expect(preview).toMatchObject({
+            verdict: 'review-candidate/runtime-preview',
+            runtimeHome: ['journal:shaun'],
+            sourceSha256: 'a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea',
+            status: 'owner-requested-preview; release-blocked-pending-likeness-and-cast-scale-approval',
+        });
+        expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
+            ACADEMY_ASSETS.characters.shaun,
+        ]);
+    });
+
     it('records Mira only as private reference evidence until a neutral sample passes review', () => {
         const reference = ledger.assets.find(asset => asset.id === 'mira-private-likeness-reference');
         expect(reference).toMatchObject({

@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 18,
-    "runtimeFiles": 24,
+    "runtimeAssetHomes": 19,
+    "runtimeFiles": 25,
     "approvedReferenceOnly": 3,
     "explicitlyRejectedFamilies": 4
   },
@@ -83,6 +83,19 @@
         "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f"
       }],
       "status": "owner-requested-preview; release-blocked-pending-likeness-approval"
+    },
+    {
+      "id": "shaun-neutral-halfbody-v001",
+      "source": "/Users/heru/.codex/generated_images/019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
+      "sourceSha256": "a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea",
+      "provenance": "direct-openai-image-generation",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["journal:shaun"],
+      "deliveries": [{
+        "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
+        "sha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1"
+      }],
+      "status": "owner-requested-preview; release-blocked-pending-likeness-and-cast-scale-approval"
     },
     {
       "id": "xingyu-neutral-halfbody-v001",

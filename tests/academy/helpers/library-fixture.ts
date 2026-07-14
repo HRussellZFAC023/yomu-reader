@@ -11,9 +11,9 @@ export const LIBRARY_SECRET_TOKENS = [
 ];
 
 export const SHARED_PDF = strToU8('%PDF-1.4 library payload shared with moodle');
-export const UNIQUE_PDF = strToU8('%PDF-1.4 library-only textbook payload');
+const UNIQUE_PDF = strToU8('%PDF-1.4 library-only textbook payload');
 export const AUDIO_BYTES = strToU8('ID3 secret-audio library payload');
-export const BUILD_ARTIFACT = strToU8('rust build artifact payload');
+const BUILD_ARTIFACT = strToU8('rust build artifact payload');
 export const ARCHIVE_MEMBER = strToU8('archive member worksheet payload');
 
 export interface LibraryFixture {

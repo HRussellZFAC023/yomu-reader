@@ -5,7 +5,7 @@ import { mintPaidInvite } from './invites';
 import { CHECKOUT_RATE, clientSubject, enforceRateLimit } from './rate-limit';
 
 export const STRIPE_API_VERSION = '2026-02-25.clover';
-export const CLAIM_COOKIE = '__Host-academy_claim';
+const CLAIM_COOKIE = '__Host-academy_claim';
 const CHECKOUT_SESSIONS_URL = 'https://api.stripe.com/v1/checkout/sessions';
 /** Suggested one-click donation amounts, in whole GBP. */
 export const DONATION_PRESETS_GBP: readonly number[] = [5, 10, 20];

@@ -74,7 +74,7 @@ export function locate(
     return { expression, probe };
 }
 
-export function expressionById(
+function expressionById(
     definition: ClassroomExpressionSessionDefinition,
     id: string,
 ): ClassroomExpressionItem {

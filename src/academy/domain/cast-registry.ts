@@ -17,6 +17,7 @@ export interface AcademyCastMember {
     readonly category: CastCategory;
     readonly visualEvidence: VisualEvidenceStatus;
     readonly eligibility: CastEligibility;
+    readonly nameEvidence?: 'owner-named';
     readonly teacherSalutation?: Readonly<{ en: 'Rie-sensei'; ja: 'りえ先生' }>;
 }
 
@@ -72,6 +73,14 @@ export const ACADEMY_CAST = [
         teacherSalutation: { en: 'Rie-sensei', ja: 'りえ先生' },
     },
     ...REAL_CLASS_MEMBERS,
+    {
+        id: 'shaun',
+        firstName: 'Shaun',
+        category: 'classmate',
+        visualEvidence: 'reference-confirmed-neutral-pending',
+        eligibility: { story: true, lessons: false, likenessRuntime: false },
+        nameEvidence: 'owner-named',
+    },
     {
         id: 'nanako',
         firstName: 'Nanako',
@@ -130,6 +139,20 @@ export function getAcademyCastMember(id: string): AcademyCastMember {
     const member = CAST_BY_ID.get(id);
     if (!member) throw new TypeError(`Unknown Academy cast id: ${id}.`);
     return member;
+}
+
+export type AcademyCastPortraitUse = 'story-runtime' | 'journal-review-preview';
+
+/**
+ * Likeness approval remains a hard story-scene gate. A named journal may show
+ * a reference-backed review candidate without making that candidate eligible
+ * for dialogue scenes, expressions, or lesson art.
+ */
+export function canRenderAcademyCastPortrait(id: string, use: AcademyCastPortraitUse): boolean {
+    const member = getAcademyCastMember(id);
+    if (!member.eligibility.story) return false;
+    if (use === 'story-runtime') return member.eligibility.likenessRuntime;
+    return member.visualEvidence !== 'missing';
 }
 
 export function validateAcademyCastReference(reference: Readonly<{ id: string; firstName: string }>): AcademyCastMember {

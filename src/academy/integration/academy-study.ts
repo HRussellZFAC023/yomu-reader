@@ -143,7 +143,7 @@ function encounterProvenanceId(encounterId: string): string {
     return `academy:encounter:${encounterId}`;
 }
 
-export function vocabularyKey(expression: string, reading?: string): string {
+function vocabularyKey(expression: string, reading?: string): string {
     return canonicalStudyCardKey(expression, reading);
 }
 

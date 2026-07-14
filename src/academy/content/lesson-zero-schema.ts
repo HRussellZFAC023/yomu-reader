@@ -68,14 +68,28 @@ export interface LessonZeroActivity {
 
 export interface LessonZeroInputScript {
     readonly id: string;
+    readonly kind: 'dialogue' | 'sound-sequence';
     readonly audioAssetId: string;
     readonly transcriptReveal: 'after-commit';
     readonly lines: readonly Readonly<{
+        id: string;
         speakerId: LessonZeroCharacterId;
         japanese: string;
         reading: string;
         english: string;
     }>[];
+    readonly learnerTurns?: readonly LessonZeroLearnerTurn[];
+}
+
+export interface LessonZeroLearnerTurn {
+    readonly id: string;
+    readonly afterLineId: string;
+    readonly capture: Readonly<{
+        kind: 'microphone-recording';
+        windowMs: number;
+        evidenceKind: 'spoken-turn';
+    }>;
+    readonly support: AssessedSupportContract;
 }
 
 export interface LessonZeroAudioAsset {

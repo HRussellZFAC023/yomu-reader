@@ -1,5 +1,6 @@
 import {
     ACADEMY_CAST,
+    canRenderAcademyCastPortrait,
     getAcademyCastMember,
     isAcademyCastMemberId,
     validateAcademyCastReference,
@@ -28,6 +29,7 @@ describe('Academy canonical cast registry', () => {
             ['ruparna', 'Ruparna'],
             ['rose', 'Rose'],
             ['peter', 'Peter'],
+            ['shaun', 'Shaun'],
             ['nanako', 'Nanako'],
             ['mira', 'Mira'],
             ['miller', 'Miller'],
@@ -45,7 +47,7 @@ describe('Academy canonical cast registry', () => {
         expect(new Set(ACADEMY_CAST.map(member => member.id)).size).toBe(ACADEMY_CAST.length);
         expect(new Set(ACADEMY_CAST.map(member => member.firstName)).size).toBe(ACADEMY_CAST.length);
         expect(ACADEMY_CAST.every(member => Object.keys(member).every(key =>
-            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation'].includes(key),
+            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence'].includes(key),
         ))).toBe(true);
         expect(validateAcademyCastReference({ id: 'aakash', firstName: 'Aakash' }).id).toBe('aakash');
         expect(() => validateAcademyCastReference({ id: 'aakash', firstName: 'Akash' })).toThrow('expected Aakash');
@@ -55,6 +57,13 @@ describe('Academy canonical cast registry', () => {
     });
 
     it('keeps extended members useful while withholding unapproved likenesses', () => {
+        expect(getAcademyCastMember('shaun')).toMatchObject({
+            firstName: 'Shaun',
+            category: 'classmate',
+            visualEvidence: 'reference-confirmed-neutral-pending',
+            nameEvidence: 'owner-named',
+            eligibility: { story: true, lessons: false, likenessRuntime: false },
+        });
         expect(getAcademyCastMember('nanako')).toMatchObject({
             firstName: 'Nanako',
             category: 'extended-member',
@@ -67,6 +76,9 @@ describe('Academy canonical cast registry', () => {
             visualEvidence: 'reference-confirmed-neutral-pending',
             eligibility: { story: true, lessons: true, likenessRuntime: false },
         });
+        expect(canRenderAcademyCastPortrait('shaun', 'journal-review-preview')).toBe(true);
+        expect(canRenderAcademyCastPortrait('shaun', 'story-runtime')).toBe(false);
+        expect(canRenderAcademyCastPortrait('peter', 'story-runtime')).toBe(false);
     });
 
     it('never stores guessed kana aliases', () => {

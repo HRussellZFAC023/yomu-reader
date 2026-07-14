@@ -3,7 +3,7 @@ import { ACADEMY_ASSETS } from '../assets';
 import { copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite } from './sprite';
 
-export { renderAakashMeetScreen, type AakashMeetScreenOptions } from './aakash-directions-scene';
+export { renderAakashMeetScreen } from './aakash-directions-scene';
 
 export function renderRieUnlockScreen(language: AcademyLanguage, onContinue: () => void): HTMLElement {
     const { screen, panel, content } = screenFrame({

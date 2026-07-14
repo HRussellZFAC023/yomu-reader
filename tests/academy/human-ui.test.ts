@@ -250,6 +250,7 @@ describe('Academy human interface', () => {
     });
 
     it('foregrounds the chosen learning mode without hiding the rest of campus', () => {
+        expect(renderCampusScreen('en', false, vi.fn()).querySelector('.academy-objective')).toBeNull();
         const speaking = renderCampusScreen('en', false, vi.fn(), 'speaking');
         expect(speaking.querySelector('.academy-objective')).toBeNull();
         expect(speaking.querySelector('[data-recommended="true"]')).toBeNull();
@@ -300,6 +301,24 @@ describe('Academy human interface', () => {
         const styles = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
         expect(styles).toMatch(/\.academy-journal-aakash\s*\{[^}]*overflow:\s*visible/s);
         expect(styles).toMatch(/\.academy-journal-aakash \.academy-journal-aakash-portrait\s*\{[^}]*margin-left:\s*-8px/s);
+    });
+
+    it('keeps Peter and Shaun together in the first-term scrapbook spread', () => {
+        const screen = renderJournalScreen(
+            'en',
+            { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
+            { rieChapters: [1], aakashChapters: [], aakashUnlocked: false },
+            { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
+        );
+        const spread = screen.querySelector<HTMLElement>('[data-scrapbook-entry="first-term"]')!;
+        const shaun = spread.querySelector<HTMLImageElement>('img[data-character="shaun"]')!;
+
+        expect(spread.querySelector('[data-character="peter"]')?.textContent).toContain('Peter');
+        expect(shaun.src).toContain('/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png');
+        expect(shaun.alt).toBe('');
+        expect(shaun.getAttribute('aria-hidden')).toBe('true');
+        expect(shaun.closest('.academy-scrapbook-shaun')?.getAttribute('data-portrait-state')).toBe('review-preview');
+        expect(spread.textContent).toContain('First term');
     });
 
     it('recomposes every journal heading and profile inside the phone paper width', () => {

@@ -1,7 +1,6 @@
 import type { AcademyLearningSpecialty } from '../domain/authored-cast';
 import type { AcademyCastMemberId } from '../domain/cast-registry';
 
-export const CLASS_WEEK_CAST_PLAN_URL = '/academy/content/curriculum/class-week-cast.v1.json';
 export const CANONICAL_CLASS_WEEK_INDEX_SHA256 = '966519845a8048229e8d6e158b9d620fb8c9cf0aba11db53690ef10e479a343b';
 
 export const CANONICAL_CLASS_WEEK_IDS = [

@@ -28,8 +28,6 @@ const SURVIVAL_SOURCE_IDS = [
     'source-question:classroom-phrase-09',
 ] as const;
 
-export const LESSON_ZERO_PROOF_CSS = './styles/lesson-zero-proof.css';
-
 export interface LessonZeroProofAudioState {
     readonly textMission: LessonZeroAudioRequirement;
 }

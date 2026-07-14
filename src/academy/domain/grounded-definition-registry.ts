@@ -3,6 +3,7 @@ import type {
     GroundedLessonContract,
     GroundingProofSet,
 } from './grounded-lesson';
+import { assertGroundedAnswerConcealmentAudit } from './grounded-answer-concealment-audit';
 
 export type GroundedDefinitionKind =
     | 'concept'
@@ -11,6 +12,8 @@ export type GroundedDefinitionKind =
     | 'explanation'
     | 'worked-example'
     | 'surface-audit'
+    | 'surface-renderer'
+    | 'answer-bearing-content'
     | 'deterministic-grader'
     | 'rubric-grader'
     | 'answer-set'
@@ -75,9 +78,17 @@ export function assertGroundedLessonDefinitionsResolve(
     lesson: GroundedLessonContract,
     registry: GroundedDefinitionRegistry,
 ): void {
-    assertProofSet(lesson.overview.proofs, registry, 'overview');
+    assertProofSet(lesson.overview.proofs, registry, 'overview', {
+        lessonId: lesson.lessonId,
+        contentRevision: lesson.contentRevision,
+        subjectId: lesson.lessonId,
+    });
     for (const activity of lesson.activities) {
-        assertProofSet(activity.proofs, registry, `activity ${activity.id}`);
+        assertProofSet(activity.proofs, registry, `activity ${activity.id}`, {
+            lessonId: lesson.lessonId,
+            contentRevision: lesson.contentRevision,
+            subjectId: activity.id,
+        });
     }
 }
 
@@ -85,6 +96,7 @@ function assertProofSet(
     proofs: GroundingProofSet,
     registry: GroundedDefinitionRegistry,
     label: string,
+    context: Readonly<{ lessonId: string; contentRevision: string; subjectId: string }>,
 ): void {
     if (proofs.curriculum.state === 'ready') {
         for (const conceptId of proofs.curriculum.evidence.conceptIds) registry.resolveId(conceptId, 'concept');
@@ -101,25 +113,33 @@ function assertProofSet(
             coverage.workedExampleRefs.forEach(ref => registry.resolve(ref, 'worked-example'));
         }
     }
+    const registeredAnswers = resolveAssessmentDefinitions(proofs, registry);
     if (proofs.answerConcealment.state === 'ready') {
         const claim = proofs.answerConcealment.evidence;
         const audit = registry.resolve(claim.surfaceAudit, 'surface-audit');
-        const value = audit.value as Readonly<Record<string, unknown>>;
-        if (JSON.stringify(value.learnerFacingPreCommit) !== JSON.stringify(claim.learnerFacingPreCommit)
-            || value.revealPolicy !== claim.revealPolicy) {
-            throw new TypeError(`${label} surface audit does not match its answer-concealment claim.`);
+        const renderer = registry.resolve(claim.auditBinding.renderer, 'surface-renderer');
+        const answerBearingContent = registry.resolve(claim.answerBearingContent, 'answer-bearing-content');
+        if (claim.auditBinding.contentRevision !== context.contentRevision) {
+            throw new TypeError(`${label} surface audit is stale for the current lesson content or renderer revision.`);
         }
-    }
-    if (proofs.assessment.state === 'ready') {
-        const assessment = proofs.assessment.evidence;
-        registry.resolve(assessment.grader, assessment.method === 'deterministic'
-            ? 'deterministic-grader'
-            : 'rubric-grader');
-        if (assessment.method === 'deterministic') {
-            assessment.answerSets.forEach(ref => registry.resolve(ref, 'answer-set'));
-        } else {
-            assessment.rubrics.forEach(ref => registry.resolve(ref, 'rubric'));
+        if (claim.answerBearingContent.revision !== context.contentRevision) {
+            throw new TypeError(`${label} answer-bearing content is stale for the current lesson revision.`);
         }
+        if (!registeredAnswers) {
+            throw new TypeError(`${label} cannot prove answer concealment before its assessment definitions resolve.`);
+        }
+        const rendererValue = renderer.value as Readonly<Record<string, unknown>>;
+        if (!rendererValue || typeof rendererValue !== 'object'
+            || rendererValue.surfaceId !== claim.auditBinding.surfaceId) {
+            throw new TypeError(`${label} surface renderer definition does not own the audited surface.`);
+        }
+        const forbiddenValues = answerBearingValues(answerBearingContent.value);
+        assertGroundedAnswerConcealmentAudit(audit.value, {
+            lessonId: context.lessonId,
+            subjectId: context.subjectId,
+            binding: claim.auditBinding,
+            forbiddenValues,
+        }, registeredAnswers);
     }
     if (proofs.repair.state === 'ready') {
         proofs.repair.evidence.errorTagIds.forEach(id => registry.resolveId(id, 'error-tag'));
@@ -137,6 +157,75 @@ function assertProofSet(
             }
         }
     }
+}
+
+function resolveAssessmentDefinitions(
+    proofs: GroundingProofSet,
+    registry: GroundedDefinitionRegistry,
+): Readonly<{ acceptedAnswers: readonly string[]; modelAnswers: readonly string[] }> | undefined {
+    if (proofs.assessment.state !== 'ready') return undefined;
+    const assessment = proofs.assessment.evidence;
+    registry.resolve(assessment.grader, assessment.method === 'deterministic'
+        ? 'deterministic-grader'
+        : 'rubric-grader');
+    const definitions = assessment.method === 'deterministic'
+        ? assessment.answerSets.map(ref => registry.resolve(ref, 'answer-set'))
+        : assessment.rubrics.map(ref => registry.resolve(ref, 'rubric'));
+    const acceptedAnswers = uniqueText(definitions.flatMap(definition =>
+        namedTextValues(definition.value, ['acceptedAnswer', 'acceptedAnswers'])));
+    const modelAnswers = uniqueText(definitions.flatMap(definition =>
+        namedTextValues(definition.value, ['modelAnswer', 'modelAnswers'])));
+    if (assessment.method === 'deterministic' && !acceptedAnswers.length) {
+        throw new TypeError('Deterministic answer definitions expose no auditable accepted answers.');
+    }
+    return { acceptedAnswers, modelAnswers };
+}
+
+function namedTextValues(value: unknown, names: readonly string[]): string[] {
+    if (Array.isArray(value)) return value.flatMap(item => namedTextValues(item, names));
+    if (!value || typeof value !== 'object') return [];
+    return Object.entries(value).flatMap(([key, child]) => names.includes(key)
+        ? allTextValues(child)
+        : namedTextValues(child, names));
+}
+
+function allTextValues(value: unknown): string[] {
+    if (typeof value === 'string') return value.trim() ? [value.trim()] : [];
+    if (Array.isArray(value)) return value.flatMap(allTextValues);
+    if (!value || typeof value !== 'object') return [];
+    return Object.values(value).flatMap(allTextValues);
+}
+
+function uniqueText(values: readonly string[]): string[] {
+    return [...new Set(values)].sort();
+}
+
+function answerBearingValues(value: unknown): Readonly<{
+    translations: readonly string[];
+    transcripts: readonly string[];
+    modelAnswers: readonly string[];
+    acceptedAnswers: readonly string[];
+}> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError('Answer-bearing content must be a content-derived corpus.');
+    }
+    const record = value as Readonly<Record<string, unknown>>;
+    return {
+        translations: textArray(record.translations, 'translations'),
+        transcripts: textArray(record.transcripts, 'transcripts'),
+        modelAnswers: textArray(record.modelAnswers, 'modelAnswers'),
+        acceptedAnswers: textArray(record.acceptedAnswers, 'acceptedAnswers'),
+    };
+}
+
+function textArray(value: unknown, label: string): string[] {
+    if (!Array.isArray(value)) throw new TypeError(`Answer-bearing content needs ${label}.`);
+    return uniqueText(value.map(item => {
+        if (typeof item !== 'string' || !item.trim()) {
+            throw new TypeError(`Answer-bearing content ${label} must contain text.`);
+        }
+        return item.trim();
+    }));
 }
 
 function resolveId(
