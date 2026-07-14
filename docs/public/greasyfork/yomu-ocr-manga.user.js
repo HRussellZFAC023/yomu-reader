@@ -989,6 +989,125 @@
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function compoundPitchGradientCss(segments) {
+    if (segments.length < 2) return "";
+    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
+    const total = moraCounts.reduce((sum, count) => sum + count, 0);
+    if (!total) return "";
+    let cursor = 0;
+    const stops = segments.map((segment, index) => {
+      const from = cursor / total * 100;
+      cursor += moraCounts[index];
+      const to = cursor / total * 100;
+      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
+      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+    return dropAt;
+  }
+  function looksLikeShortHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+    return hasComplexPitchShape(pattern) ? "kifuku" : "";
+  }
+  function hasComplexPitchShape(pattern) {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
   const DECK_CLASS_NAME_LIMIT = 8;
   function cardDeckMembership(card) {
     const names = cardDeckNames(card);
@@ -2241,10 +2360,10 @@
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
+    "type-word",
     "recall-cloze",
     "listen-pitch",
-    "speaking",
-    "type-word"
+    "speaking"
   ];
   new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   ({
@@ -2426,11 +2545,14 @@
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
+    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length ? compoundPitchGradientCss(token.card.pitchSegments) : "";
     const classes = [
       readerWordClassName(state2, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
-      hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+      hasMiningInsight ? "jpdb-reader-i-plus-one" : "",
+      compoundGradient ? "jpdb-reader-pitch-compound" : ""
     ].filter(Boolean).join(" ");
+    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml(compoundGradient)}"` : "";
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -2444,7 +2566,7 @@
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -4645,9 +4767,7 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
-      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
-      pinSubtitleControls: "Keep subtitle controls expanded",
-      unpinSubtitleControls: "Collapse subtitle controls when idle",
+      moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -6031,9 +6151,11 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
-moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
-pinSubtitleControls	字幕コントロールを展開したままにする
-unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
+moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
+jpdbPageEnhancementsHelp
+colorChannelsHelp
+kanjiHelp
+noScannedFields
 right	右
 left	左
 bottom	下
@@ -6381,110 +6503,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
       reader.readAsDataURL(blob);
     });
-  }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
-    }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
-  }
-  function looksLikeShortHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
   }
   function getPitchClass(pitchAccent, reading) {
     const pattern = contextPitchPattern(pitchAccent, reading);

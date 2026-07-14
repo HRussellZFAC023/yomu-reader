@@ -77,6 +77,111 @@
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function compoundPitchGradientCss(segments) {
+    if (segments.length < 2) return "";
+    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
+    const total = moraCounts.reduce((sum, count) => sum + count, 0);
+    if (!total) return "";
+    let cursor = 0;
+    const stops = segments.map((segment, index) => {
+      const from = cursor / total * 100;
+      cursor += moraCounts[index];
+      const to = cursor / total * 100;
+      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
+      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+    return dropAt;
+  }
+  function looksLikeShortHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+    return hasComplexPitchShape(pattern) ? "kifuku" : "";
+  }
+  function hasComplexPitchShape(pattern) {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
   const DECK_CLASS_NAME_LIMIT = 8;
   function cardDeckMembership(card) {
     const names = cardDeckNames(card);
@@ -1492,10 +1597,10 @@
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
+    "type-word",
     "recall-cloze",
     "listen-pitch",
-    "speaking",
-    "type-word"
+    "speaking"
   ];
   new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   const DEFAULT_SETTINGS = {
@@ -1959,11 +2064,14 @@
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
+    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length ? compoundPitchGradientCss(token.card.pitchSegments) : "";
     const classes = [
       readerWordClassName(state, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
-      hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+      hasMiningInsight ? "jpdb-reader-i-plus-one" : "",
+      compoundGradient ? "jpdb-reader-pitch-compound" : ""
     ].filter(Boolean).join(" ");
+    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml(compoundGradient)}"` : "";
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -1977,7 +2085,7 @@
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -4620,9 +4728,7 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
-      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
-      pinSubtitleControls: "Keep subtitle controls expanded",
-      unpinSubtitleControls: "Collapse subtitle controls when idle",
+      moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -6025,9 +6131,11 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
-moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
-pinSubtitleControls	字幕コントロールを展開したままにする
-unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
+moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
+jpdbPageEnhancementsHelp
+colorChannelsHelp
+kanjiHelp
+noScannedFields
 right	右
 left	左
 bottom	下
@@ -11411,8 +11519,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       "peek-row": (target) => this.toggleRowTranslationPeek(target),
       "jump-current": () => this.jumpToCurrentTranscriptRow(),
-      "rail-expand": () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
-      "rail-pin": () => this.toggleSubtitleControlRailPin(),
+      "rail-expand": () => this.toggleSubtitleControlRailExpanded(),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -11626,6 +11733,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
       this.root.classList.toggle("jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
+      if (settings.subtitleControlsMode !== "auto") this.root.classList.remove("jpdb-subtitle-controls-away");
       if (!this.video) {
         this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
         this.root.classList.add("jpdb-subtitle-video-out-of-view");
@@ -11668,7 +11776,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       const moveAccessibleLabel = uiText(settings.interfaceLanguage, "moveSubtitlesAccessible");
       const moveControlsLabel = uiText(settings.interfaceLanguage, "moveSubtitleControls");
-      const pinControlsLabel = uiText(settings.interfaceLanguage, settings.subtitleControlsMode === "always" ? "unpinSubtitleControls" : "pinSubtitleControls");
       const ocrLabel = uiText(settings.interfaceLanguage, settings.ocrVideoPauseFrames ? "readVideoFrameStop" : "readVideoFrame");
       const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger${settings.ocrVideoPauseFrames ? " jpdb-subtitle-ocr-active" : ""}" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}" aria-pressed="${settings.ocrVideoPauseFrames}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
@@ -11682,7 +11789,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
-                <button class="jpdb-subtitle-rail-pin" type="button" data-action="rail-pin" title="${escapeHtml(pinControlsLabel)}" aria-label="${escapeHtml(pinControlsLabel)}" aria-pressed="${settings.subtitleControlsMode === "always"}">${subtitleIcon("pin")}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
@@ -12217,14 +12323,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // so the player's fade state is the only "controls are visible" signal
     // the viewer has — the rail must appear and disappear in lockstep.
     syncPlayerChromeIdleState() {
-      if (!this.root || !this.hasAutoIdleMode(this.options.getSettings())) return;
+      if (!this.root) return;
       const chromeHidden = this.videoPlayerChromeHidden();
+      if (chromeHidden) this.blurFocusedRailControl();
+      if (!this.hasAutoIdleMode(this.options.getSettings())) {
+        this.root.classList.remove("jpdb-subtitle-controls-away");
+        this.lastPlayerChromeHidden = chromeHidden;
+        return;
+      }
       if (chromeHidden) {
-        this.blurFocusedRailControl();
         if (this.shouldAutoIdleControls() && !this.subtitleSurfaceWakeActive) this.hideControlsImmediately();
       } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
         this.showControlsTemporarily();
       }
+      this.root.classList.toggle(
+        "jpdb-subtitle-controls-away",
+        chromeHidden && !this.subtitleSurfaceWakeActive && !this.hasActiveSubtitleUi()
+      );
       this.lastPlayerChromeHidden = chromeHidden;
     }
     // m.youtube.com stacks its own top control row (autoplay/CC/settings) in
@@ -13586,14 +13701,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.closePanelOptionsMenu();
       this.syncPointerActivity(event.clientX, event.clientY);
     }
+    // Tapping the subtitle line (e.g. looking up a word) deliberately does
+    // NOT reveal the rail: the rail follows the player's own chrome instead,
+    // so reading interactions stay free of control-cluster flicker.
     wakeControlsFromSubtitleSurface(event) {
-      this.lastControlsInputWasKeyboard = false;
       if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
-      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+      this.lastControlsInputWasKeyboard = false;
     }
     handleSubtitleSurfaceClick(event) {
       if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
-      this.showControlsTemporarily({ independentOfPlayerChrome: true });
       const target = event.target instanceof Element ? event.target : null;
       const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
       if (hitSubtitleContent) return;
@@ -13629,10 +13745,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return Boolean(player?.contains(element));
     }
     syncPointerActivity(clientX, clientY) {
-      if (this.pointInVisibleSubtitleSurface(clientX, clientY)) {
-        this.showControlsTemporarily({ independentOfPlayerChrome: true });
-        return;
-      }
       if (this.isPointerNearSubtitleSurface(clientX, clientY)) {
         this.showControlsTemporarily();
       } else {
@@ -13706,7 +13818,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       dragRoot?.classList.add("jpdb-subtitle-dragging");
       if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
       document.documentElement.classList.add("jpdb-subtitle-dragging");
-      this.showControlsDuringSubtitleDrag();
       return session;
     }
     updateSubtitleDrag(session, clientY, event) {
@@ -13731,7 +13842,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.commitSubtitleBottomOffsetFromDrag(session);
         this.resetLegacySubtitleDragOffset();
       } else this.persistSubtitleDragOffset();
-      this.showControlsTemporarily();
     }
     applySubtitleDragPreview(session, clientY) {
       session.appliedClientY = clientY;
@@ -13746,7 +13856,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.setSubtitleDragOffset(session.startOffset + deltaY, session.dragFrame, session.bounds);
         session.previewOffset = this.subtitleDragOffsetYPx;
       }
-      this.showControlsDuringSubtitleDrag();
     }
     flushSubtitleDragPreview(session) {
       if (session.frame !== void 0) {
@@ -14005,11 +14114,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.syncSubtitleControlRailButtons();
       this.syncAsbPlayerSubtitleMoveHandles();
-      this.scheduleControlsIdle();
-    }
-    showControlsDuringSubtitleDrag() {
-      if (!this.root) return;
-      this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.scheduleControlsIdle();
     }
     hideControlsImmediately() {
@@ -14808,26 +14912,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
     }
-    toggleSubtitleControlRailPin() {
+    // The grip is both the drag handle and the expand/collapse toggle: a
+    // stationary tap flips the persisted mode so an expanded rail stays
+    // expanded, while collapsing minimises back to the grip immediately.
+    toggleSubtitleControlRailExpanded() {
       const settings = this.options.getSettings();
-      settings.subtitleControlsMode = settings.subtitleControlsMode === "always" ? "auto" : "always";
+      const expanded = settings.subtitleControlsMode === "always";
+      settings.subtitleControlsMode = expanded ? "auto" : "always";
       this.options.onSettingsChange();
       this.syncRootVisibility(settings);
-      this.showControlsTemporarily({ independentOfPlayerChrome: true });
+      if (expanded) this.hideControlsImmediately();
+      else this.showControlsTemporarily({ independentOfPlayerChrome: true });
       this.syncControls();
     }
     syncSubtitleControlRailButtons() {
       const settings = this.options.getSettings();
-      const pinned = settings.subtitleControlsMode === "always";
-      const pin = this.root?.querySelector('[data-action="rail-pin"]');
-      if (pin) {
-        const label = uiText(settings.interfaceLanguage, pinned ? "unpinSubtitleControls" : "pinSubtitleControls");
-        pin.title = label;
-        pin.setAttribute("aria-label", label);
-        pin.setAttribute("aria-pressed", String(pinned));
-      }
+      const expandedMode = settings.subtitleControlsMode === "always";
       const expand = this.root?.querySelector('[data-action="rail-expand"]');
-      if (expand) expand.setAttribute("aria-expanded", String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || pinned));
+      if (expand) expand.setAttribute("aria-expanded", String(!this.root?.classList.contains("jpdb-subtitle-controls-idle") || expandedMode));
     }
     syncVideoFrameOcrButton() {
       const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="ocr"]');

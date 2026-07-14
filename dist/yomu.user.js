@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.148
+// @version 1.6.149
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.148#sha256=jtpYGh4WbUq11+wpgCRKrYqL8ik0xFh5t4ivdxG5U4Y=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.148#sha256=NTzXLFoGSYsLYEaLiQ5bJ1vutJOgoiNWR3RxZKC0qPc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.148#sha256=BmSnrkEYlg0hMSWRkxGOTKb4LlEd+HiYp0XGx/EcyyA=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.148#sha256=lKJvUK/I/9SmzjQ4iCDvhy4Mr7WOBsBzUeHnNmBvyAk=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.148#sha256=jIj7rzJb/tCSHM2o2A4Kue69HcUURiQTIAVauigTGZE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.148#sha256=v6hK9dh2ZjZG4KzBxm0wu+fsQU4xu/jmFPVeRosf0XE=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.148#sha256=a/BoO/290cbXtvQUssBCLIidCX7/vS4lGLKJZuwCGLw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.149#sha256=i+DloyQucEyd0vB+UZ6zlqgGDW8FABD5Ybj0DxGZIrg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.149#sha256=T3/OpeJDsZkfEtcKmsvmbxQxsITzmCtCRMzX4ycnGCM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.149#sha256=b6SC4uhj1faspeS0Uid0JDST76Ovlr/viqJ9Bo30JMY=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.149#sha256=wIfzNen2GvXMaoqUwf7ZuJSjNSo3t+EQimw4yHRi0oo=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.149#sha256=AAy7KfZ6lTRg+Spc9jp3rjsxhMAMWOk8iRIMRgkdHUg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.149#sha256=nKgtkGQahdLip01Pt1swKi9t3kIT7ze6tEg1/eQgIKA=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.149#sha256=IYj9ExB78btCnaQYuPxK5UL/PNJECLQViKQXKg+XDqY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -126,6 +126,145 @@ function appendNormalizedCardState(states, rawState) {
 }
 function primaryCardState(value) {
   return normalizeCardStates(value)[0] ?? "not-in-deck";
+}
+const PITCH_LEVELS = new Set(["H", "L"]);
+const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+const PITCH_CLASS_RULES = [
+  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+];
+function normalizePitchPatternForReading(pattern, reading) {
+  const levels = pitchLevels(pattern);
+  if (!levels.length) return "";
+  return normalizePitchLevelsForReading(levels, reading).join("");
+}
+function normalizePitchPatternsForReading(patterns, reading) {
+  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+}
+function pitchLevelsForDisplay(pattern, reading) {
+  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+}
+function pitchLevels(pattern) {
+  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+}
+function splitMorae(reading) {
+  if (!PRONUNCIATION_KANA.test(reading)) return [];
+  const morae = [];
+  for (const char of Array.from(reading)) {
+  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+  else morae.push(char);
+  }
+  return morae;
+}
+function countMorae(reading) {
+  return splitMorae(reading).length;
+}
+function pitchPatternFromPosition(reading, position) {
+  const moraCount = countMorae(reading);
+  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+  if (position === 0) return `L${"H".repeat(moraCount)}`;
+  if (position === 1) return `H${"L".repeat(moraCount)}`;
+  const highMorae = position - 1;
+  const lowTail = moraCount - position + 1;
+  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+}
+function pitchProfileForPattern(pattern, reading) {
+  const normalized = normalizePitchPatternForReading(pattern, reading);
+  const morae = splitMorae(reading);
+  const pitchNumber = pitchNumberFromPattern(normalized, reading);
+  return {
+  reading,
+  morae,
+  pitchNumber,
+  pattern: normalized,
+  className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+  };
+}
+function pitchClassNameForPattern(pattern, reading) {
+  return pitchProfileForPattern(pattern, reading).className;
+}
+function compoundPitchGradientCss(segments) {
+  if (segments.length < 2) return "";
+  const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
+  const total = moraCounts.reduce((sum, count) => sum + count, 0);
+  if (!total) return "";
+  let cursor = 0;
+  const stops = segments.map((segment, index) => {
+  const from = cursor / total * 100;
+  cursor += moraCounts[index];
+  const to = cursor / total * 100;
+  const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
+  return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+  });
+  return `linear-gradient(to right, ${stops.join(", ")})`;
+}
+function collectPitchVariants(reading, patterns, max = Infinity) {
+  const seen = new Set();
+  const variants = [];
+  for (const pattern of patterns) {
+  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+  const position = pitchNumberFromPattern(pattern, reading);
+  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+  if (seen.has(key)) continue;
+  seen.add(key);
+  variants.push({ pattern, position });
+  if (variants.length >= max) break;
+  }
+  return variants;
+}
+function contextPitchPattern(patterns, reading) {
+  if (!patterns?.length) return "";
+  if (!reading) return patterns[0];
+  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+}
+function pitchNumberFromPattern(pattern, reading) {
+  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+  const moraCount = countMorae(reading);
+  if (!moraCount) return null;
+  if (levels.length < moraCount) {
+  return looksLikeShortHeibanPattern(levels) ? 0 : null;
+  }
+  const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+  if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+  return dropAt;
+}
+function looksLikeShortHeibanPattern(levels) {
+  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+}
+function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+  if (!moraCount) return "";
+  if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+  return hasComplexPitchShape(pattern) ? "kifuku" : "";
+}
+function hasComplexPitchShape(pattern) {
+  const levels = pitchLevels(pattern);
+  return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+}
+function countPitchTransitions(levels, from, to) {
+  let count = 0;
+  for (let index = 1; index < levels.length; index++) {
+  if (levels[index - 1] === from && levels[index] === to) count++;
+  }
+  return count;
+}
+function normalizePitchLevelsForReading(levels, reading) {
+  const chars = Array.from(reading);
+  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+  const normalized = [];
+  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+  normalized.push(levels[index]);
+  }
+  return normalized.concat(levels.slice(chars.length));
+}
+function looksCharacterAlignedPitch(levels, chars) {
+  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+  if (levels.length < chars.length) return false;
+  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
 }
 const DECK_CLASS_NAME_LIMIT = 8;
 function cardDeckMembership(card) {
@@ -364,7 +503,7 @@ function isInsideRubyFragileConstrainedRow(element2) {
 }
 function closestRubyFragileConstrainedRow(element2) {
   let current = element2;
-  for (let depth = 0; current && depth < 5; depth += 1) {
+  for (let depth = 0; current && depth < 10; depth += 1) {
   const facts = constrainedRowStyleFacts(current);
   if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
   current = current.parentElement;
@@ -389,6 +528,8 @@ function contentClipRowShowsRestReadings(decoration, clipRow) {
   const style = safeComputedStyle(clipRow);
   if (hasDefiniteCssSize(style.maxHeight)) return false;
   if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
+  const clampLines = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
+  if (Number.isFinite(clampLines) && clampLines > 1) return false;
   const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
   return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
 }
@@ -3608,10 +3749,10 @@ const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
 const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
   "kanji-doodle",
   "word",
+  "type-word",
   "recall-cloze",
   "listen-pitch",
-  "speaking",
-  "type-word"
+  "speaking"
 ];
 const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
@@ -4135,6 +4276,8 @@ function normalizeNewTabSettings(value) {
 }
 function normalizeNewTabStudyStepOrder(value) {
   const ordered = normalizeStudyStepList(value);
+  const legacyDefault = ["kanji-doodle", "word", "recall-cloze", "listen-pitch", "speaking", "type-word"];
+  if (ordered.join(",") === legacyDefault.join(",")) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
   return [
   ...ordered,
   ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
@@ -5058,8 +5201,7 @@ function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
   const blocked = parent.closest(SKIP_SELECTOR);
   if (blocked && !isAnnotatableChipControl(blocked) && !isVisibleAriaHiddenVisualLabel(parent, blocked)) return true;
   if (isInsideExcludedReaderRoot(parent, options)) return true;
-  if (isShortCenteredDisplayHeading(parent, text2)) return true;
-  return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
+  return shouldRejectTextTargetPresentation(parent, visibleOnly);
 }
 function isCompactControlDescendantTextTarget(parent, text2) {
   if (!isCompactInteractiveChromeText(text2.replace(/\s+/g, ""))) return false;
@@ -5069,12 +5211,17 @@ function isInsideExcludedReaderRoot(parent, options) {
   if (options.includeReaderRoot) return false;
   return Boolean(parent.closest(READER_ROOT_SELECTOR$3));
 }
-function shouldRejectTextTargetPresentation(parent, text2, visibleOnly) {
-  if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
-  return isFragileUiText(parent, text2);
+function shouldRejectTextTargetPresentation(parent, visibleOnly) {
+  return shouldRejectInvisibleTextTarget(parent, visibleOnly);
 }
 function shouldSkipTextTargetParent(parent) {
-  return parent.childNodes.length > 6;
+  let meaningful = 0;
+  for (const node of parent.childNodes) {
+  if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) continue;
+  meaningful += 1;
+  if (meaningful > 12) return true;
+  }
+  return false;
 }
 function shouldRejectInvisibleTextTarget(parent, visibleOnly) {
   if (!visibleOnly) return false;
@@ -5083,11 +5230,14 @@ function shouldRejectInvisibleTextTarget(parent, visibleOnly) {
 function textTargetFromAcceptedNode(node) {
   const parent = node.parentElement;
   if (!parent) return null;
-  const decoration = classifyDecoration(parent);
+  let decoration = classifyDecoration(parent);
   if (decoration === "skip") return null;
+  const text2 = nodeTextContent(node).trim();
+  if (decoration !== "interactive-passive" && (isFragileUiText(parent, text2) || isShortCenteredDisplayHeading(parent, text2))) {
+  decoration = "interactive-passive";
+  }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
-  const text2 = nodeTextContent(node).trim();
   return {
   node,
   text: text2,
@@ -6151,7 +6301,7 @@ function styleDetachedReadingElements(root, host) {
   reading.style.setProperty("z-index", "2");
   reading.style.setProperty("inset-inline-start", "50%");
   reading.style.setProperty("inset-block-end", "calc(100% + 1px)");
-  reading.style.setProperty("display", "block", "important");
+  reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   reading.style.setProperty("width", "max-content");
   reading.style.setProperty("max-width", "none");
   reading.style.setProperty("font-size", `${readingFontSize}px`);
@@ -6262,7 +6412,9 @@ function detachedReadingCoversForeignText(reading, rect) {
   return points.flatMap((x) => elementsFromPoint.call(hitRoot, x, (rect.top + rect.bottom) / 2).filter((element2) => element2 instanceof HTMLElement));
   }));
   for (const hit of hits) {
-  if (ownWord && hit.closest(".jpdb-reader-word") === ownWord) continue;
+  const hitWord = hit.closest(".jpdb-reader-word");
+  if (ownWord && hitWord === ownWord) continue;
+  if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
   for (const node of hit.childNodes) {
     if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
     const range = document.createRange();
@@ -6299,7 +6451,11 @@ function hideUnsafeDetachedReading(reading) {
 function restoreUnsafeDetachedReading(reading) {
   if (reading.dataset.yomuDetachedReadingHidden !== "unsafe-lane") return;
   delete reading.dataset.yomuDetachedReadingHidden;
-  reading.style.setProperty("display", "block", "important");
+  reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+}
+function detachedReadingRestHidden(reading) {
+  const row = reading.closest('[data-yomu-clip-constrained="true"]');
+  return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
 }
 function reconcilePendingDetachedReadingLanes() {
   const surfaces = [...pendingDetachedReadingSurfaces];
@@ -6331,11 +6487,20 @@ function openSafeDetachedReadingClips(element2) {
   if (!clips) continue;
   const rect = current.getBoundingClientRect();
   const measured = current.clientWidth > 0 && current.clientHeight > 0;
-  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT;
+  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && detachedClipRowIsSingleLine(style, rect);
   const baseFits = measured && detachedBaseContentFits(current);
   if (compact && baseFits) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
   }
+}
+function detachedClipRowIsSingleLine(style, rect) {
+  const clamp = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
+  if (Number.isFinite(clamp) && clamp > 1) return false;
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  const fontSize = Number.parseFloat(style.fontSize) || 16;
+  const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
+  const chrome = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0) + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.borderBottomWidth) || 0);
+  return Math.max(0, rect.height - chrome) <= line * 1.5;
 }
 function openDetachedReadingClip(box) {
   if (!detachedReadingClipStyles.has(box)) {
@@ -6346,6 +6511,13 @@ function openDetachedReadingClip(box) {
   }
   box.dataset.yomuDetachedReadingOverflow = "true";
   box.style.setProperty("overflow", "visible", "important");
+  syncDetachedReadingRestVisibility(box);
+}
+function syncDetachedReadingRestVisibility(box) {
+  box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
+  if (reading.dataset.yomuDetachedReadingHidden) return;
+  reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  });
 }
 function restoreDetachedReadingClip(box) {
   const saved = detachedReadingClipStyles.get(box);
@@ -6355,6 +6527,7 @@ function restoreDetachedReadingClip(box) {
   }
   detachedReadingClipStyles.delete(box);
   delete box.dataset.yomuDetachedReadingOverflow;
+  syncDetachedReadingRestVisibility(box);
 }
 function detachedBaseContentFits(box) {
   const overlays = Array.from(box.querySelectorAll(".jpdb-reader-additive-text-mirror"));
@@ -8123,9 +8296,20 @@ function createReaderWordSpan(token, options) {
   if (token.card.reading) span.dataset.reading = token.card.reading;
   const pitchAccent = token.card.pitchAccent.join("|");
   if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+  if (showPitchAccent) applyCompoundPitchDecoration(span, token.card);
   applyDeckMembershipDataset(span, token.card);
   applyTokenRenderOptions(span, token, options);
   return span;
+}
+function applyCompoundPitchDecoration(word, card) {
+  const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
+  if (gradient) {
+  word.classList.add("jpdb-reader-pitch-compound");
+  word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
+  } else {
+  word.classList.remove("jpdb-reader-pitch-compound");
+  word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
+  }
 }
 function applyDeckMembershipDataset(span, card) {
   const membership = cardDeckMembership(card);
@@ -8158,11 +8342,14 @@ function renderTokenHtml(surface, token, settings, miningInsightKeys) {
   const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
   const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
   const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
+  const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length ? compoundPitchGradientCss(token.card.pitchSegments) : "";
   const classes = [
   readerWordClassName(state, token, settings),
   hasRuby ? "jpdb-reader-has-furi" : "",
-  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+  hasMiningInsight ? "jpdb-reader-i-plus-one" : "",
+  compoundGradient ? "jpdb-reader-pitch-compound" : ""
   ].filter(Boolean).join(" ");
+  const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml$1(compoundGradient)}"` : "";
   const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
   const cardId = ` data-card-id="${readerCardId(token.card)}"`;
   const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -8176,7 +8363,7 @@ function renderTokenHtml(surface, token, settings, miningInsightKeys) {
   const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
   const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
   const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+  return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 function renderDeckMembershipAttributes(card) {
   const membership = cardDeckMembership(card);
@@ -15961,158 +16148,38 @@ new Map(
   return [key, kanji ? { glyph, kanji } : { glyph }];
   })
 );
-const PITCH_LEVELS = new Set(["H", "L"]);
-const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-const PITCH_CLASS_RULES = [
-  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-];
-function normalizePitchPatternForReading(pattern, reading) {
-  const levels = pitchLevels(pattern);
-  if (!levels.length) return "";
-  return normalizePitchLevelsForReading(levels, reading).join("");
-}
-function normalizePitchPatternsForReading(patterns, reading) {
-  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-}
-function pitchLevelsForDisplay(pattern, reading) {
-  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-}
-function pitchLevels(pattern) {
-  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-}
-function splitMorae(reading) {
-  if (!PRONUNCIATION_KANA.test(reading)) return [];
-  const morae = [];
-  for (const char of Array.from(reading)) {
-  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-  else morae.push(char);
-  }
-  return morae;
-}
-function countMorae(reading) {
-  return splitMorae(reading).length;
-}
-function pitchPatternFromPosition(reading, position) {
-  const moraCount = countMorae(reading);
-  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-  if (position === 0) return `L${"H".repeat(moraCount)}`;
-  if (position === 1) return `H${"L".repeat(moraCount)}`;
-  const highMorae = position - 1;
-  const lowTail = moraCount - position + 1;
-  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-}
-function pitchProfileForPattern(pattern, reading) {
-  const normalized = normalizePitchPatternForReading(pattern, reading);
-  const morae = splitMorae(reading);
-  const pitchNumber = pitchNumberFromPattern(normalized, reading);
-  return {
-  reading,
-  morae,
-  pitchNumber,
-  pattern: normalized,
-  className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
-  };
-}
-function pitchClassNameForPattern(pattern, reading) {
-  return pitchProfileForPattern(pattern, reading).className;
-}
-function collectPitchVariants(reading, patterns, max = Infinity) {
-  const seen = new Set();
-  const variants = [];
-  for (const pattern of patterns) {
-  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-  const position = pitchNumberFromPattern(pattern, reading);
-  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-  if (seen.has(key)) continue;
-  seen.add(key);
-  variants.push({ pattern, position });
-  if (variants.length >= max) break;
-  }
-  return variants;
-}
-function contextPitchPattern(patterns, reading) {
-  if (!patterns?.length) return "";
-  if (!reading) return patterns[0];
-  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-}
-function pitchNumberFromPattern(pattern, reading) {
-  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-  const moraCount = countMorae(reading);
-  if (!moraCount) return null;
-  if (levels.length < moraCount) {
-  return looksLikeShortHeibanPattern(levels) ? 0 : null;
-  }
-  const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-  if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-  return dropAt;
-}
-function looksLikeShortHeibanPattern(levels) {
-  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-}
-function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-  if (!moraCount) return "";
-  if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  return hasComplexPitchShape(pattern) ? "kifuku" : "";
-}
-function hasComplexPitchShape(pattern) {
-  const levels = pitchLevels(pattern);
-  return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-}
-function countPitchTransitions(levels, from, to) {
-  let count = 0;
-  for (let index = 1; index < levels.length; index++) {
-  if (levels[index - 1] === from && levels[index] === to) count++;
-  }
-  return count;
-}
-function normalizePitchLevelsForReading(levels, reading) {
-  const chars = Array.from(reading);
-  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-  const normalized = [];
-  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-  normalized.push(levels[index]);
-  }
-  return normalized.concat(levels.slice(chars.length));
-}
-function looksCharacterAlignedPitch(levels, chars) {
-  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-  if (levels.length < chars.length) return false;
-  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-}
 const COMPOUND_MAX_CHARS = 24;
 const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
 const KANA_RE$1 = /[぀-ヿー]/u;
-async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
+async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
   const expression = spelling.trim();
   const pronunciation = reading.trim();
   const initialEntries = options.initialEntries ?? await lookupMeta(expression);
   let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-  if (patterns.length) return patterns;
+  if (patterns.length) return { patterns };
   if (pronunciation && pronunciation !== expression) {
   const readingEntries = await lookupMeta(pronunciation);
   patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-  if (patterns.length) return patterns;
+  if (patterns.length) return { patterns };
   }
-  if (options.includeCompound === false) return [];
-  const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
-  return compoundPattern ? [compoundPattern] : [];
+  if (options.includeCompound === false) return { patterns: [] };
+  const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+  if (!segments.length) return { patterns: [] };
+  return { patterns: [segments.map((segment) => segment.pattern).join("")], compoundSegments: segments };
 }
-async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
+async function composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta) {
   const characters = Array.from(spelling.trim());
   const kana = kanaNormalized(reading.trim());
-  if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return "";
+  if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return [];
   const state = { lookups: 0, cache: new Map() };
   const segments = await composeSegments(characters, 0, kana, lookupMeta, state, COMPOUND_MAX_SEGMENTS);
-  if (!segments || segments.length < 2) return "";
-  return segments.map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount)).join("");
+  if (!segments || segments.length < 2) return [];
+  return segments.map((segment, index) => ({
+  pattern: index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount),
+  reading: segment.reading
+  }));
 }
 async function composeSegments(characters, cursor, readingRest, lookupMeta, state, segmentsLeft) {
   if (cursor >= characters.length) return readingRest ? null : [];
@@ -16126,7 +16193,7 @@ async function composeSegments(characters, cursor, readingRest, lookupMeta, stat
   const segment = await constituentSegment(candidate, readingRest, lookupMeta, state, isFinal);
   if (!segment) continue;
   const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
-  if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+  if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount, reading: readingRest.slice(0, segment.readingLength) }, ...rest];
   }
   return null;
 }
@@ -16279,10 +16346,16 @@ function renderPitch(card, metaEntries = [], labels) {
   ...card.pitchAccent ?? [],
   ...localPitchPatternsFromMeta(reading, metaEntries)
   ], MAX_PITCH_VARIANTS);
-  return renderPitchVariantGraphs(reading, variants);
+  return renderPitchVariantGraphs(reading, variants, labels, card.pitchSegments);
 }
-function renderPitchVariantGraphs(reading, variants, labels) {
-  const graphs = variants.map((variant) => ({ variant, svg: renderPitchGraphSvg(reading, variant.pattern) })).filter((entry) => entry.svg);
+function renderPitchVariantGraphs(reading, variants, labels, compoundSegments) {
+  const composedPattern = compoundSegments?.map((segment) => segment.pattern).join("") ?? "";
+  const graphs = variants.map((variant) => ({
+  variant,
+  svg: renderPitchGraphSvg(reading, variant.pattern, {
+    segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : void 0
+  })
+  })).filter((entry) => entry.svg);
   if (!graphs.length) return "";
   if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
   return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant)}</span>`).join("")}</div>`;
@@ -16306,13 +16379,39 @@ function renderPitchGraphSvg(reading, pitch, options = {}) {
   if (highs.length < 2) return "";
   const width = morae.length * 24 + 18;
   const startX = options.centerContent ? 21 : 9;
-  const points = highs.map((level, index) => `${startX + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+  const point = (index) => `${startX + index * 24},${highs[index] === "H" ? 10 : 29}`;
   const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
+  const classAt = segmentClassResolver(highs.length, cls, options.segments);
+  const lines = segmentPolylines(highs.length, classAt).map(({ className, indices }) => `<polyline class="${className}" points="${indices.map(point).join(" ")}"></polyline>`).join("");
   return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${lines}
+        ${highs.map((_, index) => `<circle class="${classAt(index)}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
+}
+function segmentClassResolver(pointCount, wholeClass, segments) {
+  if (!segments || segments.length < 2) return () => wholeClass;
+  const classes = [];
+  for (const segment of segments) {
+  const cls = pitchClassNameForPattern(segment.pattern, segment.reading) || wholeClass;
+  for (let i = 0; i < segment.pattern.length && classes.length < pointCount; i++) classes.push(cls);
+  }
+  while (classes.length < pointCount) classes.push(classes[classes.length - 1] ?? wholeClass);
+  return (index) => classes[index] ?? wholeClass;
+}
+function segmentPolylines(pointCount, classAt) {
+  const runs = [];
+  for (let index = 0; index < pointCount; index++) {
+  const className = classAt(index);
+  const current = runs[runs.length - 1];
+  if (current && current.className === className) {
+    current.indices.push(index);
+  } else {
+    if (current) current.indices.push(index);
+    runs.push({ className, indices: [index] });
+  }
+  }
+  return runs.filter((run) => run.indices.length > 1);
 }
 function cardPronunciationReading(card) {
   const reading = pronunciationCandidate(card.reading);
@@ -17581,15 +17680,18 @@ class CardRenderDataLoader {
   async applyLocalPitchAccent(card, metaEntries) {
   const settings = this.settings();
   if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-  const patterns = await localPitchPatternsFromMetaLookup(
+  const resolution = await localPitchResolutionFromMetaLookup(
     card.spelling,
     card.reading,
     (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
     { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
   ).catch((error) => {
     log$f.warn("Local pitch lookup failed", { term: card.spelling }, error);
-    return [];
+    return { patterns: [] };
   });
+  const patterns = resolution.patterns;
+  if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+  else if (patterns.length) delete card.pitchSegments;
   if (!patterns.length) return;
   if (!card.pitchAccent.length) {
     card.pitchAccent = patterns;
@@ -21640,11 +21742,15 @@ ${spelling}`);
   const key = localPitchCacheKey(card, settings);
   const cached = this.localPitchCache.get(key);
   if (cached) return cached;
-  const promise = localPitchPatternsFromMetaLookup(
+  const promise = localPitchResolutionFromMetaLookup(
     card.spelling,
     card.reading,
     (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
-  ).then((patterns) => patterns[0] ?? "").catch((error) => {
+  ).then((resolution) => {
+    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+    else if (resolution.patterns.length) delete card.pitchSegments;
+    return resolution.patterns[0] ?? "";
+  }).catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return "";
   });
@@ -27954,6 +28060,16 @@ function setRenderedWordPitchClass(word, pitchClass) {
   word.dataset.pitchClass = pitchClass;
   if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
+function applyRenderedWordCompoundPitch(word, card) {
+  const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
+  if (gradient) {
+  word.classList.add("jpdb-reader-pitch-compound");
+  word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
+  } else {
+  word.classList.remove("jpdb-reader-pitch-compound");
+  word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
+  }
+}
 function setRenderedWordCardIdentity(word, card) {
   const source = renderedWordCardSource(card);
   const state = primaryCardState(card.cardState);
@@ -27972,6 +28088,7 @@ function setRenderedWordCardIdentity(word, card) {
   const pitchAccent = card.pitchAccent.join("|");
   if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
   else delete word.dataset.pitchAccent;
+  applyRenderedWordCompoundPitch(word, card);
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
@@ -33657,7 +33774,57 @@ function cssColorToRgba(value) {
   if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
   if (color.startsWith("oklab(")) return parseOklabFunction(color);
   if (color.startsWith("oklch(")) return parseOklchFunction(color);
+  return probeCssColor(color);
+}
+const probedColors = new Map();
+let probeContext;
+function probeCssColor(color) {
+  const cached = probedColors.get(color);
+  if (cached !== void 0) return cached;
+  if (probeContext === void 0) {
+  try {
+    probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+  } catch {
+    probeContext = null;
+  }
+  }
+  let parsed = null;
+  if (probeContext) {
+  try {
+    probeContext.fillStyle = "#010203";
+    probeContext.fillStyle = color;
+    const serialized = String(probeContext.fillStyle).toLowerCase();
+    if (serialized !== "#010203") {
+      if (serialized.startsWith("#")) {
+        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+        parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+      } else if (serialized.startsWith("rgb")) {
+        parsed = parseRgbFunction(serialized);
+      } else if (serialized.startsWith("color(srgb ")) {
+        parsed = parseSrgbFunction(serialized);
+      }
+      if (!parsed) parsed = probePixelColor(probeContext, color);
+    }
+  } catch {
+    parsed = null;
+  }
+  }
+  if (probedColors.size > 512) probedColors.clear();
+  probedColors.set(color, parsed);
+  return parsed;
+}
+function probePixelColor(context, color) {
+  try {
+  context.canvas.width = 1;
+  context.canvas.height = 1;
+  context.clearRect(0, 0, 1, 1);
+  context.fillStyle = color;
+  context.fillRect(0, 0, 1, 1);
+  const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
+  return { red, green, blue, alpha: alphaByte / 255 };
+  } catch {
   return null;
+  }
 }
 function blendRgba(foreground, background) {
   const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
@@ -34031,16 +34198,22 @@ function pageBackgroundFor(word) {
   for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
   let found = false;
   let hasImageBackdrop = false;
+  let unknownBase = false;
   let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
   for (const element2 of ancestors.reverse()) {
   const style = getComputedStyle(element2);
   hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
   const color = cssColorToRgba(style.backgroundColor);
-  if (!color || color.alpha <= 0) continue;
+  if (!color) {
+    unknownBase = true;
+    continue;
+  }
+  if (color.alpha <= 0) continue;
+  if (color.alpha >= 1) unknownBase = false;
   rgba = blendRgba(color, rgba);
   found = true;
   }
-  if (!found) {
+  if (unknownBase || !found) {
   if (hasImageBackdrop) return null;
   return inferredTransparentPageBackground(word);
   }
@@ -34052,7 +34225,7 @@ function inferredTransparentPageBackground(word) {
   const bodyStyle = getComputedStyle(document.body);
   const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
   if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-  const pageTextColors = [bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+  const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
   if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
   return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
   }
@@ -35934,8 +36107,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.148"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.148"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.149"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.149"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -36052,7 +36225,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.148"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.149"}`;
   } catch {
   return null;
   }
@@ -42856,11 +43029,15 @@ class ReaderApp {
   const key = this.localPitchEnrichmentCacheKey(card);
   const cached = this.pitchEnrichmentLocalCache.get(key);
   if (cached) return cached;
-  const promise = localPitchPatternsFromMetaLookup(
+  const promise = localPitchResolutionFromMetaLookup(
     card.spelling,
     card.reading,
     (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
-  ).then((patterns) => patterns[0] ?? "").catch((error) => {
+  ).then((resolution) => {
+    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+    else if (resolution.patterns.length) delete card.pitchSegments;
+    return resolution.patterns[0] ?? "";
+  }).catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
     return "";
   });

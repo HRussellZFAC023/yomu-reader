@@ -2054,9 +2054,7 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
-      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
-      pinSubtitleControls: "Keep subtitle controls expanded",
-      unpinSubtitleControls: "Collapse subtitle controls when idle",
+      moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -3459,9 +3457,11 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
-moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
-pinSubtitleControls	字幕コントロールを展開したままにする
-unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
+moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
+jpdbPageEnhancementsHelp
+colorChannelsHelp
+kanjiHelp
+noScannedFields
 right	右
 left	左
 bottom	下
@@ -4943,6 +4943,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
   `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
@@ -5238,10 +5239,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
+    "type-word",
     "recall-cloze",
     "listen-pitch",
-    "speaking",
-    "type-word"
+    "speaking"
   ];
   new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   ({

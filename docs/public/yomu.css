@@ -1467,6 +1467,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 [data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: inherit;
 }
+/* Detached readings obey the same at-rest rule as in-place rt: inside a
+   clip-constrained row whose clip was NOT safely opened (multi-line clamps
+   never open), an absolutely-positioned reading sits in the fixed inter-line
+   leading and paints over the line above. CSS (not the async settle pass)
+   makes this deterministic for readings enriched at any time. */
+[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror):not([data-yomu-detached-reading-overflow="true"]) .jpdb-reader-detached-furi {
+  display: none !important;
+}
 [data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi {
   /* visibility:hidden still participates in ruby layout on WebKit. In a
      fixed/clamped row that hidden annotation can move the BASE below the clip,
@@ -2785,6 +2793,17 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
   display: ruby-text !important;
   visibility: visible;
+}
+
+/* Compound words composed from two accents paint the single underline with
+   each constituent's own colour. The ::after box IS the underline strip
+   (height = border thickness), so a background gradient fills it exactly.
+   Horizontal-first: vertical writing keeps the blend rather than mis-axising. */
+.jpdb-reader-word-underline-pitch .jpdb-reader-word.jpdb-reader-pitch-compound::after {
+  border-block-end-color: transparent;
+  background-image: var(--jpdb-reader-pitch-compound-gradient, none);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 
@@ -11632,12 +11651,19 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
 .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
-  opacity: 1;
+  opacity: .55;
   pointer-events: auto;
   transform: translateY(0);
 }
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) > :not(.jpdb-subtitle-rail-move) {
   display: none !important;
+}
+/* Player chrome faded out = the viewer is watching, not controlling: hide the
+   rail entirely instead of leaving even the minimised grip over the video. */
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 .jpdb-subtitle-controls-always .jpdb-subtitle-rail {
   opacity: 1;
@@ -11680,7 +11706,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-rail-move { cursor: grab; touch-action: none; }
 .jpdb-subtitle-rail-dragging .jpdb-subtitle-rail-move { cursor: grabbing; }
-.jpdb-subtitle-rail-pin[aria-pressed="true"] {
+.jpdb-subtitle-controls-always .jpdb-subtitle-rail-move {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
@@ -11839,12 +11865,17 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
     pointer-events: none;
   }
   .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) {
-    opacity: 1;
+    opacity: .55;
     pointer-events: auto;
     transform: translateY(0);
   }
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move):not(.jpdb-subtitle-rail-pin) {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move) {
     display: none !important;
+  }
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 .jpdb-subtitle-list[hidden] { display: none; }

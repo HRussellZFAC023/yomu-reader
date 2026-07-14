@@ -9686,9 +9686,7 @@
       trackStatusFailed: "failed",
       moveSubtitles: "Move subtitles",
       moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
-      moveSubtitleControls: "Move subtitle controls. Drag, or use the arrow keys. Press Home or 0 to reset.",
-      pinSubtitleControls: "Keep subtitle controls expanded",
-      unpinSubtitleControls: "Collapse subtitle controls when idle",
+      moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
@@ -11091,9 +11089,11 @@ subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
-moveSubtitleControls	字幕コントロールを移動します。ドラッグするか矢印キーを使います。Homeまたは0でリセットします。
-pinSubtitleControls	字幕コントロールを展開したままにする
-unpinSubtitleControls	操作していないとき字幕コントロールを折りたたむ
+moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
+jpdbPageEnhancementsHelp	
+colorChannelsHelp	
+kanjiHelp	
+noScannedFields	
 right	右
 left	左
 bottom	下
@@ -13792,6 +13792,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       gradeTargetJpdbAndJiten: "Grades Jiten + JPDB",
       gradeTargetAllProviders: "Grades Jiten + JPDB + Anki card: {target}",
       offlineGradeReconnect: "Grade saved offline. It will sync when Jiten, JPDB, or Anki reconnects.",
+      connectionLostTitle: "The connection has been lost.",
+      connectionLostBody: "Would you like to continue reviews offline? They will sync when you are back online.",
+      connectionLostStop: "Stop reviewing",
+      connectionLostContinue: "Continue offline",
+      connectionLostRetry: "Retry",
+      reviewsPausedOffline: "Reviews paused. Your answer was not saved.",
+      typeSentencePlaceholder: "Type the full sentence",
       missingAnkiCardId: "Missing Anki card id.",
       noDefinitionsFound: "No definitions found.",
       cachedReviews: "Cached reviews",
@@ -14062,6 +14069,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     gradeTargetJpdbAndJiten: "Jiten + JPDBを採点",
     gradeTargetAllProviders: "Jiten + JPDB + Ankiカードを採点: {target}",
     offlineGradeReconnect: "採点をオフラインで保存しました。Jiten・JPDB・Ankiへの再接続時に同期されます。",
+    connectionLostTitle: "接続が切断されました。",
+    connectionLostBody: "オフラインでレビューを続けますか？オンラインに戻ると同期されます。",
+    connectionLostStop: "レビューを中止",
+    connectionLostContinue: "オフラインで続行",
+    connectionLostRetry: "再試行",
+    reviewsPausedOffline: "レビューを一時停止しました。回答は保存されていません。",
+    typeSentencePlaceholder: "文全体を入力",
     missingAnkiCardId: "AnkiカードIDがありません。",
     noDefinitionsFound: "定義が見つかりませんでした。",
     cachedReviews: "キャッシュ済みレビュー",
@@ -15443,6 +15457,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function pitchClassNameForPattern(pattern, reading) {
     return pitchProfileForPattern(pattern, reading).className;
+  }
+  function compoundPitchGradientCss(segments) {
+    if (segments.length < 2) return "";
+    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
+    const total = moraCounts.reduce((sum, count) => sum + count, 0);
+    if (!total) return "";
+    let cursor = 0;
+    const stops = segments.map((segment, index) => {
+      const from = cursor / total * 100;
+      cursor += moraCounts[index];
+      const to = cursor / total * 100;
+      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
+      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
   }
   function collectPitchVariants(reading, patterns, max2 = Infinity) {
     const seen = /* @__PURE__ */ new Set();
@@ -19487,7 +19516,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function closestRubyFragileConstrainedRow(element2) {
     let current = element2;
-    for (let depth = 0; current && depth < 5; depth += 1) {
+    for (let depth = 0; current && depth < 10; depth += 1) {
       const facts = constrainedRowStyleFacts(current);
       if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
       current = current.parentElement;
@@ -19504,6 +19533,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const style = safeComputedStyle(clipRow);
     if (hasDefiniteCssSize(style.maxHeight)) return false;
     if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
+    const clampLines = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
+    if (Number.isFinite(clampLines) && clampLines > 1) return false;
     const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
     return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
   }
@@ -21001,10 +21032,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
+    "type-word",
     "recall-cloze",
     "listen-pitch",
-    "speaking",
-    "type-word"
+    "speaking"
   ];
   const NEW_TAB_STUDY_CHALLENGE_STEPS$1 = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
@@ -21541,6 +21572,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeNewTabStudyStepOrder(value) {
     const ordered = normalizeStudyStepList(value);
+    const legacyDefault = ["kanji-doodle", "word", "recall-cloze", "listen-pitch", "speaking", "type-word"];
+    if (ordered.join(",") === legacyDefault.join(",")) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
     return [
       ...ordered,
       ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
@@ -23389,7 +23422,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reading.style.setProperty("z-index", "2");
       reading.style.setProperty("inset-inline-start", "50%");
       reading.style.setProperty("inset-block-end", "calc(100% + 1px)");
-      reading.style.setProperty("display", "block", "important");
+      reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
       reading.style.setProperty("width", "max-content");
       reading.style.setProperty("max-width", "none");
       reading.style.setProperty("font-size", `${readingFontSize}px`);
@@ -23500,7 +23533,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return points.flatMap((x2) => elementsFromPoint.call(hitRoot, x2, (rect.top + rect.bottom) / 2).filter((element2) => element2 instanceof HTMLElement));
     }));
     for (const hit of hits) {
-      if (ownWord && hit.closest(".jpdb-reader-word") === ownWord) continue;
+      const hitWord = hit.closest(".jpdb-reader-word");
+      if (ownWord && hitWord === ownWord) continue;
+      if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
       for (const node2 of hit.childNodes) {
         if (node2.nodeType !== Node.TEXT_NODE || !node2.textContent?.trim()) continue;
         const range2 = document.createRange();
@@ -23537,7 +23572,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function restoreUnsafeDetachedReading(reading) {
     if (reading.dataset.yomuDetachedReadingHidden !== "unsafe-lane") return;
     delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty("display", "block", "important");
+    reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+  }
+  function detachedReadingRestHidden(reading) {
+    const row = reading.closest('[data-yomu-clip-constrained="true"]');
+    return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
   }
   function reconcilePendingDetachedReadingLanes() {
     const surfaces = [...pendingDetachedReadingSurfaces];
@@ -23569,11 +23608,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!clips) continue;
       const rect = current.getBoundingClientRect();
       const measured = current.clientWidth > 0 && current.clientHeight > 0;
-      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT;
+      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && detachedClipRowIsSingleLine(style, rect);
       const baseFits = measured && detachedBaseContentFits(current);
       if (compact && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
     }
+  }
+  function detachedClipRowIsSingleLine(style, rect) {
+    const clamp2 = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
+    if (Number.isFinite(clamp2) && clamp2 > 1) return false;
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    const fontSize = Number.parseFloat(style.fontSize) || 16;
+    const line = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : fontSize * 1.4;
+    const chrome = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0) + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.borderBottomWidth) || 0);
+    return Math.max(0, rect.height - chrome) <= line * 1.5;
   }
   function openDetachedReadingClip(box) {
     if (!detachedReadingClipStyles.has(box)) {
@@ -23584,6 +23632,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     box.dataset.yomuDetachedReadingOverflow = "true";
     box.style.setProperty("overflow", "visible", "important");
+    syncDetachedReadingRestVisibility(box);
+  }
+  function syncDetachedReadingRestVisibility(box) {
+    box.querySelectorAll(".jpdb-reader-detached-furi").forEach((reading) => {
+      if (reading.dataset.yomuDetachedReadingHidden) return;
+      reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
+    });
   }
   function restoreDetachedReadingClip(box) {
     const saved = detachedReadingClipStyles.get(box);
@@ -23593,6 +23648,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     detachedReadingClipStyles.delete(box);
     delete box.dataset.yomuDetachedReadingOverflow;
+    syncDetachedReadingRestVisibility(box);
   }
   function detachedBaseContentFits(box) {
     const overlays = Array.from(box.querySelectorAll(".jpdb-reader-additive-text-mirror"));
@@ -25158,9 +25214,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join("|");
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent) applyCompoundPitchDecoration(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
+  }
+  function applyCompoundPitchDecoration(word, card) {
+    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
+    if (gradient) {
+      word.classList.add("jpdb-reader-pitch-compound");
+      word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
+    } else {
+      word.classList.remove("jpdb-reader-pitch-compound");
+      word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
+    }
   }
   function applyDeckMembershipDataset(span, card) {
     const membership = cardDeckMembership(card);
@@ -25193,11 +25260,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
+    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length ? compoundPitchGradientCss(token.card.pitchSegments) : "";
     const classes = [
       readerWordClassName(state, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
-      hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+      hasMiningInsight ? "jpdb-reader-i-plus-one" : "",
+      compoundGradient ? "jpdb-reader-pitch-compound" : ""
     ].filter(Boolean).join(" ");
+    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml$1(compoundGradient)}"` : "";
     const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -25211,7 +25281,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -34178,28 +34248,35 @@ ${entry.reading || ""}`;
   const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
   const KANA_RE$1 = /[぀-ヿー]/u;
   async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
+    return (await localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options)).patterns;
+  }
+  async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
     const expression = spelling.trim();
     const pronunciation = reading.trim();
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
     let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return patterns;
+    if (patterns.length) return { patterns };
     if (pronunciation && pronunciation !== expression) {
       const readingEntries = await lookupMeta(pronunciation);
       patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-      if (patterns.length) return patterns;
+      if (patterns.length) return { patterns };
     }
-    if (options.includeCompound === false) return [];
-    const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
-    return compoundPattern ? [compoundPattern] : [];
+    if (options.includeCompound === false) return { patterns: [] };
+    const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+    if (!segments.length) return { patterns: [] };
+    return { patterns: [segments.map((segment) => segment.pattern).join("")], compoundSegments: segments };
   }
-  async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
+  async function composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta) {
     const characters = Array.from(spelling.trim());
     const kana = kanaNormalized(reading.trim());
-    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return "";
+    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return [];
     const state = { lookups: 0, cache: /* @__PURE__ */ new Map() };
     const segments = await composeSegments(characters, 0, kana, lookupMeta, state, COMPOUND_MAX_SEGMENTS);
-    if (!segments || segments.length < 2) return "";
-    return segments.map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount)).join("");
+    if (!segments || segments.length < 2) return [];
+    return segments.map((segment, index) => ({
+      pattern: index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount),
+      reading: segment.reading
+    }));
   }
   async function composeSegments(characters, cursor, readingRest, lookupMeta, state, segmentsLeft) {
     if (cursor >= characters.length) return readingRest ? null : [];
@@ -34213,7 +34290,7 @@ ${entry.reading || ""}`;
       const segment = await constituentSegment(candidate, readingRest, lookupMeta, state, isFinal);
       if (!segment) continue;
       const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
-      if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+      if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount, reading: readingRest.slice(0, segment.readingLength) }, ...rest];
     }
     return null;
   }
@@ -34366,10 +34443,16 @@ ${entry.reading || ""}`;
       ...card.pitchAccent ?? [],
       ...localPitchPatternsFromMeta(reading, metaEntries)
     ], MAX_PITCH_VARIANTS);
-    return renderPitchVariantGraphs(reading, variants, labels);
+    return renderPitchVariantGraphs(reading, variants, labels, card.pitchSegments);
   }
-  function renderPitchVariantGraphs(reading, variants, labels) {
-    const graphs = variants.map((variant) => ({ variant, svg: renderPitchGraphSvg(reading, variant.pattern) })).filter((entry) => entry.svg);
+  function renderPitchVariantGraphs(reading, variants, labels, compoundSegments) {
+    const composedPattern = compoundSegments?.map((segment) => segment.pattern).join("") ?? "";
+    const graphs = variants.map((variant) => ({
+      variant,
+      svg: renderPitchGraphSvg(reading, variant.pattern, {
+        segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : void 0
+      })
+    })).filter((entry) => entry.svg);
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant, index === 0, labels)}</span>`).join("")}</div>`;
@@ -34393,13 +34476,39 @@ ${entry.reading || ""}`;
     if (highs.length < 2) return "";
     const width = morae.length * 24 + 18;
     const startX = options.centerContent ? 21 : 9;
-    const points = highs.map((level, index) => `${startX + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+    const point = (index) => `${startX + index * 24},${highs[index] === "H" ? 10 : 29}`;
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
+    const classAt = segmentClassResolver(highs.length, cls, options.segments);
+    const lines = segmentPolylines(highs.length, classAt).map(({ className, indices }) => `<polyline class="${className}" points="${indices.map(point).join(" ")}"></polyline>`).join("");
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${lines}
+        ${highs.map((_, index) => `<circle class="${classAt(index)}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
+  }
+  function segmentClassResolver(pointCount, wholeClass, segments) {
+    if (!segments || segments.length < 2) return () => wholeClass;
+    const classes = [];
+    for (const segment of segments) {
+      const cls = pitchClassNameForPattern(segment.pattern, segment.reading) || wholeClass;
+      for (let i2 = 0; i2 < segment.pattern.length && classes.length < pointCount; i2++) classes.push(cls);
+    }
+    while (classes.length < pointCount) classes.push(classes[classes.length - 1] ?? wholeClass);
+    return (index) => classes[index] ?? wholeClass;
+  }
+  function segmentPolylines(pointCount, classAt) {
+    const runs = [];
+    for (let index = 0; index < pointCount; index++) {
+      const className = classAt(index);
+      const current = runs[runs.length - 1];
+      if (current && current.className === className) {
+        current.indices.push(index);
+      } else {
+        if (current) current.indices.push(index);
+        runs.push({ className, indices: [index] });
+      }
+    }
+    return runs.filter((run) => run.indices.length > 1);
   }
   function cardPronunciationReading(card) {
     const reading = pronunciationCandidate(card.reading);
@@ -35816,15 +35925,18 @@ ${component.reading}`;
     async applyLocalPitchAccent(card, metaEntries) {
       const settings = this.settings();
       if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-      const patterns = await localPitchPatternsFromMetaLookup(
+      const resolution = await localPitchResolutionFromMetaLookup(
         card.spelling,
         card.reading,
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
         { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
       ).catch((error) => {
         log$i.warn("Local pitch lookup failed", { term: card.spelling }, error);
-        return [];
+        return { patterns: [] };
       });
+      const patterns = resolution.patterns;
+      if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+      else if (patterns.length) delete card.pitchSegments;
       if (!patterns.length) return;
       if (!card.pitchAccent.length) {
         card.pitchAccent = patterns;
@@ -36061,6 +36173,16 @@ ${component.reading}`;
     word.dataset.pitchClass = pitchClass;
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
   }
+  function applyRenderedWordCompoundPitch(word, card) {
+    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
+    if (gradient) {
+      word.classList.add("jpdb-reader-pitch-compound");
+      word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
+    } else {
+      word.classList.remove("jpdb-reader-pitch-compound");
+      word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
+    }
+  }
   function setRenderedWordCardIdentity(word, card) {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
@@ -36079,6 +36201,7 @@ ${component.reading}`;
     const pitchAccent = card.pitchAccent.join("|");
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
+    applyRenderedWordCompoundPitch(word, card);
     word.classList.add(`jpdb-${state}`);
     if (source !== "jpdb") word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);
@@ -39879,11 +40002,15 @@ ${spelling}`);
       const key = localPitchCacheKey(card, settings);
       const cached = this.localPitchCache.get(key);
       if (cached) return cached;
-      const promise = localPitchPatternsFromMetaLookup(
+      const promise = localPitchResolutionFromMetaLookup(
         card.spelling,
         card.reading,
         (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
-      ).then((patterns) => patterns[0] ?? "").catch((error) => {
+      ).then((resolution) => {
+        if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+        else if (resolution.patterns.length) delete card.pitchSegments;
+        return resolution.patterns[0] ?? "";
+      }).catch((error) => {
         log$f.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
@@ -45502,7 +45629,57 @@ ${reading}`);
     if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
     if (color.startsWith("oklab(")) return parseOklabFunction(color);
     if (color.startsWith("oklch(")) return parseOklchFunction(color);
-    return null;
+    return probeCssColor(color);
+  }
+  const probedColors = /* @__PURE__ */ new Map();
+  let probeContext;
+  function probeCssColor(color) {
+    const cached = probedColors.get(color);
+    if (cached !== void 0) return cached;
+    if (probeContext === void 0) {
+      try {
+        probeContext = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+      } catch {
+        probeContext = null;
+      }
+    }
+    let parsed = null;
+    if (probeContext) {
+      try {
+        probeContext.fillStyle = "#010203";
+        probeContext.fillStyle = color;
+        const serialized = String(probeContext.fillStyle).toLowerCase();
+        if (serialized !== "#010203") {
+          if (serialized.startsWith("#")) {
+            const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(serialized);
+            parsed = hex ? hexToRgbaColor(expandHexColor(hex[1])) : null;
+          } else if (serialized.startsWith("rgb")) {
+            parsed = parseRgbFunction(serialized);
+          } else if (serialized.startsWith("color(srgb ")) {
+            parsed = parseSrgbFunction(serialized);
+          }
+          if (!parsed) parsed = probePixelColor(probeContext, color);
+        }
+      } catch {
+        parsed = null;
+      }
+    }
+    if (probedColors.size > 512) probedColors.clear();
+    probedColors.set(color, parsed);
+    return parsed;
+  }
+  function probePixelColor(context, color) {
+    try {
+      context.canvas.width = 1;
+      context.canvas.height = 1;
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      const [red, green, blue, alphaByte] = context.getImageData(0, 0, 1, 1).data;
+      return { red, green, blue, alpha: alphaByte / 255 };
+    } catch {
+      return null;
+    }
   }
   function blendRgba(foreground, background) {
     const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
@@ -48648,6 +48825,28 @@ ${options.version}`;
       canonicalAnswer: primaryAnswers[0] ?? card.spelling.trim()
     };
   }
+  function evaluateNewTabSentenceCopyAnswer(card, answer, cloze, reading = card.reading) {
+    const wordEvaluation = evaluateNewTabRecallAnswer(card, answer, reading);
+    if (!cloze.hasCloze) return wordEvaluation;
+    const normalized2 = normalizeSentenceCopyAnswer(answer);
+    if (!normalized2) return { ...wordEvaluation, outcome: "empty" };
+    const frame = (fill) => normalizeSentenceCopyAnswer(cloze.before + fill + cloze.after);
+    const answerIsSpelling = splitRecallAnswers(card.spelling).some((candidate) => normalizeNewTabRecallAnswer(candidate) === normalizeNewTabRecallAnswer(cloze.answer));
+    if (normalized2 === frame(card.spelling) || answerIsSpelling && normalized2 === frame(cloze.answer)) {
+      return { ...wordEvaluation, outcome: "correct" };
+    }
+    const readings = [cloze.answer, reading, ...card.fallbackLookupTerms ?? []].flatMap((value) => splitRecallAnswers(value));
+    if (readings.some((candidate) => candidate && normalized2 === frame(candidate))) {
+      return { ...wordEvaluation, outcome: "accepted" };
+    }
+    if (wordEvaluation.outcome === "correct" || wordEvaluation.outcome === "accepted") {
+      return { ...wordEvaluation, outcome: "accepted" };
+    }
+    return { ...wordEvaluation, outcome: "incorrect" };
+  }
+  function normalizeSentenceCopyAnswer(value) {
+    return value.normalize("NFKC").replace(/[\s\u3000]/gu, "").replace(/[。、．，,.!！?？・「」『』（）()［］[\]〔〕【】…‥:：;；〜~"'“”‘’]/gu, "").toLowerCase();
+  }
   function normalizeNewTabRecallAnswer(value) {
     return value.normalize("NFKC").replace(/[\s\u3000]/gu, "").toLowerCase();
   }
@@ -49265,10 +49464,10 @@ ${options.version}`;
       ...configured,
       "kanji-doodle",
       "word",
+      "type-word",
       "recall-cloze",
       "listen-pitch",
-      "speaking",
-      "type-word"
+      "speaking"
     ]);
   }
   function dedupeChallengeSteps(steps) {
@@ -50045,7 +50244,22 @@ ${entry.url}`),
     constructor(deps) {
       this.deps = deps;
     }
-    async enqueue(card, grade2, targets) {
+    // Read-modify-write mutex: a flush that snapshotted the queue while an
+    // enqueue landed would otherwise clobber the fresh grade with its stale
+    // snapshot on the final write — a silently deleted review.
+    serial = Promise.resolve();
+    enqueue(card, grade2, targets) {
+      return this.locked(() => this.enqueueUnlocked(card, grade2, targets));
+    }
+    flush() {
+      return this.locked(() => this.flushUnlocked());
+    }
+    locked(operation) {
+      const next = this.serial.then(operation, operation);
+      this.serial = next.then(() => void 0, () => void 0);
+      return next;
+    }
+    async enqueueUnlocked(card, grade2, targets) {
       const queueTargets = queueableNewTabReviewTargets(targets);
       if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
       const queue = await this.read();
@@ -50068,7 +50282,7 @@ ${entry.url}`),
       return (await this.read()).length;
     }
     // Flushes the queue and returns how many grades still remain unsynced.
-    async flush() {
+    async flushUnlocked() {
       const queue = await this.read();
       if (!queue.length) return 0;
       const pending = [];
@@ -50122,6 +50336,67 @@ ${entry.url}`),
   }
   function isJpdbGrade(value) {
     return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
+  }
+  let pendingChoice = null;
+  let pendingPanel = null;
+  let pendingFinish = null;
+  function cancelConnectionLostDialog() {
+    pendingFinish?.("stop");
+  }
+  function showConnectionLostDialog(host2, text2) {
+    if (pendingChoice && pendingPanel?.isConnected) return pendingChoice;
+    if (pendingChoice) cancelConnectionLostDialog();
+    pendingChoice = new Promise((resolve) => {
+      const finish = (choice) => {
+        pendingChoice = null;
+        pendingPanel = null;
+        pendingFinish = null;
+        backdrop.remove();
+        panel.remove();
+        previousFocus?.focus?.();
+        resolve(choice);
+      };
+      const backdrop = createReaderBackdrop(() => finish("stop"));
+      const panel = host2.createElement("section");
+      panel.className = "jpdb-reader-connection-lost";
+      panel.dataset.jpdbReaderRoot = "true";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
+      panel.setAttribute("aria-label", text2.title);
+      panel.tabIndex = -1;
+      const title = host2.createElement("h2");
+      title.textContent = text2.title;
+      const body = host2.createElement("p");
+      body.textContent = text2.body;
+      const actions = host2.createElement("div");
+      actions.className = "jpdb-reader-connection-lost-actions";
+      const action = (label, choice) => {
+        const button = host2.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.dataset.connectionLostAction = choice;
+        button.addEventListener("click", () => finish(choice));
+        actions.append(button);
+        return button;
+      };
+      action(text2.stop, "stop");
+      const primary = action(text2.continueOffline, "continue");
+      primary.classList.add("jpdb-reader-connection-lost-primary");
+      action(text2.retry, "retry");
+      panel.append(title, body, actions);
+      panel.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          finish("stop");
+        }
+      });
+      const previousFocus = host2.activeElement;
+      host2.body.append(backdrop, panel);
+      pendingPanel = panel;
+      pendingFinish = finish;
+      primary.focus();
+    });
+    return pendingChoice;
   }
   class NewTabImmersionAudioPlayer {
     constructor(deps) {
@@ -51553,6 +51828,15 @@ ${entry.url}`),
     offlineWarmRetryTimer;
     syncPendingCount = 0;
     lastSyncedAt = null;
+    // n+1 sentence selection: once per card the example sentences from every
+    // source are scored against the learner's known words and the best one
+    // (all known + at most one new word) replaces the card's own sentence.
+    studySentenceOverrides = /* @__PURE__ */ new Map();
+    nPlusOneSentenceRequests = /* @__PURE__ */ new Set();
+    // Set once the user chooses "Continue offline" in the connection-lost
+    // dialog; later drops in the same outage queue silently. Cleared when the
+    // browser reports it is back online so the next outage asks again.
+    offlineReviewingAccepted = false;
     uchisenDataCache = /* @__PURE__ */ new Map();
     immersionCache = /* @__PURE__ */ new Map();
     immersionExampleIndex = /* @__PURE__ */ new Map();
@@ -51832,6 +52116,7 @@ ${entry.url}`),
     destroy() {
       if (this.destroyed) return;
       this.destroyed = true;
+      cancelConnectionLostDialog();
       this.stopSessionClock();
       if (this.ownsSessionClock) this.sessionClock.dispose();
       this.clearListenRecording();
@@ -51843,6 +52128,8 @@ ${entry.url}`),
       this.clearSearchHandwritingDebounce();
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
+      this.studySentenceOverrides.clear();
+      this.nPlusOneSentenceRequests.clear();
       this.rootEventController = void 0;
       const root = this.currentRoot();
       if (root) delete root.dataset.newtabBound;
@@ -51953,6 +52240,8 @@ ${entry.url}`),
       this.immersionExampleIndex.clear();
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
+      this.studySentenceOverrides.clear();
+      this.nPlusOneSentenceRequests.clear();
       this.doodlePreviewCache.clear();
       this.recallAnswers.clear();
       this.recallOutcomes.clear();
@@ -52304,7 +52593,10 @@ ${entry.url}`),
       const syncQueuedGrades = () => {
         void this.flushQueuedGrades();
       };
-      window.addEventListener("online", syncQueuedGrades, { signal: controller.signal });
+      window.addEventListener("online", () => {
+        this.offlineReviewingAccepted = false;
+        syncQueuedGrades();
+      }, { signal: controller.signal });
       window.addEventListener("focus", syncQueuedGrades, { signal: controller.signal });
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) syncQueuedGrades();
@@ -56378,6 +56670,7 @@ ${entry.url}`),
       if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
     }
     renderRecallQuestion(prompt, card) {
+      this.ensureNPlusOneStudySentence(card);
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
       prompt.lang = cloze.hasCloze ? "ja" : "en";
@@ -56510,13 +56803,67 @@ ${entry.url}`),
     }
     // ----- Type-word: reproduce the recall word (typed or handwritten) -----
     renderTypeWordPrompt(slots, card) {
-      if (slots.prompt) this.renderRecallQuestion(slots.prompt, card);
+      if (slots.prompt) this.renderTypeWordQuestion(slots.prompt, card);
       this.renderTypeWordAnswer(slots.answer, card);
       this.renderRecallMeaning(slots.meaning, card);
       if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
     }
     typeWordInputMode() {
       return this.dependencies.getSettings().newTabTypeWordInputMode === "handwriting" ? "handwriting" : "keyboard";
+    }
+    renderTypeWordQuestion(prompt, card) {
+      this.ensureNPlusOneStudySentence(card);
+      const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
+      if (!cloze.hasCloze || this.typeWordInputMode() === "handwriting") {
+        this.renderRecallQuestion(prompt, card);
+        return;
+      }
+      const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
+      prompt.lang = "ja";
+      delete prompt.dataset.newtabExpression;
+      delete prompt.dataset.newtabSentenceRequest;
+      delete prompt.dataset.newtabPromptParseRequest;
+      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-prompt-has-sentence", "jpdb-reader-newtab-kanji-prompt");
+      prompt.classList.add("jpdb-reader-newtab-recall-prompt", "jpdb-reader-newtab-copy-prompt");
+      prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
+      const sentenceNode = renderNewTabFrontSentence(card, cloze.sentence, this.studySentenceRenderSettings(), this.cachedParsedNewTabSentenceTokens(cloze.sentence));
+      this.blankTypeWordSentenceTargets(sentenceNode, cloze);
+      replaceChildrenWith(
+        prompt,
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-recall-question jpdb-reader-newtab-recall-cloze" },
+          el("span", { class: "jpdb-reader-newtab-recall-cloze-sentence" }, sentenceNode),
+          el("span", { class: "jpdb-reader-newtab-recall-hint", lang: resolveUiLanguage(this.language()) === "ja" ? "ja" : "en" }, meaning)
+        )
+      );
+      void this.parseNewTabPromptSentence(prompt, card).then(() => {
+        if (!prompt.isConnected) return;
+        const current = this.visibleWords[this.index];
+        if (!current || cardKey(current) !== cardKey(card)) return;
+        if (this.studySessionForCard(current).activeStep.kind !== "type-word") return;
+        this.blankTypeWordSentenceTargets(prompt, cloze);
+      });
+    }
+    // The copy prompt must never show the answer: every rendered occurrence of
+    // the target word becomes a gap. If highlighting failed to mark it (parse
+    // fallback), rebuild the line from the cloze's before/after halves.
+    blankTypeWordSentenceTargets(root, cloze) {
+      const gapNode = () => el("span", { class: "jpdb-reader-newtab-recall-gap", "aria-label": this.text("recallAnswer") });
+      const targets = [...root.querySelectorAll(".jpdb-reader-example-target")];
+      if (targets.length) {
+        targets.forEach((word) => word.replaceWith(gapNode()));
+        return;
+      }
+      if (root.querySelector(".jpdb-reader-newtab-recall-gap")) return;
+      const sentence = root instanceof HTMLElement && root.matches("[data-newtab-sentence-render]") ? root : root.querySelector("[data-newtab-sentence-render]");
+      if (!sentence || !cloze.answer) return;
+      replaceChildrenWith(
+        sentence,
+        document.createTextNode(cloze.before),
+        gapNode(),
+        document.createTextNode(cloze.after)
+      );
     }
     renderTypeWordAnswer(answer, card) {
       if (!answer) return;
@@ -56561,6 +56908,7 @@ ${entry.url}`),
       );
     }
     renderTypeWordKeyboard(card) {
+      const copySentence = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze;
       return el(
         "form",
         { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
@@ -56568,7 +56916,7 @@ ${entry.url}`),
           class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
           dataset: { newtabTypeInput: true },
           value: this.typeAnswers.get(cardKey(card)) ?? "",
-          placeholder: this.text("typeWordPlaceholder"),
+          placeholder: this.text(copySentence ? "typeSentencePlaceholder" : "typeWordPlaceholder"),
           autocomplete: "off",
           autocapitalize: "none",
           autocorrect: "off",
@@ -56576,7 +56924,7 @@ ${entry.url}`),
           inputmode: "text",
           enterkeyhint: "done",
           lang: "ja",
-          "aria-label": this.text("typeWordPlaceholder"),
+          "aria-label": this.text(copySentence ? "typeSentencePlaceholder" : "typeWordPlaceholder"),
           disabled: this.state.revealAnswer
         }),
         el("button", {
@@ -56687,7 +57035,8 @@ ${entry.url}`),
       const card = this.visibleWords[this.index];
       const input2 = root.querySelector("[data-newtab-type-input]");
       if (!card || !input2) return;
-      const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
+      const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
+      const evaluation = this.typeWordInputMode() === "keyboard" ? evaluateNewTabSentenceCopyAnswer(card, input2.value, cloze, newTabCardReading(card)) : evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       this.typeAnswers.set(cardKey(card), input2.value);
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
@@ -56825,18 +57174,13 @@ ${entry.url}`),
         if (small && keyword) small.textContent = keyword;
       });
     }
-    renderWordPromptTools(card, data) {
+    renderWordPromptTools(card) {
       const settings = this.dependencies.getSettings();
       if (!this.state.revealAnswer) {
         return el("span", { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } });
       }
       const rawReading = newTabCardOptionalReading(card);
       const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: "all", showFurigana: true }, rawReading) ? rawReading : "";
-      let pitch = "";
-      if (settings.showPitchAccent) {
-        pitch = renderPitch(card, data?.metaEntries ?? [], { primary: this.text("pitchVariantPrimary"), alternative: this.text("pitchVariantAlso") }) || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : "");
-      }
-      const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
       return el(
         "span",
         { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } },
@@ -56844,8 +57188,7 @@ ${entry.url}`),
           "span",
           { class: "jpdb-reader-newtab-study-tool-main" },
           reading ? el("span", { class: "jpdb-reader-reading" }, reading) : null
-        ),
-        pitchNode ? el("span", { class: "jpdb-reader-card-tools" }, pitchNode) : null
+        )
       );
     }
     // The study-word audio control now lives inline next to the headword (see
@@ -56876,7 +57219,7 @@ ${entry.url}`),
       this.applyLocalStudyReading(card, data);
       const term = prompt.querySelector(":scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term");
       if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
-      prompt.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card, data));
+      prompt.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card));
       this.dependencies.installDictionarySourceTracking?.(prompt);
     }
     applyLocalStudyReading(card, data) {
@@ -56959,15 +57302,11 @@ ${entry.url}`),
       const word = this.renderReaderWord(card, state, card.spelling, sentence);
       word.classList.add("jpdb-reader-parseable");
       const revealAnswer = this.state.revealAnswer;
-      if (revealAnswer) {
-        word.dataset.jpdbReaderKanjiNav = "true";
-        word.dataset.jpdbReaderKanjiNavLabel = this.text("showKanji");
-      }
       setInnerHtml(word, renderCardSpellingWithFurigana(card, {
         ...this.dependencies.getSettings(),
         furiganaMode: revealAnswer ? "all" : "off",
         showFurigana: revealAnswer
-      }, { enabled: revealAnswer, label: this.text("showKanji") }));
+      }, { enabled: false, label: this.text("showKanji") }));
       if (!revealAnswer) this.hidePromptPronunciation(word);
       return word;
     }
@@ -57001,7 +57340,14 @@ ${entry.url}`),
     }
     studySentenceRenderSettings() {
       const settings = this.dependencies.getSettings();
-      return this.state.revealAnswer ? settings : hiddenNewTabStudySentenceSettings(settings);
+      if (this.state.revealAnswer) return settings;
+      if (this.activeStudyStepKindForCurrentCard() === "type-word") return settings;
+      return hiddenNewTabStudySentenceSettings(settings);
+    }
+    activeStudyStepKindForCurrentCard() {
+      const card = this.visibleWords[this.index];
+      if (!card) return null;
+      return this.studySessionForCard(card).activeStep.kind;
     }
     async parseNewTabPromptSentence(prompt, card) {
       if (!this.shouldParseSentencePrompt()) return;
@@ -57060,7 +57406,75 @@ ${entry.url}`),
     // the Word step's context sentence). Gating recall behind it silently
     // dropped the step for every card that carries a sentence.
     recallSentenceFromCard(card) {
-      return normalizePromptContextSentence(card.sentence, card);
+      return this.studySentenceOverrides.get(cardKey(card)) ?? normalizePromptContextSentence(card.sentence, card);
+    }
+    ensureNPlusOneStudySentence(card) {
+      const key = cardKey(card);
+      if (this.nPlusOneSentenceRequests.has(key)) return;
+      this.nPlusOneSentenceRequests.add(key);
+      void this.selectNPlusOneStudySentence(card).then((sentence) => {
+        if (!sentence || sentence === this.recallSentenceFromCard(card)) return;
+        const root = this.currentRoot();
+        const active = this.visibleWords[this.index];
+        const isCurrent = Boolean(root && active && cardKey(active) === key);
+        if (isCurrent) {
+          if (this.recallAnswers.get(key) || this.typeAnswers.get(key) || this.state.revealAnswer) return;
+          const typed = root.querySelector("[data-newtab-type-input], [data-newtab-recall-input]");
+          if (typed?.value.trim()) return;
+        }
+        this.studySentenceOverrides.set(key, sentence);
+        if (isCurrent) this.renderWord(root, active);
+      });
+    }
+    // jpdb-style n+1: aggregate example sentences from the card itself, the
+    // front-sentence provider (JPDB), and Immersion Kit, then pick the one the
+    // learner can read — every non-target word known, ideally introducing
+    // exactly one new thing. Reading just above your level, never far above.
+    async selectNPlusOneStudySentence(card) {
+      const reading = newTabCardReading(card);
+      const base = normalizePromptContextSentence(card.sentence, card);
+      const candidates = /* @__PURE__ */ new Set();
+      if (base) candidates.add(base);
+      const [front, examples] = await Promise.all([
+        this.loadFrontSentence(card).catch(() => ""),
+        this.dependencies.getSettings().immersionKitEnabled ? this.loadImmersionExamples(card).catch(() => []) : Promise.resolve([])
+      ]);
+      const normalizedFront = normalizePromptContextSentence(front, card);
+      if (normalizedFront) candidates.add(normalizedFront);
+      for (const example of examples.slice(0, 8)) {
+        const sentence = normalizePromptContextSentence(example.sentence, card);
+        if (sentence) candidates.add(sentence);
+      }
+      const clozeable = [...candidates].filter((sentence) => buildNewTabRecallCloze(card, sentence, reading).hasCloze);
+      if (clozeable.length <= 1) return clozeable[0] ?? "";
+      const scored = await Promise.all(clozeable.map(async (sentence) => ({
+        sentence,
+        score: await this.nPlusOneSentenceScore(card, sentence)
+      })));
+      scored.sort((a, b) => b.score - a.score);
+      return scored[0]?.sentence ?? "";
+    }
+    async nPlusOneSentenceScore(card, sentence) {
+      const tokens = await this.parsedNewTabSentenceTokens(sentence).catch(() => []);
+      const targetKey = cardKey(card);
+      let known = 0;
+      let fresh = 0;
+      let total = 0;
+      for (const token of tokens) {
+        const tokenCard = token.card;
+        if (!tokenCard?.spelling) continue;
+        if (cardKey(tokenCard) === targetKey || tokenCard.spelling === card.spelling) continue;
+        const state = primaryCardState(tokenCard.cardState);
+        total += 1;
+        if (state === "new" || state === "not-in-deck" || state === "in-deck" || state === "unparsed") fresh += 1;
+        else known += 1;
+      }
+      if (!total) return sentence === normalizePromptContextSentence(card.sentence, card) ? 0.5 : 0;
+      const noveltyScore = fresh === 1 ? 4 : fresh === 0 ? 3 : fresh === 2 ? 1 : 0;
+      const knownRatio = known / total;
+      const length = sentence.length;
+      const lengthScore = length >= 8 && length <= 42 ? 1 : length < 8 ? 0.25 : 0.5;
+      return noveltyScore * 10 + knownRatio * 5 + lengthScore;
     }
     loadFrontSentence(card) {
       const key = this.frontSentenceCacheKey(card);
@@ -57116,7 +57530,9 @@ ${entry.url}`),
       const index = this.normalizedImmersionExampleIndex(key, examples);
       const immersion = this.renderNewTabImmersionCard(card, examples, index);
       meaning.querySelectorAll(":scope > .jpdb-reader-newtab-immersion").forEach((element2) => element2.remove());
-      meaning.append(immersion);
+      const dictionaries = meaning.querySelector(":scope > .jpdb-reader-newtab-reveal-dictionaries");
+      if (dictionaries) dictionaries.before(immersion);
+      else meaning.append(immersion);
       this.loadNewTabImmersionImage(immersion, examples[index]);
       await this.parseNewTabImmersionExample(immersion, card, key);
     }
@@ -57223,6 +57639,7 @@ ${entry.url}`),
         }
       }
       word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
+      applyCompoundPitchDecoration(word, card);
       word.dataset.vid = String(card.vid);
       word.dataset.sid = String(card.sid);
       word.dataset.expression = card.spelling;
@@ -59699,6 +60116,11 @@ ${entry.url}`),
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
         const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+        if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
+          const choice = await this.confirmOfflineReviewing(target.root);
+          if (choice === "stop") return false;
+          if (choice === "retry") return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+        }
         if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade2, queueTargets)) {
           this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
@@ -59713,6 +60135,7 @@ ${entry.url}`),
       try {
         this.setStatus(target.root, this.text("grading"));
         const submittedTarget = await this.submitGrade(target.card, grade2, selectedTarget);
+        this.offlineReviewingAccepted = false;
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade2, submittedTarget));
         if (!isCorrection) this.sessionProgress.recordReviewCompleted();
@@ -59731,6 +60154,15 @@ ${entry.url}`),
           return true;
         }
         const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+        if (this.networkGradeTargets(queueTargets) && window.navigator.onLine === false && !this.partialGradeSubmission(target.card, selectedTarget, error)) {
+          const choice = await this.confirmOfflineReviewing(target.root);
+          if (choice === "stop") return false;
+          if (choice === "retry") {
+            const current = this.currentGradeTarget();
+            if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
+            return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+          }
+        }
         if (queueTargets.length && await this.gradeQueue.enqueue(target.card, grade2, queueTargets)) {
           this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
@@ -59741,6 +60173,34 @@ ${entry.url}`),
         this.setStatus(target.root, this.text("couldNotSubmitGrade"));
       }
       return false;
+    }
+    // Local grading (Academy SRS) needs no connection, so it never raises the
+    // connection-lost dialog; only queued grades bound for a network provider do.
+    networkGradeTargets(targets) {
+      return targets.some((target) => target !== "yomu-local");
+    }
+    // True when a multi-target submit failed for only SOME of its providers:
+    // at least one provider already recorded this grade.
+    partialGradeSubmission(card, selectedTarget, error) {
+      if (!(error instanceof NewTabGradeSubmissionError)) return false;
+      const attempted = selectedTarget ? this.offlineGradeTargetsForSelection(card, selectedTarget).length : this.reviewSourceSummary(card).targets.length;
+      return attempted > error.failures.length;
+    }
+    // Asks once per outage whether to keep reviewing offline. "Continue" is
+    // remembered until the browser comes back online; "stop" leaves the card
+    // ungraded so nothing is queued or lost behind the user's back.
+    async confirmOfflineReviewing(root) {
+      if (this.offlineReviewingAccepted) return "continue";
+      const choice = await showConnectionLostDialog(root.ownerDocument, {
+        title: this.text("connectionLostTitle"),
+        body: this.text("connectionLostBody"),
+        stop: this.text("connectionLostStop"),
+        continueOffline: this.text("connectionLostContinue"),
+        retry: this.text("connectionLostRetry")
+      });
+      if (choice === "continue") this.offlineReviewingAccepted = true;
+      if (choice === "stop") this.setStatus(root, this.text("reviewsPausedOffline"));
+      return choice;
     }
     async reloadAfterAmbiguousBunproGrade(root, card) {
       const key = cardKey(card);
@@ -61370,16 +61830,22 @@ ${entry.url}`),
     for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
     let found = false;
     let hasImageBackdrop = false;
+    let unknownBase = false;
     let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
     for (const element2 of ancestors.reverse()) {
       const style = getComputedStyle(element2);
       hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
       const color = cssColorToRgba(style.backgroundColor);
-      if (!color || color.alpha <= 0) continue;
+      if (!color) {
+        unknownBase = true;
+        continue;
+      }
+      if (color.alpha <= 0) continue;
+      if (color.alpha >= 1) unknownBase = false;
       rgba = blendRgba(color, rgba);
       found = true;
     }
-    if (!found) {
+    if (unknownBase || !found) {
       if (hasImageBackdrop) return null;
       return inferredTransparentPageBackground(word);
     }
@@ -61391,7 +61857,7 @@ ${entry.url}`),
     const bodyStyle = getComputedStyle(document.body);
     const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
     if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    const pageTextColors = [bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
     if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
       return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
     }
