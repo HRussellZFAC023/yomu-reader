@@ -17,24 +17,17 @@ import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 // pitch bank), capped to keep the header compact.
 const MAX_PITCH_VARIANTS = 3;
 
-// Localized commonality labels: surfaces without a translator (popover) omit
-// them and get badge-less graphs, exactly as before.
-export interface PitchVariantLabels {
-    primary: string;
-    alternative: string;
-}
-
-export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = [], labels?: PitchVariantLabels): string {
+export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
     const reading = cardPronunciationReading(card);
     if (!reading) return '';
     const variants = collectPitchVariants(reading, [
         ...(card.pitchAccent ?? []),
         ...localPitchPatternsFromMeta(reading, metaEntries),
     ], MAX_PITCH_VARIANTS);
-    return renderPitchVariantGraphs(reading, variants, labels, card.pitchSegments);
+    return renderPitchVariantGraphs(reading, variants, card.pitchSegments);
 }
 
-export function renderPitchVariantGraphs(reading: string, variants: PitchVariant[], labels?: PitchVariantLabels, compoundSegments?: CompoundPitchSegment[]): string {
+export function renderPitchVariantGraphs(reading: string, variants: PitchVariant[], compoundSegments?: CompoundPitchSegment[]): string {
     // A composed compound colours the ONE graph per constituent, but only for
     // the variant whose contour is the composition itself.
     const composedPattern = compoundSegments?.map(segment => segment.pattern).join('') ?? '';
@@ -48,18 +41,33 @@ export function renderPitchVariantGraphs(reading: string, variants: PitchVariant
         .filter(entry => entry.svg);
     if (!graphs.length) return '';
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
+    const percentages = pitchVariantDisplayPercentages(graphs.map(entry => entry.variant));
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs
-        .map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? ' jpdb-reader-pitch-variant-primary' : ''}">${entry.svg}${renderVariantBadge(entry.variant, index === 0, labels)}</span>`)
+        .map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? ' jpdb-reader-pitch-variant-primary' : ''}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`)
         .join('')}</div>`;
 }
 
-function renderVariantBadge(variant: PitchVariant, primary: boolean, labels?: PitchVariantLabels): string {
-    // A true percentage always wins; otherwise fall back to the ordinal labels.
-    const text = variant.commonality != null
-        ? `${Math.round(variant.commonality)}%`
-        : labels ? (primary ? labels.primary : labels.alternative) : '';
-    if (!text) return '';
-    return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml(text)}</span>`;
+// Current pitch banks expose source order, not measured prevalence. For those
+// ordinal-only candidates, descending weights (N…1) make the ordering explicit
+// as compact display shares that always total 100%. If a future source supplies
+// commonality for EVERY variant, those real values determine the shares instead.
+export function pitchVariantDisplayPercentages(variants: PitchVariant[]): number[] {
+    if (!variants.length) return [];
+    const supplied = variants.map(variant => variant.commonality);
+    const hasCompleteCommonality = supplied.every(value => Number.isFinite(value) && (value ?? 0) >= 0)
+        && supplied.some(value => (value ?? 0) > 0);
+    const weights = hasCompleteCommonality
+        ? supplied.map(value => value ?? 0)
+        : variants.map((_, index) => variants.length - index);
+    const total = weights.reduce((sum, value) => sum + value, 0);
+    const exact = weights.map(value => value * 100 / total);
+    const percentages = exact.map(Math.floor);
+    const remainder = 100 - percentages.reduce((sum, value) => sum + value, 0);
+    const remainderOrder = exact
+        .map((value, index) => ({ index, remainder: value - percentages[index] }))
+        .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+    for (let index = 0; index < remainder; index++) percentages[remainderOrder[index].index]++;
+    return percentages;
 }
 
 export interface ExpressionComponentLookup {
@@ -69,6 +77,20 @@ export interface ExpressionComponentLookup {
 
 export interface ExpressionComponentPitch extends ExpressionComponentLookup {
     pitch: string;
+}
+
+export function alignedExpressionComponentPitches(
+    card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
+    components: ExpressionComponentLookup[],
+    componentPitches: ExpressionComponentPitch[],
+): ExpressionComponentPitch[] {
+    if (components.length < 2 || components.map(component => component.text).join('') !== card.spelling.trim()) return [];
+    const aligned = components.map(component => componentPitches.find(pitch =>
+        pitch.text === component.text && pitch.reading === component.reading,
+    ));
+    if (aligned.some(component => !component)) return [];
+    if (aligned.map(component => component?.reading ?? '').join('') !== cardPronunciationReading(card)) return [];
+    return aligned as ExpressionComponentPitch[];
 }
 
 export interface PitchGraphRenderOptions {

@@ -276,9 +276,9 @@ describe('new-tab Listen mode', () => {
             expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
             expect(root.querySelector('[data-listen-pos="2"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
             expect(root.querySelector('.jpdb-reader-newtab-listen-pos-wrong')).toBeNull();
-            // Both accepted variants render in the feedback with ordinal badges.
+            // Both accepted variants render with relative source-order shares.
             const badges = Array.from(root.querySelectorAll('.jpdb-reader-pitch-variant-badge'), badge => badge.textContent);
-            expect(badges).toEqual(['Most common', 'Also used']);
+            expect(badges).toEqual(['67%', '33%']);
         } finally {
             controller.destroy();
         }

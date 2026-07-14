@@ -209,6 +209,16 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Long compounds with both whole-word and constituent pitch data now keep one authoritative component view, so inline underlines and popup graphs agree for terms such as 双子座流星群.': '単語全体と構成語の両方にピッチ情報がある長い複合語は、構成語表示を一貫して優先します。これにより、双子座流星群のような語でも本文の下線とポップアップのグラフが一致します。',
+    'Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.': '複数の有効なピッチ型は、「最も一般的」「他の型」という文言ではなく、コンパクトな割合で表示します。出典が順序だけを示す場合は合計100%になる相対比率を使い、実測の一般度が提供される場合はその値を優先します。',
+    'Popup audio controls stay pinned to the top-right when a word has multiple pitch-accent graphs. Two or three variants now share a compact full-width row with balanced spacing and wrap cleanly on narrow screens.': '複数のピッチアクセントグラフがある単語でも、音声ボタンを右上に固定しました。2つまたは3つのグラフは余白を揃えたコンパクトな全幅行に並び、狭い画面ではきれいに折り返します。',
+    'Repeated compound words keep their constituent pitch-accent segments, so proper compound underlines no longer degrade to one flattened pattern after the first occurrence.': '同じ複合語が繰り返し現れても構成語ごとのピッチアクセントを保持し、2回目以降に下線が単一の平坦なパターンへ崩れないようにしました。',
+    'Discord and other framework-managed chats immediately preserve newly appended message text while Yomu refreshes annotations, preventing suffixes such as': 'Discordなどのフレームワーク管理チャットで、よむが注釈を更新している間も追記されたメッセージをすぐ表示し、次のような接尾部が',
+    'from briefly disappearing.': '一時的に消えないようにしました。',
+    'Help now shows the installed Yomu version in split userscript builds instead of': '分割ユーザースクリプト版のヘルプで、インストール済みのよむバージョンを次の代替表示ではなく正しく表示します：',
+    '. On Chromium with Tampermonkey, Update opens the dashboard update-check instructions instead of triggering Chrome’s blocked website-install banner; release verification also rejects a settings companion that loses its version or canonical Study update endpoint.': '。Chromium版Tampermonkeyでは、「更新」からダッシュボードの更新確認手順を開き、Chromeのウェブサイトインストール拒否警告を回避します。リリース検証では、バージョンまたは正規のStudy更新先を失った設定コンパニオンも拒否します。',
+    'Popup grammar tags such as': 'ポップアップの文法タグ（例：',
+    'are expanded into readable labels instead of exposing dictionary shorthand.': '）を辞書の略号のまま表示せず、読みやすい説明へ展開します。',
     'Testing': 'テスト',
     'Academy': 'アカデミー',
     'Learn through the guided course with the same vocabulary collection and review history.': '同じ単語コレクションと復習履歴を使い、ガイド付きコースで学べます。',

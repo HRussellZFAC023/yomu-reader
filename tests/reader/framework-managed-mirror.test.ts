@@ -43,6 +43,41 @@ afterEach(() => { removeNonDestructiveScanMirrors(document); document.body.inner
 // framework-owned chat surfaces with the non-destructive mirror, which never mutates
 // the framework's own nodes, so React keeps ownership and re-renders safely.
 describe('framework-managed chat mirror', () => {
+    it('keeps a Discord message suffix visible while a progressively grown host is rescanned', async () => {
+        const initial = 'スター';
+        const complete = 'スタープラチナ';
+        document.body.innerHTML = `<main role="main"><div id="host" class="messageContent"><span id="prefix">ス</span><span id="prefix-rest">ター</span></div></main>`;
+        const host = document.getElementById('host')!;
+        const prefix = document.getElementById('prefix')!;
+        markReactOwned(host);
+
+        const target = collectFragmentTextTargetsIn(host, 40, false).find(candidate => candidate.text === initial);
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [{
+            card: { ...CARD, spelling: initial, reading: 'すたー' },
+            start: 0,
+            end: initial.length,
+            length: initial.length,
+            rubies: [{ text: 'すたー', start: 0, end: initial.length, length: initial.length }],
+            pitchClass: '',
+            sentence: initial,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        expect(host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.textContent).toContain(initial);
+        expect(host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.parentElement).toBe(host);
+
+        // Discord/React keeps the existing nested node and appends the rest of
+        // the message in a sibling text node. The mirror must expose the suffix
+        // immediately instead of continuing to paint only the cached prefix.
+        document.getElementById('prefix-rest')!.after(document.createTextNode('プラチナ'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+        expect(mirror?.textContent).toContain(complete);
+        expect(mirror?.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe(initial);
+        expect(prefix.textContent).toBe('ス');
+        expect(host.childNodes[2]?.textContent).toBe('プラチナ');
+    });
+
     it('conceals text instead of hiding a STYLED framework host (box paint survives)', () => {
         document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown" style="background-color: rgb(31, 41, 55); border: 1px solid rgb(99, 102, 241);">${TEXT}<svg aria-hidden="true"></svg></div></div>`;
         const host = document.getElementById('host')!;

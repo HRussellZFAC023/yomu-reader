@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.149
+// @version 1.6.150
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.149#sha256=csg1mtTQEIu4NCcBmLjuZHXkOfb27OnnnflnLgGS/ao=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.149#sha256=28elMUj3NSf/ZQ9tDGA6oWXj1RkLGLLOwB3T+PLS48A=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.149#sha256=5mRBV2UQvxv2Hpbj9CUYNMF/5PiRYa95jH1bxWBHnxs=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.149#sha256=q243zNvD6si2+W9ZyybbYmZ/gQoBeuRuTSvlm4T0hHM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.149#sha256=ydmq94M5XQfjnNLgrPiRMoAYmrDmRAu8fveZo0gUWuU=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.149#sha256=LLWEt7zKZIm6dvcZYwXYPL+NsZZt46GyqZs5ZHw1YzY=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.149#sha256=IYj9ExB78btCnaQYuPxK5UL/PNJECLQViKQXKg+XDqY=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.150#sha256=DXu53Mqu3QDqPbeJMJK82Kr2iIkbYzulnDdSsKw6p0o=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.150#sha256=/RyHB+Jg64nB2wvEBZZyG1cjjVXYD15z8o3XGrjsn6M=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.150#sha256=+3Zi/CQ2ANIASMC+zjHPOAwI0W/Q9Mh5uyZgiFKMitg=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.150#sha256=zDfMbW8rcoHQK+w9koo18lvwKg4ovRlRO3aCY3fEn8s=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.150#sha256=A2QX8rJSnKfsFyLCEUzPSvbryW0BpL4vQmysJ2/984U=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.150#sha256=5SXmlbRpyJDX1KD8g/bIbxIALuYW404RA6++dgSRcvA=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.150#sha256=Ng2tjE7gxJITTjfC3orNzDif1gvFYWSk0BRrieWeApM=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -7274,8 +7274,9 @@ function observeTextMirrorHost(host) {
     return;
   }
   if (currentText !== liveState.sourceText) {
-    reassertTextMirrorHostStyles(liveHost, liveState);
     dispatchTextMirrorStale(liveHost);
+    if (replayNonDestructiveRenderFromCache(liveHost, true)) return;
+    reassertTextMirrorHostStyles(liveHost, liveState);
     clearTimeout(liveState.staleRemovalTimer);
     const staleSource = liveState.sourceText;
     const staleLifecycle = liveState.lifecycle;
@@ -7362,17 +7363,19 @@ function rememberNonDestructiveRenderForReplay(host, target, planText, tokens, h
   epoch: nonDestructiveRenderCacheEpoch
   });
 }
-function replayNonDestructiveRenderFromCache(host) {
+function replayNonDestructiveRenderFromCache(host, allowCompatibleTextChange = false) {
   const entry = nonDestructiveRenderCache.get(host);
   if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
   if (entry.hadNativeRuby || !host.isConnected) return false;
-  if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+  const currentHostText = hostOriginalTextWithNodeOffsets(host).hostText;
+  const compatibleTextChange = currentHostText !== entry.hostTextAtRender && allowCompatibleTextChange && cachedTokenSurfacesRemainStable(entry, currentHostText);
+  if (currentHostText !== entry.hostTextAtRender && !compatibleTextChange) return false;
   if (entry.decoration) {
   const current = classifyDecoration(host);
   if (entry.decorationProfileOverride ? current === "skip" : current !== entry.decoration) return false;
   }
   const target = {
-  text: entry.planText,
+  text: compatibleTextChange ? currentHostText : entry.planText,
   parent: host,
   fragments: [],
   decoration: entry.decoration,
@@ -7395,6 +7398,13 @@ function replayNonDestructiveRenderFromCache(host) {
   }
   if (!currentTextMirror(host)) return false;
   return true;
+}
+function cachedTokenSurfacesRemainStable(entry, currentHostText) {
+  if (!currentHostText || currentHostText === entry.hostTextAtRender) return false;
+  return entry.tokens.length > 0 && entry.tokens.every((token) => {
+  if (token.start < 0 || token.end <= token.start || token.end > currentHostText.length) return false;
+  return entry.planText.slice(token.start, token.end) === currentHostText.slice(token.start, token.end);
+  });
 }
 function mutationInsideTextMirror(mutation) {
   const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
@@ -16053,22 +16063,66 @@ function optionalNumber(value) {
   return Number.isFinite(number) && number >= 0 ? number : void 0;
 }
 const POS_LABELS = {
+  abbr: "abbreviation",
   adj: "adjective",
+  "adj-f": "pre-noun adjective",
+  "adj-i": "i-adjective",
+  "adj-ix": "yoi/ii adjective",
+  "adj-na": "na-adjective",
+  "adj-no": "no-adjective",
+  "adj-pn": "pre-noun adjectival",
+  "adj-t": "taru adjective",
   adv: "adverb",
+  "adv-to": "adverb taking to",
+  arch: "archaic",
+  ateji: "phonetic kanji spelling",
   aux: "auxiliary",
+  "aux-adj": "auxiliary adjective",
   "aux-v": "auxiliary verb",
+  col: "colloquial",
   conj: "conjunction",
   cop: "copula",
   ctr: "counter",
+  dated: "dated term",
+  derog: "derogatory",
   exp: "expression",
+  fam: "familiar language",
+  fem: "female language",
+  form: "formal language",
+  gikun: "special kanji reading",
+  hon: "honorific language",
+  hum: "humble language",
+  id: "idiomatic expression",
+  ik: "irregular kana form",
+  io: "irregular okurigana",
   int: "interjection",
+  joc: "jocular language",
+  male: "male language",
   n: "noun",
+  "n-adv": "adverbial noun",
+  "n-pr": "proper noun",
+  "n-pref": "noun used as a prefix",
+  "n-suf": "noun used as a suffix",
+  "n-t": "temporal noun",
+  "net-sl": "internet slang",
   num: "number",
+  obs: "obsolete term",
+  obsc: "obscure term",
+  ok: "outdated kana form",
+  "on-mim": "onomatopoeic or mimetic word",
   pn: "pronoun",
+  poet: "poetic term",
+  pol: "polite language",
   pref: "prefix",
   prt: "particle",
+  proverb: "proverb",
+  rare: "rare term",
+  rk: "rare kana form",
+  sens: "sensitive term",
+  sl: "slang",
   suf: "suffix",
   unc: "unclassified",
+  uk: "usually written using kana alone",
   vi: "intransitive verb",
   vt: "transitive verb",
   v1: "ichidan verb",
@@ -16085,6 +16139,10 @@ const POS_LABELS = {
   v5u: "u ending",
   vk: "kuru verb",
   vs: "suru verb",
+  "vs-c": "su verb",
+  "vs-i": "suru verb",
+  "vs-s": "suru verb (special class)",
+  vulgar: "vulgar expression",
   vz: "zuru verb"
 };
 function formatPartOfSpeech(tags = []) {
@@ -16159,21 +16217,32 @@ const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
 const KANA_RE$1 = /[぀-ヿー]/u;
+const COMPOUND_JAPANESE_CHARACTER_RE = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]+$/u;
+const COMPOUND_KANJI_RE = /\p{Script=Han}/u;
+function shouldRetainDirectCompoundSegments(spelling) {
+  const characters = Array.from(spelling.trim());
+  return characters.length >= 4 && COMPOUND_JAPANESE_CHARACTER_RE.test(characters.join("")) && characters.filter((character) => COMPOUND_KANJI_RE.test(character)).length >= 2;
+}
 async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
   const expression = spelling.trim();
   const pronunciation = reading.trim();
   const initialEntries = options.initialEntries ?? await lookupMeta(expression);
   let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-  if (patterns.length) return { patterns };
+  if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
   if (pronunciation && pronunciation !== expression) {
   const readingEntries = await lookupMeta(pronunciation);
   patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-  if (patterns.length) return { patterns };
+  if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
   }
   if (options.includeCompound === false) return { patterns: [] };
   const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
   if (!segments.length) return { patterns: [] };
   return { patterns: [segments.map((segment) => segment.pattern).join("")], compoundSegments: segments };
+}
+async function resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options) {
+  if (!options.includeDirectCompoundSegments) return { patterns };
+  const compoundSegments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+  return compoundSegments.length ? { patterns, compoundSegments } : { patterns };
 }
 async function composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta) {
   const characters = Array.from(spelling.trim());
@@ -16345,16 +16414,16 @@ function objectRecord$1(value) {
   return value && typeof value === "object" ? value : null;
 }
 const MAX_PITCH_VARIANTS = 3;
-function renderPitch(card, metaEntries = [], labels) {
+function renderPitch(card, metaEntries = []) {
   const reading = cardPronunciationReading(card);
   if (!reading) return "";
   const variants = collectPitchVariants(reading, [
   ...card.pitchAccent ?? [],
   ...localPitchPatternsFromMeta(reading, metaEntries)
   ], MAX_PITCH_VARIANTS);
-  return renderPitchVariantGraphs(reading, variants, labels, card.pitchSegments);
+  return renderPitchVariantGraphs(reading, variants, card.pitchSegments);
 }
-function renderPitchVariantGraphs(reading, variants, labels, compoundSegments) {
+function renderPitchVariantGraphs(reading, variants, compoundSegments) {
   const composedPattern = compoundSegments?.map((segment) => segment.pattern).join("") ?? "";
   const graphs = variants.map((variant) => ({
   variant,
@@ -16364,12 +16433,30 @@ function renderPitchVariantGraphs(reading, variants, labels, compoundSegments) {
   })).filter((entry) => entry.svg);
   if (!graphs.length) return "";
   if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
-  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant)}</span>`).join("")}</div>`;
+  const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
 }
-function renderVariantBadge(variant, primary, labels) {
-  const text2 = variant.commonality != null ? `${Math.round(variant.commonality)}%` : "";
-  if (!text2) return "";
-  return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml$1(text2)}</span>`;
+function pitchVariantDisplayPercentages(variants) {
+  if (!variants.length) return [];
+  const supplied = variants.map((variant) => variant.commonality);
+  const hasCompleteCommonality = supplied.every((value) => Number.isFinite(value) && (value ?? 0) >= 0) && supplied.some((value) => (value ?? 0) > 0);
+  const weights = hasCompleteCommonality ? supplied.map((value) => value ?? 0) : variants.map((_, index) => variants.length - index);
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  const exact = weights.map((value) => value * 100 / total);
+  const percentages = exact.map(Math.floor);
+  const remainder = 100 - percentages.reduce((sum, value) => sum + value, 0);
+  const remainderOrder = exact.map((value, index) => ({ index, remainder: value - percentages[index] })).sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  for (let index = 0; index < remainder; index++) percentages[remainderOrder[index].index]++;
+  return percentages;
+}
+function alignedExpressionComponentPitches(card, components, componentPitches) {
+  if (components.length < 2 || components.map((component) => component.text).join("") !== card.spelling.trim()) return [];
+  const aligned = components.map((component) => componentPitches.find(
+  (pitch) => pitch.text === component.text && pitch.reading === component.reading
+  ));
+  if (aligned.some((component) => !component)) return [];
+  if (aligned.map((component) => component?.reading ?? "").join("") !== cardPronunciationReading(card)) return [];
+  return aligned;
 }
 function renderExpressionComponentPitches(components) {
   const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
@@ -16560,9 +16647,16 @@ class CardPopoverRenderer {
   }
   renderPitch(card, data) {
   if (!this.settings().showPitchAccent) return "";
+  const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
+    card,
+    data.expressionComponents ?? [],
+    data.componentPitches ?? []
+  );
+  const components = renderExpressionComponentPitches(alignedComponents);
+  if (components) return components;
   const whole = renderPitch(card, data.metaEntries);
   if (whole) return whole;
-  return data.loading ? "" : renderExpressionComponentPitches(data.componentPitches ?? []);
+  return "";
   }
   renderPartOfSpeech(view) {
   return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
@@ -17608,6 +17702,7 @@ class CardRenderDataLoader {
     ankiFieldTargetPlan
   ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
     if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
+    applyAlignedComponentPitchSegments(card, expressionComponentsValue, componentPitchesValue);
     return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
   });
   }
@@ -17690,7 +17785,11 @@ class CardRenderDataLoader {
     card.spelling,
     card.reading,
     (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
-    { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
+    {
+      initialEntries: metaEntries,
+      includeCompound: !card.pitchAccent.length,
+      includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
+    }
   ).catch((error) => {
     log$f.warn("Local pitch lookup failed", { term: card.spelling }, error);
     return { patterns: [] };
@@ -17785,6 +17884,11 @@ class CardRenderDataLoader {
   settings() {
   return this.dependencies.getSettings();
   }
+}
+function applyAlignedComponentPitchSegments(card, components, componentPitches) {
+  const segments = alignedExpressionComponentPitches(card, components, componentPitches);
+  if (!segments.length) return;
+  card.pitchSegments = segments.map((segment) => ({ pattern: segment.pitch, reading: segment.reading }));
 }
 function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
   return Promise.race([
@@ -21747,21 +21851,18 @@ ${spelling}`);
   if (typeof lookupTermMeta !== "function") return "";
   const key = localPitchCacheKey(card, settings);
   const cached = this.localPitchCache.get(key);
-  if (cached) return cached;
+  if (cached) return applyLocalPitchResolution$1(card, await cached);
   const promise = localPitchResolutionFromMetaLookup(
     card.spelling,
     card.reading,
-    (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
-  ).then((resolution) => {
-    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-    else if (resolution.patterns.length) delete card.pitchSegments;
-    return resolution.patterns[0] ?? "";
-  }).catch((error) => {
+    (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+    { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+  ).catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
-    return "";
+    return { patterns: [] };
   });
   this.rememberLocalPitchCacheEntry(key, promise);
-  return promise;
+  return applyLocalPitchResolution$1(card, await promise);
   }
   withNormalizedMetricTokens(text2, tokens) {
   if (!text2.includes("回視聴")) return tokens;
@@ -21819,6 +21920,11 @@ ${spelling}`);
     this.localPitchCache.delete(oldest);
   }
   }
+}
+function applyLocalPitchResolution$1(card, resolution) {
+  if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+  else if (resolution.patterns.length) delete card.pitchSegments;
+  return resolution.patterns[0] ?? "";
 }
 function remoteParseFallbackTimeoutMs(options) {
   return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
@@ -36113,8 +36219,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.149"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.149"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.150"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.150"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -36231,7 +36337,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.149"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.150"}`;
   } catch {
   return null;
   }
@@ -37313,6 +37419,11 @@ function fullscreenPopoverMountParent(anchor) {
 }
 function isJsdomRuntime() {
   return navigator.userAgent.includes("jsdom");
+}
+function applyLocalPitchResolution(card, resolution) {
+  if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+  else if (resolution.patterns.length) delete card.pitchSegments;
+  return resolution.patterns[0] ?? "";
 }
 class ReaderApp {
   abortController = new AbortController();
@@ -43034,21 +43145,18 @@ class ReaderApp {
   if (!this.settings.localDictionariesEnabled || !card.spelling.trim()) return "";
   const key = this.localPitchEnrichmentCacheKey(card);
   const cached = this.pitchEnrichmentLocalCache.get(key);
-  if (cached) return cached;
+  if (cached) return applyLocalPitchResolution(card, await cached);
   const promise = localPitchResolutionFromMetaLookup(
     card.spelling,
     card.reading,
-    (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
-  ).then((resolution) => {
-    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-    else if (resolution.patterns.length) delete card.pitchSegments;
-    return resolution.patterns[0] ?? "";
-  }).catch((error) => {
+    (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences),
+    { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+  ).catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
-    return "";
+    return { patterns: [] };
   });
   this.rememberLocalPitchEnrichment(key, promise);
-  return promise;
+  return applyLocalPitchResolution(card, await promise);
   }
   localPitchEnrichmentCacheKey(card) {
   return JSON.stringify({

@@ -9866,8 +9866,6 @@
       listenReveal: "Reveal",
       listenCorrect: "Correct!",
       listenTryAgain: "Not quite",
-      pitchVariantPrimary: "Most common",
-      pitchVariantAlso: "Also used",
       listenAccuracy: "Accuracy",
       listenDue: "pitch due",
       listenNew: "new",
@@ -10143,8 +10141,6 @@
     listenReveal: "答えを見る",
     listenCorrect: "正解！",
     listenTryAgain: "惜しい",
-    pitchVariantPrimary: "最も一般的",
-    pitchVariantAlso: "他の型",
     listenAccuracy: "正答率",
     listenDue: "件のアクセント復習",
     listenNew: "新規",
@@ -14162,6 +14158,7 @@
       updateStatusUnknown: "Current {current}. Latest check failed; reinstall if needed.",
       updateStatusIncomparable: "Current {current}. Latest {latest}. Cannot compare versions; use Update if this install is old.",
       updateHelpNotesManager: 'Keep one Yomu script enabled. Update opens your userscript manager’s install screen. If the browser shows a blocked-install banner instead, open your extensions page, open the manager’s details, and turn on "Allow user scripts" (or Developer mode), then retry.',
+      updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
       updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
       updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
       updateUserscript: "Update",
@@ -15715,6 +15712,7 @@ updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。確認できません。必要なら再インストールしてください。
 updateStatusIncomparable	現在 {current}。最新 {latest}。バージョンを比較できません。古い場合は「更新」を使ってください。
 updateHelpNotesManager	よむスクリプトは1つだけ有効にしてください。「更新」でユーザースクリプトマネージャーのインストール画面が開きます。ブラウザにインストールブロックの警告が出る場合は、拡張機能ページでマネージャーの詳細を開き、「ユーザースクリプトを許可」（または開発者モード）を有効にしてから再試行してください。
+updateHelpNotesManagerDashboard	Chrome または Edge では、「更新」を押すと Tampermonkey の更新手順が開きます。ダッシュボードの「ユーティリティ」→「ユーザースクリプトの更新を確認」を使うため、ウェブサイトからのインストールをブロックする警告を回避できます。
 updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
 updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
 updateUserscript	更新
@@ -24305,8 +24303,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       if (currentText !== liveState.sourceText) {
-        reassertTextMirrorHostStyles(liveHost, liveState);
         dispatchTextMirrorStale(liveHost);
+        if (replayNonDestructiveRenderFromCache(liveHost, true)) return;
+        reassertTextMirrorHostStyles(liveHost, liveState);
         clearTimeout(liveState.staleRemovalTimer);
         const staleSource = liveState.sourceText;
         const staleLifecycle = liveState.lifecycle;
@@ -24381,17 +24380,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       epoch: nonDestructiveRenderCacheEpoch
     });
   }
-  function replayNonDestructiveRenderFromCache(host2) {
+  function replayNonDestructiveRenderFromCache(host2, allowCompatibleTextChange = false) {
     const entry = nonDestructiveRenderCache.get(host2);
     if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
     if (entry.hadNativeRuby || !host2.isConnected) return false;
-    if (hostOriginalTextWithNodeOffsets(host2).hostText !== entry.hostTextAtRender) return false;
+    const currentHostText = hostOriginalTextWithNodeOffsets(host2).hostText;
+    const compatibleTextChange = currentHostText !== entry.hostTextAtRender && allowCompatibleTextChange && cachedTokenSurfacesRemainStable(entry, currentHostText);
+    if (currentHostText !== entry.hostTextAtRender && !compatibleTextChange) return false;
     if (entry.decoration) {
       const current = classifyDecoration(host2);
       if (entry.decorationProfileOverride ? current === "skip" : current !== entry.decoration) return false;
     }
     const target = {
-      text: entry.planText,
+      text: compatibleTextChange ? currentHostText : entry.planText,
       parent: host2,
       fragments: [],
       decoration: entry.decoration,
@@ -24414,6 +24415,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (!currentTextMirror(host2)) return false;
     return true;
+  }
+  function cachedTokenSurfacesRemainStable(entry, currentHostText) {
+    if (!currentHostText || currentHostText === entry.hostTextAtRender) return false;
+    return entry.tokens.length > 0 && entry.tokens.every((token) => {
+      if (token.start < 0 || token.end <= token.start || token.end > currentHostText.length) return false;
+      return entry.planText.slice(token.start, token.end) === currentHostText.slice(token.start, token.end);
+    });
   }
   function mutationInsideTextMirror(mutation) {
     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
@@ -32471,22 +32479,66 @@ ${entry.reading || ""}`;
     return url.toString();
   }
   const POS_LABELS = {
+    abbr: "abbreviation",
     adj: "adjective",
+    "adj-f": "pre-noun adjective",
+    "adj-i": "i-adjective",
+    "adj-ix": "yoi/ii adjective",
+    "adj-na": "na-adjective",
+    "adj-no": "no-adjective",
+    "adj-pn": "pre-noun adjectival",
+    "adj-t": "taru adjective",
     adv: "adverb",
+    "adv-to": "adverb taking to",
+    arch: "archaic",
+    ateji: "phonetic kanji spelling",
     aux: "auxiliary",
+    "aux-adj": "auxiliary adjective",
     "aux-v": "auxiliary verb",
+    col: "colloquial",
     conj: "conjunction",
     cop: "copula",
     ctr: "counter",
+    dated: "dated term",
+    derog: "derogatory",
     exp: "expression",
+    fam: "familiar language",
+    fem: "female language",
+    form: "formal language",
+    gikun: "special kanji reading",
+    hon: "honorific language",
+    hum: "humble language",
+    id: "idiomatic expression",
+    ik: "irregular kana form",
+    io: "irregular okurigana",
     int: "interjection",
+    joc: "jocular language",
+    male: "male language",
     n: "noun",
+    "n-adv": "adverbial noun",
+    "n-pr": "proper noun",
+    "n-pref": "noun used as a prefix",
+    "n-suf": "noun used as a suffix",
+    "n-t": "temporal noun",
+    "net-sl": "internet slang",
     num: "number",
+    obs: "obsolete term",
+    obsc: "obscure term",
+    ok: "outdated kana form",
+    "on-mim": "onomatopoeic or mimetic word",
     pn: "pronoun",
+    poet: "poetic term",
+    pol: "polite language",
     pref: "prefix",
     prt: "particle",
+    proverb: "proverb",
+    rare: "rare term",
+    rk: "rare kana form",
+    sens: "sensitive term",
+    sl: "slang",
     suf: "suffix",
     unc: "unclassified",
+    uk: "usually written using kana alone",
     vi: "intransitive verb",
     vt: "transitive verb",
     v1: "ichidan verb",
@@ -32503,6 +32555,10 @@ ${entry.reading || ""}`;
     v5u: "u ending",
     vk: "kuru verb",
     vs: "suru verb",
+    "vs-c": "su verb",
+    "vs-i": "suru verb",
+    "vs-s": "suru verb (special class)",
+    vulgar: "vulgar expression",
     vz: "zuru verb"
   };
   function formatPartOfSpeech(tags = []) {
@@ -34173,6 +34229,12 @@ ${entry.reading || ""}`;
   const COMPOUND_MAX_LOOKUPS = 32;
   const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
   const KANA_RE$1 = /[぀-ヿー]/u;
+  const COMPOUND_JAPANESE_CHARACTER_RE = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]+$/u;
+  const COMPOUND_KANJI_RE = /\p{Script=Han}/u;
+  function shouldRetainDirectCompoundSegments(spelling) {
+    const characters = Array.from(spelling.trim());
+    return characters.length >= 4 && COMPOUND_JAPANESE_CHARACTER_RE.test(characters.join("")) && characters.filter((character) => COMPOUND_KANJI_RE.test(character)).length >= 2;
+  }
   async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
     return (await localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options)).patterns;
   }
@@ -34181,16 +34243,21 @@ ${entry.reading || ""}`;
     const pronunciation = reading.trim();
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
     let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return { patterns };
+    if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
     if (pronunciation && pronunciation !== expression) {
       const readingEntries = await lookupMeta(pronunciation);
       patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-      if (patterns.length) return { patterns };
+      if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
     }
     if (options.includeCompound === false) return { patterns: [] };
     const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
     if (!segments.length) return { patterns: [] };
     return { patterns: [segments.map((segment) => segment.pattern).join("")], compoundSegments: segments };
+  }
+  async function resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options) {
+    if (!options.includeDirectCompoundSegments) return { patterns };
+    const compoundSegments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+    return compoundSegments.length ? { patterns, compoundSegments } : { patterns };
   }
   async function composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta) {
     const characters = Array.from(spelling.trim());
@@ -34362,16 +34429,16 @@ ${entry.reading || ""}`;
     return value && typeof value === "object" ? value : null;
   }
   const MAX_PITCH_VARIANTS = 3;
-  function renderPitch(card, metaEntries = [], labels) {
+  function renderPitch(card, metaEntries = []) {
     const reading = cardPronunciationReading(card);
     if (!reading) return "";
     const variants = collectPitchVariants(reading, [
       ...card.pitchAccent ?? [],
       ...localPitchPatternsFromMeta(reading, metaEntries)
     ], MAX_PITCH_VARIANTS);
-    return renderPitchVariantGraphs(reading, variants, labels, card.pitchSegments);
+    return renderPitchVariantGraphs(reading, variants, card.pitchSegments);
   }
-  function renderPitchVariantGraphs(reading, variants, labels, compoundSegments) {
+  function renderPitchVariantGraphs(reading, variants, compoundSegments) {
     const composedPattern = compoundSegments?.map((segment) => segment.pattern).join("") ?? "";
     const graphs = variants.map((variant) => ({
       variant,
@@ -34381,12 +34448,30 @@ ${entry.reading || ""}`;
     })).filter((entry) => entry.svg);
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
-    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant, index === 0, labels)}</span>`).join("")}</div>`;
+    const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
   }
-  function renderVariantBadge(variant, primary, labels) {
-    const text2 = variant.commonality != null ? `${Math.round(variant.commonality)}%` : labels ? primary ? labels.primary : labels.alternative : "";
-    if (!text2) return "";
-    return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml$1(text2)}</span>`;
+  function pitchVariantDisplayPercentages(variants) {
+    if (!variants.length) return [];
+    const supplied = variants.map((variant) => variant.commonality);
+    const hasCompleteCommonality = supplied.every((value) => Number.isFinite(value) && (value ?? 0) >= 0) && supplied.some((value) => (value ?? 0) > 0);
+    const weights = hasCompleteCommonality ? supplied.map((value) => value ?? 0) : variants.map((_, index) => variants.length - index);
+    const total = weights.reduce((sum, value) => sum + value, 0);
+    const exact = weights.map((value) => value * 100 / total);
+    const percentages = exact.map(Math.floor);
+    const remainder = 100 - percentages.reduce((sum, value) => sum + value, 0);
+    const remainderOrder = exact.map((value, index) => ({ index, remainder: value - percentages[index] })).sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+    for (let index = 0; index < remainder; index++) percentages[remainderOrder[index].index]++;
+    return percentages;
+  }
+  function alignedExpressionComponentPitches(card, components, componentPitches) {
+    if (components.length < 2 || components.map((component) => component.text).join("") !== card.spelling.trim()) return [];
+    const aligned = components.map((component) => componentPitches.find(
+      (pitch) => pitch.text === component.text && pitch.reading === component.reading
+    ));
+    if (aligned.some((component) => !component)) return [];
+    if (aligned.map((component) => component?.reading ?? "").join("") !== cardPronunciationReading(card)) return [];
+    return aligned;
   }
   function renderExpressionComponentPitches(components) {
     const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
@@ -34699,9 +34784,16 @@ ${entry.reading || ""}`;
     }
     renderPitch(card, data) {
       if (!this.settings().showPitchAccent) return "";
+      const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
+        card,
+        data.expressionComponents ?? [],
+        data.componentPitches ?? []
+      );
+      const components = renderExpressionComponentPitches(alignedComponents);
+      if (components) return components;
       const whole = renderPitch(card, data.metaEntries);
       if (whole) return whole;
-      return data.loading ? "" : renderExpressionComponentPitches(data.componentPitches ?? []);
+      return "";
     }
     renderPartOfSpeech(view) {
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
@@ -35770,6 +35862,7 @@ ${component.reading}`;
         ankiFieldTargetPlan
       ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
+        applyAlignedComponentPitchSegments(card, expressionComponentsValue, componentPitchesValue);
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
@@ -35855,7 +35948,11 @@ ${component.reading}`;
         card.spelling,
         card.reading,
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
-        { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
+        {
+          initialEntries: metaEntries,
+          includeCompound: !card.pitchAccent.length,
+          includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
+        }
       ).catch((error) => {
         log$j.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
@@ -35950,6 +36047,11 @@ ${component.reading}`;
     settings() {
       return this.dependencies.getSettings();
     }
+  }
+  function applyAlignedComponentPitchSegments(card, components, componentPitches) {
+    const segments = alignedExpressionComponentPitches(card, components, componentPitches);
+    if (!segments.length) return;
+    card.pitchSegments = segments.map((segment) => ({ pattern: segment.pitch, reading: segment.reading }));
   }
   function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
     return Promise.race([
@@ -39927,21 +40029,18 @@ ${spelling}`);
       if (typeof lookupTermMeta !== "function") return "";
       const key = localPitchCacheKey(card, settings);
       const cached = this.localPitchCache.get(key);
-      if (cached) return cached;
+      if (cached) return applyLocalPitchResolution(card, await cached);
       const promise = localPitchResolutionFromMetaLookup(
         card.spelling,
         card.reading,
-        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
-      ).then((resolution) => {
-        if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-        else if (resolution.patterns.length) delete card.pitchSegments;
-        return resolution.patterns[0] ?? "";
-      }).catch((error) => {
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+        { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+      ).catch((error) => {
         log$g.warn("Local pitch parse failed", { term: card.spelling }, error);
-        return "";
+        return { patterns: [] };
       });
       this.rememberLocalPitchCacheEntry(key, promise);
-      return promise;
+      return applyLocalPitchResolution(card, await promise);
     }
     withNormalizedMetricTokens(text2, tokens) {
       if (!text2.includes("回視聴")) return tokens;
@@ -39999,6 +40098,11 @@ ${spelling}`);
         this.localPitchCache.delete(oldest);
       }
     }
+  }
+  function applyLocalPitchResolution(card, resolution) {
+    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+    else if (resolution.patterns.length) delete card.pitchSegments;
+    return resolution.patterns[0] ?? "";
   }
   function remoteParseFallbackTimeoutMs(options) {
     return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
@@ -47835,6 +47939,102 @@ ${options.version}`;
     if (control.closest('[aria-disabled="true"]')) return true;
     return control.matches(":disabled, fieldset[disabled] *");
   }
+  const CONCEALED_CARD_TOKEN = /^study-card-\d+$/u;
+  const SAFE_CONTEXT = /^[a-z0-9:_-]{1,80}$/iu;
+  const SAFE_MODE = /^(?:word|recall|kanji|listen)$/u;
+  function readStudyCardRoute(href) {
+    try {
+      const url = new URL(href);
+      const hash = new URLSearchParams(url.hash.replace(/^#/u, ""));
+      const token = hash.get("review") ?? "";
+      if (CONCEALED_CARD_TOKEN.test(token)) return { kind: "concealed", token };
+      const key = boundedRouteText(hash.get("card") || legacyCardKey(url.hash) || url.searchParams.get("card") || "", 512);
+      if (!key) return null;
+      const canonical = canonicalIdentityFromKey(key);
+      return {
+        kind: "portable",
+        key,
+        spelling: routeIdentityText(hash.get("w") ?? hash.get("word") ?? url.searchParams.get("w") ?? url.searchParams.get("word") ?? canonical.spelling),
+        reading: routeIdentityText(hash.get("r") ?? hash.get("reading") ?? url.searchParams.get("r") ?? url.searchParams.get("reading") ?? canonical.reading)
+      };
+    } catch {
+      return null;
+    }
+  }
+  function buildStudyCardHistoryUrl(href, route) {
+    try {
+      const url = new URL(href);
+      keepSafeStudyQuery(url);
+      const hash = new URLSearchParams();
+      if (route.kind === "concealed") {
+        if (!CONCEALED_CARD_TOKEN.test(route.token)) return null;
+        hash.set("review", route.token);
+      } else {
+        const key = boundedRouteText(route.key, 512);
+        if (!key) return null;
+        hash.set("card", key);
+        const spelling = routeIdentityText(route.spelling);
+        const reading = routeIdentityText(route.reading);
+        if (spelling) hash.set("w", spelling);
+        if (reading && reading !== spelling) hash.set("r", reading);
+      }
+      url.hash = hash.toString();
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return null;
+    }
+  }
+  function studyCardRouteSignature(route) {
+    if (!route) return "";
+    return route.kind === "concealed" ? `concealed:${route.token}` : `portable:${route.key}:${route.spelling}:${route.reading}`;
+  }
+  function planStudyCardHistoryUpdate(input2) {
+    const routeSignature = studyCardRouteSignature(input2.route);
+    if (routeSignature === input2.previousRouteSignature) return null;
+    const url = buildStudyCardHistoryUrl(input2.href, input2.route);
+    if (!url) return null;
+    const replacesCurrentEntry = !input2.previousRouteSignature || input2.handlingPopstate || input2.selectionKey === input2.previousSelectionKey;
+    return {
+      action: replacesCurrentEntry ? "replace" : "push",
+      url,
+      selectionKey: input2.selectionKey,
+      routeSignature
+    };
+  }
+  function keepSafeStudyQuery(url) {
+    const kept = new URLSearchParams();
+    const returnTarget = url.searchParams.get("return");
+    const context = url.searchParams.get("context") ?? "";
+    const mode = url.searchParams.get("mode") ?? "";
+    const view = url.searchParams.get("view") ?? "";
+    if (returnTarget === "academy") kept.set("return", "academy");
+    if (SAFE_CONTEXT.test(context)) kept.set("context", context);
+    if (SAFE_MODE.test(mode)) kept.set("mode", mode);
+    if (SAFE_MODE.test(view)) kept.set("view", view);
+    url.search = kept.toString();
+  }
+  function routeIdentityText(value) {
+    return boundedRouteText(value.replace(/\s+/gu, " "), 80);
+  }
+  function boundedRouteText(value, maxLength) {
+    return value.normalize("NFKC").trim().slice(0, maxLength);
+  }
+  function canonicalIdentityFromKey(key) {
+    const separator = key.indexOf("\0");
+    if (separator < 1) return { spelling: "", reading: "" };
+    return {
+      spelling: key.slice(0, separator),
+      reading: key.slice(separator + 1)
+    };
+  }
+  function legacyCardKey(hash) {
+    try {
+      const match = /[#&]card=([^&]+)/u.exec(hash);
+      return match ? decodeURIComponent(match[1] ?? "") : "";
+    } catch {
+      return "";
+    }
+  }
   function renderNewTabImmersionSentence(card, example, settings, tokens) {
     const sentence = document.createElement("div");
     sentence.className = "jpdb-reader-example-sentence jpdb-reader-parseable";
@@ -49711,7 +49911,7 @@ ${options.version}`;
   }
   function renderListenPickFeedback(view, t) {
     const verdict = view.outcome === "correct" ? t("listenCorrect") : t("listenTryAgain");
-    const variants = view.variants.length > 1 ? renderPitchVariantGraphs(view.item.reading, view.variants, { primary: t("pitchVariantPrimary"), alternative: t("pitchVariantAlso") }) : "";
+    const variants = view.variants.length > 1 ? renderPitchVariantGraphs(view.item.reading, view.variants) : "";
     return `<div class="jpdb-reader-newtab-listen-feedback">
         <div class="jpdb-reader-newtab-listen-verdict" data-listen-outcome="${view.outcome ?? ""}">${escapeHtml$1(verdict)}</div>
         ${variants}
@@ -61683,61 +61883,75 @@ ${entry.url}`),
         return null;
       }
     }
-    // UT-59: every study entry has a stable, shareable URL. The internal
-    // card key preserves session history; w/r make the link portable to
-    // another learner whose queue may not contain the same provider card.
-    // Advancing pushes history so browser back/forward walks the session;
-    // a reload restores the same card.
-    lastSyncedCardUrlKey = "";
+    // Unrevealed history entries use the same controller-local opaque identity
+    // as the DOM. Reveal replaces that entry with the deliberate portable URL;
+    // only moving to another card pushes a new history entry.
+    lastSyncedCardSelectionKey = "";
+    lastSyncedCardRouteSignature = "";
     handlingCardPopstate = false;
     syncCardUrl(card) {
       if (!this.isVocabularyStudyMode(this.state.mode) || typeof history === "undefined") return;
-      if (!isYomuNewTabUrl(location.href)) return;
+      if (this.options.host || this.options.surface === "academy" || !isYomuNewTabUrl(location.href)) return;
       const key = this.cardSelectionKey(card);
-      if (key === this.lastSyncedCardUrlKey) return;
-      const url = this.studyCardUrlHash(card, key);
+      const route = this.studyCardRoute(card, key);
+      const update = planStudyCardHistoryUpdate({
+        href: location.href,
+        route,
+        selectionKey: key,
+        previousSelectionKey: this.lastSyncedCardSelectionKey,
+        previousRouteSignature: this.lastSyncedCardRouteSignature,
+        handlingPopstate: this.handlingCardPopstate
+      });
+      if (!update) return;
       try {
-        if (!this.lastSyncedCardUrlKey || this.handlingCardPopstate) history.replaceState(null, "", url);
-        else history.pushState(null, "", url);
+        const mutate = update.action === "push" ? history.pushState : history.replaceState;
+        mutate.call(history, null, "", update.url);
       } catch {
       }
-      this.lastSyncedCardUrlKey = key;
+      this.lastSyncedCardSelectionKey = update.selectionKey;
+      this.lastSyncedCardRouteSignature = update.routeSignature;
     }
     cardKeyFromLocation() {
-      return this.portableCardIdentityFromLocation()?.key ?? "";
+      const route = readStudyCardRoute(location.href);
+      if (!route) return "";
+      if (route.kind === "portable") return route.key;
+      const card = this.studyCardsByDomToken.get(route.token);
+      return card ? this.cardSelectionKey(card) : "";
     }
     portableCardIdentityFromLocation() {
-      try {
-        const params = new URLSearchParams(location.hash.replace(/^#/u, ""));
-        const key = params.get("card") ?? legacyHashCardKey(location.hash);
-        if (!key) return null;
-        const spelling = normalizeSearchQuery(params.get("w") ?? params.get("word") ?? "");
-        const reading = normalizeSearchQuery(params.get("r") ?? params.get("reading") ?? "");
-        return { key, spelling, reading };
-      } catch {
-        return null;
-      }
+      const route = readStudyCardRoute(location.href);
+      return route?.kind === "portable" ? { key: route.key, spelling: route.spelling, reading: route.reading } : null;
     }
-    studyCardUrlHash(card, key) {
-      const params = new URLSearchParams();
-      params.set("card", key);
+    studyCardRoute(card, key) {
+      if (!this.state.revealAnswer) return { kind: "concealed", token: this.studyCardDomToken(card) };
       const spelling = card.spelling.trim();
       const reading = newTabCardReading(card).trim() || card.reading.trim();
-      if (spelling) params.set("w", spelling);
-      if (reading && reading !== spelling) params.set("r", reading);
-      return `#${params.toString()}`;
+      return { kind: "portable", key, spelling, reading };
     }
     handleCardPopstate(root) {
       if (!this.isVocabularyStudyMode(this.state.mode)) return;
       const key = this.cardKeyFromLocation();
-      if (!key || key === this.lastSyncedCardUrlKey) return;
-      if (this.canUndoLastReview() && this.lastUndoableReview && this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) {
-        this.handlingCardPopstate = true;
-        void this.undoLastReview(root).finally(() => {
-          this.handlingCardPopstate = false;
-        });
-        return;
-      }
+      if (!key) return this.restoreCurrentCardAfterUnknownRoute(root);
+      const routeSignature = studyCardRouteSignature(readStudyCardRoute(location.href));
+      if (routeSignature && routeSignature === this.lastSyncedCardRouteSignature) return;
+      if (this.undoReviewForPopstate(root, key)) return;
+      this.renderCardForPopstate(root, key);
+    }
+    restoreCurrentCardAfterUnknownRoute(root) {
+      this.lastSyncedCardRouteSignature = "";
+      this.state.revealAnswer = false;
+      const current = this.visibleWords[this.index];
+      if (current) this.renderWord(root, current);
+    }
+    undoReviewForPopstate(root, key) {
+      if (!this.canUndoLastReview() || !this.lastUndoableReview || !this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) return false;
+      this.handlingCardPopstate = true;
+      void this.undoLastReview(root).finally(() => {
+        this.handlingCardPopstate = false;
+      });
+      return true;
+    }
+    renderCardForPopstate(root, key) {
       const index = this.visibleWords.findIndex((card) => this.cardMatchesSelectionKey(card, key));
       if (index < 0) return;
       this.handlingCardPopstate = true;
@@ -61965,18 +62179,10 @@ ${entry.url}`),
       url.searchParams.delete("search");
       if (query) url.searchParams.set("q", query);
       else url.searchParams.delete("q");
-      if (/[#&]card=/u.test(url.hash)) url.hash = "";
+      if (readStudyCardRoute(url.href)) url.hash = "";
       return url;
     } catch {
       return null;
-    }
-  }
-  function legacyHashCardKey(hash) {
-    try {
-      const match = /[#&]card=([^&]+)/u.exec(hash);
-      return match ? decodeURIComponent(match[1]) : "";
-    } catch {
-      return "";
     }
   }
   function sentencePromptTarget(card, sentence) {
@@ -62892,8 +63098,10 @@ ${entry.url}`),
     }
   }
   const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
+  const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
   const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
   const INTERCEPTING_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey", "violentmonkey", "greasemonkey", "scriptcat", "orangemonkey", "firemonkey", "adguard"]);
+  const CHROMIUM_DASHBOARD_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey"]);
   function scriptHandlerName(info) {
     if (!info || typeof info !== "object") return "";
     const handler = info.scriptHandler;
@@ -62907,15 +63115,27 @@ ${entry.url}`),
     const g = globalThis;
     return typeof g.GM_openInTab === "function" || typeof g.GM?.openInTab === "function";
   }
-  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab()) {
+  function readUserAgent() {
+    return typeof navigator === "object" && typeof navigator.userAgent === "string" ? navigator.userAgent : "";
+  }
+  function isChromiumBrowser(userAgent) {
+    return /(?:Chrome|Chromium|Edg)\/\d/i.test(userAgent);
+  }
+  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab(), userAgent = readUserAgent()) {
     if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
     const handler = scriptHandlerName(info);
-    if (EXTERNAL_APP_HANDLERS.has(handler.toLowerCase())) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
-    if (INTERCEPTING_HANDLERS.has(handler.toLowerCase()) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+    const normalizedHandler = handler.toLowerCase();
+    if (EXTERNAL_APP_HANDLERS.has(normalizedHandler)) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
+    if (CHROMIUM_DASHBOARD_HANDLERS.has(normalizedHandler) && isChromiumBrowser(userAgent)) {
+      return { kind: "manager-dashboard", handler, url: UPDATE_GUIDE_URL };
+    }
+    if (INTERCEPTING_HANDLERS.has(normalizedHandler) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
     return { kind: "no-manager", handler, url: INSTALL_GUIDE_URL };
   }
   function updateFlowNoteKey(kind) {
     switch (kind) {
+      case "manager-dashboard":
+        return "updateHelpNotesManagerDashboard";
       case "external-manager":
         return "updateHelpNotesExternalManager";
       case "no-manager":

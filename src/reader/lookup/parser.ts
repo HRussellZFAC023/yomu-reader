@@ -11,7 +11,7 @@ import {
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
-import { localPitchResolutionFromMetaLookup } from './pitch-meta';
+import { localPitchResolutionFromMetaLookup, shouldRetainDirectCompoundSegments, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
@@ -82,7 +82,7 @@ export function jpdbFirstParseOptions(options: ReaderParserParseOptions = {}): R
 export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
-    private localPitchCache = new Map<string, Promise<string>>();
+    private localPitchCache = new Map<string, Promise<LocalPitchResolution>>();
     private localTermDictionaryAvailability?: Promise<boolean | undefined>;
     private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
@@ -551,21 +551,18 @@ export class ReaderParser {
         if (typeof lookupTermMeta !== 'function') return '';
         const key = localPitchCacheKey(card, settings);
         const cached = this.localPitchCache.get(key);
-        if (cached) return cached;
-        const promise = localPitchResolutionFromMetaLookup(
+        if (cached) return applyLocalPitchResolution(card, await cached);
+        const promise: Promise<LocalPitchResolution> = localPitchResolutionFromMetaLookup(
             card.spelling,
             card.reading,
             expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-        ).then(resolution => {
-            if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-            else if (resolution.patterns.length) delete card.pitchSegments;
-            return resolution.patterns[0] ?? '';
-        }).catch(error => {
+            { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) },
+        ).catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
-            return '';
+            return { patterns: [] };
         });
         this.rememberLocalPitchCacheEntry(key, promise);
-        return promise;
+        return applyLocalPitchResolution(card, await promise);
     }
 
     private withNormalizedMetricTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
@@ -619,7 +616,7 @@ export class ReaderParser {
         };
     }
 
-    private rememberLocalPitchCacheEntry(key: string, promise: Promise<string>): void {
+    private rememberLocalPitchCacheEntry(key: string, promise: Promise<LocalPitchResolution>): void {
         this.localPitchCache.set(key, promise);
         while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
             const oldest = this.localPitchCache.keys().next().value;
@@ -627,6 +624,12 @@ export class ReaderParser {
             this.localPitchCache.delete(oldest);
         }
     }
+}
+
+function applyLocalPitchResolution(card: JPDBCard, resolution: LocalPitchResolution): string {
+    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+    else if (resolution.patterns.length) delete card.pitchSegments;
+    return resolution.patterns[0] ?? '';
 }
 
 function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number {

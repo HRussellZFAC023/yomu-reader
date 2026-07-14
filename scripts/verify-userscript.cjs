@@ -47,6 +47,7 @@ if (!hasMetadataValue('inject-into', 'content')) fail('Violentmonkey content-wor
 assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
+assertCompanionBuildVersions();
 assertKanjiStudySplitBoundary();
 assertAnkiRenderSplitBoundary();
 assertLocalDictionarySplitBoundary();
@@ -91,6 +92,21 @@ function hasMetadataValue(key, expectedValue) {
 
 function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
+
+function assertCompanionBuildVersions() {
+  const settingsLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'settings-surface');
+  if (!settingsLibrary) fail('Yomu Settings Surface companion is missing from the Greasy Fork library manifest.');
+  const relativePath = `dist/${greasyForkLibraryPath(settingsLibrary.fileName)}`;
+  const companionPath = join(ROOT, relativePath);
+  if (!fileExists(companionPath)) fail(`${relativePath} is missing. Run npm run build first.`);
+  const companionCode = readText(companionPath);
+  if (!companionCode.includes(`const CURRENT_YOMU_VERSION = "${packageJson.version}"`)) {
+    fail(`${relativePath} does not embed package version ${packageJson.version}; Help would display the dev fallback.`);
+  }
+  if (!companionCode.includes('const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;')) {
+    fail(`${relativePath} does not query the canonical /study/version.json update endpoint.`);
+  }
 }
 
 function assertReaderCssResourceMetadata() {

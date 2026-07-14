@@ -11,7 +11,7 @@ import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
+import { alignedExpressionComponentPitches, cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -179,11 +179,20 @@ export class CardPopoverRenderer {
 
     private renderPitch(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
         if (!this.settings().showPitchAccent) return '';
+        // Once a compound has a complete decomposition, its constituent graphs
+        // are the useful view. A whole-word row may still exist, but showing it
+        // first made the same card flip between two representations as async
+        // dictionary details arrived.
+        const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
+            card,
+            data.expressionComponents ?? [],
+            data.componentPitches ?? [],
+        );
+        const components = renderExpressionComponentPitches(alignedComponents);
+        if (components) return components;
         const whole = renderPitch(card, data.metaEntries);
         if (whole) return whole;
-        // Expressions: per-component graphs, never one component's accent
-        // presented as the whole expression.
-        return data.loading ? '' : renderExpressionComponentPitches(data.componentPitches ?? []);
+        return '';
     }
 
     private renderPartOfSpeech(view: CardPopoverRenderView): string {

@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
     collectPitchVariants,
     pitchPatternFromPosition,
     validPitchPositions,
 } from '../../src/reader/lookup/pitch-accent';
-import { renderPitch } from '../../src/reader/popup/pitch';
+import { pitchVariantDisplayPercentages, renderPitch } from '../../src/reader/popup/pitch';
 import type { JPDBCard } from '../../src/reader/app/types';
-
-const LABELS = { primary: 'Most common', alternative: 'Also used' };
 
 function card(pitchAccent: string[]): JPDBCard {
     return {
@@ -50,26 +49,58 @@ describe('collectPitchVariants', () => {
 });
 
 describe('renderPitch commonality badges', () => {
-    it('labels the primary variant first and the rest as also-used', () => {
+    it('shows two ordinal-only variants as relative percentages', () => {
         const html = renderPitch(card([
             pitchPatternFromPosition('ふたご', 0),
             pitchPatternFromPosition('ふたご', 3),
-        ]), [], LABELS);
+        ]));
         const root = document.createElement('div');
         root.innerHTML = html;
         const badges = Array.from(root.querySelectorAll('.jpdb-reader-pitch-variant-badge'), badge => badge.textContent);
-        expect(badges).toEqual(['Most common', 'Also used']);
+        expect(badges).toEqual(['67%', '33%']);
         const first = root.querySelector('.jpdb-reader-pitch-component');
         expect(first?.classList.contains('jpdb-reader-pitch-variant-primary')).toBe(true);
     });
 
-    it('renders no badge for a single variant and none without labels', () => {
-        const single = renderPitch(card([pitchPatternFromPosition('ふたご', 0)]), [], LABELS);
+    it('renders no badge for a single variant', () => {
+        const single = renderPitch(card([pitchPatternFromPosition('ふたご', 0)]));
         expect(single).not.toContain('jpdb-reader-pitch-variant-badge');
-        const unlabeled = renderPitch(card([
+    });
+
+    it('keeps all three supported variants in one wrapping graph group with shares totalling 100%', () => {
+        const html = renderPitch(card([
             pitchPatternFromPosition('ふたご', 0),
+            pitchPatternFromPosition('ふたご', 1),
             pitchPatternFromPosition('ふたご', 3),
         ]));
-        expect(unlabeled).not.toContain('jpdb-reader-pitch-variant-badge');
+        const root = document.createElement('div');
+        root.innerHTML = html;
+
+        expect(root.querySelectorAll('.jpdb-reader-pitch-variant')).toHaveLength(3);
+        expect(root.querySelector('.jpdb-reader-pitch-variants')).not.toBeNull();
+        expect(Array.from(root.querySelectorAll('.jpdb-reader-pitch-variant-badge'), badge => badge.textContent)).toEqual(['50%', '33%', '17%']);
+    });
+
+    it('uses complete supplied commonality values instead of ordinal shares', () => {
+        expect(pitchVariantDisplayPercentages([
+            { pattern: 'LHH', position: 0, commonality: 80 },
+            { pattern: 'HLL', position: 1, commonality: 15 },
+            { pattern: 'LHL', position: 2, commonality: 5 },
+        ])).toEqual([80, 15, 5]);
+    });
+
+    it('does not mix a partial commonality signal with ordinal-only variants', () => {
+        expect(pitchVariantDisplayPercentages([
+            { pattern: 'LHH', position: 0, commonality: 90 },
+            { pattern: 'HLL', position: 1 },
+        ])).toEqual([67, 33]);
+    });
+
+    it('pins audio to the title row and gives multi-graph pitch a balanced full-width row', () => {
+        const css = readFileSync('src/reader/styles/popover-core.css', 'utf8').replace(/\s+/g, ' ');
+
+        expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 10px; }');
+        expect(css).toContain('.jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) { grid-column: 1 / -1; grid-row: 2; width: 100%; margin-block: 0; }');
+        expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control { grid-column: 2; grid-row: 1; margin-left: auto; }');
     });
 });

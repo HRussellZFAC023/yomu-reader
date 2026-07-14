@@ -253,7 +253,7 @@ import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
-import { localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
+import { localPitchResolutionFromMetaLookup, shouldRetainDirectCompoundSegments, type LocalPitchResolution } from '../lookup/pitch-meta';
 import { isKanjiCharacter, uniqueKanji } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
 import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFromSettings, type OcrInteractionMode } from '../ocr/mode';
@@ -618,6 +618,12 @@ function isJsdomRuntime(): boolean {
     return navigator.userAgent.includes('jsdom');
 }
 
+function applyLocalPitchResolution(card: JPDBCard, resolution: LocalPitchResolution): string {
+    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
+    else if (resolution.patterns.length) delete card.pitchSegments;
+    return resolution.patterns[0] ?? '';
+}
+
 export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
@@ -916,7 +922,7 @@ export class ReaderApp {
     private preloadedTermAudioKeys = new Set<string>();
     private preloadedPreparedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
-    private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
+    private pitchEnrichmentLocalCache = new Map<string, Promise<LocalPitchResolution>>();
     private localPitchDictionaryAvailability?: Promise<boolean>;
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
     private unresolvedFallbackVocabularyCache = new Set<string>();
@@ -8018,21 +8024,18 @@ export class ReaderApp {
         if (!this.settings.localDictionariesEnabled || !card.spelling.trim()) return '';
         const key = this.localPitchEnrichmentCacheKey(card);
         const cached = this.pitchEnrichmentLocalCache.get(key);
-        if (cached) return cached;
-        const promise = localPitchResolutionFromMetaLookup(
+        if (cached) return applyLocalPitchResolution(card, await cached);
+        const promise: Promise<LocalPitchResolution> = localPitchResolutionFromMetaLookup(
             card.spelling,
             card.reading,
             expression => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences),
-        ).then(resolution => {
-            if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-            else if (resolution.patterns.length) delete card.pitchSegments;
-            return resolution.patterns[0] ?? '';
-        }).catch(error => {
-                log.warn('Local pitch enrichment failed', { term: card.spelling }, error);
-                return '';
-            });
+            { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) },
+        ).catch(error => {
+            log.warn('Local pitch enrichment failed', { term: card.spelling }, error);
+            return { patterns: [] };
+        });
         this.rememberLocalPitchEnrichment(key, promise);
-        return promise;
+        return applyLocalPitchResolution(card, await promise);
     }
 
     private localPitchEnrichmentCacheKey(card: JPDBCard): string {
@@ -8047,7 +8050,7 @@ export class ReaderApp {
         });
     }
 
-    private rememberLocalPitchEnrichment(key: string, promise: Promise<string>): void {
+    private rememberLocalPitchEnrichment(key: string, promise: Promise<LocalPitchResolution>): void {
         this.pitchEnrichmentLocalCache.set(key, promise);
         evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
     }

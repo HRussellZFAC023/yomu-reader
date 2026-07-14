@@ -3762,8 +3762,16 @@ function observeTextMirrorHost(host: HTMLElement): void {
             // header becoming the composer on iPad) and no rescan refreshes
             // the mirror, it would keep painting the OLD text over the new
             // content while hiding it. Restore the host once the grace passes.
-            reassertTextMirrorHostStyles(liveHost, liveState);
             dispatchTextMirrorStale(liveHost);
+            // Discord and other framework chats can grow one message in place
+            // (for example, `スター` -> `スタープラチナ`). Keeping the old
+            // mirror during the rescan grace used to hide the newly appended
+            // suffix behind a stale partial mirror. Repaint immediately from
+            // the cached tokens when every decorated surface is still at the
+            // same offset; the unparsed remainder is emitted as plain text and
+            // the stale event still schedules the authoritative fresh parse.
+            if (replayNonDestructiveRenderFromCache(liveHost, true)) return;
+            reassertTextMirrorHostStyles(liveHost, liveState);
             clearTimeout(liveState.staleRemovalTimer);
             const staleSource = liveState.sourceText;
             const staleLifecycle = liveState.lifecycle;
@@ -3953,16 +3961,22 @@ function rememberNonDestructiveRenderForReplay(
     });
 }
 
-function replayNonDestructiveRenderFromCache(host: HTMLElement): boolean {
+function replayNonDestructiveRenderFromCache(host: HTMLElement, allowCompatibleTextChange = false): boolean {
     const entry = nonDestructiveRenderCache.get(host);
     if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch) return false;
     // Native-ruby fragment metadata cannot be reconstructed for detached
     // fragments — fall back to the stale-rescan path for those rare hosts.
     if (entry.hadNativeRuby || !host.isConnected) return false;
-    // Strict same-input gate: the raw host text the new subtree renders must
-    // equal the text the cached plan was derived from (the observer's
-    // normalized check is a cheap pre-filter; this is the authoritative one).
-    if (hostOriginalTextWithNodeOffsets(host).hostText !== entry.hostTextAtRender) return false;
+    // Normally this is a strict same-input gate. The one deliberate exception
+    // is compatible progressive growth: all cached decorated surfaces still
+    // occupy the same spans, so they can be retained while new remainder text
+    // is painted plainly until the fresh parse arrives.
+    const currentHostText = hostOriginalTextWithNodeOffsets(host).hostText;
+    const compatibleTextChange = currentHostText !== entry.hostTextAtRender
+        && allowCompatibleTextChange
+        && cachedTokenSurfacesRemainStable(entry, currentHostText);
+    if (currentHostText !== entry.hostTextAtRender
+        && !compatibleTextChange) return false;
     // Same-FACTS gate (sol review P1): a recycler can keep the text but change
     // the host's role/ancestry (content row becoming a button). Re-run the
     // deterministic classifier; any drift falls back to the stale-rescan path
@@ -3974,7 +3988,7 @@ function replayNonDestructiveRenderFromCache(host: HTMLElement): boolean {
         if (entry.decorationProfileOverride ? current === 'skip' : current !== entry.decoration) return false;
     }
     const target: FragmentTextTarget = {
-        text: entry.planText,
+        text: compatibleTextChange ? currentHostText : entry.planText,
         parent: host,
         fragments: [],
         decoration: entry.decoration,
@@ -4000,6 +4014,14 @@ function replayNonDestructiveRenderFromCache(host: HTMLElement): boolean {
     if (!currentTextMirror(host)) return false;
     nonDestructiveRenderReplayCount += 1;
     return true;
+}
+
+function cachedTokenSurfacesRemainStable(entry: NonDestructiveRenderCacheEntry, currentHostText: string): boolean {
+    if (!currentHostText || currentHostText === entry.hostTextAtRender) return false;
+    return entry.tokens.length > 0 && entry.tokens.every(token => {
+        if (token.start < 0 || token.end <= token.start || token.end > currentHostText.length) return false;
+        return entry.planText.slice(token.start, token.end) === currentHostText.slice(token.start, token.end);
+    });
 }
 
 function mutationInsideTextMirror(mutation: MutationRecord): boolean {

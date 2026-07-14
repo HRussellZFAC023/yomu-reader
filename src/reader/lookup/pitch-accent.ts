@@ -107,10 +107,10 @@ export function compoundPitchGradientCss(segments: Array<{ pattern: string; read
     return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
-// One accepted accent variant of a reading. `commonality` is a real percentage
-// (0–100) when a source ever provides one; today's sources (jpdb array order,
-// Kanjium row order) are ordinal-only — the FIRST variant is the primary/most
-// common one — so it stays undefined rather than inventing numbers.
+// One accepted accent variant of a reading. `commonality` is a real source
+// weight/percentage when available for every variant. Today's sources (JPDB
+// array order, Kanjium row order) are ordinal-only, so it stays undefined;
+// presentation derives clearly relative display shares from that ordering.
 export interface PitchVariant {
     pattern: string;
     position: number | null;

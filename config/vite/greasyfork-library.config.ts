@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 
 const configRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(import.meta.url);
+const pkg = require('../../package.json') as { version: string };
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryDir } = require('../../scripts/lib/greasyfork-libraries.cjs') as {
     GREASY_FORK_LIBRARIES: Array<{
         id: string;
@@ -23,6 +24,7 @@ if (!library) {
 
 export default defineConfig({
     define: {
+        __YOMU_VERSION__: JSON.stringify(pkg.version),
         __YOMU_EXTENSION_BUILD__: JSON.stringify(false),
         __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
         __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),

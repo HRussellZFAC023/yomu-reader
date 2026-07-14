@@ -155,7 +155,7 @@ function speakingScoreTipKey(score: SpeakingPitchScore): NewTabCopyKey {
 function renderListenPickFeedback(view: ListenCardView, t: Translate): string {
     const verdict = view.outcome === 'correct' ? t('listenCorrect') : t('listenTryAgain');
     const variants = view.variants.length > 1
-        ? renderPitchVariantGraphs(view.item.reading, view.variants, { primary: t('pitchVariantPrimary'), alternative: t('pitchVariantAlso') })
+        ? renderPitchVariantGraphs(view.item.reading, view.variants)
         : '';
     return `<div class="jpdb-reader-newtab-listen-feedback">
         <div class="jpdb-reader-newtab-listen-verdict" data-listen-outcome="${view.outcome ?? ''}">${escapeHtml(verdict)}</div>

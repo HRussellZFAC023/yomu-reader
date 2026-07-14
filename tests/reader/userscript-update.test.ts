@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
-import { detectYomuUpdateFlow, INSTALL_GUIDE_URL, updateFlowNoteKey } from '../../src/reader/app/userscript-update';
+import { detectYomuUpdateFlow, INSTALL_GUIDE_URL, UPDATE_GUIDE_URL, updateFlowNoteKey } from '../../src/reader/app/userscript-update';
 import { uiText } from '../../src/reader/app/i18n';
 
 // A wrong branch here regresses straight into the Chromium "Apps, extensions,
@@ -16,6 +16,20 @@ describe('yomu update flow detection', () => {
             const flow = detectYomuUpdateFlow({ scriptHandler: handler });
             expect(flow.kind, handler).toBe('manager');
             expect(flow.url, handler).toBe(USERSCRIPT_INSTALL_URL);
+        }
+    });
+
+    it('routes Chromium Tampermonkey through its dashboard update check instead of a website install', () => {
+        for (const userAgent of [
+            'Mozilla/5.0 Chrome/138.0.0.0 Safari/537.36',
+            'Mozilla/5.0 Edg/138.0.0.0',
+        ]) {
+            const flow = detectYomuUpdateFlow({ scriptHandler: 'Tampermonkey' }, true, userAgent);
+            expect(flow.kind).toBe('manager-dashboard');
+            expect(flow.url).toBe(UPDATE_GUIDE_URL);
+            expect(flow.url).not.toContain('raw.githubusercontent.com');
+            expect(uiText('en', updateFlowNoteKey(flow.kind))).toContain('Utilities');
+            expect(uiText('ja', updateFlowNoteKey(flow.kind))).toContain('ユーティリティ');
         }
     });
 
@@ -63,7 +77,7 @@ describe('yomu update flow detection', () => {
     });
 
     it('has en and ja guidance for every flow kind', () => {
-        for (const kind of ['manager', 'external-manager', 'no-manager'] as const) {
+        for (const kind of ['manager', 'manager-dashboard', 'external-manager', 'no-manager'] as const) {
             const key = updateFlowNoteKey(kind);
             expect(uiText('en', key).length, kind).toBeGreaterThan(10);
             expect(uiText('ja', key).length, kind).toBeGreaterThan(10);

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.150] - 2026-07-14
+
+### Fixed
+
+- Popup audio controls stay pinned to the top-right when a word has multiple pitch-accent graphs. Two or three variants now share a compact full-width row with balanced spacing and wrap cleanly on narrow screens.
+- Repeated compound words keep their constituent pitch-accent segments, so proper compound underlines no longer degrade to one flattened pattern after the first occurrence.
+- Long compounds with both whole-word and constituent pitch data now keep one authoritative component view, so inline underlines and popup graphs agree for terms such as 双子座流星群.
+- Discord and other framework-managed chats immediately preserve newly appended message text while Yomu refreshes annotations, preventing suffixes such as `プラチナ` from briefly disappearing.
+- Help now shows the installed Yomu version in split userscript builds instead of `dev`. On Chromium with Tampermonkey, Update opens the dashboard update-check instructions instead of triggering Chrome’s blocked website-install banner; release verification also rejects a settings companion that loses its version or canonical Study update endpoint.
+- Popup grammar tags such as `uk`, `abbr`, and `arch` are expanded into readable labels instead of exposing dictionary shorthand.
+- Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.
+
 ## [1.6.149] - 2026-07-13
 
 ### Added

@@ -26531,6 +26531,7 @@ describe('reader helpers', () => {
 
     it('renders JPDB part-of-speech codes as readable labels', () => {
         expect(formatPartOfSpeech(['vt', 'v5', 'v5m'])).toBe('transitive verb, godan verb, mu ending');
+        expect(formatPartOfSpeech(['n', 'uk', 'abbr', 'arch'])).toBe('noun, usually written using kana alone, abbreviation, archaic');
     });
 
     it('extracts compact kanji details from a JPDB kanji page', () => {

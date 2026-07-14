@@ -9074,21 +9074,31 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   margin-left: auto;
 }
 /* Multi-graph pitch (per-component or accent variants) does not fit the
-   narrow tools column: dissolve the column and give the graphs their own
-   full-width row under the title, keeping the audio button top-right. */
+   narrow tools column. Give the header explicit rows so the audio control
+   stays pinned beside the title while two or three graphs share a compact,
+   full-width row below the heading. */
 .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 10px;
+}
+.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-heading {
+  grid-column: 1;
+  grid-row: 1;
 }
 .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
   display: contents;
 }
 .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-  order: 3;
-  flex: 1 1 100%;
-  margin-top: 2px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  margin-block: 0;
 }
 .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
-  order: 2;
+  grid-column: 2;
+  grid-row: 1;
   margin-left: auto;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn,

@@ -15,6 +15,16 @@ A **userscript** is a small add-on that runs inside your browser. Install a free
 
 Jiten, Bunpro, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
 
+## Update an existing install
+
+On Chrome or Edge with Tampermonkey, update from inside Tampermonkey instead of opening the `.user.js` link as a website install:
+
+1. Open the **Tampermonkey Dashboard**.
+2. Open **Utilities**.
+3. Select **Check for userscript updates**, then accept the Yomu update.
+
+If Chrome says “Apps, extensions, and user scripts cannot be added from this website,” changing the link to GitHub Raw will not fix it—the browser permission is disabled. Open Tampermonkey’s extension details and enable **Allow User Scripts** (Chrome 138+) or enable **Developer mode**, following [Tampermonkey’s current permission guide](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
+
 ## Step 1: Install a userscript manager
 
 Pick your setup.
@@ -48,7 +58,7 @@ Click the link above. Tampermonkey opens an install screen for よむ. Click **I
 To update later, open the same link again and let Tampermonkey replace the old version.
 
 <div class="yomu-callout">
-  <strong>Seeing "Apps, extensions, and user scripts cannot be added from this website"?</strong> That popup comes from Chrome or Edge, not よむ — the browser is blocking Tampermonkey from installing any userscript. Open your browser's extensions page (<code>chrome://extensions</code> or <code>edge://extensions</code>), open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong> (on older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead). Then open the install link again.
+  <strong>Seeing "Apps, extensions, and user scripts cannot be added from this website"?</strong> That popup comes from Chrome or Edge, not よむ — changing to GitHub Raw will not bypass it. Open your browser's extensions page (<code>chrome://extensions</code> or <code>edge://extensions</code>), open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong> (on older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead). Then open the install link again.
 </div>
 
 <div class="yomu-callout">

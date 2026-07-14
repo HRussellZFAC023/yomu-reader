@@ -8,6 +8,8 @@ const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
 const KANA_RE = /[぀-ヿー]/u;
+const COMPOUND_JAPANESE_CHARACTER_RE = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]+$/u;
+const COMPOUND_KANJI_RE = /\p{Script=Han}/u;
 
 interface CompoundSegment {
     pattern: string;
@@ -23,6 +25,10 @@ interface CompoundLookupState {
 export interface LocalPitchPatternLookupOptions {
     initialEntries?: YomitanMetaEntry[];
     includeCompound?: boolean;
+    // Long compounds can have both a whole-word accent row and useful
+    // constituent rows. Keep the direct pattern authoritative while retaining
+    // the constituent boundaries needed by the inline gradient and popup.
+    includeDirectCompoundSegments?: boolean;
 }
 
 // A compound's combined pattern keeps its constituent boundaries: each
@@ -36,6 +42,13 @@ export interface CompoundPitchSegment {
 export interface LocalPitchResolution {
     patterns: string[];
     compoundSegments?: CompoundPitchSegment[];
+}
+
+export function shouldRetainDirectCompoundSegments(spelling: string): boolean {
+    const characters = Array.from(spelling.trim());
+    return characters.length >= 4
+        && COMPOUND_JAPANESE_CHARACTER_RE.test(characters.join(''))
+        && characters.filter(character => COMPOUND_KANJI_RE.test(character)).length >= 2;
 }
 
 export async function localPitchPatternsFromMetaLookup(
@@ -57,18 +70,30 @@ export async function localPitchResolutionFromMetaLookup(
     const pronunciation = reading.trim();
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
     let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return { patterns };
+    if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
 
     if (pronunciation && pronunciation !== expression) {
         const readingEntries = await lookupMeta(pronunciation);
         patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-        if (patterns.length) return { patterns };
+        if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
     }
 
     if (options.includeCompound === false) return { patterns: [] };
     const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
     if (!segments.length) return { patterns: [] };
     return { patterns: [segments.map(segment => segment.pattern).join('')], compoundSegments: segments };
+}
+
+async function resolutionWithOptionalDirectCompoundSegments(
+    expression: string,
+    pronunciation: string,
+    patterns: string[],
+    lookupMeta: PitchMetaLookup,
+    options: LocalPitchPatternLookupOptions,
+): Promise<LocalPitchResolution> {
+    if (!options.includeDirectCompoundSegments) return { patterns };
+    const compoundSegments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
+    return compoundSegments.length ? { patterns, compoundSegments } : { patterns };
 }
 
 // Compound expressions (登録者数) rarely have a whole-word row in a pitch

@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { composeCompoundPitchPatternFromMeta, composeCompoundPitchSegmentsFromMeta, localPitchPatternsFromMetaLookup, localPitchResolutionFromMetaLookup } from '../../src/reader/lookup/pitch-meta';
 import { compoundPitchGradientCss } from '../../src/reader/lookup/pitch-accent';
 import { renderPitchGraphSvg } from '../../src/reader/popup/pitch';
+import { ReaderParser, type ReaderParserParseOptions } from '../../src/reader/lookup/parser';
+import { ReaderApp } from '../../src/reader/app/main';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import type { YomitanMetaEntry } from '../../src/reader/dictionaries/yomitan';
 
 function pitchEntry(reading: string, position: number): YomitanMetaEntry {
@@ -11,6 +15,23 @@ function pitchEntry(reading: string, position: number): YomitanMetaEntry {
 
 function bankLookup(bank: Record<string, YomitanMetaEntry[]>) {
     return vi.fn(async (expression: string) => bank[expression] ?? []);
+}
+
+function localCompoundCard(vid: number): JPDBCard {
+    return {
+        vid,
+        sid: vid,
+        rid: 0,
+        spelling: '登録者数',
+        reading: 'とうろくしゃすう',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'local',
+    };
 }
 
 describe('composeCompoundPitchPatternFromMeta', () => {
@@ -234,6 +255,24 @@ describe('compound pitch segments', () => {
         expect(resolution.compoundSegments).toBeUndefined();
     });
 
+    it('retains 双子座流星群 component boundaries beside its exact whole-word pitch', async () => {
+        const lookup = bankLookup({
+            双子座流星群: [pitchEntry('ふたござりゅうせいぐん', 0)],
+            双子座: [pitchEntry('ふたござ', 0)],
+            流星群: [pitchEntry('りゅうせいぐん', 3)],
+        });
+        const resolution = await localPitchResolutionFromMetaLookup(
+            '双子座流星群',
+            'ふたござりゅうせいぐん',
+            lookup,
+            { includeDirectCompoundSegments: true },
+        );
+
+        expect(resolution.patterns).toEqual(['LHHHHHHHHHH']);
+        expect(resolution.compoundSegments?.map(segment => segment.reading)).toEqual(['ふたござ', 'りゅうせいぐん']);
+        expect(resolution.compoundSegments?.map(segment => segment.pattern)).toEqual(['LHHH', 'LHHLLLL']);
+    });
+
     it('builds a two-colour underline gradient weighted by contributed morae', () => {
         const gradient = compoundPitchGradientCss([
             { pattern: 'LHHH', reading: 'とうろく' },
@@ -255,5 +294,60 @@ describe('compound pitch segments', () => {
         expect(svg).toContain('polyline class="atamadaka"');
         expect(svg).toContain('circle class="heiban"');
         expect(svg).toContain('circle class="atamadaka"');
+    });
+});
+
+describe('compound pitch resolution caches', () => {
+    const settings: ReaderSettings = {
+        ...DEFAULT_SETTINGS,
+        localDictionariesEnabled: true,
+        showPitchAccent: true,
+    };
+    const bank = {
+        登録: [pitchEntry('とうろく', 0)],
+        者: [pitchEntry('しゃ', 1)],
+        数: [pitchEntry('すう', 1)],
+    };
+
+    it('reapplies parser compound segments to each card served from the pitch cache', async () => {
+        const lookupTermMeta = bankLookup(bank);
+        const parser = new ReaderParser({
+            getSettings: () => settings,
+            jpdb: {} as never,
+            dictionaries: { lookupTermMeta } as never,
+        }) as unknown as {
+            localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string>;
+        };
+        const first = localCompoundCard(101);
+        const repeated = localCompoundCard(102);
+
+        await expect(parser.localPitchPattern(first, {})).resolves.toBe('LHHHHHLL');
+        const callsAfterMiss = lookupTermMeta.mock.calls.length;
+        await expect(parser.localPitchPattern(repeated, {})).resolves.toBe('LHHHHHLL');
+
+        expect(repeated.pitchSegments).toEqual(first.pitchSegments);
+        expect(repeated.pitchSegments?.map(segment => segment.reading)).toEqual(['とうろく', 'しゃ', 'すう']);
+        expect(lookupTermMeta).toHaveBeenCalledTimes(callsAfterMiss);
+    });
+
+    it('reapplies app enrichment compound segments to each card served from the pitch cache', async () => {
+        const lookupTermMeta = bankLookup(bank);
+        const app = new ReaderApp() as unknown as {
+            settings: ReaderSettings;
+            dictionaries: { lookupTermMeta: typeof lookupTermMeta };
+            localPitchPatternForCard(card: JPDBCard): Promise<string>;
+        };
+        app.settings = settings;
+        app.dictionaries = { lookupTermMeta };
+        const first = localCompoundCard(201);
+        const repeated = localCompoundCard(202);
+
+        await expect(app.localPitchPatternForCard(first)).resolves.toBe('LHHHHHLL');
+        const callsAfterMiss = lookupTermMeta.mock.calls.length;
+        await expect(app.localPitchPatternForCard(repeated)).resolves.toBe('LHHHHHLL');
+
+        expect(repeated.pitchSegments).toEqual(first.pitchSegments);
+        expect(repeated.pitchSegments?.map(segment => segment.reading)).toEqual(['とうろく', 'しゃ', 'すう']);
+        expect(lookupTermMeta).toHaveBeenCalledTimes(callsAfterMiss);
     });
 });

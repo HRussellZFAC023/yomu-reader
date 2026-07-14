@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
-import { renderExpressionComponentPitches } from '../../src/reader/popup/render';
+import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
+import { applyCompoundPitchDecoration } from '../../src/reader/dom/index';
+import { alignedExpressionComponentPitches, renderExpressionComponentPitches } from '../../src/reader/popup/render';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import type { AnkiConnectClient } from '../../src/reader/anki/index';
@@ -230,6 +232,54 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['気合い', '入れる']);
     });
 
+    it('keeps 双子座流星群 in the component view and paints its inline compound underline', async () => {
+        const loader = createLoader({
+            entriesByTerm: {
+                双子座流星群: [termEntry('双子座流星群', 'ふたござりゅうせいぐん')],
+                双子座: [termEntry('双子座', 'ふたござ')],
+                流星群: [termEntry('流星群', 'りゅうせいぐん')],
+            },
+            metaByTerm: {
+                双子座流星群: [pitchMeta('双子座流星群', 'ふたござりゅうせいぐん', 0)],
+                双子座: [pitchMeta('双子座', 'ふたござ', 0)],
+                流星群: [pitchMeta('流星群', 'りゅうせいぐん', 3)],
+            },
+        });
+        const card = expressionCard('双子座流星群', 'ふたござりゅうせいぐん');
+        card.pitchAccent = ['LHHHHHHHHHH'];
+
+        const data = await loader.load(card).all;
+
+        expect(data.expressionComponents).toEqual([
+            { text: '双子座', reading: 'ふたござ' },
+            { text: '流星群', reading: 'りゅうせいぐん' },
+        ]);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['双子座', '流星群']);
+        expect(card.pitchSegments?.map(segment => segment.reading)).toEqual(['ふたござ', 'りゅうせいぐん']);
+
+        const inlineWord = document.createElement('span');
+        applyCompoundPitchDecoration(inlineWord, card);
+        expect(inlineWord.classList.contains('jpdb-reader-pitch-compound')).toBe(true);
+        expect(inlineWord.style.getPropertyValue('--jpdb-reader-pitch-compound-gradient')).toContain('linear-gradient');
+
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, showPitchAccent: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        document.body.innerHTML = renderer.render(card, card.spelling, 'modal', { ...data, loading: false });
+
+        expect(document.querySelector('.jpdb-reader-pitch-components')).not.toBeNull();
+        expect(document.querySelectorAll('.jpdb-reader-pitch-components .jpdb-reader-pitch-component')).toHaveLength(2);
+        expect(document.querySelector('.jpdb-reader-pitch-variants')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-pitch-components')?.textContent).toContain('双子座');
+        expect(document.querySelector('.jpdb-reader-pitch-components')?.textContent).toContain('流星群');
+    });
+
     it('keeps componentPitches empty when only one component is found', async () => {
         const loader = createLoader({
             entriesByTerm: { 気合い: [termEntry('気合い', 'きあい')] },
@@ -240,6 +290,17 @@ describe('expression component pitch', () => {
 
         expect(data.expressionComponents ?? []).toEqual([]);
         expect(data.componentPitches ?? []).toEqual([]);
+    });
+
+    it('does not treat a partial decomposition that skipped connective text as the whole compound', () => {
+        const card = expressionCard('気合いを入れる', 'きあいをいれる');
+        const components = [
+            { text: '気合い', reading: 'きあい' },
+            { text: '入れる', reading: 'いれる' },
+        ];
+        const pitches = components.map(component => ({ ...component, pitch: 'LHHH' }));
+
+        expect(alignedExpressionComponentPitches(card, components, pitches)).toEqual([]);
     });
 
     it('renders one labelled mini graph per component', () => {

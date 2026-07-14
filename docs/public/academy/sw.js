@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-49196f5d199d';
+const VERSION = 'yomu-academy-shell-s1-85a515d75fe9';
 const CORE = [
     '/yomu.user.js',
     '/yomu.css',
@@ -9,8 +9,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-49196f5d199d',
-    '/academy/style.css?v=s1-49196f5d199d',
+    '/academy/app.js?v=s1-85a515d75fe9',
+    '/academy/style.css?v=s1-85a515d75fe9',
     '/academy/manifest.webmanifest',
     '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
     '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
