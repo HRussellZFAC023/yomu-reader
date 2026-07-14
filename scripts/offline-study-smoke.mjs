@@ -14,6 +14,14 @@ async function gradeVisibleCard(page, grade) {
     await revealVisibleCard(page);
     await page.waitForSelector('[data-newtab-action="grade"]', { timeout: 8_000 });
     await page.click(`[data-newtab-action="grade"][data-grade="${grade}"]`);
+    // The FIRST offline grade raises the connection-lost prompt (WaniKani-
+    // style); choosing Continue Offline arms silent queueing for the rest of
+    // the outage — later grades must NOT prompt again, which the loop's
+    // advance assertion enforces.
+    const continueOffline = page.locator('[data-connection-lost-action="continue"]');
+    if (await continueOffline.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await continueOffline.click();
+    }
     await page.waitForTimeout(500);
 }
 
