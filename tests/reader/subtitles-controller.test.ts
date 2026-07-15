@@ -5052,7 +5052,7 @@ Watch the cat
         });
     });
 
-    it('keeps the rail idle on subtitle taps while still shielding clicks below autohidden YouTube chrome', async () => {
+    it('reveals the move handle from a displaced subtitle tap without intercepting native player space', async () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div><a id="subtitle-underlay" href="#unexpected">Under subtitle</a>';
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
@@ -5110,13 +5110,28 @@ Watch the cat
                 pointerType: 'touch',
             }));
 
-            // Reading interactions never reveal the rail: a subtitle tap is a
-            // lookup gesture, so the controls stay minimised.
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            // A deliberate tap inside the painted subtitle rectangle reveals
+            // the otherwise unreachable move handle, even when a lookup word
+            // stops the event before it can bubble.
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
             internals.syncPlayerChromeIdleState();
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
 
             const underlay = document.querySelector<HTMLAnchorElement>('#subtitle-underlay')!;
+            // The transparent frame does not become a hit target. A press that
+            // targets the page underneath but lands inside the displaced line
+            // must keep the capture-phase wake when it bubbles back to document.
+            internals.hideControlsImmediately();
+            await vi.advanceTimersByTimeAsync(400);
+            underlay.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 320,
+                clientY: 430,
+                pointerId: 22,
+                pointerType: 'touch',
+            }));
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+
             const underlayClick = vi.fn();
             underlay.addEventListener('click', underlayClick);
             const click = new MouseEvent('click', {
@@ -5133,8 +5148,8 @@ Watch the cat
             await vi.advanceTimersByTimeAsync(2600);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
-            // Hovering the displaced line is also a reading gesture — with the
-            // player chrome hidden the rail stays minimised rather than waking.
+            // Hovering the displaced line is still only a reading gesture —
+            // recovery is deliberate tap/click behavior, not hover flicker.
             subtitleFrame.dispatchEvent(pointerEvent('pointermove', {
                 clientX: 320,
                 clientY: 430,

@@ -752,7 +752,7 @@ async function runLocalMobileWrapSmoke(browser) {
     await page.mouse.down();
     await page.mouse.move(handleX, handleY + 145, { steps: 5 });
     await page.mouse.up();
-    await page.waitForTimeout(2700);
+    await page.waitForTimeout(3100);
     const displacedIdle = await readMobileSubtitleWakeState(page);
     assert(
         displacedIdle.subtitle.top > displacedIdle.video.bottom,
@@ -761,7 +761,7 @@ async function runLocalMobileWrapSmoke(browser) {
     );
     assert(displacedIdle.idle, 'Moved mobile subtitle controls did not return to idle', displacedIdle);
     assert(displacedIdle.handleVisibility === 'visible' && displacedIdle.handleOpacity === 0, 'Idle move handle was not visually faded while remaining keyboard-accessible', displacedIdle);
-    assert(displacedIdle.railVisibility === 'visible' && displacedIdle.railOpacity === 0, 'Idle subtitle rail was not visually faded while remaining keyboard-accessible', displacedIdle);
+    assert(displacedIdle.railVisibility === 'hidden' && displacedIdle.railOpacity === 0, 'Idle subtitle rail did not enter the fully hidden away state', displacedIdle);
     assert(displacedIdle.handlePointerEvents === 'none' && displacedIdle.railPointerEvents === 'none', 'Idle controls still intercepted pointer input', displacedIdle);
     assert(!displacedIdle.handleFocused, 'Idle move handle retained stale focus', displacedIdle);
 
@@ -802,7 +802,7 @@ async function runLocalMobileWrapSmoke(browser) {
         video.controls = true;
         video.focus({ preventScroll: true });
     });
-    await page.waitForTimeout(2700);
+    await page.waitForTimeout(3100);
     const keyboardBlurred = await readMobileSubtitleWakeState(page);
     assert(keyboardBlurred.idle, 'Subtitle controls did not return to idle after keyboard focus left', keyboardBlurred);
     assert(keyboardBlurred.handleOpacity === 0 && keyboardBlurred.railOpacity === 0, 'Subtitle controls stayed painted after keyboard focus left', keyboardBlurred);
@@ -820,7 +820,7 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(displacedTapped.handleLabel.includes('Page Up/Page Down'), 'Move handle lacks screen-reader keyboard instructions', displacedTapped);
     assert(displacedTapped.handleShortcuts === 'ArrowUp ArrowDown PageUp PageDown Home 0', 'Move handle keyboard shortcuts are not exposed', displacedTapped);
 
-    await page.waitForTimeout(2700);
+    await page.waitForTimeout(3100);
     const displacedReIdle = await readMobileSubtitleWakeState(page);
     assert(displacedReIdle.idle, 'Tapped subtitle controls did not return to idle', displacedReIdle);
     assert(displacedReIdle.handleOpacity === 0, 'Tapped move handle stayed painted after the idle delay', displacedReIdle);

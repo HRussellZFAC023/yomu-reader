@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.157] - 2026-07-16
+
+### Fixed
+
+- Tapping or clicking a visible subtitle now briefly reveals its move handle, even when the caption was dragged below the video and the player controls have faded. Transparent space around captions remains click-through, so Yomu does not cover native player controls.
+
 ## [1.6.156] - 2026-07-16
 
 ### Fixed

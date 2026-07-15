@@ -3874,15 +3874,21 @@ export class SubtitlePlayerController {
         // (the panel owns its pointer events), so reaching here means the press
         // landed outside it — dismiss the panel-options popover.
         this.closePanelOptionsMenu();
+        // The capture-phase subtitle-surface handler already woke controls for
+        // this press. Do not let the bubbling activity path immediately hide
+        // them merely because a displaced caption sits outside the video rect.
+        if (this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
         this.syncPointerActivity(event.clientX, event.clientY);
     }
 
-    // Tapping the subtitle line (e.g. looking up a word) deliberately does
-    // NOT reveal the rail: the rail follows the player's own chrome instead,
-    // so reading interactions stay free of control-cluster flicker.
+    // A displaced subtitle can leave its move handle outside the player while
+    // native chrome is hidden. Wake from a deliberate press inside the visible
+    // subtitle rectangle so it remains recoverable; the document-level hit
+    // test does not add a pointer-catching layer over transparent player space.
     private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
         if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
         this.lastControlsInputWasKeyboard = false;
+        this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
 
     private handleSubtitleSurfaceClick(event: MouseEvent): void {
