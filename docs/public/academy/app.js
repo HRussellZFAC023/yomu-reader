@@ -13538,7 +13538,7 @@
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorKifuku: "Kifuku (variable)",
-      pitchColorUnknown: "Unknown / inherited",
+      pitchColorUnknown: "Unknown",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
       wordUnderlineColorSource: "Word underline color",
@@ -15283,7 +15283,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorKifuku	起伏
-pitchColorUnknown	不明 / 継承
+pitchColorUnknown	不明
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -19361,14 +19361,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return element2.style;
     }
   }
-  function safePseudoContent(element2, pseudo) {
-    if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)) return "";
-    try {
-      return getComputedStyle(element2, pseudo).content;
-    } catch {
-      return "";
-    }
-  }
   function compactLength(value) {
     return Array.from(value.replace(/\s+/g, "")).length;
   }
@@ -19406,6 +19398,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
   const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+  const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
+  const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
   const constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
   function constrainedRowStyleFacts(element2) {
     const now = Date.now();
@@ -19415,16 +19409,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const clamped = hasLineClamp(style);
     const ellipsisRow = isEllipsisTextRow(style);
     const clips = clipsOverflow(style);
+    const clippedConstraint = hasClippedTextConstraint(style);
     let clippedShortRow = false;
+    let activelyTruncatedPreview = false;
     if (clips && !clamped && !ellipsisRow) {
       const height = element2.getBoundingClientRect().height;
       clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+      const clientHeight = element2.clientHeight;
+      activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
     }
     const facts = {
       clamped,
       ellipsisRow,
-      clippedConstraint: hasClippedTextConstraint(style),
-      clippedShortRow
+      clippedConstraint,
+      clippedShortRow,
+      activelyTruncatedPreview
     };
     constrainedRowStyleFactMemo.set(element2, { at: now, facts });
     return facts;
@@ -19436,7 +19435,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let current = element2;
     for (let depth = 0; current && depth < 10; depth += 1) {
       const facts = constrainedRowStyleFacts(current);
-      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow) return current;
+      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
       current = current.parentElement;
     }
     return null;
@@ -19455,35 +19454,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (Number.isFinite(clampLines) && clampLines > 1) return false;
     const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
     return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
-  }
-  const MIRROR_BARE_DESCENDANT_LIMIT = 16;
-  function hostIsVisuallyBareForMirror(host2) {
-    if (host2.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
-    if (!elementHasNoOwnPaint(host2)) return false;
-    const descendants = host2.querySelectorAll("*");
-    if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
-    for (const descendant of Array.from(descendants)) {
-      if (descendant.closest(".jpdb-reader-text-mirror")) continue;
-      if (!elementHasNoOwnPaint(descendant)) return false;
-    }
-    return true;
-  }
-  function elementHasNoOwnPaint(element2) {
-    const style = safeComputedStyle(element2);
-    if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
-    const background = style.backgroundColor;
-    if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
-    if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
-    if (style.boxShadow && style.boxShadow !== "none") return false;
-    if (borderPaints(style)) return false;
-    for (const pseudo of ["::before", "::after"]) {
-      const content = safePseudoContent(element2, pseudo);
-      if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
-    }
-    return true;
-  }
-  function borderPaints(style) {
-    return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
   }
   const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
   const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -19829,10 +19799,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const compact = rect.width === 0 || rect.width <= 560;
     return structured && compact;
   }
-  const EDITABLE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="listbox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+  const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
+  const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
   const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
   function isEditableComposingContext(element2) {
-    if (element2.closest(EDITABLE_SKIP_SELECTOR)) return true;
+    if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+    if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
     return isComboboxOwnedPopup(element2);
   }
   const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
@@ -19868,7 +19842,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
-  const CONTENT_CHIP_ROOT_SELECTOR = [
+  const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = [
     "ytm-slim-video-metadata-section-renderer",
     "ytm-expandable-video-description-body-renderer",
     "ytm-structured-description-content-renderer",
@@ -19878,9 +19852,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "yt-live-chat-viewer-engagement-message-renderer",
     "yt-live-chat-restricted-participation-renderer",
     "yt-live-chat-banner-renderer",
-    "yt-live-chat-ticker-renderer",
-    ".yomu-hosted-overflow-group"
+    "yt-live-chat-ticker-renderer"
   ].join(",");
+  const CONTENT_CHIP_ROOT_SELECTOR = `${YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR},.yomu-hosted-overflow-group`;
   const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
@@ -19962,6 +19936,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const control = interactivePassiveControl(element2);
     if (control) {
       if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return "interactive-passive";
+      if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return "interactive-passive";
       if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
       return "interactive-passive";
     }
@@ -22792,7 +22767,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
   const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
-  const LIVE_FRAMEWORK_CHAT_HOST_SELECTOR = '[data-message-author-role],[data-message-id],[data-testid*="conversation-turn" i],[data-testid*="chat-message" i],[data-testid*="message-content" i],[data-testid*="message-bubble" i],[data-test-id*="chat-message" i],[data-test-id*="message-content" i],.markdown,.markdown-body,.markdown-content,.message,.message-body,.message-content,.messageContent,.chat-message,.conversation-turn,.model-response,.model-response-text,.response-content,.font-claude-message';
   const frameworkManagedElements = /* @__PURE__ */ new WeakSet();
   function elementHasFrameworkOwnershipMarker(element2) {
     for (const key of Object.getOwnPropertyNames(element2)) {
@@ -22811,18 +22785,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return false;
   }
-  function hostInConversationContext(host2) {
-    if (host2.closest(LIVE_FRAMEWORK_CHAT_HOST_SELECTOR)) return true;
-    let current = host2;
-    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
-      if (isConversationTextClass(current)) return true;
-    }
-    return false;
-  }
-  function scanHostIsLiveFrameworkRegion(host2) {
+  function scanHostRequiresSourcePreservingMirror(host2) {
     if (host2.closest('[contenteditable="true"]')) return false;
-    if (!elementIsFrameworkManaged(host2)) return false;
-    return hostInConversationContext(host2);
+    return elementIsFrameworkManaged(host2);
   }
   function stampTargetDecoration(target, host2) {
     const decoration = target.decoration;
@@ -22847,13 +22812,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
+    if (isFragmentTextTarget(target) && targetRequiresReactiveLeafMirrors(target)) {
+      applyTokensToReactiveLeafMirrors(target, tokens, settings);
+      return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
-    const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
-    const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
+    const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+    const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping)) {
+    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -22863,8 +22832,78 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function nonDestructiveTargetShouldRenderInline(target, host2) {
     if (!isFragmentTextTarget(target)) return false;
     if (!target.fragments.length) return false;
-    if (scanHostIsLiveFrameworkRegion(host2)) return false;
+    if (scanHostRequiresSourcePreservingMirror(host2)) return false;
     return targetLeavesVisibleBlockDescendantTextUncovered(target, host2);
+  }
+  function targetRequiresReactiveLeafMirrors(target) {
+    const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
+    const uniqueParents = [...new Set(parents)];
+    if (uniqueParents.length < 2) return false;
+    if (uniqueParents.some((parent) => uniqueParents.every((candidate) => parent.contains(candidate)))) return false;
+    return Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+  }
+  function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
+    const indexed = indexTextFragments(target.fragments);
+    for (const run of reactiveLeafRuns(indexed)) {
+      const text2 = target.text.slice(run.globalStart, run.globalEnd);
+      const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
+      if (!runTokens.length || !HAS_JAPANESE.test(text2)) continue;
+      const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
+      const leafTarget = {
+        ...target,
+        text: text2,
+        parent: run.parent,
+        fragments: run.fragments.map((fragment2) => ({
+          node: fragment2.node,
+          start: fragment2.start,
+          end: fragment2.end,
+          hasNativeRuby: fragment2.hasNativeRuby,
+          layoutSensitive: fragment2.layoutSensitive,
+          passiveInteraction: fragment2.passiveInteraction
+        })),
+        nonDestructive: true,
+        suppressRuby: target.suppressRuby || crossesLeafBoundary
+      };
+      const host2 = nonDestructiveScanHost(leafTarget);
+      stampTargetDecoration(leafTarget, host2);
+      applyTokensToNonDestructiveScanTarget(leafTarget, runTokens, settings);
+    }
+  }
+  function reactiveLeafRuns(fragments) {
+    const runs = [];
+    for (const fragment2 of fragments) {
+      const parent = fragment2.node.parentElement;
+      if (!parent) continue;
+      const previous = runs[runs.length - 1];
+      if (previous?.parent === parent && previous.globalEnd === fragment2.globalStart) {
+        previous.fragments.push(fragment2);
+        previous.globalEnd = fragment2.globalEnd;
+      } else {
+        runs.push({
+          parent,
+          fragments: [fragment2],
+          globalStart: fragment2.globalStart,
+          globalEnd: fragment2.globalEnd
+        });
+      }
+    }
+    return runs;
+  }
+  function tokenPieceForReactiveLeaf(token, runStart, runEnd) {
+    const start = Math.max(token.start, runStart);
+    const end = Math.min(token.end, runEnd);
+    if (end <= start) return null;
+    const delta = -runStart;
+    return {
+      ...token,
+      start: start + delta,
+      end: end + delta,
+      length: end - start,
+      // A reading that crosses a component boundary has no safe single lane.
+      // Keep the word identity/pitch on each source piece and omit only that
+      // furigana rather than letting it overlap a neighbouring UI row.
+      rubies: token.rubies.filter((ruby) => ruby.start >= start && ruby.end <= end).map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
+    };
   }
   function targetLeavesVisibleBlockDescendantTextUncovered(target, host2) {
     if (!host2.querySelector(":scope p,:scope div,:scope li,:scope dl,:scope dt,:scope dd,:scope section,:scope article,:scope blockquote")) return false;
@@ -23190,7 +23229,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderPlan = preservesWhitespace(safeComputedStyle(host2).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host2, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host2);
-    const { clipRow, hasRenderedRuby, clipHoverOnly, detachedReadings } = textMirrorClipMode(host2, suppressRuby, safeTokens);
+    const { clipRow, detachedReadings } = textMirrorClipMode(host2, safeTokens);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     return {
@@ -23201,8 +23240,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       signature,
       whitespaceJointsKey,
       clipRow,
-      hasRenderedRuby,
-      clipHoverOnly,
       detachedReadings,
       suppressRuby,
       hostText: plan.hostText
@@ -23224,8 +23261,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       existing?.dataset.sourceText === context.text,
       existing?.dataset.renderSignature === context.signature,
       (existing?.dataset.whitespaceJoints ?? "") === context.whitespaceJointsKey,
-      existing?.classList.contains("jpdb-reader-clip-hover-mirror") === context.clipHoverOnly,
-      existing?.classList.contains("jpdb-reader-additive-text-mirror") === context.detachedReadings
+      existing?.classList.contains("jpdb-reader-additive-text-mirror")
     ].every(Boolean);
     if (!matches) return false;
     const state = textMirrorHosts.get(host2);
@@ -23240,30 +23276,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.renderSignature = context.signature;
     mirror.dataset.whitespaceJoints = context.whitespaceJointsKey;
     mirror.setAttribute("aria-hidden", "true");
-    if (context.clipRow && context.hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
-    if (context.detachedReadings) {
-      mirror.classList.add("jpdb-reader-additive-text-mirror");
-      mirror.dataset.yomuDetachedReadings = "true";
-    }
+    mirror.classList.add("jpdb-reader-additive-text-mirror");
+    if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = "true";
     return mirror;
   }
   function mountNonDestructiveTextMirror(host2, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
     const controlMirror = target.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
-    const mirrorRubyLayout = context.hasRenderedRuby && !context.clipRow && !controlMirror;
-    const stableClippedMirror = context.clipHoverOnly && prefersStableClippedMirror();
-    const state = styleTextMirrorHost(
-      host2,
-      mirrorRubyLayout,
-      context.clipHoverOnly && !stableClippedMirror,
-      Boolean(context.clipRow),
-      context.detachedReadings
-    );
+    const state = styleTextMirrorHost(host2);
     try {
-      styleTextMirror(mirror, host2, mirrorRubyLayout);
+      styleTextMirror(mirror, host2, false);
       if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host2);
-      styleConstrainedTextMirror(mirror, host2, context.clipRow, context.clipHoverOnly, context.detachedReadings);
+      styleConstrainedTextMirror(mirror, context.clipRow, context.detachedReadings);
       mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
         parent: host2,
         hasNativeRuby: targetHasNativeRuby(target),
@@ -23280,17 +23305,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
         removeTextMirror(host2);
         return;
       }
-      if (stableClippedMirror) stabilizeClippedTextMirror(mirror);
+      stampMirrorWordSourceRanges(mirror, context.safeTokens);
       host2.append(mirror);
       registerTextMirrorOwner(mirror, host2);
       state.mirror = new WeakRef(mirror);
       if (context.detachedReadings) {
         styleDetachedReadingElements(mirror, host2);
-        openSafeDetachedReadingClips(host2);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
-      } else tightenMirrorRubyOverhang(mirror);
-      withdrawUnfitTextMirrorOverflow(host2, state, mirror);
-      hideTextMirrorHost(host2, state, mirror);
+      }
       syncTextMirrorVisibilityToPage(host2, mirror);
       observeTextMirrorHost(host2);
       rememberNonDestructiveRenderForReplay(host2, target, context.text, context.safeTokens, context.hostText, settings);
@@ -23303,20 +23325,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const height = host2.getBoundingClientRect().height;
     if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
   }
-  function prefersStableClippedMirror() {
-    return typeof window.matchMedia === "function" && window.matchMedia("(hover: none), (pointer: coarse)").matches;
-  }
-  function stabilizeClippedTextMirror(mirror) {
-    mirror.style.setProperty("visibility", "visible", "important");
-    for (const reading of mirror.querySelectorAll("rt.jpdb-reader-furi")) {
-      reading.style.setProperty("display", "none", "important");
-      reading.style.setProperty("visibility", "hidden", "important");
-    }
-    for (const segment of mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word, ruby")) {
-      segment.style.setProperty("white-space", "normal", "important");
-      segment.style.setProperty("word-break", "normal", "important");
-      segment.style.setProperty("overflow-wrap", "break-word", "important");
-      segment.style.setProperty("line-break", "auto", "important");
+  function stampMirrorWordSourceRanges(mirror, tokens) {
+    const words = Array.from(mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word"));
+    for (const [index, word] of words.entries()) {
+      const token = tokens[index];
+      if (!token) continue;
+      word.dataset.yomuSourceStart = String(token.start);
+      word.dataset.yomuSourceEnd = String(token.end);
     }
   }
   function styleDetachedReadingElements(root, host2) {
@@ -23327,7 +23342,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
     const additive = root.classList.contains("jpdb-reader-additive-text-mirror");
-    const pitchUnderline = document.documentElement.classList.contains("jpdb-reader-word-underline-pitch");
+    const pitchDecoration = [
+      "jpdb-reader-word-highlight-pitch",
+      "jpdb-reader-word-underline-pitch",
+      "jpdb-reader-word-text-pitch"
+    ].some((className) => document.documentElement.classList.contains(className));
     for (const wrapper of detachedRubies) {
       wrapper.style.setProperty("position", "relative", "important");
       wrapper.style.setProperty("display", "inline-block", "important");
@@ -23339,7 +23358,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reading.style.setProperty("position", "absolute", "important");
       reading.style.setProperty("z-index", "2");
       reading.style.setProperty("inset-inline-start", "50%");
-      reading.style.setProperty("inset-block-end", "calc(100% + 1px)");
+      reading.style.setProperty("inset-block-end", "calc(100% + 3px)");
       reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
       reading.style.setProperty("width", "max-content");
       reading.style.setProperty("max-width", "none");
@@ -23363,7 +23382,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       element2.style.setProperty("-webkit-text-fill-color", "transparent", "important");
       element2.style.setProperty("text-shadow", "none", "important");
     }
-    if (!pitchUnderline) return;
+    if (!pitchDecoration) return;
     for (const word of root.querySelectorAll(".jpdb-reader-word[data-pitch-class]")) {
       const pitchClass = safePitchClass(word.dataset.pitchClass ?? "unknown");
       if (pitchClass === "unknown") continue;
@@ -23393,6 +23412,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
   }
   const DETACHED_READING_COLLISION_SLOP = 0.5;
+  const DETACHED_READING_CLEARANCE_PX = 3;
   const pendingDetachedReadingSurfaces = /* @__PURE__ */ new Set();
   function detachedReadingCollisionSurface(root) {
     const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedParentElement(root) ?? root : root;
@@ -23419,19 +23439,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element: element2, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element2).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
     const unsafe = /* @__PURE__ */ new Set();
     for (const reading of readingRects) {
+      const ownRuby = reading.element.closest(".jpdb-reader-detached-ruby");
+      const ownBase = ownRuby?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
       if (detachedReadingIsClipped(reading.element, reading.rect) || detachedReadingCoversForeignText(reading.element, reading.rect)) unsafe.add(reading.element);
       for (const base of baseRects) {
-        if (base.rect.top >= reading.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-        if (base.rect.bottom <= reading.rect.top + DETACHED_READING_COLLISION_SLOP) continue;
-        if (rectanglesOverlap(reading.rect, base.rect)) unsafe.add(reading.element);
+        if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+        if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
+        if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
+        if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
+        if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
       }
     }
     for (let index = 0; index < readingRects.length; index += 1) {
       const current = readingRects[index];
       for (let otherIndex = index + 1; otherIndex < readingRects.length; otherIndex += 1) {
         const other = readingRects[otherIndex];
-        if (other.rect.top >= current.rect.bottom - DETACHED_READING_COLLISION_SLOP) break;
-        if (!rectanglesOverlap(current.rect, other.rect)) continue;
+        if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
+        if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
         unsafe.add(current.element);
         unsafe.add(other.element);
       }
@@ -23440,31 +23464,46 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function detachedReadingCoversForeignText(reading, rect) {
     const ownWord = reading.closest(".jpdb-reader-word");
+    const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
+    const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
+    const sourceHost = ownMirror?.parentElement ?? null;
     const root = reading.getRootNode();
     const hitRoots = [document];
     if (root instanceof ShadowRoot) hitRoots.push(root);
     const inset = Math.min(2, rect.width / 4);
     const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
+    const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
+    const rows = [
+      rect.top - clearanceProbe,
+      (rect.top + rect.bottom) / 2,
+      rect.bottom + clearanceProbe
+    ];
     const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
       const elementsFromPoint = hitRoot.elementsFromPoint;
       if (typeof elementsFromPoint !== "function") return [];
-      return points.flatMap((x2) => elementsFromPoint.call(hitRoot, x2, (rect.top + rect.bottom) / 2).filter((element2) => element2 instanceof HTMLElement));
+      return rows.flatMap((y) => points.flatMap((x2) => elementsFromPoint.call(hitRoot, x2, y).filter((element2) => element2 instanceof HTMLElement)));
     }));
     for (const hit of hits) {
+      if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
       const hitWord = hit.closest(".jpdb-reader-word");
       if (ownWord && hitWord === ownWord) continue;
-      if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesOverlap(rect, hitWord.getBoundingClientRect())) return true;
+      const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
+      if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
+      if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
       for (const node2 of hit.childNodes) {
         if (node2.nodeType !== Node.TEXT_NODE || !node2.textContent?.trim()) continue;
         const range2 = document.createRange();
         range2.selectNodeContents(node2);
-        if (Array.from(range2.getClientRects()).some((textRect) => rectanglesOverlap(rect, textRect))) return true;
+        if (Array.from(range2.getClientRects()).some((textRect) => rectanglesWithinClearance(rect, textRect))) return true;
       }
     }
     return false;
   }
-  function rectanglesOverlap(left, right) {
-    return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+  function rectanglesWithinClearance(left, right) {
+    return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
+  }
+  function verticalRunsOverlap(left, right) {
+    return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
   }
   function detachedReadingIsClipped(reading, rect) {
     let ancestor = composedParentElement(reading);
@@ -23527,10 +23566,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const rect = current.getBoundingClientRect();
       const measured = current.clientWidth > 0 && current.clientHeight > 0;
       const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
-      const baseFits = measured && detachedBaseContentFits(current);
+      const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
       if (compact && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
     }
+  }
+  function openedDetachedReadingChildFits(box) {
+    const child = box.querySelector('[data-yomu-detached-reading-overflow="true"]');
+    if (!child || child === box) return false;
+    const boxRect = box.getBoundingClientRect();
+    const childRect = child.getBoundingClientRect();
+    return box.scrollWidth <= Math.max(box.clientWidth, boxRect.width) + 1 && box.scrollHeight <= Math.max(box.clientHeight, boxRect.height) + 1 && childRect.left >= boxRect.left - 1 && childRect.right <= boxRect.right + 1 && childRect.top >= boxRect.top - 1 && childRect.bottom <= boxRect.bottom + 1;
   }
   function detachedClipRowIsMultiLineClamp(style) {
     const clamp2 = Number.parseInt(style.getPropertyValue("-webkit-line-clamp"), 10);
@@ -23608,35 +23654,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
   }
-  function styleConstrainedTextMirror(mirror, host2, clipRow, clipHoverOnly, detachedReadings = false) {
+  function styleConstrainedTextMirror(mirror, clipRow, detachedReadings = false) {
     if (!clipRow) return;
     if (detachedReadings) {
       const height = clipRow.clientHeight;
       if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
       mirror.style.setProperty("overflow", "visible");
     } else constrainMirrorToClampBox(mirror, clipRow);
-    if (!clipHoverOnly) return;
-    mirror.classList.add("jpdb-reader-clip-hover-mirror");
-    mirror.style.setProperty("visibility", "hidden");
-    const hostColor = safeComputedStyle(host2).color;
-    if (hostColor) {
-      mirror.style.setProperty("color", hostColor);
-      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-    }
-    host2.dataset.yomuClipHoverHost = "true";
   }
-  function textMirrorClipMode(host2, suppressRuby, tokens, allowDetachedReadings = true) {
+  function textMirrorClipMode(host2, tokens) {
     const clipRow = closestRubyFragileConstrainedRow(host2);
     const hasReadings = tokens.some((token) => token.rubies.length > 0);
-    const detachedReadings = allowDetachedReadings && hasReadings && (suppressRuby || Boolean(clipRow));
-    const hasRenderedRuby = hasReadings && !suppressRuby && !detachedReadings;
+    const detachedReadings = hasReadings;
     return {
       clipRow,
-      hasRenderedRuby,
-      detachedReadings,
-      // Detached readings are stable at rest, so clipped text no longer
-      // needs a hover-only channel on touch or desktop.
-      clipHoverOnly: Boolean(clipRow && hasRenderedRuby)
+      detachedReadings
     };
   }
   function constrainMirrorToClampBox(mirror, clipRow) {
@@ -23984,6 +24016,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
+    if (parents.length && parents.every((parent) => parent === target.parent)) return target.parent;
     return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
   }
   function preferredNonDestructiveTextHost(elements) {
@@ -24005,140 +24038,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host2, allowOverflow = true, clipHoverOnly = false, preserveConstrainedLayout = false, nativeTextVisible = false) {
+  function styleTextMirrorHost(host2) {
     const computed = safeComputedStyle(host2);
     const state = {
       observer: new MutationObserver(() => void 0),
       sourceText: "",
-      visibility: host2.style.getPropertyValue("visibility"),
-      visibilityPriority: host2.style.getPropertyPriority("visibility"),
-      overflow: host2.style.getPropertyValue("overflow"),
-      overflowPriority: host2.style.getPropertyPriority("overflow"),
-      overflowAdjusted: allowOverflow && !clipHoverOnly,
       position: host2.style.getPropertyValue("position"),
       positionPriority: host2.style.getPropertyPriority("position"),
-      positioned: computed.position === "static",
-      display: host2.style.getPropertyValue("display"),
-      displayPriority: host2.style.getPropertyPriority("display"),
-      // Paint invariance for clip-constrained hosts: no display coercion —
-      // the host must lay out exactly as without the userscript.
-      displayAdjusted: computed.display === "inline" && !preserveConstrainedLayout,
-      concealTextOnly: !hostIsVisuallyBareForMirror(host2),
-      concealedText: [],
-      clipHoverOnly,
-      nativeTextVisible
+      positioned: computed.position === "static"
     };
     textMirrorHosts.set(host2, state);
-    if (state.overflowAdjusted) host2.style.setProperty("overflow", "visible", "important");
     if (state.positioned) host2.style.setProperty("position", "relative", "important");
-    if (state.displayAdjusted) host2.style.setProperty("display", "inline-block", "important");
     return state;
-  }
-  function withdrawUnfitTextMirrorOverflow(host2, state, mirror) {
-    if (!state.overflowAdjusted) return;
-    if (mirror.dataset.yomuClipConstrained === "true") return;
-    if (!mirrorBaseTextOverflowsBox(mirror)) return;
-    restoreStyleProperty$1(host2, "overflow", "visible", state.overflow, state.overflowPriority);
-    state.overflowAdjusted = false;
-  }
-  function mirrorBaseTextOverflowsBox(mirror) {
-    const restores = [];
-    const neutralize = (element2, property, value, priority) => {
-      const saved = { value: element2.style.getPropertyValue(property), priority: element2.style.getPropertyPriority(property) };
-      restores.push(() => {
-        if (saved.value) element2.style.setProperty(property, saved.value, saved.priority);
-        else element2.style.removeProperty(property);
-      });
-      if (value) element2.style.setProperty(property, value, priority);
-      else element2.style.removeProperty(property);
-    };
-    for (const rt of mirror.querySelectorAll("rt")) {
-      neutralize(rt, "display", "none", "important");
-    }
-    for (const ruby of mirror.querySelectorAll("ruby")) {
-      if (ruby.style.getPropertyValue("margin-left")) neutralize(ruby, "margin-left", "", "");
-      if (ruby.style.getPropertyValue("margin-right")) neutralize(ruby, "margin-right", "", "");
-    }
-    try {
-      return mirror.scrollWidth > mirror.clientWidth + 1;
-    } finally {
-      restores.forEach((restore) => restore());
-    }
-  }
-  function hideTextMirrorHost(host2, state, mirror) {
-    textMirrorHosts.set(host2, state);
-    if (state.clipHoverOnly || state.nativeTextVisible) return;
-    if (state.concealTextOnly) {
-      if (mirror) {
-        const hostColor = safeComputedStyle(host2).color;
-        if (hostColor) {
-          mirror.style.setProperty("color", hostColor);
-          mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
-        }
-      }
-      concealTextMirrorHostText(host2, state);
-    } else host2.style.setProperty("visibility", "hidden", "important");
-    if (state.overflowAdjusted) host2.style.setProperty("overflow", "visible", "important");
-    if (state.positioned) host2.style.setProperty("position", "relative", "important");
-    if (state.displayAdjusted) host2.style.setProperty("display", "inline-block", "important");
-  }
-  const CONCEALED_TEXT_PROPERTIES = ["color", "-webkit-text-fill-color", "text-decoration-color", "text-shadow"];
-  const CONCEALED_TEXT_MAX_ELEMENTS = 60;
-  function concealTextMirrorHostText(host2, state) {
-    const descendants = Array.from(host2.querySelectorAll("*")).filter((element2) => !element2.closest(READER_TEXT_MIRROR_SELECTOR));
-    if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
-      state.concealTextOnly = false;
-      host2.style.setProperty("visibility", "hidden", "important");
-      return;
-    }
-    for (const svg of host2.querySelectorAll("svg")) {
-      if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue("color")) continue;
-      const computed = safeComputedStyle(svg).color;
-      if (computed) {
-        state.concealedText.push({ element: svg, values: [{ property: "color", value: "", priority: "" }] });
-        svg.style.setProperty("color", computed, "important");
-      }
-    }
-    for (const element2 of [host2, ...descendants]) {
-      if (element2 instanceof SVGElement || element2.closest("svg")) continue;
-      concealElementText(element2, state);
-    }
-  }
-  function concealElementText(element2, state) {
-    if (state.concealedText.some((record2) => record2.element === element2 && record2.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
-    const values = CONCEALED_TEXT_PROPERTIES.map((property) => ({
-      property,
-      value: element2.style.getPropertyValue(property),
-      priority: element2.style.getPropertyPriority(property)
-    }));
-    state.concealedText.push({ element: element2, values });
-    for (const property of CONCEALED_TEXT_PROPERTIES) {
-      element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
-    }
-  }
-  function reassertConcealedTextMirrorHostText(host2, state) {
-    if (host2.style.getPropertyValue("color") !== "transparent") concealElementText(host2, state);
-    for (const record2 of state.concealedText) {
-      const element2 = record2.element;
-      if (!element2.isConnected || element2 instanceof SVGElement) continue;
-      if (element2.style.getPropertyValue("color") !== "transparent") {
-        for (const property of CONCEALED_TEXT_PROPERTIES) {
-          element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
-        }
-      }
-    }
-  }
-  function restoreConcealedTextMirrorHostText(state) {
-    for (const record2 of state.concealedText) {
-      for (const { property, value, priority } of record2.values) {
-        const injected = property === "text-shadow" ? "none" : "transparent";
-        const current = record2.element.style.getPropertyValue(property);
-        if (record2.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
-        if (value) record2.element.style.setProperty(property, value, priority);
-        else record2.element.style.removeProperty(property);
-      }
-    }
-    state.concealedText = [];
   }
   function styleTextMirror(mirror, host2, hasRuby = false) {
     const style = safeComputedStyle(host2);
@@ -24159,7 +24070,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.style.setProperty("height", "auto");
     mirror.style.setProperty("overflow", "visible");
     mirror.style.setProperty("visibility", "visible", "important");
-    mirror.style.setProperty("pointer-events", "auto");
+    mirror.style.setProperty("pointer-events", "none");
     mirror.style.setProperty("white-space", style.whiteSpace);
     mirror.style.setProperty("font", style.font);
     mirror.style.setProperty("font-size", style.fontSize);
@@ -24174,90 +24085,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const itemized = style.display.includes("flex") || style.display.includes("grid");
     if (itemized) return style.alignItems === "center" || style.alignContent === "center";
     return host2.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
-  }
-  function tightenMirrorRubyOverhang(mirror) {
-    if (typeof Range.prototype.getBoundingClientRect !== "function") return;
-    const measures = [];
-    const byRuby = /* @__PURE__ */ new Map();
-    for (const ruby of mirror.querySelectorAll("ruby")) {
-      const base = ruby.querySelector(".jpdb-reader-ruby-base");
-      if (!base || !base.textContent) continue;
-      const rubyRect = ruby.getBoundingClientRect();
-      const baseRect = glyphRangeRect(base);
-      if (!baseRect) continue;
-      const measure = {
-        ruby,
-        baseRect,
-        insetLeft: Math.max(0, baseRect.left - rubyRect.left),
-        insetRight: Math.max(0, rubyRect.right - baseRect.right),
-        marginLeft: 0,
-        marginRight: 0
-      };
-      measures.push(measure);
-      byRuby.set(ruby, measure);
-    }
-    for (const measure of measures) {
-      if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
-      const previous = adjacentGlyph(mirror, measure.ruby, "previous");
-      if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
-        const gap = measure.baseRect.left - previous.rect.right;
-        measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
-      }
-      const next = adjacentGlyph(mirror, measure.ruby, "next");
-      if (next && rectsShareLine(measure.baseRect, next.rect)) {
-        const gap = next.rect.left - measure.baseRect.right;
-        const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
-        measure.marginRight = Math.min(needed, measure.insetRight);
-        const neighbour = next.ruby ? byRuby.get(next.ruby) : void 0;
-        if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
-      }
-    }
-    for (const measure of measures) {
-      if (measure.marginLeft > 0) measure.ruby.style.setProperty("margin-left", `${-measure.marginLeft}px`, "important");
-      if (measure.marginRight > 0) measure.ruby.style.setProperty("margin-right", `${-measure.marginRight}px`, "important");
-    }
-  }
-  const RUBY_GAP_KEEP_PX = 0.5;
-  function rectsShareLine(a, b) {
-    return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
-  }
-  function glyphRangeRect(element2) {
-    const range2 = document.createRange();
-    range2.selectNodeContents(element2);
-    const rect = range2.getBoundingClientRect();
-    return rect.width > 0 ? rect : null;
-  }
-  function adjacentGlyph(mirror, ruby, direction) {
-    const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node2) => node2.parentElement?.closest("rt,rp") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
-    });
-    let candidate = null;
-    const position = direction === "previous" ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
-    while (walker.nextNode()) {
-      const node2 = walker.currentNode;
-      if (ruby.contains(node2) || !node2.data) continue;
-      if (!(ruby.compareDocumentPosition(node2) & position)) continue;
-      if (direction === "previous") candidate = node2;
-      else {
-        candidate = node2;
-        break;
-      }
-    }
-    if (!candidate?.data) return null;
-    const characters = Array.from(candidate.data);
-    const character = direction === "previous" ? characters[characters.length - 1] : characters[0];
-    if (!character || !isCjkChar(character)) return null;
-    const range2 = document.createRange();
-    if (direction === "previous") {
-      range2.setStart(candidate, candidate.data.length - character.length);
-      range2.setEnd(candidate, candidate.data.length);
-    } else {
-      range2.setStart(candidate, 0);
-      range2.setEnd(candidate, character.length);
-    }
-    const rect = range2.getBoundingClientRect();
-    if (rect.width <= 0) return null;
-    return { rect, ruby: candidate.parentElement?.closest("ruby") };
   }
   function rubyFriendlyMirrorLineHeight(style) {
     const fontSize = cssPixels(style.fontSize) || 16;
@@ -24466,11 +24293,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (tracked?.isConnected) tracked.remove();
     closeOrphanedDetachedReadingClips(host2);
     if (state) restoreTextMirrorHost(host2, state);
-    delete host2.dataset.yomuClipHoverHost;
     textMirrorHosts.delete(host2);
   }
   function syncTextMirrorVisibilityToPage(host2, mirror) {
-    if (mirror.classList.contains("jpdb-reader-clip-hover-mirror")) return;
     mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host2) ? "hidden" : "visible", "important");
   }
   function pageConcealsTextMirrorHost(host2) {
@@ -24497,28 +24322,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     syncTextMirrorVisibilityToPage(host2, mirror);
-    if (state.clipHoverOnly || state.nativeTextVisible) ;
-    else if (state.concealTextOnly) {
-      reassertConcealedTextMirrorHostText(host2, state);
-    } else if (host2.style.getPropertyValue("visibility") !== "hidden") {
-      host2.style.setProperty("visibility", "hidden", "important");
-    }
-    if (state.overflowAdjusted && host2.style.getPropertyValue("overflow") !== "visible") {
-      host2.style.setProperty("overflow", "visible", "important");
-    }
     if (state.positioned && host2.style.getPropertyValue("position") !== "relative") {
       host2.style.setProperty("position", "relative", "important");
     }
-    if (state.displayAdjusted && host2.style.getPropertyValue("display") !== "inline-block") {
-      host2.style.setProperty("display", "inline-block", "important");
-    }
   }
   function restoreTextMirrorHost(host2, state) {
-    if (state.concealTextOnly) restoreConcealedTextMirrorHostText(state);
-    else restoreStyleProperty$1(host2, "visibility", "hidden", state.visibility, state.visibilityPriority);
-    if (state.overflowAdjusted) restoreStyleProperty$1(host2, "overflow", "visible", state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty$1(host2, "position", "relative", state.position, state.positionPriority);
-    if (state.displayAdjusted) restoreStyleProperty$1(host2, "display", "inline-block", state.display, state.displayPriority);
   }
   function restoreStyleProperty$1(host2, property, injectedValue, value, priority) {
     const current = host2.style.getPropertyValue(property);
@@ -34443,6 +34252,7 @@ ${entry.reading || ""}`;
     const graphs = variants.map((variant) => ({
       variant,
       svg: renderPitchGraphSvg(reading, variant.pattern, {
+        centerContent: true,
         segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : void 0
       })
     })).filter((entry) => entry.svg);
@@ -34474,7 +34284,10 @@ ${entry.reading || ""}`;
     return aligned;
   }
   function renderExpressionComponentPitches(components) {
-    const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
+    const graphs = components.map((component) => ({
+      component,
+      svg: renderPitchGraphSvg(component.reading, component.pitch, { centerContent: true })
+    })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
             ${entry.svg}
             <span class="jpdb-reader-pitch-component-label">${escapeHtml$1(entry.component.text)}</span>
         </span>`);
@@ -34784,6 +34597,8 @@ ${entry.reading || ""}`;
     }
     renderPitch(card, data) {
       if (!this.settings().showPitchAccent) return "";
+      const whole = renderPitch(card, data.metaEntries);
+      if (whole) return whole;
       const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
         card,
         data.expressionComponents ?? [],
@@ -34791,8 +34606,6 @@ ${entry.reading || ""}`;
       );
       const components = renderExpressionComponentPitches(alignedComponents);
       if (components) return components;
-      const whole = renderPitch(card, data.metaEntries);
-      if (whole) return whole;
       return "";
     }
     renderPartOfSpeech(view) {
@@ -39478,14 +39291,9 @@ ${component.reading}`;
     return tokens;
   }
   function parseParagraphTokens(paragraph, rawTokens, cards) {
-    let inheritedPitchClass = "";
-    return rawTokens.map((rawToken) => {
-      const token = parseToken(rawToken, paragraph, cards, inheritedPitchClass);
-      inheritedPitchClass = token.pitchClass;
-      return token;
-    });
+    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
   }
-  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards, inheritedPitchClass) {
+  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
     const card = cards[vocabularyIndex];
     const rubies = parseRubies(furigana, position);
     repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
@@ -39495,7 +39303,7 @@ ${component.reading}`;
       end: position + length,
       length,
       rubies,
-      pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass)
+      pitchClass: currentPitchClass(card)
     };
     assignWordWithReading(token);
     return token;
@@ -39514,9 +39322,9 @@ ${component.reading}`;
       return [{ text: ruby, start, end, length: base.length }];
     });
   }
-  function inheritedOrCurrentPitchClass(card, inheritedPitchClass) {
+  function currentPitchClass(card) {
     if (card.partOfSpeech.includes("prt")) return "";
-    return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
+    return getPitchClass(card.pitchAccent, card.reading);
   }
   function assignWordWithReading(token) {
     const { card, rubies, start: offset } = token;
@@ -40034,7 +39842,9 @@ ${spelling}`);
         card.spelling,
         card.reading,
         (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-        { includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling) }
+        {
+          includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
+        }
       ).catch((error) => {
         log$g.warn("Local pitch parse failed", { term: card.spelling }, error);
         return { patterns: [] };
@@ -42484,14 +42294,12 @@ ${spelling}`);
     const vocabByKey = new Map(vocabulary.map((entry) => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
     const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
     const tokens = paragraphs.map((paragraph, paragraphIndex) => {
-      let lastPitchClass = "";
       const parsed = [];
       for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
         const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
         if (!card) continue;
         const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
         const pitchClass = card.partOfSpeech.includes("prt") ? "" : getPitchClass(card.pitchAccent, card.reading);
-        lastPitchClass = pitchClass || lastPitchClass;
         const span = jitenTokenTextSpan(paragraph, token, card);
         const rubies = jitenTokenRubies(vocabularyEntry, span.start);
         if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
@@ -42501,7 +42309,7 @@ ${spelling}`);
           end: span.end,
           length: span.length,
           rubies,
-          pitchClass: lastPitchClass,
+          pitchClass,
           sentence: paragraph
         });
       }
@@ -65129,7 +64937,7 @@ ${entry.url}`),
     ["pitchColorNakadaka", "Nakadaka (middle-high)"],
     ["pitchColorOdaka", "Odaka (tail-high)"],
     ["pitchColorKifuku", "Kifuku (variable)"],
-    ["pitchColorUnknown", "Unknown / inherited"]
+    ["pitchColorUnknown", "Unknown"]
   ];
   const OCR_COLOR_FIELDS = [
     ["ocrTextColor", "Image text color"],

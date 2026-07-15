@@ -42187,7 +42187,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.152".trim() ? "1.6.152".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.153".trim() ? "1.6.153".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -54875,6 +54875,11 @@ ${spelling}`);
     // bound video plays; cancelled on pause/seek-away/destroy/hidden.
     frameSyncHandle;
     frameSyncVideo;
+    // `paused` describes user/media intent, not a network stall. Keep the
+    // bound video's buffering clock separate so housekeeping cannot advance
+    // cues while the browser's currentTime extrapolates without presenting a
+    // frame. Only `playing` releases this snapshot.
+    bufferingPlayback;
     lastFrameGeometrySampleAt = 0;
     // Dirty-check for the per-frame karaoke pass: classes only flip at integer
     // character boundaries, so skip the class churn between crossings.
@@ -55416,6 +55421,7 @@ ${spelling}`);
       return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
     }
     clearDiscoveredVideoCandidate() {
+      this.bufferingPlayback = void 0;
       this.video = void 0;
       this.invalidateFullscreenHostCache();
       this.subtitleSourceContextKey = "";
@@ -55429,6 +55435,7 @@ ${spelling}`);
       this.syncControls();
     }
     useDiscoveredVideoCandidate(candidate) {
+      this.bufferingPlayback = void 0;
       this.video = candidate;
       this.invalidateFullscreenHostCache();
       this.markNativeCueListsDirty();
@@ -55531,19 +55538,39 @@ ${spelling}`);
         }, this.eventOptions({ passive: true }));
       }
       const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
+      const handlePlaybackSeek = () => {
+        if (this.bufferingPlayback?.video === video) this.bufferingPlayback.time = video.currentTime;
+        this.syncSubtitleToPlaybackTime();
+      };
       video.addEventListener("timeupdate", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-      video.addEventListener("seeking", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-      video.addEventListener("seeked", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+      video.addEventListener("seeking", handlePlaybackSeek, this.eventOptions({ passive: true }));
+      video.addEventListener("seeked", handlePlaybackSeek, this.eventOptions({ passive: true }));
       video.addEventListener("ratechange", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+      const handlePlaybackBuffering = (event) => {
+        if (video !== this.video || video.paused || video.ended) return;
+        if (event.type === "stalled" && video.readyState > HTMLMediaElement.HAVE_CURRENT_DATA) return;
+        if (this.bufferingPlayback?.video === video) return;
+        this.bufferingPlayback = { video, time: video.currentTime };
+        this.stopFrameSync();
+      };
+      video.addEventListener("waiting", handlePlaybackBuffering, this.eventOptions({ passive: true }));
+      video.addEventListener("stalled", handlePlaybackBuffering, this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => {
-        if (video === this.video) this.stopFrameSync();
-        if (video === this.video) this.syncControls();
+        if (video === this.video) {
+          this.bufferingPlayback = void 0;
+          this.stopFrameSync();
+          this.syncControls();
+        }
         this.syncPauseTranscriptPanel({ deferRender: true });
       }, this.eventOptions({ passive: true }));
-      const handlePlaybackStarted = () => {
+      video.addEventListener("ended", () => {
+        if (video === this.video) this.bufferingPlayback = void 0;
+      }, this.eventOptions({ passive: true }));
+      const handlePlaybackStarted = (event) => {
         this.pausePanelDismissed = false;
         if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
         if (video === this.video) {
+          if (event.type === "playing") this.bufferingPlayback = void 0;
           this.startFrameSync(video);
           this.syncControls();
         }
@@ -55779,7 +55806,7 @@ ${spelling}`);
     // cue is unchanged, so the steady-state per-frame cost is two bounded cue
     // searches.
     startFrameSync(video) {
-      if (this.destroyed || document.hidden) return;
+      if (this.destroyed || document.hidden || this.bufferingPlayback?.video === video) return;
       this.stopFrameSync();
       this.frameSyncVideo = video;
       this.scheduleFrameSync();
@@ -55795,7 +55822,7 @@ ${spelling}`);
           return;
         }
         const current = this.frameSyncVideo;
-        if (!current || current.paused || !current.isConnected) {
+        if (!current || current.paused || !current.isConnected || this.bufferingPlayback?.video === current) {
           this.frameSyncVideo = void 0;
           return;
         }
@@ -55822,7 +55849,7 @@ ${spelling}`);
       this.syncShadowLoop();
       this.syncPlayingVideoGeometry();
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
-        this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
+        this.applyKaraokeStateToPrimary(this.currentCue, this.subtitlePlaybackTime(video));
       }
     }
     syncPlayingVideoGeometry() {
@@ -56054,11 +56081,14 @@ ${spelling}`);
     }
     updateFromLoadedCues() {
       if (!this.video) return;
-      const time = this.video.currentTime;
+      const time = this.subtitlePlaybackTime(this.video);
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time) : void 0;
       const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
       else this.warmParseOnGapAnchorJump();
+    }
+    subtitlePlaybackTime(video) {
+      return this.bufferingPlayback?.video === video ? this.bufferingPlayback.time : video.currentTime;
     }
     // Auto-generated YouTube captions and their `&tlang=` translations are
     // segmented independently, so the primary (JP) cue often begins a beat
@@ -56161,7 +56191,7 @@ ${spelling}`);
       if (this.cues.length || !this.currentCue) return;
       if (text2 !== this.lastDomCaption) return;
       this.lastDomCaptionSeenAt = performance.now();
-      const now = this.video?.currentTime ?? 0;
+      const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
       if (now >= this.currentCue.start && this.currentCue.end < now + 1) {
         this.currentCue.end = now + 4;
         this.refreshNativeFullscreenCueMirror();
@@ -56213,7 +56243,7 @@ ${spelling}`);
     clearDomCaptionFallbackIfExpired() {
       if (this.shouldHoldRecentDomCaption()) return;
       this.pendingDomCaption = void 0;
-      if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
+      if (!this.cues.length && this.currentCue && (this.video ? this.subtitlePlaybackTime(this.video) : 0) > this.currentCue.end) {
         this.currentCue = void 0;
         this.lastDomCaption = "";
         this.lastDomCaptionSeenAt = 0;
@@ -56246,7 +56276,7 @@ ${spelling}`);
     applyDomCaptionFallback(text2, selected) {
       this.lastDomCaption = text2;
       this.lastDomCaptionSeenAt = performance.now();
-      const now = this.video?.currentTime ?? 0;
+      const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text: text2 }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
       this.render();
@@ -56311,7 +56341,7 @@ ${spelling}`);
         lastRenderedHtml: this.lastRenderedPrimaryHtml,
         hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
         hasParser: this.shouldParseSubtitles(settings),
-        time: this.video?.currentTime ?? activeCue?.start ?? 0
+        time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0
       });
     }
     primaryParsedHtmlForRender(text2, settings, key) {
@@ -56347,7 +56377,7 @@ ${spelling}`);
     }
     applyRenderedPrimaryKaraoke(primary) {
       const activeCue = this.currentCue;
-      if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video?.currentTime ?? activeCue.start);
+      if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video ? this.subtitlePlaybackTime(this.video) : activeCue.start);
     }
     cacheRenderedPrimarySubtitle(primary) {
       if (!primary.nextRenderedPrimary) return;
@@ -56394,11 +56424,11 @@ ${spelling}`);
       return Boolean(this.options.getSettings().subtitleKaraokeMode && currentCue && cueHasExactWordTimings(currentCue) && normalizedSubtitleText(primary.textContent) === normalizedSubtitleText(currentCue.text));
     }
     primaryReplacementHtml(html, currentCue, shouldKaraoke) {
-      return shouldKaraoke && currentCue && !html.includes("jpdb-reader-word") ? renderSubtitleKaraokeCue(currentCue, this.video?.currentTime ?? currentCue.start) : html;
+      return shouldKaraoke && currentCue && !html.includes("jpdb-reader-word") ? renderSubtitleKaraokeCue(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start) : html;
     }
     syncKaraokePrimary(currentCue, shouldKaraoke) {
       if (!shouldKaraoke || !currentCue) return;
-      this.applyKaraokeStateToPrimary(currentCue, this.video?.currentTime ?? currentCue.start);
+      this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
     }
     shouldParseSubtitles(settings = this.options.getSettings()) {
       return canParseSubtitleTranscriptRows();
@@ -56932,7 +56962,7 @@ ${spelling}`);
     parseWarmupAnchorIndex() {
       const active = this.activeTranscriptIndex();
       if (active >= 0) return active;
-      const time = this.video?.currentTime ?? 0;
+      const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
       const upcoming = this.cues.findIndex((cue) => cue.end >= time);
       return upcoming >= 0 ? upcoming : Math.max(0, this.cues.length - 1);
     }
@@ -58807,7 +58837,7 @@ ${spelling}`);
       const cue = this.shadowLoopCue ?? this.currentCue;
       if (!cue) return;
       if (this.video.paused && this.options.getSettings().subtitleShadowAutoPause && this.shadowAutoPausedCueSignature === subtitleCueSignature(cue)) return;
-      const time = this.video.currentTime;
+      const time = this.subtitlePlaybackTime(this.video);
       if (time >= cue.end - 0.05 || time < cue.start - 0.3) {
         this.seekVideoTo(Math.max(0, cue.start));
         if (this.currentCue !== cue) {
@@ -58822,7 +58852,7 @@ ${spelling}`);
       const cue = this.currentCue;
       const signature = subtitleCueSignature(cue);
       if (this.shadowAutoPausedCueSignature === signature) return;
-      const time = this.video.currentTime;
+      const time = this.subtitlePlaybackTime(this.video);
       if (time < cue.start - 0.05 || time < cue.end - 0.05) return;
       this.shadowAutoPausedCueSignature = signature;
       this.video.pause();
@@ -60197,7 +60227,7 @@ ${spelling}`);
     transcriptGapAnchorRowIndex(rows) {
       if (this.currentCue || !this.video) return -1;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
-      const time = this.video.currentTime;
+      const time = this.subtitlePlaybackTime(this.video);
       for (let index = rows.length - 1; index >= 0; index -= 1) {
         if (rows[index].cue.start <= time) return index;
       }

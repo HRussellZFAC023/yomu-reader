@@ -6733,7 +6733,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    Pencil (pointer:fine + hover:hover) still gets the larger tap targets. */
 
 @media (any-pointer: coarse) {
-  .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
+  :is(.jpdb-ocr-layer, .jpdb-ocr-line, .textBox, #pagesContainer, #manga-panel)
+    .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
     content: "";
     position: absolute;
     inset: -0.36em -0.06em;
@@ -7510,7 +7511,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   position: absolute !important;
   z-index: 2;
   inset-inline-start: 50%;
-  inset-block-end: calc(100% + 1px);
+  /* 3px yields a measured >=2px reading/base gap after WebKit font rounding. */
+  inset-block-end: calc(100% + 3px);
   display: block !important;
   width: max-content;
   max-width: none;
@@ -7536,6 +7538,59 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
+  pointer-events: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* The source glyph stays page-owned, so highlight/text-colour modes cannot
+   safely repaint it from an overlay. Preserve their annotation signal as a
+   quiet underline, while ordinary underline mode uses the same source colour.
+   This also fixes the additive pitch line being accidentally forced
+   transparent after the absolute ::after strip was retired. */
+
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-underline-status,
+  .jpdb-reader-word-text-status
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-status-decoration, transparent);
+}
+
+:is(
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-underline-jpdb,
+  .jpdb-reader-word-text-jpdb
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent);
+}
+
+:is(
+  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-underline-anki,
+  .jpdb-reader-word-text-anki
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-anki-decoration, transparent);
+}
+
+:is(
+  .jpdb-reader-word-highlight-pitch,
+  .jpdb-reader-word-underline-pitch,
+  .jpdb-reader-word-text-pitch
+) .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  --jpdb-reader-additive-decoration: var(--jpdb-reader-source-pitch-decoration, transparent);
+}
+
+.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word {
+  text-decoration-color: var(--jpdb-reader-additive-decoration, transparent) !important;
 }
 
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
@@ -7547,15 +7602,21 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   opacity: 1 !important;
 }
 
-/* An additive mirror keeps the native base glyphs visible and paints its pitch
-   line as a native text decoration anchored to those glyphs. The generic
-   absolute ::after line is anchored to the mirror's containing line box; in a
-   tall pill/button that put the line at the bottom edge instead of directly
-   beneath the label. Keep other underline modes unchanged. */
+/* A mirrored page word's line box can include ruby leading or a tall host
+   control. Anchor ordinary pitch lines to the glyphs with native decoration;
+   the absolute ::after lane otherwise falls at the containing line-box edge.
+   Compound pitch keeps ::after because its multi-colour gradient cannot be
+   represented by one native text-decoration colour. */
 
 .jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
-  .jpdb-reader-word::after {
+  .jpdb-reader-text-mirror
+  .jpdb-reader-word:not(.jpdb-reader-pitch-compound) {
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror
+  .jpdb-reader-word:not(.jpdb-reader-pitch-compound)::after {
   content: none !important;
 }
 
@@ -7649,52 +7710,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
-}
-
-/* Clip-constrained HOVER-ONLY mirror (paint-invariant design, third live
-   gate): at rest the host text paints naturally and the mirror stays hidden
-   (inline visibility on the element). A real fine hover pointer may reveal the
-   annotated mirror and blank the native glyphs so the two texts never
-   double-paint. Touch WebKit synthesises a sticky :hover after tapping; letting
-   that state swap in a ruby-bearing mirror leaves tablet rows displaced or
-   blank long after the tap. Coarse pointers therefore use a stable at-rest
-   mirror below: it keeps word decoration and tap lookup, removes rt from ruby
-   layout, and restores native wrapping instead of depending on sticky hover. */
-
-@media (hover: hover) and (pointer: fine) {
-  [data-yomu-clip-hover-host="true"]:hover .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
-    visibility: visible !important;
-  }
-  [data-yomu-clip-hover-host="true"]:hover {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  [data-yomu-clip-hover-host="true"] {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-    text-decoration-color: transparent !important;
-    text-shadow: none !important;
-  }
-  [data-yomu-clip-hover-host="true"] .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror {
-    visibility: visible !important;
-  }
-  [data-yomu-clip-hover-host="true"]
-    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
-    rt.jpdb-reader-furi {
-    display: none !important;
-    visibility: hidden !important;
-  }
-  [data-yomu-clip-hover-host="true"]
-    .jpdb-reader-text-mirror.jpdb-reader-clip-hover-mirror
-    :is(.jpdb-reader-word.jpdb-reader-scan-word, ruby) {
-    white-space: normal !important;
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    line-break: auto !important;
-  }
 }
 
 /* Class Q: clip-constrained rows (fixed-height nav rows, line-clamped titles)
@@ -9146,6 +9161,23 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   background-image: var(--jpdb-reader-pitch-compound-gradient, none);
   background-repeat: no-repeat;
   background-size: 100% 100%;
+}
+
+/* Source-preserving mirrors normally use a native text decoration because an
+   absolute underline would fall at the bottom of a tall pill. Composite words
+   are the exception: their per-subword gradient cannot be represented by one
+   native decoration colour, so restore only their tightly word-sized strip. */
+
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word.jpdb-reader-pitch-compound {
+  text-decoration-color: transparent !important;
+}
+
+.jpdb-reader-word-underline-pitch
+  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
+  .jpdb-reader-word.jpdb-reader-pitch-compound::after {
+  content: "" !important;
 }
 
 .jpdb-reader-backdrop {
@@ -14755,7 +14787,7 @@ html.jpdb-reader-doodle-active * {
   }
   .jpdb-reader-grades .jpdb-reader-btn {
     padding-inline: clamp(1px, 0.75cqi, 4px);
-    font-size: clamp(8.8px, 2.4cqi, 10.4px);
+    font-size: clamp(8.2px, 2.2cqi, 9.8px);
   }
 }
 
@@ -14914,8 +14946,10 @@ html.jpdb-reader-doodle-active * {
   min-width: 0;
 }
 
-/* Accent variants: one compact wrapping row, graph + commonality badge grouped
-   tightly, primary variant first and emphasized (mobile-first space use). */
+/* Accent variants are peers: keep every graph in the same footprint so the
+   first/source-preferred reading does not appear larger or more authoritative
+   than the other legitimate readings. Source order remains visible through
+   the first badge colour, while two or three cards wrap as equal siblings. */
 
 .jpdb-reader-pitch.jpdb-reader-pitch-variants {
   justify-content: center;
@@ -14926,15 +14960,7 @@ html.jpdb-reader-doodle-active * {
   padding: 2px 6px 3px;
   border: 1px solid transparent;
   border-radius: 8px;
-}
-
-.jpdb-reader-pitch-variant-primary {
-  border-color: var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface);
-}
-
-.jpdb-reader-pitch-variant:not(.jpdb-reader-pitch-variant-primary) {
-  opacity: 0.82;
+  text-align: center;
 }
 
 .jpdb-reader-pitch-variant-badge {
@@ -18281,6 +18307,14 @@ html.jpdb-reader-doodle-active * {
 .jpdb-subtitle-primary .jpdb-reader-word,
 .jpdb-subtitle-secondary .jpdb-reader-word {
   pointer-events: auto;
+}
+
+/* Parsed words normally opt back into hit testing for dictionary lookup. If a
+   moved subtitle crosses a native player action, however, that small overlap
+   must remain click-through so Share/fullscreen/settings still work. */
+
+.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"] {
+  pointer-events: none !important;
 }
 
 .jpdb-subtitle-drag-handle {

@@ -625,6 +625,88 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('freezes loaded subtitle timing while the bound video buffers and resumes only on playing', () => {
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        const cues = [
+            { start: 0, end: 1, text: '止まる字幕', transcriptEligible: true },
+            { start: 1, end: 2, text: '再開した字幕', transcriptEligible: true },
+        ];
+        const { controller, internals, video } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number] | undefined;
+            observeVideoLayout: (video: HTMLVideoElement) => void;
+            updateFromLoadedCues: () => void;
+        }>(cues, {
+            currentCue: cues[0],
+            currentTime: 0.5,
+            selectedTrackId: 'file-primary',
+        });
+        let paused = false;
+        let ended = false;
+        let readyState: number = HTMLMediaElement.HAVE_CURRENT_DATA;
+        Object.defineProperties(video, {
+            paused: { configurable: true, get: () => paused },
+            ended: { configurable: true, get: () => ended },
+            readyState: { configurable: true, get: () => readyState },
+        });
+
+        try {
+            internals.observeVideoLayout(video);
+            video.dispatchEvent(new Event('waiting'));
+            video.currentTime = 1.5;
+            video.dispatchEvent(new Event('timeupdate'));
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBe(cues[0]);
+
+            video.dispatchEvent(new Event('playing'));
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBe(cues[1]);
+
+            video.currentTime = 0.5;
+            internals.updateFromLoadedCues();
+            video.dispatchEvent(new Event('stalled'));
+            video.currentTime = 1.5;
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[0]);
+
+            video.dispatchEvent(new Event('seeking'));
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[1]);
+
+            video.dispatchEvent(new Event('playing'));
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[1]);
+
+            readyState = HTMLMediaElement.HAVE_FUTURE_DATA;
+            video.currentTime = 0.5;
+            internals.updateFromLoadedCues();
+            video.dispatchEvent(new Event('stalled'));
+            video.currentTime = 1.5;
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[1]);
+
+            paused = true;
+            video.currentTime = 0.5;
+            video.dispatchEvent(new Event('pause'));
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[0]);
+
+            paused = false;
+            ended = true;
+            video.dispatchEvent(new Event('waiting'));
+            video.currentTime = 1.5;
+            internals.updateFromLoadedCues();
+            expect(internals.currentCue).toBe(cues[1]);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('mirrors the synthesized DOM-caption cue stream into the native track during native fullscreen', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         vi.stubGlobal('VTTCue', class {

@@ -15,6 +15,7 @@ const companionPaths = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.
     .map(name => resolve(process.env.YOMU_SMOKE_COMPANION_DIR ?? defaultCompanionDir, name));
 const settingsKey = 'jpdb-popup-reader-settings';
 const runYouTube = process.env.YOMU_SMOKE_YOUTUBE === '1';
+const localOnly = process.env.YOMU_SMOKE_LOCAL_ONLY === '1';
 const youtubeUrl = process.env.YOMU_SMOKE_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=4604s';
 const smokeSettings = {
     onboardingSeen: true,
@@ -616,13 +617,41 @@ async function runLocalSmoke(browser) {
     const clickedStyle = await readSecondarySubtitleStyle(page);
     assert(secondarySubtitleLooksClear(clickedStyle), 'Click should persist native subtitle blur off', { clickedStyle });
 
+    // Deterministic fixture assertion: emulate a browser whose media clock
+    // extrapolates across a buffering boundary without an explicit seek.
+    // Yomu must keep the last presented cue until `playing`, while the ordinary
+    // paused/ended flags remain false throughout the stall.
+    const bufferingBefore = await page.evaluate(() => {
+        const video = document.querySelector('video');
+        let mediaTime = 1.4;
+        Object.defineProperties(video, {
+            currentTime: { configurable: true, get: () => mediaTime, set: value => { mediaTime = Number(value); } },
+            paused: { configurable: true, get: () => false },
+            ended: { configurable: true, get: () => false },
+            readyState: { configurable: true, get: () => HTMLMediaElement.HAVE_CURRENT_DATA },
+        });
+        window.__yomuSmokeSetMediaTime = value => { mediaTime = value; };
+        video.dispatchEvent(new Event('timeupdate'));
+        video.dispatchEvent(new Event('waiting'));
+        window.__yomuSmokeSetMediaTime(9.4);
+        video.dispatchEvent(new Event('timeupdate'));
+        return document.querySelector('.jpdb-subtitle-primary')?.textContent ?? '';
+    });
+    await page.waitForTimeout(700);
+    const bufferingFrozen = await page.locator('.jpdb-subtitle-primary').textContent();
+    assert(/シスコ|昨日|オンライン学習/u.test(bufferingBefore), 'Buffering fixture did not begin on the first subtitle cue', { bufferingBefore });
+    assert(/シスコ|昨日|オンライン学習/u.test(bufferingFrozen ?? ''), 'Subtitle advanced while fixture media was buffering', { bufferingBefore, bufferingFrozen });
+    await page.evaluate(() => document.querySelector('video').dispatchEvent(new Event('playing')));
+    await page.waitForFunction(() => (document.querySelector('.jpdb-subtitle-primary')?.textContent ?? '').includes('自動生成字幕'), null, { timeout: 3000 });
+    const bufferingResumed = await page.locator('.jpdb-subtitle-primary').textContent();
+
     await resizeDrawer(page, initial.placement);
     const resized = await readDrawerLayout(page);
     assertDrawerLayout(resized, 'drawer resize');
     assert(panelSizeDelta(initial.panel, resized.panel) >= 24, 'Transcript drawer did not resize', { initial, resized });
 
     await page.close();
-    return { initial, resized, batchMine, shadow };
+    return { initial, resized, batchMine, shadow, buffering: { before: bufferingBefore, frozen: bufferingFrozen, resumed: bufferingResumed } };
 }
 
 async function runLocalMobileWrapSmoke(browser) {
@@ -1038,8 +1067,8 @@ async function readYouTubeSmokeState(page) {
 const browser = await launchSmokeBrowser({ headless: true });
 try {
     const local = await runLocalSmoke(browser);
-    const localMobileWrap = await runLocalMobileWrapSmoke(browser);
-    const result = { local, localMobileWrap };
+    const result = { local };
+    if (!localOnly) result.localMobileWrap = await runLocalMobileWrapSmoke(browser);
     if (runYouTube) result.youtube = await runYouTubeSmoke(browser);
     console.log(JSON.stringify(result, null, 2));
 } finally {

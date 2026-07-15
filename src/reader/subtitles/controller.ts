@@ -1042,6 +1042,11 @@ export class SubtitlePlayerController {
     // bound video plays; cancelled on pause/seek-away/destroy/hidden.
     private frameSyncHandle?: number;
     private frameSyncVideo?: HTMLVideoElement;
+    // `paused` describes user/media intent, not a network stall. Keep the
+    // bound video's buffering clock separate so housekeeping cannot advance
+    // cues while the browser's currentTime extrapolates without presenting a
+    // frame. Only `playing` releases this snapshot.
+    private bufferingPlayback?: { video: HTMLVideoElement; time: number };
     private lastFrameGeometrySampleAt = 0;
     // Dirty-check for the per-frame karaoke pass: classes only flip at integer
     // character boundaries, so skip the class churn between crossings.
@@ -1618,6 +1623,7 @@ export class SubtitlePlayerController {
     }
 
     private clearDiscoveredVideoCandidate(): void {
+        this.bufferingPlayback = undefined;
         this.video = undefined;
         this.invalidateFullscreenHostCache();
         this.subtitleSourceContextKey = '';
@@ -1632,6 +1638,7 @@ export class SubtitlePlayerController {
     }
 
     private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
+        this.bufferingPlayback = undefined;
         this.video = candidate;
         this.invalidateFullscreenHostCache();
         this.markNativeCueListsDirty();
@@ -1755,10 +1762,26 @@ export class SubtitlePlayerController {
             }, this.eventOptions({ passive: true }));
         }
         const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
+        const handlePlaybackSeek = () => {
+            if (this.bufferingPlayback?.video === video) this.bufferingPlayback.time = video.currentTime;
+            this.syncSubtitleToPlaybackTime();
+        };
         video.addEventListener('timeupdate', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-        video.addEventListener('seeking', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-        video.addEventListener('seeked', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+        video.addEventListener('seeking', handlePlaybackSeek, this.eventOptions({ passive: true }));
+        video.addEventListener('seeked', handlePlaybackSeek, this.eventOptions({ passive: true }));
         video.addEventListener('ratechange', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+        const handlePlaybackBuffering = (event: Event) => {
+            if (video !== this.video || video.paused || video.ended) return;
+            // `stalled` is also emitted when fetching stops despite enough
+            // buffered media to keep presenting frames. Only treat it as a
+            // playback stall once the media element has no future data.
+            if (event.type === 'stalled' && video.readyState > HTMLMediaElement.HAVE_CURRENT_DATA) return;
+            if (this.bufferingPlayback?.video === video) return;
+            this.bufferingPlayback = { video, time: video.currentTime };
+            this.stopFrameSync();
+        };
+        video.addEventListener('waiting', handlePlaybackBuffering, this.eventOptions({ passive: true }));
+        video.addEventListener('stalled', handlePlaybackBuffering, this.eventOptions({ passive: true }));
         video.addEventListener('pause', () => {
             // Only the BOUND video's pause tears down the sampler. After a player
             // element swap (miniplayer/ad), a stale element's listener stays armed
@@ -1766,16 +1789,23 @@ export class SubtitlePlayerController {
             // would cancel the sampler that is actively tracking the new, playing
             // element. syncPauseTranscriptPanel is self-guarding (it no-ops when
             // this.video is not paused), so it stays unconditional.
-            if (video === this.video) this.stopFrameSync();
-            if (video === this.video) this.syncControls();
+            if (video === this.video) {
+                this.bufferingPlayback = undefined;
+                this.stopFrameSync();
+                this.syncControls();
+            }
             this.syncPauseTranscriptPanel({ deferRender: true });
         }, this.eventOptions({ passive: true }));
-        const handlePlaybackStarted = () => {
+        video.addEventListener('ended', () => {
+            if (video === this.video) this.bufferingPlayback = undefined;
+        }, this.eventOptions({ passive: true }));
+        const handlePlaybackStarted = (event: Event) => {
             this.pausePanelDismissed = false;
             // Same deferred path as pause: syncPauseTranscriptPanel sees the
             // playing video and closes the auto-opened panel after the paint.
             if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
             if (video === this.video) {
+                if (event.type === 'playing') this.bufferingPlayback = undefined;
                 this.startFrameSync(video);
                 this.syncControls();
             }
@@ -2055,7 +2085,7 @@ export class SubtitlePlayerController {
     // cue is unchanged, so the steady-state per-frame cost is two bounded cue
     // searches.
     private startFrameSync(video: HTMLVideoElement): void {
-        if (this.destroyed || document.hidden) return;
+        if (this.destroyed || document.hidden || this.bufferingPlayback?.video === video) return;
         this.stopFrameSync();
         this.frameSyncVideo = video;
         this.scheduleFrameSync();
@@ -2072,7 +2102,7 @@ export class SubtitlePlayerController {
                 return;
             }
             const current = this.frameSyncVideo;
-            if (!current || current.paused || !current.isConnected) {
+            if (!current || current.paused || !current.isConnected || this.bufferingPlayback?.video === current) {
                 this.frameSyncVideo = undefined;
                 return;
             }
@@ -2101,7 +2131,7 @@ export class SubtitlePlayerController {
         this.syncShadowLoop();
         this.syncPlayingVideoGeometry();
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
-            this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
+            this.applyKaraokeStateToPrimary(this.currentCue, this.subtitlePlaybackTime(video));
         }
     }
 
@@ -2390,13 +2420,19 @@ export class SubtitlePlayerController {
 
     private updateFromLoadedCues(): void {
         if (!this.video) return;
-        const time = this.video.currentTime;
+        const time = this.subtitlePlaybackTime(this.video);
         const secondary = this.secondaryTrackId
             ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
             : undefined;
         const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
+    }
+
+    private subtitlePlaybackTime(video: HTMLVideoElement): number {
+        return this.bufferingPlayback?.video === video
+            ? this.bufferingPlayback.time
+            : video.currentTime;
     }
 
     // Auto-generated YouTube captions and their `&tlang=` translations are
@@ -2518,7 +2554,7 @@ export class SubtitlePlayerController {
         if (this.cues.length || !this.currentCue) return;
         if (text !== this.lastDomCaption) return;
         this.lastDomCaptionSeenAt = performance.now();
-        const now = this.video?.currentTime ?? 0;
+        const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         if (now >= this.currentCue.start && this.currentCue.end < now + 1) {
             this.currentCue.end = now + 4;
             this.refreshNativeFullscreenCueMirror();
@@ -2583,7 +2619,7 @@ export class SubtitlePlayerController {
     private clearDomCaptionFallbackIfExpired(): void {
         if (this.shouldHoldRecentDomCaption()) return;
         this.pendingDomCaption = undefined;
-        if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
+        if (!this.cues.length && this.currentCue && (this.video ? this.subtitlePlaybackTime(this.video) : 0) > this.currentCue.end) {
             this.currentCue = undefined;
             this.lastDomCaption = '';
             this.lastDomCaptionSeenAt = 0;
@@ -2629,7 +2665,7 @@ export class SubtitlePlayerController {
     private applyDomCaptionFallback(text: string, selected: SubtitleTrackOption | undefined): void {
         this.lastDomCaption = text;
         this.lastDomCaptionSeenAt = performance.now();
-        const now = this.video?.currentTime ?? 0;
+        const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
         this.render();
@@ -2704,7 +2740,7 @@ export class SubtitlePlayerController {
             lastRenderedHtml: this.lastRenderedPrimaryHtml,
             hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
             hasParser: this.shouldParseSubtitles(settings),
-            time: this.video?.currentTime ?? activeCue?.start ?? 0,
+            time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0,
         });
     }
 
@@ -2746,7 +2782,7 @@ export class SubtitlePlayerController {
 
     private applyRenderedPrimaryKaraoke(primary: ReturnType<typeof renderSubtitlePrimary>): void {
         const activeCue = this.currentCue;
-        if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video?.currentTime ?? activeCue.start);
+        if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video ? this.subtitlePlaybackTime(this.video) : activeCue.start);
     }
 
     private cacheRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>): void {
@@ -2808,13 +2844,13 @@ export class SubtitlePlayerController {
 
     private primaryReplacementHtml(html: string, currentCue: SubtitleCue | null, shouldKaraoke: boolean): string {
         return shouldKaraoke && currentCue && !html.includes('jpdb-reader-word')
-            ? renderSubtitleKaraokeCue(currentCue, this.video?.currentTime ?? currentCue.start)
+            ? renderSubtitleKaraokeCue(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start)
             : html;
     }
 
     private syncKaraokePrimary(currentCue: SubtitleCue | null, shouldKaraoke: boolean): void {
         if (!shouldKaraoke || !currentCue) return;
-        this.applyKaraokeStateToPrimary(currentCue, this.video?.currentTime ?? currentCue.start);
+        this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
     }
 
     private shouldParseSubtitles(settings = this.options.getSettings()): boolean {
@@ -3456,7 +3492,7 @@ export class SubtitlePlayerController {
     private parseWarmupAnchorIndex(): number {
         const active = this.activeTranscriptIndex();
         if (active >= 0) return active;
-        const time = this.video?.currentTime ?? 0;
+        const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         const upcoming = this.cues.findIndex(cue => cue.end >= time);
         return upcoming >= 0 ? upcoming : Math.max(0, this.cues.length - 1);
     }
@@ -5730,7 +5766,7 @@ export class SubtitlePlayerController {
         if (this.video.paused
             && this.options.getSettings().subtitleShadowAutoPause
             && this.shadowAutoPausedCueSignature === subtitleCueSignature(cue)) return;
-        const time = this.video.currentTime;
+        const time = this.subtitlePlaybackTime(this.video);
         if (time >= cue.end - 0.05 || time < cue.start - 0.3) {
             this.seekVideoTo(Math.max(0, cue.start));
             // Pin the panel to the looped line even if playback briefly overran it.
@@ -5747,7 +5783,7 @@ export class SubtitlePlayerController {
         const cue = this.currentCue;
         const signature = subtitleCueSignature(cue);
         if (this.shadowAutoPausedCueSignature === signature) return;
-        const time = this.video.currentTime;
+        const time = this.subtitlePlaybackTime(this.video);
         if (time < cue.start - 0.05 || time < cue.end - 0.05) return;
         this.shadowAutoPausedCueSignature = signature;
         this.video.pause();
@@ -7320,7 +7356,7 @@ export class SubtitlePlayerController {
     private transcriptGapAnchorRowIndex(rows: TranscriptRow[]): number {
         if (this.currentCue || !this.video) return -1;
         if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
-        const time = this.video.currentTime;
+        const time = this.subtitlePlaybackTime(this.video);
         for (let index = rows.length - 1; index >= 0; index -= 1) {
             if (rows[index]!.cue.start <= time) return index;
         }

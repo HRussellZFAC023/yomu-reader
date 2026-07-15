@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.153] - 2026-07-15
+
+### Fixed
+
+- Subtitles now freeze at the last presented media time while a video is genuinely buffering or stalled, then resume on actual playback. Ordinary pause, ended, seeking, and background network stalls remain distinct so transcript, karaoke, and shadowing timing stay aligned with the player.
+
 ## [1.6.152] - 2026-07-14
 
 ### Fixed
