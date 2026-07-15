@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.154] - 2026-07-15
+
+### Fixed
+
+- Turning annotations off now immediately removes ruby, pitch colouring, and parsed word markup from video captions and the open subtitle transcript while preserving the minimum plain subtitle display. Caption parsing, enrichment, cache updates, and late parse-result repainting remain inert until annotations are turned back on.
+
 ## [1.6.153] - 2026-07-15
 
 ### Fixed

@@ -42187,7 +42187,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.153".trim() ? "1.6.153".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.154".trim() ? "1.6.154".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -53609,7 +53609,7 @@ ${spelling}`);
   const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1200;
   const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
   function canParseSubtitleTranscriptRows(settings) {
-    return hasSubtitleParserSource();
+    return !settings.annotationsPaused && hasSubtitleParserSource();
   }
   function shouldApplyParsedTranscriptHtml(target, key, provisional = false, refreshProvisional = false) {
     if (target.dataset.parseKey !== key) return false;
@@ -55262,6 +55262,7 @@ ${spelling}`);
       this.scheduleAlignToVideo();
       this.syncControls();
       this.render();
+      this.renderOpenSubtitlePanel();
       this.hideControlsImmediately();
     }
     syncRootVisibility(settings) {
@@ -56431,7 +56432,7 @@ ${spelling}`);
       this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
     }
     shouldParseSubtitles(settings = this.options.getSettings()) {
-      return canParseSubtitleTranscriptRows();
+      return canParseSubtitleTranscriptRows(settings);
     }
     parseCacheKey(text2, settings = this.options.getSettings()) {
       return [
@@ -56546,6 +56547,7 @@ ${spelling}`);
       this.ensureAuthoritativeParsedCueHtmlBatch([{ text: text2, key }], settings);
     }
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
+      if (!this.shouldParseSubtitles()) return;
       if (!this.hasAuthoritativeParseTier(settings)) return;
       const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
@@ -56577,7 +56579,7 @@ ${spelling}`);
     // enriched pitch and word state instead of silently dropping it on the
     // next cache hit (UT-66).
     refreshParsedCueTexts(texts) {
-      if (!texts.length) return;
+      if (!texts.length || !this.shouldParseSubtitles()) return;
       const settings = this.options.getSettings();
       const seen = /* @__PURE__ */ new Set();
       for (const raw of texts) {
@@ -56603,6 +56605,7 @@ ${spelling}`);
       this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
     }
     applyParsedPrimaryHtml(key, text2, html, serial) {
+      if (!this.shouldParseSubtitles()) return;
       const root = this.replacePrimaryHtml(html, serial);
       this.lastRenderedPrimaryKey = key;
       this.lastRenderedPrimaryText = text2;
@@ -56772,7 +56775,7 @@ ${spelling}`);
       return tokenRows;
     }
     async beforeRenderParsedTokens(tokens) {
-      if (!tokens.length || !this.options.beforeRenderTokens) return;
+      if (!this.shouldParseSubtitles() || !tokens.length || !this.options.beforeRenderTokens) return;
       await this.options.beforeRenderTokens(tokens);
     }
     async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2) {
@@ -56833,6 +56836,7 @@ ${spelling}`);
       return false;
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
+      if (!this.shouldParseSubtitles()) return;
       if (parsedSubtitleHtmlHasReaderWords(html)) {
         if (options.provisional) {
           this.provisionalParsedHtmlCache.set(key, html);
@@ -56914,7 +56918,7 @@ ${spelling}`);
       this.parsedTokenNotifiedAt.delete(key);
     }
     notifyParsedTokensForKey(key, force = false, roots) {
-      if (!this.options.afterParseTokens) return;
+      if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
       const tokens = this.parsedTokenCache.get(key);
       if (!tokens?.length) return;
       const now = Date.now();
@@ -59429,7 +59433,7 @@ ${spelling}`);
       this.forceNativeCueRefresh();
       const rows = this.transcriptRows();
       const settings = this.options.getSettings();
-      if (!rows.length || false) {
+      if (!rows.length || !canParseSubtitleTranscriptRows(settings)) {
         this.batchMiningStatus = "failed";
         this.batchMiningError = subtitleText(settings.interfaceLanguage, "bmNoTranscript");
         this.renderBatchMiningPanel();
@@ -60255,6 +60259,7 @@ ${spelling}`);
     transcriptHydrationRequest() {
       if (!this.canHydrateTranscriptRows()) return null;
       const settings = this.options.getSettings();
+      if (!canParseSubtitleTranscriptRows(settings)) return null;
       const rows = this.transcriptRows();
       return rows.length ? { settings, rows } : null;
     }
@@ -60437,6 +60442,7 @@ ${spelling}`);
       return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
     }
     updateTranscriptRowsForParseKey(key, html, options = {}) {
+      if (!this.shouldParseSubtitles()) return;
       if (this.transcriptResizeActive) {
         this.transcriptWarmupAfterResize = true;
         return;
