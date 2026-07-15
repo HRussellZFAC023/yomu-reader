@@ -61,6 +61,29 @@ async function withMatchMedia<T>(matches: (query: string) => boolean, callback: 
     }
 }
 
+async function withSubtitleRequestStubs<T>(
+    pageUrl: string,
+    fetchMock: unknown,
+    gmRequest: unknown,
+    callback: () => T | Promise<T>,
+): Promise<T> {
+    const originalLocation = window.location;
+    const originalFetch = globalThis.fetch;
+    Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: new URL(pageUrl) as unknown as Location,
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+    vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+    try {
+        return await callback();
+    } finally {
+        Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+        vi.unstubAllGlobals();
+    }
+}
+
 function stubFullscreenElement(initial: Element | null): { set: (value: Element | null) => void; restore: () => void } {
     let value = initial;
     const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
@@ -7257,6 +7280,64 @@ Watch the cat
             Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
             vi.unstubAllGlobals();
         }
+    });
+
+    it('retries once after both subtitle transports are interrupted', async () => {
+        const fetchMock = vi.fn()
+            .mockRejectedValueOnce(new TypeError('network connection lost'))
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n回復した字幕。\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('train tunnel'));
+        });
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/show/episode.ja.vtt')).resolves.toContain('回復した字幕');
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('rejects an unexpected partial response and retries the full subtitle payload once', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 -->', { status: 206 }))
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n完全な字幕。\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('partial bridge response interrupted'));
+        });
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/show/episode.ja.vtt')).resolves.toContain('完全な字幕');
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(gmRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    it('recovers from a userscript timeout without retrying indefinitely', async () => {
+        const fetchMock = vi.fn(async () => { throw new TypeError('page fetch interrupted'); });
+        const gmRequest = vi.fn()
+            .mockImplementationOnce((details: Parameters<UserscriptHttpRequest>[0]) => details.ontimeout?.())
+            .mockImplementationOnce((details: Parameters<UserscriptHttpRequest>[0]) => details.onload?.({
+                status: 200,
+                responseText: '<timedtext><body><p t="1000" d="1000">復旧</p></body></timedtext>',
+                response: '',
+            }));
+
+        await withSubtitleRequestStubs('https://www.youtube.com/watch?v=abc123', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://www.youtube.com/api/timedtext?v=abc123&lang=ja&fmt=srv3')).resolves.toContain('復旧');
+            expect(gmRequest).toHaveBeenCalledTimes(2);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('does not retry or bridge a permanent missing subtitle response', async () => {
+        const fetchMock = vi.fn(async () => new Response('Not found', { status: 404 }));
+        const gmRequest = vi.fn();
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/missing.vtt')).rejects.toThrow('Subtitle request failed (404).');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(gmRequest).not.toHaveBeenCalled();
+        });
     });
 
     it('destroys the mounted subtitle runtime and stops its timer', async () => {

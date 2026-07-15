@@ -42187,7 +42187,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.154".trim() ? "1.6.154".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.155".trim() ? "1.6.155".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -53739,17 +53739,40 @@ ${spelling}`);
     return { ready, batch };
   }
   const SUBTITLE_REQUEST_TIMEOUT_MS = 8e3;
-  function requestSubtitleText(url) {
+  const SUBTITLE_REQUEST_MAX_ATTEMPTS = 2;
+  const SUBTITLE_REQUEST_RETRY_DELAY_MS = 250;
+  class SubtitleRequestError extends Error {
+    constructor(message, retryable, status) {
+      super(message);
+      this.retryable = retryable;
+      this.status = status;
+      this.name = "SubtitleRequestError";
+    }
+  }
+  async function requestSubtitleText(url) {
     if (/^(blob|data):/i.test(url)) {
       return fetchSubtitleText(url);
     }
+    let lastError;
+    for (let attempt = 0; attempt < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await requestSubtitleTextOnce(url);
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableSubtitleRequestError(error) || attempt + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
+        await delaySubtitleRetry();
+      }
+    }
+    throw lastError;
+  }
+  function requestSubtitleTextOnce(url) {
     if (isYouTubeTimedTextUrl(url)) {
-      return requestSubtitleTextWithUserscript(url).catch((error) => fetchSubtitleText(url).catch(() => Promise.reject(error)));
+      return requestSubtitleTextWithUserscript(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? fetchSubtitleText(url) : Promise.reject(error));
     }
     if (shouldFetchSubtitleInPageContext(url)) {
-      return fetchSubtitleText(url).catch((error) => requestSubtitleTextWithUserscript(url, error));
+      return fetchSubtitleText(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
     }
-    return fetchSubtitleText(url, "omit").catch((pageFetchError) => requestSubtitleTextWithUserscript(url, pageFetchError));
+    return fetchSubtitleText(url, "omit").catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
   }
   function subtitleRequestFailureDetails(url) {
     try {
@@ -53773,9 +53796,16 @@ ${spelling}`);
           url,
           responseType: "text",
           timeout: SUBTITLE_REQUEST_TIMEOUT_MS,
-          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(String(response.responseText ?? response.response ?? "")) : reject(new Error(`Subtitle request failed (${response.status}).`)),
-          onerror: reject,
-          ontimeout: () => reject(new Error("Subtitle request timed out."))
+          onload: (response) => {
+            try {
+              assertCompleteSubtitleStatus(response.status);
+              resolve(String(response.responseText ?? response.response ?? ""));
+            } catch (error) {
+              reject(error);
+            }
+          },
+          onerror: () => reject(new SubtitleRequestError("Subtitle request failed during transport.", true)),
+          ontimeout: () => reject(new SubtitleRequestError("Subtitle request timed out.", true))
         });
       });
     }
@@ -53784,9 +53814,27 @@ ${spelling}`);
   }
   function fetchSubtitleText(url, credentials = "include") {
     return fetch(url, { credentials, signal: subtitleRequestSignal() }).then((response) => {
-      if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
+      assertCompleteSubtitleStatus(response.status);
       return response.text();
     });
+  }
+  function assertCompleteSubtitleStatus(status) {
+    if (status >= 200 && status < 300 && status !== 206) return;
+    if (status === 206) throw new SubtitleRequestError("Subtitle request returned a partial response (206).", true, status);
+    throw new SubtitleRequestError(`Subtitle request failed (${status}).`, isTransientSubtitleStatus(status), status);
+  }
+  function isTransientSubtitleStatus(status) {
+    return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
+  }
+  function isRetryableSubtitleRequestError(error) {
+    return !(error instanceof SubtitleRequestError) || error.retryable;
+  }
+  function shouldTryAlternateSubtitleTransport(error) {
+    if (!(error instanceof SubtitleRequestError)) return true;
+    return error.status === void 0 || error.status === 0 || error.status === 401 || error.status === 403;
+  }
+  function delaySubtitleRetry() {
+    return new Promise((resolve) => globalThis.setTimeout(resolve, SUBTITLE_REQUEST_RETRY_DELAY_MS));
   }
   function subtitleRequestSignal() {
     return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(SUBTITLE_REQUEST_TIMEOUT_MS) : void 0;

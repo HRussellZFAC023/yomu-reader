@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.154",
+  "version": "1.6.155",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -141,6 +141,7 @@
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
     "smoke:study-flow-stability": "node scripts/study-flow-stability-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
+    "smoke:subtitle-network": "node scripts/subtitle-network-resilience-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
     "smoke:youtube-auto-translation": "node scripts/youtube-auto-translation-smoke.mjs",
     "smoke:youtube-controls-wake": "node scripts/youtube-controls-wake-smoke.mjs",

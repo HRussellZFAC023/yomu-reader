@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.155] - 2026-07-15
+
+### Fixed
+
+- Subtitle files and YouTube captions now recover from a brief connection drop, interrupted or partial response, rate limit, server error, or timeout with one bounded retry. Permanent client errors still fail immediately, slowly delivered responses are not duplicated, and already loaded cues remain available without another network request.
+
 ## [1.6.154] - 2026-07-15
 
 ### Fixed
