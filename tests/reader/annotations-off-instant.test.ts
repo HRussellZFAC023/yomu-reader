@@ -25,6 +25,7 @@ function token(): JPDBToken {
 interface AppInternals {
     settings: ReaderSettings;
     ocr: { refreshForModeChange: () => void };
+    subtitles: { refresh: () => void };
     getSettingsDialog(): { } | undefined;
     settingsDialog?: { };
     scheduleAutoScan: (delay: number, options?: { force?: boolean }) => void;
@@ -70,6 +71,7 @@ describe('annotations-off via the settings dialog is instant (class G)', () => {
         const app = new ReaderApp() as unknown as AppInternals;
         app.settings = { ...DEFAULT_SETTINGS };
         app.ocr = { refreshForModeChange: vi.fn() } as AppInternals['ocr'];
+        app.subtitles = { refresh: vi.fn() } as AppInternals['subtitles'];
         app.toast = vi.fn();
         const scheduleAutoScan = vi.fn();
         app.scheduleAutoScan = scheduleAutoScan;
@@ -92,6 +94,7 @@ describe('annotations-off via the settings dialog is instant (class G)', () => {
         expect(document.getElementById('prose')?.textContent).toBe(TEXT);
         expect(document.getElementById('mirror-host')?.textContent).toBe(TEXT);
         expect(document.getElementById('mirror-host')?.style.getPropertyValue('visibility')).toBe('');
+        expect(app.subtitles.refresh).toHaveBeenCalledTimes(1);
 
         // Toggling back ON through the dialog rescans immediately.
         dialog!.dependencies.setSettings({ ...app.settings, annotationsPaused: false });

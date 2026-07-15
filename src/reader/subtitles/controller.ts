@@ -1436,6 +1436,7 @@ export class SubtitlePlayerController {
         this.scheduleAlignToVideo();
         this.syncControls();
         this.render();
+        this.renderOpenSubtitlePanel();
         this.hideControlsImmediately();
     }
 
@@ -2980,6 +2981,7 @@ export class SubtitlePlayerController {
     }
 
     private ensureAuthoritativeParsedCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): void {
+        if (!this.shouldParseSubtitles()) return;
         // Without an API credential there is no authoritative tier to upgrade
         // to; the provisional parse is the final result for both surfaces.
         if (!this.hasAuthoritativeParseTier(settings)) return;
@@ -3017,7 +3019,7 @@ export class SubtitlePlayerController {
     // enriched pitch and word state instead of silently dropping it on the
     // next cache hit (UT-66).
     refreshParsedCueTexts(texts: string[]): void {
-        if (!texts.length) return;
+        if (!texts.length || !this.shouldParseSubtitles()) return;
         const settings = this.options.getSettings();
         const seen = new Set<string>();
         for (const raw of texts) {
@@ -3045,6 +3047,7 @@ export class SubtitlePlayerController {
     }
 
     private applyParsedPrimaryHtml(key: string, text: string, html: string, serial: number): void {
+        if (!this.shouldParseSubtitles()) return;
         const root = this.replacePrimaryHtml(html, serial);
         this.lastRenderedPrimaryKey = key;
         this.lastRenderedPrimaryText = text;
@@ -3263,7 +3266,7 @@ export class SubtitlePlayerController {
     }
 
     private async beforeRenderParsedTokens(tokens: JPDBToken[]): Promise<void> {
-        if (!tokens.length || !this.options.beforeRenderTokens) return;
+        if (!this.shouldParseSubtitles() || !tokens.length || !this.options.beforeRenderTokens) return;
         await this.options.beforeRenderTokens(tokens);
     }
 
@@ -3334,6 +3337,7 @@ export class SubtitlePlayerController {
     }
 
     private rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): void {
+        if (!this.shouldParseSubtitles()) return;
         if (parsedSubtitleHtmlHasReaderWords(html)) {
             if (options.provisional) {
                 this.provisionalParsedHtmlCache.set(key, html);
@@ -3434,7 +3438,7 @@ export class SubtitlePlayerController {
     }
 
     private notifyParsedTokensForKey(key: string, force = false, roots?: ParentNode[]): void {
-        if (!this.options.afterParseTokens) return;
+        if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
         const tokens = this.parsedTokenCache.get(key);
         if (!tokens?.length) return;
         const now = Date.now();
@@ -7608,6 +7612,7 @@ export class SubtitlePlayerController {
     }
 
     private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean; force?: boolean; refreshProvisional?: boolean } = {}): void {
+        if (!this.shouldParseSubtitles()) return;
         if (this.transcriptResizeActive) {
             this.transcriptWarmupAfterResize = true;
             return;

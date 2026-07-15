@@ -1962,6 +1962,10 @@ export class ReaderApp {
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
         }
+        // Captions are a reader surface too: repaint them immediately so OFF
+        // cannot leave parsed ruby/colour DOM visible until a later settings
+        // refresh, and so the subtitle controller stops scheduling parse work.
+        this.subtitles.refresh();
         // The pause gates OCR too (ocrRuntimeActive): clear its overlays on
         // pause, re-scan per the user's OCR mode on resume.
         this.ocr.refreshForModeChange();

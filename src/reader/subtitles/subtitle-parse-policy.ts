@@ -16,7 +16,7 @@ export interface SubtitleParseOptions {
 }
 
 export function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolean {
-    return hasSubtitleParserSource(settings);
+    return !settings.annotationsPaused && hasSubtitleParserSource(settings);
 }
 
 export function shouldApplyParsedTranscriptHtml(target: HTMLElement, key: string, provisional = false, refreshProvisional = false): boolean {

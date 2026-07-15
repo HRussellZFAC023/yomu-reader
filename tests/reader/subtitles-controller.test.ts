@@ -8641,6 +8641,53 @@ Watch the cat
         }
     });
 
+    it('makes annotations-off captions plain immediately and rejects late parse work', async () => {
+        const parsed = deferred<JPDBToken[]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const beforeRenderTokens = vi.fn(async () => undefined);
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const initialSettings: Partial<ReaderSettings> = {
+            annotationsPaused: false,
+            subtitleTranscriptAutoScroll: false,
+        };
+        const { controller, settings } = createInstalledSubtitleController(initialSettings, { parseJapanese, beforeRenderTokens });
+        const internals = controllerInternals<{
+            currentCue: typeof cue;
+            cues: Array<typeof cue>;
+        }>(controller);
+
+        try {
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(document.querySelector('.jpdb-subtitle-primary-loading')?.textContent).toBe('読む');
+
+            settings.annotationsPaused = true;
+            controller.refresh();
+
+            const primary = document.querySelector<HTMLElement>('.jpdb-subtitle-primary')!;
+            expect(primary.textContent).toBe('読む');
+            expect(primary.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
+            expect(primary.querySelector('.jpdb-reader-word')).toBeNull();
+
+            parsed.resolve([makeSubtitleToken('読む', { reading: 'よむ' })]);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(beforeRenderTokens).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
+
+            parseJapanese.mockClear();
+            internals.currentCue = { ...cue, text: '見る' };
+            controller.refresh();
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('見る');
+            expect(parseJapanese).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not rebuild the subtitle DOM when a render tick produces identical html', () => {
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
         const { internals } = setupTranscriptCueController<typeof cue, {

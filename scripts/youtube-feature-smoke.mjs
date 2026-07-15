@@ -1255,6 +1255,7 @@ async function runWatchCheck(page) {
     await revealAndWaitForWatchLiveCard(page);
     const initial = await readWatchState(page);
     assertInitialWatchState(initial);
+    const annotationsToggle = await verifyWatchAnnotationsToggle(page);
 
     const idleControls = await closePanelAndReadIdleControls(page);
     assertIdleControls(idleControls);
@@ -1266,12 +1267,55 @@ async function runWatchCheck(page) {
 
     return {
         initial,
+        annotationsToggle,
         idleControls,
         visibleSidebar,
         beforeResize: resize.beforeResize,
         afterResize: resize.afterResize,
         dictionary,
     };
+}
+
+async function verifyWatchAnnotationsToggle(page) {
+    await page.evaluate(settingsKey => {
+        const current = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+        const paused = { ...current, annotationsPaused: true };
+        localStorage.setItem(settingsKey, JSON.stringify(paused));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: settingsKey,
+            oldValue: JSON.stringify(current),
+            newValue: JSON.stringify(paused),
+            storageArea: localStorage,
+        }));
+    }, SETTINGS_KEY);
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-row-text .jpdb-reader-word').length === 0
+        && !document.querySelector('.jpdb-subtitle-primary-loading'), null, { timeout: 5000 });
+    const paused = await page.evaluate(() => ({
+        playerText: document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim() || '',
+        rowText: document.querySelector('.jpdb-subtitle-row-text')?.textContent?.trim() || '',
+        parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+        parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
+        loadingCaptions: document.querySelectorAll('.jpdb-subtitle-primary-loading').length,
+    }));
+    assert(paused.playerText.length > 0, 'Annotations-off removed the displayed video caption text', paused);
+    assert(paused.rowText.length > 0, 'Annotations-off removed transcript text', paused);
+    assert(paused.parsedPlayerWords === 0 && paused.parsedRowWords === 0, 'Annotations-off left parsed caption words in the DOM', paused);
+    assert(paused.loadingCaptions === 0, 'Annotations-off left captions waiting on parser work', paused);
+
+    await page.evaluate(settingsKey => {
+        const current = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+        const resumed = { ...current, annotationsPaused: false };
+        localStorage.setItem(settingsKey, JSON.stringify(resumed));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: settingsKey,
+            oldValue: JSON.stringify(current),
+            newValue: JSON.stringify(resumed),
+            storageArea: localStorage,
+        }));
+    }, SETTINGS_KEY);
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length > 0
+        && document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 10000 });
+    return paused;
 }
 
 async function runWatchLiveCardCheck(page) {
