@@ -71,7 +71,6 @@ const settings = {
     pitchColorAtamadaka: PITCH_COLOR,
     pitchColorNakadaka: PITCH_COLOR,
     pitchColorOdaka: PITCH_COLOR,
-    pitchColorKifuku: PITCH_COLOR,
     pitchColorUnknown: '#94a3b8',
     corsProxyUrl: '',
     enableLogging: Boolean(process.env.SMOKE_DEBUG),

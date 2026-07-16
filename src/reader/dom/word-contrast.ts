@@ -31,7 +31,6 @@ const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-pitch-atamadaka',
     'jpdb-pitch-nakadaka',
     'jpdb-pitch-odaka',
-    'jpdb-pitch-kifuku',
 ]);
 const pendingHoverContrastRefresh = new WeakSet<HTMLElement>();
 

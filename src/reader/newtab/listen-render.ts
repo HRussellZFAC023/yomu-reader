@@ -49,7 +49,6 @@ const PITCH_CLASS_LABEL_KEYS: Record<PitchClassName, NewTabCopyKey> = {
     atamadaka: 'pitchClassAtamadaka',
     nakadaka: 'pitchClassNakadaka',
     odaka: 'pitchClassOdaka',
-    kifuku: 'pitchClassNakadaka',
 };
 
 function pitchClassLabel(className: PitchClassName | '', t: Translate): string {

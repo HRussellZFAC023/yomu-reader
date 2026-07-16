@@ -1080,7 +1080,6 @@ describe('reader theme', () => {
             '--jpdb-reader-pitch-atamadaka-readable',
             '--jpdb-reader-pitch-nakadaka-readable',
             '--jpdb-reader-pitch-odaka-readable',
-            '--jpdb-reader-pitch-kifuku-readable',
             '--jpdb-reader-pitch-unknown-readable',
         ];
 
@@ -1091,6 +1090,7 @@ describe('reader theme', () => {
                 expect(contrastRatio(color, surface), `${variable} on ${surface}`).toBeGreaterThanOrEqual(4.5);
             });
         });
+        expect(root.style.getPropertyValue('--jpdb-reader-pitch-kifuku-readable')).toBe('');
     });
 
     it('defaults popup Japanese text to the jpdb.io font stack', () => {

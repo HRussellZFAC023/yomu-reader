@@ -273,7 +273,6 @@ export interface ReaderSettings {
     pitchColorAtamadaka: string;
     pitchColorNakadaka: string;
     pitchColorOdaka: string;
-    pitchColorKifuku: string;
     pitchColorUnknown: string;
     wordHighlightColorSource: ReaderColorSource;
     wordUnderlineColorSource: ReaderColorSource;

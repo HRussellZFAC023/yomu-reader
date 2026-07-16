@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    collectPitchVariants,
     pitchClassNameForPattern,
     pitchNumberForReading,
     pitchPatternFromPosition,
+    splitMorae,
 } from '../../src/reader/lookup/pitch-accent';
 
 // pitchNumberForReading is the single source of truth for a word's pitch identity
@@ -34,6 +36,45 @@ describe('pitchNumberForReading', () => {
         expect(pitchClassNameForPattern(pitchPatternFromPosition('たまご', 2), 'たまご')).toBe('nakadaka');
         expect(pitchNumberForReading([pitchPatternFromPosition('おとこ', 3)], 'おとこ')).toBe(3);
         expect(pitchClassNameForPattern(pitchPatternFromPosition('おとこ', 3), 'おとこ')).toBe('odaka');
+    });
+
+    it('classifies every numeric position without inventing a fifth positional class', () => {
+        const reading = 'ふたご';
+        const expected = ['heiban', 'atamadaka', 'nakadaka', 'odaka'];
+        for (let position = 0; position <= splitMorae(reading).length; position += 1) {
+            expect(pitchClassNameForPattern(pitchPatternFromPosition(reading, position), reading))
+                .toBe(expected[position]);
+        }
+    });
+
+    it('counts small kana as part of the preceding mora for every valid position', () => {
+        const reading = 'きょう';
+        expect(splitMorae(reading)).toEqual(['きょ', 'う']);
+        expect([0, 1, 2].map(position => ({
+            position,
+            pattern: pitchPatternFromPosition(reading, position),
+            className: pitchClassNameForPattern(pitchPatternFromPosition(reading, position), reading),
+            roundTrip: pitchNumberForReading([pitchPatternFromPosition(reading, position)], reading),
+        }))).toEqual([
+            { position: 0, pattern: 'LHH', className: 'heiban', roundTrip: 0 },
+            { position: 1, pattern: 'HLL', className: 'atamadaka', roundTrip: 1 },
+            { position: 2, pattern: 'LHL', className: 'odaka', roundTrip: 2 },
+        ]);
+    });
+
+    it('treats malformed multi-transition contours as unclassifiable instead of kifuku', () => {
+        for (const pattern of ['LHLH', 'HLHL', 'LHLHL']) {
+            expect(pitchClassNameForPattern(pattern, 'ふたご')).toBe('');
+            expect(pitchNumberForReading([pattern], 'ふたご')).toBeNull();
+        }
+        expect(collectPitchVariants('ふたご', ['LHLH', pitchPatternFromPosition('ふたご', 2)]))
+            .toEqual([{ pattern: pitchPatternFromPosition('ふたご', 2), position: 2 }]);
+    });
+
+    it('keeps compact no-drop source contours as heiban without accepting other truncated shapes', () => {
+        expect(pitchClassNameForPattern('LH', 'そくじ')).toBe('heiban');
+        expect(pitchNumberForReading(['LH'], 'そくじ')).toBe(0);
+        expect(pitchClassNameForPattern('HL', 'ふたご')).toBe('');
     });
 
     it('collapses different spellings of the same reading+contour and distinguishes by contour', () => {

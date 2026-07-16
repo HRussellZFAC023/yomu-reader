@@ -12,7 +12,7 @@ const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`;
 export const READER_CSS = resourceReaderCss();
 
 function criticalWordCss(): string {
-    const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'];
+    const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka'];
     const pitchSelector = (pattern: string) => `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
     const pitches = pitchClasses
         .map(pattern => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)

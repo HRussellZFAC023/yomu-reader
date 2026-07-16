@@ -501,7 +501,7 @@ async function settingsSnapshot(page) {
                 && document.documentElement.dataset.yomuUserscriptHttpBridge !== 'true',
             wordCount: words.length,
             rubyCount: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
-            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)\b/u.test(word.className)).length,
+            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
             passiveCount: words.filter(word => word.dataset.jpdbReaderPassive === 'true').length,
             searchInputNative: document.querySelector('[data-settings-search]') instanceof HTMLInputElement
                 && !document.querySelector('[data-settings-search] .jpdb-reader-word'),

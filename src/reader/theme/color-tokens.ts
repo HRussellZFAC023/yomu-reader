@@ -56,7 +56,6 @@ export const DEFAULT_PITCH_COLOR_TOKENS = {
     atamadaka: '#fe4b74',
     nakadaka: '#fba840',
     odaka: '#57ccb7',
-    kifuku: '#9050f6',
     unknown: '#94a3b8',
 } as const;
 

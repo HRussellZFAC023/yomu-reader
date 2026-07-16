@@ -216,7 +216,6 @@ const READER_ACCENT_COLOR_SETTING_KEYS = [
     'pitchColorAtamadaka',
     'pitchColorNakadaka',
     'pitchColorOdaka',
-    'pitchColorKifuku',
     'pitchColorUnknown',
 ] as const satisfies readonly AccentColorSettingKey[];
 const ANKI_TEMPLATE_MODES = ['context', 'recognition'] as const satisfies readonly AnkiTemplateMode[];
@@ -260,7 +259,10 @@ const LEGACY_DEFAULT_ANKI_MODEL_NAMES = new Set(['よむ Japanese', 'Yomu Japane
 const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = 'Alt+ArrowLeft';
 const LEGACY_NEXT_SUBTITLE_SHORTCUT = 'Alt+ArrowRight';
 
-type LegacyReaderSettings = Partial<ReaderSettings> & { wordHighlightMode?: LegacyWordHighlightMode };
+type LegacyReaderSettings = Partial<ReaderSettings> & {
+    wordHighlightMode?: LegacyWordHighlightMode;
+    pitchColorKifuku?: unknown;
+};
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
@@ -281,7 +283,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
     pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
     pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
-    pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,

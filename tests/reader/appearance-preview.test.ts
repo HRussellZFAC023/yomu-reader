@@ -17,7 +17,11 @@ describe('appearance preview (UT-47)', () => {
         expect(sample).toContain('jpdb-never-forget');
         expect(sample).toContain('anki-known');
         expect(sample).toContain('jpdb-pitch-heiban');
-        expect(sample).toContain('jpdb-pitch-kifuku');
+        expect(sample).toContain('jpdb-pitch-atamadaka');
+        expect(sample).toContain('jpdb-pitch-nakadaka');
+        expect(sample).toContain('jpdb-pitch-odaka');
+        expect(sample).toContain('jpdb-pitch-unknown');
+        expect(sample).not.toContain('jpdb-pitch-kifuku');
         expect(appearancePreviewContentHtml()).toContain('jpdb-reader-settings-appearance-preview-line');
     });
 });

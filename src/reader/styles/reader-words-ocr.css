@@ -656,11 +656,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft);
 }
-.jpdb-reader-word.jpdb-pitch-kifuku {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-kifuku-readable);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft);
-}
 .jpdb-reader-word.jpdb-pitch-unknown {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable);
@@ -671,13 +666,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
 .jpdb-reader-spelling.jpdb-pitch-odaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka); }
-.jpdb-reader-spelling.jpdb-pitch-kifuku { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku); }
 .jpdb-reader-word-underline-pitch .jpdb-reader-spelling:is(
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
-  .jpdb-pitch-odaka,
-  .jpdb-pitch-kifuku
+  .jpdb-pitch-odaka
 ) {
   text-decoration: underline;
   text-decoration-color: var(--jpdb-reader-pitch-color, transparent);
@@ -688,8 +681,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
-  .jpdb-pitch-odaka,
-  .jpdb-pitch-kifuku
+  .jpdb-pitch-odaka
 ) {
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
   --jpdb-reader-pitch-highlight: color-mix(
@@ -1776,8 +1768,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
-  .jpdb-pitch-odaka,
-  .jpdb-pitch-kifuku
+  .jpdb-pitch-odaka
 ) {
   --jpdb-reader-source-pitch-decoration: var(
     --jpdb-reader-pitch-color,
@@ -1817,8 +1808,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
-  .jpdb-pitch-odaka,
-  .jpdb-pitch-kifuku
+  .jpdb-pitch-odaka
 ) {
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
 }

@@ -698,7 +698,6 @@ function proofCss() {
   --jpdb-reader-pitch-atamadaka: #ff6b6b;
   --jpdb-reader-pitch-nakadaka: #ffd166;
   --jpdb-reader-pitch-odaka: #5bbcff;
-  --jpdb-reader-pitch-kifuku: #c084fc;
   --jpdb-reader-pitch-unknown: #999;
   --jpdb-reader-jpdb-color: #8bd3ff;
   --jpdb-reader-jpdb-readable: #e7f7ff;
@@ -721,7 +720,7 @@ import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
 
 const HAS_JAPANESE = /[\\u3040-\\u30ff\\u3400-\\u9fff]/u;
 const HAN_RE = /\\p{Script=Han}/u;
-const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
+const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);
 
 window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);

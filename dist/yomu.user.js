@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.166
+// @version 1.6.167
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.166#sha256=sxz6s0fLWvL+p2ffj2pKQ9JQ7G7kYaFTE2gr8J/qzRs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.166#sha256=TjaS8EDuD8aw7+KUVj8YxvxDyb7BtIMVIgOU0OdEny0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.166#sha256=WoOM4JsDuGUrlJeLJ1AMp91GwCs0DlMZYjvHD4cJVes=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.166#sha256=fGeqkZrhjMHPsx9UfwAeIGL4A9oGfwTYLSrsto2NwAw=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.166#sha256=XYlQqOn+3zFDhfKd2R5jXiRBfS6FTO42gedp63X5Y2w=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.166#sha256=CdRTolh9JOJS0BpVep1RVhyouQ2K4irfiZlNx5rLs1E=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.166#sha256=WVnATQXfx4ZQvAuxzlTxJVT1jl61TVnp4Xze+TIamVw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.167#sha256=UjjzmO2i1xSBYiMoaxoJdsLXiCssLEHQjGtjt/7moW4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.167#sha256=vOcFWRkNsFo+Wv4SZDS4CoroYciRCO+rM1nUEZB4TcU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.167#sha256=q1dQVYgYDUMMcwcgtd1bLw4I1sdVhYgPyGp67MSzWas=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.167#sha256=d6kQNirCH1Y0hCMXqnJsINsSozygL4mo0AcK8NYTLTM=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.167#sha256=jjbQVQo3fH/whdo8AhbeKACLNnV84S8tLADGQcED1BE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.167#sha256=cHnKdIpZiFZpIYOXVHRePfWjVFMCbNm+fCB45a1tRu8=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.167#sha256=58AvazhQslivlaRoumkeYDDBiItz0MBDsI+ENqwwDbk=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -241,7 +241,6 @@ const DEFAULT_PITCH_COLOR_TOKENS = {
   atamadaka: "#fe4b74",
   nakadaka: "#fba840",
   odaka: "#57ccb7",
-  kifuku: "#9050f6",
   unknown: "#94a3b8"
 };
 const LOOKUP_PILL_COLOR_TOKENS = {
@@ -3641,7 +3640,6 @@ const READER_ACCENT_COLOR_SETTING_KEYS = [
   "pitchColorAtamadaka",
   "pitchColorNakadaka",
   "pitchColorOdaka",
-  "pitchColorKifuku",
   "pitchColorUnknown"
 ];
 const ANKI_TEMPLATE_MODES = ["context", "recognition"];
@@ -3702,7 +3700,6 @@ const DEFAULT_SETTINGS = {
   pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
   pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
   pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
-  pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
   pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
   ...DEFAULT_COLOR_CHANNELS,
   jpdbDefinitionsEnabled: true,
@@ -4928,7 +4925,7 @@ const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role
 const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = `${BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
-const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set(["new", "not-in-deck", "in-deck"]);
 const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -16157,7 +16154,7 @@ function pitchProfileForPattern(pattern, reading) {
   morae,
   pitchNumber,
   pattern: normalized,
-  className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+  className: pitchClassNameFromProfile(morae.length, pitchNumber)
   };
 }
 function pitchClassNameForPattern(pattern, reading) {
@@ -16186,31 +16183,20 @@ function pitchNumberFromPattern(pattern, reading) {
   const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
   const moraCount = countMorae(reading);
   if (!moraCount) return null;
-  if (levels.length < moraCount) {
-  return looksLikeShortHeibanPattern(levels) ? 0 : null;
+  if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+  if (levels.length > moraCount + 1) return null;
+  for (let position = 0; position <= moraCount; position += 1) {
+  const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+  if (levels.every((level, index) => expected[index] === level)) return position;
   }
-  const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-  if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-  return dropAt;
+  return null;
 }
-function looksLikeShortHeibanPattern(levels) {
+function looksLikeCompactHeibanPattern(levels) {
   return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
 }
-function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-  if (!moraCount) return "";
-  if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  return hasComplexPitchShape(pattern) ? "kifuku" : "";
-}
-function hasComplexPitchShape(pattern) {
-  const levels = pitchLevels(pattern);
-  return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-}
-function countPitchTransitions(levels, from, to) {
-  let count = 0;
-  for (let index = 1; index < levels.length; index++) {
-  if (levels[index - 1] === from && levels[index] === to) count++;
-  }
-  return count;
+function pitchClassNameFromProfile(moraCount, pitchNumber) {
+  if (!moraCount || pitchNumber == null) return "";
+  return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
 }
 function normalizePitchLevelsForReading(levels, reading) {
   const chars = Array.from(reading);
@@ -21723,6 +21709,8 @@ const LOCAL_MATCH_LIMIT = 40;
 const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
+const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
+const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
@@ -21751,6 +21739,7 @@ class ReaderParser {
   localCardCache = new Map();
   localParseCache = new Map();
   localPitchCache = new Map();
+  localBoundaryEvidenceCache = new Map();
   localTermDictionaryAvailability;
   enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
   kanjiReadingCache = new Map();
@@ -21765,7 +21754,8 @@ class ReaderParser {
   });
   try {
     const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-    const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, parsed);
+    const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+    const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
     return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
   } finally {
     done();
@@ -21881,6 +21871,7 @@ class ReaderParser {
   this.localCardCache.clear();
   this.localParseCache.clear();
   this.localPitchCache.clear();
+  this.localBoundaryEvidenceCache.clear();
   this.localTermDictionaryAvailability = void 0;
   }
   localCardFromEntry(entry) {
@@ -21977,22 +21968,62 @@ ${spelling}`);
     log$c.warn("Local dictionary parse failed", { length: text2.length }, error);
     return [];
   });
-  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
-    const card = this.localCardFromEntry(match.entry);
-    const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
-    const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
-    if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
-    const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
-    return {
-      card,
-      start: match.start,
-      end: match.end,
-      length: match.end - match.start,
-      rubies,
-      pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-      sentence: text2
-    };
+  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+  }
+  async localTokenFromMatch(text2, match, options) {
+  const card = this.localCardFromEntry(match.entry);
+  const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
+  const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+  if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+  const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
+  return {
+    card,
+    start: match.start,
+    end: match.end,
+    length: match.end - match.start,
+    rubies,
+    pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
+    sentence: text2
+  };
+  }
+  async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
+  if (!this.canUseLocalDictionaryFallback()) return parsed;
+  const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
+  if (!candidates.some((items) => items.length)) return parsed;
+  if (!await this.hasLocalTermDictionaries(true)) return parsed;
+  const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+    const text2 = paragraphs[paragraphIndex] ?? "";
+    const replacements = await mapLimited(candidates[paragraphIndex], 4, async (candidate) => {
+      const relative = await this.exactLocalBoundaryMatch(candidate.surface);
+      if (!relative) return null;
+      const match = offsetTermMatch(relative, candidate.start);
+      if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
+      return this.localTokenFromMatch(text2, match, options);
+    });
+    return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
+  }));
+  return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
+  }
+  exactLocalBoundaryMatch(surface) {
+  const settings = this.dependencies.getSettings();
+  const key = localBoundaryEvidenceCacheKey(surface, settings);
+  const cached = this.localBoundaryEvidenceCache.get(key);
+  if (cached) return cached;
+  const promise = this.dependencies.dictionaries.findTermMatches(
+    surface,
+    LOCAL_BOUNDARY_MATCH_LIMIT,
+    settings.dictionaryPreferences
+  ).then((matches) => exactBoundaryMatch(surface, matches)).catch((error) => {
+    log$c.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+    return null;
   });
+  this.localBoundaryEvidenceCache.set(key, promise);
+  while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
+    const oldest = this.localBoundaryEvidenceCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    this.localBoundaryEvidenceCache.delete(oldest);
+  }
+  return promise;
   }
   async hasLocalTermDictionaries(confirmed = false) {
   if (!this.canUseLocalDictionaryFallback()) return false;
@@ -22243,6 +22274,77 @@ function localPitchCacheKey(card, settings) {
   return JSON.stringify({
   spelling: card.spelling,
   reading: card.reading,
+  dictionaries: settings.dictionaryPreferences.map((preference) => ({
+    name: preference.name,
+    enabled: preference.enabled,
+    priority: preference.priority
+  }))
+  });
+}
+function boundaryEvidenceCandidates(text2, tokens) {
+  const sorted = [...tokens].sort(compareTokensByOffset);
+  const candidates = [];
+  const seen = new Set();
+  for (let index = 1; index < sorted.length; index += 1) {
+  const first = sorted[index - 1];
+  const second = sorted[index];
+  if (first.end !== second.start || !isReconciliableParseToken(first) || !isReconciliableParseToken(second)) continue;
+  const firstSurface = text2.slice(first.start, first.end);
+  const secondSurface = text2.slice(second.start, second.end);
+  const left = text2.slice(first.end - 1, first.end);
+  const right = text2.slice(second.start, second.start + 1);
+  if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) continue;
+  if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) continue;
+  const surface = text2.slice(first.start, second.end);
+  const key = `${first.start}:${second.end}:${surface}`;
+  if (seen.has(key)) continue;
+  seen.add(key);
+  candidates.push({ surface, start: first.start });
+  }
+  return candidates;
+}
+function isReconciliableParseToken(token) {
+  return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
+}
+function isSingleJapaneseCharacter(surface) {
+  const characters = Array.from(surface);
+  return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+}
+function exactBoundaryMatch(surface, matches) {
+  return matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim())).sort((first, second) => second.end - second.start - (first.end - first.start) || first.start - second.start)[0] ?? null;
+}
+function offsetTermMatch(match, offset) {
+  return {
+  ...match,
+  start: match.start + offset,
+  end: match.end + offset
+  };
+}
+function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
+  const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
+  if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
+  return overlapping.every((token) => {
+  const prefix = text2.slice(token.start, Math.min(token.end, match.start));
+  const suffix = text2.slice(Math.max(token.start, match.end), token.end);
+  return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
+  });
+}
+function replaceRemoteFragments(tokens, candidates) {
+  if (!candidates.length) return tokens;
+  const accepted = [];
+  for (const candidate of [...candidates].sort((first, second) => second.length - first.length || first.start - second.start)) {
+  if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
+  accepted.push(candidate);
+  }
+  if (!accepted.length) return tokens;
+  return [
+  ...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
+  ...accepted
+  ].sort(compareTokensByOffset);
+}
+function localBoundaryEvidenceCacheKey(surface, settings) {
+  return JSON.stringify({
+  surface,
   dictionaries: settings.dictionaryPreferences.map((preference) => ({
     name: preference.name,
     enabled: preference.enabled,
@@ -34394,8 +34496,7 @@ const COLORED_READER_WORD_CLASSES = new Set([
   "jpdb-pitch-heiban",
   "jpdb-pitch-atamadaka",
   "jpdb-pitch-nakadaka",
-  "jpdb-pitch-odaka",
-  "jpdb-pitch-kifuku"
+  "jpdb-pitch-odaka"
 ]);
 const pendingHoverContrastRefresh = new WeakSet();
 function refreshReaderWordContrast(root = document) {
@@ -36056,7 +36157,6 @@ function readerPitchColors(settings) {
   atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
   nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
   odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
-  kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
   unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 }
   };
 }
@@ -36285,11 +36385,11 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.166"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.166"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.167"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.167"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
-  const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
+  const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
   const pitchSelector = (pattern) => `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
   const pitches = pitchClasses.map((pattern) => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
   const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}";
@@ -36403,7 +36503,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.166"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.167"}`;
   } catch {
   return null;
   }

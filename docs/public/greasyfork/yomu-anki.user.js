@@ -1490,7 +1490,6 @@
       pitchColorAtamadaka: "Atamadaka (head-high)",
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
       noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
@@ -3242,7 +3241,6 @@ pitchColorHeiban	平板
 pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
-pitchColorKifuku	起伏
 pitchColorUnknown	不明
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
@@ -5303,7 +5301,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
   selectorPairs("control,toggle,player", ["class"]);
-  new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+  new Set("heiban,atamadaka,nakadaka,odaka".split(","));
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const POS_LABELS = {
     abbr: "abbreviation",
