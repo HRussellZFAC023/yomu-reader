@@ -52,18 +52,6 @@ export function safeComputedStyle(element: HTMLElement): CSSStyleDeclaration {
     }
 }
 
-function safePseudoContent(element: HTMLElement, pseudo: '::before' | '::after'): string {
-    // jsdom reports pseudo-style access through its virtual console before it
-    // returns an empty declaration. There is no pseudo paint to inspect in
-    // that environment, so avoid the noisy unsupported call altogether.
-    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return '';
-    try {
-        return getComputedStyle(element, pseudo).content;
-    } catch {
-        return '';
-    }
-}
-
 export function compactLength(value: string): number {
     return Array.from(value.replace(/\s+/g, '')).length;
 }
@@ -287,49 +275,6 @@ export function contentClipRowShowsRestReadings(
         && !parentDisplay.startsWith('table');
 }
 
-// The mirror replaces the HOST's rendering (visibility:hidden), so routing a
-// constrained row through it is only safe when the host paints nothing of its
-// own: a pill chip's background/border, a nav row's chevron SVG, or a ::before
-// separator would all vanish with the host. Styled hosts keep in-place
-// rendering (ruby suppression handles the clip) instead of losing their box.
-const MIRROR_BARE_DESCENDANT_LIMIT = 16;
-
-export function hostIsVisuallyBareForMirror(host: HTMLElement): boolean {
-    if (host.querySelector('svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr')) return false;
-    if (!elementHasNoOwnPaint(host)) return false;
-    // Descendants can paint too (an icon drawn via background-image or a
-    // ::before glyph on an inner span): hiding the host would erase it while
-    // the mirror recreates only text. Check a bounded number of descendants;
-    // a bigger subtree is not a bare text row — refuse the mirror.
-    const descendants = host.querySelectorAll<HTMLElement>('*');
-    if (descendants.length > MIRROR_BARE_DESCENDANT_LIMIT) return false;
-    for (const descendant of Array.from(descendants)) {
-        if (descendant.closest('.jpdb-reader-text-mirror')) continue;
-        if (!elementHasNoOwnPaint(descendant)) return false;
-    }
-    return true;
-}
-
-function elementHasNoOwnPaint(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    if (style.backgroundImage !== 'none' && style.backgroundImage !== '') return false;
-    const background = style.backgroundColor;
-    if (background && background !== 'transparent' && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
-    if ((style.backgroundClip || '').includes('text') || (style.webkitBackgroundClip || '').includes('text')) return false;
-    if (style.boxShadow && style.boxShadow !== 'none') return false;
-    if (borderPaints(style)) return false;
-    for (const pseudo of ['::before', '::after'] as const) {
-        const content = safePseudoContent(element, pseudo);
-        if (content && content !== 'none' && content !== 'normal' && content !== '""' && content !== "''") return false;
-    }
-    return true;
-}
-
-function borderPaints(style: CSSStyleDeclaration): boolean {
-    return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
-        .some(property => Number.parseFloat(style[property as 'borderTopWidth'] || '0') > 0);
-}
-
 // ---------------------------------------------------------------------------
 // Prose / conversation context facts
 // ---------------------------------------------------------------------------
@@ -359,7 +304,7 @@ function isLikelyProseClass(element: HTMLElement): boolean {
     return PROSE_CLASS_RE.test(elementClassName(element));
 }
 
-export function isConversationTextClass(element: HTMLElement): boolean {
+function isConversationTextClass(element: HTMLElement): boolean {
     return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element));
 }
 
