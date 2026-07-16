@@ -28,8 +28,6 @@
     "scripts/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",
     "scripts/extension-boot-smoke.mjs",
-    "scripts/zz-ext-probe-firefox.mjs",
-    "scripts/study-shots-real.mjs",
     "scripts/study-flow-stability-smoke.mjs",
     "scripts/bookwalker-live-firefox-smoke.mjs",
     "tests/reader/**/*.test.ts",
@@ -40,12 +38,9 @@
     "src/reader/styles.css",
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
-    "scripts/generate-favicons.mjs",
-    "scripts/generic-layout-overflow-smoke.mjs",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",
-    "scripts/validate-uchisen-queue.mjs",
     "src/reader/companions/register-empty.ts",
     // Substituted for the real modules by vite alias in companion builds
     // (vite.config.ts greasyfork aliases) — invisible to the import graph.

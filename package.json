@@ -66,6 +66,7 @@
     "docs": "vitepress dev docs --host 127.0.0.1",
     "docs:build": "node scripts/check-public-docs.mjs && vitepress build docs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
+    "favicons:generate": "node scripts/generate-favicons.mjs",
     "fallow": "fallow",
     "fallow:audit": "git diff --unified=0 --no-ext-diff ${FALLOW_BASE:-origin/main} -- . | fallow audit --format compact --base ${FALLOW_BASE:-origin/main} --diff-stdin",
     "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
