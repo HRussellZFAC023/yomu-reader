@@ -6,6 +6,7 @@ import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { JPDB_RELATED_WORD_PITCH_CLASS, JPDB_RELATED_WORD_STATE } from './jpdb-related-words';
+import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
@@ -104,29 +105,23 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
 }
 
 function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
-    return info.examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                ${info.examples.map(example => `
-                    <li class="jpdb-reader-jpdb-example">
-                        <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? ' has-audio' : ''}">
-                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
-                            <div class="jpdb-reader-jpdb-example-text">
-                                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${renderJpdbExampleSentence(example, card)}</div>
-                                ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
-                            </div>
-                        </div>
-                    </li>
-                `).join('')}
-                </ul>
-            </div>
-        </details>
-    ` : '';
+    if (!info.examples.length) return '';
+    const items: ProviderExampleView[] = info.examples.map((example, index) => ({
+        id: String(index),
+        sentenceHtml: renderJpdbExampleSentence(example, card),
+        translation: example.translation,
+        ...(example.audioIds?.length ? {
+            audio: {
+                action: 'jpdb-example-audio',
+                label: uiText(language, 'playJpdbExampleAudio'),
+                attributes: {
+                    'data-jpdb-audio': example.audioIds.join(','),
+                    'data-jpdb-example-sentence': example.sentence,
+                },
+            },
+        } : {}),
+    }));
+    return renderProviderExamples('jpdb', JPDB_DEFINITION_SOURCE_ID, { availability: 'loaded', items }, sourceAttributes, language);
 }
 
 function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: string, language: InterfaceLanguage): string {

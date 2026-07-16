@@ -2079,8 +2079,8 @@
     const assessment = proofs.assessment.evidence;
     registry.resolve(assessment.grader, assessment.method === "deterministic" ? "deterministic-grader" : "rubric-grader");
     const definitions = assessment.method === "deterministic" ? assessment.answerSets.map((ref) => registry.resolve(ref, "answer-set")) : assessment.rubrics.map((ref) => registry.resolve(ref, "rubric"));
-    const acceptedAnswers = uniqueText$1(definitions.flatMap((definition) => namedTextValues(definition.value, ["acceptedAnswer", "acceptedAnswers"])));
-    const modelAnswers = uniqueText$1(definitions.flatMap((definition) => namedTextValues(definition.value, ["modelAnswer", "modelAnswers"])));
+    const acceptedAnswers = uniqueText$2(definitions.flatMap((definition) => namedTextValues(definition.value, ["acceptedAnswer", "acceptedAnswers"])));
+    const modelAnswers = uniqueText$2(definitions.flatMap((definition) => namedTextValues(definition.value, ["modelAnswer", "modelAnswers"])));
     if (assessment.method === "deterministic" && !acceptedAnswers.length) {
       throw new TypeError("Deterministic answer definitions expose no auditable accepted answers.");
     }
@@ -2097,7 +2097,7 @@
     if (!value || typeof value !== "object") return [];
     return Object.values(value).flatMap(allTextValues);
   }
-  function uniqueText$1(values) {
+  function uniqueText$2(values) {
     return [...new Set(values)].sort();
   }
   function answerBearingValues(value) {
@@ -2114,7 +2114,7 @@
   }
   function textArray(value, label) {
     if (!Array.isArray(value)) throw new TypeError(`Answer-bearing content needs ${label}.`);
-    return uniqueText$1(value.map((item) => {
+    return uniqueText$2(value.map((item) => {
       if (typeof item !== "string" || !item.trim()) {
         throw new TypeError(`Answer-bearing content ${label} must contain text.`);
       }
@@ -6226,12 +6226,12 @@
       id: identity.key,
       expression: identity.expression,
       reading: identity.reading,
-      meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
+      meanings: uniqueText$1([...existing.meanings, ...incoming.meanings]),
       sentence: existing.sentence || incoming.sentence,
       sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
       sourceCardId: existing.sourceCardId || incoming.sourceCardId,
       sourceUrl: existing.sourceUrl || incoming.sourceUrl,
-      tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
+      tags: uniqueText$1([...existing.tags ?? [], ...incoming.tags ?? []]),
       createdAt: Math.min(existing.createdAt, incoming.createdAt),
       updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
       reviews: Math.max(existing.reviews, incoming.reviews),
@@ -6245,7 +6245,7 @@
   }
   function upsertAcademyVocabulary(deck, input2, now) {
     const identity = canonicalStudyCardIdentity(input2.expression, input2.reading);
-    const meanings = uniqueText(input2.meanings);
+    const meanings = uniqueText$1(input2.meanings);
     if (!meanings.length) throw new TypeError("Academy vocabulary needs at least one meaning.");
     const provenance = normalizeProvenance(input2.provenance, now);
     const existing = deck.cards[identity.key];
@@ -6297,7 +6297,7 @@
     const updated = {
       ...card,
       updatedAt: now,
-      tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
+      tags: remaining ? card.tags : uniqueText$1([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
       academyProvenance
     };
     deck.cards[card.id] = updated;
@@ -6397,9 +6397,9 @@
     return typeof value === "string" && value.trim() ? value.trim() : void 0;
   }
   function stringArray$1(value) {
-    return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
+    return Array.isArray(value) ? uniqueText$1(value.filter((item) => typeof item === "string")) : [];
   }
-  function uniqueText(values) {
+  function uniqueText$1(values) {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
   }
   function finiteNumber$1(value, fallback) {
@@ -14399,6 +14399,9 @@
       jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
+      noExampleSentences: "No example sentences",
+      exampleSentencesUnavailable: "Example sentences unavailable",
+      acceptedInputs: "Accepted inputs",
       playJpdbExampleAudio: "Play JPDB example audio",
       wordsUsingKanji: "Words using {kanji}",
       contextVideo: "Video",
@@ -14431,7 +14434,7 @@
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
-      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and accepted answers.",
+      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -15053,6 +15056,9 @@ sourcePlural	ソース
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+noExampleSentences	例文はありません
+exampleSentencesUnavailable	例文を読み込めません
+acceptedInputs	入力として認められる表現
 playJpdbExampleAudio	JPDB例文音声を再生
 wordsUsingKanji	{kanji}を使う単語
 kanjiDictionaries	漢字辞書
@@ -15753,7 +15759,7 @@ importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います�
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
-sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、正解として認められる答えです。
+sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -19274,10 +19280,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function cardDeckMembershipClassNames(card) {
     const membership = cardDeckMembership(card);
     if (!membership.member) return [];
-    const classes = /* @__PURE__ */ new Set(["yomu-deck-member"]);
-    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes, primaryDeckMembershipSource(card), primaryDeckNames(card));
-    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes, "anki", ankiDeckNames(card));
-    return [...classes];
+    const classes2 = /* @__PURE__ */ new Set(["yomu-deck-member"]);
+    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes2, primaryDeckMembershipSource(card), primaryDeckNames(card));
+    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes2, "anki", ankiDeckNames(card));
+    return [...classes2];
   }
   function deckClassSlug(value) {
     const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
@@ -19313,12 +19319,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hasAnkiDeckMembership(card) {
     return ankiDeckNames(card).length > 0;
   }
-  function addDeckSourceClasses(classes, source, names) {
-    classes.add(`${source}-deck-member`);
+  function addDeckSourceClasses(classes2, source, names) {
+    classes2.add(`${source}-deck-member`);
     names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
       const slug = deckClassSlug(name);
-      classes.add(`yomu-deck-${slug}`);
-      classes.add(`${source}-deck-${slug}`);
+      classes2.add(`yomu-deck-${slug}`);
+      classes2.add(`${source}-deck-${slug}`);
     });
   }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
@@ -24979,7 +24985,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
-    const classes = [
+    const classes2 = [
       readerWordClassName(state, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
@@ -24997,7 +25003,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -25023,18 +25029,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return false;
   }
   function readerWordClassName(state, token, settings) {
-    const classes = ["jpdb-reader-word"];
+    const classes2 = ["jpdb-reader-word"];
     if (isParticleCard(token.card)) {
-      classes.push("jpdb-reader-particle");
+      classes2.push("jpdb-reader-particle");
     }
     if (hasKnownCardState(token.card)) {
-      classes.push(`jpdb-${state}`);
+      classes2.push(`jpdb-${state}`);
       const source = readerCardSource(token.card);
-      if (source !== "jpdb") classes.push(`${source}-${state}`);
+      if (source !== "jpdb") classes2.push(`${source}-${state}`);
     }
-    classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
-    return classes.join(" ");
+    classes2.push(...cardDeckMembershipClassNames(token.card));
+    if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    return classes2.join(" ");
   }
   function hasKnownCardState(card) {
     return Array.isArray(card.cardState) && card.cardState.length > 0;
@@ -31694,6 +31700,46 @@ ${entry.reading || ""}`;
       sentence: word.dataset.sentence || spelling
     };
   }
+  function renderProviderExamples(provider, sourceId, collection, sourceAttributes, language) {
+    const availability = collection.availability;
+    const unavailableReason = availability === "unavailable" ? ` data-examples-unavailable-reason="${collection.reason}"` : "";
+    const count = availability === "loaded" ? String(collection.items.length) : availability === "empty" ? "0" : "—";
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}"${unavailableReason} ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${count}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                ${availability === "loaded" ? `<ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>` : `<p class="jpdb-reader-example-availability">${escapeHtml$1(uiText(language, availability === "empty" ? "noExampleSentences" : "exampleSentencesUnavailable"))}</p>`}
+            </div>
+        </details>
+    `;
+  }
+  function definitionSourceStateKey$3(sourceId) {
+    return `definition-source:${sourceId}`;
+  }
+  function renderProviderExample(example) {
+    const hasAudio = Boolean(example.audio);
+    return `
+        <li class="${classes("jpdb-reader-jpdb-example", example.itemClassName)}" data-provider-example-id="${escapeHtml$1(example.id)}">
+            <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
+                ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
+                <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
+                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}">${example.sentenceHtml}</div>
+                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
+                </div>
+            </div>
+        </li>
+    `;
+  }
+  function renderProviderExampleAudio(audio) {
+    const attributes = Object.entries(audio.attributes).filter(([name]) => /^data-[a-z0-9-]+$/u.test(name)).map(([name, value]) => ` ${name}="${escapeHtml$1(value)}"`).join("");
+    return `<button class="${classes("jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio", audio.className)}" type="button" data-action="${escapeHtml$1(audio.action)}"${attributes} title="${escapeHtml$1(audio.label)}" aria-label="${escapeHtml$1(audio.label)}">${speakerIcon()}</button>`;
+  }
+  function classes(...values) {
+    return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
+  }
   function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
     const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
@@ -31777,29 +31823,23 @@ ${entry.reading || ""}`;
     ` : "";
   }
   function renderJpdbExamples(info, sourceAttributes, language, card) {
-    return info.examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey$2(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                ${info.examples.map((example) => `
-                    <li class="jpdb-reader-jpdb-example">
-                        <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? " has-audio" : ""}">
-                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
-                            <div class="jpdb-reader-jpdb-example-text">
-                                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${renderJpdbExampleSentence(example, card)}</div>
-                                ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
-                            </div>
-                        </div>
-                    </li>
-                `).join("")}
-                </ul>
-            </div>
-        </details>
-    ` : "";
+    if (!info.examples.length) return "";
+    const items = info.examples.map((example, index) => ({
+      id: String(index),
+      sentenceHtml: renderJpdbExampleSentence(example, card),
+      translation: example.translation,
+      ...example.audioIds?.length ? {
+        audio: {
+          action: "jpdb-example-audio",
+          label: uiText(language, "playJpdbExampleAudio"),
+          attributes: {
+            "data-jpdb-audio": example.audioIds.join(","),
+            "data-jpdb-example-sentence": example.sentence
+          }
+        }
+      } : {}
+    }));
+    return renderProviderExamples("jpdb", JPDB_DEFINITION_SOURCE_ID, { availability: "loaded", items }, sourceAttributes, language);
   }
   function renderJpdbExampleAudioButton(audioIds, sentence, language) {
     const audio = audioIds?.join(",") ?? "";
@@ -31826,8 +31866,8 @@ ${entry.reading || ""}`;
     const vid = jpdbVocabularyVidFromUrl(url);
     const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-    const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    const { classes: classes2, content } = passiveJpdbRelatedWordContent(term, reading, options);
+    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function passiveJpdbRelatedWordContent(term, reading, options) {
     const termHtml = options.termHtml?.trim() ?? "";
@@ -34898,7 +34938,7 @@ ${component.reading}`;
   function renderExpressionComponentTerm(component, pitchClass) {
     const text2 = component.text.trim();
     const reading = component.reading.trim();
-    const classes = [
+    const classes2 = [
       "jpdb-reader-word",
       "jpdb-reader-passive-word",
       "jpdb-reader-expression-component-term",
@@ -34909,7 +34949,7 @@ ${component.reading}`;
     const pitchAttribute = pitchClass || "unknown";
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$1(text2);
-    return `<span class="${classes}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function expressionComponentRubyToken(text2, reading, pitchClass) {
     return {
@@ -35025,6 +35065,243 @@ ${component.reading}`;
       source: "jpdb"
     };
   }
+  const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
+  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
+  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
+  class BunproApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+      this.name = "BunproApiError";
+    }
+  }
+  class BunproClient {
+    getFrontendToken;
+    getLegacyApiKey;
+    frontendBaseUrl;
+    legacyBaseUrl;
+    requestImpl;
+    timeoutMs;
+    constructor(options = {}) {
+      this.getFrontendToken = options.getFrontendToken ?? (() => "");
+      this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
+      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
+      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
+      this.requestImpl = options.requestImpl ?? requestHttp;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
+    }
+    hasFrontendCredential() {
+      return Boolean(this.getFrontendToken().trim());
+    }
+    /** Cheap non-reversible fingerprint of the frontend token, so persisted
+     * per-account caches can be validated without storing the token itself. */
+    // fallow-ignore-next-line unused-class-member
+    frontendCredentialFingerprint() {
+      const token = this.getFrontendToken().trim();
+      if (!token) return "";
+      let hash = 5381;
+      for (let index = 0; index < token.length; index += 1) {
+        hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
+      }
+      return `${hash.toString(16)}:${token.length}`;
+    }
+    // fallow-ignore-next-line unused-class-member
+    hasLegacyCredential() {
+      return Boolean(this.getLegacyApiKey().trim());
+    }
+    getUser() {
+      return this.frontend("/user");
+    }
+    getDueCount() {
+      return this.frontend("/user/due");
+    }
+    getQueue() {
+      return this.frontend("/reviews/quiz_index");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getUserFurigana() {
+      return this.frontend("/user/user_furigana");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getReviews(page = 1, perPage = 25) {
+      return this.frontend("/reviews", {
+        query: {
+          page: String(Math.max(1, Math.floor(page))),
+          per_page: String(Math.max(1, Math.floor(perPage)))
+        }
+      });
+    }
+    getBaseStats() {
+      return this.frontend("/user_stats/base_stats");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getJlptProgress() {
+      return this.frontend("/user_stats/jlpt_progress_mixed");
+    }
+    // Called through a structural Pick<> by the word-state store, which the
+    // member-usage analysis cannot see.
+    // fallow-ignore-next-line unused-class-member
+    getSrsOverview() {
+      return this.frontend("/user_stats/srs_level_overview");
+    }
+    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
+    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
+    // through a structural Pick<> by the word-state store.
+    // fallow-ignore-next-line unused-class-member
+    getSrsLevelDetails(level, reviewableType, page = 1) {
+      return this.frontend("/user_stats/srs_level_details", {
+        query: {
+          level,
+          reviewable_type: reviewableType,
+          page: String(Math.max(1, Math.floor(page)))
+        }
+      });
+    }
+    // fallow-ignore-next-line unused-class-member
+    getForecastDaily() {
+      return this.frontend("/user_stats/forecast_daily");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getForecastHourly() {
+      return this.frontend("/user_stats/forecast_hourly");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getReviewActivity() {
+      return this.frontend("/user_stats/review_activity");
+    }
+    getVocab(slugOrId) {
+      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+    }
+    getGrammarPoint(id2) {
+      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id2))}`);
+    }
+    async search(query, options = {}) {
+      return this.frontend("/search/reviewables_v1_1", {
+        method: "POST",
+        body: {
+          query,
+          options: {
+            // Definition/mining lookups do not need the learner's
+            // private notes or bookmarks. Review relationships are
+            // opt-in for the rare caller that actually consumes them.
+            include_reviews: options.includeReviews ?? false,
+            include_bookmarks: false,
+            include_notes: false,
+            only_bookmarks: false
+          },
+          is_searching_grammar: options.grammar ?? true,
+          is_searching_vocab: options.vocab ?? true
+        },
+        trimLimit: options.limit
+      });
+    }
+    updateReviewsViaActionType(request2) {
+      return this.frontend("/reviews/update_via_action_type", {
+        method: "PATCH",
+        body: {
+          deck_id: request2.deckId ?? null,
+          action_type: request2.actionType,
+          reviewables: request2.reviewables.map((item) => [item.type, item.id])
+        }
+      });
+    }
+    updateReview(reviewId, body, endpoint = "review") {
+      const collection = endpoint === "ghost-review" ? "ghost_reviews" : endpoint === "self-study-review" ? "self_study_reviews" : "reviews";
+      return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
+        method: "POST",
+        body
+      });
+    }
+    getLegacyStudyQueue() {
+      return this.legacy("/study_queue");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getLegacyRecentItems(limit = 10) {
+      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
+    }
+    async frontend(path, options = {}) {
+      const token = this.getFrontendToken().trim();
+      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
+      const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
+      const response = await this.requestJson(url, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+        statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
+      });
+      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
+    }
+    legacy(path) {
+      const apiKey = this.getLegacyApiKey().trim();
+      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
+      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+    }
+    async requestJson(url, options) {
+      try {
+        return await this.requestImpl(url, {
+          ...options,
+          responseType: "json",
+          timeoutMs: this.timeoutMs,
+          preferFetch: true,
+          allowDirectCrossOrigin: true,
+          allowPublicProxies: false,
+          allowSensitiveConfiguredProxy: false,
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          failureLabel: "Bunpro request"
+        });
+      } catch (error) {
+        throw normalizeBunproError(error);
+      }
+    }
+  }
+  function normalizeBunproError(error) {
+    if (error instanceof BunproApiError) return error;
+    const status = errorStatus$1(error);
+    if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
+    if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
+    return error;
+  }
+  function errorStatus$1(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const status = error.status ?? error.statusCode;
+    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
+  }
+  function trimBaseUrl(value) {
+    return value.replace(/\/+$/u, "");
+  }
+  function urlWithQuery(url, query) {
+    if (!query) return url;
+    const next = new URL(url);
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== void 0) next.searchParams.set(key, value);
+    });
+    return next.href;
+  }
+  function trimBunproSearchResponse(raw, limit) {
+    const maxItems = Math.max(1, Math.floor(limit));
+    if (!raw || typeof raw !== "object") return raw;
+    const value = raw;
+    return {
+      ...value,
+      grammar_points: trimBunproSearchSection(value.grammar_points, maxItems),
+      vocabs: trimBunproSearchSection(value.vocabs, maxItems)
+    };
+  }
+  function trimBunproSearchSection(section, limit) {
+    if (!section || typeof section !== "object") return section;
+    const value = section;
+    if (!Array.isArray(value.data)) return section;
+    return { ...value, data: value.data.slice(0, limit) };
+  }
   const BUNPRO_EXAMPLE_LIMIT = 10;
   async function lookupBunproDefinitionResult(client, card) {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
@@ -35034,19 +35311,33 @@ ${component.reading}`;
     });
     if (!result.info) return result;
     const info = result.info;
-    const detail = await bunproReviewableDetail(client, info).catch(() => null);
-    if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
+    try {
+      const detail = await bunproReviewableDetail(client, info);
+      applyBunproExampleCollection(info, normalizeBunproExampleCollection(detail, info.sourceUrl));
+    } catch (error) {
+      applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
+    }
     return { state: "success", info };
   }
   function bunproReviewableDetail(client, info) {
     return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
   }
-  function normalizeBunproExampleSentences(raw) {
+  function normalizeBunproExampleCollection(raw, sourceUrl) {
     const included = objectRecord(raw)?.included;
-    if (!Array.isArray(included)) return [];
-    return included.map(bunproExampleSentence).filter((item) => item !== null).sort((a, b) => a.order - b.order).slice(0, BUNPRO_EXAMPLE_LIMIT).map(({ order: _order, ...example }) => example);
+    if (!Array.isArray(included)) return { availability: "unavailable", items: [], reason: "schema" };
+    const questions = included.filter((value) => textValue(objectRecord(value)?.type) === "study_question");
+    if (!questions.length) return { availability: "empty", items: [] };
+    const examples = questions.map((value) => bunproExampleSentence(value, sourceUrl)).filter((item) => item !== null).sort((a, b) => a.order - b.order);
+    if (!examples.length) return { availability: "unavailable", items: [], reason: "schema" };
+    const deduped = dedupeBunproExamples(examples).slice(0, BUNPRO_EXAMPLE_LIMIT).map(({ order: _order, ...example }) => example);
+    return { availability: "loaded", items: deduped };
   }
-  function bunproExampleSentence(value) {
+  function applyBunproExampleCollection(info, collection) {
+    info.examples = collection.items;
+    info.examplesAvailability = collection.availability;
+    info.examplesUnavailableReason = collection.availability === "unavailable" ? collection.reason : "";
+  }
+  function bunproExampleSentence(value, sourceUrl) {
     const record2 = objectRecord(value);
     if (textValue(record2?.type) !== "study_question") return null;
     const attributes = objectRecord(record2?.attributes);
@@ -35057,12 +35348,36 @@ ${component.reading}`;
     const text2 = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
     if (!text2 || !/[぀-ヿ㐀-鿿]/u.test(text2)) return null;
     return {
+      id: textValue(record2?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
       parts,
       text: text2,
       translation: stripBunproMarkup(textValue(attributes.translation)),
-      audioUrl: bunproHttpsUrl(textValue(attributes.female_audio_url)) || bunproHttpsUrl(textValue(attributes.male_audio_url)),
+      audioUrls: uniqueText([
+        bunproHttpsUrl(textValue(attributes.female_audio_url)),
+        bunproHttpsUrl(textValue(attributes.male_audio_url))
+      ]),
+      source: { provider: "bunpro", url: sourceUrl },
       order: Number(attributes.sentence_order) || 0
     };
+  }
+  function dedupeBunproExamples(examples) {
+    const unique2 = /* @__PURE__ */ new Map();
+    for (const example of examples) {
+      const key = `${normalizedDisplayText(example.text)}\0${normalizedDisplayText(example.translation)}`;
+      const current = unique2.get(key);
+      if (!current) {
+        unique2.set(key, example);
+        continue;
+      }
+      current.audioUrls = uniqueText([...current.audioUrls, ...example.audioUrls]);
+    }
+    return Array.from(unique2.values());
+  }
+  function bunproExampleFailureReason(error) {
+    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+    if (status === 401 || status === 403) return "auth";
+    if (status === 404) return "schema";
+    return "network";
   }
   function fillBunproClozeContent(content, answer) {
     if (!answer || !/_{2,}/u.test(content)) return content;
@@ -35130,64 +35445,51 @@ ${component.reading}`;
   function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
     if (!info) return "";
     const details = [
-      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel.toUpperCase())}</span>` : "",
+      info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
       ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`)
     ].filter(Boolean).join("");
-    const accepted = info.acceptedAnswers.filter((answer) => answer !== info.expression && answer !== info.reading).slice(0, 8);
+    const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
     const japanese = resolveUiLanguage(language) === "ja";
-    const acceptedLabel = japanese ? "正解として認められる答え" : "Accepted answers";
     const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
+    const glosses = distinctBunproGlosses(info);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
                 ${repeatsLookupHeadword(card, info) ? "" : `<div class="jpdb-reader-local-head"><span class="jpdb-reader-local-expression">${escapeHtml$1(info.expression)}</span>${info.reading && info.reading !== info.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(info.reading)}</span>` : ""}</div>`}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
-                ${info.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(info.meaning)}</span></div></div>` : ""}
-                ${info.nuance ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong><div>${escapeHtml$1(info.nuance)}</div>${info.nuanceTranslation ? `<div>${escapeHtml$1(info.nuanceTranslation)}</div>` : ""}</div>` : ""}
-                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(acceptedLabel)}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
-                ${renderBunproExamples(info.examples, sourceAttributes, language)}
-                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="${escapeHtml$1(info.sourceUrl)}" target="_blank" rel="noopener">Bunpro ↗</a>
+                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map((value) => `<div>${escapeHtml$1(value)}</div>`).join("")}</div>` : ""}
+                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
+                ${renderBunproExamples(info, sourceAttributes, language)}
             </article>
         </details>
     `;
   }
-  function renderBunproExamples(examples, sourceAttributes, language) {
-    return examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group jpdb-reader-bunpro-examples-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map((example) => renderBunproExample(example, language)).join("")}
-                </ul>
-            </div>
-        </details>
-    ` : "";
-  }
-  function renderBunproExample(example, language) {
-    return `
-        <li class="jpdb-reader-jpdb-example jpdb-reader-bunpro-example">
-            <div class="jpdb-reader-jpdb-example-row has-audio">
-                ${renderBunproAudioButton(example, language)}
-                <div class="jpdb-reader-jpdb-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${example.parts.map(renderBunproExamplePart).join("")}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
-                </div>
-            </div>
-        </li>
-    `;
+  function renderBunproExamples(info, sourceAttributes, language) {
+    const collection = info.examplesAvailability === "loaded" ? { availability: "loaded", items: info.examples } : info.examplesAvailability === "unavailable" ? { availability: "unavailable", items: [], reason: info.examplesUnavailableReason || "schema" } : { availability: "empty", items: [] };
+    const view = collection.availability === "loaded" ? { availability: "loaded", items: collection.items.map((example) => bunproExampleView(example, language)) } : collection;
+    return renderProviderExamples("bunpro", BUNPRO_DEFINITION_SOURCE_ID, view, sourceAttributes, language);
   }
   function renderBunproExamplePart(part) {
     const html = renderBunproAnnotatedText(part.text);
     return part.target ? `<mark class="jpdb-reader-example-target jpdb-reader-bunpro-example-target">${html}</mark>` : html;
   }
-  function renderBunproAudioButton(example, language) {
-    const label = uiText(language, "playAudio");
-    const audioUrl = example.audioUrl ? ` data-audio-url="${escapeHtml$1(example.audioUrl)}"` : "";
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml$1(example.text)}"${audioUrl} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>`;
+  function bunproExampleView(example, language) {
+    const audioUrl = example.audioUrls[0] ?? "";
+    return {
+      id: example.id,
+      sentenceHtml: example.parts.map(renderBunproExamplePart).join(""),
+      translation: example.translation,
+      audio: {
+        action: "bunpro-audio",
+        label: uiText(language, "playAudio"),
+        attributes: {
+          "data-study-sentence": example.text,
+          ...audioUrl ? { "data-audio-url": audioUrl } : {}
+        }
+      }
+    };
   }
   const BUNPRO_FURIGANA_RE = /([一-龯々-〇]+)（([ぁ-ゖァ-ヺー・]+)）/g;
   function renderBunproAnnotatedText(value) {
@@ -35226,10 +35528,12 @@ ${component.reading}`;
       nuance: textValue(attributes.nuance),
       nuanceTranslation: textValue(attributes.nuance_translation),
       acceptedAnswers: textList(attributes.accepted_answers),
-      partOfSpeech: textList(attributes.jmdict_pos),
-      jlptLevel: textValue(attributes.jlpt_level),
+      partOfSpeech: normalizeBunproPartOfSpeech(attributes.jmdict_pos),
+      jlptLevel: normalizeBunproJlptLevel(attributes.jlpt_level),
       sourceUrl: kind === "vocabulary" ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}` : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`,
-      examples: []
+      examples: [],
+      examplesAvailability: "empty",
+      examplesUnavailableReason: ""
     };
   }
   function searchItems(raw, key) {
@@ -35246,6 +35550,38 @@ ${component.reading}`;
   function normalizedLookupText$1(value) {
     return value.normalize("NFKC").trim();
   }
+  function normalizeBunproJlptLevel(value) {
+    const level = textValue(value).normalize("NFKC").toUpperCase();
+    return /^N[1-5]$/u.test(level) ? level : "";
+  }
+  function normalizeBunproPartOfSpeech(value) {
+    return uniqueText(textList(value).filter((tag) => !/^(?:unc|unclassified)$/iu.test(tag)).map((tag) => formatPartOfSpeech([tag]).trim()).filter((label) => label && !/^unclassified$/iu.test(label)));
+  }
+  function distinctBunproGlosses(info) {
+    const meaning = info.meaning.trim();
+    return {
+      meaning,
+      nuance: distinctDisplayText([info.nuance, info.nuanceTranslation], meaning ? [meaning] : [])
+    };
+  }
+  function distinctDisplayText(values, excluded = []) {
+    const seen = new Set(excluded.map(normalizedDisplayText).filter(Boolean));
+    const result = [];
+    for (const value of values) {
+      const text2 = value.trim();
+      const key = normalizedDisplayText(text2);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(text2);
+    }
+    return result;
+  }
+  function normalizedDisplayText(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase();
+  }
+  function uniqueText(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
   function sameDefinitionIdentity(items) {
     const first2 = items[0];
     return Boolean(first2 && items.every((item) => item.id === first2.id && item.kind === first2.kind));
@@ -35261,6 +35597,12 @@ ${component.reading}`;
   function numberValue$1(value) {
     const number = Number(value);
     return Number.isInteger(number) && number > 0 ? number : 0;
+  }
+  function errorStatus(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const value = error;
+    const status = value.status ?? value.statusCode;
+    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
   }
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -36333,32 +36675,27 @@ ${component.reading}`;
     `;
   }
   function renderJitenExamples(examples, sourceAttributes, language, card, info) {
-    return examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JITEN_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map((example) => renderJitenExample(example, card, language, info)).join("")}
-                </ul>
-            </div>
-        </details>
-    ` : "";
-  }
-  function renderJitenExample(example, card, language, info) {
-    return `
-        <li class="jpdb-reader-jpdb-example jpdb-reader-jiten-example">
-            <div class="jpdb-reader-jpdb-example-row jpdb-reader-jiten-example-row has-audio">
-                ${renderJitenAudioButton(example.text, language, jitenExampleAudioAttributes(example))}
-                <div class="jpdb-reader-jpdb-example-text jpdb-reader-jiten-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card, info)}</div>
-                    ${example.sourceTitle ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.sourceTitle)}</div>` : ""}
-                </div>
-            </div>
-        </li>
-    `;
+    if (!examples.length) return "";
+    const items = examples.map((example, index) => ({
+      id: String(example.sentenceId ?? index),
+      sentenceHtml: renderJitenExampleSentence(example, card, info),
+      translation: example.sourceTitle,
+      itemClassName: "jpdb-reader-jiten-example",
+      rowClassName: "jpdb-reader-jiten-example-row",
+      textClassName: "jpdb-reader-jiten-example-text",
+      sentenceClassName: "jpdb-reader-jiten-example-sentence",
+      audio: {
+        action: "jiten-audio",
+        label: uiText(language, "playAudio"),
+        className: "jpdb-reader-jiten-audio",
+        attributes: {
+          "data-study-sentence": example.text.trim(),
+          ...example.sentenceId ? { "data-jiten-sentence-id": String(example.sentenceId) } : {},
+          ...example.audioUrls?.length ? { "data-jiten-audio-urls": JSON.stringify(example.audioUrls) } : {}
+        }
+      }
+    }));
+    return renderProviderExamples("jiten", JITEN_DEFINITION_SOURCE_ID, { availability: "loaded", items }, sourceAttributes, language);
   }
   function renderJitenExampleSentence(example, card, info) {
     const range2 = jitenExampleTargetRange(example, card, info);
@@ -36408,12 +36745,6 @@ ${component.reading}`;
       `data-jiten-word-id="${escapeHtml$1(String(entry.wordId))}"`,
       `data-jiten-reading-index="${escapeHtml$1(String(entry.readingIndex))}"`,
       entry.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml$1(JSON.stringify(entry.audioUrls))}"` : ""
-    ].filter(Boolean).join(" ");
-  }
-  function jitenExampleAudioAttributes(example) {
-    return [
-      example.sentenceId ? `data-jiten-sentence-id="${escapeHtml$1(String(example.sentenceId))}"` : "",
-      example.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml$1(JSON.stringify(example.audioUrls))}"` : ""
     ].filter(Boolean).join(" ");
   }
   function jitenDefinitionTextReferences(card, info) {
@@ -36535,9 +36866,9 @@ ${component.reading}`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const identityAttributes = identity ? ` ${identity}` : "";
     const extraClass = options.className?.trim();
-    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
+    const classes2 = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
     const content = reading && options.annotatedReading && /\[[^\]]+\]/.test(options.annotatedReading) ? renderJitenAnnotatedReading$1(options.annotatedReading) : renderJitenReferenceContent(reference.text, reading);
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function renderJitenReferenceContent(text2, reading) {
     return reading ? renderRuby(text2, refRubyToken(text2, reading)) : escapeHtml$1(text2);
@@ -40892,15 +41223,15 @@ ${spelling}`);
     return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
   }
   function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
-    const classes = [
+    const classes2 = [
       "jpdb-reader-example-sentence",
       "jpdb-reader-parseable",
       "jpdb-reader-subtitle-surface"
     ].filter(Boolean).join(" ");
     if (primarySubtitle) {
-      return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
+      return `<div class="${classes2}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
     }
-    return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
+    return `<div class="${classes2}" data-immersion-sentence-render>${sentenceHtml}</div>`;
   }
   function uniqueExampleAudioCandidates(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -41142,7 +41473,7 @@ ${spelling}`);
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const CONNECTION_FAILURE_BACKOFF_MS = 3e4;
-  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const REQUEST_TIMEOUT_MS$3 = 3e4;
   const RETRYABLE_READ_DELAY_MS = 1500;
   const RETRYABLE_READ_ATTEMPTS = 2;
   const RETRYABLE_API_READ_ENDPOINTS = /* @__PURE__ */ new Set([
@@ -41270,7 +41601,7 @@ ${spelling}`);
           method: "POST",
           headers,
           body: data
-        }, REQUEST_TIMEOUT_MS$4);
+        }, REQUEST_TIMEOUT_MS$3);
         if (!response.ok && candidate !== url) {
           lastError = new Error(`JPDB proxy request failed (${response.status}).`);
           continue;
@@ -41361,7 +41692,7 @@ ${spelling}`);
         headers,
         data,
         responseType: "text",
-        timeout: REQUEST_TIMEOUT_MS$4,
+        timeout: REQUEST_TIMEOUT_MS$3,
         onload: handleLoad,
         onerror: reject,
         ontimeout: () => reject(new Error("JPDB request timed out."))
@@ -41915,7 +42246,7 @@ ${spelling}`);
     return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
   }
   const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$3 = 3e4;
+  const REQUEST_TIMEOUT_MS$2 = 3e4;
   const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
   class JitenApiError extends Error {
     constructor(message, status) {
@@ -42230,7 +42561,7 @@ ${spelling}`);
             headers: this.headers(apiKey),
             body: data
           },
-          this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$3
+          this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$2
         );
         return parseJitenResponse(response, authenticated);
       }
@@ -42240,7 +42571,7 @@ ${spelling}`);
           headers: this.headers(apiKey),
           data,
           responseType: "json",
-          timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$3,
+          timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$2,
           timeoutLabel: "Jiten request timed out.",
           failureLabel: "Jiten request",
           statusFailureMessage: (status) => `Jiten request failed (${status}).`,
@@ -43234,7 +43565,7 @@ ${key}`] = { t: now, v: value };
   const readPublicJitenCache = cache$1.read;
   const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$2 = 1500;
+  const REQUEST_TIMEOUT_MS$1 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -43459,7 +43790,7 @@ ${key}`] = { t: now, v: value };
       const request2 = this.options.requestJsonImpl ?? requestJson$1;
       return request2(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
-        timeoutMs: REQUEST_TIMEOUT_MS$2,
+        timeoutMs: REQUEST_TIMEOUT_MS$1,
         timeoutLabel: "Jiten timeout.",
         failureLabel: "Jiten",
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
@@ -44210,7 +44541,7 @@ ${key}`] = { t: now, v: value };
   function pitchSegmentReading(segment) {
     return Array.from(compactJpdbText(segment.textContent ?? "")).filter((character) => PITCH_KANA.test(character)).join("");
   }
-  const REQUEST_TIMEOUT_MS$1 = 6e3;
+  const REQUEST_TIMEOUT_MS = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
   const log$b = Logger.scope("JpdbPublicPitch");
@@ -44276,7 +44607,7 @@ ${normalizedReading}`;
   function requestText$2(url, proxyUrl = "") {
     return requestPublicJpdbText(url, {
       proxyUrl,
-      timeoutMs: REQUEST_TIMEOUT_MS$1,
+      timeoutMs: REQUEST_TIMEOUT_MS,
       failureLabel: "Public JPDB pitch request",
       timeoutLabel: "Public JPDB pitch request timed out."
     });
@@ -65352,7 +65683,7 @@ ${entry.url}`),
     return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
   }
   function appearancePreviewHtml() {
-    const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
+    const word = (classes2, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes2}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
     return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-kifuku", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
   }
   function renderPitchColorSettingsSubsection(settings) {
@@ -67143,14 +67474,14 @@ ${entry.url}`),
   }
   function syncSubtitlePreviewColorClasses(form, preview) {
     const value = (name, fallback) => getNamedControl(form, name)?.value || fallback;
-    const classes = {
+    const classes2 = {
       highlight: readOption(value("subtitleHighlightColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb"),
       underline: readOption(value("subtitleUnderlineColorSource", "pitch"), COLOR_SOURCE_VALUES, "pitch"),
       text: readOption(value("subtitleTextColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb")
     };
-    Object.keys(classes).forEach((channel) => {
+    Object.keys(classes2).forEach((channel) => {
       COLOR_SOURCE_CLASS_VALUES.forEach((source) => {
-        preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
+        preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes2[channel] === source);
       });
     });
   }
@@ -69861,243 +70192,6 @@ ${entry.url}`),
   }
   function isSingleKanji(value) {
     return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
-  }
-  const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
-  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
-  const REQUEST_TIMEOUT_MS = 3e4;
-  const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
-  class BunproApiError extends Error {
-    constructor(message, status) {
-      super(message);
-      this.status = status;
-      this.name = "BunproApiError";
-    }
-  }
-  class BunproClient {
-    getFrontendToken;
-    getLegacyApiKey;
-    frontendBaseUrl;
-    legacyBaseUrl;
-    requestImpl;
-    timeoutMs;
-    constructor(options = {}) {
-      this.getFrontendToken = options.getFrontendToken ?? (() => "");
-      this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
-      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
-      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
-      this.requestImpl = options.requestImpl ?? requestHttp;
-      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-    }
-    hasFrontendCredential() {
-      return Boolean(this.getFrontendToken().trim());
-    }
-    /** Cheap non-reversible fingerprint of the frontend token, so persisted
-     * per-account caches can be validated without storing the token itself. */
-    // fallow-ignore-next-line unused-class-member
-    frontendCredentialFingerprint() {
-      const token = this.getFrontendToken().trim();
-      if (!token) return "";
-      let hash = 5381;
-      for (let index = 0; index < token.length; index += 1) {
-        hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
-      }
-      return `${hash.toString(16)}:${token.length}`;
-    }
-    // fallow-ignore-next-line unused-class-member
-    hasLegacyCredential() {
-      return Boolean(this.getLegacyApiKey().trim());
-    }
-    getUser() {
-      return this.frontend("/user");
-    }
-    getDueCount() {
-      return this.frontend("/user/due");
-    }
-    getQueue() {
-      return this.frontend("/reviews/quiz_index");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getUserFurigana() {
-      return this.frontend("/user/user_furigana");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getReviews(page = 1, perPage = 25) {
-      return this.frontend("/reviews", {
-        query: {
-          page: String(Math.max(1, Math.floor(page))),
-          per_page: String(Math.max(1, Math.floor(perPage)))
-        }
-      });
-    }
-    getBaseStats() {
-      return this.frontend("/user_stats/base_stats");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getJlptProgress() {
-      return this.frontend("/user_stats/jlpt_progress_mixed");
-    }
-    // Called through a structural Pick<> by the word-state store, which the
-    // member-usage analysis cannot see.
-    // fallow-ignore-next-line unused-class-member
-    getSrsOverview() {
-      return this.frontend("/user_stats/srs_level_overview");
-    }
-    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
-    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
-    // through a structural Pick<> by the word-state store.
-    // fallow-ignore-next-line unused-class-member
-    getSrsLevelDetails(level, reviewableType, page = 1) {
-      return this.frontend("/user_stats/srs_level_details", {
-        query: {
-          level,
-          reviewable_type: reviewableType,
-          page: String(Math.max(1, Math.floor(page)))
-        }
-      });
-    }
-    // fallow-ignore-next-line unused-class-member
-    getForecastDaily() {
-      return this.frontend("/user_stats/forecast_daily");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getForecastHourly() {
-      return this.frontend("/user_stats/forecast_hourly");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getReviewActivity() {
-      return this.frontend("/user_stats/review_activity");
-    }
-    getVocab(slugOrId) {
-      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
-    }
-    getGrammarPoint(id2) {
-      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id2))}`);
-    }
-    async search(query, options = {}) {
-      return this.frontend("/search/reviewables_v1_1", {
-        method: "POST",
-        body: {
-          query,
-          options: {
-            // Definition/mining lookups do not need the learner's
-            // private notes or bookmarks. Review relationships are
-            // opt-in for the rare caller that actually consumes them.
-            include_reviews: options.includeReviews ?? false,
-            include_bookmarks: false,
-            include_notes: false,
-            only_bookmarks: false
-          },
-          is_searching_grammar: options.grammar ?? true,
-          is_searching_vocab: options.vocab ?? true
-        },
-        trimLimit: options.limit
-      });
-    }
-    updateReviewsViaActionType(request2) {
-      return this.frontend("/reviews/update_via_action_type", {
-        method: "PATCH",
-        body: {
-          deck_id: request2.deckId ?? null,
-          action_type: request2.actionType,
-          reviewables: request2.reviewables.map((item) => [item.type, item.id])
-        }
-      });
-    }
-    updateReview(reviewId, body, endpoint = "review") {
-      const collection = endpoint === "ghost-review" ? "ghost_reviews" : endpoint === "self-study-review" ? "self_study_reviews" : "reviews";
-      return this.frontend(`/${collection}/${encodeURIComponent(String(reviewId))}/update`, {
-        method: "POST",
-        body
-      });
-    }
-    getLegacyStudyQueue() {
-      return this.legacy("/study_queue");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getLegacyRecentItems(limit = 10) {
-      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
-    }
-    async frontend(path, options = {}) {
-      const token = this.getFrontendToken().trim();
-      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
-      const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
-      const response = await this.requestJson(url, {
-        method: options.method ?? "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json"
-        },
-        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-        statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
-      });
-      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
-    }
-    legacy(path) {
-      const apiKey = this.getLegacyApiKey().trim();
-      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
-      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
-        method: "GET",
-        headers: { Accept: "application/json" }
-      });
-    }
-    async requestJson(url, options) {
-      try {
-        return await this.requestImpl(url, {
-          ...options,
-          responseType: "json",
-          timeoutMs: this.timeoutMs,
-          preferFetch: true,
-          allowDirectCrossOrigin: true,
-          allowPublicProxies: false,
-          allowSensitiveConfiguredProxy: false,
-          credentials: "omit",
-          referrerPolicy: "no-referrer",
-          failureLabel: "Bunpro request"
-        });
-      } catch (error) {
-        throw normalizeBunproError(error);
-      }
-    }
-  }
-  function normalizeBunproError(error) {
-    if (error instanceof BunproApiError) return error;
-    const status = errorStatus(error);
-    if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
-    if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
-    return error;
-  }
-  function errorStatus(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const status = error.status ?? error.statusCode;
-    return typeof status === "number" && Number.isFinite(status) ? status : void 0;
-  }
-  function trimBaseUrl(value) {
-    return value.replace(/\/+$/u, "");
-  }
-  function urlWithQuery(url, query) {
-    if (!query) return url;
-    const next = new URL(url);
-    Object.entries(query).forEach(([key, value]) => {
-      if (value !== void 0) next.searchParams.set(key, value);
-    });
-    return next.href;
-  }
-  function trimBunproSearchResponse(raw, limit) {
-    const maxItems = Math.max(1, Math.floor(limit));
-    if (!raw || typeof raw !== "object") return raw;
-    const value = raw;
-    return {
-      ...value,
-      grammar_points: trimBunproSearchSection(value.grammar_points, maxItems),
-      vocabs: trimBunproSearchSection(value.vocabs, maxItems)
-    };
-  }
-  function trimBunproSearchSection(section, limit) {
-    if (!section || typeof section !== "object") return section;
-    const value = section;
-    if (!Array.isArray(value.data)) return section;
-    return { ...value, data: value.data.slice(0, limit) };
   }
   const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
   function createBunproSrsAdapter(client) {

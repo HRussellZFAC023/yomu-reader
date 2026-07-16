@@ -1047,6 +1047,9 @@ describe('JitenApiClient', () => {
         const mount = document.createElement('div');
         mount.innerHTML = renderJitenDefinitionSource(jitenCard(), () => '', info, 'en');
 
+        const exampleGroup = mount.querySelector<HTMLElement>('[data-example-provider="jiten"]');
+        expect(exampleGroup?.dataset.examplesAvailability).toBe('loaded');
+        expect(exampleGroup?.classList.contains('jpdb-reader-jpdb-examples-group')).toBe(true);
         const buttons = Array.from(mount.querySelectorAll<HTMLButtonElement>('.jpdb-reader-jiten-audio'));
         expect(buttons).toHaveLength(3);
         expect(buttons.map(button => button.dataset.action)).toEqual(['jiten-audio', 'jiten-audio', 'jiten-audio']);

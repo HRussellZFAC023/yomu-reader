@@ -331,6 +331,13 @@ function summarizeSourceDom(node) {
         bunproReading: clean(node.textContent ?? '').includes('ふくしゅう'),
         bunproNuance: bunproText.includes('Study again to strengthen memory'),
         bunproAcceptedAnswer: bunproText.includes('to review'),
+        bunproLearnerPos: bunproText.includes('noun'),
+        bunproRawTags: Array.from(bunpro?.querySelectorAll('.jpdb-reader-dict-tag') ?? [])
+            .some(tag => /^(?:unclassified|n|unc)$/iu.test(clean(tag.textContent ?? ''))),
+        bunproExampleSentence: /毎日.*復習.*する/u.test(bunproText),
+        bunproExampleReading: Boolean(bunpro?.querySelector('.jpdb-reader-jpdb-examples-group rt.jpdb-reader-furi')),
+        bunproExampleAvailability: bunpro?.querySelector('.jpdb-reader-jpdb-examples-group')?.getAttribute('data-examples-availability') ?? '',
+        bunproExampleAudioButtonCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-example-audio').length ?? 0,
         hasOpenInBunproButton: Boolean(bunpro?.querySelector('a[href*="bunpro.jp/vocabs/"]')),
         jpdbMeaning: jpdbText.includes('review; revision'),
         jpdbUsedIn: jpdbText.includes('復習会'),
@@ -378,8 +385,13 @@ function assertSurface(scenario, dom, requests, surface) {
         assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
         assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
         assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
-        assert(dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro source did not render accepted answers`, dom);
-        assert(dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source did not link to Bunpro`, dom);
+        assert(!dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro vocabulary repeated review answers`, dom);
+        assert(dom.bunproLearnerPos && !dom.bunproRawTags, `${scenario.label} ${surface}: Bunpro source leaked raw tags`, dom);
+        assert(dom.bunproExampleSentence, `${scenario.label} ${surface}: Bunpro source did not render detail examples`, dom);
+        assert(dom.bunproExampleReading, `${scenario.label} ${surface}: Bunpro example lost its exact upstream reading`, dom);
+        assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
+        assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
+        assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
     }
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
@@ -420,6 +432,7 @@ function assertRequestAuthState(scenario, surface, requests) {
     const bunproRequests = requests.filter(request => request.host === 'api.bunpro.jp');
     if (scenario.expect.bunpro) {
         assert(bunproRequests.some(request => request.path === '/api/frontend/search/reviewables_v1_1'), `${scenario.label} ${surface}: Bunpro search request was not recorded`, bunproRequests);
+        assert(bunproRequests.some(request => request.path.startsWith('/api/frontend/reviewables/vocab/')), `${scenario.label} ${surface}: Bunpro detail request was not recorded`, bunproRequests);
         assert(bunproRequests.every(request => request.authorizationScheme === 'Bearer'), `${scenario.label} ${surface}: Bunpro auth state was wrong`, bunproRequests);
         const searches = bunproRequests.filter(request => request.path === '/api/frontend/search/reviewables_v1_1');
         assert(searches.every(request => request.body?.options?.include_reviews === false
@@ -480,6 +493,9 @@ function mockBunproResponse(summary, request) {
         summary.body = readJsonBody(request.data);
         return jsonHttpResponse(bunproSearchPayload());
     }
+    if (summary.method === 'GET' && summary.path.startsWith('/api/frontend/reviewables/vocab/')) {
+        return jsonHttpResponse(bunproDetailPayload());
+    }
     if (summary.method === 'PATCH' && summary.path === '/api/frontend/reviews/update_via_action_type') {
         summary.body = readJsonBody(request.data);
         return jsonHttpResponse({ ok: true });
@@ -503,10 +519,27 @@ function bunproSearchPayload() {
                 nuance: 'Study again to strengthen memory',
                 nuance_translation: '記憶を強くするためにもう一度勉強する',
                 accepted_answers: ['to review'],
-                jmdict_pos: ['noun', 'suru verb'],
-                jlpt_level: 'n3',
+                jmdict_pos: ['n', 'suru verb'],
+                jlpt_level: 'unclassified',
             },
         }] },
+    };
+}
+
+function bunproDetailPayload() {
+    return {
+        data: { id: '77', type: 'vocab' },
+        included: [{
+            id: '7701',
+            type: 'study_question',
+            attributes: {
+                id: 7701,
+                content: '毎日<strong>復習（ふくしゅう）</strong>する。',
+                translation: 'Review every day.',
+                sentence_order: 1,
+                female_audio_url: 'https://audio.example.test/bunpro-review.mp3',
+            },
+        }],
     };
 }
 

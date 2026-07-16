@@ -49,6 +49,7 @@ const [user, due, queue, baseStats, search, legacyQueue] = await Promise.all([
     }),
     legacyApiKey ? legacyGet('/study_queue').catch(error => ({ error: publicError(error) })) : Promise.resolve({ skipped: true }),
 ]);
+const detail = await fetchSampleDetail(search);
 
 const grade = liveGrade ? await gradeOneQueueItem(queue, liveGrade) : { skipped: true };
 
@@ -59,6 +60,7 @@ const summary = {
     queue: summarizeCollection(queue),
     baseStats: summarizeObject(baseStats),
     search: summarizeSearch(search),
+    detail: summarizeDetail(detail),
     grade,
     legacyQueue: summarizeLegacyQueue(legacyQueue),
 };
@@ -68,6 +70,9 @@ if (!summary.search.vocabCount && !summary.search.grammarCount) {
 }
 if (!summary.search.sampleHasMeaning || !summary.search.sampleHasReading) {
     throw new Error('Bunpro live smoke search omitted the meaning or reading needed by the definition source.');
+}
+if (summary.detail.includedLocation !== 'root') {
+    throw new Error('Bunpro live smoke detail response did not expose the supported root included collection.');
 }
 
 console.log(JSON.stringify(summary, null, 2));
@@ -85,6 +90,31 @@ async function frontendPost(pathname, body) {
         headers: frontendHeaders(),
         body: JSON.stringify(body),
     }, pathname);
+}
+
+async function fetchSampleDetail(search) {
+    const requestPath = sampleDetailPath(search);
+    if (requestPath) return await frontendGet(requestPath);
+    throw new Error('Bunpro live smoke search returned no detail identity.');
+}
+
+function sampleDetailPath(search) {
+    const vocab = collectionItems(search?.vocabs)[0];
+    const vocabIdentity = detailIdentity(vocab, ['slug', 'id']);
+    if (vocabIdentity) return `/reviewables/vocab/${encodeURIComponent(vocabIdentity)}`;
+    const grammar = collectionItems(search?.grammar_points)[0];
+    const grammarIdentity = detailIdentity(grammar, ['id']);
+    return grammarIdentity ? `/reviewables/grammar_point/${encodeURIComponent(grammarIdentity)}` : '';
+}
+
+function detailIdentity(item, fields) {
+    const attributes = item?.attributes ?? item;
+    for (const field of fields) {
+        const value = attributes?.[field] ?? item?.[field];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    }
+    return '';
 }
 
 async function gradeOneQueueItem(queue, requestedGrade) {
@@ -150,7 +180,7 @@ async function requestJson(url, options, label) {
     const response = await fetch(url, options);
     const text = await response.text();
     if (!response.ok) {
-        throw new Error(`${label} failed with status ${response.status}: ${text.slice(0, 160)}`);
+        throw new Error(`${label} failed with status ${response.status}.`);
     }
     if (!text.trim()) return null;
     return JSON.parse(text);
@@ -199,6 +229,70 @@ function summarizeSearch(value) {
         sampleHasReading: Boolean(sample.kana || sample.furigana || sample.reading),
         sampleHasNuance: Boolean(sample.nuance || sample.nuance_translation),
     };
+}
+
+function summarizeDetail(value) {
+    const included = Array.isArray(value?.included) ? value.included : null;
+    const stats = detailStats();
+    for (const row of included ?? []) recordDetailRow(stats, row);
+    return {
+        topLevelKeys: objectKeys(value),
+        includedLocation: included ? 'root' : 'missing',
+        includedCount: included?.length ?? 0,
+        includedTypeCounts: Object.fromEntries([...stats.types.entries()].sort(([left], [right]) => left.localeCompare(right))),
+        studyQuestionAttributeKeys: [...stats.attributeKeys].sort(),
+        usableSentenceCount: stats.usableSentences,
+        usableTranslationCount: stats.usableTranslations,
+        usableAudioRowCount: stats.usableAudioRows,
+        rejectedRowCounts: stats.rejected,
+        duplicateRowCount: stats.duplicateRows,
+        dedupedSentenceCount: stats.dedupeKeys.size,
+    };
+}
+
+function detailStats() {
+    return {
+        types: new Map(),
+        attributeKeys: new Set(),
+        rejected: { nonStudyQuestion: 0, missingAttributes: 0, missingSentence: 0, nonJapaneseSentence: 0 },
+        dedupeKeys: new Set(),
+        usableSentences: 0,
+        usableTranslations: 0,
+        usableAudioRows: 0,
+        duplicateRows: 0,
+    };
+}
+
+function recordDetailRow(stats, row) {
+    const type = typeof row?.type === 'string' ? row.type : '(missing)';
+    stats.types.set(type, (stats.types.get(type) ?? 0) + 1);
+    if (type !== 'study_question') return rejectDetailRow(stats, 'nonStudyQuestion');
+    const attributes = row?.attributes;
+    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) return rejectDetailRow(stats, 'missingAttributes');
+    Object.keys(attributes).forEach(key => stats.attributeKeys.add(key));
+    const sentence = typeof attributes.content === 'string' ? attributes.content : '';
+    if (!sentence.trim()) return rejectDetailRow(stats, 'missingSentence');
+    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(sentence)) return rejectDetailRow(stats, 'nonJapaneseSentence');
+    recordUsableDetailRow(stats, sentence, attributes);
+}
+
+function rejectDetailRow(stats, reason) {
+    stats.rejected[reason] += 1;
+}
+
+function recordUsableDetailRow(stats, sentence, attributes) {
+    stats.usableSentences += 1;
+    const translation = typeof attributes.translation === 'string' ? attributes.translation : '';
+    if (translation.trim()) stats.usableTranslations += 1;
+    const audioUrls = [attributes.female_audio_url, attributes.male_audio_url];
+    if (audioUrls.some(url => typeof url === 'string' && url.startsWith('https://'))) stats.usableAudioRows += 1;
+    const key = `${normalizeMetadataText(sentence)}\u0000${normalizeMetadataText(translation)}`;
+    if (stats.dedupeKeys.has(key)) stats.duplicateRows += 1;
+    else stats.dedupeKeys.add(key);
+}
+
+function normalizeMetadataText(value) {
+    return value.normalize('NFKC').replace(/<[^>]*>/gu, '').replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
 }
 
 function summarizeLegacyQueue(value) {

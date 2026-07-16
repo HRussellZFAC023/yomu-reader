@@ -13809,6 +13809,8 @@ describe('reader helpers', () => {
         expect(html).not.toContain('data-source-state-key="definition-source:__jpdb_examples__"');
         expect(html).toContain('Example sentences');
         expect(html).toContain('jpdb-reader-jpdb-examples-group');
+        expect(html).toContain('data-example-provider="jpdb"');
+        expect(html).toContain('data-examples-availability="loaded"');
         expect(html).toContain('data-action="jpdb-example-audio"');
         expect(html).toContain('data-jpdb-audio="m1/example-audio"');
         expect(html).toContain('jpdb-reader-example-sentence jpdb-reader-parseable');

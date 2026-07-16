@@ -5,6 +5,7 @@ import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, JPDBCard, JPDBToken } from '../app/types';
 import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabularyInfo, JitenVocabularyReading, JitenVocabularyWordSummary } from '../dictionaries/jiten';
+import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -204,33 +205,27 @@ function renderJitenRelatedWord(entry: JitenVocabularyWordSummary, language: Int
 }
 
 function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
-    return examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JITEN_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map(example => renderJitenExample(example, card, language, info)).join('')}
-                </ul>
-            </div>
-        </details>
-    ` : '';
-}
-
-function renderJitenExample(example: JitenVocabularyExample, card: CardHighlightTarget, language: InterfaceLanguage, info: JitenVocabularyInfo): string {
-    return `
-        <li class="jpdb-reader-jpdb-example jpdb-reader-jiten-example">
-            <div class="jpdb-reader-jpdb-example-row jpdb-reader-jiten-example-row has-audio">
-                ${renderJitenAudioButton(example.text, language, jitenExampleAudioAttributes(example))}
-                <div class="jpdb-reader-jpdb-example-text jpdb-reader-jiten-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card, info)}</div>
-                    ${example.sourceTitle ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.sourceTitle)}</div>` : ''}
-                </div>
-            </div>
-        </li>
-    `;
+    if (!examples.length) return '';
+    const items: ProviderExampleView[] = examples.map((example, index) => ({
+        id: String(example.sentenceId ?? index),
+        sentenceHtml: renderJitenExampleSentence(example, card, info),
+        translation: example.sourceTitle,
+        itemClassName: 'jpdb-reader-jiten-example',
+        rowClassName: 'jpdb-reader-jiten-example-row',
+        textClassName: 'jpdb-reader-jiten-example-text',
+        sentenceClassName: 'jpdb-reader-jiten-example-sentence',
+        audio: {
+            action: 'jiten-audio',
+            label: uiText(language, 'playAudio'),
+            className: 'jpdb-reader-jiten-audio',
+            attributes: {
+                'data-study-sentence': example.text.trim(),
+                ...(example.sentenceId ? { 'data-jiten-sentence-id': String(example.sentenceId) } : {}),
+                ...(example.audioUrls?.length ? { 'data-jiten-audio-urls': JSON.stringify(example.audioUrls) } : {}),
+            },
+        },
+    }));
+    return renderProviderExamples('jiten', JITEN_DEFINITION_SOURCE_ID, { availability: 'loaded', items }, sourceAttributes, language);
 }
 
 function renderJitenExampleSentence(example: JitenVocabularyExample, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
@@ -289,13 +284,6 @@ function jitenWordAudioAttributes(entry: JitenVocabularyWordSummary): string {
         `data-jiten-word-id="${escapeHtml(String(entry.wordId))}"`,
         `data-jiten-reading-index="${escapeHtml(String(entry.readingIndex))}"`,
         entry.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml(JSON.stringify(entry.audioUrls))}"` : '',
-    ].filter(Boolean).join(' ');
-}
-
-function jitenExampleAudioAttributes(example: JitenVocabularyExample): string {
-    return [
-        example.sentenceId ? `data-jiten-sentence-id="${escapeHtml(String(example.sentenceId))}"` : '',
-        example.audioUrls?.length ? `data-jiten-audio-urls="${escapeHtml(JSON.stringify(example.audioUrls))}"` : '',
     ].filter(Boolean).join(' ');
 }
 

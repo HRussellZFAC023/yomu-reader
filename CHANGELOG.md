@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.164] - 2026-07-16
+
+### Fixed
+
+- Bunpro definitions now normalize raw JLPT and part-of-speech metadata, avoid repeating vocabulary meanings as accepted answers, and rely on the popup's existing Bunpro action instead of showing a second link.
+- Bunpro detail examples now use the same collapsible sentence presentation as Jiten and JPDB while preserving each provider's own sentence identity and highlighting. An authoritative empty example list remains distinct from authentication, network, and response-schema failures, and Yomu does not invent Bunpro composition or usage relations.
+
 ## [1.6.163] - 2026-07-16
 
 ### Fixed
