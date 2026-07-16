@@ -87,7 +87,9 @@ describe('Jiten vocabulary render timeout hydration', () => {
             card: nonJitenCard(),
             jpdbUrl: 'https://jpdb.io/search?q=%E4%BB%8A%E6%97%A5',
             settings: DEFAULT_SETTINGS,
-            jitenVocabularyInfo: jitenInfo(),
+            frequencyRanks: {
+                jiten: { provider: 'jiten', rank: 95, spelling: '今日', reading: 'きょう', source: 'live-search' },
+            },
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
@@ -97,7 +99,7 @@ describe('Jiten vocabulary render timeout hydration', () => {
             card: nonJitenCard(),
             jpdbUrl: 'https://jpdb.io/search?q=%E4%BB%8A%E6%97%A5',
             settings: DEFAULT_SETTINGS,
-            jitenVocabularyInfo: null,
+            frequencyRanks: {},
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });

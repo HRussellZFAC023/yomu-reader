@@ -12487,7 +12487,7 @@ ${candidate.depth}`;
     return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
   }
   function compareFrequencyMetaEntries(a, b, rank) {
-    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$1(a.data) - frequencyRank$1(b.data) || compareDictionaryName(a, b);
+    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$2(a.data) - frequencyRank$2(b.data) || compareDictionaryName(a, b);
   }
   function jpdbFrequencyPriority(entry) {
     return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
@@ -12502,7 +12502,7 @@ ${candidate.depth}`;
     return a.dictionary.localeCompare(b.dictionary);
   }
   function extractFrequency(value) {
-    const rank = frequencyRank$1(value);
+    const rank = frequencyRank$2(value);
     return Number.isFinite(rank) ? rank : void 0;
   }
   function nonOverlappingMatches(matches, limit) {
@@ -12543,11 +12543,11 @@ ${candidate.depth}`;
   function isJpdbFrequencyDictionary(dictionary) {
     return /jpdb/i.test(dictionary);
   }
-  function frequencyRank$1(value) {
+  function frequencyRank$2(value) {
     if (typeof value === "number") return value;
     if (typeof value === "string") return rankFromFrequencyString(value);
     const nested = nestedFrequencyValue(value);
-    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank$1(nested);
+    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank$2(nested);
   }
   function rankFromFrequencyString(value) {
     return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
@@ -14927,7 +14927,7 @@ ${entry.reading}`;
             );
             const rank = dictionaryRank(preferences);
             const seen = /* @__PURE__ */ new Set();
-            const results = rankedDictionaryEntries(
+            const ranked = rankedDictionaryEntries(
               entries2,
               rank,
               void 0,
@@ -14937,8 +14937,8 @@ ${entry.reading}`;
               if (seen.has(key)) return false;
               seen.add(key);
               return true;
-            }).slice(0, limit);
-            return results;
+            });
+            return selectTermLookupResults(ranked, expression, reading, limit);
           } catch (error) {
             log$z.warn("Term lookup failed", { expression, reading, error });
             throw error;
@@ -16299,6 +16299,31 @@ ${glossaryKey}` : `${entry.dictionary}
 ${entry.expression}
 ${entry.reading}
 ${glossaryKey}`;
+  }
+  function selectTermLookupResults(ranked, expression, reading, limit) {
+    const boundedLimit = Math.max(0, Math.floor(limit));
+    if (!boundedLimit || ranked.length <= boundedLimit) return ranked.slice(0, boundedLimit);
+    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
+    fillTermLookupSelection(selected, ranked, boundedLimit);
+    return ranked.filter((entry) => selected.has(entry)).slice(0, boundedLimit);
+  }
+  function firstExactTermEntriesByDictionary(ranked, expression, reading) {
+    const firstExactByDictionary = /* @__PURE__ */ new Map();
+    for (const entry of ranked) {
+      if (!isExactTermLookupEntry(entry, expression, reading)) continue;
+      if (!firstExactByDictionary.has(entry.dictionary)) firstExactByDictionary.set(entry.dictionary, entry);
+    }
+    return Array.from(firstExactByDictionary.values());
+  }
+  function fillTermLookupSelection(selected, ranked, limit) {
+    for (const entry of ranked) {
+      if (selected.size >= limit) break;
+      selected.add(entry);
+    }
+  }
+  function isExactTermLookupEntry(entry, expression, reading) {
+    const hasKnownReading = Boolean(reading && reading !== expression);
+    return entry.expression === expression && (!hasKnownReading || entry.reading === reading);
   }
   function bestTermLookupEntry(entries2, expression, rank) {
     const seen = /* @__PURE__ */ new Set();
@@ -53780,7 +53805,7 @@ ${spelling}`);
   function shouldReplaceBatchMiningExample(current, candidate) {
     if (candidate.iPlusOne !== current.iPlusOne) return candidate.iPlusOne;
     if (candidate.unknownCardCount !== current.unknownCardCount) return candidate.unknownCardCount < current.unknownCardCount;
-    if (frequencyRank(candidate.card) !== frequencyRank(current.card)) return frequencyRank(candidate.card) < frequencyRank(current.card);
+    if (frequencyRank$1(candidate.card) !== frequencyRank$1(current.card)) return frequencyRank$1(candidate.card) < frequencyRank$1(current.card);
     return candidate.rowIndex < current.rowIndex;
   }
   function compareBatchMiningCandidates(a, b) {
@@ -53790,12 +53815,12 @@ ${spelling}`);
     return {
       iPlusOneRank: iPlusOne ? 0 : 1,
       unknownCount,
-      frequency: frequencyRank(card),
+      frequency: frequencyRank$1(card),
       occurrenceRank: -occurrences,
       rowIndex
     };
   }
-  function frequencyRank(card) {
+  function frequencyRank$1(card) {
     return card.frequencyRank ?? Number.MAX_SAFE_INTEGER;
   }
   function subtitleBatchMiningCandidateKey(card) {
@@ -64928,6 +64953,11 @@ ${spelling}`);
     const fuzzy = tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
     return fuzzy;
   }
+  function bunproDefinitionStatusAttributes(status) {
+    if (!status) return "";
+    const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$1(status.reason)}"` : "";
+    return ` data-bunpro-definition-status="${escapeHtml$1(status.state)}"${reason}`;
+  }
   class CardPopoverRenderer {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -64942,7 +64972,7 @@ ${spelling}`);
       const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes("jpdb-reader-anki-existing") ? ankiSourceSection : "";
       return `
             <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body">
+            <div class="jpdb-reader-popover-body"${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
@@ -64995,7 +65025,7 @@ ${spelling}`);
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.jitenVocabularyInfo ?? null)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
@@ -65561,16 +65591,17 @@ ${component.reading}`;
     };
   }
   const BUNPRO_EXAMPLE_LIMIT = 10;
-  async function lookupBunproDefinition(client, card) {
+  async function lookupBunproDefinitionResult(client, card) {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-    const info = normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+    const result = selectBunproDefinitionSearch(raw, card.spelling, card.reading, {
       id: card.bunproReviewableId,
       kind: bunproDefinitionKind(card.bunproReviewableType)
     });
-    if (!info) return null;
+    if (!result.info) return result;
+    const info = result.info;
     const detail = await bunproReviewableDetail(client, info).catch(() => null);
     if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
-    return info;
+    return { state: "success", info };
   }
   function bunproReviewableDetail(client, info) {
     return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
@@ -65620,30 +65651,46 @@ ${component.reading}`;
   function bunproHttpsUrl(value) {
     return value.startsWith("https://") ? value : "";
   }
-  function normalizeBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
-    const candidates = [
+  function selectBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
+    const candidates = bunproDefinitionCandidates(raw);
+    if (!candidates.length) return noBunproMatch("no-results");
+    const selectedById = selectBunproDefinitionById(candidates, selection);
+    if (selectedById) return selectedById;
+    const eligible = selection.kind ? candidates.filter((item) => item.kind === selection.kind) : candidates;
+    return selectExactBunproDefinition(eligible, expression, reading);
+  }
+  function bunproDefinitionCandidates(raw) {
+    return [
       ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
       ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
     ].filter((item) => item !== null);
-    if (!candidates.length) return null;
-    const expectedKind = selection.kind;
+  }
+  function selectBunproDefinitionById(candidates, selection) {
     const expectedId = numberValue$1(selection.id);
-    if (expectedId) {
-      return candidates.find((item) => item.id === expectedId && (!expectedKind || item.kind === expectedKind)) ?? null;
-    }
-    const eligible = expectedKind ? candidates.filter((item) => item.kind === expectedKind) : candidates;
+    if (!expectedId) return null;
+    const info = candidates.find((item) => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
+    return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
+  }
+  function selectExactBunproDefinition(candidates, expression, reading) {
     const normalizedExpression = normalizedLookupText$1(expression);
-    const exactExpression = eligible.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
-    if (!exactExpression.length) return null;
-    if (reading) {
-      const normalizedReading = normalizedLookupText$1(reading);
-      const exactReading = exactExpression.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
-      if (exactReading.length === 1) return exactReading[0] ?? null;
-      if (exactReading.length > 1 && sameDefinitionIdentity(exactReading)) return exactReading[0] ?? null;
-      return null;
-    }
-    if (exactExpression.length === 1 || sameDefinitionIdentity(exactExpression)) return exactExpression[0] ?? null;
-    return null;
+    const exactExpression = candidates.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
+    if (!exactExpression.length) return noBunproMatch("expression-mismatch");
+    return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
+  }
+  function selectExactBunproReading(candidates, reading) {
+    const normalizedReading = normalizedLookupText$1(reading);
+    const exactReading = candidates.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
+    return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
+  }
+  function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
+    if (candidates.length === 1 || sameDefinitionIdentity(candidates)) return bunproMatch(candidates[0]);
+    return noBunproMatch(ambiguousReason);
+  }
+  function bunproMatch(info) {
+    return { state: "success", info };
+  }
+  function noBunproMatch(reason) {
+    return { state: "no-match", reason, info: null };
   }
   function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
     if (!info) return "";
@@ -65783,12 +65830,72 @@ ${component.reading}`;
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
+  function frequencyProviderForLookupId(id) {
+    if (id === "jiten-frequency") return "jiten";
+    if (id === "jpdb-frequency") return "jpdb";
+    return null;
+  }
+  function liveFrequencyEnabled(settings, provider) {
+    const frequencyEnabled = settings.dictionaryLookupLinks.some(
+      (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+    );
+    const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+    return frequencyEnabled && lookupEnabled;
+  }
+  function cardFrequencyRanks(card, isJpdbBackedCard) {
+    const rank = frequencyRank(card.frequencyRank);
+    if (!rank) return {};
+    const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+    return provider ? {
+      [provider]: rankEvidence(provider, rank, card, "card")
+    } : {};
+  }
+  function jitenFrequencyRankForCard(card, info) {
+    const rank = frequencyRank(info?.mainReading?.frequencyRank);
+    return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
+  }
+  function exactJitenFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jiten", card, candidates);
+  }
+  function exactJpdbFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jpdb", card, candidates);
+  }
+  function exactSearchFrequencyRank(provider, card, candidates) {
+    const spelling = normalizeIdentityText(card.spelling);
+    const reading = normalizeIdentityText(card.reading);
+    const matches = candidates.filter(
+      (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading
+    );
+    if (matches.length !== 1) return null;
+    const match = matches[0];
+    const rank = frequencyRank(match?.frequencyRank);
+    return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
+  }
+  function withFrequencyRank(ranks, evidence) {
+    return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
+  }
+  function rankEvidence(provider, rank, card, source) {
+    return {
+      provider,
+      rank,
+      spelling: normalizeIdentityText(card.spelling),
+      reading: normalizeIdentityText(card.reading),
+      source
+    };
+  }
+  function frequencyRank(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+  }
+  function normalizeIdentityText(value) {
+    return value.normalize("NFKC").trim();
+  }
   const log$d = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
   const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4e3;
   const CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS = 4e3;
+  const CARD_RENDER_FREQUENCY_TIMEOUT_MS = 4e3;
   const CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS = 4e3;
   const CARD_RENDER_ANKI_TIMEOUT_MS = 4e3;
   const CARD_RENDER_DECK_TIMEOUT_MS = 1500;
@@ -65799,7 +65906,7 @@ ${component.reading}`;
   const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
   const CARD_RENDER_META_LOOKUP_LIMIT = 12;
   const EXPRESSION_CONNECTIVE_KANA = /* @__PURE__ */ new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
-  function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null) {
+  function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, frequencyRanks = {}, bunproDefinitionStatus = { state: "loading" }) {
     return {
       localEntries,
       kanjiEntries: [],
@@ -65810,7 +65917,9 @@ ${component.reading}`;
       ankiDecks: [],
       jpdbVocabularyInfo,
       jitenVocabularyInfo,
+      frequencyRanks,
       bunproDefinitionInfo,
+      bunproDefinitionStatus,
       expressionComponents: [],
       loading: true
     };
@@ -65843,6 +65952,7 @@ ${component.reading}`;
       return load;
     }
     fetch(card, options) {
+      const settings = this.settings();
       const localEntries = this.loadLocalTermEntries(card);
       const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
         if (localMeta.completed) {
@@ -65862,16 +65972,23 @@ ${component.reading}`;
       };
       const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
       const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-      const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
-      const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null);
-      const bunproDefinitionLookup = options.includeBunproDefinition === false ? Promise.resolve(null) : this.lookupBunproDefinitionInfo(card);
-      const bunproDefinitionInfo = this.withFallback(
+      const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
+      const seededFrequencyRanks = {};
+      if (liveFrequencyEnabled(settings, "jiten") && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
+      if (liveFrequencyEnabled(settings, "jpdb") && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
+      const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled);
+      const jitenVocabularyInfo = settings.jitenDefinitionsEnabled ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null) : Promise.resolve(null);
+      const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks);
+      const bunproDefinitionLookup = this.lookupBunproDefinitionResult(card, options.includeBunproDefinition !== false);
+      const bunproDefinitionResult = this.withFallback(
         card,
         CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
         "Bunpro definition",
         bunproDefinitionLookup,
-        null
+        { info: null, status: { state: "timeout" } }
       );
+      const bunproDefinitionInfo = bunproDefinitionResult.then((result) => result.info);
+      const bunproDefinitionStatus = bunproDefinitionResult.then((result) => result.status);
       const expressionComponents = this.withFallback(
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
@@ -65889,10 +66006,11 @@ ${component.reading}`;
       void pitchAccent.catch(() => void 0);
       void jpdbDeckMembership.catch(() => void 0);
       void jitenVocabularyInfo.catch(() => void 0);
+      void frequencyRankLoad.initial.catch(() => void 0);
       void bunproDefinitionInfo.catch(() => void 0);
       void expressionComponents.catch(() => void 0);
       void componentPitches.catch(() => void 0);
-      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches);
+      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRankLoad.initial, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches);
       return {
         localEntries,
         localMetaEntries,
@@ -65902,8 +66020,12 @@ ${component.reading}`;
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
         hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
+        frequencyRanks: frequencyRankLoad.initial,
+        hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
         bunproDefinitionInfo,
-        hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
+        bunproDefinitionStatus,
+        hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result) => result.info),
+        hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
         all
       };
     }
@@ -65970,9 +66092,8 @@ ${component.reading}`;
     // the initial full render but ALSO keeps the uncapped promise so a slow result
     // still hydrates the popover instead of being discarded (which left the Jiten
     // frequency pill blank and the Jiten source missing — see the hydration pass).
-    loadJitenVocabularyInfo(card) {
-      const settings = this.settings();
-      if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+    loadJitenVocabularyInfo(card, enabled) {
+      if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
       return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
         this.applyJitenVocabularyInfoPitchAccent(card, info);
         return info;
@@ -65981,12 +66102,51 @@ ${component.reading}`;
         return null;
       });
     }
-    lookupBunproDefinitionInfo(card) {
+    loadFrequencyRanks(card, jitenVocabularyLookup, seeded) {
       const settings = this.settings();
-      if (!settings.bunproDefinitionsEnabled || !this.dependencies.bunpro || !hasBunproFrontendCredential(settings) || isBunproFrontendCredentialExpired(settings)) return Promise.resolve(null);
-      return lookupBunproDefinition(this.dependencies.bunpro, card).catch((error) => {
-        log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+      const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
+      const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
+        log$d.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
         return null;
+      }) : Promise.resolve(null) : Promise.resolve(null);
+      const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
+      const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
+        log$d.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+        return null;
+      }) : Promise.resolve(null);
+      const combine = ([jitenRank, jpdbRank]) => withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank);
+      return {
+        initial: Promise.all([
+          this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, "Jiten frequency rank", jiten, null),
+          this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, "JPDB frequency rank", jpdb, null)
+        ]).then(combine),
+        hydrated: Promise.all([jiten, jpdb]).then(combine)
+      };
+    }
+    lookupBunproDefinitionResult(card, included) {
+      const settings = this.settings();
+      if (!included) return Promise.resolve({ info: null, status: { state: "disabled", reason: "load-excluded" } });
+      if (!settings.bunproDefinitionsEnabled) return Promise.resolve({ info: null, status: { state: "disabled", reason: "definitions-disabled" } });
+      if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
+      if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
+      if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
+      const startedAt = performance.now();
+      log$d.debug("Bunpro definition lookup started", { term: card.spelling });
+      return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
+        const resolved = {
+          info: result.info,
+          status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
+        };
+        log$d.debug("Bunpro definition lookup completed", {
+          term: card.spelling,
+          state: resolved.status.state,
+          reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
+          durationMs: Math.round(performance.now() - startedAt)
+        });
+        return resolved;
+      }).catch((error) => {
+        log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+        return { info: null, status: { state: "error" } };
       });
     }
     loadFastAnkiLookup(card) {
@@ -66055,7 +66215,7 @@ ${component.reading}`;
         return false;
       }), false);
     }
-    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches) {
+    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches) {
       const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
       const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
       return Promise.all([
@@ -66069,13 +66229,15 @@ ${component.reading}`;
         jpdbDeckMembership,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        frequencyRanks,
         bunproDefinitionInfo,
+        bunproDefinitionStatus,
         expressionComponents.catch(() => []),
         componentPitches.catch(() => []),
         ankiFieldTargetPlan
-      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
+      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, frequencyRanks2, bunproDefinitionInfo2, bunproDefinitionStatus2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
+        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, frequencyRanks: frequencyRanks2, bunproDefinitionInfo: bunproDefinitionInfo2, bunproDefinitionStatus: bunproDefinitionStatus2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
     async loadExpressionComponents(card, localEntries, jitenVocabularyInfo) {
@@ -66226,6 +66388,13 @@ ${component.reading}`;
       const settings = this.settings();
       return JSON.stringify({
         card: cardKey(card),
+        cardFrequency: {
+          rank: card.frequencyRank,
+          source: card.source,
+          reviewSource: card.reviewSource,
+          jitenWordId: card.jitenWordId,
+          jitenReadingIndex: card.jitenReadingIndex
+        },
         local: settings.localDictionariesEnabled,
         kanji: settings.localDictionaryShowKanji,
         max: settings.localDictionaryMaxResults,
@@ -66237,6 +66406,10 @@ ${component.reading}`;
         ankiMobileHandoff: settings.ankiMobileHandoff,
         jpdbDefinitions: settings.jpdbDefinitionsEnabled,
         jitenDefinitions: settings.jitenDefinitionsEnabled,
+        liveFrequency: {
+          jiten: liveFrequencyEnabled(settings, "jiten"),
+          jpdb: liveFrequencyEnabled(settings, "jpdb")
+        },
         bunproDefinitions: settings.bunproDefinitionsEnabled,
         includeBunproDefinition: options.includeBunproDefinition !== false,
         apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
@@ -75617,9 +75790,10 @@ ${newTabCardReading(card)}`;
     const metaItems = searchWordMetaItems(card, state2, detail, settings);
     const visibleReading = searchWordVisibleReading(card, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : "";
-    const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? "";
+    const pills = searchWordPillsHtml(card, detail, context);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
-    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header">
+    const bunproStatusAttributes = bunproDefinitionStatusAttributes(detail.bunproDefinitionStatus);
+    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state2} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${escapeHtml$1(card.spelling)}</div>
@@ -75633,6 +75807,9 @@ ${newTabCardReading(card)}`;
             <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml$1(cardKey(card))}" type="button" aria-label="${escapeHtml$1(audioTitle)}" title="${escapeHtml$1(audioTitle)}"${settings.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>
         </div>
     </div>`;
+  }
+  function searchWordPillsHtml(card, detail, context) {
+    return context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? "";
   }
   function searchWordMetaItems(card, state2, detail, settings) {
     return [
@@ -87227,7 +87404,30 @@ ${entry.url}`),
           wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails)
         };
         renderCurrentDetail();
-        if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+        if (this.dependencies.hydrateFrequencyRanks) {
+          void this.dependencies.hydrateFrequencyRanks(card).then((frequencyRanks) => {
+            if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
+            renderedDetail = { ...renderedDetail, frequencyRanks };
+            renderCurrentDetail();
+          }).catch((error) => {
+            log$2.debug("Search provider frequency hydration failed", { term: card.spelling, error });
+          });
+        }
+        if (this.dependencies.hydrateBunproDefinitionResult) {
+          void this.dependencies.hydrateBunproDefinitionResult(card).then((result) => {
+            const unchangedInfo = renderedDetail.bunproDefinitionInfo === result.info;
+            const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result.status);
+            if (unchangedInfo && unchangedStatus) return;
+            renderedDetail = {
+              ...renderedDetail,
+              bunproDefinitionInfo: result.info,
+              bunproDefinitionStatus: result.status
+            };
+            renderCurrentDetail();
+          }).catch((error) => {
+            log$2.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+          });
+        } else if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
           void this.dependencies.hydrateBunproDefinitionInfo(card).then((info) => {
             if (!info) return;
             renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
@@ -89260,7 +89460,9 @@ ${entry.url}`),
       ankiLookup: data.ankiLookup,
       jpdbVocabularyInfo: data.jpdbVocabularyInfo,
       jitenVocabularyInfo: data.jitenVocabularyInfo ?? null,
-      bunproDefinitionInfo: data.bunproDefinitionInfo ?? null
+      bunproDefinitionInfo: data.bunproDefinitionInfo ?? null,
+      bunproDefinitionStatus: data.bunproDefinitionStatus,
+      frequencyRanks: data.frequencyRanks
     };
   }
   function ankiAudioFilenamesFromFields(fields) {
@@ -90563,31 +90765,49 @@ ${entry.url}`),
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
   }
   function frequencyPillsByLookupId(options) {
-    const localLabel = (dictionary) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
-    const pills = /* @__PURE__ */ new Map();
-    const mergedLiveRanks = /* @__PURE__ */ new Map();
-    const localProviders = /* @__PURE__ */ new Set();
-    for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
-      if (entry.mode !== "freq" || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
-      const html = renderFrequencyPill(entry, localLabel);
-      if (html) {
-        pills.set(localFrequencyLookupPillId(entry.dictionary), html);
-        const provider = localFrequencyProvider(entry.dictionary);
-        if (provider) localProviders.add(provider);
-      }
-    }
-    if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
     const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
     const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
+    const state2 = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
+    if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
+      mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds);
+    }
+    return { pills: state2.pills, mergedLiveRanks: state2.mergedLiveRanks };
+  }
+  function localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds) {
+    const localLabel = (dictionary) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
+    const state2 = {
+      pills: /* @__PURE__ */ new Map(),
+      mergedLiveRanks: /* @__PURE__ */ new Map(),
+      localProviders: /* @__PURE__ */ new Set()
+    };
+    for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
+      mergeLocalFrequencyEntry(options, state2, entry, localLabel, mergeIntoLinkPill, enabledLinkIds);
+    }
+    return state2;
+  }
+  function mergeLocalFrequencyEntry(options, state2, entry, localLabel, mergeIntoLinkPill, enabledLinkIds) {
+    if (entry.mode !== "freq" || !localFrequencyEnabled(options.settings, entry.dictionary)) return;
+    const provider = localFrequencyProvider(entry.dictionary);
+    const rank = extractFrequency(entry.data);
+    if (provider && rank && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
+      state2.mergedLiveRanks.set(provider, rank);
+      state2.localProviders.add(provider);
+      return;
+    }
+    const html = renderFrequencyPill(entry, localLabel);
+    if (!html) return;
+    state2.pills.set(localFrequencyLookupPillId(entry.dictionary), html);
+    if (provider) state2.localProviders.add(provider);
+  }
+  function mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds) {
     for (const link of options.settings.dictionaryLookupLinks) {
       if (link.action !== "frequency-live" || !link.enabled) continue;
       const provider = liveFrequencyProvider(link);
-      if (!provider || localProviders.has(provider)) continue;
-      const rank = provider === "jiten" ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+      if (!provider || state2.localProviders.has(provider)) continue;
+      const rank = liveFrequencyRank(options, provider);
       if (!rank) continue;
-      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
+      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state2.mergedLiveRanks.set(provider, rank);
     }
-    return { pills, mergedLiveRanks };
   }
   function localFrequencyEnabled(settings, dictionary) {
     const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
@@ -90601,17 +90821,10 @@ ${entry.url}`),
     return `frequency-local:${dictionary}`;
   }
   function liveFrequencyProvider(link) {
-    if (link.id === "jiten-frequency") return "jiten";
-    if (link.id === "jpdb-frequency") return "jpdb";
-    return null;
+    return frequencyProviderForLookupId(link.id);
   }
-  function liveJitenFrequencyRank(options) {
-    if (options.card.source === "jiten" || options.card.reviewSource === "jiten-api") return options.card.frequencyRank;
-    return options.jitenVocabularyInfo?.mainReading?.frequencyRank ?? null;
-  }
-  function liveJpdbFrequencyRank(options) {
-    if (options.card.source === "jiten" || options.card.reviewSource === "jiten-api") return null;
-    return options.card.frequencyRank;
+  function liveFrequencyRank(options, provider) {
+    return options.frequencyRanks?.[provider]?.rank ?? null;
   }
   function localFrequencyProvider(dictionary) {
     const normalized = dictionary.toLowerCase();
@@ -91818,14 +92031,14 @@ ${entry.url}`),
       getSettings: () => this.settings,
       isJpdbBackedCard: (card) => this.parser.isJpdbBackedCard(card),
       renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
         card,
         jpdbUrl,
         settings: this.settings,
         metaEntries,
         overrideQuery,
         ankiLookup,
-        jitenVocabularyInfo,
+        frequencyRanks,
         isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)
       }),
@@ -92150,23 +92363,27 @@ ${entry.url}`),
           userGesture: options?.userGesture
         }),
         loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
+        hydrateFrequencyRanks: (card) => this.cardRenderData.load(card).hydrateFrequencyRanks?.() ?? Promise.resolve({}),
         hydrateBunproDefinitionInfo: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
+        hydrateBunproDefinitionResult: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionResult?.() ?? Promise.resolve({ info: null, status: { state: "client-unavailable" } }),
         renderSearchDefinitionSources: (card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries2, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
-        renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
+        renderSearchWordPills: (card, metaEntries, ankiLookup, frequencyRanks) => renderWordPills({
           card,
           jpdbUrl: jpdbVocabularyUrl$1(card),
           settings: this.settings,
           metaEntries,
           ankiLookup,
+          frequencyRanks,
           isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
           dictionaryLabel: (name) => this.dictionaryLabel(name)
         }),
-        renderStudyWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
+        renderStudyWordPills: (card, metaEntries, ankiLookup, frequencyRanks) => renderWordPills({
           card,
           jpdbUrl: jpdbVocabularyUrl$1(card),
           settings: this.settings,
           metaEntries,
           ankiLookup,
+          frequencyRanks,
           isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
           dictionaryLabel: (name) => this.dictionaryLabel(name)
         }),

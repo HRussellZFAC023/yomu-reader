@@ -363,15 +363,18 @@ type TestHydratedPopupAnkiInternals = {
     settings: typeof DEFAULT_SETTINGS;
     renderCompletedCardPopover: ReturnType<typeof vi.fn>;
     renderHydratedCardAnkiLookup(
-        popover: HTMLElement,
-        card: JPDBCard,
-        sentence: string | undefined,
-        trigger: 'modal' | 'hover',
-        state: { data: CardRenderData },
+        context: TestCardPopoverHydrationContext,
         renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
-        requestId: number,
-        isCurrentHoverCard: () => boolean,
     ): void;
+};
+type TestCardPopoverHydrationContext = {
+    popover: HTMLElement;
+    card: JPDBCard;
+    sentence: string | undefined;
+    trigger: 'modal' | 'hover';
+    state: { data: CardRenderData };
+    requestId: number;
+    isCurrentHoverCard: () => boolean;
 };
 type KanjiGraphPoint = { x: number; y: number };
 type KanjiGraphGeometry = KanjiGraphPoint & { rx: number; ry: number };
@@ -531,6 +534,22 @@ function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}, overrid
         dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
         dictionaryLabel: name => name,
         ...overrides,
+    });
+}
+
+function testCardPopoverRendererWithWordPills(settings: ReaderSettings): CardPopoverRenderer {
+    return testCardPopoverRenderer(settings, {
+        renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
+            card: lookupCard,
+            jpdbUrl,
+            metaEntries,
+            overrideQuery,
+            ankiLookup,
+            frequencyRanks,
+            settings,
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        }),
     });
 }
 
@@ -2443,14 +2462,16 @@ async function expectHydratedPopupAnkiRender(options: {
     ankiLookup: unknown;
 }): Promise<void> {
     options.internals.renderHydratedCardAnkiLookup(
-        options.popover,
-        options.lookupCard,
-        options.sentence,
-        'modal',
-        { data: options.data },
+        {
+            popover: options.popover,
+            card: options.lookupCard,
+            sentence: options.sentence,
+            trigger: 'modal',
+            state: { data: options.data },
+            requestId: 1,
+            isCurrentHoverCard: () => true,
+        },
         options.renderData,
-        1,
-        () => true,
     );
 
     await vi.waitFor(() => expect(options.renderCompletedCardPopover).toHaveBeenCalled());
@@ -5707,21 +5728,11 @@ describe('reader helpers', () => {
             jpdbMiningEnabled: true,
             ankiEnabled: true,
         };
-        const renderer = testCardPopoverRenderer(settings, {
-            renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
-                card: lookupCard,
-                jpdbUrl,
-                metaEntries,
-                overrideQuery,
-                ankiLookup,
-                jitenVocabularyInfo,
-                settings,
-                isJpdbBackedCard: () => true,
-                dictionaryLabel: name => name,
-            }),
-        });
+        const renderer = testCardPopoverRendererWithWordPills(settings);
 
-        document.body.innerHTML = renderModalCard(renderer, { ...card, frequencyRank: 2600, cardState: ['not-in-deck'] }, '前後です。');
+        document.body.innerHTML = renderModalCard(renderer, { ...card, frequencyRank: 2600, cardState: ['not-in-deck'] }, '前後です。', {
+            frequencyRanks: { jpdb: { provider: 'jpdb', rank: 2600, spelling: card.spelling, reading: card.reading, source: 'card' } },
+        });
         const metaText = readerMetaText();
 
         expect(metaText).not.toContain('#2600');
@@ -5740,26 +5751,16 @@ describe('reader helpers', () => {
             apiKey: '',
             jpdbMiningEnabled: true,
         };
-        const renderer = testCardPopoverRenderer(settings, {
-            renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
-                card: lookupCard,
-                jpdbUrl,
-                metaEntries,
-                overrideQuery,
-                ankiLookup,
-                jitenVocabularyInfo,
-                settings,
-                isJpdbBackedCard: () => true,
-                dictionaryLabel: name => name,
-            }),
-        });
+        const renderer = testCardPopoverRendererWithWordPills(settings);
 
         document.body.innerHTML = renderModalCard(renderer, {
             ...card,
             source: 'local',
             frequencyRank: 18447,
             cardState: ['not-in-deck'],
-        }, '図鑑を読む。');
+        }, '図鑑を読む。', {
+            metaEntries: [{ expression: card.spelling, mode: 'freq', data: { frequency: 18447 }, dictionary: 'JPDBv2' }],
+        });
 
         expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-pill.jpdb-reader-frequency-pill')).toBeNull();
         const jpdbPill = document.querySelector<HTMLElement>('.jpdb-reader-heading .jpdb-reader-jpdb-pill');
@@ -5853,6 +5854,7 @@ describe('reader helpers', () => {
             card: jitenCard,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
             settings: baseSettings,
+            frequencyRanks: { jiten: { provider: 'jiten', rank: 18447, spelling: jitenCard.spelling, reading: jitenCard.reading, source: 'card' } },
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
@@ -5864,6 +5866,7 @@ describe('reader helpers', () => {
             card: jitenCard,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
             settings: { ...baseSettings, showLookupPillFrequency: false },
+            frequencyRanks: { jiten: { provider: 'jiten', rank: 18447, spelling: jitenCard.spelling, reading: jitenCard.reading, source: 'card' } },
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
@@ -5884,6 +5887,7 @@ describe('reader helpers', () => {
                 // jiten-frequency enabled, but the jiten link pill that would carry it is off.
                 dictionaryLookupLinks: defaultDictionaryLookupLinks('local').map(link => link.id === 'jiten' ? { ...link, enabled: false } : link),
             },
+            frequencyRanks: { jiten: { provider: 'jiten', rank: 18447, spelling: jitenCard.spelling, reading: jitenCard.reading, source: 'card' } },
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
@@ -5902,13 +5906,14 @@ describe('reader helpers', () => {
                 dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
             },
             overrideQuery: '食',
+            frequencyRanks: { jiten: { provider: 'jiten', rank: 18447, spelling: jitenCard.spelling, reading: jitenCard.reading, source: 'card' } },
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
         expect(html).not.toContain('#18447');
     });
 
-    it('renders installed Jiten frequency metadata as a lookup pill', () => {
+    it('merges installed Jiten frequency metadata into its own provider lookup pill', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             interfaceLanguage: 'en' as const,
@@ -5928,9 +5933,8 @@ describe('reader helpers', () => {
             dictionaryLabel: name => settings.dictionaryPreferences.find(preference => preference.name === name)?.alias ?? name,
         });
 
-        expect(html).toContain('class="jpdb-reader-pill jpdb-reader-frequency-pill"');
-        expect(html).toContain('data-dictionary="Jiten"');
-        expect(html).toContain('>Jiten #123</span>');
+        expect(html).not.toContain('jpdb-reader-frequency-pill');
+        expect(html).toContain('>Jiten #123 ');
 
         const disabledHtml = renderWordPills({
             card,
@@ -6145,7 +6149,7 @@ describe('reader helpers', () => {
             undefined,
             'hover',
             { state: 'not-in-deck', notes: [], primary: null },
-            null,
+            undefined,
         );
     });
 
@@ -31284,14 +31288,8 @@ describe('reader helpers', () => {
             activePopover: HTMLElement;
             renderCompletedCardPopover: typeof renderCompletedCardPopover;
             renderHydratedCardAnkiLookup(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                trigger: 'modal' | 'hover',
-                state: { data: CardRenderData },
+                context: TestCardPopoverHydrationContext,
                 renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
-                requestId: number,
-                isCurrentHoverCard: () => boolean,
             ): void;
         };
         internals.activePopover = popover;
@@ -31299,14 +31297,16 @@ describe('reader helpers', () => {
 
         try {
             internals.renderHydratedCardAnkiLookup(
-                popover,
-                lookupCard,
-                '連続して読む。',
-                'hover',
-                { data },
+                {
+                    popover,
+                    card: lookupCard,
+                    sentence: '連続して読む。',
+                    trigger: 'hover',
+                    state: { data },
+                    requestId: 1,
+                    isCurrentHoverCard: () => currentHover,
+                },
                 { hydrateAnkiLookup },
-                1,
-                () => currentHover,
             );
 
             expect(hydrateAnkiLookup).not.toHaveBeenCalled();

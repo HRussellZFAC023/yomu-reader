@@ -311,14 +311,14 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             ankiLookup,
-            jitenVocabularyInfo,
+            frequencyRanks,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -658,23 +658,28 @@ export class NewTabRuntime {
                 userGesture: options?.userGesture,
             }),
             loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
+            hydrateFrequencyRanks: card => this.cardRenderData.load(card).hydrateFrequencyRanks?.() ?? Promise.resolve({}),
             hydrateBunproDefinitionInfo: card => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
+            hydrateBunproDefinitionResult: card => this.cardRenderData.load(card).hydrateBunproDefinitionResult?.()
+                ?? Promise.resolve({ info: null, status: { state: 'client-unavailable' } }),
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, { includeStudySources: false }),
-            renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
+            renderSearchWordPills: (card, metaEntries, ankiLookup, frequencyRanks) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
                 settings: this.settings,
                 metaEntries,
                 ankiLookup,
+                frequencyRanks,
                 isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
-            renderStudyWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
+            renderStudyWordPills: (card, metaEntries, ankiLookup, frequencyRanks) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
                 settings: this.settings,
                 metaEntries,
                 ankiLookup,
+                frequencyRanks,
                 isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),

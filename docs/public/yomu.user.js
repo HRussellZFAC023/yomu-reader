@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.162#sha256=OaPPX019KRmIq2wxeZ36FTnQkt/HfGeA3El8H1JsF84=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.162#sha256=KmJbEemcwTCfmwdxJuIjywBdF2JQLG6nIy38HiduDII=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.162#sha256=CHmfGNMfBtQQYIGY2kTYUUknEzNahN9OnKl2diUcMv0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.162#sha256=Nbp1yNsEqAikl6h0j3rWtHHtbOV6nSDr6oVqSK5qQHk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.162#sha256=/CIaSCfcMBRtonPAyw7irqWS5INBAg1cYD0XR0hAQMY=
 // @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.162#sha256=kIcDmA+zeD2zZazdkHM2/1w7eaS3oxSVpUG4fdQngEQ=
 // @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.162#sha256=HqmVZP5DwnL0HQOGtmXqfHzPZM660+tlU+obHoRpp/c=
 // @connect api.jiten.moe
@@ -14803,6 +14803,24 @@ function candidateKey(candidate) {
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
 }
+function extractFrequency(value) {
+  const rank = frequencyRank$1(value);
+  return Number.isFinite(rank) ? rank : void 0;
+}
+function frequencyRank$1(value) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return rankFromFrequencyString(value);
+  const nested = nestedFrequencyValue(value);
+  return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank$1(nested);
+}
+function rankFromFrequencyString(value) {
+  return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+}
+function nestedFrequencyValue(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const record = value;
+  return record.frequency ?? record.value ?? record.displayValue;
+}
 Logger.scope("Yomitan");
 const GLOSSARY_DISPLAY_TEXT_KEYS = new Set(["text", "content", "description", "alt", "title"]);
 function glossaryValueToText(value) {
@@ -16272,6 +16290,11 @@ function getPitchClass(pitchAccent, reading) {
   const pattern = contextPitchPattern(pitchAccent, reading);
   return pattern ? pitchClassNameForPattern(pattern, reading) : "";
 }
+function bunproDefinitionStatusAttributes(status) {
+  if (!status) return "";
+  const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$1(status.reason)}"` : "";
+  return ` data-bunpro-definition-status="${escapeHtml$1(status.state)}"${reason}`;
+}
 class CardPopoverRenderer {
   constructor(dependencies) {
   this.dependencies = dependencies;
@@ -16286,7 +16309,7 @@ class CardPopoverRenderer {
   const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes("jpdb-reader-anki-existing") ? ankiSourceSection : "";
   return `
             <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body">
+            <div class="jpdb-reader-popover-body"${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
@@ -16339,7 +16362,7 @@ class CardPopoverRenderer {
   return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.jitenVocabularyInfo ?? null)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
@@ -16909,16 +16932,17 @@ function cardKey(card) {
   return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
 }
 const BUNPRO_EXAMPLE_LIMIT = 10;
-async function lookupBunproDefinition(client, card) {
+async function lookupBunproDefinitionResult(client, card) {
   const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-  const info = normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+  const result = selectBunproDefinitionSearch(raw, card.spelling, card.reading, {
   id: card.bunproReviewableId,
   kind: bunproDefinitionKind(card.bunproReviewableType)
   });
-  if (!info) return null;
+  if (!result.info) return result;
+  const info = result.info;
   const detail = await bunproReviewableDetail(client, info).catch(() => null);
   if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
-  return info;
+  return { state: "success", info };
 }
 function bunproReviewableDetail(client, info) {
   return info.kind === "vocabulary" ? client.getVocab(info.slug || info.id) : client.getGrammarPoint(info.id);
@@ -16968,30 +16992,46 @@ function decodeBasicEntities(value) {
 function bunproHttpsUrl(value) {
   return value.startsWith("https://") ? value : "";
 }
-function normalizeBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
-  const candidates = [
+function selectBunproDefinitionSearch(raw, expression, reading = "", selection = {}) {
+  const candidates = bunproDefinitionCandidates(raw);
+  if (!candidates.length) return noBunproMatch("no-results");
+  const selectedById = selectBunproDefinitionById(candidates, selection);
+  if (selectedById) return selectedById;
+  const eligible = selection.kind ? candidates.filter((item) => item.kind === selection.kind) : candidates;
+  return selectExactBunproDefinition(eligible, expression, reading);
+}
+function bunproDefinitionCandidates(raw) {
+  return [
   ...searchItems(raw, "vocabs").map((item) => definitionInfo(item, "vocabulary")),
   ...searchItems(raw, "grammar_points").map((item) => definitionInfo(item, "grammar"))
   ].filter((item) => item !== null);
-  if (!candidates.length) return null;
-  const expectedKind = selection.kind;
+}
+function selectBunproDefinitionById(candidates, selection) {
   const expectedId = numberValue(selection.id);
-  if (expectedId) {
-  return candidates.find((item) => item.id === expectedId && (!expectedKind || item.kind === expectedKind)) ?? null;
-  }
-  const eligible = expectedKind ? candidates.filter((item) => item.kind === expectedKind) : candidates;
+  if (!expectedId) return null;
+  const info = candidates.find((item) => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
+  return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
+}
+function selectExactBunproDefinition(candidates, expression, reading) {
   const normalizedExpression = normalizedLookupText$2(expression);
-  const exactExpression = eligible.filter((item) => normalizedLookupText$2(item.expression) === normalizedExpression);
-  if (!exactExpression.length) return null;
-  if (reading) {
+  const exactExpression = candidates.filter((item) => normalizedLookupText$2(item.expression) === normalizedExpression);
+  if (!exactExpression.length) return noBunproMatch("expression-mismatch");
+  return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
+}
+function selectExactBunproReading(candidates, reading) {
   const normalizedReading = normalizedLookupText$2(reading);
-  const exactReading = exactExpression.filter((item) => normalizedLookupText$2(item.reading) === normalizedReading);
-  if (exactReading.length === 1) return exactReading[0] ?? null;
-  if (exactReading.length > 1 && sameDefinitionIdentity(exactReading)) return exactReading[0] ?? null;
-  return null;
-  }
-  if (exactExpression.length === 1 || sameDefinitionIdentity(exactExpression)) return exactExpression[0] ?? null;
-  return null;
+  const exactReading = candidates.filter((item) => normalizedLookupText$2(item.reading) === normalizedReading);
+  return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
+}
+function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
+  if (candidates.length === 1 || sameDefinitionIdentity(candidates)) return bunproMatch(candidates[0]);
+  return noBunproMatch(ambiguousReason);
+}
+function bunproMatch(info) {
+  return { state: "success", info };
+}
+function noBunproMatch(reason) {
+  return { state: "no-match", reason, info: null };
 }
 function renderBunproDefinitionSource(card, sourceAttributes, info, language, title = "Bunpro") {
   if (!info) return "";
@@ -17131,12 +17171,72 @@ function numberValue(value) {
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
+function frequencyProviderForLookupId(id) {
+  if (id === "jiten-frequency") return "jiten";
+  if (id === "jpdb-frequency") return "jpdb";
+  return null;
+}
+function liveFrequencyEnabled(settings, provider) {
+  const frequencyEnabled = settings.dictionaryLookupLinks.some(
+  (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+  );
+  const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+  return frequencyEnabled && lookupEnabled;
+}
+function cardFrequencyRanks(card, isJpdbBackedCard) {
+  const rank = frequencyRank(card.frequencyRank);
+  if (!rank) return {};
+  const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+  return provider ? {
+  [provider]: rankEvidence(provider, rank, card, "card")
+  } : {};
+}
+function jitenFrequencyRankForCard(card, info) {
+  const rank = frequencyRank(info?.mainReading?.frequencyRank);
+  return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
+}
+function exactJitenFrequencyRank(card, candidates) {
+  return exactSearchFrequencyRank("jiten", card, candidates);
+}
+function exactJpdbFrequencyRank(card, candidates) {
+  return exactSearchFrequencyRank("jpdb", card, candidates);
+}
+function exactSearchFrequencyRank(provider, card, candidates) {
+  const spelling = normalizeIdentityText(card.spelling);
+  const reading = normalizeIdentityText(card.reading);
+  const matches = candidates.filter(
+  (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading
+  );
+  if (matches.length !== 1) return null;
+  const match = matches[0];
+  const rank = frequencyRank(match?.frequencyRank);
+  return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
+}
+function withFrequencyRank(ranks, evidence) {
+  return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
+}
+function rankEvidence(provider, rank, card, source) {
+  return {
+  provider,
+  rank,
+  spelling: normalizeIdentityText(card.spelling),
+  reading: normalizeIdentityText(card.reading),
+  source
+  };
+}
+function frequencyRank(value) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+}
+function normalizeIdentityText(value) {
+  return value.normalize("NFKC").trim();
+}
 const log$f = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
 const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4e3;
 const CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS = 4e3;
+const CARD_RENDER_FREQUENCY_TIMEOUT_MS = 4e3;
 const CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS = 4e3;
 const CARD_RENDER_ANKI_TIMEOUT_MS = 4e3;
 const CARD_RENDER_DECK_TIMEOUT_MS = 1500;
@@ -17147,7 +17247,7 @@ const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
 const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
 const CARD_RENDER_META_LOOKUP_LIMIT = 12;
 const EXPRESSION_CONNECTIVE_KANA = new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
-function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null) {
+function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, frequencyRanks = {}, bunproDefinitionStatus = { state: "loading" }) {
   return {
   localEntries,
   kanjiEntries: [],
@@ -17158,7 +17258,9 @@ function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbV
   ankiDecks: [],
   jpdbVocabularyInfo,
   jitenVocabularyInfo,
+  frequencyRanks,
   bunproDefinitionInfo,
+  bunproDefinitionStatus,
   expressionComponents: [],
   loading: true
   };
@@ -17191,6 +17293,7 @@ class CardRenderDataLoader {
   return load;
   }
   fetch(card, options) {
+  const settings = this.settings();
   const localEntries = this.loadLocalTermEntries(card);
   const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
     if (localMeta.completed) {
@@ -17210,16 +17313,23 @@ class CardRenderDataLoader {
   };
   const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
   const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-  const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
-  const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null);
-  const bunproDefinitionLookup = options.includeBunproDefinition === false ? Promise.resolve(null) : this.lookupBunproDefinitionInfo(card);
-  const bunproDefinitionInfo = this.withFallback(
+  const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
+  const seededFrequencyRanks = {};
+  if (liveFrequencyEnabled(settings, "jiten") && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
+  if (liveFrequencyEnabled(settings, "jpdb") && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
+  const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled);
+  const jitenVocabularyInfo = settings.jitenDefinitionsEnabled ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null) : Promise.resolve(null);
+  const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks);
+  const bunproDefinitionLookup = this.lookupBunproDefinitionResult(card, options.includeBunproDefinition !== false);
+  const bunproDefinitionResult = this.withFallback(
     card,
     CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
     "Bunpro definition",
     bunproDefinitionLookup,
-    null
+    { info: null, status: { state: "timeout" } }
   );
+  const bunproDefinitionInfo = bunproDefinitionResult.then((result) => result.info);
+  const bunproDefinitionStatus = bunproDefinitionResult.then((result) => result.status);
   const expressionComponents = this.withFallback(
     card,
     CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
@@ -17237,10 +17347,11 @@ class CardRenderDataLoader {
   void pitchAccent.catch(() => void 0);
   void jpdbDeckMembership.catch(() => void 0);
   void jitenVocabularyInfo.catch(() => void 0);
+  void frequencyRankLoad.initial.catch(() => void 0);
   void bunproDefinitionInfo.catch(() => void 0);
   void expressionComponents.catch(() => void 0);
   void componentPitches.catch(() => void 0);
-  const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches);
+  const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRankLoad.initial, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches);
   return {
     localEntries,
     localMetaEntries,
@@ -17250,8 +17361,12 @@ class CardRenderDataLoader {
     jpdbVocabularyInfo,
     jitenVocabularyInfo,
     hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
+    frequencyRanks: frequencyRankLoad.initial,
+    hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
     bunproDefinitionInfo,
-    hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
+    bunproDefinitionStatus,
+    hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result) => result.info),
+    hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
     all
   };
   }
@@ -17312,9 +17427,8 @@ class CardRenderDataLoader {
     return null;
   }), null);
   }
-  loadJitenVocabularyInfo(card) {
-  const settings = this.settings();
-  if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+  loadJitenVocabularyInfo(card, enabled) {
+  if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
   return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
     this.applyJitenVocabularyInfoPitchAccent(card, info);
     return info;
@@ -17323,12 +17437,51 @@ class CardRenderDataLoader {
     return null;
   });
   }
-  lookupBunproDefinitionInfo(card) {
+  loadFrequencyRanks(card, jitenVocabularyLookup, seeded) {
   const settings = this.settings();
-  if (!settings.bunproDefinitionsEnabled || !this.dependencies.bunpro || !hasBunproFrontendCredential(settings) || isBunproFrontendCredentialExpired(settings)) return Promise.resolve(null);
-  return lookupBunproDefinition(this.dependencies.bunpro, card).catch((error) => {
-    log$f.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+  const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
+  const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
+    log$f.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
     return null;
+  }) : Promise.resolve(null) : Promise.resolve(null);
+  const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
+  const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
+    log$f.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+    return null;
+  }) : Promise.resolve(null);
+  const combine = ([jitenRank, jpdbRank]) => withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank);
+  return {
+    initial: Promise.all([
+      this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, "Jiten frequency rank", jiten, null),
+      this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, "JPDB frequency rank", jpdb, null)
+    ]).then(combine),
+    hydrated: Promise.all([jiten, jpdb]).then(combine)
+  };
+  }
+  lookupBunproDefinitionResult(card, included) {
+  const settings = this.settings();
+  if (!included) return Promise.resolve({ info: null, status: { state: "disabled", reason: "load-excluded" } });
+  if (!settings.bunproDefinitionsEnabled) return Promise.resolve({ info: null, status: { state: "disabled", reason: "definitions-disabled" } });
+  if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
+  if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
+  if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
+  const startedAt = performance.now();
+  log$f.debug("Bunpro definition lookup started", { term: card.spelling });
+  return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
+    const resolved = {
+      info: result.info,
+      status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
+    };
+    log$f.debug("Bunpro definition lookup completed", {
+      term: card.spelling,
+      state: resolved.status.state,
+      reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
+      durationMs: Math.round(performance.now() - startedAt)
+    });
+    return resolved;
+  }).catch((error) => {
+    log$f.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+    return { info: null, status: { state: "error" } };
   });
   }
   loadFastAnkiLookup(card) {
@@ -17395,7 +17548,7 @@ class CardRenderDataLoader {
     return false;
   }), false);
   }
-  loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches) {
+  loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches) {
   const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
   const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
   return Promise.all([
@@ -17409,13 +17562,15 @@ class CardRenderDataLoader {
     jpdbDeckMembership,
     jpdbVocabularyInfo,
     jitenVocabularyInfo,
+    frequencyRanks,
     bunproDefinitionInfo,
+    bunproDefinitionStatus,
     expressionComponents.catch(() => []),
     componentPitches.catch(() => []),
     ankiFieldTargetPlan
-  ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
+  ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, frequencyRanks2, bunproDefinitionInfo2, bunproDefinitionStatus2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
     if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-    return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
+    return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, frequencyRanks: frequencyRanks2, bunproDefinitionInfo: bunproDefinitionInfo2, bunproDefinitionStatus: bunproDefinitionStatus2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
   });
   }
   async loadExpressionComponents(card, localEntries, jitenVocabularyInfo) {
@@ -17563,6 +17718,13 @@ class CardRenderDataLoader {
   const settings = this.settings();
   return JSON.stringify({
     card: cardKey(card),
+    cardFrequency: {
+      rank: card.frequencyRank,
+      source: card.source,
+      reviewSource: card.reviewSource,
+      jitenWordId: card.jitenWordId,
+      jitenReadingIndex: card.jitenReadingIndex
+    },
     local: settings.localDictionariesEnabled,
     kanji: settings.localDictionaryShowKanji,
     max: settings.localDictionaryMaxResults,
@@ -17574,6 +17736,10 @@ class CardRenderDataLoader {
     ankiMobileHandoff: settings.ankiMobileHandoff,
     jpdbDefinitions: settings.jpdbDefinitionsEnabled,
     jitenDefinitions: settings.jitenDefinitionsEnabled,
+    liveFrequency: {
+      jiten: liveFrequencyEnabled(settings, "jiten"),
+      jpdb: liveFrequencyEnabled(settings, "jpdb")
+    },
     bunproDefinitions: settings.bunproDefinitionsEnabled,
     includeBunproDefinition: options.includeBunproDefinition !== false,
     apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
@@ -21099,7 +21265,7 @@ function jpdbVocabularyToCards(vocabulary) {
     rid,
     spelling,
     reading,
-    frequencyRank,
+    frequencyRank2,
     partOfSpeech,
     meaningsChunks,
     meaningsPartOfSpeech,
@@ -21114,7 +21280,7 @@ function jpdbVocabularyToCards(vocabulary) {
     rid,
     spelling,
     reading,
-    frequencyRank,
+    frequencyRank: frequencyRank2,
     partOfSpeech,
     meanings: (meaningsChunks ?? []).map((glosses, index) => ({
       glosses,
@@ -30492,31 +30658,49 @@ function renderCopyPill(language, query, style = lookupPillStyle("copy"), inert 
   return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
 }
 function frequencyPillsByLookupId(options) {
-  const localLabel = (dictionary) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
-  const pills = new Map();
-  const mergedLiveRanks = new Map();
-  const localProviders = new Set();
-  for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
-  if (entry.mode !== "freq" || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
-  const html = renderFrequencyPill(entry, localLabel);
-  if (html) {
-    pills.set(localFrequencyLookupPillId(entry.dictionary), html);
-    const provider = localFrequencyProvider(entry.dictionary);
-    if (provider) localProviders.add(provider);
-  }
-  }
-  if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
   const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
   const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
+  const state = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
+  if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
+  mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds);
+  }
+  return { pills: state.pills, mergedLiveRanks: state.mergedLiveRanks };
+}
+function localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds) {
+  const localLabel = (dictionary) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
+  const state = {
+  pills: new Map(),
+  mergedLiveRanks: new Map(),
+  localProviders: new Set()
+  };
+  for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
+  mergeLocalFrequencyEntry(options, state, entry, localLabel, mergeIntoLinkPill, enabledLinkIds);
+  }
+  return state;
+}
+function mergeLocalFrequencyEntry(options, state, entry, localLabel, mergeIntoLinkPill, enabledLinkIds) {
+  if (entry.mode !== "freq" || !localFrequencyEnabled(options.settings, entry.dictionary)) return;
+  const provider = localFrequencyProvider(entry.dictionary);
+  const rank = extractFrequency(entry.data);
+  if (provider && rank && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
+  state.mergedLiveRanks.set(provider, rank);
+  state.localProviders.add(provider);
+  return;
+  }
+  const html = renderFrequencyPill(entry, localLabel);
+  if (!html) return;
+  state.pills.set(localFrequencyLookupPillId(entry.dictionary), html);
+  if (provider) state.localProviders.add(provider);
+}
+function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds) {
   for (const link of options.settings.dictionaryLookupLinks) {
   if (link.action !== "frequency-live" || !link.enabled) continue;
   const provider = liveFrequencyProvider(link);
-  if (!provider || localProviders.has(provider)) continue;
-  const rank = provider === "jiten" ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+  if (!provider || state.localProviders.has(provider)) continue;
+  const rank = liveFrequencyRank(options, provider);
   if (!rank) continue;
-  if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
+  if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, rank);
   }
-  return { pills, mergedLiveRanks };
 }
 function localFrequencyEnabled(settings, dictionary) {
   const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
@@ -30530,17 +30714,10 @@ function localFrequencyLookupPillId(dictionary) {
   return `frequency-local:${dictionary}`;
 }
 function liveFrequencyProvider(link) {
-  if (link.id === "jiten-frequency") return "jiten";
-  if (link.id === "jpdb-frequency") return "jpdb";
-  return null;
+  return frequencyProviderForLookupId(link.id);
 }
-function liveJitenFrequencyRank(options) {
-  if (options.card.source === "jiten" || options.card.reviewSource === "jiten-api") return options.card.frequencyRank;
-  return options.jitenVocabularyInfo?.mainReading?.frequencyRank ?? null;
-}
-function liveJpdbFrequencyRank(options) {
-  if (options.card.source === "jiten" || options.card.reviewSource === "jiten-api") return null;
-  return options.card.frequencyRank;
+function liveFrequencyRank(options, provider) {
+  return options.frequencyRanks?.[provider]?.rank ?? null;
 }
 function localFrequencyProvider(dictionary) {
   const normalized = dictionary.toLowerCase();
@@ -37136,14 +37313,14 @@ class ReaderApp {
   getSettings: () => this.settings,
   isJpdbBackedCard: (card) => this.isJpdbBackedCard(card),
   renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-  renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+  renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
     card,
     jpdbUrl,
     settings: this.settings,
     metaEntries,
     overrideQuery,
     ankiLookup,
-    jitenVocabularyInfo,
+    frequencyRanks,
     isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
     dictionaryLabel: (name) => this.dictionaryLabel(name)
   }),
@@ -41027,24 +41204,48 @@ class ReaderApp {
     void this.refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, mounted.requestId, isCurrentHoverCard);
   }
   try {
-    if (trigger === "hover") {
-      await waitForHoverCardInitialPaint();
-      if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-    }
-    renderData = loadRenderData();
-    const renderState = { fullRenderCompleted: false };
-    this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
-    const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
-    renderState.fullRenderCompleted = true;
-    if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-    this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
-    const hydrationState = { data: fullData };
-    this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
-    this.renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
-    this.renderHydratedCardBunproDefinition(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+    await this.completeMountedCardRender({
+      popover,
+      card,
+      sentence,
+      trigger,
+      isCurrentHoverCard,
+      anchor,
+      mounted,
+      fallbackAnkiLookup,
+      loadRenderData
+    });
   } finally {
     done();
   }
+  }
+  async completeMountedCardRender(context) {
+  const { popover, card, sentence, trigger, mounted, fallbackAnkiLookup, isCurrentHoverCard, anchor } = context;
+  if (trigger === "hover") {
+    await waitForHoverCardInitialPaint();
+    if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+  }
+  const renderData = context.loadRenderData();
+  const renderState = { fullRenderCompleted: false };
+  this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
+  const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
+  renderState.fullRenderCompleted = true;
+  if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+  this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
+  const hydrationContext = {
+    popover,
+    card,
+    sentence,
+    trigger,
+    state: { data: fullData },
+    requestId: mounted.requestId,
+    isCurrentHoverCard,
+    anchor
+  };
+  this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
+  this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
+  this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
+  this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
   }
   async refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, requestId, isCurrentHoverCard) {
   if (!this.shouldResolveAfterSkippedInitialCardResolution(card)) return;
@@ -41216,6 +41417,7 @@ class ReaderApp {
   let metaEntriesValue = [];
   let jpdbVocabularyInfoValue = null;
   let jitenVocabularyInfoValue = null;
+  let frequencyRanksValue = {};
   let ankiLookupValue;
   let renderedPitchKey = card.pitchAccent.join("|");
   let loadingRenderFrame;
@@ -41236,7 +41438,9 @@ class ReaderApp {
         ankiLookupValue ?? this.lastAnkiLookup ?? fallbackAnkiLookup,
         metaEntriesValue,
         jpdbVocabularyInfoValue,
-        jitenVocabularyInfoValue
+        jitenVocabularyInfoValue,
+        null,
+        frequencyRanksValue
       )
     ));
     this.restorePreservedImmersionMount(popover, preservedImmersion);
@@ -41261,7 +41465,7 @@ class ReaderApp {
     void renderData.localMetaEntries.then((metaEntries) => {
       metaEntriesValue = metaEntries;
       if (!canRenderLoading()) return;
-      this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
+      this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
     });
   }
   if (renderData.jpdbVocabularyInfo) {
@@ -41273,8 +41477,13 @@ class ReaderApp {
   if (renderData.jitenVocabularyInfo) {
     void renderData.jitenVocabularyInfo.then((jitenVocabularyInfo) => {
       jitenVocabularyInfoValue = jitenVocabularyInfo;
-      if (jitenVocabularyInfoValue && canRenderLoading()) this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
       renderLoading();
+    });
+  }
+  if (renderData.frequencyRanks) {
+    void renderData.frequencyRanks.then((frequencyRanks) => {
+      frequencyRanksValue = frequencyRanks;
+      if (canRenderLoading()) this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
     });
   }
   if (renderData.ankiLookup) {
@@ -41294,26 +41503,26 @@ class ReaderApp {
     if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
     if (renderedPitchKey === card.pitchAccent.join("|")) return;
     renderedPitchKey = card.pitchAccent.join("|");
-    this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
+    this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
   });
   }
   installDeferredCardPostRenderBehaviors(popover, card, sentence, trigger) {
   this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {});
   }
-  updateDeferredCardHeader(popover, card, metaEntries, trigger = "modal", anchor, ankiLookup, jitenVocabularyInfo) {
+  updateDeferredCardHeader(popover, card, metaEntries, trigger = "modal", anchor, ankiLookup, frequencyRanks) {
   this.applyPitchAccentToRenderedWords(card, void 0, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
-  this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup, jitenVocabularyInfo);
+  this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup, frequencyRanks);
   this.updatePopoverPitch(popover, card, metaEntries);
   this.updateCardPopoverPosition(trigger);
   }
-  updatePopoverWordPills(popover, card, metaEntries, ankiLookup, jitenVocabularyInfo) {
+  updatePopoverWordPills(popover, card, metaEntries, ankiLookup, frequencyRanks) {
   updateHeadingWordPills(popover, {
     card,
     jpdbUrl: jpdbVocabularyUrl$1(card),
     settings: this.settings,
     metaEntries,
     ankiLookup,
-    jitenVocabularyInfo,
+    frequencyRanks,
     isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
     dictionaryLabel: (name) => this.dictionaryLabel(name)
   });
@@ -41362,7 +41571,8 @@ class ReaderApp {
   isActivePopoverRender(popover) {
   return !this.isDestroyed && popover.isConnected && this.activePopover === popover;
   }
-  renderHydratedCardAnkiLookup(popover, card, sentence, trigger, state, renderData, requestId, isCurrentHoverCard, anchor) {
+  renderHydratedCardAnkiLookup(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
   if (!this.shouldRunAnkiBackgroundWork()) return;
   const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
   if (!hydrateAnkiLookup) return;
@@ -41390,7 +41600,8 @@ class ReaderApp {
   }
   hydrate();
   }
-  renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, state, renderData, requestId, isCurrentHoverCard, anchor) {
+  renderHydratedCardJitenVocabulary(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
   if (state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
   void renderData.hydrateJitenVocabularyInfo().then((info) => {
     if (!info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
@@ -41398,11 +41609,29 @@ class ReaderApp {
     this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
   }).catch((error) => log.debug("Popup Jiten vocabulary hydration failed", { term: card.spelling, error }));
   }
-  renderHydratedCardBunproDefinition(popover, card, sentence, trigger, state, renderData, requestId, isCurrentHoverCard, anchor) {
-  if (state.data.bunproDefinitionInfo || !renderData.hydrateBunproDefinitionInfo) return;
-  void renderData.hydrateBunproDefinitionInfo().then((info) => {
-    if (!info || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-    state.data = { ...state.data, bunproDefinitionInfo: info };
+  renderHydratedCardFrequencyRanks(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+  if (!renderData.hydrateFrequencyRanks) return;
+  void renderData.hydrateFrequencyRanks().then((frequencyRanks) => {
+    if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    if (JSON.stringify(state.data.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
+    state.data = { ...state.data, frequencyRanks };
+    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+  }).catch((error) => log.debug("Popup provider frequency hydration failed", { term: card.spelling, error }));
+  }
+  renderHydratedCardBunproDefinition(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+  if (!renderData.hydrateBunproDefinitionResult) return;
+  void renderData.hydrateBunproDefinitionResult().then((result) => {
+    if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    const unchangedInfo = state.data.bunproDefinitionInfo === result.info;
+    const unchangedStatus = JSON.stringify(state.data.bunproDefinitionStatus) === JSON.stringify(result.status);
+    if (unchangedInfo && unchangedStatus) return;
+    state.data = {
+      ...state.data,
+      bunproDefinitionInfo: result.info,
+      bunproDefinitionStatus: result.status
+    };
     this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
   }).catch((error) => log.debug("Popup Bunpro definition hydration failed", { term: card.spelling, error }));
   }

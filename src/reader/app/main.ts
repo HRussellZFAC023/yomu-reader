@@ -8,6 +8,7 @@ import { installReaderControlPointerActivation as installControlPointerActivatio
 import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
+import type { ProviderFrequencyRanks } from '../cards/frequency-ranks';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
@@ -600,6 +601,23 @@ type FullscreenDocument = Document & {
     msFullscreenElement?: Element | null;
 };
 
+interface CardPopoverHydrationContext {
+    popover: HTMLElement;
+    card: JPDBCard;
+    sentence: string | undefined;
+    trigger: 'modal' | 'hover';
+    state: { data: CardRenderData };
+    requestId: number;
+    isCurrentHoverCard: () => boolean;
+    anchor?: HTMLElement;
+}
+
+interface MountedCardCompletionContext extends Omit<CardPopoverHydrationContext, 'state' | 'requestId'> {
+    mounted: MountedCardShell;
+    fallbackAnkiLookup: AnkiLookupResult;
+    loadRenderData: () => CardRenderDataLoad;
+}
+
 function currentFullscreenElement(): Element | null {
     const fullscreenDocument = document as FullscreenDocument;
     return document.fullscreenElement
@@ -686,14 +704,14 @@ export class ReaderApp {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             ankiLookup,
-            jitenVocabularyInfo,
+            frequencyRanks,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -5742,25 +5760,50 @@ export class ReaderApp {
         }
 
         try {
-            if (trigger === 'hover') {
-                await waitForHoverCardInitialPaint();
-                if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-            }
-            renderData = loadRenderData();
-            const renderState = { fullRenderCompleted: false };
-            this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
-
-            const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
-            renderState.fullRenderCompleted = true;
-            if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-            this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
-            const hydrationState = { data: fullData };
-            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
-            this.renderHydratedCardJitenVocabulary(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
-            this.renderHydratedCardBunproDefinition(popover, card, sentence, trigger, hydrationState, renderData, mounted.requestId, isCurrentHoverCard, anchor);
+            await this.completeMountedCardRender({
+                popover,
+                card,
+                sentence,
+                trigger,
+                isCurrentHoverCard,
+                anchor,
+                mounted,
+                fallbackAnkiLookup,
+                loadRenderData,
+            });
         } finally {
             done();
         }
+    }
+
+    private async completeMountedCardRender(context: MountedCardCompletionContext): Promise<void> {
+        const { popover, card, sentence, trigger, mounted, fallbackAnkiLookup, isCurrentHoverCard, anchor } = context;
+        if (trigger === 'hover') {
+            await waitForHoverCardInitialPaint();
+            if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+        }
+        const renderData = context.loadRenderData();
+        const renderState = { fullRenderCompleted: false };
+        this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
+
+        const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
+        renderState.fullRenderCompleted = true;
+        if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+        this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
+        const hydrationContext: CardPopoverHydrationContext = {
+            popover,
+            card,
+            sentence,
+            trigger,
+            state: { data: fullData },
+            requestId: mounted.requestId,
+            isCurrentHoverCard,
+            anchor,
+        };
+        this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
+        this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
+        this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
+        this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
     }
 
     private async refreshSkippedInitialCardResolution(
@@ -6066,6 +6109,7 @@ export class ReaderApp {
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let jpdbVocabularyInfoValue: JpdbVocabularyInfo | null = null;
         let jitenVocabularyInfoValue: JitenVocabularyInfo | null = null;
+        let frequencyRanksValue: ProviderFrequencyRanks = {};
         let ankiLookupValue: AnkiLookupResult | undefined;
         let renderedPitchKey = card.pitchAccent.join('|');
         let loadingRenderFrame: number | undefined;
@@ -6087,6 +6131,8 @@ export class ReaderApp {
                     metaEntriesValue,
                     jpdbVocabularyInfoValue,
                     jitenVocabularyInfoValue,
+                    null,
+                    frequencyRanksValue,
                 ),
             ));
             this.restorePreservedImmersionMount(popover, preservedImmersion);
@@ -6111,7 +6157,7 @@ export class ReaderApp {
             void renderData.localMetaEntries.then(metaEntries => {
                 metaEntriesValue = metaEntries;
                 if (!canRenderLoading()) return;
-                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
+                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
             });
         }
         if (renderData.jpdbVocabularyInfo) {
@@ -6123,8 +6169,13 @@ export class ReaderApp {
         if (renderData.jitenVocabularyInfo) {
             void renderData.jitenVocabularyInfo.then(jitenVocabularyInfo => {
                 jitenVocabularyInfoValue = jitenVocabularyInfo;
-                if (jitenVocabularyInfoValue && canRenderLoading()) this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
                 renderLoading();
+            });
+        }
+        if (renderData.frequencyRanks) {
+            void renderData.frequencyRanks.then(frequencyRanks => {
+                frequencyRanksValue = frequencyRanks;
+                if (canRenderLoading()) this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
             });
         }
         if (renderData.ankiLookup) {
@@ -6144,7 +6195,7 @@ export class ReaderApp {
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             if (renderedPitchKey === card.pitchAccent.join('|')) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
+            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, frequencyRanksValue);
         });
     }
 
@@ -6164,22 +6215,22 @@ export class ReaderApp {
         trigger: 'modal' | 'hover' = 'modal',
         anchor?: HTMLElement,
         ankiLookup?: AnkiLookupResult,
-        jitenVocabularyInfo?: JitenVocabularyInfo | null,
+        frequencyRanks?: ProviderFrequencyRanks,
     ): void {
         this.applyPitchAccentToRenderedWords(card, undefined, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
-        this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup, jitenVocabularyInfo);
+        this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup, frequencyRanks);
         this.updatePopoverPitch(popover, card, metaEntries);
         this.updateCardPopoverPosition(trigger);
     }
 
-    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult, jitenVocabularyInfo?: JitenVocabularyInfo | null): void {
+    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult, frequencyRanks?: ProviderFrequencyRanks): void {
         updateHeadingWordPills(popover, {
             card,
             jpdbUrl: jpdbVocabularyUrl(card),
             settings: this.settings,
             metaEntries,
             ankiLookup,
-            jitenVocabularyInfo,
+            frequencyRanks,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         });
@@ -6248,17 +6299,8 @@ export class ReaderApp {
         return !this.isDestroyed && popover.isConnected && this.activePopover === popover;
     }
 
-    private renderHydratedCardAnkiLookup(
-        popover: HTMLElement,
-        card: JPDBCard,
-        sentence: string | undefined,
-        trigger: 'modal' | 'hover',
-        state: { data: CardRenderData },
-        renderData: CardRenderDataLoad,
-        requestId: number,
-        isCurrentHoverCard: () => boolean,
-        anchor?: HTMLElement,
-    ): void {
+    private renderHydratedCardAnkiLookup(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
         if (!this.shouldRunAnkiBackgroundWork()) return;
         const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
         if (!hydrateAnkiLookup) return;
@@ -6294,17 +6336,8 @@ export class ReaderApp {
     // render lands with no Jiten frequency rank and no Jiten source. Mirror the
     // Bunpro hydration: when the capped result was empty, wait on the uncapped
     // lookup and re-render once it arrives instead of dropping it on the floor.
-    private renderHydratedCardJitenVocabulary(
-        popover: HTMLElement,
-        card: JPDBCard,
-        sentence: string | undefined,
-        trigger: 'modal' | 'hover',
-        state: { data: CardRenderData },
-        renderData: CardRenderDataLoad,
-        requestId: number,
-        isCurrentHoverCard: () => boolean,
-        anchor?: HTMLElement,
-    ): void {
+    private renderHydratedCardJitenVocabulary(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
         if (state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
         void renderData.hydrateJitenVocabularyInfo()
             .then(info => {
@@ -6315,22 +6348,33 @@ export class ReaderApp {
             .catch(error => log.debug('Popup Jiten vocabulary hydration failed', { term: card.spelling, error }));
     }
 
-    private renderHydratedCardBunproDefinition(
-        popover: HTMLElement,
-        card: JPDBCard,
-        sentence: string | undefined,
-        trigger: 'modal' | 'hover',
-        state: { data: CardRenderData },
-        renderData: CardRenderDataLoad,
-        requestId: number,
-        isCurrentHoverCard: () => boolean,
-        anchor?: HTMLElement,
-    ): void {
-        if (state.data.bunproDefinitionInfo || !renderData.hydrateBunproDefinitionInfo) return;
-        void renderData.hydrateBunproDefinitionInfo()
-            .then(info => {
-                if (!info || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-                state.data = { ...state.data, bunproDefinitionInfo: info };
+    private renderHydratedCardFrequencyRanks(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        if (!renderData.hydrateFrequencyRanks) return;
+        void renderData.hydrateFrequencyRanks()
+            .then(frequencyRanks => {
+                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                if (JSON.stringify(state.data.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
+                state.data = { ...state.data, frequencyRanks };
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            })
+            .catch(error => log.debug('Popup provider frequency hydration failed', { term: card.spelling, error }));
+    }
+
+    private renderHydratedCardBunproDefinition(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        if (!renderData.hydrateBunproDefinitionResult) return;
+        void renderData.hydrateBunproDefinitionResult()
+            .then(result => {
+                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                const unchangedInfo = state.data.bunproDefinitionInfo === result.info;
+                const unchangedStatus = JSON.stringify(state.data.bunproDefinitionStatus) === JSON.stringify(result.status);
+                if (unchangedInfo && unchangedStatus) return;
+                state.data = {
+                    ...state.data,
+                    bunproDefinitionInfo: result.info,
+                    bunproDefinitionStatus: result.status,
+                };
                 this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
             })
             .catch(error => log.debug('Popup Bunpro definition hydration failed', { term: card.spelling, error }));

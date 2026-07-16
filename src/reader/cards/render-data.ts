@@ -6,7 +6,7 @@ import type { JitenApiClient, JitenVocabularyInfo, JitenVocabularyWordSummary } 
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { lookupBunproDefinition, type BunproDefinitionInfo } from '../bunpro/definition';
+import { lookupBunproDefinitionResult, type BunproDefinitionInfo, type BunproDefinitionStatus } from '../bunpro/definition';
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
@@ -17,6 +17,16 @@ import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential,
 import { isJitenBackedCard } from './srs-providers';
 import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from '../app/types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import {
+    cardFrequencyRanks,
+    exactJitenFrequencyRank,
+    exactJpdbFrequencyRank,
+    jitenFrequencyRankForCard,
+    liveFrequencyEnabled,
+    withFrequencyRank,
+    type ProviderFrequencyRank,
+    type ProviderFrequencyRanks,
+} from './frequency-ranks';
 
 const log = Logger.scope('CardRenderData');
 const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
@@ -24,6 +34,7 @@ const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2_500;
 const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4_000;
 const CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS = 4_000;
+const CARD_RENDER_FREQUENCY_TIMEOUT_MS = 4_000;
 const CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS = 4_000;
 const CARD_RENDER_ANKI_TIMEOUT_MS = 4_000;
 const CARD_RENDER_DECK_TIMEOUT_MS = 1_500;
@@ -45,7 +56,9 @@ export interface CardRenderData {
     ankiDecks: string[];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
     jitenVocabularyInfo?: JitenVocabularyInfo | null;
+    frequencyRanks?: ProviderFrequencyRanks;
     bunproDefinitionInfo?: BunproDefinitionInfo | null;
+    bunproDefinitionStatus?: BunproDefinitionStatus;
     expressionComponents?: ExpressionComponentLookup[];
     componentPitches?: ExpressionComponentPitch[];
     ankiFieldTargetPlan?: AnkiNoteFieldTargetPlan | null;
@@ -60,8 +73,12 @@ export interface CardRenderDataLoad {
     jpdbVocabularyInfo?: Promise<JpdbVocabularyInfo | null>;
     jitenVocabularyInfo?: Promise<JitenVocabularyInfo | null>;
     hydrateJitenVocabularyInfo?: () => Promise<JitenVocabularyInfo | null>;
+    frequencyRanks?: Promise<ProviderFrequencyRanks>;
+    hydrateFrequencyRanks?: () => Promise<ProviderFrequencyRanks>;
     bunproDefinitionInfo?: Promise<BunproDefinitionInfo | null>;
+    bunproDefinitionStatus?: Promise<BunproDefinitionStatus>;
     hydrateBunproDefinitionInfo?: () => Promise<BunproDefinitionInfo | null>;
+    hydrateBunproDefinitionResult?: () => Promise<BunproDefinitionHydrationResult>;
     all: Promise<CardRenderData>;
 }
 
@@ -86,6 +103,16 @@ interface LocalMetaEntriesLoad {
     completed: boolean;
 }
 
+interface FrequencyRankLoad {
+    initial: Promise<ProviderFrequencyRanks>;
+    hydrated: Promise<ProviderFrequencyRanks>;
+}
+
+export interface BunproDefinitionHydrationResult {
+    info: BunproDefinitionInfo | null;
+    status: BunproDefinitionStatus;
+}
+
 export function loadingCardRenderData(
     localEntries: YomitanTermEntry[],
     ankiLookup: AnkiLookupResult,
@@ -93,6 +120,8 @@ export function loadingCardRenderData(
     jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
     jitenVocabularyInfo: JitenVocabularyInfo | null = null,
     bunproDefinitionInfo: BunproDefinitionInfo | null = null,
+    frequencyRanks: ProviderFrequencyRanks = {},
+    bunproDefinitionStatus: BunproDefinitionStatus = { state: 'loading' },
 ): CardRenderData & { loading: boolean } {
     return {
         localEntries,
@@ -104,7 +133,9 @@ export function loadingCardRenderData(
         ankiDecks: [],
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        frequencyRanks,
         bunproDefinitionInfo,
+        bunproDefinitionStatus,
         expressionComponents: [],
         loading: true,
     };
@@ -141,6 +172,7 @@ export class CardRenderDataLoader {
     }
 
     private fetch(card: JPDBCard, options: CardRenderDataLoadOptions): CardRenderDataLoad {
+        const settings = this.settings();
         const localEntries = this.loadLocalTermEntries(card);
         const localMetaEntries = this.loadLocalMetaEntries(card).then(async localMeta => {
             if (localMeta.completed) {
@@ -160,18 +192,25 @@ export class CardRenderDataLoader {
         };
         const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
         const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
-        const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card);
-        const jitenVocabularyInfo = this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', jitenVocabularyLookup, null as JitenVocabularyInfo | null);
-        const bunproDefinitionLookup = options.includeBunproDefinition === false
-            ? Promise.resolve(null)
-            : this.lookupBunproDefinitionInfo(card);
-        const bunproDefinitionInfo = this.withFallback(
+        const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
+        const seededFrequencyRanks: ProviderFrequencyRanks = {};
+        if (liveFrequencyEnabled(settings, 'jiten') && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
+        if (liveFrequencyEnabled(settings, 'jpdb') && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
+        const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled);
+        const jitenVocabularyInfo = settings.jitenDefinitionsEnabled
+            ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', jitenVocabularyLookup, null as JitenVocabularyInfo | null)
+            : Promise.resolve(null);
+        const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks);
+        const bunproDefinitionLookup = this.lookupBunproDefinitionResult(card, options.includeBunproDefinition !== false);
+        const bunproDefinitionResult = this.withFallback(
             card,
             CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
             'Bunpro definition',
             bunproDefinitionLookup,
-            null as BunproDefinitionInfo | null,
+            { info: null, status: { state: 'timeout' } } as BunproDefinitionHydrationResult,
         );
+        const bunproDefinitionInfo = bunproDefinitionResult.then(result => result.info);
+        const bunproDefinitionStatus = bunproDefinitionResult.then(result => result.status);
         const expressionComponents = this.withFallback(
             card,
             CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
@@ -189,10 +228,11 @@ export class CardRenderDataLoader {
         void pitchAccent.catch(() => undefined);
         void jpdbDeckMembership.catch(() => undefined);
         void jitenVocabularyInfo.catch(() => undefined);
+        void frequencyRankLoad.initial.catch(() => undefined);
         void bunproDefinitionInfo.catch(() => undefined);
         void expressionComponents.catch(() => undefined);
         void componentPitches.catch(() => undefined);
-        const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents, componentPitches);
+        const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRankLoad.initial, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches);
         return {
             localEntries,
             localMetaEntries,
@@ -202,8 +242,12 @@ export class CardRenderDataLoader {
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
             hydrateJitenVocabularyInfo: () => jitenVocabularyLookup,
+            frequencyRanks: frequencyRankLoad.initial,
+            hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
             bunproDefinitionInfo,
-            hydrateBunproDefinitionInfo: () => bunproDefinitionLookup,
+            bunproDefinitionStatus,
+            hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then(result => result.info),
+            hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
             all,
         };
     }
@@ -282,9 +326,8 @@ export class CardRenderDataLoader {
     // the initial full render but ALSO keeps the uncapped promise so a slow result
     // still hydrates the popover instead of being discarded (which left the Jiten
     // frequency pill blank and the Jiten source missing — see the hydration pass).
-    private loadJitenVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
-        const settings = this.settings();
-        if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
+    private loadJitenVocabularyInfo(card: JPDBCard, enabled: boolean): Promise<JitenVocabularyInfo | null> {
+        if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
         return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
             this.applyJitenVocabularyInfoPitchAccent(card, info);
             return info;
@@ -294,15 +337,71 @@ export class CardRenderDataLoader {
         });
     }
 
-    private lookupBunproDefinitionInfo(card: JPDBCard): Promise<BunproDefinitionInfo | null> {
+    private loadFrequencyRanks(
+        card: JPDBCard,
+        jitenVocabularyLookup: Promise<JitenVocabularyInfo | null>,
+        seeded: ProviderFrequencyRanks,
+    ): FrequencyRankLoad {
         const settings = this.settings();
-        if (!settings.bunproDefinitionsEnabled
-            || !this.dependencies.bunpro
-            || !hasBunproFrontendCredential(settings)
-            || isBunproFrontendCredentialExpired(settings)) return Promise.resolve(null);
-        return lookupBunproDefinition(this.dependencies.bunpro, card).catch(error => {
+        const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
+        const jiten = liveFrequencyEnabled(settings, 'jiten') && !seeded.jiten
+            ? settings.jitenDefinitionsEnabled
+                ? jitenVocabularyLookup.then(info => jitenFrequencyRankForCard(card, info))
+                : searchJiten
+                    ? searchJiten(card.spelling, 10)
+                        .then(candidates => exactJitenFrequencyRank(card, candidates))
+                        .catch(error => {
+                            log.warn('Jiten frequency lookup failed', { term: card.spelling }, error);
+                            return null;
+                        })
+                    : Promise.resolve(null)
+            : Promise.resolve(null);
+        const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
+        const jpdb = liveFrequencyEnabled(settings, 'jpdb') && !seeded.jpdb && searchJpdb
+            ? searchJpdb(card.spelling, 10)
+                .then(candidates => exactJpdbFrequencyRank(card, candidates))
+                .catch(error => {
+                    log.warn('JPDB frequency lookup failed', { term: card.spelling }, error);
+                    return null;
+                })
+            : Promise.resolve(null);
+        const combine = ([jitenRank, jpdbRank]: [ProviderFrequencyRank | null, ProviderFrequencyRank | null]) =>
+            withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank);
+        return {
+            initial: Promise.all([
+                this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, 'Jiten frequency rank', jiten, null),
+                this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, 'JPDB frequency rank', jpdb, null),
+            ]).then(combine),
+            hydrated: Promise.all([jiten, jpdb]).then(combine),
+        };
+    }
+
+    private lookupBunproDefinitionResult(card: JPDBCard, included: boolean): Promise<BunproDefinitionHydrationResult> {
+        const settings = this.settings();
+        if (!included) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'load-excluded' } });
+        if (!settings.bunproDefinitionsEnabled) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'definitions-disabled' } });
+        if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
+        if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: 'auth-missing' } });
+        if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: 'auth-expired' } });
+        const startedAt = performance.now();
+        log.debug('Bunpro definition lookup started', { term: card.spelling });
+        return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then(result => {
+            const resolved: BunproDefinitionHydrationResult = {
+                info: result.info,
+                status: result.state === 'success'
+                    ? { state: 'success' }
+                    : { state: 'no-match', reason: result.reason },
+            };
+            log.debug('Bunpro definition lookup completed', {
+                term: card.spelling,
+                state: resolved.status.state,
+                reason: resolved.status.state === 'no-match' ? resolved.status.reason : undefined,
+                durationMs: Math.round(performance.now() - startedAt),
+            });
+            return resolved;
+        }).catch(error => {
             log.warn('Bunpro definition lookup failed', { term: card.spelling }, error);
-            return null;
+            return { info: null, status: { state: 'error' } };
         });
     }
 
@@ -390,7 +489,9 @@ export class CardRenderDataLoader {
         jpdbDeckMembership: Promise<boolean>,
         jpdbVocabularyInfo: Promise<JpdbVocabularyInfo | null>,
         jitenVocabularyInfo: Promise<JitenVocabularyInfo | null>,
+        frequencyRanks: Promise<ProviderFrequencyRanks>,
         bunproDefinitionInfo: Promise<BunproDefinitionInfo | null>,
+        bunproDefinitionStatus: Promise<BunproDefinitionStatus>,
         expressionComponents: Promise<ExpressionComponentLookup[]>,
         componentPitches: Promise<ExpressionComponentPitch[]>,
     ): Promise<CardRenderData> {
@@ -407,13 +508,15 @@ export class CardRenderDataLoader {
             jpdbDeckMembership,
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
+            frequencyRanks,
             bunproDefinitionInfo,
+            bunproDefinitionStatus,
             expressionComponents.catch(() => [] as ExpressionComponentLookup[]),
             componentPitches.catch(() => [] as ExpressionComponentPitch[]),
             ankiFieldTargetPlan,
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
             if (jpdbDeckMembership) applyPooledJpdbDeckState(card);
-            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
+            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
         });
     }
 
@@ -605,6 +708,13 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         return JSON.stringify({
             card: cardKey(card),
+            cardFrequency: {
+                rank: card.frequencyRank,
+                source: card.source,
+                reviewSource: card.reviewSource,
+                jitenWordId: card.jitenWordId,
+                jitenReadingIndex: card.jitenReadingIndex,
+            },
             local: settings.localDictionariesEnabled,
             kanji: settings.localDictionaryShowKanji,
             max: settings.localDictionaryMaxResults,
@@ -616,6 +726,10 @@ export class CardRenderDataLoader {
             ankiMobileHandoff: settings.ankiMobileHandoff,
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,
             jitenDefinitions: settings.jitenDefinitionsEnabled,
+            liveFrequency: {
+                jiten: liveFrequencyEnabled(settings, 'jiten'),
+                jpdb: liveFrequencyEnabled(settings, 'jpdb'),
+            },
             bunproDefinitions: settings.bunproDefinitionsEnabled,
             includeBunproDefinition: options.includeBunproDefinition !== false,
             apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,

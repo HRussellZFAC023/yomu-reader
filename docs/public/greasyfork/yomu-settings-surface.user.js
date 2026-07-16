@@ -14190,7 +14190,7 @@ ${entry.reading}`;
             );
             const rank = dictionaryRank(preferences);
             const seen = /* @__PURE__ */ new Set();
-            const results = rankedDictionaryEntries(
+            const ranked = rankedDictionaryEntries(
               entries2,
               rank,
               void 0,
@@ -14200,8 +14200,8 @@ ${entry.reading}`;
               if (seen.has(key)) return false;
               seen.add(key);
               return true;
-            }).slice(0, limit);
-            return results;
+            });
+            return selectTermLookupResults(ranked, expression, reading, limit);
           } catch (error) {
             log$1.warn("Term lookup failed", { expression, reading, error });
             throw error;
@@ -15562,6 +15562,31 @@ ${glossaryKey}` : `${entry.dictionary}
 ${entry.expression}
 ${entry.reading}
 ${glossaryKey}`;
+  }
+  function selectTermLookupResults(ranked, expression, reading, limit) {
+    const boundedLimit = Math.max(0, Math.floor(limit));
+    if (!boundedLimit || ranked.length <= boundedLimit) return ranked.slice(0, boundedLimit);
+    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
+    fillTermLookupSelection(selected, ranked, boundedLimit);
+    return ranked.filter((entry) => selected.has(entry)).slice(0, boundedLimit);
+  }
+  function firstExactTermEntriesByDictionary(ranked, expression, reading) {
+    const firstExactByDictionary = /* @__PURE__ */ new Map();
+    for (const entry of ranked) {
+      if (!isExactTermLookupEntry(entry, expression, reading)) continue;
+      if (!firstExactByDictionary.has(entry.dictionary)) firstExactByDictionary.set(entry.dictionary, entry);
+    }
+    return Array.from(firstExactByDictionary.values());
+  }
+  function fillTermLookupSelection(selected, ranked, limit) {
+    for (const entry of ranked) {
+      if (selected.size >= limit) break;
+      selected.add(entry);
+    }
+  }
+  function isExactTermLookupEntry(entry, expression, reading) {
+    const hasKnownReading = Boolean(reading && reading !== expression);
+    return entry.expression === expression && (!hasKnownReading || entry.reading === reading);
   }
   function bestTermLookupEntry(entries2, expression, rank) {
     const seen = /* @__PURE__ */ new Set();
