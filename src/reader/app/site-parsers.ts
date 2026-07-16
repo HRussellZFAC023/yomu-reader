@@ -311,10 +311,13 @@ const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
 const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
-// Only real docs prose is a scan root here. Homepage/site chrome (hero,
-// nav, install panel, "next step" link grid, overflow menu) is excluded
-// below instead — it decorates the userscript's own hero/nav/CTA copy and
-// destroys the tablet layout, and none of it is reading material.
+// Only real docs prose is a curated scan root here. Homepage/site chrome
+// (hero, nav, install panel, "next step" link grid, overflow menu) is kept
+// out of the prose scan below and reaches readers through the passive
+// residual pass instead: passive targets keep click-through navigation and
+// the per-element layout guards (compact chrome, ruby-room growth) decide
+// decoration, so the chrome is annotated without the destructive rewrites
+// that once broke the tablet layout. No Japanese text stays bare.
 const YOMU_HOSTED_DOCS_ROOTS = [
     '.vp-doc',
 ];
@@ -531,12 +534,14 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         heading: true,
         minLength: 1,
-        // Hosted documentation prose is fully covered by `.vp-doc`. Do not
-        // let the generic or residual passes rediscover site chrome outside
-        // that curated root: annotating the nav, hero, install panel, or CTA
-        // grids changes their layout and can make the homepage unusable.
+        // Hosted documentation prose is fully covered by `.vp-doc`; the
+        // generic prose scan stays off so the curated root keeps priority.
+        // Site chrome (nav, hero, install panel, CTA grids) is covered by the
+        // passive residual pass — same contract as every other profile site:
+        // no visible Japanese stays bare, passive interaction preserves link
+        // navigation, and decoration is bounded by the per-element layout
+        // guards rather than excluded wholesale.
         disableGenericDomScan: true,
-        suppressResidualVisibleScan: true,
         visibleOnly: false,
         matches: url => isYomuHostedPassivePage(url.href),
     },
@@ -2182,3 +2187,4 @@ function safeElementMatches(element: HTMLElement, selector: string): boolean {
         return false;
     }
 }
+

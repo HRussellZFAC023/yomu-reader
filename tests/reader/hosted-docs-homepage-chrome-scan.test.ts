@@ -8,18 +8,21 @@ afterEach(() => {
     document.body.innerHTML = '';
 });
 
-// The hosted docs homepage previously scanned nav/hero/CTA-pill/install-panel
-// /next-step-grid chrome as reading material, decorating it with full
-// ruby/pitch furigana markup and destroying the tablet layout. Those regions
-// are now excluded; only real docs prose (`.vp-doc`) and the intentional
-// pre-rendered `.yomu-try-me-text` sample stay covered.
+// The hosted docs homepage chrome (nav/hero/install panel/next-step grid)
+// must be covered like any other site: no visible Japanese stays bare. It is
+// NOT prose — it arrives via the passive residual pass (click-through
+// navigation preserved, per-element layout guards bound the decoration)
+// while `.vp-doc` remains the curated prose root. An earlier release
+// excluded the chrome wholesale to protect the tablet layout, which shipped
+// a homepage whose own hero/install copy had no annotations in Japanese
+// mode — that exclusion must not come back.
 describe('hosted docs homepage chrome scan boundary', () => {
     it('matches the hosted-docs parser on the homepage', () => {
         const profiles = getMatchingSiteParsers(YOMU_HOMEPAGE_URL);
         expect(profiles.map(profile => profile.id)).toContain('yomu-hosted-docs-parser');
     });
 
-    it('yields no scan targets from VPNav, VPHero/VPHomeHero, the install panel, the next-step grid, or the overflow group', () => {
+    it('covers VPNav, VPHero/VPHomeHero, the install panel, and the next-step grid via the passive residual pass', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <header class="VPNav">
@@ -61,18 +64,24 @@ describe('hosted docs homepage chrome scan boundary', () => {
         `;
 
         try {
-            // Exercise the production pipeline, not only the curated profile
-            // phase: generic/residual fallbacks were the path that could
-            // rediscover excluded homepage chrome.
-            const texts = collectScanTargets(80, YOMU_HOMEPAGE_URL).map(target => target.text);
-            expect(texts.some(text => text.includes('はじめる'))).toBe(false);
-            expect(texts.some(text => text.includes('更新履歴'))).toBe(false);
-            expect(texts.some(text => text.includes('よむ'))).toBe(false);
-            expect(texts.some(text => text.includes('ページを離れずに'))).toBe(false);
-            expect(texts.some(text => text.includes('準備完了'))).toBe(false);
-            expect(texts.some(text => text.includes('学習'))).toBe(false);
-            // Real docs prose stays covered.
-            expect(texts.some(text => text.includes('今日は静かな喫茶店'))).toBe(true);
+            // Exercise the production pipeline end to end: the chrome must be
+            // reached by the residual pass, and every chrome target must be
+            // passive (click-through) rather than a destructive prose rewrite.
+            const targets = collectScanTargets(80, YOMU_HOMEPAGE_URL);
+            const texts = targets.map(target => target.text);
+            const chromeSamples = ['はじめる', '更新履歴', 'よむ', 'ページを離れずに', '準備完了', '学習'];
+            for (const sample of chromeSamples) {
+                expect(texts.some(text => text.includes(sample)), `chrome text "${sample}" must be scanned`).toBe(true);
+            }
+            for (const target of targets) {
+                if (chromeSamples.some(sample => target.text.includes(sample))) {
+                    expect(target.passiveInteraction, `chrome target "${target.text}" must stay passive`).toBe(true);
+                }
+            }
+            // Real docs prose stays covered as regular (non-passive) prose.
+            const prose = targets.find(target => target.text.includes('今日は静かな喫茶店'));
+            expect(prose).toBeDefined();
+            expect(prose?.passiveInteraction).not.toBe(true);
         } finally {
             restoreRects();
         }

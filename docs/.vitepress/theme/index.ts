@@ -12,7 +12,7 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
-import { cleanupOwnedChromeAnnotations, readerWordSurfaceText } from './chrome-annotation-cleanup';
+import { readerWordSurfaceText } from './chrome-annotation-cleanup';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -109,20 +109,6 @@ const HOSTED_RUNTIME_TARGET_SELECTOR = [
     '.yomu-hosted-overflow-group',
     '.yomu-link-grid',
     '.vp-doc',
-].join(',');
-// Defence in depth for already-installed userscripts that have not yet
-// picked up the site-parsers.ts hosted-docs exclusion fix: stamp the same
-// homepage/site chrome with the runtime's own hard scan boundary
-// (data-jpdb-reader-surface-ignore) so old installed copies stop decorating
-// nav/hero/CTA copy too. setAttribute is naturally idempotent, so this is
-// safe to call on every mount and every route change.
-const HOSTED_SURFACE_IGNORE_CHROME_SELECTOR = [
-    '.VPNav',
-    '.VPHero',
-    '.VPHomeHero',
-    '.yomu-install-panel',
-    '.yomu-next-grid',
-    '.yomu-hosted-overflow-group',
 ].join(',');
 const textNodeOriginals = new WeakMap<Text, string>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
@@ -2715,19 +2701,6 @@ const HOSTED_RESEARCH_COPY_SEGMENTS: Record<InterfaceLanguage, readonly HostedRe
     ],
 };
 
-function stampHostedSurfaceIgnoreChrome(): void {
-    for (const element of document.querySelectorAll<HTMLElement>(HOSTED_SURFACE_IGNORE_CHROME_SELECTOR)) {
-        // Stamp the scan boundary first so an already-installed (pre-fix)
-        // userscript stops re-decorating this chrome, then strip anything it
-        // already annotated at document-start before the theme mounted.
-        element.setAttribute('data-jpdb-reader-surface-ignore', 'true');
-        // Strip anything a pre-fix userscript already annotated here at
-        // document-start; reset the theme's own text-original cache for any
-        // node this unwraps so localization does not restore a stale copy.
-        cleanupOwnedChromeAnnotations(element, resetHostedDocsTextOriginals);
-    }
-}
-
 function syncLandmarks() {
     const content = document.querySelector<HTMLElement>('#VPContent');
     syncSkipLinkLandmark();
@@ -2787,11 +2760,6 @@ function scheduleHostedDocsShellSync(): void {
     hostedDocsShellSyncPending = true;
     window.requestAnimationFrame(() => {
         hostedDocsShellSyncPending = false;
-        // VitePress replaces route content through history/navigation updates
-        // that do not always emit popstate or hashchange. Stamp newly mounted
-        // homepage chrome in the same observer-driven shell sync as the rest
-        // of the hosted enhancements.
-        stampHostedSurfaceIgnoreChrome();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
@@ -3562,7 +3530,6 @@ function browserPrefersJapanese(): boolean {
 
 function installHostedDocsEnhancements(): void {
     registerHostedDocsServiceWorker();
-    stampHostedSurfaceIgnoreChrome();
     syncLandmarks();
     installHostedLanguageToggle();
     installHostedOverflowMenu();
@@ -3588,7 +3555,6 @@ function installHostedDocsEnhancements(): void {
         scheduleHostedDocsLocalization({ resetReaderWords: true });
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
-        stampHostedSurfaceIgnoreChrome();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
@@ -3600,7 +3566,6 @@ function installHostedDocsEnhancements(): void {
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
-        stampHostedSurfaceIgnoreChrome();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
