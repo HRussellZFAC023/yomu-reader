@@ -214,6 +214,10 @@ describe('l2-l34 exact-source Kanji 7 menu workshop', () => {
             title: { en: 'Seven kanji on the menu' },
             beats: [
                 {
+                    id: 'pictureless-menu-story',
+                    activity: { kind: 'academy-story-reader' },
+                },
+                {
                     id: 'kanji-menu-reading',
                     activity: { kind: 'academy-state-inspection' },
                 },
