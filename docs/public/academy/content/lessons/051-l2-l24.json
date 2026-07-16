@@ -1,0 +1,965 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l24",
+  "order": 51,
+  "weekKind": "term-kickoff",
+  "title": {
+    "en": "Back at the table, voices ready",
+    "ja": "また話せる、また聞ける"
+  },
+  "estimatedMinutes": 70,
+  "identity": {
+    "title": "Level 3+ Introduction",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3+",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 24,
+    "moduleId": 8121285,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 1,
+      "canonicalClassOrder": 62
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8121285,
+    "memberFileCount": 2,
+    "members": [
+      {
+        "title": "Course outline Level 3+",
+        "role": "unclassified",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 37715,
+        "payloadSha256": "d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124"
+      },
+      {
+        "title": "Our online classroom Ground Rule",
+        "role": "unclassified",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 68703,
+        "payloadSha256": "caea3d2bdd26e1f6a7d646f9d242d4634c31ed57522af7085a90322b60f0d9c2"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "Imperative form exercise",
+        "externalUrl": "https://www.youtube.com/watch?v=3i7olo5bxho"
+      },
+      {
+        "title": "日本人のジェスチャーを見てみよう！",
+        "externalUrl": null
+      },
+      {
+        "title": "Conditional form exercise",
+        "externalUrl": null
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+        "payloadSha256": "d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124",
+        "worksheetTitle": "Course outline Level 3+",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "caea3d2bdd26e1f6a7d646f9d242d4634c31ed57522af7085a90322b60f0d9c2",
+        "worksheetTitle": "Our online classroom Ground Rule",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ],
+    "archiveId": "archive-000024",
+    "archiveSha256": "50e1ef0bf0908abdce9756234780234d170673ad5875258cdff70b4007ff91fe",
+    "archiveBytes": 96835
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3+ · Introduction",
+    "genki": "≈ Genki II · communication repair and N4 review",
+    "minna": "Minna no Nihongo II · Level 3+ term preview",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3plus-kickoff",
+    "canonicalClassOrder": 62
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000024 · module 8121285 · sha256 50e1ef0bf0908abdce9756234780234d170673ad5875258cdff70b4007ff91fe",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Archive identity, exact file inventory and topic labels are retained. Source wording, source media and source answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "continuation",
+        "reference": "Minna no Nihongo II · continuation after Lesson 31",
+        "reuse": "sequence-only",
+        "note": "The term resumes an established N4 sequence; all dialogue and practice here are original."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000024; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "Rie leads the return in a warm, brief voice. Mika models careful listening, Henry makes repair language useful, and Jodi keeps the group connected.",
+    "gaps": [],
+    "donorPackage": {
+      "canonicalWeekId": "l3plus-kickoff",
+      "sha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0",
+      "note": "Existing Yomu-authored donor content retained; no source wording, source answers or source media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124",
+          "sourceTitle": "Course outline Level 3+",
+          "sourceRole": "unclassified",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000024",
+          "crossSourceArchiveIds": [
+            "archive-000065"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "caea3d2bdd26e1f6a7d646f9d242d4634c31ed57522af7085a90322b60f0d9c2",
+          "sourceTitle": "Our online classroom Ground Rule",
+          "sourceRole": "unclassified",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000024",
+          "crossSourceArchiveIds": [
+            "archive-000065"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:caea3d2bdd26e1f6a7d646f9d242d4634c31ed57522af7085a90322b60f0d9c2:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 1262,
+            "height": 892,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Ask for repetition without losing the thread of a conversation.",
+    "Check one detail with 〜ということですか.",
+    "Name one concrete Japanese goal for this term.",
+    "Agree on a kind response when somebody needs a moment.",
+    "Read and hand-write 続 and 確 in useful words."
+  ],
+  "scene": {
+    "where": "A familiar table with notebooks, cups, and one recorder no one remembers bringing",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "Rie smiles, and Henry tests the one phrase everyone will need sooner or later.",
+    "cast": [
+      "rie",
+      "henry",
+      "mika",
+      "jodi",
+      "christian"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "welcome",
+        "japanese": "また一緒に話せますね。まず、聞き返す言い方を確認しましょう。",
+        "reading": "また いっしょに はなせますね。まず、ききかえす いいかたを かくにん しましょう。",
+        "english": "We can talk together again. First, let’s check how to ask someone to repeat.",
+        "note": "Rie begins with an immediately useful action."
+      },
+      {
+        "speakerId": "henry",
+        "expression": "thinking",
+        "pose": "listen",
+        "japanese": "すみません、もう一度言っていただけませんか。",
+        "reading": "すみません、もう いちど いって いただけませんか。",
+        "english": "Sorry, could you say that once more?",
+        "note": "A polite repair phrase, offered without embarrassment."
+      },
+      {
+        "speakerId": "mika",
+        "expression": "warm",
+        "pose": "explain",
+        "japanese": "もちろんです。大切なのは、分からないままにしないことです。",
+        "reading": "もちろんです。たいせつなのは、わからない ままに しない ことです。",
+        "english": "Of course. What matters is not leaving something unclear.",
+        "note": "Mika makes precision feel ordinary."
+      },
+      {
+        "speakerId": "christian",
+        "expression": "surprised",
+        "pose": "inspect",
+        "japanese": "このレコーダーは、だれのですか。",
+        "reading": "この レコーダーは、だれのですか。",
+        "english": "Whose recorder is this?",
+        "note": "The object supplies the humour, not the learner."
+      },
+      {
+        "speakerId": "jodi",
+        "expression": "warm",
+        "pose": "handoff",
+        "japanese": "それはあとで調べましょう。今は、みんなの目標を一つずつ聞きたいです。",
+        "reading": "それは あとで しらべましょう。いまは、みんなの もくひょうを ひとつずつ ききたいです。",
+        "english": "Let’s investigate that later. For now, I’d like to hear one goal from each person.",
+        "note": "Jodi turns the group toward a concrete next step."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "The previous week, l3-2-kanji-6, closed the last term with a fresh kanji set. Those reading habits stay with you here.",
+    "intro": "This opening week is about keeping a real conversation alive. Ask for a repeat, confirm what you heard, and give the speaker a clear next move. Let’s make one useful repair phrase the first thing you can reach for.",
+    "grammarPoints": [
+      {
+        "pattern": "もう一度〜ていただけませんか",
+        "nameJa": "丁寧な聞き返し",
+        "meaning": "could you do that once more?",
+        "explanation": "Use もう一度 before a polite request when sound or meaning slipped past you. 言っていただけませんか asks the other person to repeat; ゆっくり話していただけませんか asks for a slower pace. The phrase keeps responsibility shared and the conversation moving.",
+        "watchFor": "Keep もう一度 near the action you want repeated.",
+        "commonError": "Stopping at もう一度? can sound abrupt. Add the verb and request ending when you can.",
+        "examples": [
+          {
+            "ja": "もう一度言っていただけませんか。",
+            "reading": "もう いちど いって いただけませんか。",
+            "en": "Could you say that once more?",
+            "note": "A full polite request."
+          },
+          {
+            "ja": "もう少しゆっくり話していただけませんか。",
+            "reading": "もう すこし ゆっくり はなして いただけませんか。",
+            "en": "Could you speak a little more slowly?",
+            "note": "Ask for the precise help you need."
+          }
+        ]
+      },
+      {
+        "pattern": "〜ということですか",
+        "nameJa": "意味の確認",
+        "meaning": "do you mean that…?",
+        "explanation": "Repeat the key idea and add ということですか to check meaning. It is especially useful when you heard the words but are not sure how they fit together.",
+        "watchFor": "Confirm one point at a time; a short check is easier to answer.",
+        "commonError": "Do not use it as a guess with no shared context. Repeat the detail you are checking.",
+        "examples": [
+          {
+            "ja": "この言葉は使わないということですか。",
+            "reading": "この ことばは つかわない という ことですか。",
+            "en": "Do you mean we should not use this word?",
+            "note": "The uncertain detail is explicit."
+          },
+          {
+            "ja": "先に読んでおくということですか。",
+            "reading": "さきに よんで おく という ことですか。",
+            "en": "Do you mean we should read it beforehand?",
+            "note": "A concise confirmation."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "vocabulary",
+      "order": 10,
+      "title": {
+        "en": "Words that keep us talking",
+        "ja": "会話を続ける言葉"
+      },
+      "provenance": {
+        "reuse": "canonical-moodle-source-first",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "items": [],
+      "exercises": [
+        {
+          "id": "ex-kickoff-vocab-match",
+          "kind": "match",
+          "prompt": {
+            "en": "Match each conversation word to its job.",
+            "ja": "会話の言葉と役割を合わせましょう。"
+          },
+          "explanation": "聞き返す asks again, 確認する checks a detail, and 言い換える gives the same idea in new words.",
+          "reviewTag": "repair-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "聞き返す"
+              },
+              "right": {
+                "en": "ask again"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "確認する"
+              },
+              "right": {
+                "en": "confirm"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "言い換える"
+              },
+              "right": {
+                "en": "rephrase"
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "mismatch",
+              "message": "聞き返す repeats the request, 確認する checks one detail, and 言い換える changes the wording."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "source-sheet-not-present-in-harvest",
+        "itemPolicy": "No pre-study vocabulary list is inferred when the harvested Moodle lesson has no current Vocabulary Sheet.",
+        "sheets": []
+      }
+    },
+    {
+      "type": "kanji",
+      "order": 20,
+      "title": {
+        "en": "Two kanji for carrying on",
+        "ja": "続けて確かめる漢字"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Original introductory kanji practice drawn from this week’s communication vocabulary."
+      },
+      "items": [
+        {
+          "character": "続",
+          "readings": {
+            "on": [
+              "ゾク"
+            ],
+            "kun": [
+              "つづ-く",
+              "つづ-ける"
+            ]
+          },
+          "meaning": "continue",
+          "exampleWord": {
+            "ja": "続ける",
+            "reading": "つづける",
+            "en": "to continue"
+          },
+          "recognition": {
+            "prompt": "Which kanji begins 続ける (つづける)?",
+            "answer": "続"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 13,
+            "mnemonic": "The thread radical keeps running while the right side carries it onward.",
+            "tracePrompt": "Trace 続, then write 続ける once from memory."
+          }
+        },
+        {
+          "character": "確",
+          "readings": {
+            "on": [
+              "カク"
+            ],
+            "kun": [
+              "たし-か",
+              "たし-かめる"
+            ]
+          },
+          "meaning": "certain; check",
+          "exampleWord": {
+            "ja": "確認",
+            "reading": "かくにん",
+            "en": "confirmation"
+          },
+          "recognition": {
+            "prompt": "Which kanji begins 確認 (かくにん)?",
+            "answer": "確"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 15,
+            "mnemonic": "A solid stone on the left supports a careful check on the right.",
+            "tracePrompt": "Trace 確, then write 確認 once from memory."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-kickoff-kanji-choice",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which word means “confirmation”?",
+            "ja": "「confirmation」はどの言葉ですか。"
+          },
+          "explanation": "確認 combines 確, certain, with 認, recognise.",
+          "reviewTag": "kickoff-kanji",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "確認",
+                "en": "confirmation"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "続ける",
+                "en": "continue"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "続ける means to continue. The word for confirmation is 確認."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "review",
+      "order": 30,
+      "title": {
+        "en": "Open the conversation again",
+        "ja": "会話をもう一度"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original review of communication repair and the previous kanji week."
+      },
+      "reviewFrom": [
+        "l3-2-kanji-6"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-kickoff-repair-choice",
+          "kind": "choice",
+          "prompt": {
+            "en": "You missed one sentence. What is the kindest next move?",
+            "ja": "一文聞こえませんでした。どうしますか。"
+          },
+          "explanation": "A full request gives the speaker a clear and easy action.",
+          "reviewTag": "repair",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "もう一度言っていただけませんか。",
+                "en": "Could you say that once more?"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "分かりません。",
+                "en": "I do not understand."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "分かりません names the problem but gives no next step. Ask もう一度言っていただけませんか."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-kickoff-confirm-cloze",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Complete the meaning check.",
+            "ja": "意味の確認を完成させましょう。"
+          },
+          "japanese": "先に読んでおく ＿＿＿＿？",
+          "explanation": "Add ということですか after the idea you want to confirm.",
+          "reviewTag": "confirm",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "ということですか",
+                "alternatives": [
+                  "ということですか。"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "ということでした",
+              "message": "でした reports a past conclusion. A live check ends in ですか: ということですか."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "5f0c03e56124e56a45ed1e7efd55fd43b68e9ad6c66986e19f8eb32cb6865ee0",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    }
+  ],
+  "mission": {
+    "title": "The two-line safety net",
+    "framedBy": "mika",
+    "prompt": "Pair up. One person explains a small goal. The listener asks for one repeat and confirms one detail before replying.",
+    "successCriteria": [
+      "You state one concrete Japanese goal.",
+      "You ask for a repeat with a complete polite request.",
+      "You confirm one detail with 〜ということですか.",
+      "You answer the confirmation clearly and kindly."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "漢字のニュースを少し読めるようになりたいです。— すみません、もう一度言っていただけませんか。— 漢字のニュースを読むということですか。— はい、短い記事から始めます。",
+      "reading": "かんじの ニュースを すこし よめる ように なりたいです。— すみません、もう いちど いって いただけませんか。— かんじの ニュースを よむ という ことですか。— はい、みじかい きじから はじめます。",
+      "en": "I want to become able to read a little kanji news. — Sorry, could you say that again? — Do you mean reading news with kanji? — Yes, I’ll start with short articles."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "clarity",
+          "label": {
+            "en": "The message is clear"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "The listener cannot identify the request."
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "The request is understandable with a small slip."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "The request and response are both clear."
+              }
+            }
+          ]
+        },
+        {
+          "id": "care",
+          "label": {
+            "en": "Uses a kind repair phrase"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "No repair phrase is used."
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "A repair phrase is used once."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "The phrase fits naturally and helps the exchange."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "もう一度〜ていただけませんか",
+        "back": "Could you do that once more?",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "〜ということですか",
+        "back": "Do you mean that…?",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "聞き返す",
+        "back": "to ask again",
+        "reading": "ききかえす",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "確認する",
+        "back": "to confirm",
+        "reading": "かくにんする",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "続",
+        "back": "continue — ゾク / つづ-ける",
+        "reading": "ゾク",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "確",
+        "back": "certain; check — カク / たし-かめる",
+        "reading": "カク",
+        "tags": [
+          "academy",
+          "academy:term-kickoff:l3plus-kickoff",
+          "kanji"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "henry",
+      "mika",
+      "jodi",
+      "christian"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l3plus-kickoff",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124",
+          "title": "Course outline Level 3+",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "caea3d2bdd26e1f6a7d646f9d242d4634c31ed57522af7085a90322b60f0d9c2",
+          "title": "Our online classroom Ground Rule",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": []
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l24:repair-conversation",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 20,
+          "form": "もう一度〜ていただけませんか / 〜ということですか",
+          "meaning": "ask for a repeat and confirm meaning before replying",
+          "register": "careful polite conversation",
+          "commonContrast": "a repeat request asks to hear again; ということですか checks your interpretation",
+          "workedExamples": [
+            {
+              "ja": "また一緒に話せますね。まず、聞き返す言い方を確認しましょう。",
+              "reading": "また いっしょに はなせますね。まず、ききかえす いいかたを かくにん しましょう。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 30,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use もう一度〜ていただけませんか / 〜ということですか; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries ask for a repeat and confirm meaning before replying."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and careful polite conversation with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: a repeat request asks to hear again; ということですか checks your interpretation",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1",
+      "payloadSha256": "d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "A familiar table with notebooks, cups, and one recorder no one remembers bringing",
+      "characterId": "rie",
+      "beat": "Rie smiles, and Henry tests the one phrase everyone will need sooner or later.",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l24:1:kanji-doodle",
+        "mode": "kanji-doodle",
+        "responseMode": "draw-kanji",
+        "sourceItemIds": [
+          "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l24:2:matching",
+        "mode": "matching",
+        "responseMode": "tap-pair",
+        "sourceItemIds": [
+          "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l24:3:choice",
+        "mode": "choice",
+        "responseMode": "tap-choice",
+        "sourceItemIds": [
+          "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l24:1:kanji-doodle",
+      "activityIds": [
+        "assessment:l2-l24:1:kanji-doodle"
+      ],
+      "sourceItemIds": [
+        "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+      ],
+      "place": "academy/world/cafe",
+      "cast": [
+        "henry",
+        "mika"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical kanji-doodle task with henry as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l24:2:matching",
+      "activityIds": [
+        "assessment:l2-l24:2:matching"
+      ],
+      "sourceItemIds": [
+        "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+      ],
+      "place": "academy/world/cafe",
+      "cast": [
+        "henry",
+        "mika"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while mika takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l24:3:choice",
+      "activityIds": [
+        "assessment:l2-l24:3:choice"
+      ],
+      "sourceItemIds": [
+        "moodle:d15d28253f1bdd85e88b67604faaea93526408fcc99cec4d6796ebfa63abb124:page:1"
+      ],
+      "place": "academy/world/cafe",
+      "cast": [
+        "mika",
+        "henry"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with mika; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}

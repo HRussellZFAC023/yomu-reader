@@ -1,0 +1,3309 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l05",
+  "order": 6,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Whose is this?",
+    "ja": "これは だれの？"
+  },
+  "estimatedMinutes": 90,
+  "identity": {
+    "title": "Lesson 5",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 5,
+    "moduleId": 5834212,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "manifestOrder": 5,
+      "moodleSection": 19
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 5834212,
+    "memberFileCount": 14,
+    "members": [
+      {
+        "title": "7 A-7",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1346686,
+        "payloadSha256": "1a6d6bafdb9e25ef64c24365c3cc45a8b7487acd8ccd90d3ad68d6679ae8697c"
+      },
+      {
+        "title": "8 A-8",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1746893,
+        "payloadSha256": "bcb9b2f714a3bd1d39a05a18ccc4ff3bb91dcb30723ced07e834c93b96737470"
+      },
+      {
+        "title": "Chapter 2 listening",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1224353,
+        "payloadSha256": "d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3"
+      },
+      {
+        "title": "Chapter 2-2 Grammar Exercise-1 What the object is about",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1827553,
+        "payloadSha256": "3215f31fc58ce0ff7310ee16098e1fb0149f6c09a6fc972415150fc146934915"
+      },
+      {
+        "title": "Chapter 2-2 Grammar Exercise-2 Whose belongings the object is",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1701679,
+        "payloadSha256": "7d71238e487d8c77d5f618e8529921533ceaea2497e8edd3cc9490220f0ed56f"
+      },
+      {
+        "title": "Chapter 2-2 Grammar Exercise-３ この あの そのWhose belongings the object is",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1675845,
+        "payloadSha256": "6db38c502e55e0ba5ea0161af8828e57494fb81e8610fd10e63133fd5f76470d"
+      },
+      {
+        "title": "Chapter 2-2 Vocabulary Sheet",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 100227,
+        "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe"
+      },
+      {
+        "title": "Hiragana practice わ は",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 590449,
+        "payloadSha256": "50943a5378896d311b82f356d849afb2e87c146e97c7d2bd6cd9a88c600ae910"
+      },
+      {
+        "title": "Look-alike hiragana reading practice",
+        "role": "reading",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 655525,
+        "payloadSha256": "50a4fe939af957e63bdb74b2c3b1205e91679870980e30dfb7fa1113771ab4cc"
+      },
+      {
+        "title": "HW Chapter 2-2 Grammar",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1298647,
+        "payloadSha256": "073aceefb796078b21ec98bc7e0269fca223218d62874d73518ff16745b1ee26"
+      },
+      {
+        "title": "HW Hiragana practice わ は greeting name of things",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1585183,
+        "payloadSha256": "400c1f2e0026b49d6207b0dbdd3ab3d102eb89dba468644680bafaee9da9f2e6"
+      },
+      {
+        "title": "HW Chapter 1,2 reviwe-2",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1343932,
+        "payloadSha256": "8c834669fdfa10c193001e1c8a973791335d48c0d29c2a8f28a1e9ecc6860081"
+      },
+      {
+        "title": "minna shokyu 1 007",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 872332,
+        "payloadSha256": "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570"
+      },
+      {
+        "title": "minna shokyu 1 008",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1094269,
+        "payloadSha256": "e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "すうじゲーム Let's play with Numbers!",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 1 conversation はじめまして",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 2 conversation これから おせわに なります。",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 3 conversation これを ください",
+        "externalUrl": null
+      },
+      {
+        "title": "いっしゅうかん の うた",
+        "externalUrl": null
+      },
+      {
+        "title": "Learn Japanese Hiragana Alphabet - AIUEO Song - Funnihongo",
+        "externalUrl": "https://www.youtube.com/embed/"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+      "payloadSha256": "1a6d6bafdb9e25ef64c24365c3cc45a8b7487acd8ccd90d3ad68d6679ae8697c",
+      "worksheetTitle": "7 A-7",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:1a6d6bafdb9e25ef64c24365c3cc45a8b7487acd8ccd90d3ad68d6679ae8697c",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000171",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "audio materials/7 A-7.mp3",
+        "centralDirectoryIndex": 1,
+        "payloadSha256": "1a6d6bafdb9e25ef64c24365c3cc45a8b7487acd8ccd90d3ad68d6679ae8697c",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 50.333333,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "bcb9b2f714a3bd1d39a05a18ccc4ff3bb91dcb30723ced07e834c93b96737470",
+      "worksheetTitle": "8 A-8",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:bcb9b2f714a3bd1d39a05a18ccc4ff3bb91dcb30723ced07e834c93b96737470",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000172",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "audio materials/8 A-8.mp3",
+        "centralDirectoryIndex": 2,
+        "payloadSha256": "bcb9b2f714a3bd1d39a05a18ccc4ff3bb91dcb30723ced07e834c93b96737470",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 67.106667,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3",
+      "worksheetTitle": "Chapter 2 listening",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000173",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Chapter 2 listening.pdf",
+        "centralDirectoryIndex": 3,
+        "payloadSha256": "d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "ex-listen-gist",
+          "ex-listen-detail"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "3215f31fc58ce0ff7310ee16098e1fb0149f6c09a6fc972415150fc146934915",
+      "worksheetTitle": "Chapter 2-2 Grammar Exercise-1 What the object is about",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:3215f31fc58ce0ff7310ee16098e1fb0149f6c09a6fc972415150fc146934915",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000174",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Chapter 2-2 Grammar Exercise-1_What the object is about.pdf",
+        "centralDirectoryIndex": 4,
+        "payloadSha256": "3215f31fc58ce0ff7310ee16098e1fb0149f6c09a6fc972415150fc146934915",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-kore-sore",
+          "authentic-input"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "7d71238e487d8c77d5f618e8529921533ceaea2497e8edd3cc9490220f0ed56f",
+      "worksheetTitle": "Chapter 2-2 Grammar Exercise-2 Whose belongings the object is",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:7d71238e487d8c77d5f618e8529921533ceaea2497e8edd3cc9490220f0ed56f",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000175",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Chapter 2-2 Grammar Exercise-2_Whose belongings the object is.pdf",
+        "centralDirectoryIndex": 5,
+        "payloadSha256": "7d71238e487d8c77d5f618e8529921533ceaea2497e8edd3cc9490220f0ed56f",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-no-exact",
+          "ex-dareno"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "6db38c502e55e0ba5ea0161af8828e57494fb81e8610fd10e63133fd5f76470d",
+      "worksheetTitle": "Chapter 2-2 Grammar Exercise-３ この あの そのWhose belongings the object is",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:6db38c502e55e0ba5ea0161af8828e57494fb81e8610fd10e63133fd5f76470d",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000176",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Chapter 2-2 Grammar Exercise-３_この_あの_そのWhose belongings the object is.pdf",
+        "centralDirectoryIndex": 6,
+        "payloadSha256": "6db38c502e55e0ba5ea0161af8828e57494fb81e8610fd10e63133fd5f76470d",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-kono-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+      "worksheetTitle": "Chapter 2-2 Vocabulary Sheet",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000177",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Chapter 2-2 Vocabulary Sheet.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "ex-vocab-match"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "50943a5378896d311b82f356d849afb2e87c146e97c7d2bd6cd9a88c600ae910",
+      "worksheetTitle": "Hiragana practice わ は",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:50943a5378896d311b82f356d849afb2e87c146e97c7d2bd6cd9a88c600ae910",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000178",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Hiragana practice わ_は.pdf",
+        "centralDirectoryIndex": 8,
+        "payloadSha256": "50943a5378896d311b82f356d849afb2e87c146e97c7d2bd6cd9a88c600ae910",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "writing",
+          "reading"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "50a4fe939af957e63bdb74b2c3b1205e91679870980e30dfb7fa1113771ab4cc",
+      "worksheetTitle": "Look-alike hiragana reading practice",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:50a4fe939af957e63bdb74b2c3b1205e91679870980e30dfb7fa1113771ab4cc",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000179",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "handouts/Look-alike hiragana reading practice.pdf",
+        "centralDirectoryIndex": 9,
+        "payloadSha256": "50a4fe939af957e63bdb74b2c3b1205e91679870980e30dfb7fa1113771ab4cc",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 11,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "reading",
+          "ex-read-lookalike",
+          "ex-read-wa"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "073aceefb796078b21ec98bc7e0269fca223218d62874d73518ff16745b1ee26",
+      "worksheetTitle": "HW Chapter 2-2 Grammar",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:073aceefb796078b21ec98bc7e0269fca223218d62874d73518ff16745b1ee26",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000180",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "Homework/HW Chapter 2-2 Grammar.pdf",
+        "centralDirectoryIndex": 10,
+        "payloadSha256": "073aceefb796078b21ec98bc7e0269fca223218d62874d73518ff16745b1ee26",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "writing",
+          "review"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "400c1f2e0026b49d6207b0dbdd3ab3d102eb89dba468644680bafaee9da9f2e6",
+      "worksheetTitle": "HW Hiragana practice わ は greeting name of things",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:400c1f2e0026b49d6207b0dbdd3ab3d102eb89dba468644680bafaee9da9f2e6",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000181",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "Homework/HW Hiragana practice わ_は_greeting_name of things.pdf",
+        "centralDirectoryIndex": 11,
+        "payloadSha256": "400c1f2e0026b49d6207b0dbdd3ab3d102eb89dba468644680bafaee9da9f2e6",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "writing"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "8c834669fdfa10c193001e1c8a973791335d48c0d29c2a8f28a1e9ecc6860081",
+      "worksheetTitle": "HW Chapter 1,2 reviwe-2",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:8c834669fdfa10c193001e1c8a973791335d48c0d29c2a8f28a1e9ecc6860081",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000182",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "Homework/HW_Chapter 1,2_reviwe-2.pdf",
+        "centralDirectoryIndex": 12,
+        "payloadSha256": "8c834669fdfa10c193001e1c8a973791335d48c0d29c2a8f28a1e9ecc6860081",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "review",
+          "ex-review-mo",
+          "ex-review-ka",
+          "ex-review-no"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570",
+      "worksheetTitle": "minna shokyu 1 007",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000183",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "Homework/minna_shokyu_1_007.mp3",
+        "centralDirectoryIndex": 13,
+        "payloadSha256": "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 36.257958,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174",
+      "worksheetTitle": "minna shokyu 1 008",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174",
+        "moduleId": 5834212,
+        "archiveOccurrenceId": "archive-000017",
+        "memberOccurrenceId": "member-000184",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/06-folder-5834212-lesson-5.zip",
+        "archiveSha256": "2e4b5fc0449fcdf16ca73083a7624da634055cd645ddb4390584cf97cc9529af",
+        "member": "Homework/minna_shokyu_1_008.mp3",
+        "centralDirectoryIndex": 14,
+        "payloadSha256": "e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 45.505333,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      }
+    ]
+  },
+  "mapping": {
+    "ucl": "2023/24 · Level 1 · Lesson 5",
+    "genki": "≈ Genki L2",
+    "minna": "Minna no Nihongo I · Lessons 1–2 (focus 2)",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "original-yomu",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology",
+        "reference": "course ucl-japanese · level 1 · module 5834212",
+        "reuse": "metadata-only",
+        "note": "Week identity and worksheet inventory come from harvest metadata only."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo I · Lessons 1–2",
+        "reuse": "sequence-only",
+        "note": "Chapter scope (これ・それ・あれ, この・その・あの＋N, 〜の, そうです, plus the chapter-1 は/も/か carry-over) is a published textbook sequence reference; all wording here is original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N5 grammar band",
+        "reuse": "scope-only",
+        "note": "JLPT band is a placement heuristic, not a score claim."
+      }
+    ],
+    "castingNote": "Grammar picks the person: chapter 2's これ・それ・あれ and the 'whose is this?' question belong to the show-and-tell crowd — Aakash (whose stray umbrella opens the lost-and-found), Tom (whose bag turns up across the room), and Henry the learner-insert saying his first pointing sentences. Rie steadies the room. The kanji strand continues the number set begun in Lesson 1 (一二三人) with 四 五 六.",
+    "gaps": []
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "not-delivered-by-current-authored-week-adapter-for-this-week",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l05:lesson-1-workbook-4",
+      "relation": "post-instruction-guided-fill",
+      "source": {
+        "sourceId": "japanese-genki-interactive:97cabde5351fca03f498279c245c50f598abb6d4d10165fa732b297b9eda4c06:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-1/workbook-4/index.html",
+        "payloadSha256": "97cabde5351fca03f498279c245c50f598abb6d4d10165fa732b297b9eda4c06",
+        "scriptSha256": "44caf8d237764275ac255ab37de85bb007b4250790555ce09b58999c25d64d7d",
+        "lineLocus": {
+          "start": 76,
+          "end": 107
+        },
+        "title": "Workbook: NounのNoun - Lesson 1 | Genki Study Resources - 2nd Edition",
+        "description": "Translate the phrases into Japanese using the framework \"AのB.\" NOTE: The order in which the two nouns appear may be different in English and Japanese. (Read Grammar 3; p.44-45)",
+        "keywords": "Genki I Workbook, page 15, problem I, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-1/workbook-4/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Translate the phrases into Japanese using the framework \"{!GRI|AのB|l1-p3}.\"<br>NOTE: The order in which the two nouns appear may be different in English and Japanese. (Read Grammar 3; p.44-45)",
+          "quizlet": "<div class=\"count-problems\"><div class=\"problem\">Japanese student<br>{にほんじんのがくせい|日本人の学生|%(日本人の学生/日本人のがくせい/にほんじんの学生/にほんじんのがくせい)|answer}</div><div class=\"problem\">Takeshi's telephone number<br>{たけしさんのでんわばんごう|たけしさんの電話番号|answer}</div><div class=\"problem\">My friend<br>{わたしのともだち|私の友だち|%(私の友達/私の友だち/私のとも達/私のともだち/わたしの友達/わたしの友だち/わたしのとも達/わたしのともだち)|answer}</div><div class=\"problem\">English-language teacher<br>{えいごのせんせい|英語の先生|%(英語の先生/英語のせんせい/えいごの先生/えいごのせんせい)|answer}</div><div class=\"problem\">Michiko's major<br>{みちこさんのせんこう|みちこさんの専攻|answer}</div></div>"
+        },
+        "sourceSlice": null,
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/library",
+        "cast": [
+          "jenny",
+          "aakash"
+        ],
+        "grouping": "pairs",
+        "beat": "Jenny and Aakash label items on the library return table, preserving every source AのB prompt and its order.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "ownership-questions"
+        ],
+        "evidence": "Use the lost-and-found exchange to notice an object, its owner, and a polite confirmation."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 30,
+        "conceptIds": [
+          "ownership-questions"
+        ],
+        "form": "これは だれの N ですか。N さんのです。",
+        "meaning": "Ask whose an item is and identify its owner.",
+        "contrast": "この／その／あの must stand before a noun; これ／それ／あれ stand alone.",
+        "workedExample": "A: これは だれの かさですか。 B: ピーターさんのです。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 40,
+        "conceptIds": [
+          "ownership-questions"
+        ],
+        "activity": "Choose the owner after hearing the item and confirmation in the lost-and-found exchange."
+      },
+      {
+        "id": "exact",
+        "phase": "assessed-production",
+        "componentOrder": 30,
+        "assessmentIds": [
+          "ex-no-exact"
+        ],
+      "conceptIds": [
+        "ownership-questions"
+      ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Identify who owns it.",
+            "Put the owner before の.",
+            "Use のです when the item itself is already known."
+          ],
+          "feedback": {
+            "error": "If の is missing, the answer names a person but does not state ownership.",
+            "retry": "Use the prompt's known object and rebuild the short owner-plus-のです answer."
+          }
+        }
+      },
+      {
+        "id": "speak",
+        "phase": "assessed-production",
+        "componentOrder": 60,
+        "assessmentIds": [
+          "component:60:speaking"
+        ],
+        "conceptIds": [
+          "ownership-questions"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Pick up your item.",
+            "Say これは わたしの N です.",
+            "Point to the other item and ask それは N さんのですか."
+          ],
+          "feedback": {
+            "error": "If だれの or のです is dropped, the listener cannot tell that ownership is being asked or answered.",
+            "retry": "Use the question-and-answer pair once more with the same two objects."
+          }
+        }
+      },
+      {
+        "id": "write",
+        "phase": "assessed-production",
+        "componentOrder": 70,
+        "assessmentIds": [
+          "component:70:writing"
+        ],
+        "conceptIds": [
+          "ownership-questions"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Write the greeting.",
+            "Write わたしは N です.",
+            "Add これは わたしの N です."
+          ],
+          "feedback": {
+            "error": "If は is replaced by わ in writing or です is omitted, the careful beginner sentence is incorrect.",
+            "retry": "Find the topic marker in each line and rewrite only that line."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Point at things near and far with これ・それ・あれ, and attach この・その・あの to a noun.",
+    "Say whose something is with 〜の, and ask だれの ですか.",
+    "Confirm with はい、そうです and correct kindly with いいえ、ちがいます.",
+    "Read the topic は as 'wa', and tell look-alike hiragana apart (は・ほ・わ・れ・ぬ).",
+    "Write a first chapter-2 line in hiragana and hand-write the number kanji 四 五 六."
+  ],
+  "scene": {
+    "where": "The classroom, a minute before class — someone's umbrella has ended up leaning on the wrong desk",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "Henry finds an umbrella that isn't his and holds it up.",
+    "cast": [
+      "rie",
+      "henry",
+      "aakash",
+      "tom"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "henry",
+        "expression": "surprised",
+        "pose": "inspect",
+        "japanese": "あれ？この かさは だれのですか。",
+        "reading": "あれ？この かさは だれのですか。",
+        "en": "Huh? Whose is this umbrella?",
+        "english": "Huh? Whose is this umbrella?",
+        "note": "この＋かさ = this umbrella; だれの = whose."
+      },
+      {
+        "speakerId": "aakash",
+        "expression": "warm",
+        "pose": "offer",
+        "japanese": "あ、それは わたしのです。ありがとうございます。",
+        "reading": "あ、それは わたしのです。ありがとうございます。",
+        "en": "Oh, that one's mine. Thank you.",
+        "english": "Oh, that one's mine. Thank you.",
+        "note": "それ = the one by you; わたしの with the noun dropped = mine."
+      },
+      {
+        "speakerId": "tom",
+        "expression": "thinking",
+        "pose": "point",
+        "japanese": "じゃあ、あの かばんも アーカッシュさんのですか。",
+        "reading": "じゃあ、あの かばんも アーカッシュさんのですか。",
+        "en": "Then is that bag over there also yours, Aakash?",
+        "english": "Then is that bag over there also yours, Aakash?",
+        "note": "あの＋かばん (far from both); も = also."
+      },
+      {
+        "speakerId": "aakash",
+        "expression": "neutral",
+        "pose": "explain",
+        "japanese": "いいえ、ちがいます。あれは トムさんのですよ。",
+        "reading": "いいえ、ちがいます。あれは トムさんのですよ。",
+        "en": "No, that's not it. That one's yours, Tom.",
+        "english": "No, that's not it. That one's yours, Tom.",
+        "note": "ちがいます corrects gently; あれ = over there."
+      },
+      {
+        "speakerId": "tom",
+        "expression": "relieved",
+        "pose": "handoff",
+        "japanese": "あ、そうです。それは ぼくの かばんです。",
+        "reading": "あ、そうです。それは ぼくの かばんです。",
+        "en": "Oh, right. That's my bag.",
+        "english": "Oh, right. That's my bag.",
+        "note": "そうです confirms; 〜の＋noun = my bag."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "welcome",
+        "japanese": "みんな、上手ですね。きょうは これ・それ・あれと「〜の」を れんしゅうしましょう。",
+        "reading": "みんな、じょうずですね。きょうは これ・それ・あれと「〜の」を れんしゅうしましょう。",
+        "en": "Everyone, nicely done. Tonight let's practise これ・それ・あれ and 〜の.",
+        "english": "Everyone, nicely done. Tonight let's practise これ・それ・あれ and 〜の.",
+        "note": "The whole lesson in one line — pointing, and saying whose it is."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Over the last few weeks you learned to introduce yourself — わたしは 〜です, the polite 〜さん, and 〜の for 'my' (わたしの なまえ). Tonight we turn to the things on the desk between you: this one, that one, and whose each one is.",
+    "intro": "Chapter 2 is one small, friendly job: pointing. There are two little word-families — これ・それ・あれ, which stand on their own, and この・その・あの, which lean on a noun. Add 〜の to say whose a thing is, and そうです / ちがいます to agree or gently disagree, and you can run the whole lost-and-found box in Japanese.",
+    "grammarPoints": [
+      {
+        "pattern": "これ・それ・あれ ／ この・その・あの＋N",
+        "nameJa": "こそあ（もの・N）",
+        "meaning": "this / that / that over there",
+        "explanation": "Two families for pointing. これ・それ・あれ stand on their own — they ARE the thing: これは ほんです ('this is a book'). この・その・あの must lean on a noun — この ほん ('this book'). Distance chooses the row: こ- is near me, そ- is near you, あ- is away from us both.",
+        "watchFor": "これ and この are not swappable. これ stands alone; この always needs a noun right behind it.",
+        "commonError": "Saying これ ほん for 'this book'. Say either これは ほんです or この ほん — never これ ほん.",
+        "examples": [
+          {
+            "ja": "これは かさです。",
+            "reading": "これは かさです。",
+            "en": "This is an umbrella.",
+            "note": "これ stands alone as the subject."
+          },
+          {
+            "ja": "その かばんは わたしのです。",
+            "reading": "その かばんは わたしのです。",
+            "en": "That bag (by you) is mine.",
+            "note": "その＋noun."
+          },
+          {
+            "ja": "あれは トムさんの とけいです。",
+            "reading": "あれは トムさんの とけいです。",
+            "en": "That over there is Tom's watch.",
+            "note": "あれ = far from both of us."
+          }
+        ]
+      },
+      {
+        "pattern": "N の N ／ だれの",
+        "nameJa": "〜の（もちぬし）",
+        "meaning": "of / 's — whose it is",
+        "explanation": "の glues two nouns together with the owner first: わたしの かさ ('my umbrella'), トムさんの かばん ('Tom's bag'). To ask 'whose?', use だれの: これは だれの かぎですか。 When the thing is obvious, drop it and let の carry it alone — これは わたしのです ('this is mine').",
+        "watchFor": "'Whose' needs the の: だれ かさ is not a question, but だれの かさですか is.",
+        "commonError": "Flipping the order. かさの わたし would mean 'the umbrella's me'. The owner comes first: わたしの かさ.",
+        "examples": [
+          {
+            "ja": "これは わたしの ノートです。",
+            "reading": "これは わたしの ノートです。",
+            "en": "This is my notebook.",
+            "note": "わたし の ノート — owner first."
+          },
+          {
+            "ja": "それは だれの かぎですか。",
+            "reading": "それは だれの かぎですか。",
+            "en": "Whose key is that?",
+            "note": "だれの = whose."
+          }
+        ]
+      },
+      {
+        "pattern": "はい、そうです／いいえ、ちがいます（＋は「わ」・も）",
+        "nameJa": "そうです・ちがいます",
+        "meaning": "agreeing, and gently correcting",
+        "explanation": "When someone asks これは 〜さんのですか, answer はい、そうです ('yes, that's right') or いいえ、ちがいます ('no, that's not it'). そうですか, said softly, means 'oh, I see'. Two carry-overs from before pull their weight tonight: the topic は is written は but said 'wa' (わたしは = 'watashi wa'), and も replaces は for 'this one too' — これも わたしのです.",
+        "watchFor": "ちがいます is the kind 'no' for facts ('that's not the case') — gentler than a bare いいえ.",
+        "commonError": "Writing わ for the topic particle. わたしわ is wrong — it's わたしは, said 'wa' but written は.",
+        "examples": [
+          {
+            "ja": "はい、そうです。わたしの かさです。",
+            "reading": "はい、そうです。わたしの かさです。",
+            "en": "Yes, that's right. It's my umbrella.",
+            "note": "そうです confirms."
+          },
+          {
+            "ja": "いいえ、ちがいます。それは トムさんのです。",
+            "reading": "いいえ、ちがいます。それは トムさんのです。",
+            "en": "No, that's not it. That's Tom's.",
+            "note": "ちがいます corrects kindly."
+          },
+          {
+            "ja": "これも わたしのです。",
+            "reading": "これも わたしのです。",
+            "en": "This one's mine too.",
+            "note": "も steps in for は."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "The lost-and-found corner",
+        "ja": "わすれものコーナー"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short labels covering the reading/'what the object is about' function of the chapter 2-2 grammar sheet; no source text reproduced."
+      },
+      "reading": {
+        "title": {
+          "en": "Four little labels",
+          "ja": "よっつの ふだ"
+        },
+        "gloss": "Four handwritten labels on the box by the door — who each thing belongs to.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "これは アーカッシュさんの かさです。",
+            "reading": "これは アーカッシュさんの かさです。",
+            "en": "This is Aakash's umbrella."
+          },
+          {
+            "ja": "それは トムさんの かばんです。",
+            "reading": "それは トムさんの かばんです。",
+            "en": "That is Tom's bag."
+          },
+          {
+            "ja": "あれは だれの ノートですか。",
+            "reading": "あれは だれの ノートですか。",
+            "en": "Whose notebook is that over there?"
+          },
+          {
+            "ja": "この ペンは わたしのです。ありがとう。",
+            "reading": "この ペンは わたしのです。ありがとう。",
+            "en": "This pen is mine. Thank you."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-input-whose",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which thing still has no owner's name?",
+            "ja": "まだ もちぬしが わからない ものは どれですか。"
+          },
+          "explanation": "The umbrella is Aakash's and the bag is Tom's, but the notebook still asks だれの — nobody's name yet.",
+          "reviewTag": "no-possession",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "The notebook",
+                "ja": "ノート"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "The umbrella",
+                "ja": "かさ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "The bag",
+                "ja": "かばん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The umbrella's label already says アーカッシュさんの — it's Aakash's."
+            },
+            {
+              "trigger": "c",
+              "message": "The bag's label says トムさんの — it's Tom's. The unclaimed one is the ノート."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "phase": "prestudy",
+      "title": {
+        "en": "Chapter 2-2 Vocabulary Sheet",
+        "ja": "Chapter 2-2 Vocabulary Sheet"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+        "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+        "title": "Chapter 2-2 Vocabulary Sheet",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "author": "Rie Tsuruta-Barratt",
+        "pageCount": 2,
+        "orderedRows": [
+          1,
+          25
+        ],
+        "sourceBlankRows": [
+          26,
+          27,
+          28
+        ],
+        "duplicateSourceRows": [
+          {
+            "rows": [
+              18,
+              21
+            ],
+            "words": "いぬ"
+          }
+        ],
+        "exactFieldPolicy": "Source rows, review labels, duplicate rows, pronunciation cells, meanings, order, and blanks are retained in item.source.exact; Yomu fills blank study fields without relabeling them as source.",
+        "answerVisibility": "after-attempt"
+      },
+      "items": [
+        {
+          "ja": "でんしじしょ",
+          "reading": "でんしじしょ",
+          "en": "electronic dictionary",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-1",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "でんしじしょ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "でんしじしょ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "の",
+          "reading": "の",
+          "en": "particle showing what something is about",
+          "example": {
+            "ja": "にほんごの じしょです。",
+            "reading": "にほんごの じしょです。",
+            "en": "It is a Japanese dictionary."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-2",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "の",
+              "pronunciation": "no",
+              "meaning": "Other use of the particle の.\nN1 explains what N2 is about."
+            },
+            "normalizedStudySurface": "の",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "えいご",
+          "reading": "えいご",
+          "en": "English language",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-3",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "*review\nえいご",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "えいご",
+            "fieldProvenance": {
+              "words": "source-provided-review-label-separated",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "にほんご",
+          "reading": "にほんご",
+          "en": "Japanese language",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-4",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "*review\nにほんご",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "にほんご",
+            "fieldProvenance": {
+              "words": "source-provided-review-label-separated",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜ご",
+          "reading": "〜ご",
+          "en": "language suffix",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-5",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "*review\n〜ご",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "〜ご",
+            "fieldProvenance": {
+              "words": "source-provided-review-label-separated",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "スーパー",
+          "reading": "スーパー",
+          "en": "supermarket",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-6",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "スーパー",
+              "pronunciation": "sūpā",
+              "meaning": null
+            },
+            "normalizedStudySurface": "スーパー",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ぎんこう",
+          "reading": "ぎんこう",
+          "en": "bank",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-7",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "*review\nぎんこう",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ぎんこう",
+            "fieldProvenance": {
+              "words": "source-provided-review-label-separated",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "デパート",
+          "reading": "デパート",
+          "en": "department store",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-8",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "デパート",
+              "pronunciation": "depāto",
+              "meaning": null
+            },
+            "normalizedStudySurface": "デパート",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "カード",
+          "reading": "カード",
+          "en": "card",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-9",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "*review\nカード",
+              "pronunciation": "kādo",
+              "meaning": null
+            },
+            "normalizedStudySurface": "カード",
+            "fieldProvenance": {
+              "words": "source-provided-review-label-separated",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "なんの",
+          "reading": "なんの",
+          "en": "what kind of / about what",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-10",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "なんの",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "なんの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "そうですか",
+          "reading": "そうですか",
+          "en": "Is that so? / I see.",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-11",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "そうですか",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "そうですか",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "の",
+          "reading": "の",
+          "en": "particle showing an owner",
+          "example": {
+            "ja": "これは トムさんの かばんです。",
+            "reading": "これは トムさんの かばんです。",
+            "en": "This is Tom's bag."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-12",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "の",
+              "pronunciation": "no",
+              "meaning": "The particle の is used to explain the owner"
+            },
+            "normalizedStudySurface": "の",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "だれの",
+          "reading": "だれの",
+          "en": "whose",
+          "example": {
+            "ja": "これは だれの かぎですか。",
+            "reading": "これは だれの かぎですか。",
+            "en": "Whose key is this?"
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-13",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "だれの",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "だれの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "この",
+          "reading": "この",
+          "en": "this 〜 (before a noun)",
+          "example": {
+            "ja": "この かさは わたしのです。",
+            "reading": "この かさは わたしのです。",
+            "en": "This umbrella is mine."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-14",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "この",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "この",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "その",
+          "reading": "その",
+          "en": "that 〜 near you (before a noun)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-15",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 15
+            },
+            "exact": {
+              "words": "その",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "その",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あの",
+          "reading": "あの",
+          "en": "that 〜 over there (before a noun)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-16",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 16
+            },
+            "exact": {
+              "words": "あの",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "あの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ねこ",
+          "reading": "ねこ",
+          "en": "cat",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-17",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "ねこ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ねこ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いぬ",
+          "reading": "いぬ",
+          "en": "dog",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-18",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "いぬ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いぬ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いえ",
+          "reading": "いえ",
+          "en": "house / home",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-19",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "いえ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いえ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "はな",
+          "reading": "はな",
+          "en": "flower",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-20",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "はな",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "はな",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いぬ",
+          "reading": "いぬ",
+          "en": "dog",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-21",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 21
+            },
+            "exact": {
+              "words": "いぬ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いぬ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あお",
+          "reading": "あお",
+          "en": "blue",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-22",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 22
+            },
+            "exact": {
+              "words": "あお",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "あお",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あか",
+          "reading": "あか",
+          "en": "red",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-23",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 23
+            },
+            "exact": {
+              "words": "あか",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "あか",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "くろ",
+          "reading": "くろ",
+          "en": "black",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-24",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 24
+            },
+            "exact": {
+              "words": "くろ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "くろ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しろ",
+          "reading": "しろ",
+          "en": "white",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-2-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-25",
+            "payloadSha256": "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+            "title": "Chapter 2-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 25
+            },
+            "exact": {
+              "words": "しろ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しろ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-vocab-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each word to its meaning.",
+            "ja": "ことばと いみを あわせましょう。"
+          },
+          "explanation": "These are the everyday things you point at with これ・それ・あれ — the whole chapter lives on this handful of nouns.",
+          "reviewTag": "ch2-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "かさ"
+              },
+              "right": {
+                "en": "umbrella"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "かばん"
+              },
+              "right": {
+                "en": "bag"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "かぎ"
+              },
+              "right": {
+                "en": "key"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "とけい"
+              },
+              "right": {
+                "en": "watch, clock"
+              }
+            },
+            {
+              "id": "p5",
+              "left": {
+                "ja": "さいふ"
+              },
+              "right": {
+                "en": "wallet"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Pointing, and saying whose",
+        "ja": "これ・それ・あれと 〜の の れんしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original practice covering the three chapter 2-2 grammar exercises: これ・それ・あれ, この・その・あの＋N, and 〜の / だれの."
+      },
+      "practiceFor": [
+        "これ・それ・あれ",
+        "この・その・あの＋N",
+        "〜の (possession)"
+      ],
+      "exercises": [
+        {
+          "id": "ex-kore-sore",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "The book is right next to the person you're talking to. Which word fills the gap? 「＿は ほんです。」",
+            "ja": "あいての すぐ そばに ある とき、どれを つかいますか。"
+          },
+          "japanese": "＿は ほんです。",
+          "explanation": "Near the listener → それ. (Near you → これ; away from both → あれ.)",
+          "reviewTag": "kosoado",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "それ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "これ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "あれ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "これ is 'near me, the speaker'. The book is by the listener, so it's それ."
+            },
+            {
+              "trigger": "c",
+              "message": "あれ is for something away from both of you. Here it's right by the listener → それ."
+            }
+          ]
+        },
+        {
+          "id": "ex-kono-cloze",
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Fill each blank with この, その or あの.",
+            "ja": "この・その・あの で うめましょう。"
+          },
+          "japanese": "＿① かさ（わたしの そば）は わたしのです。＿② かばん（あいての そば）は トムさんのです。",
+          "explanation": "① by me → この; ② by the listener → その. Both must lean on the noun that follows.",
+          "reviewTag": "kono-sono-ano",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "この",
+                "alternatives": []
+              }
+            },
+            {
+              "id": "b2",
+              "answer": {
+                "primary": "その",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "あの",
+              "message": "あの is for things away from both of you. The umbrella is by you (この) and the bag is by the listener (その)."
+            },
+            {
+              "trigger": "これ",
+              "message": "これ stands alone; before a noun you need この. The first blank is この かさ."
+            }
+          ]
+        },
+        {
+          "id": "ex-no-exact",
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Say it in Japanese: 'That over there is Tom's umbrella.'",
+            "ja": "にほんごで いいましょう：「あれは トムさんの かさ」"
+          },
+          "japanese": "That over there is Tom's umbrella. → ？",
+          "explanation": "あれ (far from both) + トムさんの (Tom's) + かさです → あれは トムさんの かさです。",
+          "reviewTag": "no-possession",
+          "autoGraded": true,
+          "answer": {
+            "primary": "あれはトムさんのかさです",
+            "alternatives": [
+              "あれは トムさんの かさです",
+              "あれはトムさんのかさです。",
+              "あれは トムさんの かさです。"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "これはトムさんのかさです",
+              "message": "これ means 'near me'. For 'over there', use あれ: あれは トムさんの かさです。"
+            },
+            {
+              "trigger": "あれはトムさんのかさ",
+              "message": "Almost — don't drop the closing です: あれは トムさんの かさです。"
+            }
+          ]
+        },
+        {
+          "id": "ex-dareno",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "How do you ask 'Whose key is this?' 「これは ＿＿ かぎですか。」",
+            "ja": "「これは ＿＿ かぎですか。」"
+          },
+          "japanese": "これは ＿＿ かぎですか。",
+          "explanation": "'Whose' is だれの — the question word だれ plus の.",
+          "reviewTag": "dare-no",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "だれの"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "なんの"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "だれ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "なんの asks 'of what / what kind of', not 'whose'. For an owner, use だれの."
+            },
+            {
+              "trigger": "c",
+              "message": "だれ alone means 'who'. To say 'whose' you need the の: だれの かぎ."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Whose is it?",
+        "ja": "だれの ですか"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original recorded dialogue covering the Chapter 2 listening worksheet and its paired audio tracks; no source audio reused."
+      },
+      "audio": {
+        "assetId": "asset-l1-l05-listening",
+        "locator": "academy://audio/level-1/lesson-05-whose-is-it",
+        "durationSeconds": 30,
+        "voiceNotes": "Two speakers, slow and clear. Henry a little unsure and polite; Aakash friendly and easy.",
+        "script": "ヘンリー：あのう、すみません。これは アーカッシュさんの かさですか。 アーカッシュ：あ、はい。それは わたしのです。ありがとうございます。 ヘンリー：この かばんも アーカッシュさんのですか。 アーカッシュ：いいえ、ちがいます。わたしのじゃ ありません。あれは トムさんの かばんです。 ヘンリー：あ、そうですか。"
+      },
+      "transcript": {
+        "revealAfterFirstAttempt": true,
+        "body": "Henry: Um, excuse me. Is this Aakash's umbrella? — Aakash: Ah, yes. That one's mine. Thank you. — Henry: Is this bag also yours, Aakash? — Aakash: No, that's not it. It isn't mine. That one over there is Tom's bag. — Henry: Oh, I see."
+      },
+      "audioWorksheetPairing": {
+        "pairedWith": "d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3",
+        "note": "Stands in for the source 'Chapter 2 listening' worksheet and the paired tracks 7 A-7 / 8 A-8: same 'listen for what it is and whose it is' skill, original script."
+      },
+      "exercises": [
+        {
+          "id": "ex-listen-gist",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What are the two people doing?",
+            "ja": "ふたりは 何を していますか。"
+          },
+          "explanation": "Henry is working out whose things belong to whom — an umbrella and a bag.",
+          "reviewTag": "listening-gist",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Finding out whose things they are",
+                "ja": "だれの ものか きいて いる"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Ordering at a shop",
+                "ja": "みせで ちゅうもん"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "Talking about the weekend",
+                "ja": "しゅうまつの はなし"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Nothing is being bought — listen for だれの, わたしの, トムさんの. It's about who owns what."
+            },
+            {
+              "trigger": "c",
+              "message": "There's no weekend here; every line is これ・それ・あれ and 〜の — sorting out whose things they are."
+            }
+          ]
+        },
+        {
+          "id": "ex-listen-detail",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Whose is the bag?",
+            "ja": "かばんは だれのですか。"
+          },
+          "explanation": "Aakash says あれは トムさんの かばんです — the bag is Tom's. Only the umbrella is Aakash's.",
+          "reviewTag": "listening-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Tom's",
+                "ja": "トムさんの"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Aakash's",
+                "ja": "アーカッシュさんの"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "Henry's",
+                "ja": "ヘンリーさんの"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Aakash says the bag isn't his — わたしのじゃ ありません — only the umbrella is. The bag is Tom's."
+            },
+            {
+              "trigger": "c",
+              "message": "Henry is the one asking; he never claims the bag. Aakash says it's トムさんの."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Reading it right",
+        "ja": "ただしく よむ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original look-alike-kana reading set covering the source 'look-alike hiragana reading practice' and the わ/は sheet's reading function."
+      },
+      "passage": {
+        "title": {
+          "en": "Look-alike kana",
+          "ja": "にて いる かな"
+        },
+        "gloss": "A few short lines where the trick is telling similar kana apart — and reading the topic は as 'wa'.",
+        "lines": [
+          {
+            "ja": "わたしは がくせいです。",
+            "reading": "わたしは がくせいです。",
+            "en": "I'm a student."
+          },
+          {
+            "ja": "これは わたしの ほんです。",
+            "reading": "これは わたしの ほんです。",
+            "en": "This is my book."
+          },
+          {
+            "ja": "はい、それも わたしのです。",
+            "reading": "はい、それも わたしのです。",
+            "en": "Yes, that's mine too."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-read-wa",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "In わたしは, how is は read?",
+            "ja": "「わたしは」の は は、どう よみますか。"
+          },
+          "explanation": "As the topic particle, は is read 'wa' — わたし wa. It's written は but never said 'ha' in this job.",
+          "reviewTag": "wa-particle",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "wa",
+                "ja": "わ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "ha",
+                "ja": "は"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "ba",
+                "ja": "ば"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "That's は in はい or はじめまして, said 'ha'. As the topic particle it softens to 'wa'."
+            },
+            {
+              "trigger": "c",
+              "message": "ば has the two-stroke dakuten. Here it's plain は, and as the topic marker it's said 'wa'."
+            }
+          ]
+        },
+        {
+          "id": "ex-read-lookalike",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each look-alike kana to its sound.",
+            "ja": "にて いる かなと おとを あわせましょう。"
+          },
+          "explanation": "は and ほ share a body; わ and れ (and ね) share a shape; ぬ and め curl differently. Read the little differences.",
+          "reviewTag": "lookalike-kana",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "は"
+              },
+              "right": {
+                "en": "ha"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "ほ"
+              },
+              "right": {
+                "en": "ho"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "わ"
+              },
+              "right": {
+                "en": "wa"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "れ"
+              },
+              "right": {
+                "en": "re"
+              }
+            },
+            {
+              "id": "p5",
+              "left": {
+                "ja": "ぬ"
+              },
+              "right": {
+                "en": "nu"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Show and tell",
+        "ja": "これ、なんですか"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Speaking task shaped like the chapter-2 show-and-tell conversation practice; content original."
+      },
+      "prompt": "Pick up something near you. Say what it is and that it's yours: これは わたしの 〜です. Then point to something by a classmate and ask それは 〜さんのですか. Slow and clear beats fast.",
+      "targets": [
+        "これ・それ",
+        "〜の (possession)",
+        "そうです／ちがいます"
+      ],
+      "recording": {
+        "minSeconds": 15,
+        "maxSeconds": 45
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "これは わたしの さいふです。それは アーカッシュさんの とけいですか。",
+        "reading": "これは わたしの さいふです。それは アーカッシュさんの とけいですか。",
+        "en": "This is my wallet. Is that Aakash's watch?"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "grammar",
+            "label": {
+              "en": "Uses これ・それ and 〜の correctly"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Pointing word or の missing/muddled"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Mostly right, a slip or two"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "What it is and whose it is both clear"
+                }
+              }
+            ]
+          },
+          {
+            "id": "delivery",
+            "label": {
+              "en": "Clear, unhurried, one real question"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Hard to catch"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Understandable"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Calm and clear, ends with a genuine ですか question"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Your first name-and-thing",
+        "ja": "ひらがなで かく"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original hiragana production covering the 'Hiragana practice わ は' and 'greeting + name of things' homework function."
+      },
+      "prompt": "Write three short lines in hiragana only: a greeting, わたしは … です with your name, and これは わたしの 〜です for one thing that's yours. Remember the topic は is written は and said 'wa'.",
+      "minChars": 24,
+      "maxChars": 120,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "こんにちは。わたしは ヘンリーです。これは わたしの かさです。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "kana",
+            "label": {
+              "en": "Hiragana correct, topic は written は"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Topic particle written わ, or kana wrong"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Small slips"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "All kana correct, は used for the topic"
+                }
+              }
+            ]
+          },
+          {
+            "id": "structure",
+            "label": {
+              "en": "Greeting, name, and one thing that's yours"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "One or more lines missing"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "All three lines present"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Counting on: 四 五 六",
+        "ja": "つづきの すうじ"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Original number-kanji set continuing the 一二三人 strand begun in Lesson 1; supports the Level 1 kanji strand and the recurring numbers game. No source sheet reproduced."
+      },
+      "items": [
+        {
+          "character": "四",
+          "readings": {
+            "on": [
+              "シ"
+            ],
+            "kun": [
+              "よん",
+              "よ",
+              "よっ-つ"
+            ]
+          },
+          "meaning": "four",
+          "exampleWord": {
+            "ja": "四",
+            "reading": "よん",
+            "en": "four"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'four'?",
+            "answer": "四"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 5,
+            "mnemonic": "A box with two little legs tucked inside — four walls, four.",
+            "tracePrompt": "Trace 四 (box first, then the legs inside), then write it twice from memory."
+          }
+        },
+        {
+          "character": "五",
+          "readings": {
+            "on": [
+              "ゴ"
+            ],
+            "kun": [
+              "いつ-つ"
+            ]
+          },
+          "meaning": "five",
+          "exampleWord": {
+            "ja": "五",
+            "reading": "ご",
+            "en": "five"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'five'?",
+            "answer": "五"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 4,
+            "mnemonic": "A top line, a bottom line, and a zig-zag caught between them — five.",
+            "tracePrompt": "Trace 五, then write it twice from memory."
+          }
+        },
+        {
+          "character": "六",
+          "readings": {
+            "on": [
+              "ロク"
+            ],
+            "kun": [
+              "むっ-つ"
+            ]
+          },
+          "meaning": "six",
+          "exampleWord": {
+            "ja": "六",
+            "reading": "ろく",
+            "en": "six"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'six'?",
+            "answer": "六"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 4,
+            "mnemonic": "A little hat with two legs kicking out beneath — six.",
+            "tracePrompt": "Trace 六 (dot and line on top, then the two legs), then write it twice from memory."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-kanji-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each number kanji to its reading.",
+            "ja": "すうじの かんじと よみかたを あわせましょう。"
+          },
+          "explanation": "四 = よん (also し), 五 = ご, 六 = ろく — the next three counting kanji after 一 二 三.",
+          "reviewTag": "kanji-numbers",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "四"
+              },
+              "right": {
+                "en": "よん"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "五"
+              },
+              "right": {
+                "en": "ご"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "六"
+              },
+              "right": {
+                "en": "ろく"
+              }
+            }
+          ]
+        },
+        {
+          "id": "ex-kanji-read",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "How do you read 六?",
+            "ja": "「六」の よみかたは？"
+          },
+          "explanation": "The number 六 on its own is ろく.",
+          "reviewTag": "kanji-numbers",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "ろく"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ろう"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "よん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "It's ろく with a short 'ku' at the end, not ろう."
+            },
+            {
+              "trigger": "c",
+              "message": "よん is 四 (four). 六 is ろく (six)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "phase": "transfer",
+      "title": {
+        "en": "Looking back",
+        "ja": "ふくしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review folding chapter 1's は, も, か and の into tonight's chapter-2 work; covers the Chapter 1,2 review homework function."
+      },
+      "reviewFrom": [
+        "l1-l04",
+        "l1-l03",
+        "l1-l02"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [
+          "l1-l02",
+          "l1-l03",
+          "l1-l04"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-review-mo",
+          "kind": "choice",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Fill the gap: 「わたしは がくせいです。トムさん＿ がくせいです。」",
+            "ja": "＿に 入る ことばは？"
+          },
+          "japanese": "わたしは がくせいです。トムさん＿ がくせいです。",
+          "explanation": "Same as the person before → も steps in for は ('Tom is a student too').",
+          "reviewTag": "mo-also",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "も"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "は"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "の"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "は would just restate the topic. To say 'also / too', use も."
+            },
+            {
+              "trigger": "c",
+              "message": "の links two nouns. Here you mean 'also', so it's も."
+            }
+          ]
+        },
+        {
+          "id": "ex-review-ka",
+          "kind": "cloze",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Turn it into a yes/no question.",
+            "ja": "しつもんに しましょう。"
+          },
+          "japanese": "アーカッシュさんは かいしゃいんです＿。",
+          "explanation": "か at the very end turns a statement into a yes/no question — no other change.",
+          "reviewTag": "ka-question",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "か",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "ね",
+              "message": "ね seeks agreement ('right?'). A plain yes/no question ends in か."
+            },
+            {
+              "trigger": "よ",
+              "message": "よ adds emphasis to a statement; to ask a question, end with か."
+            }
+          ]
+        },
+        {
+          "id": "ex-review-no",
+          "kind": "choice",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Which particle links the two nouns? 「にほんご＿ せんせい」 (a teacher of Japanese)",
+            "ja": "「にほんご＿ せんせい」に 入る ことばは？"
+          },
+          "japanese": "にほんご＿ せんせい",
+          "explanation": "の links two nouns with the describer first: にほんごの せんせい.",
+          "reviewTag": "no-linking",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "の"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "は"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "も"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "は marks a topic; it doesn't glue two nouns together. Use の."
+            },
+            {
+              "trigger": "c",
+              "message": "も means 'also'. To link にほんご and せんせい, use の."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "title": "The whose-is-this box",
+    "framedBy": "tom",
+    "prompt": "Tom tips a small box of stray things onto the desk — a key, a pen, someone's umbrella. One by one, pick something up and ask これは だれのですか. Whoever it belongs to answers はい、わたしのです, or someone points on with いいえ、〜さんのです.",
+    "successCriteria": [
+      "You ask about at least two things with これ／それ／あれ and だれの.",
+      "You claim one thing that's yours with はい、わたしのです.",
+      "You say whose another thing is with 〜さんの.",
+      "You confirm with そうです or correct kindly with ちがいます — no one's guess is the joke."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "これは だれの かぎですか。……あ、ちがいます。それは アーカッシュさんの かぎです。この ペンは わたしのです。",
+      "reading": "これは だれの かぎですか。……あ、ちがいます。それは アーカッシュさんの かぎです。この ペンは わたしのです。",
+      "en": "Whose key is this? … Oh, no — that's Aakash's key. This pen is mine."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "grammar",
+          "label": {
+            "en": "これ・それ・あれ and 〜の used correctly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Pointing word or の missing/wrong"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Pointing and possession both clear"
+              }
+            }
+          ]
+        },
+        {
+          "id": "warmth",
+          "label": {
+            "en": "Confirms or corrects kindly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "No response to others"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "Answers present"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "そうです / ちがいます used warmly, nobody's guess is the joke"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "これ・それ・あれ",
+        "back": "this (by me) · that (by you) · that over there — stand alone",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "この・その・あの＋N",
+        "back": "this/that/that-over-there + noun — must lean on a noun",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "N の N",
+        "back": "possession — わたしの かさ; drop the noun: わたしのです",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "だれの",
+        "back": "whose? — だれ + の",
+        "reading": "だれの",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "そうです／ちがいます",
+        "back": "yes, that's right · no, that's not it (gentle)",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "は（topic）",
+        "back": "the topic marker — written は, said 'wa'",
+        "reading": "わ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "かさ",
+        "back": "umbrella",
+        "reading": "かさ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "かばん",
+        "back": "bag",
+        "reading": "かばん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "かぎ",
+        "back": "key",
+        "reading": "かぎ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "とけい",
+        "back": "watch, clock",
+        "reading": "とけい",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "さいふ",
+        "back": "wallet, purse",
+        "reading": "さいふ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "四",
+        "back": "four — シ / よん・よ",
+        "reading": "よん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "五",
+        "back": "five — ゴ / いつ-つ",
+        "reading": "ご",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "六",
+        "back": "six — ロク / むっ-つ",
+        "reading": "ろく",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l05",
+          "kanji"
+        ]
+      }
+    ]
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "henry",
+      "aakash",
+      "tom"
+    ]
+  },
+  "preStudyVocabulary": {
+    "status": "source-exact-with-yomu-support",
+    "primarySourceId": "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe",
+    "primaryComponentOrder": 20,
+    "orderedItemIds": [
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-1",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-2",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-3",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-4",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-5",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-6",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-7",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-8",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-9",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-10",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-11",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-12",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-13",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p1:row-14",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-15",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-16",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-17",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-18",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-19",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-20",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-21",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-22",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-23",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-24",
+      "moodle-vocabulary:5834212:e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe:p2:row-25"
+    ],
+    "answerVisibility": "after-attempt"
+  }
+}

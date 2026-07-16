@@ -1,0 +1,1123 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l13",
+  "order": 14,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Skills and understanding",
+    "ja": "じょうずです・わかります"
+  },
+  "estimatedMinutes": 75,
+  "identity": {
+    "title": "Level 1+ Lesson 3",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1+",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 13,
+    "moduleId": 5489595,
+    "moduleType": "folder",
+    "sourceOrdering": {
+      "manifestOrder": 5,
+      "moodleSection": 20
+    }
+  },
+  "mapping": {
+    "ucl": "Level 1+ · Moodle Chapter 9 chronology",
+    "minna": "Minna no Nihongo I · Lesson 9",
+    "genki": "≈ Genki I · Lesson 5 (skills and understanding)",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "source-normalized",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-questions",
+        "reference": "course ucl-japanese-2023-2024 · section rie-level-1-plus-thursday-7pm · module 5489595",
+        "reuse": "user-owned-coursework"
+      }
+    ],
+    "answerPolicy": "Answers and model responses are revealable only after the learner's first attempt.",
+    "gaps": [
+      "Chapter 9-1_listening-1 is a title-only PDF and tracks 35/36 have no verified transcript.",
+      "Picture-based skill questions are quarantined without the source picture panel."
+    ]
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 5489595,
+    "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+    "members": [
+      {
+        "title": "Chapter 9-1_Grammar Exercise_describing skills",
+        "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+        "status": "questions-normalized"
+      },
+      {
+        "title": "Chapter 9-2_Grammar Exercise_describing abilities and the degree",
+        "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+        "status": "questions-normalized"
+      },
+      {
+        "title": "HW Chapter 9-1 reading_山田さんとダンス",
+        "payloadSha256": "6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398",
+        "status": "questions-normalized"
+      },
+      {
+        "title": "Chapter 9-1_listening-1",
+        "payloadSha256": "db130957b5477cfa78439cfc44626f4aeeba0ae4f926052fc52978b239c781b3",
+        "status": "quarantined-no-question-text"
+      }
+    ],
+    "quarantine": [
+      {
+        "sourceId": "moodle:5489595:db130957:document",
+        "reason": "Title-only listening PDF; no recoverable prompts."
+      },
+      {
+        "sourceId": "moodle:5489595:189a1652:p2:pictures",
+        "reason": "Answers depend on an unbundled picture panel."
+      }
+    ],
+    "unresolvedMedia": [
+      {
+        "kind": "audio",
+        "label": "35 A-35",
+        "payloadSha256": "30bf4bcfe66cdf9470323e89642d23187800f1cf68fbba725abe7acba09fd0b9",
+        "reason": "No verified transcript or item-to-track timing."
+      },
+      {
+        "kind": "audio",
+        "label": "36 A-36",
+        "payloadSha256": "932f1df86454110f79a365769fbf733bef5da7d99185a1ad81ca37dd593cab54",
+        "reason": "No verified transcript or item-to-track timing."
+      },
+      {
+        "kind": "image",
+        "label": "Chapter 9 skills picture panel",
+        "reason": "No public runtime asset locator."
+      }
+    ]
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "supported-for-this-week-once-the-package-hash-is-registered",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l13:lesson-5-workbook-8",
+      "relation": "particle-ga-prerequisite-review-only",
+      "source": {
+        "sourceId": "japanese-genki-interactive:3ccb538a2f9708ae43fcfd56640f7ee040a784eb790f61df0e401adb2506bff7:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-5/workbook-8/index.html",
+        "payloadSha256": "3ccb538a2f9708ae43fcfd56640f7ee040a784eb790f61df0e401adb2506bff7",
+        "scriptSha256": "02d771397a001cb17900fce9f63abc17221db0fb14f01839ddf34a102febcd21",
+        "lineLocus": {
+          "start": 76,
+          "end": 139
+        },
+        "title": "Workbook: Questions - Lesson 5 | Genki Study Resources - 2nd Edition",
+        "description": "Answer the following questions in Japanese by translating the given cues.",
+        "keywords": "Genki I Workbook, page 53, problem I, problem II, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-5/workbook-8/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Answer the following questions in Japanese by translating the given cues.",
+          "quizlet": "<div class=\"count-problems\"><p class=\"section-desc\">Answer the following questions in Japanese regarding your best trip.</p><div class=\"problem\">どこに行きましたか。<br>(I went to Kyoto.)<br>{京都に行きました|きょうとにいきました|%(京都に行きました/京都にいきました/きょうとに行きました/きょうとにいきました)|answer}。</div><div class=\"problem\">だれと行きましたか。<br>(I went with a friend.)<br>{友だちと行きました|ともだちといきました|%(友達と行きました/友達といきました/友だちと行きました/友だちといきました/とも達と行きました/とも達といきました/ともだちと行きました/ともだちといきました)|answer}。</div><div class=\"problem\">天気はどうでしたか。<br>(The weather was good.)<br>{%(天気は/)よかったです|%(てんきは/)よかったです|良かったです|%(天気はよかったです/天気は良かったです/てんきはよかったです/てんきは良かったです)|answer}。</div><div class=\"problem\">食べ物はどうでしたか。<br>(The food was very delicious.)<br>{%(食べ物は/)とてもおいしかったです|%(たべものは/)とてもおいしかったです|すごくおいしかったです|%(食べ物はすごくおいしかったです/たべものはすごくおいしかったです)|answer}。</div><div class=\"problem\">そこで何をしましたか。<br>(I went to a temple. After that, I went shopping.)<br>{お寺に行きました。それから、買い物をしました。|おてらにいきました。それから、かいものをしました。|%(お寺に行きました。それから、買い物をしました。/お寺に行きました。それから、かいものをしました。/お寺にいきました。それから、買い物をしました。/お寺にいきました。それから、かいものをしました。/おてらに行きました。それから、買い物をしました。/おてらに行きました。それから、かいものをしました。/おてらにいきました。それから、買い物をしました。/おてらにいきました。それから、かいものをしました。)|answer}</div><div class=\"problem\">おみやげを買いましたか。<br>(Yes, I brought a souvenir.)<br>{はい、%(お土産を/)買いました|はい、%(おみやげを/)かいました|%(はい、お土産を買いました/はい、お土産をかいました/はい、おみやげを買いました/はい、おみやげをかいました)|answer}。</div><p class=\"section-desc\">Answer the following questions in Japanese.</p><div class=\"problem\">どんな食べ物が好きですか。<br>(I like ice cream.)<br>{アイスクリームが好きです|アイスクリームがすきです|answer}。</div><div class=\"problem\">どんな飲み物が好きですか。<br>(I like coffee.)<br>{コーヒーが好きです|コーヒーがすきです|answer}。</div><div class=\"problem\">どんな音楽が好きですか。<br>(I like Japanese music.)<br>{日本の音楽が好きです|にほんのおんがくがすきです|%(日本の音楽が好きです/日本の音楽がすきです/日本のおんがくが好きです/日本のおんがくがすきです/にほんの音楽が好きです/にほんの音楽がすきです/にほんのおんがくが好きです/にほんのおんがくがすきです)|answer}。</div></div>"
+        },
+        "sourceSlice": {
+          "kind": "problem-ordinals",
+          "values": [
+            7,
+            8,
+            9
+          ],
+          "omittedPolicy": "Earlier trip questions remain in the exact stored source config but are not assigned here because their vocabulary and past-tense scope are not this lesson’s prerequisite."
+        },
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/activity-room",
+        "cast": [
+          "jenny",
+          "mika"
+        ],
+        "grouping": "pairs",
+        "beat": "Jenny and Mika use only the source activity’s final preference questions to review が before Sensei introduces skills and understanding.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "skill",
+          "understanding"
+        ],
+        "evidence": "Use familiar activities, hiragana, and kanji as the topic before describing ability."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 20,
+        "conceptIds": [
+          "skill"
+        ],
+        "form": "N が じょうずです / じょうずじゃありません / へたです",
+        "meaning": "Describe a skill with the activity marked by が.",
+        "contrast": "Use the softer じょうずじゃありません when speaking kindly about another person's skill.",
+        "workedExample": "トムさんは えいごが じょうずです。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 20,
+        "conceptIds": [
+          "skill"
+        ],
+        "activity": "Match the supplied person, activity, and evaluation before forming one polite skill sentence."
+      },
+      {
+        "id": "understanding-instruction",
+        "phase": "instruction",
+        "componentOrder": 35,
+        "conceptIds": [
+          "understanding"
+        ],
+        "form": "N が わかります / わかりません",
+        "meaning": "Say what someone understands and to what degree.",
+        "contrast": "すこし and だいたい fit affirmative understanding; ぜんぜん pairs with a negative.",
+        "workedExample": "A: にほんごが わかりますか。 B: すこし わかります。"
+      },
+      {
+        "id": "understanding-guided",
+        "phase": "guided-practice",
+        "componentOrder": 35,
+        "conceptIds": [
+          "understanding"
+        ],
+        "activity": "Choose the supplied degree adverb and matching affirmative or negative ending."
+      },
+      {
+        "id": "skill-assessment",
+        "phase": "assessed-production",
+        "componentOrder": 30,
+        "assessmentIds": [
+          "l13-skill-q1-1",
+          "l13-skill-q1-2",
+          "l13-skill-q1-3",
+          "l13-skill-q1-4"
+        ],
+        "conceptIds": [
+          "skill"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Find the person and activity.",
+            "Place the activity before が.",
+            "Choose the tactful evaluation ending."
+          ],
+          "feedback": {
+            "error": "If the activity lacks が or a negative ending is attached incorrectly, the skill sentence is ungrammatical.",
+            "retry": "Say the activity-plus-が chunk first, then add the evaluation."
+          }
+        }
+      },
+      {
+        "id": "understanding-assessment",
+        "phase": "assessed-production",
+        "componentOrder": 40,
+        "assessmentIds": [
+          "l13-ability-q1-1",
+          "l13-ability-q2-1",
+          "l13-ability-q2-2",
+          "l13-ability-q2-4"
+        ],
+        "conceptIds": [
+          "understanding"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Find what is understood.",
+            "Mark it with が.",
+            "Match the degree word to わかります or わかりません."
+          ],
+          "feedback": {
+            "error": "If ぜんぜん is paired with わかります or the question lacks か, the intended meaning is wrong.",
+            "retry": "Choose affirmative or negative first, then insert the matching degree word."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Describe skill with N が じょうずです／へたです.",
+    "Describe understanding with N が わかります.",
+    "Use degree adverbs with affirmative and negative verbs."
+  ],
+  "sourceActivityBindings": [
+    {
+      "activityIds": [
+        "l13-skill-q1-1",
+        "l13-skill-q1-2",
+        "l13-skill-q1-3",
+        "l13-skill-q1-4"
+      ],
+      "place": "academy/world/activity-room",
+      "cast": [
+        "aakash",
+        "mika"
+      ],
+      "grouping": "pairs",
+      "beat": "Aakash and Mika take the supplied source activity roles; the learner forms the exact skill descriptions.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    },
+    {
+      "activityIds": [
+        "l13-ability-q1-1",
+        "l13-ability-q2-1",
+        "l13-ability-q2-2",
+        "l13-ability-q2-4"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "rie",
+        "jenny"
+      ],
+      "grouping": "pair-interview",
+      "beat": "Rie and Jenny use the original comprehension cues in a library check-in without changing the source answers.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    },
+    {
+      "activityIds": [
+        "l13-read-q2",
+        "l13-read-q4"
+      ],
+      "place": "academy/world/study",
+      "cast": [
+        "henry",
+        "tom",
+        "jenny"
+      ],
+      "grouping": "reading-circle",
+      "beat": "The study group reads the source passage together, then each learner answers its exact detail question.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    }
+  ],
+  "components": [
+    {
+      "id": "l13-activity-room-context",
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "Skills at the activity table",
+        "ja": "アクティビティの とくいな こと"
+      },
+      "provenance": {
+        "reuse": "original-yomu-context-before-verbatim-source-task",
+        "note": "Fresh cast dialogue supplies meaning before the exact skill and understanding worksheets."
+      },
+      "delivery": {
+        "place": "academy/world/activity-room",
+        "cast": [
+          "aakash",
+          "mika"
+        ],
+        "grouping": "pairs",
+        "beat": "Mika sketches a poster while Aakash reads its Japanese label."
+      },
+      "reading": {
+        "title": {
+          "en": "Who can do what?",
+          "ja": "だれが なにを できますか"
+        },
+        "gloss": "Read for the skill and the degree of understanding before studying the forms.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "ミカは えが じょうずです。",
+            "reading": "ミカは えが じょうずです。",
+            "en": "Mika is good at drawing."
+          },
+          {
+            "ja": "アーカッシュは にほんごが すこし わかります。",
+            "reading": "アーカッシュは にほんごが すこし わかります。",
+            "en": "Aakash understands a little Japanese."
+          },
+          {
+            "ja": "かんじは まだ あまり わかりません。",
+            "reading": "かんじは まだ あまり わかりません。",
+            "en": "He still does not understand much kanji."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "l13-context-ability-recognition",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What does Aakash understand a little?",
+            "ja": "アーカッシュは なにが すこし わかりますか。"
+          },
+          "explanation": "The dialogue says にほんごが すこし わかります. The kanji line is negative with あまり.",
+          "reviewTag": "understanding-context",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "japanese",
+              "label": {
+                "en": "Japanese",
+                "ja": "にほんご"
+              },
+              "correct": true
+            },
+            {
+              "id": "kanji",
+              "label": {
+                "en": "Kanji",
+                "ja": "かんじ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "kanji",
+              "message": "The kanji line says あまり わかりません. Return to the affirmative すこし わかります line and retry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l13-skill-scaffold",
+      "type": "grammar",
+      "order": 20,
+      "phase": "instruction",
+      "title": {
+        "en": "Describe a skill tactfully",
+        "ja": "とくいな ことを いう"
+      },
+      "provenance": {
+        "reuse": "yomu-scaffold-before-verbatim-source-task",
+        "sourceConcept": "moodle:5489595:189a1652"
+      },
+      "delivery": {
+        "place": "academy/world/activity-room",
+        "cast": [
+          "aakash",
+          "mika"
+        ],
+        "grouping": "partner-check",
+        "beat": "Aakash chooses an activity card; Mika checks the polite evaluation after the attempt."
+      },
+      "instruction": {
+        "form": "Person は activity が じょうずです / へたです / じょうずじゃありません。",
+        "meaning": "Describe how skilled someone is at an activity.",
+        "contrast": "Use the gentler じょうずじゃありません when a direct へたです would sound harsh about another person.",
+        "workedExample": "ミカは えが じょうずです。"
+      },
+      "exercises": [
+        {
+          "id": "l13-guided-skill-particle",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Complete: Mika is good at drawing.",
+            "ja": "ミカは え＿＿ じょうずです。"
+          },
+          "explanation": "The activity being evaluated takes が: えが じょうずです.",
+          "reviewTag": "skill",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "ga",
+              "label": {
+                "en": "が",
+                "ja": "が"
+              },
+              "correct": true
+            },
+            {
+              "id": "o",
+              "label": {
+                "en": "を",
+                "ja": "を"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "o",
+              "message": "じょうず describes skill rather than an action on an object. Mark the activity with が and retry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Good at, not good at",
+        "ja": "じょうず・へた"
+      },
+      "provenance": {
+        "sourceId": "moodle:5489595:189a1652",
+        "reuse": "verbatim-source-cues-with-yomu-translation-and-formatting-support"
+      },
+      "sourceInstructionExact": [
+        "1: Describing people’s skills."
+      ],
+      "sourceWorkedExamplesExact": [
+        "れい）わたしの はは／りょうり／good → わたしの ははは りょうりが じょうずです。"
+      ],
+      "sourceDocument": {
+        "moduleId": 5489595,
+        "archiveOccurrenceId": "archive-000081",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+        "memberOccurrenceId": "member-000762",
+        "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
+        "centralDirectoryIndex": 4,
+        "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+        "pageRange": "pages 1-3",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "exercises": [
+        {
+          "id": "l13-skill-q1-1",
+          "sourceQuestionId": "moodle:5489595:189a1652:p2:q1:1",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "わたし／スキー／bad, poor",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000762",
+            "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
+            "centralDirectoryIndex": 4,
+            "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+            "locus": "p2:q1:1",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Say: I am poor at skiing.",
+            "ja": "わたし／スキー／bad, poor"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "わたしはスキーがへたです",
+            "alternatives": [
+              "わたしは スキーが へたです"
+            ]
+          },
+          "explanation": "The skill is marked with が before へたです."
+        },
+        {
+          "id": "l13-skill-q1-2",
+          "sourceQuestionId": "moodle:5489595:189a1652:p2:q1:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "マイケルさん／ダンス／good",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000762",
+            "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
+            "centralDirectoryIndex": 4,
+            "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+            "locus": "p2:q1:2",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Say: Michael is good at dancing.",
+            "ja": "マイケルさん／ダンス／good"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "マイケルさんはダンスがじょうずです",
+            "alternatives": [
+              "マイケルさんは ダンスが じょうずです"
+            ]
+          },
+          "explanation": "ダンス is the skill and takes が."
+        },
+        {
+          "id": "l13-skill-q1-3",
+          "sourceQuestionId": "moodle:5489595:189a1652:p2:q1:3",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "あのひと／カラオケ／not good",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000762",
+            "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
+            "centralDirectoryIndex": 4,
+            "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+            "locus": "p2:q1:3",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Say politely: That person is not good at karaoke.",
+            "ja": "あのひと／カラオケ／not good"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "あのひとはカラオケがじょうずじゃありません",
+            "alternatives": [
+              "あのひとは カラオケが じょうずじゃありません"
+            ]
+          },
+          "explanation": "The worksheet recommends the softer じょうずじゃありません rather than calling someone へた."
+        },
+        {
+          "id": "l13-skill-q1-4",
+          "sourceQuestionId": "moodle:5489595:189a1652:p2:q1:4",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ピカソさん／え／good",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000762",
+            "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
+            "centralDirectoryIndex": 4,
+            "payloadSha256": "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde",
+            "locus": "p2:q1:4",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Say: Picasso is good at drawing.",
+            "ja": "ピカソさん／え／good"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "ピカソさんはえがじょうずです",
+            "alternatives": [
+              "ピカソさんは えが じょうずです"
+            ]
+          },
+          "explanation": "え is marked with が as the skill."
+        }
+      ]
+    },
+    {
+      "id": "l13-understanding-scaffold",
+      "type": "grammar",
+      "order": 35,
+      "phase": "instruction",
+      "title": {
+        "en": "Match degree and polarity",
+        "ja": "わかる ていど"
+      },
+      "provenance": {
+        "reuse": "yomu-scaffold-before-verbatim-source-task",
+        "sourceConcept": "moodle:5489595:57036479"
+      },
+      "delivery": {
+        "place": "academy/world/library",
+        "cast": [
+          "rie",
+          "jenny"
+        ],
+        "grouping": "pair-interview",
+        "beat": "Rie shows one language card at a time; Jenny chooses the degree before answering."
+      },
+      "instruction": {
+        "form": "N が よく / だいたい / すこし わかります。N が あまり / ぜんぜん わかりません。",
+        "meaning": "State what is understood and how much.",
+        "contrast": "よく, だいたい, and すこし pair with affirmative わかります; あまり and ぜんぜん pair with negative わかりません.",
+        "workedExample": "にほんごが すこし わかります。かんじが ぜんぜん わかりません。"
+      },
+      "exercises": [
+        {
+          "id": "l13-guided-understanding-degree",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Choose the complete sentence for “I do not understand kanji at all.”",
+            "ja": "「I do not understand kanji at all.」は どれですか。"
+          },
+          "explanation": "ぜんぜん needs the negative ending: かんじが ぜんぜん わかりません.",
+          "reviewTag": "understanding",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "negative",
+              "label": {
+                "en": "かんじが ぜんぜん わかりません。",
+                "ja": "かんじが ぜんぜん わかりません。"
+              },
+              "correct": true
+            },
+            {
+              "id": "affirmative",
+              "label": {
+                "en": "かんじが ぜんぜん わかります。",
+                "ja": "かんじが ぜんぜん わかります。"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "affirmative",
+              "message": "ぜんぜん expresses “not at all” here, so the verb must be わかりません. Change the ending and retry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 40,
+      "phase": "instruction",
+      "title": {
+        "en": "How much do you understand?",
+        "ja": "どのくらい わかりますか"
+      },
+      "provenance": {
+        "sourceId": "moodle:5489595:57036479",
+        "reuse": "verbatim-source-cues-with-yomu-translation-and-formatting-support"
+      },
+      "sourceInstructionExact": [
+        "1: Asking your friend’s abilities and answering.",
+        "4: Describing people’s abilities."
+      ],
+      "sourceWorkedExamplesExact": [
+        "れい）ひらがな → Q: ○○さんは ひらがなが わかりますか。 A: はい、わかります。／いいえ、わかりません。"
+      ],
+      "sourceDocument": {
+        "moduleId": 5489595,
+        "archiveOccurrenceId": "archive-000081",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+        "memberOccurrenceId": "member-000764",
+        "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
+        "centralDirectoryIndex": 6,
+        "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+        "pageRange": "pages 1-4",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "exercises": [
+        {
+          "id": "l13-ability-q1-1",
+          "sourceQuestionId": "moodle:5489595:57036479:p1:q1:1",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "かんじ",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000764",
+            "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
+            "centralDirectoryIndex": 6,
+            "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+            "locus": "p1:q1:1",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Ask a friend whether they understand kanji.",
+            "ja": "かんじ"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "かんじがわかりますか",
+            "alternatives": [
+              "かんじが わかりますか"
+            ]
+          },
+          "explanation": "The thing understood is marked with が."
+        },
+        {
+          "id": "l13-ability-q2-1",
+          "sourceQuestionId": "moodle:5489595:57036479:p4:q2:1",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ワットさん／ひらがな（はい、すこし）",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000764",
+            "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
+            "centralDirectoryIndex": 6,
+            "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+            "locus": "p4:q2:1",
+            "page": 4,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e/pages/page-4.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Answer: Mr Watt understands hiragana a little.",
+            "ja": "ワットさん／ひらがな（はい、すこし）"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "はい、すこしわかります",
+            "alternatives": [
+              "はい、すこし わかります"
+            ]
+          },
+          "explanation": "すこし can modify affirmative わかります."
+        },
+        {
+          "id": "l13-ability-q2-2",
+          "sourceQuestionId": "moodle:5489595:57036479:p4:q2:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ハントさん／にほんご（はい、だいたい）",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000764",
+            "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
+            "centralDirectoryIndex": 6,
+            "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+            "locus": "p4:q2:2",
+            "page": 4,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e/pages/page-4.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Answer: Mr Hunt mostly understands Japanese.",
+            "ja": "ハントさん／にほんご（はい、だいたい）"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "はい、だいたいわかります",
+            "alternatives": [
+              "はい、だいたい わかります"
+            ]
+          },
+          "explanation": "だいたい means mostly or roughly."
+        },
+        {
+          "id": "l13-ability-q2-4",
+          "sourceQuestionId": "moodle:5489595:57036479:p4:q2:4",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "マイケルさん／かんじ（いいえ、ぜんぜん）",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000764",
+            "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
+            "centralDirectoryIndex": 6,
+            "payloadSha256": "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e",
+            "locus": "p4:q2:4",
+            "page": 4,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e/pages/page-4.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Answer: Michael does not understand kanji at all.",
+            "ja": "マイケルさん／かんじ（いいえ、ぜんぜん）"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "いいえ、ぜんぜんわかりません",
+            "alternatives": [
+              "いいえ、ぜんぜん わかりません"
+            ]
+          },
+          "explanation": "ぜんぜん pairs with the negative わかりません."
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 60,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Yamada and dance",
+        "ja": "やまださんと ダンス"
+      },
+      "provenance": {
+        "sourceId": "moodle:5489595:6b3db4df:p1",
+        "reuse": "verbatim-source-passage-and-source-questions"
+      },
+      "sourceInstructionExact": [
+        "1: Reading: Yamada-san and Dance. Please read and put ○ or × in the brackets."
+      ],
+      "sourcePassageExact": "やまさださん は ダンス が すきです。まいばん ダンス の がっこう へ いきます。ダンス の せんせい は きれいな ひと です。やまださん は じょうずでは（＝じゃ）ありませんが、きれいな せんせい に ならいますから、まいにち たのしい です。せんせい の たんじょうび に コンサート の チケット を あげました。せんせい は ともだち と いきました。やまださん は とても ざんねんです。",
+      "sourceDocument": {
+        "moduleId": 5489595,
+        "archiveOccurrenceId": "archive-000081",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+        "memberOccurrenceId": "member-000765",
+        "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398",
+        "pageRange": "page 1",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "passage": "やまださんは ダンスが すきです。まいばん ダンスの がっこうへ いきます。やまださんは じょうずではありませんが、きれいな せんせいに ならいますから、まいにち たのしいです。せんせいの たんじょうびに コンサートの チケットを あげました。せんせいは ともだちと いきました。",
+      "exercises": [
+        {
+          "id": "l13-read-q2",
+          "sourceQuestionId": "moodle:5489595:6b3db4df:p1:q1:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "やまださんは きれいな せんせいに ダンスを ならいます。",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000765",
+            "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398",
+            "locus": "p1:q1:2",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Yamada learns dance from a beautiful teacher. True or false?",
+            "ja": "やまださんは きれいな せんせいに ダンスを ならいます。"
+          },
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "true",
+              "label": {
+                "en": "True",
+                "ja": "○"
+              },
+              "correct": true
+            },
+            {
+              "id": "false",
+              "label": {
+                "en": "False",
+                "ja": "×"
+              },
+              "correct": false
+            }
+          ],
+          "explanation": "The passage states this directly."
+        },
+        {
+          "id": "l13-read-q4",
+          "sourceQuestionId": "moodle:5489595:6b3db4df:p1:q1:4",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "やまださんは せんせいと いっしょに コンサートで おんがくを ききました。",
+          "source": {
+            "moduleId": 5489595,
+            "archiveOccurrenceId": "archive-000081",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
+            "memberOccurrenceId": "member-000765",
+            "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398",
+            "locus": "p1:q1:4",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/6b3db4df5faf76be7a894df2894697052297a2a2bd8e84ce8c8fbdad9ed92398/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Yamada listened to music at the concert with the teacher. True or false?",
+            "ja": "やまださんは せんせいと いっしょに コンサートで おんがくを ききました。"
+          },
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "true",
+              "label": {
+                "en": "True",
+                "ja": "○"
+              },
+              "correct": false
+            },
+            {
+              "id": "false",
+              "label": {
+                "en": "False",
+                "ja": "×"
+              },
+              "correct": true
+            }
+          ],
+          "explanation": "The teacher went with a friend, not with Yamada."
+        }
+      ]
+    }
+  ],
+  "preStudyVocabulary": {
+    "status": "gap-declared",
+    "gap": "no-exact-source-vocabulary-sheet",
+    "authority": "public/academy/content/source-pipeline/vocabulary-parity.v1.json",
+    "sourceModuleId": 5489595,
+    "learnerPolicy": "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
+  }
+}

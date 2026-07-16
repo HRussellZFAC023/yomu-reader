@@ -1,0 +1,2501 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l21",
+  "order": 48,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Intentions, arrangements, and one honest change",
+    "ja": "つもり・予定・変更"
+  },
+  "estimatedMinutes": 110,
+  "identity": {
+    "title": "Level 3-2 Lesson 9",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3-2",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 21,
+    "moduleId": 8121277,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 15,
+      "canonicalClassOrder": 59
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8121277,
+    "memberFileCount": 14,
+    "members": [
+      {
+        "title": "23 A-23",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2138825,
+        "payloadSha256": "9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428"
+      },
+      {
+        "title": "24 A-24",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1964652,
+        "payloadSha256": "998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9"
+      },
+      {
+        "title": "25 A-25",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 991503,
+        "payloadSha256": "115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61"
+      },
+      {
+        "title": "28 Lesson 7 - Speaking Practice Making Excuses",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 987959,
+        "payloadSha256": "60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f"
+      },
+      {
+        "title": "Chapter 31 listening ようと思っています つもり 予定です",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1956837,
+        "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d"
+      },
+      {
+        "title": "Chapter 31 Can you make a good excuse speaking exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 3371350,
+        "payloadSha256": "315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d"
+      },
+      {
+        "title": "Chapter 31-2 Vocabulary Sheet",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 139107,
+        "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9"
+      },
+      {
+        "title": "Chapter 31-2 つもり よてい grammar exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 8520202,
+        "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74"
+      },
+      {
+        "title": "Chapter 31-3 つもり-2 grammar exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 3865109,
+        "payloadSha256": "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2"
+      },
+      {
+        "title": "16 Track 16",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 808167,
+        "payloadSha256": "a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395"
+      },
+      {
+        "title": "18 Track 18",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2317738,
+        "payloadSha256": "acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb"
+      },
+      {
+        "title": "Homework kanji 6 exerise-2",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 2869771,
+        "payloadSha256": "af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52"
+      },
+      {
+        "title": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 3012596,
+        "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454"
+      },
+      {
+        "title": "HW Chapter 31 Conversation listening",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 426597,
+        "payloadSha256": "3d97f4fd029c601727bad0273dd1bb4383e2f07a7145646b6e0310295e3c56b5"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "My Cup Noodle Factory",
+        "externalUrl": null
+      },
+      {
+        "title": "Volitional form exercise",
+        "externalUrl": null
+      },
+      {
+        "title": "見てみよう！「十二支：干支の起こり」",
+        "externalUrl": null
+      },
+      {
+        "title": "Holiday practice NHK Easy News",
+        "externalUrl": "https://www3.nhk.or.jp/news/easy/"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+        "payloadSha256": "9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428",
+        "worksheetTitle": "23 A-23",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9",
+        "worksheetTitle": "24 A-24",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61",
+        "worksheetTitle": "25 A-25",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f",
+        "worksheetTitle": "28 Lesson 7 - Speaking Practice Making Excuses",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d",
+        "worksheetTitle": "Chapter 31 listening ようと思っています つもり 予定です",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d",
+        "worksheetTitle": "Chapter 31 Can you make a good excuse speaking exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+        "worksheetTitle": "Chapter 31-2 Vocabulary Sheet",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+        "worksheetTitle": "Chapter 31-2 つもり よてい grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2",
+        "worksheetTitle": "Chapter 31-3 つもり-2 grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395",
+        "worksheetTitle": "16 Track 16",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb",
+        "worksheetTitle": "18 Track 18",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52",
+        "worksheetTitle": "Homework kanji 6 exerise-2",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454",
+        "worksheetTitle": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "3d97f4fd029c601727bad0273dd1bb4383e2f07a7145646b6e0310295e3c56b5",
+        "worksheetTitle": "HW Chapter 31 Conversation listening",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ],
+    "archiveId": "archive-000010",
+    "archiveSha256": "1772085f52b38e5ec8ce5a4362bd1b1c0f0117684e2054e0600e129eca2b9492",
+    "archiveBytes": 32200942
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3-2 · Lesson 9",
+    "genki": "≈ Genki II · Intentions and arranged plans",
+    "minna": "Minna no Nihongo II · Lesson 31",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3-2-l09",
+    "canonicalClassOrder": 59
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000010 · module 8121277 · sha256 1772085f52b38e5ec8ce5a4362bd1b1c0f0117684e2054e0600e129eca2b9492",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Archive identity, exact file inventory and topic labels are retained. Source wording, source media and source answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo II · Lesson 31",
+        "reuse": "sequence-only",
+        "note": "The public scope of 〜つもり and 〜予定 guides the lesson; all examples and plan-change tasks are original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N4 grammar band",
+        "reuse": "scope-only",
+        "note": "The band guides task difficulty and is not a score claim."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000010; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "Grammar picks the person: Henry explains a failed printing plan without hiding the cause, Angel keeps the shared arrangement clear, and Christian models a factual repair statement.",
+    "gaps": [],
+    "donorPackage": {
+      "canonicalWeekId": "l3-2-l09",
+      "sha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+      "note": "Existing Yomu-authored donor content retained; no source wording, source answers or source media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428",
+          "sourceTitle": "23 A-23",
+          "sourceRole": "audio-video",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9",
+          "sourceTitle": "24 A-24",
+          "sourceRole": "audio-video",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61",
+          "sourceTitle": "25 A-25",
+          "sourceRole": "audio-video",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f",
+          "sourceTitle": "28 Lesson 7 - Speaking Practice Making Excuses",
+          "sourceRole": "audio-video",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d",
+          "sourceTitle": "Chapter 31 listening ようと思っています つもり 予定です",
+          "sourceRole": "listening",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d",
+          "sourceTitle": "Chapter 31 listening ようと思っています つもり 予定です",
+          "sourceRole": "listening",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d",
+          "sourceTitle": "Chapter 31 Can you make a good excuse speaking exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d",
+          "sourceTitle": "Chapter 31 Can you make a good excuse speaking exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 8,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+          "sourceTitle": "Chapter 31-2 Vocabulary Sheet",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+          "sourceTitle": "Chapter 31-2 Vocabulary Sheet",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+          "sourceTitle": "Chapter 31-2 つもり よてい grammar exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 8,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+          "sourceTitle": "Chapter 31-2 つもり よてい grammar exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 13,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+          "sourceTitle": "Chapter 31-2 つもり よてい grammar exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+          "sourceTitle": "Chapter 31-2 つもり よてい grammar exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74:page:4",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 4,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 21,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2",
+          "sourceTitle": "Chapter 31-3 つもり-2 grammar exercise",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 26,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395",
+          "sourceTitle": "16 Track 16",
+          "sourceRole": "homework",
+          "sourceOrder": 10,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb",
+          "sourceTitle": "18 Track 18",
+          "sourceRole": "homework",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52",
+          "sourceTitle": "Homework kanji 6 exerise-2",
+          "sourceRole": "homework",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 4,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52",
+          "sourceTitle": "Homework kanji 6 exerise-2",
+          "sourceRole": "homework",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 13,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454",
+          "sourceTitle": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+          "sourceRole": "homework",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454",
+          "sourceTitle": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+          "sourceRole": "homework",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 14,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454",
+          "sourceTitle": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+          "sourceRole": "homework",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 13,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "3d97f4fd029c601727bad0273dd1bb4383e2f07a7145646b6e0310295e3c56b5",
+          "sourceTitle": "HW Chapter 31 Conversation listening",
+          "sourceRole": "homework",
+          "sourceOrder": 14,
+          "sourceArchiveId": "archive-000010",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:3d97f4fd029c601727bad0273dd1bb4383e2f07a7145646b6e0310295e3c56b5:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "State a personal positive or negative intention with 〜つもりです.",
+    "State an arranged plan with 〜予定です.",
+    "Distinguish private resolve from a plan involving bookings or other people.",
+    "Explain a changed intention honestly and add a repair action.",
+    "Review all nine Kanji 6 characters in meaningful words."
+  ],
+  "scene": {
+    "where": "A table with one tablet and a silent printer",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "Henry has the map, but not in the form he promised.",
+    "cast": [
+      "rie",
+      "henry",
+      "angel",
+      "christian"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "henry",
+        "expression": "thinking",
+        "pose": "inspect",
+        "japanese": "地図を 印刷するつもりだったんですが、プリンターが 壊れました。",
+        "reading": "ちずを いんさつする つもりだったんですが、プリンターが こわれました。",
+        "english": "I intended to print the map, but the printer broke.",
+        "note": "A genuine changed intention."
+      },
+      {
+        "speakerId": "angel",
+        "expression": "neutral",
+        "pose": "plan",
+        "japanese": "タブレットを 持っていく予定です。ファイルを 送れますか。",
+        "reading": "タブレットを もって いく よていです。ファイルを おくれますか。",
+        "english": "I am due to bring a tablet. Can you send the file?",
+        "note": "An arrangement supports a repair."
+      },
+      {
+        "speakerId": "henry",
+        "expression": "relieved",
+        "pose": "handoff",
+        "japanese": "はい、すぐ 送ります。紙は 使わないつもりです。",
+        "reading": "はい、すぐ おくります。かみは つかわない つもりです。",
+        "english": "Yes, I will send it at once. I intend not to use paper.",
+        "note": "Negative intention after the change."
+      },
+      {
+        "speakerId": "christian",
+        "expression": "neutral",
+        "pose": "inspect",
+        "japanese": "ファイルを 確認しました。地図は 読めます。",
+        "reading": "ファイルを かくにんしました。ちずは よめます。",
+        "english": "I checked the file. The map is readable.",
+        "note": "A factual confirmation."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "explain",
+        "japanese": "これで 大丈夫ですね。自分の 意向は つもり、決まった 計画は 予定で 話しましょう。",
+        "reading": "これで だいじょうぶですね。じぶんの いこうは つもり、きまった けいかくは よていで はなしましょう。",
+        "english": "That works. Let's use つもり for personal intention and 予定 for an arranged plan.",
+        "note": "Rie gives one clean distinction."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Lesson 8 used 〜ようと思っています for an intention already held. This lesson asks how that thought differs from a firm personal resolve and from an arrangement involving other people.",
+    "intro": "つもり belongs to the speaker's decision; 予定 belongs to the plan around it. When either changes, a clear explanation should name the real cause and the next action. Once you separate resolve, arrangement, and repair, even a changed plan can sound reliable.",
+    "grammarPoints": [
+      {
+        "pattern": "Dictionary / ない form + つもりです",
+        "nameJa": "〜つもりです",
+        "meaning": "intend to do / intend not to do",
+        "explanation": "つもりです states a personal intention or resolve. Use the dictionary form for doing and the plain negative for not doing: 行くつもりです; 無理をしないつもりです. It is about what the speaker has decided, even if details are not arranged.",
+        "watchFor": "For a negative intention, put ない directly before つもり: 買わないつもりです.",
+        "commonError": "Do not use the volitional form before つもり. 行こうつもりです is wrong; use 行くつもりです.",
+        "examples": [
+          {
+            "ja": "日本語の 勉強を 続けるつもりです。",
+            "reading": "にほんごの べんきょうを つづける つもりです。",
+            "en": "I intend to continue studying Japanese.",
+            "note": "A personal resolve."
+          },
+          {
+            "ja": "必要のない 物は 買わないつもりです。",
+            "reading": "ひつようの ない ものは かわない つもりです。",
+            "en": "I intend not to buy things I do not need.",
+            "note": "Negative intention."
+          },
+          {
+            "ja": "地図を 印刷するつもりだったんですが、機械が 壊れました。",
+            "reading": "ちずを いんさつする つもりだったんですが、きかいが こわれました。",
+            "en": "I meant to print the map, but the machine broke.",
+            "note": "A past intention that could not happen."
+          }
+        ]
+      },
+      {
+        "pattern": "Dictionary form / Noun + の + 予定です",
+        "nameJa": "〜予定です",
+        "meaning": "be scheduled or arranged to do",
+        "explanation": "予定です presents an arrangement on a plan rather than only a private intention. A verb uses the dictionary form: 出発する予定です. A noun takes の: 会議の予定です. The plan may involve other people, a booking, or an agreed sequence.",
+        "watchFor": "Ask whether this is the speaker's resolve or an arrangement with structure around it. Personal resolve favours つもり; arranged plan favours 予定.",
+        "commonError": "Do not say 会議予定です in this pattern. A noun needs の: 会議の予定です.",
+        "examples": [
+          {
+            "ja": "駅で ロバートと 会う予定です。",
+            "reading": "えきで ロバートと あう よていです。",
+            "en": "I am scheduled to meet Robert at the station.",
+            "note": "An arrangement involving another person."
+          },
+          {
+            "ja": "説明の あとで、短い 映画を 見る予定です。",
+            "reading": "せつめいの あとで、みじかい えいがを みる よていです。",
+            "en": "The plan is to watch a short film after the explanation.",
+            "note": "A planned sequence."
+          },
+          {
+            "ja": "部屋は 予約してあります。そこで 話す予定です。",
+            "reading": "へやは よやくして あります。そこで はなす よていです。",
+            "en": "The room has been reserved. We are due to talk there.",
+            "note": "A prepared arrangement."
+          }
+        ]
+      },
+      {
+        "pattern": "〜つもりだったんですが…",
+        "nameJa": "変わった 意向を 説明する",
+        "meaning": "I intended to, but…",
+        "explanation": "Use past つもりだったんですが to explain a genuine plan that changed. Then state the real cause and the repair. The aim is not to invent an excuse; it is to give enough background for the listener to understand what happened and what you will do next.",
+        "watchFor": "After the reason, add a concrete recovery action whenever possible.",
+        "commonError": "Do not stop after a vague ちょっと. Name the change and the next action: 壊れたので、ファイルを送ります.",
+        "examples": [
+          {
+            "ja": "持ってくるつもりだったんですが、家に 忘れてしまいました。すぐ 写真を 送ります。",
+            "reading": "もって くる つもりだったんですが、いえに わすれて しまいました。すぐ しゃしんを おくります。",
+            "en": "I intended to bring it, but I left it at home. I will send a photo.",
+            "note": "Plan, cause, repair."
+          },
+          {
+            "ja": "外で 撮る予定だったんですが、雨なので、中で 撮ることに しました。",
+            "reading": "そとで とる よていだったんですが、あめなので、なかで とる ことに しました。",
+            "en": "We were due to take photos outside, but because of the rain, we decided to take them inside.",
+            "note": "An arranged plan changes."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "The plan-change message",
+        "ja": "予定変更の メッセージ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original practical messages cover intention, arrangement, and honest repair."
+      },
+      "reading": {
+        "title": {
+          "en": "Same goal, different way",
+          "ja": "目的は 同じ、方法は 変更"
+        },
+        "gloss": "A short exchange where the plan changes without disappearing.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "外で 写真を 撮る予定だったんですが、雨が 強く なりました。",
+            "reading": "そとで しゃしんを とる よていだったんですが、あめが つよく なりました。",
+            "en": "We were due to take photos outside, but the rain became heavy."
+          },
+          {
+            "ja": "中止しないつもりです。屋根の ある 場所で 撮りましょう。",
+            "reading": "ちゅうししない つもりです。やねの ある ばしょで とりましょう。",
+            "en": "We do not intend to cancel. Let's take them somewhere covered."
+          },
+          {
+            "ja": "部屋は 予約してあります。まず そこで 会う予定です。",
+            "reading": "へやは よやくして あります。まず そこで あう よていです。",
+            "en": "A room has been reserved. We are due to meet there first."
+          },
+          {
+            "ja": "エンジェルが みんなに 変更を 伝えるつもりです。",
+            "reading": "エンジェルが みんなに へんこうを つたえる つもりです。",
+            "en": "Angel intends to tell everyone about the change."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l09-authentic",
+          "kind": "choice",
+          "prompt": {
+            "en": "Is the activity cancelled?",
+            "ja": "活動は 中止ですか。"
+          },
+          "explanation": "The group explicitly says 中止しないつもりです and changes the location instead.",
+          "reviewTag": "authentic-change",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "いいえ、場所だけ 変わります。",
+                "en": "No, only the place changes."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "はい、全部 中止です。",
+                "en": "Yes, everything is cancelled."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "中止しないつもりです is a negative intention: they intend not to cancel."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "title": {
+        "en": "When plans move",
+        "ja": "予定が 変わるとき"
+      },
+      "provenance": {
+        "reuse": "canonical-moodle-source-first",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "items": [],
+      "exercises": [
+        {
+          "id": "ex-l09-vocab",
+          "kind": "match",
+          "prompt": {
+            "en": "Match the plan-change words.",
+            "ja": "予定変更の ことばを あわせましょう。"
+          },
+          "explanation": "延期 moves an activity later; 中止 stops it; 変更 alters it.",
+          "reviewTag": "ch31-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "変更"
+              },
+              "right": {
+                "en": "change"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "延期"
+              },
+              "right": {
+                "en": "postponement"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "中止"
+              },
+              "right": {
+                "en": "cancellation"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "間に合う"
+              },
+              "right": {
+                "en": "be in time"
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "延期",
+              "message": "延期 means the activity will happen later, not disappear completely."
+            },
+            {
+              "trigger": "中止",
+              "message": "中止 means the activity stops or is cancelled."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-sheet-pages-recorded-awaiting-item-renderer",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9:page:1",
+            "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+            "sourceTitle": "Chapter 31-2 Vocabulary Sheet",
+            "sourceRole": "vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                          Chapter 31-2 Vocabulary Sheet\nNo               Words                 Pronunciation              Meaning\n\n1    *review   よてい（予定）\n\n2\n     *review よていを        たてます\n               （予定を⽴てます）\n\n3\n     ねんりょうサーチャージ                                       Energy surcharge\n     （燃料）\n\n4\n     ちょっこうびん\n     （直⾏便）\n\n5    けいゆびん（経由便）\n\n6    じょうじゅん（上旬）\n\n7    げじゅん（下旬）\n\n8    ずっと                                               The whole time\n\n\n\n9\n     やすみ を とります\n       （休みを取ります）\n\n10 けっこんしき（結婚式）\n\n11 おそうしき（お葬式）\n\n12 〜しき（〜式）                                             ceremony\n\n                                                       Master degree course,\n13 だいがくいん（⼤学院）                                         post graduate\n\n\n14 いいわけ（⾔い訳）\n\n\n15\n     のりおくれます\n     （乗り遅れます）\n\n16 てんきん（転勤）\n\n\n                                                                          Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "sourceItemId": "moodle:8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9:page:2",
+            "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+            "sourceTitle": "Chapter 31-2 Vocabulary Sheet",
+            "sourceRole": "vocabulary",
+            "page": 2,
+            "sourceOrder": 2,
+            "verbatimText": "No         Words   Pronunciation               Meaning\n\n17 転勤します\n\n\n18\n     たんしんふにん\n     （単⾝赴任）\n\n19 てんしょく（転職）\n\n\n20 転職します\n\n21\n\n\n22\n     じつは   〜んです。                   As a matter of fact, -.\n     （実は、〜んです。）\n\n23 のこります（残ります）                     remain, be left, stay behind\n\n\n\n24\n     にゅうがくしけん                      Entrance examination\n     （⼊学試験）\n\n25\n     つきに ２、3 かい                    2-3 times per month\n     （⽉に２、３回）\n\n26\n\n\n27\n\n\n28\n\n\n29\n\n\n30\n\n\n31\n\n\n32\n\n\n                                                      Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "title": {
+        "en": "Resolve, arrangement, repair",
+        "ja": "つもり・予定の 練習"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Fresh contrast and changed-plan exercises cover the source つもり／予定 grammar materials."
+      },
+      "practiceFor": [
+        "〜つもりです",
+        "〜予定です",
+        "〜つもりだったんですが"
+      ],
+      "exercises": [
+        {
+          "id": "ex-l09-choice",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which sentence is a personal resolve, not an arranged appointment?",
+            "ja": "自分で 決めた 意向は どれですか。"
+          },
+          "explanation": "つもりです marks the speaker's personal resolve; 予定です marks an arrangement.",
+          "reviewTag": "tsumori-vs-yotei",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "必要のない 物は 買わないつもりです。",
+                "en": "I intend not to buy things I do not need."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "駅で 友だちと 会う予定です。",
+                "en": "I am scheduled to meet a friend at the station."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Meeting another person at an agreed place is an arrangement, so it uses 予定です."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l09-negative",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Complete the negative intention.",
+            "ja": "しない 意向を うめましょう。"
+          },
+          "japanese": "無理を ＿＿＿ つもりです。",
+          "explanation": "The plain negative comes before つもり: 無理をしないつもりです.",
+          "reviewTag": "tsumori",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "しない",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "しません",
+              "message": "つもり takes the plain form, so use しない, not polite しません."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l09-changed",
+          "kind": "exact",
+          "prompt": {
+            "en": "Write the changed-intention opening.",
+            "ja": "変わった 意向を 説明しましょう。"
+          },
+          "japanese": "地図を 印刷します（そのつもりでした）。でも、機械が 壊れました。",
+          "explanation": "Use dictionary form 印刷する plus past つもりだったんですが before the unexpected cause.",
+          "reviewTag": "changed-plan",
+          "autoGraded": true,
+          "answer": {
+            "primary": "地図を印刷するつもりだったんですが、機械が壊れました",
+            "alternatives": [
+              "地図を 印刷するつもりだったんですが、機械が 壊れました。",
+              "地図を印刷するつもりでしたが、機械が壊れました。"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "地図を印刷しようつもりだったんですが",
+              "message": "つもり takes the dictionary form: 印刷するつもり, not volitional 印刷しようつもり."
+            },
+            {
+              "trigger": "地図を印刷する予定です、機械が壊れました",
+              "message": "The plan is already blocked, so use past つもりだったんですが to explain the change."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "guided-practice"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening held for verification",
+        "ja": "音声は 確認中"
+      },
+      "provenance": {
+        "reuse": "quarantined",
+        "note": "Archive audio exists, but exact worksheet pairing, transcript, duration and answers are unresolved. No audio, transcript or answer is exposed."
+      },
+      "exercises": [],
+      "availability": {
+        "status": "unavailable",
+        "reason": "unresolved-transcript-pairing-and-answers"
+      },
+      "sourceAudioCount": 6,
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "Plan B is still a plan",
+        "ja": "変更しても 予定"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original reading covers plan-change comprehension and responsible communication."
+      },
+      "passage": {
+        "title": {
+          "en": "Photos under a roof",
+          "ja": "屋根の 下で 写真を"
+        },
+        "gloss": "A shared plan changes location but keeps its purpose.",
+        "lines": [
+          {
+            "ja": "外で 写真を 撮る予定でした。",
+            "reading": "そとで しゃしんを とる よていでした。",
+            "en": "We were scheduled to take photos outside."
+          },
+          {
+            "ja": "でも、雨が 強く なったので、屋根の ある 場所へ 変えることに しました。",
+            "reading": "でも、あめが つよく なったので、やねの ある ばしょへ かえる ことに しました。",
+            "en": "But the rain became heavy, so we decided to move to a covered place."
+          },
+          {
+            "ja": "活動は 中止しないつもりです。部屋も 予約してあります。",
+            "reading": "かつどうは ちゅうししない つもりです。へやも よやくして あります。",
+            "en": "We do not intend to cancel. A room has also been reserved."
+          },
+          {
+            "ja": "エンジェルが 変更を みんなに 伝えるつもりです。",
+            "reading": "エンジェルが へんこうを みんなに つたえる つもりです。",
+            "en": "Angel intends to tell everyone about the change."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l09-read-change",
+          "kind": "choice",
+          "prompt": {
+            "en": "What changes in the photography plan?",
+            "ja": "写真の 予定は どう 変わりますか。"
+          },
+          "explanation": "Rain moves the activity from outside to an indoor covered space.",
+          "reviewTag": "reading-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "外から 中へ 変わる",
+                "en": "It moves from outside to inside"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "写真を 撮らない",
+                "en": "They will not take photos"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The photography is not cancelled; only the location changes."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l09-read-role",
+          "kind": "choice",
+          "prompt": {
+            "en": "Who communicates the change?",
+            "ja": "だれが 変更を 伝えますか。"
+          },
+          "explanation": "Angel says わたしがみんなに変更を伝えます.",
+          "reviewTag": "reading-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "エンジェル",
+                "en": "Angel"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ヘンリー",
+                "en": "Henry"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Henry offers the map file in the listening. In this reading, Angel takes responsibility for the change message."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "Explain the change, offer the repair",
+        "ja": "変更と 対応を 話す"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Original honest-explanation role-play covers the source making-excuses speaking function."
+      },
+      "prompt": "Explain a genuine changed plan. Say what you intended or were scheduled to do, what changed, and the repair you can offer. Your partner checks one detail.",
+      "targets": [
+        "〜つもりだったんですが",
+        "〜予定でした",
+        "specific cause",
+        "repair action"
+      ],
+      "recording": {
+        "minSeconds": 30,
+        "maxSeconds": 75
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "資料を 印刷するつもりだったんですが、プリンターが 壊れました。ファイルを 送るつもりです。タブレットで 見られますか。",
+        "reading": "しりょうを いんさつする つもりだったんですが、プリンターが こわれました。ファイルを おくる つもりです。タブレットで みられますか。",
+        "en": "I intended to print the materials, but the printer broke. I intend to send the file. Can you view it on a tablet?"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "repair",
+            "label": {
+              "en": "Names the real change and offers a workable repair"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "The target is not shown yet"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "The target is present with a small slip"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "The target is clear and responsible"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "The responsible plan-change note",
+        "ja": "予定変更を 書く"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original homework-style writing covers つもり, 予定, and conversation repair."
+      },
+      "prompt": "Write a five-sentence plan-change note. Include the original arrangement, your intention, the real cause of the change, the new arrangement, and one action you will take.",
+      "minChars": 120,
+      "maxChars": 320,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "外で 写真を 撮る予定でした。わたしは 地図を 印刷するつもりでした。でも、雨が 強く、プリンターも 壊れました。屋根の ある 場所で 会う予定です。地図の ファイルを みんなに 送るつもりです。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "note",
+            "label": {
+              "en": "Separates original plan, cause, new arrangement, and repair"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "The target is not shown yet"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "The target is present with a small slip"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "The target is clear and responsible"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "title": {
+        "en": "Kanji 6 in plans and messages",
+        "ja": "漢字6の 復習"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original recognition and handwriting review covers all nine characters named by the Kanji 6 homework source."
+      },
+      "items": [
+        {
+          "character": "今",
+          "readings": {
+            "on": [
+              "コン",
+              "キン"
+            ],
+            "kun": [
+              "いま"
+            ]
+          },
+          "meaning": "now",
+          "exampleWord": {
+            "ja": "今度",
+            "reading": "こんど",
+            "en": "next time"
+          },
+          "recognition": {
+            "prompt": "Which kanji begins 今度?",
+            "answer": "今"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 4,
+            "mnemonic": "The present moment rests under one cover.",
+            "tracePrompt": "Trace 今, then write 今度 once."
+          }
+        },
+        {
+          "character": "来",
+          "readings": {
+            "on": [
+              "ライ"
+            ],
+            "kun": [
+              "く-る"
+            ]
+          },
+          "meaning": "come",
+          "exampleWord": {
+            "ja": "来る",
+            "reading": "くる",
+            "en": "to come"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes くる?",
+            "answer": "来"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 7,
+            "mnemonic": "A central path carries something toward you.",
+            "tracePrompt": "Trace 来, then write 来る once."
+          }
+        },
+        {
+          "character": "帰",
+          "readings": {
+            "on": [
+              "キ"
+            ],
+            "kun": [
+              "かえ-る"
+            ]
+          },
+          "meaning": "return",
+          "exampleWord": {
+            "ja": "帰る",
+            "reading": "かえる",
+            "en": "to return"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes かえる?",
+            "answer": "帰"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 10,
+            "mnemonic": "The path turns back toward the roof of home.",
+            "tracePrompt": "Trace 帰, then write 帰る once."
+          }
+        },
+        {
+          "character": "会",
+          "readings": {
+            "on": [
+              "カイ"
+            ],
+            "kun": [
+              "あ-う"
+            ]
+          },
+          "meaning": "meet",
+          "exampleWord": {
+            "ja": "会う",
+            "reading": "あう",
+            "en": "to meet"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes あう?",
+            "answer": "会"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 6,
+            "mnemonic": "People gather under one roof.",
+            "tracePrompt": "Trace 会, then write 会う once."
+          }
+        },
+        {
+          "character": "社",
+          "readings": {
+            "on": [
+              "シャ"
+            ],
+            "kun": [
+              "やしろ"
+            ]
+          },
+          "meaning": "company",
+          "exampleWord": {
+            "ja": "会社",
+            "reading": "かいしゃ",
+            "en": "company"
+          },
+          "recognition": {
+            "prompt": "Which kanji ends 会社?",
+            "answer": "社"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 7,
+            "mnemonic": "An altar stands on the ground of a community.",
+            "tracePrompt": "Trace 社, then write 会社 once."
+          }
+        },
+        {
+          "character": "聞",
+          "readings": {
+            "on": [
+              "ブン"
+            ],
+            "kun": [
+              "き-く"
+            ]
+          },
+          "meaning": "hear, ask",
+          "exampleWord": {
+            "ja": "聞く",
+            "reading": "きく",
+            "en": "to listen, ask"
+          },
+          "recognition": {
+            "prompt": "Which kanji has 耳 inside 門?",
+            "answer": "聞"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 14,
+            "mnemonic": "An ear listens from inside a gate.",
+            "tracePrompt": "Trace 聞, then write 聞く once."
+          }
+        },
+        {
+          "character": "読",
+          "readings": {
+            "on": [
+              "ドク"
+            ],
+            "kun": [
+              "よ-む"
+            ]
+          },
+          "meaning": "read",
+          "exampleWord": {
+            "ja": "読む",
+            "reading": "よむ",
+            "en": "to read"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes よむ?",
+            "answer": "読"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 14,
+            "mnemonic": "Words are exchanged, then read.",
+            "tracePrompt": "Trace 読, then write 読む once."
+          }
+        },
+        {
+          "character": "書",
+          "readings": {
+            "on": [
+              "ショ"
+            ],
+            "kun": [
+              "か-く"
+            ]
+          },
+          "meaning": "write",
+          "exampleWord": {
+            "ja": "書く",
+            "reading": "かく",
+            "en": "to write"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes かく?",
+            "answer": "書"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 10,
+            "mnemonic": "A brush leaves ordered lines on the page.",
+            "tracePrompt": "Trace 書, then write 書く once."
+          }
+        },
+        {
+          "character": "話",
+          "readings": {
+            "on": [
+              "ワ"
+            ],
+            "kun": [
+              "はな-す"
+            ]
+          },
+          "meaning": "speak",
+          "exampleWord": {
+            "ja": "話す",
+            "reading": "はなす",
+            "en": "to speak"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes はなす?",
+            "answer": "話"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 13,
+            "mnemonic": "Words and tongue join to make speech.",
+            "tracePrompt": "Trace 話, then write 話す once."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l09-kanji-read",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which pair means come and return?",
+            "ja": "「come and return」は どれですか。"
+          },
+          "explanation": "来る means come; 帰る means return.",
+          "reviewTag": "kanji6",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "来る・帰る"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "読む・書く"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "読む and 書く mean read and write. Come and return are 来る and 帰る."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l09-kanji-choice",
+          "kind": "choice",
+          "prompt": {
+            "en": "How do you read 会社?",
+            "ja": "「会社」の 読み方は？"
+          },
+          "explanation": "会社 is read かいしゃ.",
+          "reviewTag": "kanji6",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "かいしゃ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "かいわ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "かいわ is 会話. 社 is read しゃ in 会社."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "title": {
+        "en": "From intention form to plan noun",
+        "ja": "意向形から つもりへ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review uses the planned pre-study and Lesson 8 targets."
+      },
+      "reviewFrom": [
+        "l3-2-prestudy-volitional",
+        "l3-2-l08"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [
+          "l3-2-prestudy-volitional",
+          "l3-2-l08"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l09-review-intention",
+          "kind": "choice",
+          "prompt": {
+            "en": "Review Lesson 8: which sentence is an ongoing intention?",
+            "ja": "前から 考えている 意向は どれですか。"
+          },
+          "explanation": "Volitional + と思っています presents an intention already held.",
+          "reviewTag": "you-to-omotteiru",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "日本語の 日記を 始めようと 思っています。",
+                "en": "I intend to start a Japanese diary."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "日本語の 日記を 始める予定でした。",
+                "en": "I was scheduled to start a Japanese diary."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "予定 presents an arrangement, and the past form makes it no longer current. The ongoing intention is 始めようと思っています."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l09-review-volitional",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Review the pre-study form.",
+            "ja": "意向形を うめましょう。"
+          },
+          "japanese": "友だちと 話す → 話＿＿。",
+          "explanation": "話す is godan: change す to そう, giving 話そう.",
+          "reviewTag": "volitional",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "そう",
+                "alternatives": [
+                  "話そう",
+                  "はなそう"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "すよう",
+              "message": "Godan 話す changes す to そう. Do not add よう to the dictionary form."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "donorPackageSha256": "16b0a8bc2bfb108ecc207d4bb7aba9116d0a641e1745b49fe71eb8b40da80dd1",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "The honest change call",
+    "framedBy": "henry",
+    "prompt": "Tell a partner about a plan that changed. Give the original intention, the arranged plan, the real reason it changed, and one repair. The partner repeats the new arrangement.",
+    "successCriteria": [
+      "You use 〜つもりだったんですが for the original intention.",
+      "You use 〜予定です or 〜予定でした for an arrangement.",
+      "You state a specific, truthful cause.",
+      "You offer a repair and confirm the listener understands the new plan."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "地図を 印刷するつもりだったんですが、プリンターが 壊れました。入口で 会う予定は 変わりません。ファイルを 送りますから、タブレットで 見てください。",
+      "reading": "ちずを いんさつする つもりだったんですが、プリンターが こわれました。いりぐちで あう よていは かわりません。ファイルを おくりますから、タブレットで みて ください。",
+      "en": "I intended to print the map, but the printer broke. The plan to meet at the entrance has not changed. I will send the file, so please view it on a tablet."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "mission",
+          "label": {
+            "en": "Explains the change honestly and preserves a clear arrangement"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "The target is not shown yet"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "The target is present with a small slip"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "The target is clear and responsible"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "dictionary / ない + つもりです",
+        "back": "intend to do / intend not to do",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "dictionary / Nの + 予定です",
+        "back": "be scheduled or arranged to do",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "〜つもりだったんですが",
+        "back": "I intended to, but…",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "変更",
+        "back": "change, alteration",
+        "reading": "へんこう",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "延期",
+        "back": "postponement",
+        "reading": "えんき",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "中止",
+        "back": "cancellation",
+        "reading": "ちゅうし",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "都合",
+        "back": "circumstances, availability",
+        "reading": "つごう",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "間に合う",
+        "back": "to be in time",
+        "reading": "まにあう",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "会",
+        "back": "meet — カイ / あう",
+        "reading": "カイ",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "社",
+        "back": "company — シャ",
+        "reading": "シャ",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l09",
+          "kanji"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "henry",
+      "angel",
+      "christian"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l3-2-l09",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d",
+          "title": "Chapter 31 listening ようと思っています つもり 予定です",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "315f3dfe046e5d293114009ec294d7b450a6f2d3f5e018c04e213da691c6026d",
+          "title": "Chapter 31 Can you make a good excuse speaking exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9",
+          "title": "Chapter 31-2 Vocabulary Sheet",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74",
+          "title": "Chapter 31-2 つもり よてい grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2",
+          "title": "Chapter 31-3 つもり-2 grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "af804c330a50f91f238392aac12e0a10809bfa3f76c3b07574f80201cdefda52",
+          "title": "Homework kanji 6 exerise-2",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454",
+          "title": "HW Chapter 31 grammar review-2 〜つもり 〜よてい",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "3d97f4fd029c601727bad0273dd1bb4383e2f07a7145646b6e0310295e3c56b5",
+          "title": "HW Chapter 31 Conversation listening",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "source-audio-9aa65975b115",
+          "payloadSha256": "9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428",
+          "locator": "academy://quarantine/l3-2-l09/9aa65975b115ea1424e1e767c7af5958bb13b1af407da3721f1fe1e3a9269428",
+          "title": "23 A-23",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-998cc96812a7",
+          "payloadSha256": "998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9",
+          "locator": "academy://quarantine/l3-2-l09/998cc96812a76b79dc1e876fc41bd5b7bb995cb4cb04305e4572ca90c0c5a8b9",
+          "title": "24 A-24",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-115242869dac",
+          "payloadSha256": "115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61",
+          "locator": "academy://quarantine/l3-2-l09/115242869dacd3229a5ef390387a41e7114953d685eed6ce3362f0fba66efb61",
+          "title": "25 A-25",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-60574638a357",
+          "payloadSha256": "60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f",
+          "locator": "academy://quarantine/l3-2-l09/60574638a357c9f1777d284d966ac7bc7c37d06a73e11a139f084068181f515f",
+          "title": "28 Lesson 7 - Speaking Practice Making Excuses",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-a1e964a62b6a",
+          "payloadSha256": "a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395",
+          "locator": "academy://quarantine/l3-2-l09/a1e964a62b6a5043ca981a21dee4abb5fcdbd1076ee9ac11348287f8bd3c0395",
+          "title": "16 Track 16",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-acd446876008",
+          "payloadSha256": "acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb",
+          "locator": "academy://quarantine/l3-2-l09/acd446876008abeae48dab5697d4e018a328e3dbf4cbc52f3cf89b8dbaacf3cb",
+          "title": "18 Track 18",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        }
+      ]
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l21:plans-and-schedules",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 30,
+          "form": "dictionary or ない form + つもりです / dictionary or noun + の予定です",
+          "meaning": "distinguish an intention from an arranged schedule and explain a change",
+          "register": "neutral planning and polite repair",
+          "commonContrast": "つもり is a personal intention; 予定 is an external plan or timetable",
+          "workedExamples": [
+            {
+              "ja": "地図を 印刷するつもりだったんですが、プリンターが 壊れました。",
+              "reading": "ちずを いんさつする つもりだったんですが、プリンターが こわれました。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use dictionary or ない form + つもりです / dictionary or noun + の予定です; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries distinguish an intention from an arranged schedule and explain a change."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral planning and polite repair with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: つもり is a personal intention; 予定 is an external plan or timetable",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1",
+      "payloadSha256": "9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "A table with one tablet and a silent printer",
+      "characterId": "henry",
+      "beat": "Henry has the map, but not in the form he promised.",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l21:1:drag-drop",
+        "mode": "drag-drop",
+        "responseMode": "drag-drop",
+        "sourceItemIds": [
+          "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l21:2:kanji-doodle",
+        "mode": "kanji-doodle",
+        "responseMode": "draw-kanji",
+        "sourceItemIds": [
+          "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l21:3:matching",
+        "mode": "matching",
+        "responseMode": "tap-pair",
+        "sourceItemIds": [
+          "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l21:1:drag-drop",
+      "activityIds": [
+        "assessment:l2-l21:1:drag-drop"
+      ],
+      "sourceItemIds": [
+        "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "henry",
+        "angel"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical drag-drop task with henry as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l21:2:kanji-doodle",
+      "activityIds": [
+        "assessment:l2-l21:2:kanji-doodle"
+      ],
+      "sourceItemIds": [
+        "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "henry",
+        "angel"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while angel takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l21:3:matching",
+      "activityIds": [
+        "assessment:l2-l21:3:matching"
+      ],
+      "sourceItemIds": [
+        "moodle:9fdc740083df1400afba0268df95123172f34215391bc1391723ca3a748bee5d:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "angel",
+        "henry"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with angel; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}
