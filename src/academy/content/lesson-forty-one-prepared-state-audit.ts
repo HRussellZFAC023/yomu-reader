@@ -27,11 +27,11 @@ const SOURCE_VISUALS: StateInspectionModel['provenance']['moodle']['sourceSheets
     sourceVisual(VOCABULARY_SHA256, VOCABULARY_TITLE, 1, 'moodle-chapter-30-1-vocabulary-page-1.png', '1152918885025693d42f59d0844e315acf7aacf0fa1747ba5509aac317dd38e1', {
         ja: 'Moodle 原本: Chapter 30-1 Vocabulary Sheet、1ページ。玄関、廊下、壁、貼ります、掛けます、並べます、植えます、周り、真ん中などの語彙。',
         en: 'Moodle original: Chapter 30-1 Vocabulary Sheet page 1, including entrance, corridor, wall, paste, hang, arrange, plant, around, and middle vocabulary.',
-    }),
+    }, 'inline-reference'),
     sourceVisual(VOCABULARY_SHA256, VOCABULARY_TITLE, 2, 'moodle-chapter-30-1-vocabulary-page-2.png', '5bbae29bcf083f2b9f6c1843c1848b32bbe294b2079ed2528bff2ceea3c12754', {
         ja: 'Moodle 原本: Chapter 30-1 Vocabulary Sheet、2ページ。予定表、ごみ箱、引き出し、入れます、片付けます、しまいます、窓際、茶室などの語彙。',
         en: 'Moodle original: Chapter 30-1 Vocabulary Sheet page 2, including schedule, rubbish bin, drawer, put in, tidy up, put away, by the window, and tea-room vocabulary.',
-    }),
+    }, 'inline-reference'),
     sourceVisual(GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE, 1, 'moodle-chapter-30-1-tearu-1-page-1.png', '5d9c9a9e3a2b241eb3a31ff96855f2ce24e0987dd6a1c5b5f632226b181d535c', {
         ja: 'Moodle 原本: Chapter 30-1 その1、1ページ。目的のある行為の結果、場所に物がある型、自動詞の「ています」と他動詞の「てあります」の対照。',
         en: 'Moodle original: Chapter 30-1 part 1 page 1, teaching purposeful resultant state, place-ni thing-ga order, and the intransitive ています versus transitive てあります contrast.',
@@ -243,6 +243,7 @@ function sourceVisual(
     filename: string,
     sha256: string,
     alt: LocalizedText,
+    presentation: StateInspectionSourceVisual['presentation'] = 'inspectable',
 ): StateInspectionSourceVisual {
     return Object.freeze({
         sourceId: `moodle:${payloadSha256}:page:${page}`,
@@ -252,6 +253,7 @@ function sourceVisual(
         url: `/academy/content/lessons/l2-l16/${filename}`,
         sha256,
         alt: Object.freeze(alt),
+        presentation,
     });
 }
 

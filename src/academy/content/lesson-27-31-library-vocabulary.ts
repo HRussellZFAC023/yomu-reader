@@ -476,20 +476,24 @@ const DEFINITIONS = Object.freeze({
 } satisfies Readonly<Record<string, ExactLibraryVocabularyDefinition>>);
 
 /** Advance this frontier only when the next L2 package has an evidence-linked exact projection. */
-export const EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER = 13;
-export const EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS = Object.freeze(['l2-l18', 'l2-l21', 'l2-l29'] as const);
+export const EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER = 11;
 export const EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze(
-    [
-        ...Array.from(
-            { length: EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER - 1 },
-            (_, index) => `l2-l${String(index + 2).padStart(2, '0')}` as keyof typeof DEFINITIONS,
-        ),
-        ...EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS,
-    ],
+    Array.from(
+        { length: EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER - 1 },
+        (_, index) => `l2-l${String(index + 2).padStart(2, '0')}` as keyof typeof DEFINITIONS,
+    ),
 );
+export const EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS = Object.freeze([
+    'l2-l12', 'l2-l13', 'l2-l18', 'l2-l21', 'l2-l29',
+] as const);
+
+const ALL_EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze([
+    ...EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS,
+    ...EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS,
+]);
 
 export function requiresExactLibraryVocabulary(packageId: string): boolean {
-    return (EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS as readonly string[]).includes(packageId);
+    return (ALL_EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS as readonly string[]).includes(packageId);
 }
 
 export function exactLibraryVocabularyDefinition(

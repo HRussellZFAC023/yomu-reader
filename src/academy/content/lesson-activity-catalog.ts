@@ -81,6 +81,8 @@ import { createLessonL2L31AdjectiveNounConditionalsBeat } from './lesson-l2-l31-
 import { createLessonL2L32NaraGuidanceWorkshopBeat } from './lesson-l2-l32-nara-guidance-workshop';
 import { createLessonL2L33Chapter35HomeworkReviewBeat } from './lesson-l2-l33-chapter-35-homework-review';
 import { createLessonL2L34KanjiMenuReadingBeat, createLessonL2L34RiWritingBeat } from './lesson-l2-l34-kanji-menu-workshop';
+import { createLessonL2L35ConsiderateRecommendationBeat } from './lesson-l2-l35-considerate-recommendation';
+import { createLessonL2L36YouniGoalWorkshopBeat } from './lesson-l2-l36-youni-goal-workshop';
 import { createLessonFourObjectDistanceModel } from './lesson-four-object-distance';
 import { createLessonFourPictureVocabularyModel } from './lesson-four-picture-vocabulary';
 import { createLessonTwoProfileBoardModel } from './lesson-two-profile-board';
@@ -152,13 +154,19 @@ export const LESSON_ACTIVITY_CHAPTER_PACKAGES = Object.freeze([
     'l1-l07',
 ] as const);
 
-type ChapterPackageId = typeof LESSON_ACTIVITY_CHAPTER_PACKAGES[number];
+const DIRECT_ACTIVITY_CHAPTER_PACKAGES = Object.freeze(['l2-l35', 'l2-l36'] as const);
+
+type ChapterPackageId =
+    | typeof LESSON_ACTIVITY_CHAPTER_PACKAGES[number]
+    | typeof DIRECT_ACTIVITY_CHAPTER_PACKAGES[number];
 
 export async function loadLessonActivityChapter(
     packageId: string,
     kanjiWriting: KanjiWritingService,
 ): Promise<LessonActivityChapter | null> {
-    if (!LESSON_ACTIVITY_CHAPTER_PACKAGES.includes(packageId as ChapterPackageId)) return null;
+    const registered = (LESSON_ACTIVITY_CHAPTER_PACKAGES as readonly string[]).includes(packageId)
+        || (DIRECT_ACTIVITY_CHAPTER_PACKAGES as readonly string[]).includes(packageId);
+    if (!registered) return null;
     switch (packageId as ChapterPackageId) {
         case 'l1-l08': {
             const trace = await kanjiWriting.lookup('一');
@@ -534,6 +542,28 @@ export async function loadLessonActivityChapter(
                 en: 'You can now return to Sensei’s pages to check eight printed readings and the form of 理. Minna and Genki supply chronology and scope only; no audio or unverified answer key has been added.',
             }, [createLessonL2L34KanjiMenuReadingBeat(), createLessonL2L34RiWritingBeat(trace)]);
         }
+        case 'l2-l35':
+            return chapter('l2-l35', 's1e09-the-story-in-two-tenses', 'jodi', {
+                ja: '相手を思いやる提案',
+                en: 'A considerate recommendation',
+            }, {
+                ja: 'ジョディが先生の Chapter 35 の四枚を開きます。相手の状況を聞き、押しつけずに提案する会話を、印刷された順番のまま戻します。',
+                en: 'Jodi opens Sensei’s four Chapter 35 pages. Restore the printed exchange in order: listen to the other person’s situation, then offer a suggestion without pushing it on them.',
+            }, {
+                ja: '八つの部分が一つの自然な会話に戻り、相手を思いやる「〜ませんか」の提案を原文どおりに使えました。',
+                en: 'All eight segments are back in one natural exchange, preserving Sensei’s considerate 〜ませんか recommendation exactly.',
+            }, [createLessonL2L35ConsiderateRecommendationBeat()]);
+        case 'l2-l36':
+            return chapter('l2-l36', 's1e10-instructions-for-a-cloud', 'rie', {
+                ja: '行動につながる目標',
+                en: 'Goals you can act toward',
+            }, {
+                ja: 'りえ先生が Chapter 36-1 の四枚を作業台に並べます。目標と、そのために今できる行動を「ように」でつなぎます。',
+                en: 'Rie lays the four Chapter 36-1 pages across the workbench. Connect each goal to an action you can take now with ように.',
+            }, {
+                ja: '八つの印刷例を原文どおりに戻し、目標と行動、避けたい結果と予防を分けられるようになりました。',
+                en: 'All eight printed examples are restored in source wording, separating goals from actions and unwanted outcomes from prevention.',
+            }, [createLessonL2L36YouniGoalWorkshopBeat()]);
         case 'l1-l01':
             return chapter('l1-l01', 's1e01-the-blank-atlas', 'rie', {
                 ja: '白い地図帳の名札',
@@ -778,7 +808,7 @@ export async function loadLessonActivityChapter(
                 en: 'Across eight source prompts, you connected volitional forms to plans with 〜ようと思っています. Sensei’s originals, three earned hints, missed-item repair, and a full replay remain available.',
             }, [createLessonFortyFiveIntentionRouteBeat()]);
         case 'l2-l21':
-            return chapter('l2-l21', 's1e07-no-spoilers', 'henry', {
+            return chapter('l2-l21', 's1e07-no-spoilers', 'ruparna', {
                 ja: '決めたこと、決まっていること',
                 en: 'What you decided, what is arranged',
             }, {

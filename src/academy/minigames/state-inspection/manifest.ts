@@ -14,6 +14,7 @@ export interface StateInspectionSourceVisual {
     readonly url: string;
     readonly sha256: string;
     readonly alt: LocalizedText;
+    readonly presentation?: 'inspectable' | 'inline-reference';
 }
 
 export interface StateInspectionOption {

@@ -157,14 +157,35 @@ function renderSources(model: StateInspectionModel, language: 'ja' | 'en' | unde
     section.className = 'academy-state-inspection-sources';
     section.dataset.lessonPhase = 'source-reference';
     model.provenance.moodle.sourceSheets.forEach(visual => {
-        section.append(renderInspectableSourceVisual(
-            visual,
-            language,
-            'academy-state-inspection-source',
-            'lazy',
-        ));
+        section.append(visual.presentation === 'inline-reference'
+            ? renderInlineSourceVisual(visual, language)
+            : renderInspectableSourceVisual(
+                visual,
+                language,
+                'academy-state-inspection-source',
+                'lazy',
+            ));
     });
     return section;
+}
+
+function renderInlineSourceVisual(
+    visual: StateInspectionModel['provenance']['moodle']['sourceSheets'][number],
+    language: 'ja' | 'en' | undefined,
+): HTMLElement {
+    const selectedLanguage = language === 'ja' ? 'ja' : 'en';
+    const figure = document.createElement('figure');
+    figure.className = 'academy-state-inspection-source academy-state-inspection-inline-reference';
+    const image = document.createElement('img');
+    image.src = visual.url;
+    image.alt = visual.alt[selectedLanguage];
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.dataset.sourceSha256 = visual.sha256;
+    const caption = document.createElement('figcaption');
+    caption.textContent = `${visual.title} · p.${visual.page}`;
+    figure.append(image, caption);
+    return figure;
 }
 
 function renderSourceAudio(model: StateInspectionModel, language: 'ja' | 'en' | undefined): HTMLElement | undefined {

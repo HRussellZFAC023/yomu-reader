@@ -2,6 +2,8 @@ import { kanjiWritingActivityPlugin } from '../activities/kanji-writing';
 import { choiceActivityPlugin } from '../activities/choice';
 import { reportedMessageWorkshopPlugin } from '../content/lesson-l2-l27-reported-message-workshop';
 import { followTheModelWorkshopPlugin } from '../content/lesson-l2-l28-follow-the-model-workshop';
+import { considerateRecommendationPlugin } from '../content/lesson-l2-l35-considerate-recommendation';
+import { youniGoalWorkshopPlugin } from '../content/lesson-l2-l36-youni-goal-workshop';
 import { n1SoundDiscriminationPlugin } from '../content/n1-sound-discrimination/plugin';
 import { n2ExtensiveReadingPlugin } from '../content/n2-extensive-reading/plugin';
 import { createActivityRuntime, type ActivityPlugin, type ActivityRuntime } from '../domain/activity-runtime';
@@ -110,6 +112,8 @@ export const ACADEMY_ACTIVITY_PLUGINS: readonly ActivityPlugin[] = Object.freeze
     reasonChainPlugin,
     reportedMessageWorkshopPlugin,
     followTheModelWorkshopPlugin,
+    considerateRecommendationPlugin,
+    youniGoalWorkshopPlugin,
     stateInspectionPlugin,
     particleSignalMixerPlugin,
     tokiThresholdPlugin,
