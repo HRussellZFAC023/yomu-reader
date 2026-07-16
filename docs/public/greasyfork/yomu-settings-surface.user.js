@@ -906,7 +906,6 @@
       source: "jpdb"
     };
   }
-  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const CORE_COLOR_TOKENS = {
     black: "#000000",
@@ -4073,7 +4072,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.159".trim() ? "1.6.159".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.160".trim() ? "1.6.160".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

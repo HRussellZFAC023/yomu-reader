@@ -281,11 +281,10 @@ describe('reader stylesheet loading', () => {
         // Mirrored words can inherit a tall control/ruby line box. Their
         // absolute ::after line would anchor to that box edge; pitch mode uses
         // native decoration instead, directly under the base glyphs.
-        expect(css).toContain('.jpdb-reader-word-underline-pitch\n  .jpdb-reader-text-mirror\n  .jpdb-reader-word:not(.jpdb-reader-pitch-compound)::after');
-        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-text-mirror[\s\S]*?\.jpdb-reader-word:not\(\.jpdb-reader-pitch-compound\)::after\s*\{\s*content: none !important;/);
-        expect(css).toContain('.jpdb-reader-word:not(.jpdb-reader-pitch-compound)');
+        expect(css).toContain('.jpdb-reader-word-underline-pitch\n  .jpdb-reader-text-mirror\n  .jpdb-reader-word::after');
+        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch[\s\S]*?\.jpdb-reader-text-mirror[\s\S]*?\.jpdb-reader-word::after\s*\{\s*content: none !important;/);
         expect(css).toContain('text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important');
-        expect(css).toMatch(/\.jpdb-reader-word-underline-pitch \.jpdb-reader-word\.jpdb-reader-pitch-compound::after\s*\{[\s\S]*?background-image: var\(--jpdb-reader-pitch-compound-gradient, none\)/);
+        expect(css).not.toContain('jpdb-reader-pitch-compound');
     });
 
     it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {

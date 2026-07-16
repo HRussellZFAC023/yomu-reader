@@ -5875,158 +5875,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function normalizePitchPatternsForReading(patterns, reading) {
-    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-  }
-  function pitchLevelsForDisplay(pattern, reading) {
-    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function compoundPitchGradientCss(segments) {
-    if (segments.length < 2) return "";
-    const moraCounts = segments.map((segment) => splitMorae(segment.reading).length);
-    const total = moraCounts.reduce((sum, count) => sum + count, 0);
-    if (!total) return "";
-    let cursor = 0;
-    const stops = segments.map((segment, index) => {
-      const from = cursor / total * 100;
-      cursor += moraCounts[index];
-      const to = cursor / total * 100;
-      const className = pitchClassNameForPattern(segment.pattern, segment.reading) || "unknown";
-      return `var(--jpdb-reader-pitch-${className}) ${from.toFixed(1)}% ${to.toFixed(1)}%`;
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function collectPitchVariants(reading, patterns, max2 = Infinity) {
-    const seen = /* @__PURE__ */ new Set();
-    const variants = [];
-    for (const pattern of patterns) {
-      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-      const position = pitchNumberFromPattern(pattern, reading);
-      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      variants.push({ pattern, position });
-      if (variants.length >= max2) break;
-    }
-    return variants;
-  }
-  function validPitchPositions(reading, patterns) {
-    const positions = /* @__PURE__ */ new Set();
-    for (const variant of collectPitchVariants(reading, patterns)) {
-      if (variant.position != null) positions.add(variant.position);
-    }
-    return positions;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberForReading(patterns, reading) {
-    if (!reading || !patterns?.length) return null;
-    const pattern = contextPitchPattern(patterns, reading);
-    if (!pattern) return null;
-    return pitchNumberFromPattern(pattern, reading);
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
-    }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
-  }
-  function looksLikeShortHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
   const DECK_CLASS_NAME_LIMIT = 8;
   function cardDeckMembership(card) {
     const names = cardDeckNames(card);
@@ -8916,7 +8764,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const KANJI_RE$4 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
-  const KANA_RE$2 = /^[\u3040-\u30ffー・]+$/u;
+  const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
   const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
   const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -11722,20 +11570,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join("|");
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
-    if (showPitchAccent) applyCompoundPitchDecoration(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
-  }
-  function applyCompoundPitchDecoration(word, card) {
-    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
-    if (gradient) {
-      word.classList.add("jpdb-reader-pitch-compound");
-      word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
-    } else {
-      word.classList.remove("jpdb-reader-pitch-compound");
-      word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
-    }
   }
   function applyDeckMembershipDataset(span, card) {
     const membership = cardDeckMembership(card);
@@ -11768,14 +11605,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
-    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length ? compoundPitchGradientCss(token.card.pitchSegments) : "";
     const classes = [
       readerWordClassName(state2, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
-      hasMiningInsight ? "jpdb-reader-i-plus-one" : "",
-      compoundGradient ? "jpdb-reader-pitch-compound" : ""
+      hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
-    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml$1(compoundGradient)}"` : "";
     const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -11789,7 +11623,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -11871,13 +11705,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$4.test(visibleSurface) || !KANA_RE$2.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE$4.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
       if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
       const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (!surfaceSuffix || !KANA_RE$2.test(surfaceSuffix)) continue;
+      if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
       const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
       if (rubies.length) return rubies;
     }
@@ -11887,14 +11721,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const suffixes = [];
     for (let index = 0; index < value.length; index += 1) {
       const suffix = value.slice(index);
-      if (suffix && KANA_RE$2.test(suffix)) suffixes.push(suffix);
+      if (suffix && KANA_RE$1.test(suffix)) suffixes.push(suffix);
     }
     return suffixes.sort((first2, second) => second.length - first2.length);
   }
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$4.test(trimmed.surface) || !KANA_RE$2.test(trimmed.reading)) return [];
+    if (!KANJI_RE$4.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -11921,7 +11755,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { surface: trimmedSurface, reading: trimmedReading, offset };
   }
   function sameKanaCharacter(first2, second) {
-    return Boolean(first2 && second && first2 === second && KANA_RE$2.test(first2));
+    return Boolean(first2 && second && first2 === second && KANA_RE$1.test(first2));
   }
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const sources = sourceTokenRubies(surface, token);
@@ -11941,7 +11775,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$4.test(surface) || !reading || reading === surface || !KANA_RE$2.test(reading)) return [];
+    if (!surface || !KANJI_RE$4.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -11970,7 +11804,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function kanjiRubyParts(base, reading) {
     if (!base || !reading || !KANJI_RE$4.test(base)) return [];
-    if (!KANA_RE$2.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+    if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
     const parts = [];
@@ -12006,7 +11840,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }];
   }
   function kanaTrimmedKanjiRange(base, reading) {
-    if (!KANA_RE$2.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
+    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
     const chars = Array.from(base);
     const first2 = chars.findIndex((char) => KANJI_RE$4.test(char));
     if (first2 < 0) return null;
@@ -23418,16 +23252,142 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function rtkElementFallbackGlyph(keyword) {
     return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
   }
-  const COMPOUND_MAX_CHARS = 24;
-  const COMPOUND_MAX_SEGMENTS = 8;
-  const COMPOUND_MAX_LOOKUPS = 32;
-  const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
-  const KANA_RE$1 = /[぀-ヿー]/u;
-  const COMPOUND_JAPANESE_CHARACTER_RE = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]+$/u;
-  const COMPOUND_KANJI_RE = /\p{Script=Han}/u;
-  function shouldRetainDirectCompoundSegments(spelling) {
-    const characters = Array.from(spelling.trim());
-    return characters.length >= 4 && COMPOUND_JAPANESE_CHARACTER_RE.test(characters.join("")) && characters.filter((character) => COMPOUND_KANJI_RE.test(character)).length >= 2;
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function normalizePitchPatternsForReading(patterns, reading) {
+    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+  }
+  function pitchLevelsForDisplay(pattern, reading) {
+    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function collectPitchVariants(reading, patterns, max2 = Infinity) {
+    const seen = /* @__PURE__ */ new Set();
+    const variants = [];
+    for (const pattern of patterns) {
+      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+      const position = pitchNumberFromPattern(pattern, reading);
+      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      variants.push({ pattern, position });
+      if (variants.length >= max2) break;
+    }
+    return variants;
+  }
+  function validPitchPositions(reading, patterns) {
+    const positions = /* @__PURE__ */ new Set();
+    for (const variant of collectPitchVariants(reading, patterns)) {
+      if (variant.position != null) positions.add(variant.position);
+    }
+    return positions;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+    return dropAt;
+  }
+  function looksLikeShortHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+    return hasComplexPitchShape(pattern) ? "kifuku" : "";
+  }
+  function hasComplexPitchShape(pattern) {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
   }
   async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
     return (await localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options)).patterns;
@@ -23437,113 +23397,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const pronunciation = reading.trim();
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
     let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
+    if (patterns.length) return { patterns };
     if (pronunciation && pronunciation !== expression) {
       const readingEntries = await lookupMeta(pronunciation);
       patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-      if (patterns.length) return resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options);
+      if (patterns.length) return { patterns };
     }
-    if (options.includeCompound === false) return { patterns: [] };
-    const segments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
-    if (!segments.length) return { patterns: [] };
-    return { patterns: [segments.map((segment) => segment.pattern).join("")], compoundSegments: segments };
-  }
-  async function resolutionWithOptionalDirectCompoundSegments(expression, pronunciation, patterns, lookupMeta, options) {
-    if (!options.includeDirectCompoundSegments) return { patterns };
-    const compoundSegments = await composeCompoundPitchSegmentsFromMeta(expression, pronunciation, lookupMeta);
-    return compoundSegments.length ? { patterns, compoundSegments } : { patterns };
-  }
-  async function composeCompoundPitchSegmentsFromMeta(spelling, reading, lookupMeta) {
-    const characters = Array.from(spelling.trim());
-    const kana = kanaNormalized(reading.trim());
-    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return [];
-    const state2 = { lookups: 0, cache: /* @__PURE__ */ new Map() };
-    const segments = await composeSegments(characters, 0, kana, lookupMeta, state2, COMPOUND_MAX_SEGMENTS);
-    if (!segments || segments.length < 2) return [];
-    return segments.map((segment, index) => ({
-      pattern: index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount),
-      reading: segment.reading
-    }));
-  }
-  async function composeSegments(characters, cursor, readingRest, lookupMeta, state2, segmentsLeft) {
-    if (cursor >= characters.length) return readingRest ? null : [];
-    if (!segmentsLeft || !readingRest) return null;
-    const maxLength = Math.min(8, characters.length - cursor);
-    for (let length = maxLength; length >= 1; length--) {
-      if (cursor === 0 && length === characters.length) continue;
-      if (state2.lookups >= COMPOUND_MAX_LOOKUPS) return null;
-      const candidate = characters.slice(cursor, cursor + length).join("");
-      const isFinal = cursor + length === characters.length;
-      const segment = await constituentSegment(candidate, readingRest, lookupMeta, state2, isFinal);
-      if (!segment) continue;
-      const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state2, segmentsLeft - 1);
-      if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount, reading: readingRest.slice(0, segment.readingLength) }, ...rest];
-    }
-    return null;
-  }
-  async function constituentSegment(candidate, readingRest, lookupMeta, state2, isFinal) {
-    let entriesPromise = state2.cache.get(candidate);
-    if (!entriesPromise) {
-      state2.lookups += 1;
-      entriesPromise = Promise.resolve().then(() => lookupMeta(candidate)).catch(() => []);
-      state2.cache.set(candidate, entriesPromise);
-    }
-    const entries2 = await entriesPromise;
-    const readings2 = distinctMetadataReadings(entries2).sort((a, b) => b.length - a.length);
-    for (const constituentReading of readings2) {
-      if (!constituentReading || !readingRest.startsWith(constituentReading)) continue;
-      if (SMALL_KANA_RE.test(readingRest.slice(constituentReading.length))) continue;
-      const pattern = localPitchPatternFromMeta(constituentReading, entries2);
-      if (!pattern) continue;
-      return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
-    }
-    if (isFinal) return readingKeyFinalSegment(readingRest, lookupMeta, state2);
-    return readingKeyOkuriganaStemSegment(candidate, readingRest, lookupMeta, state2);
-  }
-  async function readingKeyOkuriganaStemSegment(candidate, readingRest, lookupMeta, state2) {
-    const okurigana = trailingKanaRun(candidate);
-    if (!okurigana || okurigana.length >= candidate.length) return null;
-    for (const readingLength of okuriganaAnchoredReadingLengths(readingRest, okurigana)) {
-      const segment = await readingKeySegment(readingRest.slice(0, readingLength), lookupMeta, state2);
-      if (segment) return segment;
-    }
-    return null;
-  }
-  function okuriganaAnchoredReadingLengths(readingRest, okurigana) {
-    const lengths = [];
-    let index = readingRest.indexOf(okurigana, 1);
-    while (index >= 0) {
-      const readingLength = index + okurigana.length;
-      if (readingLength < readingRest.length && !SMALL_KANA_RE.test(readingRest.slice(readingLength)) && !SMALL_KANA_RE.test(okurigana)) {
-        lengths.push(readingLength);
-      }
-      index = readingRest.indexOf(okurigana, index + 1);
-    }
-    return lengths;
-  }
-  function trailingKanaRun(value) {
-    let run = "";
-    for (const character of Array.from(value)) {
-      run = KANA_RE$1.test(character) ? run + character : "";
-    }
-    return run;
-  }
-  function readingKeyFinalSegment(readingRest, lookupMeta, state2) {
-    return readingKeySegment(readingRest, lookupMeta, state2);
-  }
-  async function readingKeySegment(reading, lookupMeta, state2) {
-    if (!reading || state2.lookups >= COMPOUND_MAX_LOOKUPS) return null;
-    const cacheKey = `r:${reading}`;
-    let entriesPromise = state2.cache.get(cacheKey);
-    if (!entriesPromise) {
-      state2.lookups += 1;
-      entriesPromise = Promise.resolve().then(() => lookupMeta(reading)).catch(() => []);
-      state2.cache.set(cacheKey, entriesPromise);
-    }
-    const entries2 = await entriesPromise;
-    const patterns = localPitchPatternsFromMeta(reading, entries2);
-    if (patterns.length !== 1) return null;
-    return { pattern: patterns[0], moraCount: splitMorae(reading).length, readingLength: reading.length };
+    return { patterns: [] };
   }
   function localPitchPatternFromMeta(reading, entries2) {
     return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
@@ -23630,16 +23490,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...card.pitchAccent ?? [],
       ...localPitchPatternsFromMeta(reading, metaEntries)
     ], MAX_PITCH_VARIANTS);
-    return renderPitchVariantGraphs(reading, variants, card.pitchSegments);
+    return renderPitchVariantGraphs(reading, variants);
   }
-  function renderPitchVariantGraphs(reading, variants, compoundSegments) {
-    const composedPattern = compoundSegments?.map((segment) => segment.pattern).join("") ?? "";
+  function renderPitchVariantGraphs(reading, variants) {
     const graphs = variants.map((variant) => ({
       variant,
-      svg: renderPitchGraphSvg(reading, variant.pattern, {
-        centerContent: true,
-        segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : void 0
-      })
+      svg: renderPitchGraphSvg(reading, variant.pattern, { centerContent: true })
     })).filter((entry) => entry.svg);
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
@@ -23687,37 +23543,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const startX = options.centerContent ? 21 : 9;
     const point = (index) => `${startX + index * 24},${highs[index] === "H" ? 10 : 29}`;
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
-    const classAt = segmentClassResolver(highs.length, cls, options.segments);
-    const lines = segmentPolylines(highs.length, classAt).map(({ className, indices }) => `<polyline class="${className}" points="${indices.map(point).join(" ")}"></polyline>`).join("");
+    const points = highs.map((_, index) => point(index)).join(" ");
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        ${lines}
-        ${highs.map((_, index) => `<circle class="${classAt(index)}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.map((_, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${highs[index] === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
-  }
-  function segmentClassResolver(pointCount, wholeClass, segments) {
-    if (!segments || segments.length < 2) return () => wholeClass;
-    const classes = [];
-    for (const segment of segments) {
-      const cls = pitchClassNameForPattern(segment.pattern, segment.reading) || wholeClass;
-      for (let i2 = 0; i2 < segment.pattern.length && classes.length < pointCount; i2++) classes.push(cls);
-    }
-    while (classes.length < pointCount) classes.push(classes[classes.length - 1] ?? wholeClass);
-    return (index) => classes[index] ?? wholeClass;
-  }
-  function segmentPolylines(pointCount, classAt) {
-    const runs = [];
-    for (let index = 0; index < pointCount; index++) {
-      const className = classAt(index);
-      const current = runs[runs.length - 1];
-      if (current && current.className === className) {
-        current.indices.push(index);
-      } else {
-        if (current) current.indices.push(index);
-        runs.push({ className, indices: [index] });
-      }
-    }
-    return runs.filter((run) => run.indices.length > 1);
   }
   function cardPronunciationReading(card) {
     const reading = pronunciationCandidate(card.reading);
@@ -36883,20 +36714,17 @@ ${spelling}`);
       if (typeof lookupTermMeta !== "function") return "";
       const key = localPitchCacheKey(card, settings);
       const cached = this.localPitchCache.get(key);
-      if (cached) return applyLocalPitchResolution(card, await cached);
+      if (cached) return firstLocalPitchPattern(await cached);
       const promise = localPitchResolutionFromMetaLookup(
         card.spelling,
         card.reading,
-        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-        {
-          includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
-        }
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
       ).catch((error) => {
         log$m.warn("Local pitch parse failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       this.rememberLocalPitchCacheEntry(key, promise);
-      return applyLocalPitchResolution(card, await promise);
+      return firstLocalPitchPattern(await promise);
     }
     withNormalizedMetricTokens(text2, tokens) {
       if (!text2.includes("回視聴")) return tokens;
@@ -36955,9 +36783,7 @@ ${spelling}`);
       }
     }
   }
-  function applyLocalPitchResolution(card, resolution) {
-    if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-    else if (resolution.patterns.length) delete card.pitchSegments;
+  function firstLocalPitchPattern(resolution) {
     return resolution.patterns[0] ?? "";
   }
   function remoteParseFallbackTimeoutMs(options) {
@@ -42187,7 +42013,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.159".trim() ? "1.6.159".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.160".trim() ? "1.6.160".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -66245,7 +66071,6 @@ ${component.reading}`;
         ankiFieldTargetPlan
       ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, bunproDefinitionInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-        applyAlignedComponentPitchSegments(card, expressionComponentsValue, componentPitchesValue);
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, bunproDefinitionInfo: bunproDefinitionInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
@@ -66331,18 +66156,12 @@ ${component.reading}`;
         card.spelling,
         card.reading,
         (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
-        {
-          initialEntries: metaEntries,
-          includeCompound: !card.pitchAccent.length,
-          includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling)
-        }
+        { initialEntries: metaEntries }
       ).catch((error) => {
         log$d.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       const patterns = resolution.patterns;
-      if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-      else if (patterns.length) delete card.pitchSegments;
       if (!patterns.length) return;
       if (!card.pitchAccent.length) {
         card.pitchAccent = patterns;
@@ -66430,11 +66249,6 @@ ${component.reading}`;
     settings() {
       return this.dependencies.getSettings();
     }
-  }
-  function applyAlignedComponentPitchSegments(card, components2, componentPitches) {
-    const segments = alignedExpressionComponentPitches(card, components2, componentPitches);
-    if (!segments.length) return;
-    card.pitchSegments = segments.map((segment) => ({ pattern: segment.pitch, reading: segment.reading }));
   }
   function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
     return Promise.race([
@@ -66584,16 +66398,6 @@ ${component.reading}`;
     word.dataset.pitchClass = pitchClass;
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
   }
-  function applyRenderedWordCompoundPitch(word, card) {
-    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : "";
-    if (gradient) {
-      word.classList.add("jpdb-reader-pitch-compound");
-      word.style.setProperty("--jpdb-reader-pitch-compound-gradient", gradient);
-    } else {
-      word.classList.remove("jpdb-reader-pitch-compound");
-      word.style.removeProperty("--jpdb-reader-pitch-compound-gradient");
-    }
-  }
   function setRenderedWordCardIdentity(word, card) {
     const source = renderedWordCardSource(card);
     const state2 = primaryCardState(card.cardState);
@@ -66612,7 +66416,6 @@ ${component.reading}`;
     const pitchAccent = card.pitchAccent.join("|");
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
-    applyRenderedWordCompoundPitch(word, card);
     word.classList.add(`jpdb-${state2}`);
     if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
     applyRenderedWordDeckMembership(word, card);
@@ -85811,7 +85614,6 @@ ${entry.url}`),
         }
       }
       word.classList.add(`${sourceClass}-${state2}`, `jpdb-pitch-${pitchClass}`);
-      applyCompoundPitchDecoration(word, card);
       word.dataset.vid = String(card.vid);
       word.dataset.sid = String(card.sid);
       word.dataset.expression = card.spelling;

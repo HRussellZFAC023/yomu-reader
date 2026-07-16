@@ -7603,20 +7603,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 /* A mirrored page word's line box can include ruby leading or a tall host
-   control. Anchor ordinary pitch lines to the glyphs with native decoration;
-   the absolute ::after lane otherwise falls at the containing line-box edge.
-   Compound pitch keeps ::after because its multi-colour gradient cannot be
-   represented by one native text-decoration colour. */
+   control. Anchor pitch lines to the glyphs with native decoration; the
+   absolute ::after lane otherwise falls at the containing line-box edge. */
 
 .jpdb-reader-word-underline-pitch
   .jpdb-reader-text-mirror
-  .jpdb-reader-word:not(.jpdb-reader-pitch-compound) {
+  .jpdb-reader-word {
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
 
 .jpdb-reader-word-underline-pitch
   .jpdb-reader-text-mirror
-  .jpdb-reader-word:not(.jpdb-reader-pitch-compound)::after {
+  .jpdb-reader-word::after {
   content: none !important;
 }
 
@@ -9149,35 +9147,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
   display: ruby-text !important;
   visibility: visible;
-}
-
-/* Compound words composed from two accents paint the single underline with
-   each constituent's own colour. The ::after box IS the underline strip
-   (height = border thickness), so a background gradient fills it exactly.
-   Horizontal-first: vertical writing keeps the blend rather than mis-axising. */
-
-.jpdb-reader-word-underline-pitch .jpdb-reader-word.jpdb-reader-pitch-compound::after {
-  border-block-end-color: transparent;
-  background-image: var(--jpdb-reader-pitch-compound-gradient, none);
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-}
-
-/* Source-preserving mirrors normally use a native text decoration because an
-   absolute underline would fall at the bottom of a tall pill. Composite words
-   are the exception: their per-subword gradient cannot be represented by one
-   native decoration colour, so restore only their tightly word-sized strip. */
-
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
-  .jpdb-reader-word.jpdb-reader-pitch-compound {
-  text-decoration-color: transparent !important;
-}
-
-.jpdb-reader-word-underline-pitch
-  .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror
-  .jpdb-reader-word.jpdb-reader-pitch-compound::after {
-  content: "" !important;
 }
 
 .jpdb-reader-backdrop {

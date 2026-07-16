@@ -6,7 +6,7 @@ import {
     splitMorae,
     type PitchVariant,
 } from '../lookup/pitch-accent';
-import { localPitchPatternsFromMeta, type CompoundPitchSegment } from '../lookup/pitch-meta';
+import { localPitchPatternsFromMeta } from '../lookup/pitch-meta';
 import type { JPDBCard } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
@@ -24,20 +24,14 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
         ...(card.pitchAccent ?? []),
         ...localPitchPatternsFromMeta(reading, metaEntries),
     ], MAX_PITCH_VARIANTS);
-    return renderPitchVariantGraphs(reading, variants, card.pitchSegments);
+    return renderPitchVariantGraphs(reading, variants);
 }
 
-export function renderPitchVariantGraphs(reading: string, variants: PitchVariant[], compoundSegments?: CompoundPitchSegment[]): string {
-    // A composed compound colours the ONE graph per constituent, but only for
-    // the variant whose contour is the composition itself.
-    const composedPattern = compoundSegments?.map(segment => segment.pattern).join('') ?? '';
+export function renderPitchVariantGraphs(reading: string, variants: PitchVariant[]): string {
     const graphs = variants
         .map(variant => ({
             variant,
-            svg: renderPitchGraphSvg(reading, variant.pattern, {
-                centerContent: true,
-                segments: compoundSegments && variant.pattern === composedPattern ? compoundSegments : undefined,
-            }),
+            svg: renderPitchGraphSvg(reading, variant.pattern, { centerContent: true }),
         }))
         .filter(entry => entry.svg);
     if (!graphs.length) return '';
@@ -96,7 +90,6 @@ export function alignedExpressionComponentPitches(
 
 export interface PitchGraphRenderOptions {
     centerContent?: boolean;
-    segments?: CompoundPitchSegment[];
 }
 
 // Expressions (気合いを入れる) have no pitch of their own; presenting one
@@ -126,45 +119,12 @@ export function renderPitchGraphSvg(reading: string, pitch: string, options: Pit
     const startX = options.centerContent ? 21 : 9;
     const point = (index: number) => `${startX + index * 24},${highs[index] === 'H' ? 10 : 29}`;
     const cls = pitchClassNameForPattern(pitch, reading) || 'unknown';
-    const classAt = segmentClassResolver(highs.length, cls, options.segments);
-    const lines = segmentPolylines(highs.length, classAt)
-        .map(({ className, indices }) => `<polyline class="${className}" points="${indices.map(point).join(' ')}"></polyline>`)
-        .join('');
+    const points = highs.map((_, index) => point(index)).join(' ');
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        ${lines}
-        ${highs.map((_, index) => `<circle class="${classAt(index)}" cx="${startX + index * 24}" cy="${highs[index] === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
+        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.map((_, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${highs[index] === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
         ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
     </svg>`;
-}
-
-// Per-point class lookup: a composed compound colours each mora point by the
-// constituent that contributed it; anything else keeps the whole-word class.
-function segmentClassResolver(pointCount: number, wholeClass: string, segments?: CompoundPitchSegment[]): (index: number) => string {
-    if (!segments || segments.length < 2) return () => wholeClass;
-    const classes: string[] = [];
-    for (const segment of segments) {
-        const cls = pitchClassNameForPattern(segment.pattern, segment.reading) || wholeClass;
-        for (let i = 0; i < segment.pattern.length && classes.length < pointCount; i++) classes.push(cls);
-    }
-    while (classes.length < pointCount) classes.push(classes[classes.length - 1] ?? wholeClass);
-    return index => classes[index] ?? wholeClass;
-}
-
-// Contiguous runs of same-class points; each run overlaps the next by one
-// point so the contour line stays connected across the colour change.
-function segmentPolylines(pointCount: number, classAt: (index: number) => string): Array<{ className: string; indices: number[] }> {
-    const runs: Array<{ className: string; indices: number[] }> = [];
-    for (let index = 0; index < pointCount; index++) {
-        const className = classAt(index);
-        const current = runs[runs.length - 1];
-        if (current && current.className === className) {
-            current.indices.push(index);
-        } else {
-            if (current) current.indices.push(index);
-            runs.push({ className, indices: [index] });
-        }
-    }
-    return runs.filter(run => run.indices.length > 1);
 }
 
 export function cardPronunciationReading(card: Pick<JPDBCard, 'reading' | 'spelling' | 'wordWithReading'>): string {

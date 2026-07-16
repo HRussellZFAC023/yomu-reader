@@ -4949,7 +4949,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
   }
-  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
   `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;

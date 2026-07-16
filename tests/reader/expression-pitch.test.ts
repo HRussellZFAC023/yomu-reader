@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
-import { applyCompoundPitchDecoration } from '../../src/reader/dom/index';
 import { alignedExpressionComponentPitches, renderExpressionComponentPitches } from '../../src/reader/popup/render';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -234,7 +233,7 @@ describe('expression component pitch', () => {
         expect((await loader.load(expressionCard('食べる', 'たべる')).all).expressionComponents ?? []).toEqual([]);
     });
 
-    it('composes a whole-card compound pitch from component pitch rows', async () => {
+    it('keeps whole-card pitch unknown while retaining component pitch rows', async () => {
         const loader = createLoader({
             entriesByTerm: {
                 登録: [termEntry('登録', 'とうろく')],
@@ -251,7 +250,7 @@ describe('expression component pitch', () => {
 
         const data = await loader.load(card).all;
 
-        expect(card.pitchAccent).toEqual(['LHHHHHLL']);
+        expect(card.pitchAccent).toEqual([]);
         expect(data.expressionComponents?.map(component => component.text)).toEqual(['登録', '者', '数']);
         expect(data.componentPitches?.map(component => component.text)).toEqual(['登録', '者', '数']);
     });
@@ -276,7 +275,7 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['気合い', '入れる']);
     });
 
-    it('keeps a whole-word graph primary while retaining compound navigation and inline segments', async () => {
+    it('keeps exact whole-word pitch primary while labelling component evidence separately', async () => {
         const loader = createLoader({
             entriesByTerm: {
                 双子座流星群: [termEntry('双子座流星群', 'ふたござりゅうせいぐん')],
@@ -299,12 +298,6 @@ describe('expression component pitch', () => {
             { text: '流星群', reading: 'りゅうせいぐん' },
         ]);
         expect(data.componentPitches?.map(component => component.text)).toEqual(['双子座', '流星群']);
-        expect(card.pitchSegments?.map(segment => segment.reading)).toEqual(['ふたござ', 'りゅうせいぐん']);
-
-        const inlineWord = document.createElement('span');
-        applyCompoundPitchDecoration(inlineWord, card);
-        expect(inlineWord.classList.contains('jpdb-reader-pitch-compound')).toBe(true);
-        expect(inlineWord.style.getPropertyValue('--jpdb-reader-pitch-compound-gradient')).toContain('linear-gradient');
 
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({ ...DEFAULT_SETTINGS, showPitchAccent: true }),

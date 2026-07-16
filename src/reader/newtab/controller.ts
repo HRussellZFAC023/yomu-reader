@@ -33,7 +33,7 @@ import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
-import { applyCompoundPitchDecoration, escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
+import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
 import { cardPronunciationReading, isKanjiCharacter } from '../popup/pitch';
@@ -7650,7 +7650,6 @@ export class NewTabController {
             }
         }
         word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
-        applyCompoundPitchDecoration(word, card);
         word.dataset.vid = String(card.vid);
         word.dataset.sid = String(card.sid);
         word.dataset.expression = card.spelling;
