@@ -34024,7 +34024,7 @@ describe('reader helpers', () => {
         expect(targets.some(target => target.nonDestructive === true)).toBe(false);
     });
 
-    it('uses non-destructive generic targets on managed app shells', () => {
+    it('uses the generic render path on managed app shells', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 640, height: 48 });
         document.body.innerHTML = `
             <script src="/_next/static/chunks/app-router.js"></script>
@@ -34047,15 +34047,14 @@ describe('reader helpers', () => {
             '戻る',
             '保存',
         ]));
-        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
         expect(targets.find(target => target.text === '日本語ツール一覧')).toMatchObject({
             parserId: 'generic-prose-parser',
-            nonDestructive: true,
         });
+        expect(targets.find(target => target.text === '日本語ツール一覧')?.nonDestructive).not.toBe(true);
         expect(targets.find(target => target.text === '保存')).toMatchObject({
             parserId: 'safe-ui-chrome-parser',
-            nonDestructive: true,
         });
+        expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
 
         applyTokensToScanTarget(targets.find(target => target.text === '日本語ツール一覧')!, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご' },
@@ -34068,12 +34067,13 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const title = document.querySelector<HTMLElement>('h1')!;
-        expect(Array.from(title.childNodes).some(node => node.nodeType === Node.TEXT_NODE
-            && node.textContent?.includes('日本語ツール一覧'))).toBe(true);
-        expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        const titleWord = title.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(readerWordSurfaceText(titleWord)).toBe('日本語');
+        expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
+        expect(title.querySelector('.jpdb-reader-text-mirror')).toBeNull();
     });
 
-    it('uses non-destructive generic targets on Vite-style app shells', () => {
+    it('uses the generic render path on Vite-style app shells', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 640, height: 48 });
         document.body.innerHTML = `
             <div id="root">
@@ -34094,13 +34094,17 @@ describe('reader helpers', () => {
             '今日は字幕を探します。',
             '保存',
         ]));
-        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
         expect(targets.find(target => target.text === '日本語の配信ページ')).toMatchObject({
-            nonDestructive: true,
+            parserId: 'residual-visible-japanese-parser',
         });
+        expect(targets.find(target => target.text === '日本語の配信ページ')?.nonDestructive).not.toBe(true);
+        expect(targets.find(target => target.text === '保存')).toMatchObject({
+            parserId: 'safe-ui-chrome-parser',
+        });
+        expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
     });
 
-    it('uses non-destructive generic targets on web-component app shells', () => {
+    it('uses the generic render path on web-component app shells', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 640, height: 64 });
         document.body.innerHTML = `
             <shreddit-app>
@@ -34128,7 +34132,14 @@ describe('reader helpers', () => {
             '今日はコメントを確認します。',
             '詳細',
         ]));
-        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
+        expect(targets.find(target => target.text === '日本語ニュースを読む')).toMatchObject({
+            parserId: 'generic-prose-parser',
+        });
+        expect(targets.find(target => target.text === '日本語ニュースを読む')?.nonDestructive).not.toBe(true);
+        expect(targets.find(target => target.text === '詳細')).toMatchObject({
+            parserId: 'safe-ui-chrome-parser',
+        });
+        expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
 
         applyTokensToScanTarget(targets.find(target => target.text === '日本語ニュースを読む')!, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご' },
@@ -34141,9 +34152,10 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const title = document.querySelector<HTMLElement>('h2')!;
-        expect(Array.from(title.childNodes).some(node => node.nodeType === Node.TEXT_NODE
-            && node.textContent?.includes('日本語ニュースを読む'))).toBe(true);
-        expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        const titleWord = title.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(readerWordSurfaceText(titleWord)).toBe('日本語');
+        expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
+        expect(title.querySelector('.jpdb-reader-text-mirror')).toBeNull();
     });
 
     it('sweeps visible Japanese comments controls and nav after generic prose', () => {
