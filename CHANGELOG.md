@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.156] - 2026-07-16
+
+### Fixed
+
+- Added the hosted Japanese release-note copy for the resilient subtitle loading update, so the newest changelog remains localized when readers switch the documentation language.
+
 ## [1.6.155] - 2026-07-15
 
 ### Fixed
