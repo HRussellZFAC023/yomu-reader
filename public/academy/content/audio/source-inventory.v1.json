@@ -1,0 +1,1815 @@
+{
+  "schema": "yomu-academy.audio-source-inventory/v1",
+  "generation": {
+    "deterministic": true,
+    "generatedAt": null,
+    "zipMetadataVersion": 5,
+    "method": "SHA-256 every supplied audio and visual payload; deduplicate by payload hash; bind only byte-identical Moodle payloads and Academy package source references. Only the official free/no-registration 3A archive is harvest-eligible for audio harvest. No filename, chapter, lesson-number, duration, or visual filename inference creates a runtime binding."
+  },
+  "moodle": {
+    "audioOccurrenceCount": 185,
+    "uniquePayloadCount": 146,
+    "visualOccurrenceCount": 0,
+    "uniqueVisualPayloadCount": 0,
+    "rights": "private-course-source-review-required",
+    "runtime": "inventory-only"
+  },
+  "sources": [
+    {
+      "id": "soya-public",
+      "kind": "directory",
+      "textbook": {
+        "publisher": "Soya",
+        "collection": "public audio corpus"
+      },
+      "harvestEligibility": "inventory-only",
+      "audioFileCount": 58920,
+      "uniquePayloadCount": 50973,
+      "duplicatePayloadCount": 7947,
+      "visualFileCount": 0,
+      "uniqueVisualPayloadCount": 0,
+      "duplicateVisualPayloadCount": 0,
+      "exactMoodlePayloadCount": 0,
+      "exactMoodleVisualPayloadCount": 0,
+      "exactAcademyPackageReferenceCount": 0,
+      "exactAcademyPackageVisualReferenceCount": 0,
+      "unmatchedAudioFileCount": 58920,
+      "unmatchedVisualFileCount": 0,
+      "rights": "private-source-review-required",
+      "runtime": "inventory-only"
+    },
+    {
+      "id": "minna-shokyu-1",
+      "kind": "zip",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1
+      },
+      "officialSource": {
+        "url": "https://www.3anet.co.jp/np/resrcs/230020/",
+        "downloadUrl": "https://www.3anet.co.jp/np/secure/0-0001-01-230020/0-0001-01-230020-0.zip",
+        "access": "free-no-registration",
+        "evidence": "The official 3A page labels the 87-track MP3 download and every chapter block as free and no-registration.",
+        "verifiedOn": "2026-07-15"
+      },
+      "harvestEligibility": "official-free-no-registration",
+      "usagePolicy": "exact-missing-tracks-only",
+      "archiveSha256": "b9b3c693080df851f722b7697a57ca66f6c3f0a43434e68e609be14b1afe6da5",
+      "audioFileCount": 87,
+      "uniquePayloadCount": 87,
+      "duplicatePayloadCount": 0,
+      "visualFileCount": 0,
+      "uniqueVisualPayloadCount": 0,
+      "duplicateVisualPayloadCount": 0,
+      "exactMoodlePayloadCount": 30,
+      "exactMoodleVisualPayloadCount": 0,
+      "exactAcademyPackageReferenceCount": 24,
+      "exactAcademyPackageVisualReferenceCount": 0,
+      "unmatchedAudioFileCount": 57,
+      "unmatchedVisualFileCount": 0,
+      "rights": "official-download-access-verified-redistribution-not-claimed",
+      "runtime": "inventory-only"
+    },
+    {
+      "id": "genki-2e",
+      "kind": "zip",
+      "textbook": {
+        "publisher": "The Japan Times",
+        "collection": "Genki: An Integrated Course in Elementary Japanese",
+        "edition": 2
+      },
+      "harvestEligibility": "inventory-only",
+      "archiveSha256": "da8ee188f74cb9fbbe47ae197e150dbe8e83b4f6d80095a48bb0dbb78ad4c8ac",
+      "audioFileCount": 464,
+      "uniquePayloadCount": 463,
+      "duplicatePayloadCount": 1,
+      "visualFileCount": 0,
+      "uniqueVisualPayloadCount": 0,
+      "duplicateVisualPayloadCount": 0,
+      "exactMoodlePayloadCount": 0,
+      "exactMoodleVisualPayloadCount": 0,
+      "exactAcademyPackageReferenceCount": 0,
+      "exactAcademyPackageVisualReferenceCount": 0,
+      "unmatchedAudioFileCount": 464,
+      "unmatchedVisualFileCount": 0,
+      "rights": "private-source-review-required",
+      "runtime": "inventory-only"
+    },
+    {
+      "id": "japanese-folder",
+      "kind": "directory",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "harvestEligibility": "inventory-only",
+      "audioFileCount": 3801,
+      "uniquePayloadCount": 3785,
+      "duplicatePayloadCount": 16,
+      "visualFileCount": 1302,
+      "uniqueVisualPayloadCount": 1301,
+      "duplicateVisualPayloadCount": 1,
+      "exactMoodlePayloadCount": 23,
+      "exactMoodleVisualPayloadCount": 0,
+      "exactAcademyPackageReferenceCount": 23,
+      "exactAcademyPackageVisualReferenceCount": 0,
+      "unmatchedAudioFileCount": 3762,
+      "unmatchedVisualFileCount": 1302,
+      "rights": "private-source-review-required",
+      "runtime": "inventory-only"
+    }
+  ],
+  "bindings": [
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 1,
+        "track": 1
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_001.mp3",
+      "sha256": "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f",
+      "bytes": 577671,
+      "moodleReferences": [
+        {
+          "payloadSha256": "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f",
+          "sourceTitle": "audio materials/minna_shokyu_1_001.mp3",
+          "moduleId": 5804931,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000039"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l03",
+          "packageOrder": 4,
+          "sourceTitle": "minna shokyu 1 001"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 1,
+        "track": 3
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_003.mp3",
+      "sha256": "b37408f128f9fe5b84b5648f785b4d81ef87beffa7d9fe55c68db590c58479c9",
+      "bytes": 726256,
+      "moodleReferences": [
+        {
+          "payloadSha256": "b37408f128f9fe5b84b5648f785b4d81ef87beffa7d9fe55c68db590c58479c9",
+          "sourceTitle": "Homework/minna_shokyu_1_003.mp3",
+          "moduleId": 5804931,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000039"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l03",
+          "packageOrder": 4,
+          "sourceTitle": "minna shokyu 1 003"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 1,
+        "track": 4
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_004.mp3",
+      "sha256": "f248093aaa739c412bb1211e9ce885739dc62625c914456054a84f895541f377",
+      "bytes": 1859761,
+      "moodleReferences": [
+        {
+          "payloadSha256": "f248093aaa739c412bb1211e9ce885739dc62625c914456054a84f895541f377",
+          "sourceTitle": "Homework/minna_shokyu_1_004.mp3",
+          "moduleId": 5804931,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000039"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l03",
+          "packageOrder": 4,
+          "sourceTitle": "minna shokyu 1 004"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 2,
+        "track": 5
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_005.mp3",
+      "sha256": "62f3b96d10028d1eb1d6e39020a76cd72003d5d9cf651a70bc895bd3c66bd450",
+      "bytes": 887379,
+      "moodleReferences": [
+        {
+          "payloadSha256": "62f3b96d10028d1eb1d6e39020a76cd72003d5d9cf651a70bc895bd3c66bd450",
+          "sourceTitle": "audio materials/minna_shokyu_1_005.mp3",
+          "moduleId": 5822243,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000043"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l04",
+          "packageOrder": 5,
+          "sourceTitle": "minna shokyu 1 005"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 2,
+        "track": 7
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_007.mp3",
+      "sha256": "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570",
+      "bytes": 872332,
+      "moodleReferences": [
+        {
+          "payloadSha256": "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570",
+          "sourceTitle": "Homework/minna_shokyu_1_007.mp3",
+          "moduleId": 5834212,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000017"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l05",
+          "packageOrder": 6,
+          "sourceTitle": "minna shokyu 1 007"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 2,
+        "track": 8
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_008.mp3",
+      "sha256": "e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174",
+      "bytes": 1094269,
+      "moodleReferences": [
+        {
+          "payloadSha256": "e71fa2268bce1d88bbe84e7c7dbf5febe663cf7406180afda6ceb6960edfd174",
+          "sourceTitle": "Homework/minna_shokyu_1_008.mp3",
+          "moduleId": 5834212,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000017"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l05",
+          "packageOrder": 6,
+          "sourceTitle": "minna shokyu 1 008"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 3,
+        "track": 9
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_009.mp3",
+      "sha256": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+      "bytes": 906814,
+      "moodleReferences": [
+        {
+          "payloadSha256": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+          "sourceTitle": "audio materials/minna_shokyu_1_009.mp3",
+          "moduleId": 5864904,
+          "moduleTitle": "Lesson 7",
+          "archiveId": "archive-000015"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l07",
+          "packageOrder": 8,
+          "sourceTitle": "minna shokyu 1 009"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 4,
+        "track": 12
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_012.mp3",
+      "sha256": "ff2d3d83f9cc41c0f7a6f2f320801bdf24fac8195b2645be5865626b4afd3bfd",
+      "bytes": 953836,
+      "moodleReferences": [
+        {
+          "payloadSha256": "ff2d3d83f9cc41c0f7a6f2f320801bdf24fac8195b2645be5865626b4afd3bfd",
+          "sourceTitle": "audio materials/minna_shokyu_1_012.mp3",
+          "moduleId": 5889535,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000056"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l09",
+          "packageOrder": 10,
+          "sourceTitle": "minna shokyu 1 012"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 4,
+        "track": 14
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_014.mp3",
+      "sha256": "4c7e62f9b86ae5921cf8133c175e760f25a95c07f441c281cd4a31afe832946d",
+      "bytes": 623439,
+      "moodleReferences": [
+        {
+          "payloadSha256": "4c7e62f9b86ae5921cf8133c175e760f25a95c07f441c281cd4a31afe832946d",
+          "sourceTitle": "Homework/minna_shokyu_1_014.mp3",
+          "moduleId": 5907552,
+          "moduleTitle": "Lesson 10",
+          "archiveId": "archive-000045"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l10",
+          "packageOrder": 11,
+          "sourceTitle": "minna shokyu 1 014"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 4,
+        "track": 15
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_015.mp3",
+      "sha256": "dd228c924df8c890911b8cea42f3db9aabddc8fe533a472c062eb36dd91c604b",
+      "bytes": 1476702,
+      "moodleReferences": [
+        {
+          "payloadSha256": "dd228c924df8c890911b8cea42f3db9aabddc8fe533a472c062eb36dd91c604b",
+          "sourceTitle": "Homework/minna_shokyu_1_015.mp3",
+          "moduleId": 5907552,
+          "moduleTitle": "Lesson 10",
+          "archiveId": "archive-000045"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l10",
+          "packageOrder": 11,
+          "sourceTitle": "minna shokyu 1 015"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 4,
+        "track": 16
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_016.mp3",
+      "sha256": "ed2c93f6bce740a7b1ba3adcb634040e92b2a761e50f1a7a3686ffaaa4915c13",
+      "bytes": 1378900,
+      "moodleReferences": [
+        {
+          "payloadSha256": "ed2c93f6bce740a7b1ba3adcb634040e92b2a761e50f1a7a3686ffaaa4915c13",
+          "sourceTitle": "Homework/minna_shokyu_1_016.mp3",
+          "moduleId": 5907552,
+          "moduleTitle": "Lesson 10",
+          "archiveId": "archive-000045"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l10",
+          "packageOrder": 11,
+          "sourceTitle": "minna shokyu 1 016"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 5,
+        "track": 19
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_019.mp3",
+      "sha256": "f0494ad4cbc59eb2cdbbdd1a4474a2dc5d2240dfde2a98accf5f06c97410ad33",
+      "bytes": 575164,
+      "moodleReferences": [
+        {
+          "payloadSha256": "f0494ad4cbc59eb2cdbbdd1a4474a2dc5d2240dfde2a98accf5f06c97410ad33",
+          "sourceTitle": "Homework/minna_shokyu_1_019.mp3",
+          "moduleId": 5986227,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000058"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 5,
+        "track": 20
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_020.mp3",
+      "sha256": "fbfece958e55a2331f9d77e3bcd27b4f66bb2c6f7c487644882b358257800d0b",
+      "bytes": 1322476,
+      "moodleReferences": [
+        {
+          "payloadSha256": "fbfece958e55a2331f9d77e3bcd27b4f66bb2c6f7c487644882b358257800d0b",
+          "sourceTitle": "Homework/minna_shokyu_1_020.mp3",
+          "moduleId": 5986227,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000058"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 6,
+        "track": 21
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_021.mp3",
+      "sha256": "d853e2d35d02196b0d1acd88672684438dd11c97186bc641e2a2431f8cbafb50",
+      "bytes": 670459,
+      "moodleReferences": [
+        {
+          "payloadSha256": "d853e2d35d02196b0d1acd88672684438dd11c97186bc641e2a2431f8cbafb50",
+          "sourceTitle": "audio materials/minna_shokyu_1_021.mp3",
+          "moduleId": 6017427,
+          "moduleTitle": "Lesson 6 30/05/24_online",
+          "archiveId": "archive-000061"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 6,
+        "track": 23
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_023.mp3",
+      "sha256": "d0dfa20fa5e8766c8167dc1a8ed8b11a028f86e55eee74b7bd5abaabf23d91a6",
+      "bytes": 2239060,
+      "moodleReferences": [
+        {
+          "payloadSha256": "d0dfa20fa5e8766c8167dc1a8ed8b11a028f86e55eee74b7bd5abaabf23d91a6",
+          "sourceTitle": "Homework/minna_shokyu_1_023.mp3",
+          "moduleId": 6017427,
+          "moduleTitle": "Lesson 6 30/05/24_online",
+          "archiveId": "archive-000061"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 7,
+        "track": 24
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_024.mp3",
+      "sha256": "5d3b98497d1f3d7b91f93df86c9dbcfd424b5ef2eaf2bd4a8d302c8b6a7fbc04",
+      "bytes": 1103047,
+      "moodleReferences": [
+        {
+          "payloadSha256": "5d3b98497d1f3d7b91f93df86c9dbcfd424b5ef2eaf2bd4a8d302c8b6a7fbc04",
+          "sourceTitle": "audio materials/minna_shokyu_1_024.mp3",
+          "moduleId": 6032565,
+          "moduleTitle": "Lesson 8",
+          "archiveId": "archive-000063"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 8,
+        "track": 28
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_028.mp3",
+      "sha256": "88b1e2aa2e588b96f10d2074a1a0e4fd75182900e8ebe385820dd0eaabe9bbc6",
+      "bytes": 1014022,
+      "moodleReferences": [
+        {
+          "payloadSha256": "88b1e2aa2e588b96f10d2074a1a0e4fd75182900e8ebe385820dd0eaabe9bbc6",
+          "sourceTitle": "audio materials/minna_shokyu_1_028.mp3",
+          "moduleId": 6310075,
+          "moduleTitle": "Lesson 10",
+          "archiveId": "archive-000054"
+        },
+        {
+          "payloadSha256": "88b1e2aa2e588b96f10d2074a1a0e4fd75182900e8ebe385820dd0eaabe9bbc6",
+          "sourceTitle": "Audio materials/minna_shokyu_1_028.mp3",
+          "moduleId": 5489594,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000080"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 9,
+        "track": 32
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_032.mp3",
+      "sha256": "8d1c45edbe09fd2d0caa80f63770714020bea100932df9f32bd639be54773124",
+      "bytes": 1149440,
+      "moodleReferences": [
+        {
+          "payloadSha256": "8d1c45edbe09fd2d0caa80f63770714020bea100932df9f32bd639be54773124",
+          "sourceTitle": "audio materials/minna_shokyu_1_032.mp3",
+          "moduleId": 6097314,
+          "moduleTitle": "Lesson 4 16/05/24_online",
+          "archiveId": "archive-000083"
+        }
+      ],
+      "academyPackageReferences": [],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 10,
+        "track": 37
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_037.mp3",
+      "sha256": "e817ad1ee367b8273ad0a3838c3546b9b07ec507a67241ceef0b4729ed147f39",
+      "bytes": 1255393,
+      "moodleReferences": [
+        {
+          "payloadSha256": "e817ad1ee367b8273ad0a3838c3546b9b07ec507a67241ceef0b4729ed147f39",
+          "sourceTitle": "Homework/minna_shokyu_1_037.mp3",
+          "moduleId": 5489600,
+          "moduleTitle": "Lesson 7 06/06/24_online",
+          "archiveId": "archive-000031"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l17",
+          "packageOrder": 18,
+          "sourceTitle": "minna shokyu 1 037"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 10,
+        "track": 38
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_038.mp3",
+      "sha256": "aa26161268266d2117f3410a0011437251c1a64a4795ae861c3650a1b5112214",
+      "bytes": 1041607,
+      "moodleReferences": [
+        {
+          "payloadSha256": "aa26161268266d2117f3410a0011437251c1a64a4795ae861c3650a1b5112214",
+          "sourceTitle": "Homework/minna_shokyu_1_038.mp3",
+          "moduleId": 5489600,
+          "moduleTitle": "Lesson 7 06/06/24_online",
+          "archiveId": "archive-000031"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l17",
+          "packageOrder": 18,
+          "sourceTitle": "minna shokyu 1 038"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 11,
+        "track": 39
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_039.mp3",
+      "sha256": "bca7547d5207c2a6b2abe6fd2df8716a1858fd02bbdf34d6195291900c75389d",
+      "bytes": 1097404,
+      "moodleReferences": [
+        {
+          "payloadSha256": "bca7547d5207c2a6b2abe6fd2df8716a1858fd02bbdf34d6195291900c75389d",
+          "sourceTitle": "Homework/minna_shokyu_1_039.mp3",
+          "moduleId": 6310077,
+          "moduleTitle": "Lesson 10",
+          "archiveId": "archive-000006"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l20",
+          "packageOrder": 21,
+          "sourceTitle": "minna shokyu 1 039"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 11,
+        "track": 41
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_041.mp3",
+      "sha256": "642b909a9fc93884ac3ede4b0179cc4283a2ad9a1fe4a61ae24aa9d21fe8cdda",
+      "bytes": 499932,
+      "moodleReferences": [
+        {
+          "payloadSha256": "642b909a9fc93884ac3ede4b0179cc4283a2ad9a1fe4a61ae24aa9d21fe8cdda",
+          "sourceTitle": "Homework/minna_shokyu_1_041.mp3",
+          "moduleId": 6223185,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000095"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l1-l19",
+          "packageOrder": 20,
+          "sourceTitle": "minna shokyu 1 041"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 17,
+        "track": 60
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_060.mp3",
+      "sha256": "33590efb13483efbd91916542bbb888acf5e4ecca2a3ae35636da4a4b1843200",
+      "bytes": 995840,
+      "moodleReferences": [
+        {
+          "payloadSha256": "33590efb13483efbd91916542bbb888acf5e4ecca2a3ae35636da4a4b1843200",
+          "sourceTitle": "Audio materials/minna_shokyu_1_060.mp3",
+          "moduleId": 6974652,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000014"
+        },
+        {
+          "payloadSha256": "33590efb13483efbd91916542bbb888acf5e4ecca2a3ae35636da4a4b1843200",
+          "sourceTitle": "Audio materials/minna_shokyu_1_060.mp3",
+          "moduleId": 8121203,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000019"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l06",
+          "packageOrder": 33,
+          "sourceTitle": "Audio materials/minna_shokyu_1_060.mp3",
+          "textbookChapter": 21
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 19,
+        "track": 66
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_066.mp3",
+      "sha256": "f80d5012c0376aebdb5a6272d99b3dc1c31c2951209b8bc2fc9ef2b3a4d85d00",
+      "bytes": 1126244,
+      "moodleReferences": [
+        {
+          "payloadSha256": "f80d5012c0376aebdb5a6272d99b3dc1c31c2951209b8bc2fc9ef2b3a4d85d00",
+          "sourceTitle": "audio materials/minna_shokyu_1_066.mp3",
+          "moduleId": 8121198,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000072"
+        },
+        {
+          "payloadSha256": "f80d5012c0376aebdb5a6272d99b3dc1c31c2951209b8bc2fc9ef2b3a4d85d00",
+          "sourceTitle": "audio materials/minna_shokyu_1_066.mp3",
+          "moduleId": 7011919,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000089"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l03",
+          "packageOrder": 30,
+          "sourceTitle": "audio materials/minna_shokyu_1_066.mp3",
+          "textbookChapter": 19
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 19,
+        "track": 68
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_068.mp3",
+      "sha256": "3ac59999af29812cd9dc62492992f1ddc9d29ee0ca60b3fd86a4881cc0088fc8",
+      "bytes": 2472908,
+      "moodleReferences": [
+        {
+          "payloadSha256": "3ac59999af29812cd9dc62492992f1ddc9d29ee0ca60b3fd86a4881cc0088fc8",
+          "sourceTitle": "Homework/minna_shokyu_1_068.mp3",
+          "moduleId": 8121198,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000072"
+        },
+        {
+          "payloadSha256": "3ac59999af29812cd9dc62492992f1ddc9d29ee0ca60b3fd86a4881cc0088fc8",
+          "sourceTitle": "Homework/minna_shokyu_1_068.mp3",
+          "moduleId": 7011919,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000089"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l03",
+          "packageOrder": 30,
+          "sourceTitle": "Homework/minna_shokyu_1_068.mp3",
+          "textbookChapter": 19
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 20,
+        "track": 69
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_069.mp3",
+      "sha256": "f423d074fd31d9efaf34b359c71fde870abc71b850379af3a526758cee9b5d30",
+      "bytes": 772650,
+      "moodleReferences": [
+        {
+          "payloadSha256": "f423d074fd31d9efaf34b359c71fde870abc71b850379af3a526758cee9b5d30",
+          "sourceTitle": "audio materials/minna_shokyu_1_069.mp3",
+          "moduleId": 6974651,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000026"
+        },
+        {
+          "payloadSha256": "f423d074fd31d9efaf34b359c71fde870abc71b850379af3a526758cee9b5d30",
+          "sourceTitle": "audio materials/minna_shokyu_1_069.mp3",
+          "moduleId": 8121202,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000088"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l05",
+          "packageOrder": 32,
+          "sourceTitle": "audio materials/minna_shokyu_1_069.mp3",
+          "textbookChapter": 20
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 21,
+        "track": 72
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_072.mp3",
+      "sha256": "71cd9a20f51a1c49a53f02fc6080914e6cf229662710f55bd8f9f2dac269d98c",
+      "bytes": 1206492,
+      "moodleReferences": [
+        {
+          "payloadSha256": "71cd9a20f51a1c49a53f02fc6080914e6cf229662710f55bd8f9f2dac269d98c",
+          "sourceTitle": "Audio materials/minna_shokyu_1_072.mp3",
+          "moduleId": 6974652,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000014"
+        },
+        {
+          "payloadSha256": "71cd9a20f51a1c49a53f02fc6080914e6cf229662710f55bd8f9f2dac269d98c",
+          "sourceTitle": "Audio materials/minna_shokyu_1_072.mp3",
+          "moduleId": 8121203,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000019"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l06",
+          "packageOrder": 33,
+          "sourceTitle": "Audio materials/minna_shokyu_1_072.mp3",
+          "textbookChapter": 21
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 21,
+        "track": 74
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_074.mp3",
+      "sha256": "2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0",
+      "bytes": 2634658,
+      "moodleReferences": [
+        {
+          "payloadSha256": "2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0",
+          "sourceTitle": "Homework/minna_shokyu_1_074.mp3",
+          "moduleId": 6974653,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000005"
+        },
+        {
+          "payloadSha256": "2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0",
+          "sourceTitle": "Homework/minna_shokyu_1_074.mp3",
+          "moduleId": 8121205,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000033"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l07",
+          "packageOrder": 34,
+          "sourceTitle": "Homework/minna_shokyu_1_074.mp3",
+          "textbookChapter": 21
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 22,
+        "track": 75
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_075.mp3",
+      "sha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+      "bytes": 1039726,
+      "moodleReferences": [
+        {
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "sourceTitle": "Homework/minna_shokyu_1_075.mp3",
+          "moduleId": 6974657,
+          "moduleTitle": "Lesson 8",
+          "archiveId": "archive-000002"
+        },
+        {
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "sourceTitle": "audio materials/minna_shokyu_1_075.mp3",
+          "moduleId": 6974659,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000035"
+        },
+        {
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "sourceTitle": "audio materials/minna_shokyu_1_075.mp3",
+          "moduleId": 8121210,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000053"
+        },
+        {
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "sourceTitle": "Homework/minna_shokyu_1_075.mp3",
+          "moduleId": 8121209,
+          "moduleTitle": "Lesson 8",
+          "archiveId": "archive-000090"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l09",
+          "packageOrder": 36,
+          "sourceTitle": "Homework/minna_shokyu_1_075.mp3"
+        },
+        {
+          "packageId": "l2-l10",
+          "packageOrder": 37,
+          "sourceTitle": "audio materials/minna_shokyu_1_075.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "minna-shokyu-1",
+      "textbook": {
+        "publisher": "3A Corporation",
+        "collection": "Minna no Nihongo Shokyu I",
+        "volume": 1,
+        "chapter": 22,
+        "track": 77
+      },
+      "sourceRelativePath": "0-0001-01-230001/minna_shokyu_1_077.mp3",
+      "sha256": "3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339",
+      "bytes": 2311785,
+      "moodleReferences": [
+        {
+          "payloadSha256": "3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339",
+          "sourceTitle": "Homework/minna_shokyu_1_077.mp3",
+          "moduleId": 6974659,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000035"
+        },
+        {
+          "payloadSha256": "3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339",
+          "sourceTitle": "Homework/minna_shokyu_1_077.mp3",
+          "moduleId": 8121210,
+          "moduleTitle": "Lesson 9",
+          "archiveId": "archive-000053"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l10",
+          "packageOrder": 37,
+          "sourceTitle": "Homework/minna_shokyu_1_077.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 1-20260310/Homework/78 Track 78.mp3",
+      "sha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2",
+      "bytes": 1221637,
+      "moodleReferences": [
+        {
+          "payloadSha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2",
+          "sourceTitle": "Homework/78 Track 78.mp3",
+          "moduleId": 8121261,
+          "moduleTitle": "Lesson 1",
+          "archiveId": "archive-000032"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l12",
+          "packageOrder": 39,
+          "sourceTitle": "Homework/78 Track 78.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 1-20260310/Homework/79 Track 79.mp3",
+      "sha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e",
+      "bytes": 1267924,
+      "moodleReferences": [
+        {
+          "payloadSha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e",
+          "sourceTitle": "Homework/79 Track 79.mp3",
+          "moduleId": 8121261,
+          "moduleTitle": "Lesson 1",
+          "archiveId": "archive-000032"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l12",
+          "packageOrder": 39,
+          "sourceTitle": "Homework/79 Track 79.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 1-20260310/audio materials/10 A-10.mp3",
+      "sha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+      "bytes": 2356530,
+      "moodleReferences": [
+        {
+          "payloadSha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+          "sourceTitle": "audio materials/10 A-10.mp3",
+          "moduleId": 8121261,
+          "moduleTitle": "Lesson 1",
+          "archiveId": "archive-000032"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l12",
+          "packageOrder": 39,
+          "sourceTitle": "audio materials/10 A-10.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 1-20260310/audio materials/9-A-9.mp3",
+      "sha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+      "bytes": 1758515,
+      "moodleReferences": [
+        {
+          "payloadSha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+          "sourceTitle": "audio materials/9-A-9.mp3",
+          "moduleId": 8121261,
+          "moduleTitle": "Lesson 1",
+          "archiveId": "archive-000032"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l12",
+          "packageOrder": 39,
+          "sourceTitle": "audio materials/9-A-9.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 2-20260217/Audio materials/11 A-11.mp3",
+      "sha256": "596a4499996bd9599a169a8ae9171a0e78fe22a7f9d92bce7045203b794baf25",
+      "bytes": 1335328,
+      "moodleReferences": [
+        {
+          "payloadSha256": "596a4499996bd9599a169a8ae9171a0e78fe22a7f9d92bce7045203b794baf25",
+          "sourceTitle": "Audio materials/11 A-11.mp3",
+          "moduleId": 8121266,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000092"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l13",
+          "packageOrder": 40,
+          "sourceTitle": "Audio materials/11 A-11.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 2-20260217/Audio materials/12 A-12.mp3",
+      "sha256": "3cbfb08e2df21c8ffb145c8ebb9228bb396ebab1d00add94254448f301c78019",
+      "bytes": 1942926,
+      "moodleReferences": [
+        {
+          "payloadSha256": "3cbfb08e2df21c8ffb145c8ebb9228bb396ebab1d00add94254448f301c78019",
+          "sourceTitle": "Audio materials/12 A-12.mp3",
+          "moduleId": 8121266,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000092"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l13",
+          "packageOrder": 40,
+          "sourceTitle": "Audio materials/12 A-12.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 2-20260217/Homework/7 Track 07.mp3",
+      "sha256": "6eef8ba6f05de29f1e0747d4aab66be8b83e2fbfa5020cfc6881dc8f313954c7",
+      "bytes": 1208633,
+      "moodleReferences": [
+        {
+          "payloadSha256": "6eef8ba6f05de29f1e0747d4aab66be8b83e2fbfa5020cfc6881dc8f313954c7",
+          "sourceTitle": "Homework/7 Track 07.mp3",
+          "moduleId": 8121266,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000092"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l13",
+          "packageOrder": 40,
+          "sourceTitle": "Homework/7 Track 07.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 2-20260217/Homework/8-Track-08.mp3",
+      "sha256": "fb6e7395bab65c47c4b74f06b889aa070f0a9c7b2b4b77ea4fc3592b6047cb6e",
+      "bytes": 713240,
+      "moodleReferences": [
+        {
+          "payloadSha256": "fb6e7395bab65c47c4b74f06b889aa070f0a9c7b2b4b77ea4fc3592b6047cb6e",
+          "sourceTitle": "Homework/8-Track-08.mp3",
+          "moduleId": 8121266,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000092"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l13",
+          "packageOrder": 40,
+          "sourceTitle": "Homework/8-Track-08.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 2-20260217/Homework/9-Track-09.mp3",
+      "sha256": "b08b1e5344e8e7486e4d555afc7922a0683367bd575a9642c93a5a43ace70cd9",
+      "bytes": 1778961,
+      "moodleReferences": [
+        {
+          "payloadSha256": "b08b1e5344e8e7486e4d555afc7922a0683367bd575a9642c93a5a43ace70cd9",
+          "sourceTitle": "Homework/9-Track-09.mp3",
+          "moduleId": 8121266,
+          "moduleTitle": "Lesson 2",
+          "archiveId": "archive-000092"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l13",
+          "packageOrder": 40,
+          "sourceTitle": "Homework/9-Track-09.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 3-20260217/Homework/27 Track 27.mp3",
+      "sha256": "289b21f780998f2935689396532c5c7edb8262517ac0399bcb6ee344ac23545f",
+      "bytes": 1254163,
+      "moodleReferences": [
+        {
+          "payloadSha256": "289b21f780998f2935689396532c5c7edb8262517ac0399bcb6ee344ac23545f",
+          "sourceTitle": "Homework/27 Track 27.mp3",
+          "moduleId": 8121267,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000087"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l14",
+          "packageOrder": 41,
+          "sourceTitle": "Homework/27 Track 27.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 3-20260217/Homework/28 Track 28.mp3",
+      "sha256": "485f02c47f934bb7334da1c13795836d6c7fb2fb44244555db22f5beca86830a",
+      "bytes": 625744,
+      "moodleReferences": [
+        {
+          "payloadSha256": "485f02c47f934bb7334da1c13795836d6c7fb2fb44244555db22f5beca86830a",
+          "sourceTitle": "Homework/28 Track 28.mp3",
+          "moduleId": 8121267,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000087"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l14",
+          "packageOrder": 41,
+          "sourceTitle": "Homework/28 Track 28.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 3-20260217/audio materials/13 A-13.mp3",
+      "sha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+      "bytes": 1012708,
+      "moodleReferences": [
+        {
+          "payloadSha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+          "sourceTitle": "audio materials/13 A-13.mp3",
+          "moduleId": 8121267,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000087"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l14",
+          "packageOrder": 41,
+          "sourceTitle": "audio materials/13 A-13.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 3-20260217/audio materials/14 A-14.mp3",
+      "sha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+      "bytes": 1937482,
+      "moodleReferences": [
+        {
+          "payloadSha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+          "sourceTitle": "audio materials/14 A-14.mp3",
+          "moduleId": 8121267,
+          "moduleTitle": "Lesson 3",
+          "archiveId": "archive-000087"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l14",
+          "packageOrder": 41,
+          "sourceTitle": "audio materials/14 A-14.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 4-20260217/audio materials/15 A-15.mp3",
+      "sha256": "fed6f2fffa9f5cd88e4dd5102a853c638d22b31e798729f8d56cd4f99886fbad",
+      "bytes": 1449406,
+      "moodleReferences": [
+        {
+          "payloadSha256": "fed6f2fffa9f5cd88e4dd5102a853c638d22b31e798729f8d56cd4f99886fbad",
+          "sourceTitle": "audio materials/15 A-15.mp3",
+          "moduleId": 8121268,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000016"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l15",
+          "packageOrder": 42,
+          "sourceTitle": "audio materials/15 A-15.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 4-20260217/audio materials/16 A-16.mp3",
+      "sha256": "817c0497a11ae0d6e5b295ac78f5b36af11e39072e0f1c32d7fcd4a323f1e607",
+      "bytes": 1303451,
+      "moodleReferences": [
+        {
+          "payloadSha256": "817c0497a11ae0d6e5b295ac78f5b36af11e39072e0f1c32d7fcd4a323f1e607",
+          "sourceTitle": "audio materials/16 A-16.mp3",
+          "moduleId": 8121268,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000016"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l15",
+          "packageOrder": 42,
+          "sourceTitle": "audio materials/16 A-16.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 4-20260217/audio materials/17 A-17.mp3",
+      "sha256": "87d162bb07730dc904b79aa2e42cbd0e2c7b39c7f6de281f16ffeafc2485f9e1",
+      "bytes": 1571267,
+      "moodleReferences": [
+        {
+          "payloadSha256": "87d162bb07730dc904b79aa2e42cbd0e2c7b39c7f6de281f16ffeafc2485f9e1",
+          "sourceTitle": "audio materials/17 A-17.mp3",
+          "moduleId": 8121268,
+          "moduleTitle": "Lesson 4",
+          "archiveId": "archive-000016"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l15",
+          "packageOrder": 42,
+          "sourceTitle": "audio materials/17 A-17.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 5-20260310/audio materials/18 A-18.mp3",
+      "sha256": "290fb4cf49a4dcf0ede93b9fe787987657481003cfa8b3e57b3cf9dcca218034",
+      "bytes": 1462106,
+      "moodleReferences": [
+        {
+          "payloadSha256": "290fb4cf49a4dcf0ede93b9fe787987657481003cfa8b3e57b3cf9dcca218034",
+          "sourceTitle": "audio materials/18 A-18.mp3",
+          "moduleId": 8121269,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000066"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l16",
+          "packageOrder": 43,
+          "sourceTitle": "audio materials/18 A-18.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 5-20260310/audio materials/19 A-19.mp3",
+      "sha256": "ca9429a5e16f8c4ba79a46791139e37bf50b2b09ffea9f29b19a903cba5af396",
+      "bytes": 1600620,
+      "moodleReferences": [
+        {
+          "payloadSha256": "ca9429a5e16f8c4ba79a46791139e37bf50b2b09ffea9f29b19a903cba5af396",
+          "sourceTitle": "audio materials/19 A-19.mp3",
+          "moduleId": 8121269,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000066"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l16",
+          "packageOrder": 43,
+          "sourceTitle": "audio materials/19 A-19.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 5-20260310/audio materials/20 A-20.mp3",
+      "sha256": "974ec538da033ddecb1e9571287bee39155abeb39dc5881078a7997630942ce0",
+      "bytes": 2079598,
+      "moodleReferences": [
+        {
+          "payloadSha256": "974ec538da033ddecb1e9571287bee39155abeb39dc5881078a7997630942ce0",
+          "sourceTitle": "audio materials/20 A-20.mp3",
+          "moduleId": 8121269,
+          "moduleTitle": "Lesson 5",
+          "archiveId": "archive-000066"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l16",
+          "packageOrder": 43,
+          "sourceTitle": "audio materials/20 A-20.mp3"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 6-20260304/Homework/15 Track 15.mp3",
+      "sha256": "beed089ebc6c741d6403a8e167ed406d79a38ebafba13c5cd8150440a6f0ea01",
+      "bytes": 1583899,
+      "moodleReferences": [
+        {
+          "payloadSha256": "beed089ebc6c741d6403a8e167ed406d79a38ebafba13c5cd8150440a6f0ea01",
+          "sourceTitle": "Homework/15 Track 15.mp3",
+          "moduleId": 8121270,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000008"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l17",
+          "packageOrder": 44,
+          "sourceTitle": "15 Track 15"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 6-20260304/Homework/54 Track 54.mp3",
+      "sha256": "1906bab371f7df2383246944990bd3791e6186a0d91fe6ddbefdff4790821ad1",
+      "bytes": 1279600,
+      "moodleReferences": [
+        {
+          "payloadSha256": "1906bab371f7df2383246944990bd3791e6186a0d91fe6ddbefdff4790821ad1",
+          "sourceTitle": "Homework/54 Track 54.mp3",
+          "moduleId": 8121270,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000008"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l17",
+          "packageOrder": 44,
+          "sourceTitle": "54 Track 54"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 6-20260304/Homework/55 Track 55.mp3",
+      "sha256": "1eff41f666baa501932f99f18e27a289fa36db70cba10c70e4a3fbf8d482c68a",
+      "bytes": 677452,
+      "moodleReferences": [
+        {
+          "payloadSha256": "1eff41f666baa501932f99f18e27a289fa36db70cba10c70e4a3fbf8d482c68a",
+          "sourceTitle": "Homework/55 Track 55.mp3",
+          "moduleId": 8121270,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000008"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l17",
+          "packageOrder": 44,
+          "sourceTitle": "55 Track 55"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    },
+    {
+      "sourceId": "japanese-folder",
+      "textbook": {
+        "collection": "User-supplied Japanese folder"
+      },
+      "sourceRelativePath": "Lessons/Lesson 6-20260304/audio materials/21 A-21.mp3",
+      "sha256": "3b8065c6356c8629e61e6eae6545a779e5ac44ffb39bd651694ab6a45cafbc9a",
+      "bytes": 2989078,
+      "moodleReferences": [
+        {
+          "payloadSha256": "3b8065c6356c8629e61e6eae6545a779e5ac44ffb39bd651694ab6a45cafbc9a",
+          "sourceTitle": "audio materials/21 A-21.mp3",
+          "moduleId": 8121270,
+          "moduleTitle": "Lesson 6",
+          "archiveId": "archive-000008"
+        }
+      ],
+      "academyPackageReferences": [
+        {
+          "packageId": "l2-l17",
+          "packageOrder": 44,
+          "sourceTitle": "21 A-21"
+        }
+      ],
+      "status": "canonical-source-match-awaiting-task-pairing",
+      "runtime": "unavailable",
+      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+    }
+  ],
+  "visualBindings": [],
+  "gaps": {
+    "unmatchedInventoryBySource": [
+      {
+        "id": "soya-public",
+        "audioFileCount": 58920
+      },
+      {
+        "id": "minna-shokyu-1",
+        "audioFileCount": 57
+      },
+      {
+        "id": "genki-2e",
+        "audioFileCount": 464
+      },
+      {
+        "id": "japanese-folder",
+        "audioFileCount": 3762
+      }
+    ],
+    "unmatchedVisualInventoryBySource": [
+      {
+        "id": "soya-public",
+        "visualFileCount": 0
+      },
+      {
+        "id": "minna-shokyu-1",
+        "visualFileCount": 0
+      },
+      {
+        "id": "genki-2e",
+        "visualFileCount": 0
+      },
+      {
+        "id": "japanese-folder",
+        "visualFileCount": 1302
+      }
+    ],
+    "taskPairing": "A byte-identical Moodle source reference is not a verified listening task. Transcript, worksheet/task, answer, and rights review are required before any runtime delivery.",
+    "visualPairing": "A byte-identical visual source reference is inventory evidence only. A reviewed media region, source question, semantic role, and rights review are required before any runtime delivery."
+  }
+}

@@ -1,0 +1,2836 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l09",
+  "order": 36,
+  "weekKind": "lesson",
+  "title": {
+    "en": "The programme I want to watch",
+    "ja": "見たい 番組"
+  },
+  "estimatedMinutes": 90,
+  "identity": {
+    "title": "Level 2+ Lesson 8",
+    "academyYear": 2,
+    "termId": "l2",
+    "termLabel": "Level 2+",
+    "courseYear": "2024/25",
+    "levelBand": "N4",
+    "weekNumberInTerm": 9,
+    "moduleId": 6974657,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 16,
+      "canonicalClassOrder": 44
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 6974657,
+    "memberFileCount": 8,
+    "members": [
+      {
+        "title": "Handouts from last week/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 4225999,
+        "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6"
+      },
+      {
+        "title": "Handouts/Chapter 22_review_info gap_AB_answer.pdf",
+        "role": "answer-key",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 518623,
+        "payloadSha256": "bbb44fbe37ee915824376156f1e66eef7662afa27fd04527fe8379610b62cc23"
+      },
+      {
+        "title": "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 787055,
+        "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213"
+      },
+      {
+        "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 349778,
+        "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6"
+      },
+      {
+        "title": "Homework/HW Chapter 22_Conversation listening.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 263475,
+        "payloadSha256": "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0"
+      },
+      {
+        "title": "Homework/HW Chapter 22_reading_TV.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 511190,
+        "payloadSha256": "239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95"
+      },
+      {
+        "title": "Homework/HW Chapter 22-2_grammar.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 422151,
+        "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5"
+      },
+      {
+        "title": "Homework/minna_shokyu_1_075.mp3",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1039726,
+        "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834"
+      }
+    ],
+    "corroboratingCohorts": [
+      {
+        "cohort": "Rie level 2+",
+        "note": "Level 2+ re-run in the following academic year.",
+        "modules": [
+          {
+            "moduleId": 8121207,
+            "title": "Lesson 7",
+            "memberFileCount": 12
+          },
+          {
+            "moduleId": 8121209,
+            "title": "Lesson 8",
+            "memberFileCount": 8
+          },
+          {
+            "moduleId": 8121210,
+            "title": "Lesson 9",
+            "memberFileCount": 15
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "coverageMap": [
+      {
+        "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+        "worksheetTitle": "Chapter 22-1 modifying clauses grammar exercise 1-2",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "bbb44fbe37ee915824376156f1e66eef7662afa27fd04527fe8379610b62cc23",
+        "worksheetTitle": "Chapter 22 review info gap AB answer",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213",
+        "worksheetTitle": "Chapter 22-2 modifying clauses-2 grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+        "worksheetTitle": "Chapter 22-2 Vocabulary Sheet",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0",
+        "worksheetTitle": "HW Chapter 22 Conversation listening",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95",
+        "worksheetTitle": "HW Chapter 22 reading TV",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5",
+        "worksheetTitle": "HW Chapter 22-2 grammar",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+        "worksheetTitle": "minna shokyu 1 075",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      }
+    ],
+    "archiveId": "archive-000002",
+    "archiveSha256": "09310bcbaaf7ff115e951d343296a8352284d0325a7efc9e80ae863bc45a3da6",
+    "archiveBytes": 7774728
+  },
+  "mapping": {
+    "ucl": "2024/25 · Level 2+ · Lesson 8",
+    "genki": "≈ Genki II · L15",
+    "minna": "Minna no Nihongo I · Lesson 22",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l2plus-l08",
+    "canonicalClassOrder": 44
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000002 · module 6974657 · sha256 09310bcbaaf7ff115e951d343296a8352284d0325a7efc9e80ae863bc45a3da6",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Archive identity, exact file inventory and topic labels are retained. Source wording, source media and source answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "continuation",
+        "reference": "Minna no Nihongo I · Lesson 22",
+        "reuse": "sequence-only",
+        "note": "The chapter sequence grounds deeper noun-modifying clauses and descriptive information gaps; all content is original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N4 grammar",
+        "reuse": "scope-only",
+        "note": "The JLPT band guides placement, not a score claim."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000002; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "The removed classmate in the plan seed is not used. Ruparna leads through programmes and subtitles, Francis brings an affectionate genre choice, Stasi reads visual detail, and Rie keeps the head noun's main-sentence job visible.",
+    "gaps": [],
+    "donorPackage": {
+      "canonicalWeekId": "l2plus-l08",
+      "sha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f",
+      "note": "Existing Yomu-authored donor content retained; no source wording, source answers or source media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts from last week/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000038",
+            "archive-000070",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 8,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts from last week/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000038",
+            "archive-000070",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts from last week/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000038",
+            "archive-000070",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "bbb44fbe37ee915824376156f1e66eef7662afa27fd04527fe8379610b62cc23",
+          "sourceTitle": "Handouts/Chapter 22_review_info gap_AB_answer.pdf",
+          "sourceRole": "answer-key",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:bbb44fbe37ee915824376156f1e66eef7662afa27fd04527fe8379610b62cc23:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 23,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213",
+          "sourceTitle": "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213",
+          "sourceTitle": "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213",
+          "sourceTitle": "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+          "sourceTitle": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+          "sourceTitle": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0",
+          "sourceTitle": "Homework/HW Chapter 22_Conversation listening.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95",
+          "sourceTitle": "Homework/HW Chapter 22_reading_TV.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95",
+          "sourceTitle": "Homework/HW Chapter 22_reading_TV.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5",
+          "sourceTitle": "Homework/HW Chapter 22-2_grammar.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5",
+          "sourceTitle": "Homework/HW Chapter 22-2_grammar.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5",
+          "sourceTitle": "Homework/HW Chapter 22-2_grammar.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "sourceTitle": "Homework/minna_shokyu_1_075.mp3",
+          "sourceRole": "homework",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000002",
+          "crossSourceArchiveIds": [
+            "archive-000035",
+            "archive-000053",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Use a noun-modifying clause as the subject, object or destination in a larger sentence.",
+    "Keep inner-clause particles separate from the particle after the described noun.",
+    "Describe when something happened with Nのとき or plain form + とき.",
+    "Complete a spoken information gap by asking for decisive descriptive details.",
+    "Read and hand-write 番 and 組 in 番組."
+  ],
+  "scene": {
+    "where": "A living-room sofa with a remote control balanced on one arm",
+    "sceneImage": "academy/art/scenes/living-room-tv-wide.webp",
+    "hook": "Three programme cards are open, but the remote has only one confirm button.",
+    "cast": [
+      "rie",
+      "ruparna",
+      "francis",
+      "stasi"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "francis",
+        "expression": "warm",
+        "pose": "offer",
+        "japanese": "ぼくは ミクが 歌う 番組を 見たいです。",
+        "reading": "ぼくは ミクが うたう ばんぐみを みたいです。",
+        "english": "I want to watch the programme where Miku sings.",
+        "note": "The described noun phrase takes を in the main sentence."
+      },
+      {
+        "speakerId": "ruparna",
+        "expression": "thinking",
+        "pose": "inspect",
+        "japanese": "わたしは 字幕が 分かりやすい ドラマが いいです。",
+        "reading": "わたしは じまくが わかりやすい ドラマが いいです。",
+        "english": "I'd prefer a drama with easy-to-understand subtitles.",
+        "note": "The inner subject 字幕 takes が; the whole drama phrase also takes が outside."
+      },
+      {
+        "speakerId": "stasi",
+        "expression": "warm",
+        "pose": "point",
+        "japanese": "子どもの ときに 見た アニメを もう 一度 見たいです。",
+        "reading": "こどもの ときに みた アニメを もう いちど みたいです。",
+        "english": "I want to rewatch an anime I saw as a child.",
+        "note": "A time phrase sits inside the clause that modifies アニメ."
+      },
+      {
+        "speakerId": "francis",
+        "expression": "thinking",
+        "pose": "listen",
+        "japanese": "じゃあ、三人が 楽しめる 番組は どれですか。",
+        "reading": "じゃあ、さんにんが たのしめる ばんぐみは どれですか。",
+        "english": "Then which programme can all three of us enjoy?",
+        "note": "A potential-form clause identifies the head noun 番組."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "welcome",
+        "japanese": "条件が 三つ ありますね。長い 説明を 一つの 名詞に まとめましょう。",
+        "reading": "じょうけんが みっつ ありますね。ながい せつめいを ひとつの めいしに まとめましょう。",
+        "english": "We have three conditions. Let's gather each longer description around one noun.",
+        "note": "Rie names the structural task plainly."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "In l2plus-l07, a plain clause identified a person or item: 黒い帽子をかぶっている人. Now that whole described noun phrase will move through a larger sentence.",
+    "intro": "The clause before a noun tells us which one; the particle after the noun tells us what that whole phrase does next. In 友達がすすめた番組を見ます, が belongs to the inner recommender and を belongs to the programme in the main sentence. Your clause can now do more than identify—it can carry a complete programme recommendation.",
+    "grammarPoints": [
+      {
+        "pattern": "[plain clause + N] + main particle",
+        "nameJa": "説明した 名詞の 文での 役割",
+        "meaning": "the described noun as subject, object or place",
+        "explanation": "First close the description around the head noun, then add the particle required by the main sentence: ［友達がすすめた番組］を見ます; ［字幕が分かりやすい番組］が好きです; ［兄が働いている会社］へ行きます. Reading in chunks keeps the two layers clear.",
+        "watchFor": "The particle after the head noun belongs to the main sentence, not the modifier.",
+        "commonError": "Dropping the outer particle: 友達がすすめた番組見ます. The programme is the object, so add を.",
+        "examples": [
+          {
+            "ja": "ルパーナさんが すすめた 番組を 録画しました。",
+            "reading": "ルパーナさんが すすめた ばんぐみを ろくがしました。",
+            "en": "I recorded the programme Ruparna recommended.",
+            "note": "Inner が marks Ruparna; outer を marks the programme."
+          },
+          {
+            "ja": "外国で 作られた ドラマが 人気です。",
+            "reading": "がいこくで つくられた ドラマが にんきです。",
+            "en": "A drama made abroad is popular.",
+            "note": "The whole described phrase takes subject が."
+          },
+          {
+            "ja": "父が 働いている 会社へ 行きました。",
+            "reading": "ちちが はたらいて いる かいしゃへ いきました。",
+            "en": "I went to the company where my father works.",
+            "note": "The described place takes destination へ."
+          }
+        ]
+      },
+      {
+        "pattern": "inner subject が + predicate + N",
+        "nameJa": "二つの がを 読む",
+        "meaning": "an inner subject and an outer subject",
+        "explanation": "A sentence can legitimately contain two が particles at different layers: ［字幕が分かりやすいドラマ］が好きです. The first marks 字幕 as the thing that is easy to understand inside the description. The second marks the whole drama phrase as the thing liked. Bracket the head noun while checking.",
+        "watchFor": "Do not automatically delete one が; ask which clause each belongs to.",
+        "commonError": "Changing the inner が to を because two が look strange. 分かりやすい describes 字幕, so 字幕が is correct.",
+        "examples": [
+          {
+            "ja": "音楽が きれいな 映画が 好きです。",
+            "reading": "おんがくが きれいな えいがが すきです。",
+            "en": "I like films whose music is beautiful.",
+            "note": "Inner 音楽が; outer 映画が."
+          },
+          {
+            "ja": "主人公が 強い ドラマが 始まります。",
+            "reading": "しゅじんこうが つよい ドラマが はじまります。",
+            "en": "A drama with a strong protagonist is starting.",
+            "note": "Two layers, two valid が particles."
+          }
+        ]
+      },
+      {
+        "pattern": "Nの とき / plain form + とき",
+        "nameJa": "〜ときの 中の 説明",
+        "meaning": "when; at the time of",
+        "explanation": "A noun takes の before とき: 子どものとき. A verb or い-adjective uses its plain form: 見るとき, 見たとき, 忙しいとき. A な-adjective takes な: ひまなとき. This time phrase can sit inside a larger modifier: 子どものときに見た番組.",
+        "watchFor": "The form before とき matches its word type; the verb tense shows whether the action is complete relative to that moment.",
+        "commonError": "Saying 子どもとき or ひまだとき. Use 子どものとき and ひまなとき.",
+        "examples": [
+          {
+            "ja": "子どもの ときに 見た 番組です。",
+            "reading": "こどもの ときに みた ばんぐみです。",
+            "en": "It is a programme I watched as a child.",
+            "note": "Nのとき inside a modifier."
+          },
+          {
+            "ja": "ひまな ときに 録画した ドラマを 見ます。",
+            "reading": "ひまな ときに ろくがした ドラマを みます。",
+            "en": "When I am free, I watch dramas I recorded.",
+            "note": "な-adjective + なとき."
+          },
+          {
+            "ja": "家を 出る とき、テレビを 消します。",
+            "reading": "いえを でる とき、テレビを けします。",
+            "en": "I turn off the television when leaving home.",
+            "note": "Non-past 出る means before or as leaving."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "A programme guide without times",
+        "ja": "時間の ない 番組案内"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original programme cards cover Chapter 22 TV reading and information-gap functions without reproducing source material."
+      },
+      "reading": {
+        "title": {
+          "en": "Choose by description",
+          "ja": "説明で 選ぶ"
+        },
+        "gloss": "Three fictional programme cards. The descriptions, not a schedule, identify each choice.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "「町の 台所」：小さい 店で 働く 人を 紹介する 番組です。",
+            "reading": "「まちの だいどころ」：ちいさい みせで はたらく ひとを しょうかいする ばんぐみです。",
+            "en": "Town Kitchens: a programme introducing people who work in small shops."
+          },
+          {
+            "ja": "「声の ない 星」：せりふが 少なくて、字幕が 読みやすい ドラマです。",
+            "reading": "「こえの ない ほし」：せりふが すくなくて、じまくが よみやすい ドラマです。",
+            "en": "The Silent Star: a drama with little dialogue and easy-to-read subtitles."
+          },
+          {
+            "ja": "「歌う ロボット」：フランシスさんが 子どもの ときに 見た アニメです。",
+            "reading": "「うたう ロボット」：フランシスさんが こどもの ときに みた アニメです。",
+            "en": "The Singing Robot: an anime Francis watched as a child."
+          },
+          {
+            "ja": "三人が 見たい 番組は 同じでは ありません。条件を 二つ 聞いて 選びましょう。",
+            "reading": "さんにんが みたい ばんぐみは おなじでは ありません。じょうけんを ふたつ きいて えらびましょう。",
+            "en": "The three people do not want the same programme. Ask for two conditions and choose."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l08-input",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which programme has easy-to-read subtitles?",
+            "ja": "字幕が 読みやすい 番組は どれですか。"
+          },
+          "explanation": "The Silent Star is described as 字幕が読みやすいドラマ.",
+          "reviewTag": "tv-input",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "The Silent Star",
+                "ja": "声の ない 星"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Town Kitchens",
+                "ja": "町の 台所"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "The Singing Robot",
+                "ja": "歌う ロボット"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Town Kitchens is defined by the people it introduces, not by subtitle readability."
+            },
+            {
+              "trigger": "c",
+              "message": "The Singing Robot is the anime Francis saw as a child; no subtitle clue is given."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "title": {
+        "en": "Programmes and viewing",
+        "ja": "番組と 見方の ことば"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+        "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+        "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "answerVisibility": "after-attempt",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "items": [
+        {
+          "ja": "すきな（好きな）",
+          "reading": "すき",
+          "en": "liked; favourite",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-1",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "すきな（好きな）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "すきな（好きな）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ほしい（欲しい）",
+          "reading": "ほしい",
+          "en": "wanted; desired",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-2",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "ほしい（欲しい）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ほしい（欲しい）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "わかります",
+          "reading": "わかる",
+          "en": "to understand",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-3",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "わかります",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "わかります",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いります（要ります）",
+          "reading": "いる",
+          "en": "to need; to require",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-4",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "いります（要ります）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いります（要ります）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ロボット",
+          "reading": "ロボット",
+          "en": "robot",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-5",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "ロボット",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ロボット",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ユーモア",
+          "reading": "ユーモア",
+          "en": "humour",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-6",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "ユーモア",
+              "pronunciation": null,
+              "meaning": "humor"
+            },
+            "normalizedStudySurface": "ユーモア",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "つごう（都合）",
+          "reading": "つごう",
+          "en": "circumstances; convenience",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-7",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "つごう（都合）",
+              "pronunciation": null,
+              "meaning": "personal reasons, one’s\nconvenience"
+            },
+            "normalizedStudySurface": "つごう（都合）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "つごうが わるい（都合が悪い）",
+          "reading": "つごうがわるい",
+          "en": "inconvenient; not a good time",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-8",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "つごうが わるい（都合が悪い）",
+              "pronunciation": null,
+              "meaning": "inconvenient, bad day/time and\netc (it depends on context)"
+            },
+            "normalizedStudySurface": "つごうが わるい（都合が悪い）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "せいじんしき（成人式）",
+          "reading": "せいじんしき",
+          "en": "coming-of-age ceremony",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-9",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "せいじんしき（成人式）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "せいじんしき（成人式）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "せいじん（成人）",
+          "reading": "せいじん",
+          "en": "adult",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-10",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "せいじん（成人）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "せいじん（成人）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おめでとう ございます",
+          "reading": "おめでとうございます",
+          "en": "congratulations",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-11",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "おめでとう ございます",
+              "pronunciation": null,
+              "meaning": "Congratulations (used on\nbirthdays, at weddings, New\nYear’s Day, etc)"
+            },
+            "normalizedStudySurface": "おめでとう ございます",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょうらい（将来）",
+          "reading": "しょうらい",
+          "en": "future",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-12",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "しょうらい（将来）",
+              "pronunciation": null,
+              "meaning": "the future, times/days to come"
+            },
+            "normalizedStudySurface": "しょうらい（将来）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おさがしですか。（お探しですか）",
+          "reading": "さがす",
+          "en": "to look for; to search for",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-13",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "おさがしですか。（お探しですか）",
+              "pronunciation": null,
+              "meaning": "Are you looking for 〜？"
+            },
+            "normalizedStudySurface": "おさがしですか。（お探しですか）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "では、",
+          "reading": "では",
+          "en": "well then",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-14",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "では、",
+              "pronunciation": null,
+              "meaning": "Well then,"
+            },
+            "normalizedStudySurface": "では、",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "こちら",
+          "reading": "こちら",
+          "en": "this; this one; here",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-15",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 15
+            },
+            "exact": {
+              "words": "こちら",
+              "pronunciation": null,
+              "meaning": "this (polite equivalent of これ)"
+            },
+            "normalizedStudySurface": "こちら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "やちん（家賃）",
+          "reading": "やちん",
+          "en": "rent",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p1:row-16",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 16
+            },
+            "exact": {
+              "words": "やちん（家賃）",
+              "pronunciation": null,
+              "meaning": "rent"
+            },
+            "normalizedStudySurface": "やちん（家賃）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ダイニングキッチン",
+          "reading": "ダイニングキッチン",
+          "en": "kitchen with a dining area",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p2:row-17",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "ダイニングキッチン",
+              "pronunciation": null,
+              "meaning": "kitchen with a dining area"
+            },
+            "normalizedStudySurface": "ダイニングキッチン",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "わしつ（和室）",
+          "reading": "わしつ",
+          "en": "Japanese-style room",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p2:row-18",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "わしつ（和室）",
+              "pronunciation": null,
+              "meaning": "Japanese –style room"
+            },
+            "normalizedStudySurface": "わしつ（和室）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おしいれ（押し入れ）",
+          "reading": "おしいれ",
+          "en": "Japanese-style closet",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p2:row-19",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "おしいれ（押し入れ）",
+              "pronunciation": null,
+              "meaning": "Japanese –style closet"
+            },
+            "normalizedStudySurface": "おしいれ（押し入れ）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ふとん（布団）",
+          "reading": "ふとん",
+          "en": "Japanese-style mattress and quilt",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974657:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:p2:row-20",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "ふとん（布団）",
+              "pronunciation": null,
+              "meaning": "Japanese –style mattress and quilt"
+            },
+            "normalizedStudySurface": "ふとん（布団）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l08-vocab-match",
+          "kind": "match",
+          "prompt": {
+            "en": "Match each viewing word to its meaning.",
+            "ja": "番組の ことばを 合わせましょう。"
+          },
+          "explanation": "放送 sends a programme out, 録画 saves it, 字幕 shows written dialogue, and 出演 means appearing in it.",
+          "reviewTag": "tv-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "放送する"
+              },
+              "right": {
+                "en": "broadcast"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "録画する"
+              },
+              "right": {
+                "en": "record video"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "字幕"
+              },
+              "right": {
+                "en": "subtitles"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "出演する"
+              },
+              "right": {
+                "en": "appear in a show"
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "p1",
+              "message": "放送する sends content to viewers; 録画する saves it for later."
+            },
+            {
+              "trigger": "p4",
+              "message": "出演する is appearing in a programme; 紹介する is introducing someone or something."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-sheet-pages-recorded-awaiting-item-renderer",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:page:1",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "sourceTitle": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "sourceRole": "vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                          Chapter 22-2 Vocabulary Sheet\nNo         Words (with accent)        Pronunciation                Meaning\n\n1    *review   すきな（好きな）\n\n2    *review   ほしい（欲しい）\n\n3    *review   わかります\n     *review\n4\n     いります（要ります）\n5    ロボット\n\n6    ユーモア                                             humor\n\n\n                                                      personal reasons, one’s\n7    つごう（都合）                                          convenience\n\n\n     つごうが わるい                                         inconvenient, bad day/time and\n8                                                     etc (it depends on context)\n     （都合が悪い）\n     せいじんしき\n9\n     （成人式）\n\n10   せいじん（成人）\n\n     おめでとう                                            Congratulations (used on\n11                                                    birthdays, at weddings, New\n        ございます                                         Year’s Day, etc)\n\n\n12   しょうらい（将来）                                        the future, times/days to come\n\n\n     おさがしですか。\n13                                                    Are you looking for 〜？\n     （お探しですか）\n\n14   では、                                              Well then,\n\n\n15   *review   こちら                                    this (polite equivalent of これ)\n\n\n\n16   やちん（家賃）                                          rent\n\n\n                                                                        Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1263
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "sourceItemId": "moodle:ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6:page:2",
+            "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+            "sourceTitle": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+            "sourceRole": "vocabulary",
+            "page": 2,
+            "sourceOrder": 2,
+            "verbatimText": "No     Words (with accent)   Pronunciation               Meaning\n\n17   ダイニングキッチン                               kitchen with a dining area\n\n\n\n18   わしつ（和室）                                 Japanese –style room\n\n\n\n19   おしいれ（押し入れ）                              Japanese –style closet\n\n\n\n20   ふとん（布団）                                 Japanese –style mattress and quilt\n\n\n\n21\n\n\n22\n\n\n23\n\n\n24\n\n\n25\n\n\n26\n\n\n27\n\n\n28\n\n\n29\n\n\n30\n\n\n31\n\n\n32\n\n\n\n                                                               Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1263
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "title": {
+        "en": "Keep both layers visible",
+        "ja": "二つの 文の 層"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original graded work covers deeper modifying clauses, information-gap checking and main-sentence particles."
+      },
+      "practiceFor": [
+        "described noun + main particle",
+        "inner and outer が",
+        "〜とき"
+      ],
+      "exercises": [
+        {
+          "id": "ex-l08-grammar-particle",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Add the main-sentence particle after the described noun.",
+            "ja": "説明した 名詞の あとの 助詞を うめましょう。"
+          },
+          "japanese": "ルパーナさんが すすめた 番組＿＿＿ 見ました。／字幕が 読みやすい ドラマ＿＿＿ 好きです。",
+          "explanation": "The programme is watched, so it takes を. The drama is the thing liked, so it takes が.",
+          "reviewTag": "modifier-particles",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "を",
+                "alternatives": []
+              }
+            },
+            {
+              "id": "b2",
+              "answer": {
+                "primary": "が",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "番組が",
+              "message": "In the main sentence 見ました, the programme is the object, so use 番組を."
+            },
+            {
+              "trigger": "ドラマを",
+              "message": "好きです marks the liked thing with が: ドラマが好きです."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l08-grammar-two-ga",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which sentence correctly keeps both layers?",
+            "ja": "二つの 層が 正しい 文は どれですか。"
+          },
+          "explanation": "字幕 is the inner subject of 分かりやすい, and the whole programme is the thing liked; both take が.",
+          "reviewTag": "two-ga",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "字幕が 分かりやすい 番組が 好きです。"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "字幕を 分かりやすい 番組が 好きです。"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "字幕が 分かりやすい 番組を 好きです。"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "字幕 is what is easy to understand, so it takes subject が, not を."
+            },
+            {
+              "trigger": "c",
+              "message": "With 好きです, the liked thing takes が: 番組が好きです."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l08-grammar-toki",
+          "kind": "exact",
+          "prompt": {
+            "en": "Combine: 'the anime I watched as a child'.",
+            "ja": "「子どもの とき」を 使って 名詞句を 作りましょう。"
+          },
+          "japanese": "子どもの とき + アニメを 見ました → ？",
+          "explanation": "Put the time phrase inside a plain-past modifier: 子どものときに見たアニメ.",
+          "reviewTag": "toki-modifier",
+          "autoGraded": true,
+          "answer": {
+            "primary": "子どものときに見たアニメ",
+            "alternatives": [
+              "子どもの ときに 見た アニメ",
+              "こどものときにみたアニメ"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "子どもときに見たアニメ",
+              "message": "A noun takes の before とき: 子どものとき."
+            },
+            {
+              "trigger": "子どものときに見ましたアニメ",
+              "message": "The verb modifying アニメ must be plain past 見た, not polite 見ました."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "guided-practice"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening held for verification",
+        "ja": "音声は 確認中"
+      },
+      "provenance": {
+        "reuse": "quarantined",
+        "note": "Archive audio exists, but exact worksheet pairing, transcript, duration and answers are unresolved. No audio, transcript or answer is exposed."
+      },
+      "availability": {
+        "status": "unavailable",
+        "reason": "unresolved-transcript-pairing-and-answers"
+      },
+      "sourceAudioCount": 1,
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "A television that brought voices closer",
+        "ja": "声を 近くした テレビ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original TV-themed reading covers the source homework reading function without reproducing its text."
+      },
+      "passage": {
+        "title": {
+          "en": "Jodi's first subtitled drama",
+          "ja": "ジョディさんの 初めての 字幕ドラマ"
+        },
+        "gloss": "A personal viewing memory about how a programme became useful language input.",
+        "lines": [
+          {
+            "ja": "ジョディさんが 東京に 住んでいた とき、毎回 見ていた ドラマが ありました。",
+            "reading": "ジョディさんが とうきょうに すんで いた とき、まいかい みて いた ドラマが ありました。",
+            "en": "When Jodi lived in Tokyo, there was a drama she watched every episode."
+          },
+          {
+            "ja": "話すのが 速い 俳優が 出ていましたが、字幕が とても 読みやすい 番組でした。",
+            "reading": "はなすのが はやい はいゆうが でて いましたが、じまくが とても よみやすい ばんぐみでした。",
+            "en": "An actor who spoke quickly appeared in it, but the programme had very readable subtitles."
+          },
+          {
+            "ja": "分からなかった せりふを ノートに 書いて、あとで 友達に 聞きました。",
+            "reading": "わからなかった せりふを ノートに かいて、あとで ともだちに ききました。",
+            "en": "She wrote down lines she did not understand and asked a friend later."
+          },
+          {
+            "ja": "その ときに 覚えた 表現を、今も ときどき 使います。",
+            "reading": "その ときに おぼえた ひょうげんを、いまも ときどき つかいます。",
+            "en": "She still sometimes uses expressions she learned then."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l08-read-help",
+          "kind": "choice",
+          "prompt": {
+            "en": "What made the drama useful for Jodi?",
+            "ja": "何が ジョディさんの 役に 立ちましたか。"
+          },
+          "explanation": "The subtitles were easy to read, and she wrote down lines she did not understand for later questions.",
+          "reviewTag": "tv-reading",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Readable subtitles and note-taking",
+                "ja": "読みやすい 字幕と ノート"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Slow actors with no dialogue",
+                "ja": "ゆっくり 話す 俳優と せりふが ないこと"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "Watching without asking anyone",
+                "ja": "だれにも 聞かないで 見ること"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The actor spoke quickly. Readable subtitles, not slow speech, helped."
+            },
+            {
+              "trigger": "c",
+              "message": "Jodi actively asked a friend about lines she did not understand."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l08-read-head",
+          "kind": "choice",
+          "prompt": {
+            "en": "What noun is described by 「分からなかった」?",
+            "ja": "「分からなかった」が 説明する 名詞は 何ですか。"
+          },
+          "explanation": "分からなかった directly precedes せりふ, so it means 'lines she did not understand'.",
+          "reviewTag": "modifier-head",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "せりふ",
+                "en": "lines"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ノート",
+                "en": "notebook"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "友達",
+                "en": "friend"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The notebook comes after particle を in the next action. The immediate head noun is せりふ."
+            },
+            {
+              "trigger": "c",
+              "message": "Friend is who Jodi asked later; it is not modified by 分からなかった."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "The missing programme card",
+        "ja": "足りない 番組カード"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Original A/B information gap covers the source info-gap review and conversation functions."
+      },
+      "prompt": "Partner A and B each have incomplete programme cards. Ask noun-modifying questions to recover the missing actor, content, subtitle and recording details. Do not show the cards; confirm the final match aloud.",
+      "targets": [
+        "どんな番組ですか",
+        "〜人が出る番組",
+        "〜人が録画した番組"
+      ],
+      "recording": {
+        "minSeconds": 45,
+        "maxSeconds": 100
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "どんな 番組ですか。町の 店を 紹介する 番組です。だれが 出る 番組ですか。小さい 店で 働く 人が 出ます。字幕が 読みやすい 番組ですか。はい。では、ルパーナさんが 録画した 番組ですね。",
+        "reading": "どんな ばんぐみですか。まちの みせを しょうかいする ばんぐみです。だれが でる ばんぐみですか。ちいさい みせで はたらく ひとが でます。じまくが よみやすい ばんぐみですか。はい。では、ルパーナさんが ろくがした ばんぐみですね。",
+        "en": "What kind of programme is it? It introduces shops in town. What sort of people appear? People who work in small shops. Is it a programme with readable subtitles? Yes. Then it is the programme Ruparna recorded."
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "questions",
+            "label": {
+              "en": "Questions target missing descriptive details"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Questions do not narrow the choice"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Two useful questions"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Three or more decisive modifier questions"
+                }
+              }
+            ]
+          },
+          {
+            "id": "confirmation",
+            "label": {
+              "en": "Final programme is confirmed with evidence"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "No final match"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Match is stated"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Match is stated with two supporting clues"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "Recommend by conditions",
+        "ja": "条件で おすすめする"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original recommendation writing covers Chapter 22-2 grammar and production."
+      },
+      "prompt": "Write a 5–6 line recommendation for a fictional programme. Describe who appears, what it introduces, who can enjoy it, and one time you watched or recorded it. Use at least four noun-modifying clauses.",
+      "minChars": 130,
+      "maxChars": 300,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "これは 小さい 町で 働く 人を 紹介する 番組です。料理が 好きな 人が 楽しめると 思います。字幕が 読みやすいので、日本語を 勉強している 人にも いいです。わたしが ひまな ときに 録画した 番組です。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "range",
+            "label": {
+              "en": "Four modifier clauses cover different details"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Fewer than two clear modifiers"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Three or four with repetition"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Four varied, accurate modifiers"
+                }
+              }
+            ]
+          },
+          {
+            "id": "recommendation",
+            "label": {
+              "en": "Audience and reason are specific"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "No usable recommendation"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Audience or reason is clear"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Both audience and evidence-based reason are clear"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "title": {
+        "en": "The two characters in programme",
+        "ja": "番組の 漢字"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Original kanji instruction drawn from this lesson's central media word 番組."
+      },
+      "items": [
+        {
+          "character": "番",
+          "readings": {
+            "on": [
+              "バン"
+            ],
+            "kun": [
+              "つが-い"
+            ]
+          },
+          "meaning": "number, order, turn",
+          "exampleWord": {
+            "ja": "番組",
+            "reading": "ばんぐみ",
+            "en": "programme"
+          },
+          "recognition": {
+            "prompt": "Which first kanji completes 番組（ばんぐみ）?",
+            "answer": "番"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 12,
+            "mnemonic": "Seeds are sorted over a field 田, one numbered turn after another.",
+            "tracePrompt": "Trace 番, then write 番組 twice."
+          }
+        },
+        {
+          "character": "組",
+          "readings": {
+            "on": [
+              "ソ"
+            ],
+            "kun": [
+              "く-む",
+              "くみ"
+            ]
+          },
+          "meaning": "group, assemble",
+          "exampleWord": {
+            "ja": "番組",
+            "reading": "ばんぐみ",
+            "en": "programme"
+          },
+          "recognition": {
+            "prompt": "Which second kanji completes 番組（ばんぐみ）?",
+            "answer": "組"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 11,
+            "mnemonic": "Threads 糸 are arranged side by side into a group.",
+            "tracePrompt": "Trace 組, then write 番組 and 組む once each."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l08-kanji",
+          "kind": "choice",
+          "prompt": {
+            "en": "How do you read 番組?",
+            "ja": "「番組」は どう 読みますか。"
+          },
+          "explanation": "番 uses バン and 組 voices to ぐみ in this word: ばんぐみ.",
+          "reviewTag": "kanji-l08",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "ばんぐみ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ばんくみ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "つがいぐみ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "In 番組, くみ becomes voiced ぐみ: ばんぐみ."
+            },
+            {
+              "trigger": "c",
+              "message": "つがい is a kun-reading of 番, but this compound uses on-reading バン."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "title": {
+        "en": "One clause, two jobs",
+        "ja": "一つの 節、二つの 役割"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review revisits l2plus-l07 modifier formation."
+      },
+      "reviewFrom": [
+        "l2plus-l07"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [
+          "l2plus-l07"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l08-review-direct",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which modifier attaches directly without の?",
+            "ja": "「の」を 入れない 正しい 名詞句は どれですか。"
+          },
+          "explanation": "A verb clause attaches directly: 昨日見た番組.",
+          "reviewTag": "modifier-attachment",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "昨日 見た 番組"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "昨日 見たの 番組"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "Remove の after the verb clause: 見た番組."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l08-review-subject",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Mark the inner subject.",
+            "ja": "説明の 中の 主語を うめましょう。"
+          },
+          "japanese": "ジェニーさん＿＿＿ 編んだ 帽子を かぶっています。",
+          "explanation": "Jenny is the doer inside the modifier, so use が.",
+          "reviewTag": "inner-subject",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "が",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "は",
+              "message": "Inside the noun-modifying clause, mark the doer with が: ジェニーさんが編んだ帽子."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "9aed87f4c6585407e687ce90329826f439f1e1871a6b6ca0eaf0ac9fde6c034f"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "The programme information gap",
+    "framedBy": "ruparna",
+    "prompt": "Two people hold incomplete descriptions of four fictional programmes. Ask only spoken questions, fill every missing field, and agree on the one programme that meets three audience conditions.",
+    "successCriteria": [
+      "You ask at least four questions built around noun-modifying clauses.",
+      "You recover who appears, what the programme introduces, and who recorded it.",
+      "You correctly use an inner subject が and an outer particle in one answer.",
+      "You identify one programme satisfying all three conditions.",
+      "You justify the choice with three complete descriptive noun phrases."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "選んだのは 「町の 台所」です。小さい 店で 働く 人が 出る 番組です。町の 料理を 紹介する 番組で、ルパーナさんが 録画した 番組です。字幕が 読みやすい 番組が 好きな 人にも 合います。",
+      "reading": "えらんだのは 「まちの だいどころ」です。ちいさい みせで はたらく ひとが でる ばんぐみです。まちの りょうりを しょうかいする ばんぐみで、ルパーナさんが ろくがした ばんぐみです。じまくが よみやすい ばんぐみが すきな ひとにも あいます。",
+      "en": "We chose Town Kitchens. It is a programme featuring people who work in small shops. It introduces local cooking and is the programme Ruparna recorded. It also suits people who like programmes with readable subtitles."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "recovery",
+          "label": {
+            "en": "All missing fields are recovered through questions"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Two or more fields remain missing"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "One field remains uncertain"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "All fields are filled from spoken evidence"
+              }
+            }
+          ]
+        },
+        {
+          "id": "choice",
+          "label": {
+            "en": "Final choice meets and cites three conditions"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Choice is unsupported"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "One or two conditions are cited"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Three accurate noun phrases support the choice"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "友達が すすめた 番組を 見ます",
+        "back": "I watch the programme my friend recommended",
+        "reading": "ともだちが すすめた ばんぐみを みます",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "字幕が 読みやすい 番組が 好きです",
+        "back": "I like programmes with readable subtitles",
+        "reading": "じまくが よみやすい ばんぐみが すきです",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "子どもの ときに 見た アニメ",
+        "back": "an anime I watched as a child",
+        "reading": "こどもの ときに みた アニメ",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "番組",
+        "back": "programme",
+        "reading": "ばんぐみ",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "録画する",
+        "back": "to record video",
+        "reading": "ろくがする",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "字幕",
+        "back": "subtitles",
+        "reading": "じまく",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "出演する",
+        "back": "to appear in a show",
+        "reading": "しゅつえんする",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "番",
+        "back": "number, order, turn — バン",
+        "reading": "バン",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "組",
+        "back": "group, assemble — ソ／くむ",
+        "reading": "くみ",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l08",
+          "kanji"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "ruparna",
+      "francis",
+      "stasi",
+      "jodi"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l2plus-l08",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "title": "Handouts from last week/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "bbb44fbe37ee915824376156f1e66eef7662afa27fd04527fe8379610b62cc23",
+          "title": "Handouts/Chapter 22_review_info gap_AB_answer.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213",
+          "title": "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6",
+          "title": "Handouts/Chapter 22-2 Vocabulary Sheet.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0",
+          "title": "Homework/HW Chapter 22_Conversation listening.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "239c73146bf5d6cbde28e6cd3dbd38a2e32249e1bf368ed47be355fc3c1bae95",
+          "title": "Homework/HW Chapter 22_reading_TV.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "dd0148935b6763f914c7e93e99c0b38328572ea417eb5e428929c7ab13dec3b5",
+          "title": "Homework/HW Chapter 22-2_grammar.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "source-audio-360cef1923b1",
+          "payloadSha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "locator": "academy://quarantine/l2plus-l08/360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+          "title": "Homework/minna_shokyu_1_075.mp3",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        }
+      ]
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l09:relative-clause-and-time",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 30,
+          "form": "plain clause + noun / Nのとき / plain form + とき",
+          "meaning": "add detail about a noun and place an event in time",
+          "register": "neutral explanation",
+          "commonContrast": "the inner subject of a noun-modifying clause often uses が; とき gives a time frame, not an automatic result",
+          "workedExamples": [
+            {
+              "ja": "ぼくは ミクが 歌う 番組を 見たいです。",
+              "reading": "ぼくは ミクが うたう ばんぐみを みたいです。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use plain clause + noun / Nのとき / plain form + とき; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries add detail about a noun and place an event in time."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral explanation with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: the inner subject of a noun-modifying clause often uses が; とき gives a time frame, not an automatic result",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1",
+      "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "A living-room sofa with a remote control balanced on one arm",
+      "characterId": "francis",
+      "beat": "Three programme cards are open, but the remote has only one confirm button.",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l09:1:choice",
+        "mode": "choice",
+        "responseMode": "tap-choice",
+        "sourceItemIds": [
+          "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l09:2:kanji-doodle",
+        "mode": "kanji-doodle",
+        "responseMode": "draw-kanji",
+        "sourceItemIds": [
+          "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l09:3:matching",
+        "mode": "matching",
+        "responseMode": "tap-pair",
+        "sourceItemIds": [
+          "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l09:1:choice",
+      "activityIds": [
+        "assessment:l2-l09:1:choice"
+      ],
+      "sourceItemIds": [
+        "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "ruparna",
+        "francis"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical choice task with ruparna as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l09:2:kanji-doodle",
+      "activityIds": [
+        "assessment:l2-l09:2:kanji-doodle"
+      ],
+      "sourceItemIds": [
+        "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "ruparna",
+        "francis"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while francis takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l09:3:matching",
+      "activityIds": [
+        "assessment:l2-l09:3:matching"
+      ],
+      "sourceItemIds": [
+        "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "francis",
+        "ruparna"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with francis; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}

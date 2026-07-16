@@ -1,8 +1,8 @@
 import { derivePaidInviteCode, hmacSha256Hex, randomToken, timingSafeEqual } from './crypto';
 import type { Clock, Env } from './env';
-import { clearHostCookie, hostCookie, HttpError, jsonResponse, readBoundedText, readCookie, readJsonBody, requireSameOriginMutation } from './http';
+import { hostCookie, HttpError, jsonResponse, readBoundedText, readCookie, readJsonBody, requireSameOriginMutation } from './http';
 import { mintPaidInvite } from './invites';
-import { CHECKOUT_RATE, clientSubject, enforceRateLimit } from './rate-limit';
+import { CHECKOUT_RATE, CLAIM_RATE, clientSubject, enforceRateLimit } from './rate-limit';
 
 export const STRIPE_API_VERSION = '2026-02-25.clover';
 const CLAIM_COOKIE = '__Host-academy_claim';
@@ -13,6 +13,7 @@ const MIN_DONATION_PENCE = 200;
 const MAX_DONATION_PENCE = 50_000;
 const CLAIM_TTL_MS = 24 * 60 * 60_000;
 const MAX_WEBHOOK_BYTES = 128 * 1024;
+const MAX_CHECKOUT_RESPONSE_BYTES = 32 * 1024;
 const SIGNATURE_TOLERANCE_MS = 5 * 60_000;
 const HANDLED_EVENTS = new Set(['checkout.session.completed', 'checkout.session.async_payment_succeeded']);
 const PURCHASE_METADATA_KEY = 'yomu_academy_purchase';
@@ -33,10 +34,7 @@ export async function handleCreateCheckout(request: Request, env: Env, clock: Cl
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), CHECKOUT_RATE, now);
-    if (!env.STRIPE_SECRET_KEY) throw new HttpError(503, 'Donations are not configured.');
-    if (env.ACADEMY_ORIGIN === 'https://yomureader.com' && /^(?:sk|rk)_test_/u.test(env.STRIPE_SECRET_KEY)) {
-        throw new HttpError(503, 'Live donations are not configured.');
-    }
+    const stripeMode = assertStripeMode(env);
 
     const body = await readJsonBody(request);
     const amountPence = readDonationPence(body);
@@ -78,10 +76,25 @@ export async function handleCreateCheckout(request: Request, env: Env, clock: Cl
     } catch {
         throw new HttpError(502, 'Donation checkout could not be started.');
     }
+    let responseText: string;
+    try {
+        responseText = await readBoundedText(response, MAX_CHECKOUT_RESPONSE_BYTES);
+    } catch {
+        throw new HttpError(502, 'Donation checkout could not be started.');
+    }
     if (!response.ok) throw new HttpError(502, 'Donation checkout could not be started.');
-    const payload = (await response.json()) as { id?: unknown; url?: unknown };
+    let payload: { id?: unknown; livemode?: unknown; url?: unknown };
+    try {
+        payload = JSON.parse(responseText) as { id?: unknown; livemode?: unknown; url?: unknown };
+    } catch {
+        throw new HttpError(502, 'Donation checkout could not be started.');
+    }
     const url = typeof payload.url === 'string' ? payload.url : '';
-    if (!isSafeCheckoutUrl(url) || !isStripeSessionId(payload.id)) {
+    if (
+        payload.livemode !== false
+        || !isStripeSessionId(payload.id, stripeMode)
+        || !isSafeCheckoutUrl(url)
+    ) {
         throw new HttpError(502, 'Donation checkout returned an unexpected URL.');
     }
     const linked = await env.ACADEMY_DB
@@ -125,6 +138,8 @@ export async function handleStripeWebhook(request: Request, env: Env, clock: Clo
 
     const event = parseEvent(rawBody);
     if (!event || !HANDLED_EVENTS.has(event.type)) return jsonResponse({ received: true });
+    assertStripeMode(env);
+    if (event.livemode !== false) return jsonResponse({ received: true, ignored: true });
 
     await env.ACADEMY_DB
         .prepare('INSERT OR IGNORE INTO webhook_events (event_id, received_at) VALUES (?1, ?2)')
@@ -135,7 +150,7 @@ export async function handleStripeWebhook(request: Request, env: Env, clock: Clo
     const purchaseId = session.metadata?.[PURCHASE_METADATA_KEY];
     if (
         typeof purchaseId !== 'string'
-        || !isStripeSessionId(session.id)
+        || !isStripeSessionId(session.id, 'test')
         || session.payment_status !== 'paid'
         || session.currency !== 'gbp'
         || typeof session.amount_total !== 'number'
@@ -172,19 +187,22 @@ export async function handleStripeWebhook(request: Request, env: Env, clock: Clo
  * The code is re-derived from the purchase id, never stored.
  */
 export async function handleClaim(request: Request, env: Env, clock: Clock): Promise<Response> {
+    const now = clock();
+    await enforceRateLimit(env, await clientSubject(request, env), CLAIM_RATE, now);
+    const stripeMode = assertStripeMode(env);
     const token = readCookie(request, CLAIM_COOKIE);
     if (!token) throw new HttpError(401, 'No pending donation claim.');
     const sessionId = new URL(request.url).searchParams.get('session_id');
-    if (!isStripeSessionId(sessionId)) throw new HttpError(400, 'A Checkout session_id is required.');
+    if (!isStripeSessionId(sessionId, stripeMode)) throw new HttpError(400, 'A Stripe test Checkout session_id is required.');
     const purchase = await env.ACADEMY_DB
         .prepare('SELECT id, status, invite_id FROM purchases WHERE claim_hash = ?1 AND checkout_session_id = ?2 AND created_at > ?3')
-        .bind(await claimHash(env, token), sessionId, clock() - CLAIM_TTL_MS)
+        .bind(await claimHash(env, token), sessionId, now - CLAIM_TTL_MS)
         .first<{ id: string; status: string; invite_id: string | null }>();
     if (!purchase) throw new HttpError(404, 'No matching donation found.');
     if (purchase.status !== 'paid' || !purchase.invite_id) return jsonResponse({ status: 'pending' }, 202);
 
     const code = await derivePaidInviteCode(env.ACADEMY_INVITE_HMAC_KEY, purchase.id);
-    return jsonResponse({ status: 'paid', code }, 200, { 'set-cookie': clearHostCookie(CLAIM_COOKIE) });
+    return jsonResponse({ status: 'paid', code });
 }
 
 interface CheckoutSessionObject {
@@ -195,26 +213,37 @@ interface CheckoutSessionObject {
     readonly metadata?: Record<string, unknown>;
 }
 
-function parseEvent(rawBody: string): { id: string; type: string; session: CheckoutSessionObject } | null {
+function parseEvent(rawBody: string): { id: string; type: string; livemode: boolean; session: CheckoutSessionObject } | null {
     try {
         const parsed = JSON.parse(rawBody) as {
             id?: unknown;
             type?: unknown;
+            livemode?: unknown;
             data?: { object?: CheckoutSessionObject };
         };
         if (
             typeof parsed.id !== 'string' || !/^evt_[A-Za-z0-9_]{3,255}$/u.test(parsed.id)
             || typeof parsed.type !== 'string' || parsed.type.length > 255
+            || typeof parsed.livemode !== 'boolean'
             || !parsed.data?.object
         ) return null;
-        return { id: parsed.id, type: parsed.type, session: parsed.data.object };
+        return { id: parsed.id, type: parsed.type, livemode: parsed.livemode, session: parsed.data.object };
     } catch {
         return null;
     }
 }
 
-function isStripeSessionId(value: unknown): value is string {
-    return typeof value === 'string' && /^cs_[A-Za-z0-9_]{8,255}$/u.test(value);
+function assertStripeMode(env: Env): 'test' {
+    const match = /^(?:sk|rk)_(live|test)_/u.exec(env.STRIPE_SECRET_KEY ?? '');
+    if (match?.[1] !== 'test') {
+        throw new HttpError(503, 'Stripe test donations are not configured.');
+    }
+    return 'test';
+}
+
+function isStripeSessionId(value: unknown, mode?: 'test'): value is string {
+    if (typeof value !== 'string' || !/^cs_(?:live|test)_[A-Za-z0-9_]{3,250}$/u.test(value)) return false;
+    return mode === undefined || value.startsWith(`cs_${mode}_`);
 }
 
 function isSafeCheckoutUrl(value: string): boolean {

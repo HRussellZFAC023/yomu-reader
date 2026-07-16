@@ -1,7 +1,7 @@
 import type { AcademyCopyKey, AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import type { JlptBand, StartingRoute } from '../domain/learner-record';
-import { copyButton, copyElement, element, screenFrame } from './dom';
+import { backButton, copyButton, copyElement, element, screenFrame } from './dom';
 import { createAcademySprite } from './sprite';
 
 const STARTS: readonly [StartingRoute, AcademyCopyKey, AcademyCopyKey][] = [
@@ -65,7 +65,7 @@ export function renderManualBandScreen(
         button.addEventListener('click', () => onChoose(band));
         choices.append(button);
     });
-    const back = copyButton(language, 'back', 'academy-button academy-button-quiet');
+    const back = backButton(language);
     back.addEventListener('click', onBack);
     content.append(choices, back);
     return screen;

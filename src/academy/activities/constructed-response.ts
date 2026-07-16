@@ -4,6 +4,10 @@ import {
     type ReviewSeed,
     type ValidationIssue,
 } from '../domain/activity-runtime';
+import {
+    BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS,
+    type BeginnerConstructedResponseHintTier,
+} from '../domain/learner-support';
 import type { LocalizedText } from '../domain/source-library';
 import { renderConstructedResponse } from './constructed-response-view';
 
@@ -32,6 +36,26 @@ export interface ConstructedResponsePayload {
     readonly reviewSeedId: string;
     readonly reviewContent: ReviewSeed['content'];
     readonly promptReadingSupport?: ConstructedResponseReadingSupport;
+    /** Progressive, learner-requested support. Hint content is mounted only after a request. */
+    readonly hints?: readonly ConstructedResponseHint[];
+}
+
+export interface ConstructedResponseHint {
+    readonly text: LocalizedText;
+    /** Strict beginner path: task purpose, then vocabulary/reading, then form. */
+    readonly tier?: BeginnerConstructedResponseHintTier;
+    /** Required for the vocabulary-reading tier. Each cue stays below a full response. */
+    readonly vocabulary?: readonly ConstructedResponseVocabularyCue[];
+    /** Required for the form-scaffold tier; it must leave the response to the learner. */
+    readonly scaffold?: LocalizedText;
+    /** Legacy answer-fill support. New tiered hints must use a scaffold instead. */
+    readonly fillResponse?: string;
+}
+
+export interface ConstructedResponseVocabularyCue {
+    readonly expression: string;
+    readonly reading: string;
+    readonly meaning: LocalizedText;
 }
 
 export interface ConstructedResponseDiagnostic {
@@ -155,6 +179,47 @@ function validateConstructedResponse(model: ConstructedResponseActivityModel): V
     if (readingSupport && (!text(readingSupport.reading) || !text(readingSupport.pitch))) {
         issues.push({ path: 'payload.promptReadingSupport', message: 'Prompt support needs both a reading and pitch description.' });
     }
+    const hints = payload.hints ?? [];
+    const usesTieredHints = hints.some(hint => hint.tier !== undefined);
+    if (usesTieredHints && (hints.length !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.length
+        || hints.some((hint, index) => hint.tier !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS[index]))) {
+        issues.push({ path: 'payload.hints', message: 'Beginner constructed-response hints must progress from task meaning to vocabulary/reading to form scaffold.' });
+    }
+    for (const [index, hint] of hints.entries()) {
+        requireLocalized(hint.text, `payload.hints.${index}.text`, issues);
+        if (hint.fillResponse !== undefined && !containsJapanese(normalizeJapaneseResponse(hint.fillResponse))) {
+            issues.push({ path: `payload.hints.${index}.fillResponse`, message: 'A hint response scaffold must contain Japanese text.' });
+        }
+        if (!usesTieredHints) continue;
+        if (hint.fillResponse !== undefined) {
+            issues.push({ path: `payload.hints.${index}.fillResponse`, message: 'Tiered beginner hints must not fill the full answer.' });
+        }
+        if (hint.tier === 'vocabulary-reading') {
+            if (!hint.vocabulary?.length) {
+                issues.push({ path: `payload.hints.${index}.vocabulary`, message: 'The vocabulary/reading tier needs at least one required cue.' });
+            }
+            for (const [cueIndex, cue] of (hint.vocabulary ?? []).entries()) {
+                const path = `payload.hints.${index}.vocabulary.${cueIndex}`;
+                if (!containsJapanese(normalizeJapaneseResponse(cue.expression)) || !containsJapanese(normalizeJapaneseResponse(cue.reading))) {
+                    issues.push({ path, message: 'Vocabulary cues need Japanese expression and reading text.' });
+                }
+                requireLocalized(cue.meaning, `${path}.meaning`, issues);
+                if (normalizedAnswers.has(normalizeJapaneseResponse(cue.expression))) {
+                    issues.push({ path: `${path}.expression`, message: 'A vocabulary cue must not be a complete accepted answer.' });
+                }
+            }
+        } else if (hint.vocabulary !== undefined) {
+            issues.push({ path: `payload.hints.${index}.vocabulary`, message: 'Vocabulary cues belong only to the vocabulary/reading tier.' });
+        }
+        if (hint.tier === 'form-scaffold') {
+            requireLocalized(hint.scaffold, `payload.hints.${index}.scaffold`, issues);
+        } else if (hint.scaffold !== undefined) {
+            issues.push({ path: `payload.hints.${index}.scaffold`, message: 'A form scaffold belongs only to the form-scaffold tier.' });
+        }
+        if (hintLeaksAcceptedAnswer(hint, normalizedAnswers)) {
+            issues.push({ path: `payload.hints.${index}`, message: 'A tiered hint must not reveal a complete accepted answer.' });
+        }
+    }
 
     const japanesePreCommit = [model.prompt?.ja, readingSupport?.reading, readingSupport?.pitch]
         .map(value => normalizeJapaneseResponse(text(value)))
@@ -173,6 +238,13 @@ function validateConstructedResponse(model: ConstructedResponseActivityModel): V
         issues.push({ path: 'prompt.en', message: 'Pre-commit English copy must not reveal the answer meaning.' });
     }
     return issues;
+}
+
+function hintLeaksAcceptedAnswer(hint: ConstructedResponseHint, answers: ReadonlySet<string>): boolean {
+    const surfaces = [hint.text.ja, hint.scaffold?.ja]
+        .map(value => normalizeJapaneseResponse(text(value)))
+        .filter(Boolean);
+    return [...answers].some(answer => surfaces.some(surface => surface.includes(answer)));
 }
 
 function diagnosticFeedback(

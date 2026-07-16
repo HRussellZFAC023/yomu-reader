@@ -7,7 +7,7 @@
     --academy-panel: rgba(31, 32, 28, 0.92);
     --academy-panel-soft: rgba(40, 42, 37, 0.82);
     --academy-line: rgba(242, 244, 240, 0.14);
-    --academy-accent: var(--jpdb-reader-accent, #5ea780);
+    --academy-accent: #5ea780;
     --academy-accent-strong: color-mix(in srgb, var(--academy-accent) 72%, #f0eee7);
     --academy-line-strong: color-mix(in srgb, var(--academy-accent) 50%, transparent);
     --academy-warm: color-mix(in srgb, var(--academy-accent) 58%, #d88967);
@@ -67,7 +67,19 @@ button {
     font-feature-settings: "palt" 1;
 }
 
-.academy-root [lang="ja"][data-yomu-runtime-surface] {
+.academy-root :is([lang="ja"], [lang^="ja-"], .academy-japanese)[data-yomu-runtime-surface] {
+    /* Reader theme classes live on <html>; paper text must not inherit their
+       dark/light palette or its contrast calculations. */
+    color-scheme: light;
+    --jpdb-reader-bg: var(--academy-paper-deep);
+    --jpdb-reader-surface: var(--academy-paper);
+    --jpdb-reader-surface-2: color-mix(in srgb, var(--academy-paper) 72%, var(--academy-paper-deep));
+    --jpdb-reader-text: var(--academy-paper-ink);
+    --jpdb-reader-muted: var(--academy-paper-muted);
+    --jpdb-reader-border: color-mix(in srgb, var(--academy-paper-ink) 22%, transparent);
+    --jpdb-reader-accent: var(--academy-accent);
+    --jpdb-reader-accent-readable: var(--academy-paper-ink);
+    --jpdb-reader-accent-text: var(--academy-paper-ink);
     line-height: 1.82;
     text-underline-offset: 0.16em;
 }

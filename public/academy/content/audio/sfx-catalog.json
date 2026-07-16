@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "provenance": {
+    "collection": "Shinday SFX",
+    "sourceRepository": "https://github.com/HRussellZFAC023/shinday",
+    "sourceRevision": "96fd56fb7e786fb941e5a9b817652bc4c33b7515",
+    "sourceRoot": "assets/SFX",
+    "rightsId": "shinday-educational",
+    "rightsHolder": "Shinday project",
+    "basis": "Project-owner-approved and licensed for protected educational use in Yomu Academy",
+    "attestedAt": "2026-07-12",
+    "delivery": "Authenticated Academy session through private Cloudflare R2",
+    "evidence": [
+      "workers/yomu-academy/media-manifest.json",
+      "src/academy/audio/manifest.json"
+    ]
+  },
+  "assets": {
+    "menu-cursor-move": { "sourceRelativePath": "menu sounds/menu cursor move.wav", "deliveryKey": "media/audio/v1/shinday/menu-cursor-move.wav", "contentType": "audio/wav", "bytes": 26136, "durationSeconds": 0.591655, "sha256": "4dd834120f6843422091e7ec29141420b6ed34513b83df486b0008524941754b", "directorCues": ["menu.move"] },
+    "menu-option-select": { "sourceRelativePath": "menu sounds/menu option select.wav", "deliveryKey": "media/audio/v1/shinday/menu-option-select.wav", "contentType": "audio/wav", "bytes": 41240, "durationSeconds": 0.93415, "sha256": "89a09620d3144f1dc52937cbe823f2172e61fb896f54ea0c6b0228f65ae0e63f", "directorCues": ["menu.confirm"] },
+    "popup-close": { "sourceRelativePath": "menu sounds/pop-up close.wav", "deliveryKey": "media/audio/v1/shinday/popup-close.wav", "contentType": "audio/wav", "bytes": 14176, "durationSeconds": 0.320454, "sha256": "8e49f9226da87c3f3544963589603ee7e5df07366ad0c443f9d2bdcc5d2e88d9", "directorCues": ["menu.cancel"] },
+    "unavailable": { "sourceRelativePath": "menu sounds/unavailable.wav", "deliveryKey": "media/audio/v1/shinday/unavailable.wav", "contentType": "audio/wav", "bytes": 14572, "durationSeconds": 0.329433, "sha256": "254614cef31bb968acabe3f66e2f99feef13092fcb46e9d1335d0fd1bc8a935e", "directorCues": ["action.unavailable"] },
+    "menu-change": { "sourceRelativePath": "menu sounds/menu change.wav", "deliveryKey": "media/audio/v1/shinday/menu-change.wav", "contentType": "audio/wav", "bytes": 44588, "durationSeconds": 1.010068, "sha256": "6ef55475c7cdd3b24a9d5974cddd21052d1d069d2208d47ca86c47ffd3f4e18f", "directorCues": ["scene.advance"] },
+    "module-change-1": { "sourceRelativePath": "menu sounds/module change 1.wav", "deliveryKey": "media/audio/v1/shinday/module-change-1.wav", "contentType": "audio/wav", "bytes": 130584, "durationSeconds": 2.960091, "sha256": "cf7bd1bcee2dcb0c634b38dddf2eb1ecdb203105e2cf193383dedb7ac6ce2f03", "directorCues": ["page.turn"] },
+    "module-change-2": { "sourceRelativePath": "menu sounds/module change 2.wav", "deliveryKey": "media/audio/v1/shinday/module-change-2.wav", "contentType": "audio/wav", "bytes": 132652, "durationSeconds": 3.006984, "sha256": "52fa877fbc0324e1cae47594bed9ff70500a8a35ef6d09a4b003e589347bfcf0", "directorCues": ["bond.unlock", "bond.rank"] },
+    "result-clear": { "sourceRelativePath": "menu sounds/result (clear).wav", "deliveryKey": "media/audio/v1/shinday/result-clear.wav", "contentType": "audio/wav", "bytes": 114220, "durationSeconds": 2.589025, "sha256": "49d1916a186f2ce97e3c8a981f5996c89cc6b0b16a79cde9afebd06547347345", "directorCues": ["feedback.correct", "doodle.check"] },
+    "result-not-clear": { "sourceRelativePath": "menu sounds/result (not clear).wav", "deliveryKey": "media/audio/v1/shinday/result-not-clear.wav", "contentType": "audio/wav", "bytes": 78452, "durationSeconds": 1.777959, "sha256": "b38172ad3e43fc177cb2bb230ccb4e696b27f8efca2ee1fd65229d67bc802ca7", "directorCues": ["feedback.repair"] },
+    "score-tally": { "sourceRelativePath": "menu sounds/score tally.wav", "deliveryKey": "media/audio/v1/shinday/score-tally.wav", "contentType": "audio/wav", "bytes": 4434, "durationSeconds": 0.099546, "sha256": "cc14e4839d1bc8d9b73e69e3dd49061c41a0df64f64eb08a1c9ff1f007aa608d", "directorCues": ["feedback.hanamaru"] },
+    "camera": { "sourceRelativePath": "other sounds/camera.wav", "deliveryKey": "media/audio/v1/shinday/camera.wav", "contentType": "audio/wav", "bytes": 2882, "durationSeconds": 0.128707, "sha256": "c4048ea941835c2012feaa346dfb378d5f9050e84a8ebc54f88cdd8620bb41ef", "directorCues": ["camera.capture"] },
+    "clap": { "sourceRelativePath": "other sounds/clap.wav", "deliveryKey": "media/audio/v1/shinday/clap.wav", "contentType": "audio/wav", "bytes": 5654, "durationSeconds": 0.127211, "sha256": "ca9b0dcc490bed545516ca5832795680f6c565ee4273831dea71e107a421e10b", "directorCues": ["chapter.complete"] },
+    "click": { "sourceRelativePath": "other sounds/click.wav", "deliveryKey": "media/audio/v1/shinday/click.wav", "contentType": "audio/wav", "bytes": 9636, "durationSeconds": 0.108753, "sha256": "e1a77aa27df3cbf35ff560da73cfbedbd35936c0871cf1a99ea6c7f145624ccf", "directorCues": ["doodle.stroke"] },
+    "sonar-beeps-1": { "sourceRelativePath": "other sounds/sonar beeps 1.wav", "deliveryKey": "media/audio/v1/shinday/sonar-beeps-1.wav", "contentType": "audio/wav", "bytes": 176444, "durationSeconds": 2, "sha256": "3f92905d0912fad7d52f9b4e073a350f8593dd5b7c6f6e28a243224252d51021", "directorCues": ["radio.tune"] }
+  },
+  "cues": [
+    { "cue": "vn.advance", "domain": "vn", "intent": "Advance a completed VN line or beat.", "status": "mapped", "assetId": "menu-change", "directorCue": "scene.advance", "deliveryKey": "media/audio/v1/shinday/menu-change.wav" },
+    { "cue": "vn.reveal", "domain": "vn", "intent": "Tick during progressive VN text reveal.", "status": "gap", "reason": "No short, neutral reveal tick has been auditioned or delivered." },
+    { "cue": "vn.choice.move", "domain": "vn", "intent": "Move focus between VN choices.", "status": "mapped", "assetId": "menu-cursor-move", "directorCue": "menu.move", "deliveryKey": "media/audio/v1/shinday/menu-cursor-move.wav" },
+    { "cue": "vn.choice.confirm", "domain": "vn", "intent": "Commit the focused VN choice.", "status": "mapped", "assetId": "menu-option-select", "directorCue": "menu.confirm", "deliveryKey": "media/audio/v1/shinday/menu-option-select.wav" },
+    { "cue": "vn.choice.cancel", "domain": "vn", "intent": "Close or back out of a VN choice.", "status": "mapped", "assetId": "popup-close", "directorCue": "menu.cancel", "deliveryKey": "media/audio/v1/shinday/popup-close.wav" },
+    { "cue": "vn.choice.unavailable", "domain": "vn", "intent": "Reject a locked VN choice.", "status": "mapped", "assetId": "unavailable", "directorCue": "action.unavailable", "deliveryKey": "media/audio/v1/shinday/unavailable.wav" },
+    { "cue": "speaker.arrival", "domain": "speaker", "intent": "Introduce a speaker entering the active composition.", "status": "gap", "reason": "No delivered cue has a verified character-arrival meaning." },
+    { "cue": "speaker.emphasis", "domain": "speaker", "intent": "Accent an authored speaker jump or emphatic beat.", "status": "gap", "reason": "No delivered cue has been approved for repeatable dialogue emphasis." },
+    { "cue": "door.open", "domain": "door", "intent": "Open a classroom or venue door.", "status": "gap", "reason": "The archive has unnamed effects, but no door source has been identified and delivered." },
+    { "cue": "door.close", "domain": "door", "intent": "Close a classroom or venue door.", "status": "gap", "reason": "The archive has unnamed effects, but no door source has been identified and delivered." },
+    { "cue": "travel.transition", "domain": "travel", "intent": "Bridge a change of campus location.", "status": "mapped", "assetId": "module-change-1", "directorCue": "page.turn", "deliveryKey": "media/audio/v1/shinday/module-change-1.wav" },
+    { "cue": "travel.footstep.indoor", "domain": "travel", "intent": "Ground indoor walking.", "status": "gap", "reason": "Footstep files exist, but their surfaces are not identified and none has a delivery key.", "candidates": ["footstep sounds/se_ev_05_01.wav", "footstep sounds/se_ev_05_02.wav"] },
+    { "cue": "travel.footstep.wet", "domain": "travel", "intent": "Ground walking on a wet exterior surface.", "status": "gap", "reason": "Footstep files exist, but their surfaces are not identified and none has a delivery key.", "candidates": ["footstep sounds/se_ev_06_01.wav", "footstep sounds/se_ev_06_02.wav"] },
+    { "cue": "worksheet.success", "domain": "worksheet", "intent": "Confirm a correct worksheet submission.", "status": "mapped", "assetId": "result-clear", "directorCue": "feedback.correct", "deliveryKey": "media/audio/v1/shinday/result-clear.wav" },
+    { "cue": "worksheet.repair", "domain": "worksheet", "intent": "Return a worksheet answer for a kind retry.", "status": "mapped", "assetId": "result-not-clear", "directorCue": "feedback.repair", "deliveryKey": "media/audio/v1/shinday/result-not-clear.wav" },
+    { "cue": "worksheet.hanamaru", "domain": "worksheet", "intent": "Mark a compact earned hanamaru flourish.", "status": "mapped", "assetId": "score-tally", "directorCue": "feedback.hanamaru", "deliveryKey": "media/audio/v1/shinday/score-tally.wav" },
+    { "cue": "minigame.score.tick", "domain": "minigame", "intent": "Tick a bounded score tally.", "status": "mapped", "assetId": "score-tally", "directorCue": "feedback.hanamaru", "deliveryKey": "media/audio/v1/shinday/score-tally.wav" },
+    { "cue": "minigame.success", "domain": "minigame", "intent": "Resolve a minigame as cleared.", "status": "mapped", "assetId": "result-clear", "directorCue": "feedback.correct", "deliveryKey": "media/audio/v1/shinday/result-clear.wav" },
+    { "cue": "minigame.repair", "domain": "minigame", "intent": "Resolve a minigame attempt with retry available.", "status": "mapped", "assetId": "result-not-clear", "directorCue": "feedback.repair", "deliveryKey": "media/audio/v1/shinday/result-not-clear.wav" },
+    { "cue": "minigame.doodle.stroke", "domain": "minigame", "intent": "Sound one deliberate doodle stroke.", "status": "mapped", "assetId": "click", "directorCue": "doodle.stroke", "deliveryKey": "media/audio/v1/shinday/click.wav" },
+    { "cue": "minigame.doodle.check", "domain": "minigame", "intent": "Confirm a completed doodle check.", "status": "mapped", "assetId": "result-clear", "directorCue": "doodle.check", "deliveryKey": "media/audio/v1/shinday/result-clear.wav" },
+    { "cue": "minigame.radio.tune", "domain": "minigame", "intent": "Tune the diegetic radio minigame.", "status": "mapped", "assetId": "sonar-beeps-1", "directorCue": "radio.tune", "deliveryKey": "media/audio/v1/shinday/sonar-beeps-1.wav" },
+    { "cue": "minigame.camera.capture", "domain": "minigame", "intent": "Capture a photo or memory.", "status": "mapped", "assetId": "camera", "directorCue": "camera.capture", "deliveryKey": "media/audio/v1/shinday/camera.wav" },
+    { "cue": "ceremony.bond.unlock", "domain": "ceremony", "intent": "Reveal an earned bond.", "status": "mapped", "assetId": "module-change-2", "directorCue": "bond.unlock", "deliveryKey": "media/audio/v1/shinday/module-change-2.wav" },
+    { "cue": "ceremony.bond.rank", "domain": "ceremony", "intent": "Raise an established bond rank.", "status": "mapped", "assetId": "module-change-2", "directorCue": "bond.rank", "deliveryKey": "media/audio/v1/shinday/module-change-2.wav" },
+    { "cue": "ceremony.chapter.complete", "domain": "ceremony", "intent": "Close a chapter with brief applause.", "status": "mapped", "assetId": "clap", "directorCue": "chapter.complete", "deliveryKey": "media/audio/v1/shinday/clap.wav" }
+  ]
+}

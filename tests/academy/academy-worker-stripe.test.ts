@@ -19,7 +19,16 @@ async function call(promise: Promise<Response>): Promise<Response> {
 }
 
 function checkout(env: Env, body: unknown, fetcher: typeof fetch): Promise<Response> {
-    return call(handleCreateCheckout(jsonRequest('/academy/api/checkout', body), env, clock, fetcher));
+    return call(handleCreateCheckout(new Request(`${env.ACADEMY_ORIGIN}/academy/api/checkout`, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            origin: env.ACADEMY_ORIGIN,
+            'sec-fetch-site': 'same-origin',
+            'cf-connecting-ip': '203.0.113.7',
+        },
+        body: JSON.stringify(body),
+    }), env, clock, fetcher));
 }
 
 function webhook(env: Env, request: Request): Promise<Response> {
@@ -31,8 +40,10 @@ function claim(env: Env, cookie?: string, sessionId: string | null = 'cs_test_12
     return call(handleClaim(new Request(`https://yomureader.com/academy/api/claim${query}`, cookie ? { headers: { cookie } } : undefined), env, clock));
 }
 
-function stripeOk(url = 'https://checkout.stripe.com/c/pay/cs_test_123'): typeof fetch {
-    return vi.fn(async () => new Response(JSON.stringify({ id: 'cs_test_123', url }), { status: 200 })) as unknown as typeof fetch;
+function stripeOk(options: { id?: string; livemode?: boolean; url?: string } = {}): typeof fetch {
+    const id = options.id ?? 'cs_test_123';
+    const url = options.url ?? `https://checkout.stripe.com/c/pay/${id}`;
+    return vi.fn(async () => new Response(JSON.stringify({ id, livemode: options.livemode ?? false, url }), { status: 200 })) as unknown as typeof fetch;
 }
 
 async function signedWebhook(env: { STRIPE_WEBHOOK_SECRET: string }, event: unknown, atMs = now): Promise<Request> {
@@ -46,13 +57,14 @@ async function signedWebhook(env: { STRIPE_WEBHOOK_SECRET: string }, event: unkn
     });
 }
 
-function paidEvent(purchaseId: string, overrides: Record<string, unknown> = {}, eventId = 'evt_test_1'): { id: string; type: string; data: { object: Record<string, unknown> } } {
+function paidEvent(purchaseId: string, overrides: Record<string, unknown> = {}, eventId = 'evt_test_1', livemode = false): { id: string; type: string; livemode: boolean; data: { object: Record<string, unknown> } } {
     return {
         id: eventId,
         type: 'checkout.session.completed',
+        livemode,
         data: {
             object: {
-                id: 'cs_test_123',
+                id: livemode ? 'cs_live_123' : 'cs_test_123',
                 payment_status: 'paid',
                 currency: 'gbp',
                 amount_total: 500,
@@ -110,9 +122,39 @@ describe('Academy Worker donation checkout', () => {
         }
 
         const academy = createFakeAcademy();
-        const hijacked = await checkout(academy.env, { amountGbp: 5 }, stripeOk('https://evil.example/checkout'));
+        const hijacked = await checkout(academy.env, { amountGbp: 5 }, stripeOk({ url: 'https://evil.example/checkout' }));
         expect(hijacked.status).toBe(502);
         expect(JSON.stringify(await hijacked.json())).not.toContain('evil.example');
+    });
+
+    it('accepts Stripe test mode at any configured origin and refuses live mode', async () => {
+        const academy = createFakeAcademy({ STRIPE_WEBHOOK_SECRET: 'whsec_test_mode' });
+        const response = await checkout(academy.env, { amountGbp: 5 }, stripeOk({
+            id: 'cs_test_123', livemode: false,
+        }));
+        expect(response.status).toBe(200);
+        const purchaseId = academy.db.purchases[0].id;
+        const event = paidEvent(purchaseId, {}, 'evt_test_mode', false);
+        expect((await webhook(academy.env, await signedWebhook(academy.env, event))).status).toBe(200);
+        expect(academy.db.purchases[0].status).toBe('paid');
+
+        const wrongWebhookMode = createFakeAcademy({ STRIPE_WEBHOOK_SECRET: 'whsec_test_mode' });
+        await checkout(wrongWebhookMode.env, { amountGbp: 5 }, stripeOk({
+            id: 'cs_test_123', livemode: false,
+        }));
+        const wrongModePurchase = wrongWebhookMode.db.purchases[0];
+        const liveEvent = paidEvent(wrongModePurchase.id, { id: 'cs_test_123' }, 'evt_live_into_test', true);
+        expect((await webhook(wrongWebhookMode.env, await signedWebhook(wrongWebhookMode.env, liveEvent))).status).toBe(200);
+        expect(wrongModePurchase.status).toBe('pending');
+
+        const liveKey = createFakeAcademy({ STRIPE_SECRET_KEY: 'sk_live_fake' });
+        expect((await checkout(liveKey.env, { amountGbp: 5 }, stripeOk())).status).toBe(503);
+        expect((await webhook(liveKey.env, await signedWebhook(liveKey.env, paidEvent('not-a-real-purchase')))).status).toBe(503);
+
+        const liveSession = createFakeAcademy();
+        expect((await checkout(liveSession.env, { amountGbp: 5 }, stripeOk({
+            id: 'cs_live_123', livemode: true,
+        }))).status).toBe(502);
     });
 });
 
@@ -197,6 +239,7 @@ describe('Academy Worker Stripe webhook', () => {
         // Both proofs are required: a missing or foreign Checkout session id fails.
         expect((await claim(academy.env, claimCookie, null)).status).toBe(400);
         expect((await claim(academy.env, claimCookie, 'not-a-session')).status).toBe(400);
+        expect((await claim(academy.env, claimCookie, 'cs_live_other999')).status).toBe(400);
         expect((await claim(academy.env, claimCookie, 'cs_test_other999')).status).toBe(404);
 
         await webhook(academy.env, await signedWebhook(academy.env, paidEvent(purchaseId, { amount_total: 1000 })));
@@ -208,10 +251,13 @@ describe('Academy Worker Stripe webhook', () => {
         // Deterministic mint, nothing plaintext at rest.
         expect(JSON.stringify({ invites: academy.db.invites, purchases: academy.db.purchases })).not.toContain(code);
 
-        // The claimed code redeems as a normal single-use invite via the session flow.
+        // Claim and auth-session creation are retryable until Google redemption.
+        const claimedAgain = await claim(academy.env, claimCookie);
+        expect(await claimedAgain.json()).toEqual({ status: 'paid', code });
         const session = await call(handleCreateSession(jsonRequest('/academy/api/session', { code }), academy.env, clock));
         expect(session.status).toBe(200);
         const again = await call(handleCreateSession(jsonRequest('/academy/api/session', { code }), academy.env, clock));
-        expect(again.status).toBe(403);
+        expect(again.status).toBe(200);
+        expect(academy.db.invites[0].uses_remaining).toBe(1);
     });
 });

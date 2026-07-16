@@ -18,7 +18,7 @@ These boards make the contract concrete. They are composition and interaction re
 | [VN and source flow](evidence/direction-reset/02-vn-source-flow.png) | teacher stage, physical worksheet, classmate exchange | one source-backed learning beat | replaces full-page cards with people, documents, and purposeful output | visible speaker → focused paper → audio/production → reactive dialogue |
 | [World and map](evidence/direction-reset/03-world-map.png) | campus, neighbourhood, later travel | coherent geography with time/weather states | makes movement legible and lets the world expand without a destination grid | Japanese signs, open doors, ground routes, compact minimap, discovered folded map |
 | [Content journey](evidence/direction-reset/04-content-journey.png) | class journal, lesson desk, `図書室` | the learner-facing shape of 73 weeks plus N3–N1 and the shared library | keeps 42 GB of material rich but calm | one current folio → authored lesson flow → later Study; shelves and shards stay behind the scene |
-| [Three opening missions](evidence/direction-reset/05-opening-paths.png) | `LL教室`, `図書室`, `教室` entrance | different Sound, Text, and Speaking experiences | makes the first choice consequential | different canonical hosts, tasks, camera language, evidence, and mementos |
+| [Three opening missions](evidence/direction-reset/05-opening-paths.png) | `語学ラボ`, `図書室`, `教室` entrance | different Sound, Text, and Speaking experiences | makes the first choice consequential | different canonical hosts, tasks, camera language, evidence, and mementos |
 | [Journal and freedom](evidence/direction-reset/06-journal-freedom.png) | the learner's hands inside the live classroom | lesson choice, chronology, map, memories, Study, and end day | provides freedom without a dashboard or broken immersion | tactile tabs and found objects plus the quiet `…` safety route |
 | [Learning interaction](evidence/direction-reset/07-learning-interaction.png) | one continuous classroom beat | annotation, real input, production, repair, reaction, and completion | keeps feedback inside the class instead of changing to a status page | per-line support → committed output → exact contrast → retry → changed expression and scene |
 
@@ -94,7 +94,7 @@ Sound, Text, and Speaking share the minimum survival outcomes required to functi
 
 | Choice | First mission | Early cast/place | Practice balance | Distinct result |
 | --- | --- | --- | --- | --- |
-| Sound | help prepare a short class recording and catch who said what | `LL教室`; a listening-focused classmate | more real audio, sound discrimination, shadowing, and delayed transcript | an audio memory and listening-first daily plan |
+| Sound | help prepare a short class recording and catch who said what | `語学ラボ`; a listening-focused classmate | more real audio, sound discrimination, shadowing, and delayed transcript | an audio memory and listening-first daily plan |
 | Text | work out the first handwritten note and label the classroom handout | `図書室` or board; an evidence/reading-focused classmate | more staged reading, kana recognition, reconstruction, and dictionary use | the first page clue and reading-first daily plan |
 | Speaking | greet the people arriving and recover when something is missed | classroom/entrance; a socially supportive classmate | more rehearsal, recording, turn-taking, and repair language | a different first bond scene and speaking-first daily plan |
 
@@ -215,7 +215,7 @@ The map expands through connected places. It is not one giant hub and not a grid
 | --- | --- | --- |
 | `教室` | current class, explanation, source activities, ensemble scenes | the main route and emotional centre |
 | `図書室` | shared Study, reading, dictionary, saved lines, personal corpus | quiet independent work and class research |
-| `LL教室` | source listening, video, pitch, shadowing, recording | equipment and acoustics make the activity believable |
+| `語学ラボ` | source listening, video, pitch, shadowing, recording | equipment and acoustics make the activity believable |
 | `作文室` | Doodle, kana/kanji sets, composition, rubrics | paper, tablets, brushes, and writing references live here |
 | `カフェ` | low-pressure transfer, bonds, physical radio | people use Japanese after class |
 | `中庭` | speaking walks, seasonal scenes, pronunciation games | movement and weather change the rhythm |

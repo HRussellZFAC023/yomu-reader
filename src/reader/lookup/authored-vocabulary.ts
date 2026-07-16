@@ -29,7 +29,7 @@ export function applyAuthoredVocabularyOverrides(
 ): JPDBToken[] {
     const annotations = readAuthoredVocabularyAnnotations(target.parent);
     if (!annotations.length) return [...tokens];
-    const replacements = authoredVocabularyReplacements(target.text, annotations);
+    const replacements = authoredVocabularyReplacements(target.text, annotations, tokens);
     if (!replacements.length) return [...tokens];
     const kept = tokens.filter(token => !replacements.some(replacement => rangesOverlap(token, replacement)));
     return [...kept, ...replacements].sort((left, right) => left.start - right.start || right.length - left.length);
@@ -59,12 +59,20 @@ function authoredVocabularyOwner(parent: ParentNode): HTMLElement | null {
 function normalizeAnnotation(value: unknown): AuthoredVocabularyAnnotation | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const surface = normalizedJapaneseText(record.surface);
+    const surface = exactJapaneseSurface(record.surface);
     const lemma = normalizedJapaneseText(record.lemma);
     const reading = normalizedJapaneseText(record.reading);
     if (!surface || !lemma || !reading || !isKanaReading(reading)) return null;
     const pitch = normalizePitch(record.pitch, reading);
     return { surface, lemma, reading, ...(pitch ? { pitch } : {}) };
+}
+
+function exactJapaneseSurface(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    const text = value.normalize('NFC').trim();
+    const forbiddenControls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
+    if (!text || text.length > 80 || forbiddenControls.test(text)) return '';
+    return text;
 }
 
 function normalizePitch(value: unknown, reading: string): AuthoredVocabularyAnnotation['pitch'] | undefined {
@@ -76,10 +84,13 @@ function normalizePitch(value: unknown, reading: string): AuthoredVocabularyAnno
     return { pattern, source };
 }
 
-function normalizedJapaneseText(value: unknown): string {
+function normalizedJapaneseText(value: unknown, allowLayoutWhitespace = false): string {
     if (typeof value !== 'string') return '';
     const text = value.normalize('NFKC').trim();
-    if (!text || text.length > 80 || /[\u0000-\u001f\u007f]/u.test(text)) return '';
+    const forbiddenControls = allowLayoutWhitespace
+        ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u
+        : /[\u0000-\u001f\u007f]/u;
+    if (!text || text.length > 80 || forbiddenControls.test(text)) return '';
     return text;
 }
 
@@ -87,14 +98,18 @@ function isKanaReading(value: string): boolean {
     return /^[\u3040-\u30ffー]+$/u.test(value);
 }
 
-function authoredVocabularyReplacements(text: string, annotations: readonly AuthoredVocabularyAnnotation[]): JPDBToken[] {
+function authoredVocabularyReplacements(
+    text: string,
+    annotations: readonly AuthoredVocabularyAnnotation[],
+    parsedTokens: readonly JPDBToken[],
+): JPDBToken[] {
     const replacements: JPDBToken[] = [];
     for (const annotation of annotations) {
         let start = text.indexOf(annotation.surface);
         while (start >= 0) {
             const end = start + annotation.surface.length;
             if (!replacements.some(token => rangesOverlap(token, { start, end }))) {
-                replacements.push(authoredVocabularyToken(annotation, start, end, text));
+                replacements.push(authoredVocabularyToken(annotation, start, end, text, parsedTokens));
             }
             start = text.indexOf(annotation.surface, end);
         }
@@ -107,6 +122,7 @@ function authoredVocabularyToken(
     start: number,
     end: number,
     sentence: string,
+    parsedTokens: readonly JPDBToken[],
 ): JPDBToken {
     const id = -stablePositiveHashId(`authored-vocabulary\n${annotation.surface}\n${annotation.lemma}\n${annotation.reading}`);
     const card: JPDBCard = {
@@ -137,9 +153,13 @@ function authoredVocabularyToken(
             : [{ text: annotation.reading, start, end, length: end - start }],
         pitchClass: annotation.pitch
             ? pitchClassNameForPattern(annotation.pitch.pattern, annotation.reading)
-            : '',
+            : parsedTokenPitchClass(start, end, parsedTokens),
         sentence,
     };
+}
+
+function parsedTokenPitchClass(start: number, end: number, tokens: readonly JPDBToken[]): string {
+    return tokens.find(token => token.start === start && token.end === end)?.pitchClass ?? '';
 }
 
 function rangesOverlap(

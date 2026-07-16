@@ -1,0 +1,172 @@
+.academy-activity-chapter {
+    display: grid;
+    gap: 16px;
+    width: min(820px, 100%);
+}
+
+.academy-activity-chapter-header {
+    display: grid;
+    gap: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--academy-line);
+}
+
+.academy-activity-chapter-location,
+.academy-activity-chapter-character,
+.academy-activity-chapter-progress,
+.academy-activity-chapter-copy,
+.academy-activity-chapter-title {
+    margin: 0;
+}
+
+.academy-activity-chapter-location,
+.academy-activity-chapter-progress {
+    color: var(--academy-ink-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.academy-activity-chapter-title {
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    letter-spacing: 0;
+}
+
+.academy-activity-chapter-character {
+    color: var(--academy-accent-strong);
+    font-weight: 700;
+}
+
+.academy-activity-chapter-copy {
+    max-width: 70ch;
+    padding: 12px 14px;
+    border-left: 3px solid var(--academy-accent);
+    background: color-mix(in srgb, var(--academy-paper) 80%, transparent);
+    line-height: 1.6;
+}
+
+.academy-activity-chapter-host,
+.academy-activity-chapter-action {
+    display: grid;
+    gap: 12px;
+}
+
+.academy-activity-chapter-action:empty,
+.academy-activity-chapter-live:empty {
+    display: none;
+}
+
+.academy-activity-chapter-next {
+    justify-self: start;
+}
+
+.academy-lesson-language-tools {
+    display: flex;
+    gap: 6px;
+    justify-content: end;
+}
+
+.academy-lesson-language-tool {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--academy-accent) 42%, var(--academy-line));
+    border-radius: 2px;
+    color: var(--academy-ink);
+    background: var(--academy-paper);
+    font: 800 0.9rem/1 var(--academy-japanese-font, "Hiragino Sans", "Yu Gothic", sans-serif);
+    cursor: pointer;
+}
+
+.academy-lesson-language-tool[aria-pressed="true"] {
+    border-color: var(--academy-accent-strong);
+    background: color-mix(in srgb, var(--academy-accent) 22%, var(--academy-paper));
+}
+
+.academy-lesson-teaching-support {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--academy-accent);
+    background: color-mix(in srgb, var(--academy-paper) 86%, transparent);
+}
+
+.academy-lesson-teaching-title,
+.academy-lesson-teaching-entry p,
+.academy-lesson-teaching-guidance {
+    margin: 0;
+}
+
+.academy-lesson-teaching-title {
+    font-size: 1.15rem;
+    letter-spacing: 0;
+}
+
+.academy-lesson-teaching-guidance {
+    max-width: 62ch;
+    color: var(--academy-ink-muted);
+    line-height: 1.5;
+}
+
+.academy-lesson-teaching-entries {
+    display: grid;
+    gap: 8px;
+    max-height: min(38dvh, 340px);
+    overflow: auto;
+}
+
+.academy-lesson-teaching-entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--academy-line);
+}
+
+.academy-lesson-teaching-japanese {
+    font-weight: 760;
+}
+
+.academy-lesson-teaching-translation {
+    color: var(--academy-ink-muted);
+}
+
+.academy-lesson-activity-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 20px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.academy-lesson-repair-hints {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.academy-lesson-repair-hints .academy-progressive-hint-button {
+    justify-self: start;
+}
+
+@media (max-width: 620px) {
+    .academy-lesson-activity-navigation {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+
+    .academy-lesson-activity-back {
+        align-self: start;
+    }
+
+    .academy-activity-chapter-next,
+    .academy-lesson-activity-continue {
+        width: 100%;
+    }
+
+    .academy-lesson-teaching-entry {
+        grid-template-columns: 1fr;
+    }
+}

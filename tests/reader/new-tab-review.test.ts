@@ -1673,16 +1673,18 @@ describe('new tab review helpers', () => {
         // the fail grade, right mirrors the pass grade, and both stay hidden
         // unless a drag is in progress.
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab::before { left: 0; background: linear-gradient( 90deg, color-mix(in srgb, var(--jpdb-reader-state-failed) 62%, transparent), transparent ); }');
+            .toContain('.jpdb-reader-newtab::before { left: 0; background: linear-gradient( 90deg, color-mix(in srgb, var(--jpdb-reader-study-fail) 62%, transparent), transparent ); }');
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab::after { right: 0; background: linear-gradient( 270deg, color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent), transparent ); }');
+            .toContain('.jpdb-reader-newtab::after { right: 0; background: linear-gradient( 270deg, color-mix(in srgb, var(--jpdb-reader-study-pass) 62%, transparent), transparent ); }');
         expect(newTabCssRule('.jpdb-reader-newtab::before, .jpdb-reader-newtab::after')).toContain('opacity: 0');
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('.jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="left"]::before, .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="right"]::after { opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0)); }');
         expect(NORMALIZED_NEW_TAB_CSS).not.toContain('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before');
 
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-controls button[data-grade="pass"], .jpdb-reader-newtab-controls button[data-grade="okay"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known); }');
+            .toContain('.jpdb-reader-newtab-controls button[data-grade="fail"], .jpdb-reader-newtab-controls button[data-grade="nothing"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-study-fail); }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-controls button[data-grade="pass"], .jpdb-reader-newtab-controls button[data-grade="okay"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass); }');
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('.jpdb-reader-newtab-status-light[data-source="anki"] { background: var(--jpdb-reader-state-new-bright);');
         expect(NORMALIZED_NEW_TAB_CSS)
@@ -9406,9 +9408,7 @@ describe('new tab review helpers', () => {
             expect(term.querySelector('ruby')?.textContent).toContain('かえ');
             expect(tools.textContent).not.toContain('#777');
             expect(tools.querySelector('.jpdb-reader-frequency-pill')).toBeNull();
-            // The pitch graph left the reveal: the learner already answered the
-            // pitch step, so only the underline colour carries pitch here.
-            expect(tools.querySelector('.jpdb-reader-pitch svg')).toBeNull();
+            expect(tools.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
                 expect(renderStudyDefinitionSources).toHaveBeenCalledWith(card, expect.any(Object), card.sentence || card.spelling);
@@ -9418,6 +9418,7 @@ describe('new tab review helpers', () => {
                 expect(renderStudyWordPills).not.toHaveBeenCalled();
                 expect(root.querySelector('[data-newtab-prompt] .jpdb-reader-word-pills')).toBeNull();
                 expect(root.querySelector('[data-newtab-prompt] .jpdb-reader-source-card')).toBeNull();
+                expect(root.querySelector('[data-newtab-study-tools] .jpdb-reader-pitch svg')).not.toBeNull();
                 expect(root.querySelector('[data-newtab-meaning] [data-newtab-reveal-dictionaries] .jpdb-reader-source-card')?.textContent).toContain('duplicate lookup card');
             });
 
@@ -9433,7 +9434,41 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('recovers study prompt reading and pitch from local dictionaries when the card reading is not kana', async () => {
+    it('hydrates installed dictionary definitions when the first render is the no-definition placeholder', async () => {
+        const card = newTabTestCard({ spelling: '余白', reading: 'よはく', meanings: [] });
+        const richer = newTabTestCard({ spelling: '余白', reading: 'よはく', meanings: [{ glosses: ['margin'], partOfSpeech: [] }] });
+        const emptyData = {
+            localEntries: [], kanjiEntries: [], metaEntries: [], ankiLookup: null,
+            jpdbDecks: [], ankiDecks: [], jpdbVocabularyInfo: null, jitenVocabularyInfo: null,
+        };
+        const richData = {
+            ...emptyData,
+            localEntries: [{ expression: '余白', reading: 'よはく', glossary: ['margin; blank space'], dictionary: 'Installed Jitendex' }],
+        };
+        const loadCardRenderData = vi.fn(async (candidate: JPDBCard) => (candidate === richer ? richData : emptyData) as never);
+        const lookupStudyCard = vi.fn(async () => richer);
+        const renderStudyDefinitionSources = vi.fn((_candidate, data: { localEntries: unknown[] }) => data.localEntries.length
+            ? '<details class="jpdb-reader-source-card" open><summary>Installed Jitendex</summary><p>margin; blank space</p></details>'
+            : '<div class="jpdb-reader-help jpdb-reader-no-definitions">No definition found</div>');
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }, {
+            loadCardRenderData,
+            lookupStudyCard,
+            renderStudyDefinitionSources,
+        });
+        const root = renderSeededNewTabWord(controller, card, { state: { revealAnswer: true }, appendToDocument: true });
+
+        try {
+            await waitForExpect(() => {
+                expect(lookupStudyCard).toHaveBeenCalledWith('余白', 'よはく');
+                expect(root.querySelector('[data-newtab-reveal-dictionaries]')?.textContent).toContain('Installed Jitendex');
+                expect(root.querySelector('[data-newtab-reveal-dictionaries]')?.textContent).not.toContain('No definition found');
+            });
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('recovers revealed furigana and pitch from local dictionaries when the card reading is not kana', async () => {
         const card = newTabTestCard({
             spelling: '映画',
             reading: '映画',
@@ -9466,8 +9501,10 @@ describe('new tab review helpers', () => {
             dictionaries: { lookupTermMeta } as never,
             loadCardRenderData,
         });
-        const root = renderNewTabWordFront(controller, card);
-        document.body.append(root);
+        const root = renderSeededNewTabWord(controller, card, {
+            state: { revealAnswer: true },
+            appendToDocument: true,
+        });
 
         try {
             const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
@@ -9475,9 +9512,8 @@ describe('new tab review helpers', () => {
             await waitForExpect(() => {
                 const updated = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
                 expect(updated.dataset.reading).toBe('えいが');
-                expect(updated.querySelector('rt')).toBeNull();
-                expect(updated.classList.contains('jpdb-pitch-atamadaka')).toBe(false);
-                expect(updated.dataset.pitchClass).toBeUndefined();
+                expect(updated.querySelector('rt')?.textContent).toBe('えいが');
+                expect(root.querySelector('[data-newtab-study-tools] .jpdb-reader-pitch svg')).not.toBeNull();
             });
         } finally {
             root.remove();
@@ -11888,12 +11924,12 @@ describe('new tab review helpers', () => {
             const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
             const space = dispatchNewTabKeyboard(root, ' ');
             expect(space.defaultPrevented).toBe(true);
-            expect(study.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect(study.dataset.newtabStudyStep).toBe('type-word');
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
 
             const enter = dispatchNewTabKeyboard(study, 'Enter');
             expect(enter.defaultPrevented).toBe(true);
-            expect(study.dataset.newtabStudyStep).toBe('listen-pitch');
+            expect(study.dataset.newtabStudyStep).toBe('recall-cloze');
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
         } finally {
             root.remove();
@@ -12032,8 +12068,8 @@ describe('new tab review helpers', () => {
             const next = dispatchNewTabKeyboard(root, 'L');
             expect(next.defaultPrevented).toBe(true);
             expect(navigation.next).toBe(0);
-            expect(study.dataset.newtabStudyStep).toBe('recall-cloze');
-            expect(root.querySelector('[data-newtab-recall-input]')).not.toBeNull();
+            expect(study.dataset.newtabStudyStep).toBe('type-word');
+            expect(root.querySelector('[data-newtab-type-input]')).not.toBeNull();
 
             const previous = dispatchNewTabKeyboard(root, 'H');
             expect(previous.defaultPrevented).toBe(true);
@@ -17011,6 +17047,37 @@ describe('new tab review helpers', () => {
         expect(location.href).toBe(href);
         expect(location.hash).toBe('');
         root.remove();
+        controller.destroy();
+    });
+
+    it('keeps embedded Academy Study state out of the standalone state store', () => {
+        const standaloneState = {
+            mode: 'listen',
+            listenSubMode: 'shadow',
+            sort: 'frequency',
+            filter: 'known',
+            source: 'jpdb',
+            revealAnswer: false,
+            jpdbDeck: 'core',
+            ankiDeck: '',
+            keyHintsDismissed: true,
+        };
+        localStorage.setItem(NEW_TAB_UI_KEY, JSON.stringify(standaloneState));
+        const controller = newTabBareController(
+            () => ({ ...DEFAULT_SETTINGS, newTabSource: 'jpdb', yomuLocalSrsEnabled: false }),
+            {},
+            { host: document.createElement('section'), surface: 'academy' },
+        );
+        const internals = controller as unknown as {
+            state: { source: string; revealAnswer: boolean };
+            persistState(): void;
+        };
+
+        internals.state.source = 'yomu-local';
+        internals.state.revealAnswer = true;
+        internals.persistState();
+
+        expect(JSON.parse(localStorage.getItem(NEW_TAB_UI_KEY) ?? 'null')).toEqual(standaloneState);
         controller.destroy();
     });
 

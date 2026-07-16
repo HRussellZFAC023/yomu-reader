@@ -27,7 +27,7 @@
       "durationSeconds": 257.546667,
       "sha256": "4ff293cefc657c8203fc9f7bbc64f587f804a18bd18b2a4deddb5d9ee1c39f7c",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["opening.invitation", "campus.evening", "classroom.focus"]
+      "runtimeHomes": ["opening.invitation", "campus.evening", "classroom.focus", "world.courtyard"]
     },
     {
       "key": "media/audio/v1/persona/take-over.flac",
@@ -49,7 +49,18 @@
       "durationSeconds": 274.64,
       "sha256": "2384353e14242c783a1e6f99464f79eac726fedc40a4982946f8eef0598467f1",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["library.quiet", "bond.quiet"]
+      "runtimeHomes": ["library.quiet", "bond.quiet", "world.park"]
+    },
+    {
+      "key": "media/audio/v1/persona/no-more-what-ifs.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/08 No More What Ifs.flac",
+      "contentType": "audio/flac",
+      "bytes": 25608053,
+      "durationSeconds": 240.666667,
+      "sha256": "ed8d0a9fbb33077b54a7d269400e18421c1980fb3a29a19773d30881c947fb2f",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["world.library"]
     },
     {
       "key": "media/audio/v1/persona/ideal-and-the-real.flac",
@@ -60,7 +71,7 @@
       "durationSeconds": 362.346667,
       "sha256": "13c607dc05ecf36c1eea7dce7f04d81d444e1afbb236ef746617dc1a5c3e8ca2",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["mystery.page"]
+      "runtimeHomes": ["mystery.page", "world.japan-centre"]
     },
     {
       "key": "media/audio/v1/persona/kichijoji-199x.flac",
@@ -71,7 +82,7 @@
       "durationSeconds": 136.32,
       "sha256": "f983ea54d9b22932903c75b6d227050b37d0fe03bf3463aa093de2f2b7b277e7",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["cafe.social"]
+      "runtimeHomes": ["cafe.social", "world.cafe"]
     },
     {
       "key": "media/audio/v1/persona/prison-labor.flac",
@@ -82,7 +93,29 @@
       "durationSeconds": 334.84,
       "sha256": "879ce1c4eaf358b80f567feb7d5f50e0540880eabf6e0566d52582a0eee5249d",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["challenge.kanji"]
+      "runtimeHomes": ["challenge.kanji", "world.classroom"]
+    },
+    {
+      "key": "media/audio/v1/persona/mementos-upper.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/07 メメントス・上層.flac",
+      "contentType": "audio/flac",
+      "bytes": 19840843,
+      "durationSeconds": 179.68,
+      "sha256": "b760d0864faebf4683b8a546051826829cf044e0b08bdad959dad0d0a17f8408",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["world.street"]
+    },
+    {
+      "key": "media/audio/v1/persona/mementos-middle.flac",
+      "sourceCollection": "persona",
+      "sourceRelativePath": "CD1/09 メメントス・中層.flac",
+      "contentType": "audio/flac",
+      "bytes": 28557084,
+      "durationSeconds": 247.88,
+      "sha256": "fa4f821def6729da25531be7f20611246c3a8048b05c92fd904d29533faf754c",
+      "rightsId": "persona-educational",
+      "runtimeHomes": ["world.station"]
     },
     {
       "key": "media/audio/v1/persona/so-happy-world.flac",
@@ -93,7 +126,7 @@
       "durationSeconds": 233.893333,
       "sha256": "cd401e2a191b94852026355d78bafadf46cb87c95ad218b48235241a0a9a9f06",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["unlock.world"]
+      "runtimeHomes": ["unlock.world", "world.lab"]
     },
     {
       "key": "media/audio/v1/persona/out-of-kindness.flac",
@@ -104,7 +137,7 @@
       "durationSeconds": 170.76,
       "sha256": "ade6922c87ec1cad5f54b02269cc870b3a561c69fdf6a85cceee5e82bb396dba",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["support.kindness"]
+      "runtimeHomes": ["support.kindness", "world.konbini"]
     },
     {
       "key": "media/audio/v1/persona/i-believe.flac",
@@ -115,7 +148,7 @@
       "durationSeconds": 270.973333,
       "sha256": "c382faab780d491965c0bca77f360de195951e70d80584f50b353591ca245b5d",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["resolve.late"]
+      "runtimeHomes": ["resolve.late", "world.ramen"]
     },
     {
       "key": "media/audio/v1/persona/ideal-and-the-real-end.flac",
@@ -126,7 +159,7 @@
       "durationSeconds": 436.52,
       "sha256": "e7ad6762fc1ebf1e471e876041d47da6efcb1559c2f158ef79a7eac2dc33eda4",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["ending.reflective"]
+      "runtimeHomes": ["ending.reflective", "world.home"]
     },
     {
       "key": "media/audio/v1/shinday/menu-cursor-move.wav",

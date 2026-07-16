@@ -1,6 +1,17 @@
-import { AccessError, HttpAccessGateway, LocalQaAccessGateway, sessionCanResume } from '../../src/academy/access/gateway';
+import {
+    AccessError,
+    HttpAccessGateway,
+    LocalQaAccessGateway,
+    isAnonymousAcademyCode,
+    sessionCanResume,
+} from '../../src/academy/access/gateway';
 
 describe('Academy access gateway', () => {
+    it('recognizes only UCL2026 as an account-free invitation', () => {
+        expect(isAnonymousAcademyCode(' ucl2026 ')).toBe(true);
+        expect(isAnonymousAcademyCode('PAID-CODE')).toBe(false);
+    });
+
     afterEach(() => { vi.unstubAllGlobals(); });
 
     it('calls the browser fetch default without binding it to the gateway instance', async () => {

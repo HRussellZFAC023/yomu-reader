@@ -1663,7 +1663,7 @@
     // Reader CSS cache (version-suffixed → prefix family).
     { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
     // Study / grammar / mining stores.
-    { owner: "study/tools-impl", kind: "gm", key: "yomu.grammarPreferences.v1" },
+    { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
     { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
     { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
     // Popup / drawer geometry.
@@ -7622,13 +7622,16 @@ ${candidate.depth}`;
   const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
   const FALLBACK_INFLECTION_MAX_LENGTH = 18;
   const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
   const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
   const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+  const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
+  const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
+  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
   const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
@@ -7673,10 +7676,26 @@ ${candidate.depth}`;
     return finalizeJapaneseRunSegments(segments, sourceText);
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
+    const normalizedSegments = splitTrailingPoliteParticleSegments(
+      mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))
+    );
     return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
+      splitLeadingParticleSegments(normalizedSegments),
       sourceText
     );
+  }
+  function splitTrailingPoliteParticleSegments(segments) {
+    return segments.flatMap((segment, index) => {
+      if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
+      const previous = segments[index - 1]?.surface ?? "";
+      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
+      const particleStart = segment.end - 1;
+      const stem = segment.surface.slice(0, -1);
+      return [
+        ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
+        { surface: "ね", start: particleStart, end: segment.end }
+      ];
+    });
   }
   function mergeContiguousKanaSegments(segments) {
     if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
@@ -7833,9 +7852,13 @@ ${candidate.depth}`;
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
     if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isBoundarySegment(current.surface)) return null;
-    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
+  }
+  function isPoliteNegativePastContinuation(segments, index, surface) {
+    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
   }
   function isContiguousFallbackSegment(segments, index, startIndex, first) {
     const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
@@ -7858,7 +7881,7 @@ ${candidate.depth}`;
     return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
   }
   function isNumericCounterFallbackStem(segment, sourceText) {
     return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);

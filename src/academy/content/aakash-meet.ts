@@ -1,8 +1,97 @@
 import type { AuthoredVocabularyAnnotation } from '../../reader/lookup/authored-vocabulary';
 import type { ConstructedResponseActivityModel } from '../activities/constructed-response';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
+import {
+    assertNoColdProduction,
+    type AcademyLearningSequenceContract,
+} from './cold-production-audit';
 
 export const AAKASH_RAINY_DIRECTIONS_SCENE_ID = 'scene:aakash-rainy-directions';
+export const AAKASH_DIRECTIONS_CONCEPT_ID = 'concept:directions-straight-right';
+
+export const AAKASH_DIRECTIONS_CONTENT = {
+    context: {
+        id: 'aakash-directions:context',
+        japanese: '雨ですね。Aakashはカフェを探しています。',
+        translation: 'It is raining. Aakash is looking for the cafe. Help him read the route before you answer.',
+    },
+    question: {
+        id: 'aakash-directions:question',
+        japanese: 'カフェはどこですか。',
+        reading: 'kafee wa doko desu ka',
+        translation: 'Where is the cafe?',
+    },
+    vocabulary: [
+        { japanese: 'まっすぐ', reading: 'massugu', meaning: 'straight ahead' },
+        { japanese: '行って', reading: 'itte', meaning: 'go, then...' },
+        { japanese: '右', reading: 'migi', meaning: 'right' },
+        { japanese: '左', reading: 'hidari', meaning: 'left' },
+    ],
+    vocabularyPrompt: {
+        id: 'aakash-directions:vocabulary',
+        japanese: 'まず、道順のことばを見てみましょう。',
+        translation: 'First, learn the route words. The note includes romaji and English.',
+    },
+    recognition: {
+        id: 'aakash-directions:recognise-right',
+        japanese: 'カフェは右です。どちらが「右」ですか。',
+        translation: 'The cafe is on the right. Which word means right?',
+        options: [
+            { id: 'right', japanese: '右', reading: 'migi', meaning: 'right', correct: true },
+            { id: 'left', japanese: '左', reading: 'hidari', meaning: 'left', correct: false },
+        ],
+    },
+    frame: {
+        id: 'aakash-directions:frame',
+        japanese: 'まっすぐ行って、左です。',
+        reading: 'massugu itte, hidari desu',
+        translation: 'Go straight, then it is on the left.',
+        note: 'The umbrella stand is on the left. Put the path first, then the final side.',
+    },
+    guidedPractice: {
+        id: 'aakash-directions:guided-frame',
+        japanese: '傘立てまで案内しましょう。',
+        translation: 'Guide someone to the umbrella stand: go straight, then it is on the left.',
+        options: [
+            {
+                id: 'path-then-side',
+                japanese: 'まっすぐ行って、左です。',
+                reading: 'massugu itte, hidari desu',
+                correct: true,
+            },
+            {
+                id: 'side-then-path',
+                japanese: '左です。まっすぐ行って。',
+                reading: 'hidari desu. massugu itte',
+                correct: false,
+            },
+        ],
+    },
+    assessment: {
+        id: 'activity:aakash-rainy-directions',
+        japanese: 'カフェはどこですか。',
+        translation: 'Where is the cafe? Give the route in Japanese. You can ask for hints if typing is new.',
+    },
+    resolution: {
+        id: 'aakash-directions:thanks',
+        japanese: '分かりました。ありがとうございます。',
+        translation: 'Got it. Thank you.',
+    },
+} as const;
+
+export const AAKASH_DIRECTIONS_LEARNING_SEQUENCE = {
+    id: 'sequence:aakash-rainy-directions',
+    steps: [
+        { id: AAKASH_DIRECTIONS_CONTENT.context.id, kind: 'context', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+        { id: AAKASH_DIRECTIONS_CONTENT.vocabularyPrompt.id, kind: 'instruction', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+        { id: AAKASH_DIRECTIONS_CONTENT.recognition.id, kind: 'guided-practice', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+        { id: AAKASH_DIRECTIONS_CONTENT.frame.id, kind: 'instruction', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+        { id: AAKASH_DIRECTIONS_CONTENT.guidedPractice.id, kind: 'guided-practice', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+        { id: AAKASH_DIRECTIONS_CONTENT.assessment.id, kind: 'assessed-production', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+    ],
+} as const satisfies AcademyLearningSequenceContract;
+
+assertNoColdProduction(AAKASH_DIRECTIONS_LEARNING_SEQUENCE);
 
 // Both 行く and 行う legitimately deinflect from 行って. This route owns the
 // intended sense, so it declares the disambiguation instead of teaching the
@@ -17,20 +106,17 @@ export const AAKASH_DIRECTIONS_READER_ANNOTATIONS = [{
     },
 }] as const satisfies readonly AuthoredVocabularyAnnotation[];
 
-/**
- * The original story binding, Concept, review seed, and taught expression stay
- * stable. Only the response surface changes from recognition to production.
- */
+/** Keep the original story binding, Concept, deterministic answers, and review seed stable. */
 export function createAakashDirectionsActivity(): ConstructedResponseActivityModel {
     return {
-        id: 'activity:aakash-rainy-directions',
+        id: AAKASH_DIRECTIONS_CONTENT.assessment.id,
         kind: 'constructed-japanese',
-        conceptIds: ['concept:directions-straight-right'],
+        conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID],
         responseKind: 'ime',
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         prompt: {
-            en: 'Answer Aakash in Japanese.',
-            ja: 'Aakashに、日本語で道を案内してください。',
+            en: 'Give Aakash the cafe route in Japanese. Hints are available.',
+            ja: 'Aakashに、カフェまでの道順を日本語で伝えてください。',
         },
         payload: {
             acceptedAnswers: [
@@ -83,6 +169,27 @@ export function createAakashDirectionsActivity(): ConstructedResponseActivityMod
                 meanings: ['Go straight, then it is on the right.'],
                 sentence: 'この道をまっすぐ行って、右です。',
             },
+            hints: [
+                {
+                    text: {
+                        en: 'Route words: まっすぐ (massugu) is “straight”; 右 (migi) is “right.”',
+                        ja: '道順のことば：「まっすぐ」は straight、「右（みぎ）」は right です。',
+                    },
+                },
+                {
+                    text: {
+                        en: 'Use the frame from the umbrella stand: まっすぐ + 行って、[side] + です。',
+                        ja: '傘立てと同じ形です：「まっすぐ」＋「行って」、「向き」＋「です」。',
+                    },
+                },
+                {
+                    text: {
+                        en: 'Complete route: まっすぐ行って、右です。 (massugu itte, migi desu.)',
+                        ja: '道順は「まっすぐ行って、右です。」です。',
+                    },
+                    fillResponse: 'まっすぐ行って、右です。',
+                },
+            ],
         },
     };
 }

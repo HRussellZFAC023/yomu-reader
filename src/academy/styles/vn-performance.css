@@ -1,0 +1,173 @@
+/* Hosts map engine frames to these finite, semantic data attributes. */
+[data-vn-performer] {
+    --academy-vn-performance-lift: 0px;
+    filter: grayscale(0.56) saturate(0.68) brightness(0.88);
+    transition: filter 180ms ease, transform 180ms ease;
+}
+
+[data-vn-performer][data-performance-presence='active'] {
+    filter: grayscale(0) saturate(1) brightness(1);
+    transform: translateY(calc(-1 * var(--academy-vn-performance-lift)));
+}
+
+[data-vn-performer][data-performance-motion='entrance'] {
+    animation: academy-vn-performance-entrance var(--academy-vn-performance-duration, 360ms) ease-out
+        var(--academy-vn-performance-delay, 0ms) 1 both;
+}
+
+[data-vn-performer][data-performance-motion='jump'] {
+    animation: academy-vn-performance-jump var(--academy-vn-performance-duration, 300ms) ease-out 0ms 1 both;
+}
+
+[data-vn-performer][data-performance-pose-transition='dissolve'] [data-vn-pose-layer] {
+    animation: academy-vn-performance-pose-dissolve var(--academy-vn-pose-duration, 220ms) ease-out 1 both;
+}
+
+[data-vn-performer][data-performance-pose-transition='shift'] [data-vn-pose-layer] {
+    animation: academy-vn-performance-pose-shift var(--academy-vn-pose-duration, 220ms) ease-out 1 both;
+}
+
+[data-vn-scene-transition='dissolve'] [data-vn-scene-layer] {
+    animation: academy-vn-performance-scene-dissolve var(--academy-vn-scene-duration, 420ms) ease 1 both;
+}
+
+[data-vn-scene-transition='travel-left'] [data-vn-scene-layer] {
+    animation: academy-vn-performance-scene-left var(--academy-vn-scene-duration, 420ms) ease-out 1 both;
+}
+
+[data-vn-scene-transition='travel-right'] [data-vn-scene-layer] {
+    animation: academy-vn-performance-scene-right var(--academy-vn-scene-duration, 420ms) ease-out 1 both;
+}
+
+[data-vn-scene-transition='paper-reveal'] [data-vn-scene-layer] {
+    animation: academy-vn-performance-scene-paper var(--academy-vn-scene-duration, 420ms)
+        cubic-bezier(0.2, 0.72, 0.2, 1) 1 both;
+}
+
+[data-vn-scene-transition='ink-reveal'] [data-vn-scene-layer] {
+    animation: academy-vn-performance-scene-ink var(--academy-vn-scene-duration, 420ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='pan-left'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-left var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='pan-right'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-right var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='push-in'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-push var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='pull-back'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-pull var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='tilt-left'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-tilt-left var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+[data-vn-camera-transition='tilt-right'] [data-vn-camera-layer] {
+    animation: academy-vn-performance-camera-tilt-right var(--academy-vn-camera-duration, 480ms) ease-out 1 both;
+}
+
+@keyframes academy-vn-performance-entrance {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(calc(-1 * var(--academy-vn-performance-lift))); }
+}
+
+@keyframes academy-vn-performance-jump {
+    0%, 100% { transform: translateY(calc(-1 * var(--academy-vn-performance-lift))); }
+    42% { transform: translateY(calc(-1 * var(--academy-vn-performance-lift) - 16px)); }
+}
+
+@keyframes academy-vn-performance-pose-dissolve {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+}
+
+@keyframes academy-vn-performance-pose-shift {
+    from { opacity: 0.74; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes academy-vn-performance-scene-dissolve {
+    from { opacity: 0.68; }
+    to { opacity: 1; }
+}
+
+@keyframes academy-vn-performance-scene-left {
+    from { opacity: 0.72; transform: translateX(18px) scale(1.015); }
+}
+
+@keyframes academy-vn-performance-scene-right {
+    from { opacity: 0.72; transform: translateX(-18px) scale(1.015); }
+}
+
+@keyframes academy-vn-performance-scene-paper {
+    from { opacity: 0.74; clip-path: inset(0 0 100% 0); }
+    to { opacity: 1; clip-path: inset(0); }
+}
+
+@keyframes academy-vn-performance-scene-ink {
+    from { opacity: 0.48; filter: grayscale(0.82) contrast(0.86); transform: scale(1.012); }
+    to { opacity: 1; filter: none; transform: none; }
+}
+
+@keyframes academy-vn-performance-camera-left {
+    from { transform: translateX(12px); }
+}
+
+@keyframes academy-vn-performance-camera-right {
+    from { transform: translateX(-12px); }
+}
+
+@keyframes academy-vn-performance-camera-push {
+    from { transform: scale(0.985); }
+}
+
+@keyframes academy-vn-performance-camera-pull {
+    from { transform: scale(1.02); }
+}
+
+@keyframes academy-vn-performance-camera-tilt-left {
+    from { transform: rotate(1.2deg) scale(1.01); }
+}
+
+@keyframes academy-vn-performance-camera-tilt-right {
+    from { transform: rotate(-1.2deg) scale(1.01); }
+}
+
+@media (max-width: 700px) {
+    [data-vn-camera-transition] [data-vn-camera-layer] {
+        animation: none;
+    }
+
+    [data-vn-scene-transition='travel-left'] [data-vn-scene-layer],
+    [data-vn-scene-transition='travel-right'] [data-vn-scene-layer],
+    [data-vn-scene-transition='paper-reveal'] [data-vn-scene-layer],
+    [data-vn-scene-transition='ink-reveal'] [data-vn-scene-layer] {
+        animation-name: academy-vn-performance-scene-dissolve;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-vn-performer],
+    [data-vn-performer] [data-vn-pose-layer],
+    [data-vn-scene-transition] [data-vn-scene-layer],
+    [data-vn-camera-transition] [data-vn-camera-layer] {
+        animation: none;
+        transition: none;
+        transform: none;
+    }
+
+    [data-vn-scene-presentation='paper-reveal'] [data-vn-scene-layer] {
+        clip-path: none;
+        filter: saturate(0.96) contrast(1.02);
+    }
+
+    [data-vn-scene-presentation='ink-reveal'] [data-vn-scene-layer] {
+        filter: saturate(0.92) contrast(1.04);
+    }
+}

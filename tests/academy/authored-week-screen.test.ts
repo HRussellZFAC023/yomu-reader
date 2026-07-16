@@ -1,0 +1,428 @@
+import type {
+    AuthoredChoiceEvaluation,
+    LearnerAuthoredChoice,
+    LearnerAuthoredWeek,
+} from '../../src/academy/content/authored-week-adapter';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activity-runtime';
+import type { SourceVocabularySheetModel } from '../../src/academy/minigames';
+import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+
+afterEach(() => document.body.replaceChildren());
+
+const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
+
+describe('authored week learner screen', () => {
+    it('renders a supplied story setup as a name-only host, without a portrait contract', () => {
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(),
+            storyContext: {
+                hostId: 'stasi',
+                hostName: 'Stasi-san',
+                originPlaceId: 'classroom',
+                setup: { ja: '教室で小さな展示を準備します。', en: 'A small classroom display is being prepared.' },
+                callback: { ja: '一つのラベルは空いたままです。', en: 'One label remains open.' },
+                dialogue: [
+                    { speakerId: 'stasi', speakerName: 'Stasi-san', purpose: 'need', line: { ja: '札が一枚足りません。', en: 'One card is missing.' } },
+                    { speakerId: 'mika', speakerName: 'Mika-san', purpose: 'model', line: { ja: '先に名前を聞きましょう。', en: 'Let us ask the name first.' } },
+                    { speakerId: 'stasi', speakerName: 'Stasi-san', purpose: 'transfer', line: { ja: '答えを待ちます。', en: 'We will wait for the answer.' } },
+                ],
+            },
+        });
+
+        const context = screen.element.querySelector<HTMLElement>('.academy-authored-week-story-context')!;
+        expect(context.dataset.storyHost).toBe('stasi');
+        expect(context.dataset.storyPresentation).toBe('name-only');
+        expect(context.dataset.storyOriginPlace).toBe('classroom');
+        expect([...context.querySelectorAll<HTMLElement>('.academy-authored-week-story-turn')].map(turn => [
+            turn.dataset.storySpeaker,
+            turn.dataset.storyPurpose,
+        ])).toEqual([
+            ['stasi', 'need'],
+            ['mika', 'model'],
+            ['stasi', 'transfer'],
+        ]);
+        expect(context.textContent).toContain('Stasi-san');
+        expect(context.textContent).toContain('One label remains open.');
+        expect(context.querySelector('img')).toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-host')).toBeNull();
+    });
+
+    it('conceals answer material until commitment and presents a Japanese-first bilingual prompt', () => {
+        const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture() });
+        document.body.append(screen.element);
+
+        expect(screen.element.querySelector('.academy-lesson-teaching-support')).not.toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
+        openQuestion(screen.element);
+        const prompt = screen.element.querySelector('.academy-authored-week-prompt')!;
+        expect(prompt.children[0]).toMatchObject({ textContent: 'は どれですか', lang: 'ja' });
+        expect(prompt.children[1]).toMatchObject({ textContent: 'Which one is wa?', lang: 'en' });
+        expect(screen.element.textContent).not.toContain('HIDDEN TARGET');
+        expect(screen.element.textContent).not.toContain('hidden repair');
+        expect(screen.element.textContent).not.toContain('secret review expression');
+        expect(screen.element.innerHTML).not.toMatch(/correct|modelAnswer|answer-key/i);
+        expect(screen.element.querySelectorAll('.academy-authored-week-activity')).toHaveLength(1);
+    });
+
+    it('locks a lapse before feedback, offers repair and retry, then gives a pass action', async () => {
+        const evaluatedStates: boolean[] = [];
+        const fixture = weekFixture((_, responseId) => {
+            evaluatedStates.push([...document.querySelectorAll<HTMLButtonElement>('.academy-choice-option')]
+                .every(button => button.disabled));
+            return evaluation(responseId === 'right' ? 'pass' : 'lapse');
+        });
+        const screen = createAuthoredWeekScreen({ language: 'en', week: fixture });
+        document.body.append(screen.element);
+
+        openQuestion(screen.element);
+        choice(screen.element, 'wrong').click();
+        await flush();
+        expect(evaluatedStates).toEqual([true]);
+        expect(screen.element.querySelector('.academy-authored-week-feedback-summary')?.textContent).toContain('直しましょう');
+        expect(screen.element.querySelector('.academy-feedback-repair')).toBeNull();
+        const hint = screen.element.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
+        hint.click();
+        expect(screen.element.querySelector('.academy-feedback-repair')?.textContent).toContain('hidden repair');
+        expect(hint.textContent).toBe('Another hint');
+        hint.click();
+        expect(screen.element.querySelector('.academy-feedback-example')?.textContent).toContain('nearby example');
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.textContent).toBe('Try again');
+        expect([...screen.element.querySelectorAll<HTMLButtonElement>('.academy-choice-option')].every(button => button.disabled)).toBe(true);
+
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        expect(screen.element.textContent).not.toContain('hidden repair');
+        choice(screen.element, 'right').click();
+        await flush();
+        expect(evaluatedStates).toEqual([true, true]);
+        expect(screen.element.dataset.outcome).toBeUndefined();
+        expect(screen.element.querySelector('.academy-authored-week-activity')?.getAttribute('data-outcome')).toBe('pass');
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.textContent).toBe('Next question');
+    });
+
+    it('advances one activity at a time, updates progress, and supports keyboard choice navigation', async () => {
+        const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture() });
+        document.body.append(screen.element);
+        openQuestion(screen.element);
+        const first = choice(screen.element, 'wrong');
+        const second = choice(screen.element, 'right');
+        first.focus();
+        first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+        expect(document.activeElement).toBe(second);
+
+        second.click();
+        await flush();
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('0 / 2');
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        expect(screen.currentActivityIndex).toBe(1);
+        expect(screen.currentActivityId).toBe('activity:two');
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 2');
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
+        openQuestion(screen.element);
+        expect(screen.element.querySelector('.academy-authored-week-prompt')?.textContent).toContain('二つ目');
+        expect(screen.element.querySelectorAll('.academy-authored-week-activity')).toHaveLength(1);
+    });
+
+    it('emits review seeds for every committed attempt and completes exactly once', async () => {
+        const onReviewSeeds = vi.fn();
+        const onComplete = vi.fn();
+        const screen = createAuthoredWeekScreen({
+            language: 'ja',
+            week: weekFixture(),
+            onReviewSeeds,
+            onComplete,
+            storyContext: {
+                hostId: 'stasi',
+                hostName: 'Stasi-san',
+                setup: { ja: '始めます。', en: 'We begin.' },
+                callback: { ja: '答えを待ちます。', en: 'We wait for the answer.' },
+                handoff: { ja: '元の道へ戻ります。', en: 'Return to the route you came from.' },
+            },
+        });
+        document.body.append(screen.element);
+
+        openQuestion(screen.element);
+        choice(screen.element, 'wrong').click();
+        await flush();
+        expect(onReviewSeeds).toHaveBeenLastCalledWith([expect.objectContaining({ reason: 'repair' })]);
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        choice(screen.element, 'right').click();
+        await flush();
+        expect(onReviewSeeds).toHaveBeenLastCalledWith([expect.objectContaining({ reason: 'new-learning' })]);
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        openQuestion(screen.element);
+        choice(screen.element, 'right').click();
+        await flush();
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+
+        expect(onReviewSeeds).toHaveBeenCalledTimes(3);
+        expect(onComplete).not.toHaveBeenCalled();
+        expect(screen.currentActivityId).toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('2 / 2');
+        expect(screen.element.querySelector('[data-week-complete="true"]')).not.toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-story-handoff')?.textContent)
+            .toContain('元の道へ戻ります。');
+        const returnToRoute = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!;
+        expect(returnToRoute.textContent).toBe('元の道へ戻る');
+        returnToRoute.click();
+        returnToRoute.click();
+        expect(onComplete).toHaveBeenCalledOnce();
+        expect(screen.element.querySelector('.academy-authored-week-next')).toBeNull();
+    });
+
+    it('exposes unresolved audio as unavailable without leaking its locator', () => {
+        const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture() });
+        document.body.append(screen.element);
+
+        const audio = screen.element.querySelector<HTMLElement>('[data-audio-status="unavailable"]')!;
+        expect(audio.getAttribute('role')).toBe('status');
+        expect(audio.textContent).toContain('音声は利用できません');
+        expect(audio.textContent).toContain('Audio is unavailable');
+        expect(screen.element.textContent).not.toContain('academy://audio/secret');
+    });
+
+    it('renders packaged listening as an opt-in control and reveals its transcript only after an attempt', async () => {
+        const base = weekFixture();
+        const first = base.activities[0] as LearnerAuthoredChoice;
+        const fixture: LearnerAuthoredWeek = {
+            ...base,
+            activities: [{
+                ...first,
+                listening: {
+                    sourceLocator: 'academy/content/soya/audio/example.mp3',
+                    url: '/academy/content/listening/media/example.mp3',
+                    transcript: [{ speaker: '女', text: 'りんごを 四つ おねがいします。' }],
+                    transcriptReveal: 'after-attempt' as const,
+                },
+            }, ...base.activities.slice(1)],
+        };
+        const onListeningStart = vi.fn();
+        const onListeningStop = vi.fn();
+        const screen = createAuthoredWeekScreen({ language: 'en', week: fixture, onListeningStart, onListeningStop });
+        document.body.append(screen.element);
+
+        openQuestion(screen.element);
+        const audio = screen.element.querySelector<HTMLAudioElement>('audio')!;
+        expect(audio.getAttribute('src')).toBe('/academy/content/listening/media/example.mp3');
+        expect(audio.autoplay).toBe(false);
+        expect(screen.element.querySelector('.academy-authored-week-transcript')).toBeNull();
+        onListeningStop.mockClear();
+        audio.dispatchEvent(new Event('play'));
+        audio.dispatchEvent(new Event('pause'));
+        expect(onListeningStart).toHaveBeenCalledOnce();
+        expect(onListeningStop).toHaveBeenCalledOnce();
+
+        choice(screen.element, 'wrong').click();
+        await flush();
+        const transcript = screen.element.querySelector<HTMLDetailsElement>('.academy-authored-week-transcript')!;
+        expect(transcript.open).toBe(false);
+        expect(transcript.textContent).toContain('りんごを 四つ');
+    });
+
+    it('recovers accessibly when evaluation fails without exposing answer material', () => {
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(() => { throw new TypeError('adapter detail with secret review expression'); }),
+        });
+        document.body.append(screen.element);
+
+        openQuestion(screen.element);
+        const selected = choice(screen.element, 'right');
+        selected.click();
+
+        expect(screen.element.querySelector('.academy-activity-feedback')?.getAttribute('role')).toBe('alert');
+        expect(screen.element.textContent).toContain('答えを確認できませんでした');
+        expect(screen.element.textContent).not.toContain('secret review expression');
+        expect([...screen.element.querySelectorAll<HTMLButtonElement>('.academy-choice-option')]
+            .every(button => !button.disabled)).toBe(true);
+        expect(document.activeElement).toBe(selected);
+    });
+
+    it('blocks progression and offers an accessible retry when persistence fails', async () => {
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(),
+            onReviewSeeds: () => Promise.reject(new Error('review persistence failed')),
+        });
+        document.body.append(screen.element);
+
+        openQuestion(screen.element);
+        choice(screen.element, 'right').click();
+        await flush();
+
+        expect(screen.element.querySelector('.academy-activity-feedback')?.getAttribute('role')).toBe('alert');
+        expect(screen.element.textContent).toContain('Your answer was not saved');
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')).toBeNull();
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-retry-save')).not.toBeNull();
+    });
+
+    it('exposes a real in-content Back action', () => {
+        const onBack = vi.fn();
+        const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture(), onBack });
+        document.body.append(screen.element);
+
+        expect(screen.element.querySelectorAll('.academy-authored-week-back')).toHaveLength(1);
+        expect(screen.element.querySelector('.academy-lesson-activity-back')).toBeNull();
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-back')?.click();
+
+        expect(onBack).toHaveBeenCalledOnce();
+    });
+
+    it('runs exact source vocabulary rows through the central plugin before advancing', async () => {
+        const base = weekFixture();
+        const sourceRow = sourceVocabularyRow();
+        const onEvaluation = vi.fn();
+        const fixture: LearnerAuthoredWeek = { ...base, activities: [sourceRow, ...base.activities] };
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: fixture,
+            onEvaluation,
+        });
+        document.body.append(screen.element);
+
+        expect(screen.currentActivityId).toBe(sourceRow.id);
+        expect(screen.element.textContent).not.toContain('today');
+        openQuestion(screen.element);
+        screen.element.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="reveal"]')!.click();
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('today'));
+        expect(onEvaluation).toHaveBeenCalledTimes(1);
+        expect(screen.element.querySelector('.academy-authored-week-next')).toBeNull();
+
+        screen.element.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="remembered"]')!.click();
+        await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-next')).not.toBeNull());
+        expect(onEvaluation).toHaveBeenCalledTimes(2);
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        expect(screen.currentActivityId).toBe('activity:one');
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 3');
+    });
+
+    it('keeps language controls stable and revisits earlier support without inflating progress', async () => {
+        const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture() });
+        document.body.append(screen.element);
+
+        const translation = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-language-tool:nth-child(2)')!;
+        translation.click();
+        expect(screen.element.querySelector<HTMLElement>('.academy-lesson-teaching-translation')?.hidden).toBe(true);
+        translation.click();
+        openQuestion(screen.element);
+        choice(screen.element, 'right').click();
+        await flush();
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
+        expect(screen.currentActivityIndex).toBe(1);
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
+        expect(screen.currentActivityIndex).toBe(0);
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 2');
+
+        const readings = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-language-tool:first-child')!;
+        readings.click();
+        expect(screen.element.querySelector<HTMLElement>('.academy-lesson-teaching-japanese')?.dataset.yomuFuriganaMode).toBe('all');
+    });
+});
+
+function choice(root: ParentNode, id: string): HTMLButtonElement {
+    return root.querySelector<HTMLButtonElement>(`[data-choice-id="${id}"]`)!;
+}
+
+function openQuestion(root: ParentNode): void {
+    root.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!.click();
+}
+
+function weekFixture(
+    evaluateOverride?: (activityId: string, responseId: string) => AuthoredChoiceEvaluation,
+): LearnerAuthoredWeek {
+    const activities = [
+        activity('activity:one', { en: 'Which one is wa?', ja: 'は どれですか' }),
+        activity('activity:two', { en: 'Choose the second answer.', ja: '二つ目を えらんでください' }),
+    ];
+    return {
+        id: 'l1-l01',
+        activities,
+        media: [{
+            assetId: 'audio:test',
+            status: 'unavailable',
+            reason: 'unresolved-academy-locator',
+            sourceLocator: 'academy://audio/secret',
+        }],
+        provenance: {
+            source: { path: '/fixture/week.json', sha256: '0'.repeat(64) },
+            packageId: 'l1-l01',
+            packageProvenance: {},
+        },
+        evaluate(activityId, responseId) {
+            return evaluateOverride?.(activityId, responseId) ?? evaluation(responseId === 'right' ? 'pass' : 'lapse');
+        },
+    };
+}
+
+function activity(id: string, prompt: { readonly en: string; readonly ja: string }): LearnerAuthoredChoice {
+    return {
+        id,
+        kind: 'choice',
+        sourceQuestionId: `source:${id}`,
+        conceptIds: ['concept:test'],
+        responseKind: 'choice',
+        curriculumPhase: 'assessed-recognition',
+        prompt,
+        options: [
+            { id: 'wrong', label: { en: 'Wrong', ja: 'が' } },
+            { id: 'right', label: { en: 'Right', ja: 'は' } },
+        ],
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+        teachingSupport: {
+            kind: 'context',
+            title: { ja: 'この問題の前に', en: 'Before this question' },
+            entries: [{ japanese: 'は', translation: 'wa' }],
+        },
+        provenance: { packageId: 'l1-l01', sourceQuestionId: `source:${id}` },
+    };
+}
+
+function evaluation(outcome: 'pass' | 'lapse'): AuthoredChoiceEvaluation {
+    return {
+        result: {
+            outcome,
+            score: outcome === 'pass' ? 1 : 0,
+            errorTags: outcome === 'pass' ? [] : ['concept:test:repair'],
+            feedback: {
+                explanation: { en: 'HIDDEN TARGET explanation', ja: 'かくした せつめい' },
+                ...(outcome === 'lapse' ? {
+                    repairPrompt: { en: 'hidden repair', ja: 'かくした なおしかた' },
+                    nearbyExample: { en: 'nearby example', ja: 'ちかい れい' },
+                } : {}),
+            },
+        },
+        reviewSeeds: [{
+            id: 'review:test',
+            conceptId: 'concept:test',
+            reason: outcome === 'pass' ? 'new-learning' : 'repair',
+            sourceQuestionId: 'source:test',
+            content: { expression: 'secret review expression', meanings: ['secret meaning'] },
+        }],
+    };
+}
+
+function sourceVocabularyRow(): SourceVocabularySheetModel {
+    return {
+        id: 'authored:l1-l01/source-time:p1:r1',
+        kind: 'academy-source-vocabulary-sheet',
+        sourceQuestionId: 'moodle-vocabulary:source:p1:row-1',
+        conceptIds: ['concept:l1-l01:source-time:p1:r1'],
+        responseKind: 'source-vocabulary-recall',
+        prompt: { ja: 'ことばの いみを 思い出しましょう。', en: 'Recall the source row.' },
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+        provenance: {
+            packageId: 'l1-l01',
+            componentId: 'source-time',
+            sourceId: 'moodle-vocabulary:source',
+            sourceQuestionId: 'moodle-vocabulary:source:p1:row-1',
+            payloadSha256: 'a'.repeat(64),
+            sourceTitle: 'Source vocabulary',
+            locus: { page: 1, row: 1 },
+        },
+        payload: {
+            exact: { words: 'きょう', pronunciation: null, meaning: null },
+            support: { words: 'きょう', reading: 'きょう', meaning: 'today' },
+            fieldProvenance: { words: 'source-provided', reading: 'yomu-support', meaning: 'yomu-support' },
+        },
+    };
+}

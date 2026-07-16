@@ -11,7 +11,7 @@ export interface AcademyClassEvent {
 /** Finite story milestones shown under Class; status is explicit until each scene ships. */
 export const ACADEMY_CLASS_EVENTS: readonly AcademyClassEvent[] = [
     { id: 'event:open-doors', season: 'foundation', title: { en: 'The open doors', ja: 'ひらいた扉' }, castIds: ['rie'], status: 'playable' },
-    { id: 'event:first-term-photo', season: 'foundation', title: { en: 'First term', ja: '最初の学期' }, castIds: ['peter', 'shaun'], status: 'planned' },
+    { id: 'event:first-term-photo', season: 'foundation', title: { en: 'The class photograph', ja: 'クラス写真' }, castIds: ['peter', 'shaun'], status: 'planned' },
     { id: 'event:first-page', season: 'foundation', title: { en: 'The handwritten page', ja: '手書きのページ' }, castIds: ['rie', 'sophie', 'ruparna'], status: 'planned' },
     { id: 'event:after-class', season: 'n5', title: { en: 'After class', ja: '授業のあと' }, castIds: ['aakash', 'sam', 'robert'], status: 'planned' },
     { id: 'event:plans-promises', season: 'n4', title: { en: 'Plans and promises', ja: '予定と約束' }, castIds: ['alex', 'tom', 'shin'], status: 'planned' },

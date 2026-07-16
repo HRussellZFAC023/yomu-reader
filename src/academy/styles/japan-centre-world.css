@@ -1,0 +1,248 @@
+/* Japan Centre: paper shelf tags and a gift counter, never a floating task card. */
+.academy-world-screen[data-current-place='japan-centre'] {
+    --japan-centre-ink: #fff7df;
+    --japan-centre-red: #bd3f32;
+    --japan-centre-gold: #edc66e;
+    color: var(--japan-centre-ink);
+}
+
+.academy-world-screen[data-current-place='japan-centre'] > .academy-background::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    pointer-events: none;
+    content: '';
+    background: linear-gradient(90deg, rgba(17, 12, 8, 0.48), transparent 48%, rgba(17, 12, 8, 0.4));
+}
+
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-living-scene { display: block; z-index: 2; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark { position: absolute; pointer-events: none; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='storefront-lantern'] {
+    top: 16%;
+    left: 10%;
+    width: 15%;
+    height: 35%;
+    border: 3px solid rgba(237, 198, 110, 0.78);
+    border-radius: 50% 50% 44% 44%;
+    background: rgba(189, 63, 50, 0.36);
+    box-shadow: 0 0 24px rgba(237, 198, 110, 0.2);
+    animation: academy-japan-centre-lantern 2.4s ease-in-out infinite alternate;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='storefront-lantern']::after {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    color: var(--japan-centre-ink);
+    content: 'お土産';
+    font: 800 clamp(0.62rem, 1.05vw, 0.9rem)/1 var(--academy-japanese-font);
+    transform: translate(-50%, -50%) rotate(-90deg);
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='gift-shelves'] {
+    right: 6%;
+    bottom: 25%;
+    width: 40%;
+    height: 34%;
+    border-top: 7px solid rgba(237, 198, 110, 0.74);
+    border-bottom: 7px solid rgba(237, 198, 110, 0.74);
+    background: repeating-linear-gradient(to bottom, transparent 0 30%, rgba(237, 198, 110, 0.72) 31% 34%, transparent 35% 64%);
+    opacity: 0.9;
+    animation: academy-japan-centre-shelves-in 520ms 160ms ease-out both;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='omiyage-tag'] {
+    right: 30%;
+    bottom: 17%;
+    width: 114px;
+    padding: 8px 10px;
+    border: 1px solid rgba(237, 198, 110, 0.82);
+    color: #442416;
+    background: rgba(255, 244, 210, 0.92);
+    box-shadow: 3px 4px 0 rgba(20, 12, 7, 0.32);
+    font: 800 0.72rem/1.15 var(--academy-japanese-font);
+    transform: rotate(-3deg);
+    animation: academy-japan-centre-tag-in 440ms 240ms ease-out both;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='omiyage-tag']::after { content: '抹茶\A お土産'; white-space: pre; }
+
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'],
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-dialogue {
+    position: absolute;
+    width: min(390px, 33vw);
+    min-width: 0;
+    max-height: min(58dvh, 470px);
+    padding: 2px 0 11px 13px;
+    overflow: auto;
+    border: 0;
+    border-left: 3px solid var(--japan-centre-red);
+    clip-path: none;
+    color: var(--japan-centre-ink);
+    background: linear-gradient(90deg, rgba(33, 16, 9, 0.9), rgba(33, 16, 9, 0.62) 76%, rgba(33, 16, 9, 0.12)) !important;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    text-shadow: 0 1px 8px rgba(18, 10, 5, 0.92);
+}
+
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'] {
+    right: auto;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-section-title,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-activity-detail,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-curriculum { display: none; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-speaker {
+    width: fit-content;
+    margin: 0;
+    color: var(--japan-centre-gold);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice { display: grid; grid-template-columns: auto 1fr; gap: 7px 9px; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-prompt,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-support,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-transcript,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-status,
+.academy-world-screen[data-current-place='japan-centre'] .academy-japan-centre-source-strip,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-options { grid-column: 1 / -1; margin: 0; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-prompt { color: #fff2c6; font-weight: 800; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-support,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-transcript,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-status { color: rgba(255, 243, 211, 0.83); font-size: 0.78rem; line-height: 1.35; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-japan-centre-source-strip {
+    padding-top: 6px;
+    border-top: 1px dashed rgba(237, 198, 110, 0.52);
+    color: rgba(255, 234, 194, 0.76);
+    font-size: 0.66rem;
+    line-height: 1.3;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-listen,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-option,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-continue {
+    min-height: 38px;
+    border: 1px solid rgba(237, 198, 110, 0.78);
+    border-radius: 2px;
+    color: var(--japan-centre-ink);
+    background: rgba(52, 24, 13, 0.46);
+    box-shadow: none;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-listen,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-continue { padding: 7px 10px; background: var(--japan-centre-red); font-weight: 800; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-options { display: flex; flex-wrap: wrap; gap: 5px; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-option { padding: 6px 8px; text-align: left; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-option:hover:not(:disabled) { background: rgba(189, 63, 50, 0.6); }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-listen:focus-visible,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-option:focus-visible,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-continue:focus-visible { outline: 3px solid #fff0ae; outline-offset: 3px; }
+
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-character[data-presence] .academy-world-character-presence {
+    display: block;
+    margin: 4px 0 0;
+    color: #ffe0a1;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    text-align: center;
+    text-shadow: 0 1px 8px rgba(18, 10, 5, 0.94);
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit {
+    border-color: rgba(237, 198, 110, 0.58);
+    border-radius: 0;
+    color: #fff6df;
+    background: rgba(45, 20, 11, 0.88);
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-name { color: #fff6df; }
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-reason { color: rgba(255, 234, 194, 0.78); }
+
+@keyframes academy-japan-centre-lantern { from { opacity: 0.72; } to { opacity: 1; } }
+@keyframes academy-japan-centre-shelves-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 0.9; transform: translateX(0); } }
+@keyframes academy-japan-centre-tag-in { from { opacity: 0; transform: translateY(12px) rotate(-7deg); } to { opacity: 1; transform: translateY(0) rotate(-3deg); } }
+
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-character[data-position='center'] .academy-world-character-name {
+        visibility: hidden;
+    }
+}
+
+@media (max-width: 760px) {
+    .academy-world-screen[data-current-place='japan-centre'],
+    .academy-world-screen[data-current-place='japan-centre'] > .academy-background,
+    .academy-world-screen[data-current-place='japan-centre'] > .academy-background picture,
+    .academy-world-screen[data-current-place='japan-centre'] > .academy-background img,
+    .academy-world-screen[data-current-place='japan-centre'] > .academy-world-stage {
+        width: 100%;
+        height: 100svh;
+        min-height: 100svh;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='storefront-lantern'] { top: 17%; left: 7%; width: 13vw; height: 26svh; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='gift-shelves'] { right: -4%; bottom: 31%; width: 55vw; height: 23svh; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark[data-landmark='omiyage-tag'] { right: 27%; bottom: 26%; width: 86px; font-size: 0.62rem; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-characters { inset: 132px 4% auto; height: 29svh; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-character { width: min(36vw, 158px); }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'],
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-dialogue {
+        position: absolute;
+        inset: auto 8px calc(76px + env(safe-area-inset-bottom));
+        width: auto;
+        max-height: 42svh;
+        padding: 2px 0 10px 9px;
+        transform: none;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-practice-support { display: none; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-character-presence {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        margin: -1px !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        clip-path: inset(50%) !important;
+        white-space: nowrap !important;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-spatial-exits {
+        position: absolute;
+        inset: auto 0 0;
+        display: flex;
+        flex-wrap: nowrap;
+        width: 100%;
+        height: calc(72px + env(safe-area-inset-bottom));
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        overflow-y: hidden;
+        border-top: 2px solid rgba(237, 198, 110, 0.58);
+        background: rgba(35, 15, 8, 0.96);
+        scrollbar-width: none;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map { min-width: 100%; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map-current { display: none; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map { grid-template-rows: 1fr; }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map-routes {
+        display: grid;
+        width: 100%;
+        height: 72px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map-routes .academy-world-exit {
+        width: auto;
+        min-width: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-map-routes .academy-world-exit-reason { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-world-screen[data-current-place='japan-centre'] > .academy-background img,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark::before,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-scene-mark::after,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-character,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock,
+    .academy-world-screen[data-current-place='japan-centre'] .academy-world-arrival-dialogue {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}

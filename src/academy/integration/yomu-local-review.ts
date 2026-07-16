@@ -20,6 +20,11 @@ export function createYomuLocalReviewService(
             due.forEach(card => cards.set(card.providerCardId, card));
             return due.map(toQueueItem);
         },
+        async syllabusState(items) {
+            if (!items.length) return 'empty';
+            const progress = await repository.academySyllabusProgress(items);
+            return progress.unseeded ? 'new' : 'cleared';
+        },
         async ingest(seeds) {
             if (!seeds.length) return;
             await Promise.all(seeds.map(seed => repository.collectAcademyVocabulary({
@@ -53,14 +58,34 @@ function reviewSeedProvenanceId(seed: ReviewSeed): string {
 }
 
 function toQueueItem(card: YomuSrsReviewable): ReviewQueueItem {
+    const provenance = academyProvenance(card.raw);
     return {
         id: card.providerCardId,
         expression: card.expression,
         ...(card.reading ? { reading: card.reading } : {}),
         ...(card.meanings[0]?.glosses[0] ? { meaning: card.meanings[0].glosses[0] } : {}),
         dueAt: card.dueAt ?? 0,
-        provenance: { provider: card.providerId },
+        provenance: { provider: card.providerId, ...provenance },
     };
+}
+
+function academyProvenance(raw: unknown): Record<string, string> {
+    if (!raw || typeof raw !== 'object') return {};
+    const records = (raw as { academyProvenance?: unknown }).academyProvenance;
+    if (!records || typeof records !== 'object') return {};
+    const first = Object.values(records as Record<string, unknown>)
+        .find(value => value && typeof value === 'object') as Record<string, unknown> | undefined;
+    if (!first) return {};
+    const sourceId = text(first.sourceId);
+    const activityId = text(first.activityId);
+    return {
+        ...(sourceId ? { sourceId } : {}),
+        ...(activityId ? { lesson: activityId } : {}),
+    };
+}
+
+function text(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function grade(rating: ReviewRating): 'again' | 'hard' | 'good' | 'easy' {

@@ -1,0 +1,3520 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l16",
+  "order": 17,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Where is it?",
+    "ja": "どこに ありますか"
+  },
+  "estimatedMinutes": 100,
+  "identity": {
+    "title": "Level 1+ Lesson 6",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1+",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 16,
+    "moduleId": 5881257,
+    "moduleType": "folder",
+    "date": "2024-05-29",
+    "sourceOrdering": {
+      "manifestOrder": 9,
+      "moodleSection": 20
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 5881257,
+    "memberFileCount": 11,
+    "members": [
+      {
+        "title": "39 A-39",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2246768,
+        "payloadSha256": "23a3c97315a7c6460e4e430fdaf6c6b91d6cf97b6fdf5de47deec384d9f4955d"
+      },
+      {
+        "title": "Chapter 10-1 Grammar exceise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1744427,
+        "payloadSha256": "b2143f1f2ce2469fe7e54d8f778d75956ae6c060bc44e2c39421bde470b8ac0b"
+      },
+      {
+        "title": "Homework pre-study Chapter 10 Vocabularies",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 217778,
+        "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495"
+      },
+      {
+        "title": "Chapter 10 Grammar Exercise 〜や〜",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1611115,
+        "payloadSha256": "f1f5b3f71ef61895a20e46025409306fc47ea285fd5d1d3fec34e7e7ed702ee9"
+      },
+      {
+        "title": "Chapter 10-1 listening-1",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 430101,
+        "payloadSha256": "3eb99ed2215fe5106c78128850ba3375ea866273ea142e7525cdd3ce66dcbacb"
+      },
+      {
+        "title": "New Chapter 10-2 Vocabulary Sheet",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 94776,
+        "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751"
+      },
+      {
+        "title": "New Chapter 10-2 positionに あります いますGrammar Exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1551448,
+        "payloadSha256": "b7ab822e95efc2f31a35f11725fb8e48d90348246433804434b3f2b3f200e620"
+      },
+      {
+        "title": "Homework pre-study Chapter 10 Vocabularies-2",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1145107,
+        "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5"
+      },
+      {
+        "title": "HW Chapter 10-1 Grammar-2 reading writing",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1777115,
+        "payloadSha256": "7d6df0bfcf95c32ed49136b96dc39613ec3fe676d6e0322002eb7948a4c62064"
+      },
+      {
+        "title": "HW Katakana reading practice Room",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 581036,
+        "payloadSha256": "f61825a8f54c94c257c448b4f1555bd772c6120952cec1c124270a2b2d4a870d"
+      },
+      {
+        "title": "Katakana writing-1",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1155650,
+        "payloadSha256": "c4430358af02efc78d0e94cd4ceb1d764476626d9eba54fb02a047080422a5c4"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "Chapter 8 conversation video そろそろ しつれいします",
+        "externalUrl": null
+      },
+      {
+        "title": "Lesson 3 video ハントさんは にほんごが わかります",
+        "externalUrl": null
+      },
+      {
+        "title": "Lesson 4 Chapter 9 conversation video ざんねんです",
+        "externalUrl": null
+      },
+      {
+        "title": "かぞえましょう！Japanese Counters",
+        "externalUrl": "https://www.youtube.com/watch?v=UgvUPbPSY2g"
+      },
+      {
+        "title": "いちにさんのうた (Myu Sings \"123 Song\")",
+        "externalUrl": "https://www.youtube.com/embed/UgvUPbPSY2g"
+      },
+      {
+        "title": "Chapter 11 Conversation video これ おねがいします",
+        "externalUrl": null
+      },
+      {
+        "title": "Matching Game: Review Adjectives",
+        "externalUrl": "https://learningapps.org/display?v=pziepqdyc22"
+      },
+      {
+        "title": "Matching Game: Review Adjectives external",
+        "externalUrl": "https://learningapps.org/display?v=pziepqdyc22"
+      },
+      {
+        "title": "Katakana Practice",
+        "externalUrl": "https://yosida.com/en/katakana.html"
+      },
+      {
+        "title": "Katakana Practice external",
+        "externalUrl": "https://yosida.com/en/katakana.html"
+      },
+      {
+        "title": "カタカナを れんしゅう しましょう！",
+        "externalUrl": "https://www.youtube.com/watch?v=leH_loxePr8"
+      },
+      {
+        "title": "Learn Japanese Katakana Alphabet - AIUEO Song - Funnihongo",
+        "externalUrl": "https://www.youtube.com/embed/leH_loxePr8"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+      "payloadSha256": "23a3c97315a7c6460e4e430fdaf6c6b91d6cf97b6fdf5de47deec384d9f4955d",
+      "worksheetTitle": "39 A-39",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:23a3c97315a7c6460e4e430fdaf6c6b91d6cf97b6fdf5de47deec384d9f4955d",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000523",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "audio materials/39 A-39.mp3",
+        "centralDirectoryIndex": 1,
+        "payloadSha256": "23a3c97315a7c6460e4e430fdaf6c6b91d6cf97b6fdf5de47deec384d9f4955d",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 80.746667,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "ex-listening-gist"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "b2143f1f2ce2469fe7e54d8f778d75956ae6c060bc44e2c39421bde470b8ac0b",
+      "worksheetTitle": "Chapter 10-1 Grammar exceise",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:b2143f1f2ce2469fe7e54d8f778d75956ae6c060bc44e2c39421bde470b8ac0b",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000524",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts from last week/Chapter 10-1 Grammar exceise.pdf",
+        "centralDirectoryIndex": 2,
+        "payloadSha256": "b2143f1f2ce2469fe7e54d8f778d75956ae6c060bc44e2c39421bde470b8ac0b",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 5,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "writing",
+          "ex-grammar-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+      "worksheetTitle": "Homework pre-study Chapter 10 Vocabularies",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000525",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts from last week/Homework_pre-study_Chapter 10_Vocabularies.pdf",
+        "centralDirectoryIndex": 3,
+        "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "reading",
+          "writing",
+          "review"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "f1f5b3f71ef61895a20e46025409306fc47ea285fd5d1d3fec34e7e7ed702ee9",
+      "worksheetTitle": "Chapter 10 Grammar Exercise 〜や〜",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:f1f5b3f71ef61895a20e46025409306fc47ea285fd5d1d3fec34e7e7ed702ee9",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000526",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts/Chapter 10_Grammar Exercise_〜や〜.pdf",
+        "centralDirectoryIndex": 4,
+        "payloadSha256": "f1f5b3f71ef61895a20e46025409306fc47ea285fd5d1d3fec34e7e7ed702ee9",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "writing",
+          "ex-grammar-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "3eb99ed2215fe5106c78128850ba3375ea866273ea142e7525cdd3ce66dcbacb",
+      "worksheetTitle": "Chapter 10-1 listening-1",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:3eb99ed2215fe5106c78128850ba3375ea866273ea142e7525cdd3ce66dcbacb",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000527",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts/Chapter 10-1_listening-1.pdf",
+        "centralDirectoryIndex": 5,
+        "payloadSha256": "3eb99ed2215fe5106c78128850ba3375ea866273ea142e7525cdd3ce66dcbacb",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "ex-listening-gist"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+      "worksheetTitle": "New Chapter 10-2 Vocabulary Sheet",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000528",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts/New Chapter 10-2 Vocabulary Sheet.pdf",
+        "centralDirectoryIndex": 6,
+        "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "ex-vocabulary-match"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "b7ab822e95efc2f31a35f11725fb8e48d90348246433804434b3f2b3f200e620",
+      "worksheetTitle": "New Chapter 10-2 positionに あります いますGrammar Exercise",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:b7ab822e95efc2f31a35f11725fb8e48d90348246433804434b3f2b3f200e620",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000529",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Handouts/New Chapter 10-2_positionに あります_いますGrammar Exercise.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "b7ab822e95efc2f31a35f11725fb8e48d90348246433804434b3f2b3f200e620",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "writing",
+          "ex-grammar-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+      "worksheetTitle": "Homework pre-study Chapter 10 Vocabularies-2",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000530",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Homework/Homework_pre-study_Chapter 10_Vocabularies-2.pdf",
+        "centralDirectoryIndex": 8,
+        "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "reading",
+          "writing",
+          "review"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "7d6df0bfcf95c32ed49136b96dc39613ec3fe676d6e0322002eb7948a4c62064",
+      "worksheetTitle": "HW Chapter 10-1 Grammar-2 reading writing",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:7d6df0bfcf95c32ed49136b96dc39613ec3fe676d6e0322002eb7948a4c62064",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000531",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Homework/HW Chapter 10-1_Grammar-2_reading_writing.pdf",
+        "centralDirectoryIndex": 9,
+        "payloadSha256": "7d6df0bfcf95c32ed49136b96dc39613ec3fe676d6e0322002eb7948a4c62064",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "reading",
+          "writing",
+          "review"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "f61825a8f54c94c257c448b4f1555bd772c6120952cec1c124270a2b2d4a870d",
+      "worksheetTitle": "HW Katakana reading practice Room",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:f61825a8f54c94c257c448b4f1555bd772c6120952cec1c124270a2b2d4a870d",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000532",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Homework/HW Katakana reading practice_Room.pdf",
+        "centralDirectoryIndex": 10,
+        "payloadSha256": "f61825a8f54c94c257c448b4f1555bd772c6120952cec1c124270a2b2d4a870d",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "kanji",
+          "vocabulary",
+          "ex-katakana-recognise"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "c4430358af02efc78d0e94cd4ceb1d764476626d9eba54fb02a047080422a5c4",
+      "worksheetTitle": "Katakana writing-1",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:c4430358af02efc78d0e94cd4ceb1d764476626d9eba54fb02a047080422a5c4",
+        "moduleId": 5881257,
+        "archiveOccurrenceId": "archive-000057",
+        "memberOccurrenceId": "member-000533",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/10-folder-5881257-lesson-6-29-05-24-online.zip",
+        "archiveSha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba",
+        "member": "Homework/Katakana writing-1.pdf",
+        "centralDirectoryIndex": 11,
+        "payloadSha256": "c4430358af02efc78d0e94cd4ceb1d764476626d9eba54fb02a047080422a5c4",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "kanji",
+          "vocabulary",
+          "ex-katakana-recognise"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      }
+    ]
+  },
+  "mapping": {
+    "ucl": "Level 1+ · original academy sequence",
+    "genki": "≈ Genki I · Lesson 4 review (location and existence)",
+    "minna": "Minna no Nihongo I · Lesson 10",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "original-yomu",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology",
+        "reference": "course archive · module 5881257",
+        "reuse": "metadata-only",
+        "note": "Week identity and inventory come from harvest metadata only; source wording and answers are not reused."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo I · Lesson 10",
+        "reuse": "sequence-only",
+        "note": "The beginner scope is a published sequence reference; every scene, example, exercise and audio script here is original."
+      }
+    ],
+    "castingNote": "Location language belongs to Jodi, who makes a calm map, and Shin, who enjoys reading signs. Henry gives the honest beginner question: which verb does this thing need?",
+    "gaps": []
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l1plus-l06",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "unsupportedExerciseIds": [
+        "ex-l1plus-l06-vocab-match",
+        "ex-l1plus-l06-grammar-cloze",
+        "ex-l1plus-l06-grammar-build",
+        "ex-l1plus-l06-review-particle",
+        "ex-l1plus-l06-listen-detail",
+        "ex-l1plus-l06-listen-gist"
+      ],
+      "unsupportedKinds": [
+        "match",
+        "cloze"
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "asset-l1plus-l06-listening",
+          "locator": "academy://audio/level-1-plus/l1plus-l06",
+          "reason": "No runtime asset or independently verified duration is present."
+        }
+      ]
+    }
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "supported-for-this-week-once-the-package-hash-is-registered",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l16:lesson-4-workbook-1",
+      "relation": "post-instruction-guided-fill",
+      "source": {
+        "sourceId": "japanese-genki-interactive:a4af27440a6e72bde55d011df350acd921199a0b558eb168ec46b380a3949e09:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-4/workbook-1/index.html",
+        "payloadSha256": "a4af27440a6e72bde55d011df350acd921199a0b558eb168ec46b380a3949e09",
+        "scriptSha256": "aad41fec9195385ef13a7e8280c6b2292c48d8857dfbcabd9c93c82fe968733a",
+        "lineLocus": {
+          "start": 76,
+          "end": 141
+        },
+        "title": "Workbook: Ｘがあります／います - Lesson 4 | Genki Study Resources - 2nd Edition",
+        "description": "Complete the following problems using あります／います.",
+        "keywords": "Genki I Workbook, page 36, problem I, problem II, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-4/workbook-1/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Complete the following problems using {!GRI|あります／います|l4-p1}.",
+          "quizlet": "<div class=\"count-problems\"><p class=\"section-desc\">Translate the following sentences into Japanese.</p><div class=\"problem\">There is a bus stop over there.<br>{あそこにバス停があります|あそこにバスていがあります|answer}。</div><div class=\"problem\">There will be no class on Thursday.<br>{木曜日にクラスがありません|もくようびにクラスがありません|answer}。</div><div class=\"problem\">I do not have a dictionary. (lit., There is not a dictionary.)<br>{%(私は/)辞書がありません|%(わたしは/)じしょがありません|%(私は辞書がありません/私はじしょがありません/わたしは辞書がありません/わたしはじしょがありません)|answer}。</div><div class=\"problem\">There is Professor Yamashita over there.<br>{あそこに山下先生がいます|あそこにやましたせんせいがいます|%(あそこに山下先生がいます/あそこに山下せんせいがいます/あそこにやました先生がいます/あそこにやましたせんせいがいます)|answer}。</div><div class=\"problem\">I have a child. (lit., There is a child.)<br>{%(私は/)子供がいます|%(わたしは/)こどもがいます|%(私は子供がいます/私は子どもがいます/私はこ供がいます/私はこどもがいます/わたしは子供がいます/わたしは子どもがいます/わたしはこ供がいます/わたしはこどもがいます)|%(子供がいます/子どもがいます/こ供がいます/こどもがいます)|answer}。</div><p class=\"section-desc\">Answer the following questions in Japanese using the given cues.</p><div class=\"problem\">あした、アルバイトがありますか。<br>(No, there is not.)<br>{いいえ、%(明日、アルバイトが/)ありません|いいえ、%(あした、アルバイトが/)ありません|answer}。</div><div class=\"problem\">いつ日本語のクラスがありますか。<br>(There is Japanese class on Monday, Wednesday, and Friday.)<br>{月曜日と水曜日と金曜日に%(日本語のクラスが/)あります|げつようびとすいようびときんようびに%(にほんごのクラスが/)あります|%(月曜日と水曜日と金曜日に日本語のクラスがあります/月曜日と水曜日と金曜日ににほんごのクラスがあります/月曜日と水曜日ときんようびに日本語のクラスがあります/月曜日と水曜日ときんようびににほんごのクラスがあります/月曜日とすいようびと金曜日に日本語のクラスがあります/月曜日とすいようびと金曜日ににほんごのクラスがあります/月曜日とすいようびときんようびに日本語のクラスがあります/月曜日とすいようびときんようびににほんごのクラスがあります/げつようびと水曜日と金曜日に日本語のクラスがあります/げつようびと水曜日と金曜日ににほんごのクラスがあります/げつようびと水曜日ときんようびに日本語のクラスがあります/げつようびと水曜日ときんようびににほんごのクラスがあります/げつようびとすいようびと金曜日に日本語のクラスがあります/げつようびとすいようびと金曜日ににほんごのクラスがあります/げつようびとすいようびときんようびに日本語のクラスがあります/げつようびとすいようびときんようびににほんごのクラスがあります)|%(月曜日と水曜日と金曜日にあります/月曜日と水曜日ときんようびにあります/月曜日とすいようびと金曜日にあります/月曜日とすいようびときんようびにあります/げつようびと水曜日と金曜日にあります/げつようびと水曜日ときんようびにあります/げつようびとすいようびと金曜日にあります/げつようびとすいようびときんようびにあります)|answer}。</div><div class=\"problem\">日本に友だちがいますか。<br>(Yes, I have a lot of friends.)<br>{はい、%(友だちが/)たくさんいます|はい、%(ともだちが/)たくさんいます|%(はい、友達がたくさんいます/はい、友だちがたくさんいます/はい、とも達がたくさんいます/はい、ともだちがたくさんいます)|answer}。</div><div class=\"problem\">兄弟<i class=\"define\">[きょうだい：siblings; brothers and sisters]</i>がいますか。<br>(Yes, I have an older sister and little brother.)<br>{はい、お姉さんと弟がいます|はい、おねえさんとおとうとがいます|%(はい、お姉さんと弟がいます/はい、お姉さんとおとうとがいます/はい、おねえさんと弟がいます/はい、おねえさんとおとうとがいます)|answer}。</div><div class=\"sub-section\"><small>おねえさん：older sister<br>いもうと　：younger sister<br>おにいさん：older brother<br>おとうと　：younger brother</small></div></div>"
+        },
+        "sourceSlice": null,
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/classroom",
+        "cast": [
+          "aakash",
+          "jenny"
+        ],
+        "grouping": "pairs",
+        "beat": "Aakash and Jenny place person and object cards around the room while the learner completes the source あります・います task.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "existence-location"
+        ],
+        "evidence": "Read the table note and identify what is where before describing a real place."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 30,
+        "conceptIds": [
+          "existence-location"
+        ],
+        "form": "Place に N が あります／います",
+        "meaning": "Say what is in a place.",
+        "contrast": "あります is for non-living things; います is for people and animals.",
+        "workedExample": "びじゅつかんの となりに カフェが あります。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 50,
+        "conceptIds": [
+          "existence-location"
+        ],
+        "activity": "Read the message and select its place, noun, and correct existence verb."
+      },
+      {
+        "id": "speak",
+        "phase": "assessed-production",
+        "componentOrder": 60,
+        "assessmentIds": [
+          "component:60:speaking"
+        ],
+        "conceptIds": [
+          "existence-location"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Choose a place.",
+            "Choose one thing or animal.",
+            "Use Place に N が あります／います."
+          ],
+          "feedback": {
+            "error": "If the place loses に or the existence verb does not match the noun, the location sentence is wrong.",
+            "retry": "Point to the place, classify the noun, and say the frame again."
+          }
+        }
+      },
+      {
+        "id": "write",
+        "phase": "assessed-production",
+        "componentOrder": 70,
+        "assessmentIds": [
+          "component:70:writing"
+        ],
+        "conceptIds": [
+          "existence-location"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Draw a tiny two-item map.",
+            "Label the two places.",
+            "Write one existence sentence for each."
+          ],
+          "feedback": {
+            "error": "If the noun comes before the place without the taught frame, the message is hard to parse.",
+            "retry": "Reorder the sentence as place, に, noun, が, verb."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Use the main sentence frame in a short, natural answer.",
+    "Understand the same idea in a short listening exchange.",
+    "Read a small message without translating word by word.",
+    "Say and write a useful personal example.",
+    "Recognise and hand-write 上 and 下 in a familiar word."
+  ],
+  "scene": {
+    "where": "A shared table with a small paper map and ordinary objects",
+    "sceneImage": "academy/art/scenes/l1plus-table-wide.webp",
+    "hook": "A simple question at the table gives everyone a reason to use the new words.",
+    "cast": [
+      "rie",
+      "jodi",
+      "shin",
+      "henry"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "jodi",
+        "expression": "warm",
+        "pose": "map",
+        "japanese": "つくえの 上に ほんが あります。",
+        "reading": "つくえの 上に ほんが あります。",
+        "english": "There is a book on the desk.",
+        "note": "The dialogue puts the grammar in a small, ordinary situation."
+      },
+      {
+        "speakerId": "henry",
+        "expression": "thinking",
+        "pose": "inspect",
+        "japanese": "いぬも つくえの 上に ありますか。",
+        "reading": "いぬも つくえの 上に ありますか。",
+        "english": "Is there a dog on the desk too?",
+        "note": "The dialogue puts the grammar in a small, ordinary situation."
+      },
+      {
+        "speakerId": "shin",
+        "expression": "warm",
+        "pose": "point",
+        "japanese": "いぬは 生きていますから、「います」です。",
+        "reading": "いぬは 生きていますから、「います」です。",
+        "english": "A dog is alive, so we use imasu.",
+        "note": "The dialogue puts the grammar in a small, ordinary situation."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "explain",
+        "japanese": "そうです。ものは あります。人や どうぶつは います。",
+        "reading": "そうです。ものは あります。人や どうぶつは います。",
+        "english": "Exactly. Things use arimasu; people and animals use imasu.",
+        "note": "The dialogue puts the grammar in a small, ordinary situation."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Lesson 5 gave you the て-form in small helpful actions. Now you can use a simple map to say where a thing, a person or an animal is.",
+    "intro": "Japanese asks two small questions here: what exists, and where? Use あります for things and います for people and animals. Put the location before に, then place the thing after it.",
+    "grammarPoints": [
+      {
+        "pattern": "Place に Thing が あります",
+        "nameJa": "あります",
+        "meaning": "there is / are (things)",
+        "explanation": "Use あります for objects, places and ideas that do not move by themselves. The place comes first: つくえの 上に ほんが あります. This is a calm way to make a room appear in Japanese.",
+        "watchFor": "The location takes に. The thing that exists takes が.",
+        "commonError": "Using います for a book. A book is not alive, so it takes あります.",
+        "examples": [
+          {
+            "ja": "つくえの 上に ほんが あります。",
+            "reading": "つくえの 上に ほんが あります。",
+            "en": "There is a book on the desk.",
+            "note": "A short example that keeps the meaning visible."
+          },
+          {
+            "ja": "へやに テレビが あります。",
+            "reading": "へやに テレビが あります。",
+            "en": "There is a television in the room.",
+            "note": "A short example that keeps the meaning visible."
+          }
+        ]
+      },
+      {
+        "pattern": "Place に Person / animal が います",
+        "nameJa": "います",
+        "meaning": "there is / are (people and animals)",
+        "explanation": "Use います for people and animals. The frame stays the same; only the existence verb changes. こうえんに ねこが います means “There is a cat in the park.”",
+        "watchFor": "Ask yourself whether it is alive, not whether it is important.",
+        "commonError": "Saying ねこが あります. Cats use います, because they are animals.",
+        "examples": [
+          {
+            "ja": "こうえんに ねこが います。",
+            "reading": "こうえんに ねこが います。",
+            "en": "There is a cat in the park.",
+            "note": "A short example that keeps the meaning visible."
+          },
+          {
+            "ja": "へやに ジョディさんが います。",
+            "reading": "へやに ジョディさんが います。",
+            "en": "Jodi is in the room.",
+            "note": "A short example that keeps the meaning visible."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "A note with a real purpose",
+        "ja": "つかえる メモ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short input in this lesson’s grammar scope."
+      },
+      "reading": {
+        "title": {
+          "en": "Read the note",
+          "ja": "メモを よむ"
+        },
+        "gloss": "Read for the main fact first. Then return for the small grammar pieces.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "へやに つくえと いすが あります。",
+            "reading": "へやに つくえと いすが あります。",
+            "en": "There is a desk and a chair in the room.",
+            "note": "Original academy text."
+          },
+          {
+            "ja": "つくえの 上に ほんが あります。",
+            "reading": "つくえの 上に ほんが あります。",
+            "en": "There is a book on the desk.",
+            "note": "Original academy text."
+          },
+          {
+            "ja": "いすの 下に ねこが います。",
+            "reading": "いすの 下に ねこが います。",
+            "en": "There is a cat under the chair.",
+            "note": "Original academy text."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-input",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What is the main fact in the first line?",
+            "ja": "一行目で、何が わかりますか。"
+          },
+          "explanation": "The first line says: There is a desk and a chair in the room.",
+          "reviewTag": "ex-l1plus-l06-input",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "一行目の 内容",
+                "en": "There is a desk and a chair in the room."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "二行目の 内容",
+                "en": "There is a book on the desk."
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "三行目の 内容",
+                "en": "There is a cat under the chair."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "That meaning belongs to the second line. Read the opening noun in line one again."
+            },
+            {
+              "trigger": "c",
+              "message": "That meaning belongs to the third line. Keep the line number tied to the sentence you read."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "phase": "prestudy",
+      "title": {
+        "en": "Homework pre-study Chapter 10 Vocabularies",
+        "ja": "ことばの いみを しらべましょう。"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+        "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+        "title": "Homework pre-study Chapter 10 Vocabularies",
+        "reuse": "verbatim-source-instructions-and-ordered-rows-with-labeled-yomu-support",
+        "pageCount": 2,
+        "orderedRows": [
+          1,
+          23
+        ],
+        "exactFieldPolicy": "The source supplies the ordered words and leaves pronunciation and meaning blank; Yomu support is labeled separately on every row.",
+        "answerVisibility": "after-attempt"
+      },
+      "items": [
+        {
+          "ja": "かぐ",
+          "reading": "かぐ",
+          "en": "furniture",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-1",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "かぐ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょっき",
+          "reading": "しょっき",
+          "en": "tableware",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-2",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "しょっき",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うりば",
+          "reading": "うりば",
+          "en": "sales area / department",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-3",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "うりば",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ちか",
+          "reading": "ちか",
+          "en": "basement",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-4",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "ちか",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おくじょう",
+          "reading": "おくじょう",
+          "en": "rooftop",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-5",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "おくじょう",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "れいぞうこ",
+          "reading": "れいぞうこ",
+          "en": "refrigerator",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-6",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "れいぞうこ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "テーブル",
+          "reading": "テーブル",
+          "en": "table",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-7",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "テーブル",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ベッド",
+          "reading": "ベッド",
+          "en": "bed",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-8",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "ベッド",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ソファー",
+          "reading": "ソファー",
+          "en": "sofa",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-9",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "ソファー",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "たな",
+          "reading": "たな",
+          "en": "shelf",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-10",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "たな",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ドア",
+          "reading": "ドア",
+          "en": "door",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-11",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "ドア",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "まど",
+          "reading": "まど",
+          "en": "window",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-12",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "まど",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うえ",
+          "reading": "うえ",
+          "en": "above / on",
+          "example": {
+            "ja": "つくえの うえに ほんが あります。",
+            "reading": "つくえの うえに ほんが あります。",
+            "en": "There is a book on the desk."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-13",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 13
+            },
+            "exact": {
+              "words": "うえ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "した",
+          "reading": "した",
+          "en": "below / under",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-14",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 14
+            },
+            "exact": {
+              "words": "した",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "まえ",
+          "reading": "まえ",
+          "en": "front",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-15",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 15
+            },
+            "exact": {
+              "words": "まえ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うしろ",
+          "reading": "うしろ",
+          "en": "behind",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-16",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 16
+            },
+            "exact": {
+              "words": "うしろ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "みぎ",
+          "reading": "みぎ",
+          "en": "right",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-17",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "みぎ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ひだり",
+          "reading": "ひだり",
+          "en": "left",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-18",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "ひだり",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "なか",
+          "reading": "なか",
+          "en": "inside",
+          "example": {
+            "ja": "れいぞうこの なかに りんごが あります。",
+            "reading": "れいぞうこの なかに りんごが あります。",
+            "en": "There is an apple in the refrigerator."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-19",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "なか",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "そと",
+          "reading": "そと",
+          "en": "outside",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-20",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "そと",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "となり",
+          "reading": "となり",
+          "en": "next to",
+          "example": {
+            "ja": "コンビニの となりに ほんやが あります。",
+            "reading": "コンビニの となりに ほんやが あります。",
+            "en": "There is a bookshop next to the convenience store."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-21",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 21
+            },
+            "exact": {
+              "words": "となり",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ちかく",
+          "reading": "ちかく",
+          "en": "near",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-22",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 22
+            },
+            "exact": {
+              "words": "ちかく",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あいだ",
+          "reading": "あいだ",
+          "en": "between",
+          "example": {
+            "ja": "ぎんこうと ゆうびんきょくの あいだです。",
+            "reading": "ぎんこうと ゆうびんきょくの あいだです。",
+            "en": "It is between the bank and the post office."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-10-position"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-23",
+            "payloadSha256": "63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+            "title": "Homework pre-study Chapter 10 Vocabularies",
+            "locus": {
+              "page": 2,
+              "row": 23
+            },
+            "exact": {
+              "words": "あいだ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-vocab-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match the word to its meaning.",
+            "ja": "ことばと 意味を あわせましょう。"
+          },
+          "explanation": "Start with the word you recognise, then use the example sentence to support the others.",
+          "reviewTag": "ex-l1plus-l06-vocab-match",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "つくえ"
+              },
+              "right": {
+                "en": "desk"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "いす"
+              },
+              "right": {
+                "en": "chair"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "ほん"
+              },
+              "right": {
+                "en": "book"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "かばん"
+              },
+              "right": {
+                "en": "bag"
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "mismatch",
+              "message": "Read the word sound by sound, then match its meaning rather than its first letter."
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-vocab-choice",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which word means “desk”?",
+            "ja": "「desk」は どれですか。"
+          },
+          "explanation": "つくえ means “desk”.",
+          "reviewTag": "ex-l1plus-l06-vocab-choice",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "つくえ",
+                "en": "desk"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "いす",
+                "en": "chair"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "いす means “chair”, so it does not match this meaning."
+            }
+          ]
+        }
+      ],
+      "sourceInstructions": {
+        "ja": "ことばの いみ を しらべましょう。",
+        "en": "Please read the words and check the meaning of these words before lessons.\nYou might have studied some of these vocabularies before, but please review all meanings :-)"
+      }
+    },
+    {
+      "id": "source-chapter-10-2-vocabulary",
+      "type": "source-vocabulary-reference",
+      "order": 21,
+      "phase": "prestudy",
+      "title": {
+        "en": "New Chapter 10-2 Vocabulary Sheet",
+        "ja": "Chapter 10-2 Vocabulary"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+        "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+        "title": "New Chapter 10-2 Vocabulary Sheet",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "sourceBlankRows": [
+          13,
+          14,
+          15,
+          16
+        ],
+        "answerVisibility": "after-attempt"
+      },
+      "items": [
+        {
+          "ja": "(お)てら",
+          "reading": "(お)てら",
+          "en": "temple",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-1",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "(お)てら",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "(お)てら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "Noun 1 と Noun 2",
+          "reading": "Noun 1 と Noun 2",
+          "en": "〜 and 〜",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-2",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "Noun 1 と Noun 2",
+              "pronunciation": null,
+              "meaning": "〜 and 〜"
+            },
+            "normalizedStudySurface": "Noun 1 と Noun 2",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "Noun 1 や Noun 2 (など)",
+          "reading": "Noun 1 や Noun 2 (など)",
+          "en": "〜 and 〜, and so on",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-3",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "Noun 1 や Noun 2 (など)",
+              "pronunciation": null,
+              "meaning": "〜 and 〜, and so on"
+            },
+            "normalizedStudySurface": "Noun 1 や Noun 2 (など)",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "スイッチ",
+          "reading": "スイッチ",
+          "en": "switch",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-4",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "スイッチ",
+              "pronunciation": "suicchi",
+              "meaning": null
+            },
+            "normalizedStudySurface": "スイッチ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "じどうはんばいき",
+          "reading": "じどうはんばいき",
+          "en": "vending machine",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-5",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "*review\nじどうはんばいき",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "じどうはんばいき",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いろいろな",
+          "reading": "いろいろな",
+          "en": "various",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-6",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "いろいろな",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いろいろな",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "もの",
+          "reading": "もの",
+          "en": "thing / object / material",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-7",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "もの",
+              "pronunciation": null,
+              "meaning": "a thing/things, object/objects, substance, matter, goods, material, stuff and etc"
+            },
+            "normalizedStudySurface": "もの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "へや",
+          "reading": "へや",
+          "en": "room",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-8",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "*review へや",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "へや",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "にわ",
+          "reading": "にわ",
+          "en": "garden",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-9",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "*review にわ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "にわ",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "(どうも) すみません",
+          "reading": "(どうも) すみません",
+          "en": "Thank you / excuse me",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-10",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "(どうも) すみません",
+              "pronunciation": null,
+              "meaning": "Thank you\nlit, I am sorry, but sometimes it means something like: I am sorry to bother you and thank you very much for your help. So, it depends on context or situation."
+            },
+            "normalizedStudySurface": "(どうも) すみません",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "コーナー",
+          "reading": "コーナー",
+          "en": "corner / section",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-11",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "コーナー",
+              "pronunciation": "kōnā",
+              "meaning": "corner, section"
+            },
+            "normalizedStudySurface": "コーナー",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いちばん した",
+          "reading": "いちばん した",
+          "en": "the bottom",
+          "tags": [
+            "source-reference",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751:p1:row-12",
+            "payloadSha256": "51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+            "title": "New Chapter 10-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "いちばん した",
+              "pronunciation": null,
+              "meaning": "the bottom"
+            },
+            "normalizedStudySurface": "いちばん した",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-prestudy-chapter-10-vocabulary-2",
+      "type": "source-vocabulary-reference",
+      "order": 22,
+      "phase": "prestudy",
+      "title": {
+        "en": "Homework pre-study Chapter 10 Vocabularies-2",
+        "ja": "Chapter 10 Vocabularies-2：ことばの いみを しらべましょう。"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+        "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+        "title": "Homework pre-study Chapter 10 Vocabularies-2",
+        "reuse": "verbatim-source-instructions-and-ordered-rows",
+        "answerVisibility": "after-attempt"
+      },
+      "sourceInstructions": {
+        "ja": "ことばの いみ を しらべましょう。",
+        "en": "Please read the words and check the meaning of them before lessons. You might have studied some of these vocabularies before, but please review all meanings :-)"
+      },
+      "items": [
+        {
+          "ja": "いろいろな（色々な）",
+          "reading": "いろいろな",
+          "en": "various",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-1",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "いろいろな（色々な）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いろいろな（色々な）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "のりば（乗り場）",
+          "reading": "のりば",
+          "en": "boarding place",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-2",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "のりば（乗り場）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "のりば（乗り場）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "タクシーのりば（タクシー乗り場）",
+          "reading": "タクシーのりば",
+          "en": "taxi stand",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-3",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "タクシーのりば（タクシー乗り場）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "タクシーのりば（タクシー乗り場）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "バスのりば（バス乗り場）",
+          "reading": "バスのりば",
+          "en": "bus stop / boarding place",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-4",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "バスのりば（バス乗り場）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "バスのりば（バス乗り場）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "こうばん（交番）",
+          "reading": "こうばん",
+          "en": "police box",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-5",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "こうばん（交番）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "こうばん（交番）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "さかや（酒屋）",
+          "reading": "さかや",
+          "en": "liquor shop",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-6",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "さかや（酒屋）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "さかや（酒屋）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "くすりや（薬屋）",
+          "reading": "くすりや",
+          "en": "pharmacy",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-7",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "くすりや（薬屋）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "くすりや（薬屋）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "はなや（花屋）",
+          "reading": "はなや",
+          "en": "flower shop",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-8",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "はなや（花屋）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "はなや（花屋）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おみやげや（お土産屋）",
+          "reading": "おみやげや",
+          "en": "souvenir shop",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-9",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "おみやげや（お土産屋）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "おみやげや（お土産屋）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "はこ（箱）",
+          "reading": "はこ",
+          "en": "box",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-10",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "はこ（箱）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "はこ（箱）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ふでばこ（筆箱）",
+          "reading": "ふでばこ",
+          "en": "pencil case",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-11",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "ふでばこ（筆箱）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ふでばこ（筆箱）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ひきだし（引き出し）",
+          "reading": "ひきだし",
+          "en": "drawer",
+          "tags": [
+            "source-prestudy",
+            "chapter-10-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5:p1:row-12",
+            "payloadSha256": "4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5",
+            "title": "Homework pre-study Chapter 10 Vocabularies-2",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "ひきだし（引き出し）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ひきだし（引き出し）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Put the pieces together",
+        "ja": "ぶんを つくる"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original controlled practice for this chapter’s sentence frame."
+      },
+      "practiceFor": [
+        "Place に Thing が あります",
+        "Place に Person / animal が います"
+      ],
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-grammar-cloze",
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Fill the blank with the right form.",
+            "ja": "ぴったりの ことばを いれましょう。"
+          },
+          "japanese": "へやに ねこが ＿＿＿。",
+          "explanation": "A cat is alive, so use います.",
+          "reviewTag": "ex-l1plus-l06-grammar-cloze",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "います",
+                "alternatives": [
+                  "あります"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "あります",
+              "message": "That form changes the meaning. A cat is alive, so use います."
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-grammar-meaning",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Which sentence follows the pattern?",
+            "ja": "どの 文が この 形ですか。"
+          },
+          "explanation": "Look for the particles in the order taught in the explanation.",
+          "reviewTag": "ex-l1plus-l06-grammar-meaning",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "へやに つくえと いすが あります。",
+                "en": "There is a desk and a chair in the room."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "わたしは ねこです。",
+                "en": "I am a cat."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "This sentence has a different topic pattern. Find the location, quantity or comparison marker from this lesson."
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-grammar-build",
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Complete the short answer.",
+            "ja": "短い 答えを つくりましょう。"
+          },
+          "japanese": "つくえの 上に ほんが あります。 → ＿＿＿",
+          "explanation": "Use the key expression from the sentence exactly as it appears: つくえの 上に ほんが あります。",
+          "reviewTag": "ex-l1plus-l06-grammar-build",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "つくえの 上に ほんが あります。",
+                "alternatives": [
+                  "つくえの上にほんがあります。"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "へやに つくえと いすが あります。",
+              "message": "That is a useful sentence, but this blank asks for the second line’s answer."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Hear the detail",
+        "ja": "くわしく きく"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original dialogue and questions cover the same listening function; no source audio is reused."
+      },
+      "audio": {
+        "assetId": "asset-l1plus-l06-listening",
+        "locator": "academy://audio/level-1-plus/l1plus-l06",
+        "durationSeconds": 38,
+        "voiceNotes": "Two calm speakers. Leave a small pause after the answer that matters.",
+        "script": "つくえの 下に かばんが あります。いすの 上に ねこが います。まどの 前に テレビが あります。"
+      },
+      "transcript": {
+        "revealAfterFirstAttempt": true,
+        "body": "Listen once for the question, then once for the answer and its number, place or choice."
+      },
+      "audioWorksheetPairing": {
+        "pairedWith": "23a3c97315a7c6460e4e430fdaf6c6b91d6cf97b6fdf5de47deec384d9f4955d",
+        "note": "Original listening script paired to a source inventory item with a listening or audio function."
+      },
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-listen-detail",
+          "kind": "quarantined-listening-choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Where is the bag?",
+            "ja": "かばんは どこに ありますか。"
+          },
+          "explanation": "The answer in the dialogue is つくえの 下.",
+          "reviewTag": "ex-l1plus-l06-listen-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "つくえの 下",
+                "en": "つくえの 下"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "いすの 上",
+                "en": "いすの 上"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "いすの 上 is mentioned as a contrast or a different detail. Listen for the answer after the question."
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-listen-gist",
+          "kind": "quarantined-listening-choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What are the speakers doing?",
+            "ja": "二人は 何を 話していますか。"
+          },
+          "explanation": "They are using the new frame to share a small, useful fact.",
+          "reviewTag": "ex-l1plus-l06-listen-gist",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "新しい 形で 事実を 言う",
+                "en": "Sharing a small fact with the new sentence frame"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "天気の 話",
+                "en": "Talking about the weather"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "No weather word appears. Listen for the key nouns and grammar from this lesson."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Read the small message",
+        "ja": "短い メッセージを よむ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original reading comprehension in the lesson scope."
+      },
+      "passage": {
+        "title": {
+          "en": "A useful message",
+          "ja": "つかえる メッセージ"
+        },
+        "gloss": "Read once for the whole picture, then find the line that proves your answer.",
+        "lines": [
+          {
+            "ja": "かばんは いすの 下に あります。",
+            "reading": "かばんは いすの 下に あります。",
+            "en": "The bag is under the chair."
+          },
+          {
+            "ja": "ねこは まどの 前に います。",
+            "reading": "ねこは まどの 前に います。",
+            "en": "The cat is in front of the window."
+          },
+          {
+            "ja": "ほんは つくえの 上に あります。",
+            "reading": "ほんは つくえの 上に あります。",
+            "en": "The book is on the desk."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-reading-fact",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which statement is true?",
+            "ja": "どれが ただしいですか。"
+          },
+          "explanation": "The first line tells us: The bag is under the chair.",
+          "reviewTag": "ex-l1plus-l06-reading-fact",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "一行目",
+                "en": "The bag is under the chair."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "二行目",
+                "en": "The cat is in front of the window."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "That is true of the second line, not the first. Match the answer to the line named in the question."
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-reading-detail",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What does the last line add?",
+            "ja": "さいごの 行は 何を 足しますか。"
+          },
+          "explanation": "It adds: The book is on the desk.",
+          "reviewTag": "ex-l1plus-l06-reading-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "さいごの 行",
+                "en": "The book is on the desk."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "一行目",
+                "en": "The bag is under the chair."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "That repeats the opening fact. Read the final noun and number or comparison carefully."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Say it your way",
+        "ja": "自分の ことばで 言う"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spoken production task."
+      },
+      "prompt": "Say three sentences connected to the lesson’s idea. Use the main pattern twice, then ask one simple follow-up question.",
+      "targets": [
+        "Place に Thing が あります",
+        "Place に Person / animal が います"
+      ],
+      "recording": {
+        "minSeconds": 20,
+        "maxSeconds": 60
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "つくえの 上に ほんが あります。いすの 下に かばんが あります。まどの 前に ねこが います。",
+        "reading": "つくえの 上に ほんが あります。いすの 下に かばんが あります。まどの 前に ねこが います。",
+        "en": "A short model that uses the new pattern in a real situation."
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "target",
+            "label": {
+              "en": "Uses the new sentence frame twice"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Not yet shown."
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Used correctly and naturally."
+                }
+              }
+            ]
+          },
+          {
+            "id": "meaning",
+            "label": {
+              "en": "Meaning is clear"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Not yet shown."
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "A listener can understand the message."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Write the useful note",
+        "ja": "つかえる メモを かく"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original written production task."
+      },
+      "prompt": "Write three or four short sentences about a real or imagined situation. Use the main grammar pattern at least twice, and make the details easy to check.",
+      "minChars": 40,
+      "maxChars": 180,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "つくえの 上に ほんが あります。いすの 下に かばんが あります。まどの 前に ねこが います。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "target",
+            "label": {
+              "en": "Uses the target grammar accurately in writing"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Not yet shown."
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Used correctly and naturally."
+                }
+              }
+            ]
+          },
+          {
+            "id": "meaning",
+            "label": {
+              "en": "Meaning is clear"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Not yet shown."
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "A listener can understand the message."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Kanji in the useful words",
+        "ja": "ことばの 漢字"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Fresh visual kanji practice connected to this lesson’s vocabulary."
+      },
+      "items": [
+        {
+          "character": "上",
+          "readings": {
+            "on": [],
+            "kun": [
+              "うえ"
+            ]
+          },
+          "meaning": "above",
+          "exampleWord": {
+            "ja": "つくえの 上",
+            "reading": "つくえの うえ",
+            "en": "above"
+          },
+          "recognition": {
+            "prompt": "Which kanji is read うえ in つくえの 上?",
+            "answer": "上"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 3,
+            "mnemonic": "A short line sits above a longer ground line.",
+            "tracePrompt": "Trace 上, then write つくえの 上 once from memory."
+          }
+        },
+        {
+          "character": "下",
+          "readings": {
+            "on": [],
+            "kun": [
+              "した"
+            ]
+          },
+          "meaning": "below",
+          "exampleWord": {
+            "ja": "いすの 下",
+            "reading": "いすの した",
+            "en": "below"
+          },
+          "recognition": {
+            "prompt": "Which kanji is read した in いすの 下?",
+            "answer": "下"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 3,
+            "mnemonic": "A small line drops under the long ground line.",
+            "tracePrompt": "Trace 下, then write いすの 下 once from memory."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-kanji",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which kanji is read うえ here?",
+            "ja": "「つくえの 上」の「うえ」は どれですか。"
+          },
+          "explanation": "上 is read うえ in つくえの 上.",
+          "reviewTag": "ex-l1plus-l06-kanji",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "上",
+                "en": "うえ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "下",
+                "en": "した"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "下 is read した in its own word. Keep the two example words separate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "phase": "transfer",
+      "title": {
+        "en": "Bring earlier words back",
+        "ja": "前の ことばも ふくしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review with earlier Level 1+ material."
+      },
+      "reviewFrom": [
+        "l1plus-l04",
+        "l1plus-l05"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": true,
+        "targetsWeekIds": [
+          "l1plus-l04",
+          "l1plus-l05"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l1plus-l06-review",
+          "kind": "choice",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Review an earlier pattern: which is a polite question?",
+            "ja": "前の 形を ふくしゅうしましょう。しつもんは どれですか。"
+          },
+          "explanation": "A polite question ends with ですか or ますか.",
+          "reviewTag": "ex-l1plus-l06-review",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "これは 何ですか。",
+                "en": "What is this?"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "これは 本です。",
+                "en": "This is a book."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "That is a statement. Add か to make the question: 何ですか。"
+            }
+          ]
+        },
+        {
+          "id": "ex-l1plus-l06-review-particle",
+          "kind": "cloze",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Review the location particle.",
+            "ja": "ばしょの 助詞を いれましょう。"
+          },
+          "japanese": "つくえの 上＿＿＿ 本が あります。",
+          "explanation": "A location where something exists takes に: 上に 本が あります.",
+          "reviewTag": "ex-l1plus-l06-review-particle",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "に",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "で",
+              "message": "で marks where an action happens. Existence at a location uses に."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "title": "Make a room map",
+    "framedBy": "jodi",
+    "prompt": "Describe a small room or desk. Say where four things are, then add one person or animal.",
+    "successCriteria": [
+      "You use the main grammar frame at least twice.",
+      "You include two concrete details a listener can check.",
+      "You read or say one target word with a clear Japanese rhythm.",
+      "You ask or answer one small follow-up question kindly."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "つくえの 上に ほんが あります。いすの 下に かばんが あります。まどの 前に ねこが います。",
+      "reading": "つくえの 上に ほんが あります。いすの 下に かばんが あります。まどの 前に ねこが います。",
+      "en": "A concise model answer in the week’s grammar."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "target",
+          "label": {
+            "en": "Uses the lesson grammar for a real purpose"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet shown."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Used correctly and naturally."
+              }
+            }
+          ]
+        },
+        {
+          "id": "meaning",
+          "label": {
+            "en": "Meaning is clear"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet shown."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "A listener can understand the message."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "Place に Thing が あります",
+        "back": "there is / are (things)",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Place に Person / animal が います",
+        "back": "there is / are (people and animals)",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "つくえ",
+        "back": "desk",
+        "reading": "つくえ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "いす",
+        "back": "chair",
+        "reading": "いす",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ほん",
+        "back": "book",
+        "reading": "ほん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "かばん",
+        "back": "bag",
+        "reading": "かばん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ねこ",
+        "back": "cat",
+        "reading": "ねこ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "いぬ",
+        "back": "dog",
+        "reading": "いぬ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "上",
+        "back": "above",
+        "reading": "うえ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "下",
+        "back": "below",
+        "reading": "した",
+        "tags": [
+          "academy",
+          "academy:lesson:l1plus-l06",
+          "kanji"
+        ]
+      }
+    ]
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "jodi",
+      "shin",
+      "henry"
+    ]
+  },
+  "preStudyVocabulary": {
+    "status": "source-exact-with-yomu-support",
+    "primarySourceId": "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495",
+    "primaryComponentOrder": 20,
+    "orderedItemIds": [
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-1",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-2",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-3",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-4",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-5",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-6",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-7",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-8",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-9",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-10",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-11",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p1:row-12",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-13",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-14",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-15",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-16",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-17",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-18",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-19",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-20",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-21",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-22",
+      "moodle-vocabulary:5881257:63e1f0563379b1550fea069feffa761877b504e9af2eca22f2054d4cc7aa9495:p2:row-23"
+    ],
+    "additionalSourceIds": [
+      "moodle-vocabulary:5881257:51b23938df7d786fafd5cfe2781ed8d7a0d1372721f7584be55ef35f18f54751",
+      "moodle-vocabulary:5881257:4e6cbed78c9bac3330e0987b2f406dc7aabb90f5f5e958fb5951a7e85212e7f5"
+    ],
+    "answerVisibility": "after-attempt"
+  }
+}

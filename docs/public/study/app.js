@@ -37002,25 +37002,22 @@ ${spelling}`);
     const candidates = [];
     const seen = /* @__PURE__ */ new Set();
     for (let index = 1; index < sorted.length; index += 1) {
-      const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
-      if (!candidate) continue;
-      const key = `${candidate.start}:${candidate.surface}`;
+      const first2 = sorted[index - 1];
+      const second = sorted[index];
+      if (first2.end !== second.start || !isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) continue;
+      const firstSurface = text2.slice(first2.start, first2.end);
+      const secondSurface = text2.slice(second.start, second.end);
+      const left = text2.slice(first2.end - 1, first2.end);
+      const right = text2.slice(second.start, second.start + 1);
+      if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) continue;
+      if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) continue;
+      const surface = text2.slice(first2.start, second.end);
+      const key = `${first2.start}:${second.end}:${surface}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      candidates.push(candidate);
+      candidates.push({ surface, start: first2.start });
     }
     return candidates;
-  }
-  function boundaryEvidenceCandidate(text2, first2, second) {
-    if (first2.end !== second.start) return null;
-    if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
-    const left = text2.slice(first2.end - 1, first2.end);
-    const right = text2.slice(second.start, second.start + 1);
-    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-    const firstSurface = text2.slice(first2.start, first2.end);
-    const secondSurface = text2.slice(second.start, second.end);
-    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-    return { surface: text2.slice(first2.start, second.end), start: first2.start };
   }
   function isReconciliableParseToken(token) {
     return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";

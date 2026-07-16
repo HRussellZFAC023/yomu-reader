@@ -1,0 +1,49 @@
+.academy-meal-survey-listening-context,
+.academy-meal-survey-listening-support {
+    border-inline-start: 3px solid var(--academy-accent, #ad3e32);
+    padding-inline-start: 1rem;
+}
+
+.academy-meal-survey-listening-context dl,
+.academy-meal-survey-listening-support dl {
+    display: grid;
+    grid-template-columns: minmax(7rem, max-content) 1fr;
+    gap: .45rem 1rem;
+}
+
+.academy-meal-survey-listening-form {
+    display: grid;
+    gap: .9rem;
+}
+
+.academy-meal-survey-listening-form fieldset {
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem 1rem;
+    padding: .85rem 1rem;
+}
+
+.academy-meal-survey-listening-form legend {
+    font-weight: 700;
+    padding-inline: .25rem;
+}
+
+.academy-meal-survey-listening-form label {
+    align-items: center;
+    display: inline-flex;
+    gap: .4rem;
+}
+
+.academy-meal-survey-listening-form input[type='text'] {
+    background: var(--academy-paper, #f7f1df) !important;
+    color: var(--academy-ink, #24231f) !important;
+    inline-size: min(100%, 24rem);
+}
+
+@media (max-width: 42rem) {
+    .academy-meal-survey-listening-context dl,
+    .academy-meal-survey-listening-support dl {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ACADEMY_ASSETS } from '../../src/academy/assets';
+import { ACADEMY_CAST_SPRITE_COVERAGE, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
 
 describe('Academy offline shell', () => {
     it('pre-caches the hosted Reader and every enrollment-slice dependency', () => {
@@ -13,10 +13,45 @@ describe('Academy offline shell', () => {
             '/greasyfork/yomu-settings-surface.user.js',
             `/academy/app.js?v=${revision}`,
             '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+            '/academy/art/ACADEMY-ASSET-REGISTRY.json',
+            '/academy/art/ASSET-USAGE.json',
+            '/academy/art/SPRITE-BATCH-MANIFEST.json',
             '/academy/art/locations/wide/writing-studio__rain-night--wide.webp',
+            '/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp',
             '/academy/art/events/rainy-directions__rie-aakash__v001.png',
+            '/academy/art/items/street-direction-map__v001.jpg',
+            '/academy/art/items/cafe-order-scene__v001.jpg',
             '/academy/content/vertical-slice/source-library.v1.json',
+            '/academy/content/listening/listening-task-bindings.v1.json',
+            '/academy/content/listening/media/academy-listening-75b031947b395f44.mp3',
+            '/academy/content/listening/media/academy-listening-b076fb0e90d9e1b2.mp3',
+            '/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3',
+            '/academy/content/listening/media/academy-listening-4f292de0dd3a5791.mp3',
+            '/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3',
             '/academy/content/lessons/lesson-zero.v1.json',
+            '/academy/content/lessons/l1-l19/moodle-chapter-11-2-ordering-food-page-2.png',
+            '/academy/content/lessons/l1-l19/moodle-43-a-43.mp3',
+            '/academy/content/lessons/l1-l19/moodle-44-a-44.mp3',
+            '/academy/content/lessons/l1-l21/moodle-chapter-11-4-duration-page-1.png',
+            '/academy/content/lessons/l1-l21/moodle-chapter-11-4-duration-page-3.png',
+            '/academy/content/lessons/l1-l21/moodle-46-a-46.mp3',
+            '/academy/content/lessons/l1-l22/moodle-katakana-writing-basic-page-1.png',
+            '/academy/content/lessons/l1-l22/moodle-katakana-list-page-1.png',
+            '/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png',
+            '/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png',
+            '/academy/content/lessons/l2-l02/moodle-b-21.mp3',
+            '/academy/content/lessons/l2-l03/moodle-chapter-19-2-3-vocabulary-page-1.png',
+            '/academy/content/lessons/l2-l03/moodle-chapter-19-2-tari-grammar-page-3.png',
+            '/academy/content/listening/media/academy-listening-6dccd9517dc4e10f.mp3',
+            '/academy/content/listening/media/academy-listening-2e5d1ee1e18a31b7.mp3',
+            '/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3',
+            '/academy/content/lessons/l2-l04/moodle-chapter-20-1-vocabulary-page-1.png',
+            '/academy/content/lessons/l2-l04/moodle-chapter-20-1-plain-style-verb-page-3.png',
+            '/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png',
+            '/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png',
+            '/academy/content/lessons/l2-l05/moodle-chapter-20-conversation-page-1.png',
+            '/academy/content/lessons/l2-l05/moodle-b-24.mp3',
+            '/academy/content/lessons/l2-l12/moodle-track-78-bank-listening-page-1.png',
             '/academy/vendor/kanjivg/04e00.svg',
             '/academy/vendor/kanjivg/ATTRIBUTION.md',
         ]) expect(source).toContain(`'${required}'`);
@@ -26,9 +61,25 @@ describe('Academy offline shell', () => {
 
     it('keeps every typed runtime asset in the offline core', () => {
         const source = fs.readFileSync(path.resolve('docs/public/academy/sw.js'), 'utf8');
-        for (const asset of collectAssetPaths(ACADEMY_ASSETS)) {
+        const runtimeAssets = registryAssetPaths();
+        for (const asset of runtimeAssets) {
             expect(source, `missing offline asset ${asset}`).toContain(`'${asset}'`);
         }
+        const precachedArt = [...source.matchAll(/^\s+'(\/academy\/art\/[^']+)',$/gmu)].map(match => match[1]);
+        expect(new Set(precachedArt)).toEqual(new Set([
+            ...runtimeAssets,
+            '/academy/art/ACADEMY-ASSET-REGISTRY.json',
+            '/academy/art/ASSET-USAGE.json',
+            '/academy/art/SPRITE-BATCH-MANIFEST.json',
+        ]));
+    });
+
+    it('precaches every cast sprite covered by the presentation registry', () => {
+        const source = fs.readFileSync(path.resolve('docs/public/academy/sw.js'), 'utf8');
+        const castSpritePaths = Object.keys(ACADEMY_CAST_SPRITE_COVERAGE).flatMap(id =>
+            Object.values(ACADEMY_RUNTIME_ASSET_REGISTRY[id as keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY].files),
+        );
+        for (const asset of castSpritePaths) expect(source).toContain(`'${asset}'`);
     });
 
     it('uses one matching shell revision and never caches failed navigation', () => {
@@ -53,8 +104,8 @@ describe('Academy offline shell', () => {
     });
 });
 
-function collectAssetPaths(value: unknown): string[] {
-    if (typeof value === 'string') return value.startsWith('/academy/') ? [value] : [];
-    if (!value || typeof value !== 'object') return [];
-    return Object.values(value).flatMap(collectAssetPaths).sort();
+function registryAssetPaths(): string[] {
+    return Object.values(ACADEMY_RUNTIME_ASSET_REGISTRY)
+        .flatMap(asset => Object.values(asset.files))
+        .sort();
 }

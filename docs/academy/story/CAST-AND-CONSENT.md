@@ -26,6 +26,8 @@ The two phone-number-only contacts described in the evidence dossier are not cas
 
 Only Rie currently passes `likenessRuntime`. A silhouette, nameplate, environmental trace, text message, or off-stage voice may be used where the presentation contract permits, but no asset may imply an approved likeness that the registry denies.
 
+Story eligibility grants a class-continuity arc, not an automatic deep relationship route. Elective appointments require a separate relationship-manifest entry with reviewed activity scope, six outlined changes, fallback presentation, voice-card revision, and owner correction path. Until that entry is `bond-authored`, the person remains `continuity-only` and loses no dignity or main-plot relevance.
+
 ## Authorization is not biography
 
 `eligibility.story: true` authorizes a first-name-only fictional Academy portrayal within the evidence boundary. It does not certify every trait as true of a real person, grant rights to private messages or images, or turn invented events into claims.
@@ -54,6 +56,8 @@ The most restrictive applicable state wins. A completed sprite cannot upgrade th
 ## Voice and story jobs
 
 Voice is authored through attention, sentence movement, social tactic, and contradiction. Catchphrases are secondary. Unknown evidence remains unknown.
+
+`VOICE-AND-DIALOGUE.md` supplies the contrast, pressure, class-thread, and naturalness tests. The anchors below authorize no additional biography.
 
 | Person | Voice anchor | Four-season movement | Learning and callback homes |
 | --- | --- | --- | --- |
@@ -108,6 +112,8 @@ Consent is both a production rule and a story behavior.
 - A group yes does not override an individual no.
 - A learner choice cannot secretly waive a cast member's boundary.
 - No affection, bond rank, reward, or required lesson depends on romantic compliance.
+- Elective appointments are platonic, task-named, and deferrable. Story eligibility alone cannot generate one.
+- A route may explore preference, disagreement, repair, or unfinished work; it may not invent trauma, diagnosis, family history, romance, finances, immigration history, or other private stakes to manufacture depth.
 - The canonical story is platonic. Any future romance system requires explicit owner approval, learner opt-in, a separate safety contract, and routes that preserve equal curriculum access. It is outside this bible.
 
 ## Private-source rules for Nanako and Mira
@@ -125,6 +131,7 @@ A cast owner correction is handled as a content migration:
 3. replace factual-sounding details with approved fiction or retire the beat;
 4. invalidate likeness assets independently from prose eligibility;
 5. retain a private audit record without exposing the reason in product copy;
-6. ship a continuity-safe substitute that does not blame the person or imply withdrawal.
+6. preserve generic class-continuity and appointment completion events while removing the retired expression;
+7. ship a continuity-safe substitute that does not blame the person or imply withdrawal.
 
-Completed learner events preserve generic completion and language evidence. They do not preserve withdrawn dialogue or portrait bytes in replay.
+Completed learner events preserve generic completion and language evidence. They do not preserve withdrawn dialogue, thread messages, fictional props, audio, or portrait bytes in replay. A retired elective route falls back to a neutral shared-task memory; it never exposes the withdrawal reason.

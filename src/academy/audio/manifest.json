@@ -208,6 +208,198 @@
         "reviewed": true,
         "scope": "release"
       }
+    },
+    {
+      "slot": "world.courtyard",
+      "bus": "music",
+      "trackId": "persona.royal-days",
+      "title": "Royal Days",
+      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "loop": true,
+      "gain": 0.38,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.classroom",
+      "bus": "music",
+      "trackId": "persona.prison-labor",
+      "title": "Prison Labor",
+      "mediaKey": "media/audio/v1/persona/prison-labor.flac",
+      "loop": true,
+      "gain": 0.25,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.library",
+      "bus": "music",
+      "trackId": "persona.no-more-what-ifs",
+      "title": "No More What Ifs",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs.flac",
+      "loop": true,
+      "gain": 0.2,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.cafe",
+      "bus": "music",
+      "trackId": "persona.kichijoji-199x",
+      "title": "Kichijoji 199X",
+      "mediaKey": "media/audio/v1/persona/kichijoji-199x.flac",
+      "loop": true,
+      "gain": 0.34,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.lab",
+      "bus": "music",
+      "trackId": "persona.so-happy-world",
+      "title": "So Happy World",
+      "mediaKey": "media/audio/v1/persona/so-happy-world.flac",
+      "loop": true,
+      "gain": 0.28,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.street",
+      "bus": "music",
+      "trackId": "persona.mementos-upper",
+      "title": "Mementos: Upper Area",
+      "mediaKey": "media/audio/v1/persona/mementos-upper.flac",
+      "loop": true,
+      "gain": 0.22,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.station",
+      "bus": "music",
+      "trackId": "persona.mementos-middle",
+      "title": "Mementos: Middle Area",
+      "mediaKey": "media/audio/v1/persona/mementos-middle.flac",
+      "loop": true,
+      "gain": 0.24,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.konbini",
+      "bus": "music",
+      "trackId": "persona.out-of-kindness",
+      "title": "Out of Kindness",
+      "mediaKey": "media/audio/v1/persona/out-of-kindness.flac",
+      "loop": true,
+      "gain": 0.26,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.ramen",
+      "bus": "music",
+      "trackId": "persona.i-believe",
+      "title": "I believe",
+      "mediaKey": "media/audio/v1/persona/i-believe.flac",
+      "loop": true,
+      "gain": 0.28,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.home",
+      "bus": "music",
+      "trackId": "persona.ideal-and-the-real-end",
+      "title": "Ideal and the Real - end version",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "loop": true,
+      "gain": 0.23,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.japan-centre",
+      "bus": "music",
+      "trackId": "persona.ideal-and-the-real",
+      "title": "Ideal and the Real",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "loop": true,
+      "gain": 0.25,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
+    },
+    {
+      "slot": "world.park",
+      "bus": "music",
+      "trackId": "persona.no-more-what-ifs-instrumental",
+      "title": "No More What Ifs - instrumental",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "loop": true,
+      "gain": 0.2,
+      "rights": {
+        "owner": "ATLUS / SEGA",
+        "licence": "Project-owner-attested authorization for protected educational use (2026-07-12)",
+        "source": "Private Persona 5 The Royal Soundtrack archive; SHA-256 pinned in the Academy media ledger",
+        "reviewed": true,
+        "scope": "release"
+      }
     }
   ],
   "sfx": [

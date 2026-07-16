@@ -1,0 +1,161 @@
+.academy-kana-sound-map {
+    display: grid;
+    gap: 16px;
+    width: min(680px, 100%);
+}
+
+.academy-kana-sound-map h2,
+.academy-kana-sound-map p {
+    margin: 0;
+}
+
+.academy-kana-sound-map-route {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(52px, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.academy-kana-sound-map-position {
+    display: grid;
+    grid-template-rows: 18px 36px;
+    place-items: center;
+    min-width: 0;
+    min-height: 64px;
+    border: 1px solid var(--academy-line);
+    border-radius: 6px;
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+}
+
+.academy-kana-sound-map-position[data-state="active"] {
+    border-color: var(--academy-accent-strong);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--academy-accent) 30%, transparent);
+}
+
+.academy-kana-sound-map-position[data-state="committed"] {
+    border-color: var(--academy-green);
+}
+
+.academy-kana-sound-map-number {
+    color: var(--academy-paper-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.academy-kana-sound-map-value {
+    overflow: hidden;
+    font-size: 1.45rem;
+    line-height: 1;
+    text-overflow: clip;
+}
+
+.academy-kana-sound-map-transport {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 4px;
+}
+
+.academy-kana-sound-map-play {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--academy-line);
+    border-radius: 50%;
+    color: var(--academy-paper-ink);
+    background: var(--academy-accent-strong);
+    font: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.academy-kana-sound-map-choices {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(52px, 1fr));
+    gap: 8px;
+}
+
+.academy-kana-sound-map-choice {
+    min-width: 0;
+    min-height: 52px;
+    padding: 8px;
+    border: 1px solid var(--academy-line);
+    border-radius: 6px;
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+    font: inherit;
+    font-size: 1.35rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.academy-kana-sound-map-play:focus-visible,
+.academy-kana-sound-map-choice:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--academy-accent) 68%, var(--academy-paper-ink));
+    outline-offset: 2px;
+}
+
+.academy-kana-sound-map-playback,
+.academy-kana-sound-map-status,
+.academy-kana-sound-map-feedback {
+    min-width: 0;
+    min-height: 24px;
+    overflow-wrap: anywhere;
+}
+
+.academy-kana-sound-map-feedback:empty {
+    display: none;
+}
+
+.academy-kana-sound-map-feedback:not(:empty) {
+    display: grid;
+    gap: 8px;
+}
+
+.academy-kana-sound-map-feedback p {
+    padding: 10px 12px;
+    border-left: 3px solid var(--academy-accent);
+    color: var(--academy-paper-ink);
+    background: var(--academy-paper);
+}
+
+.academy-kana-sound-map-feedback .academy-japanese,
+.academy-kana-sound-map-feedback .academy-support {
+    color: var(--academy-paper-ink);
+}
+
+.academy-kana-sound-map-retry {
+    justify-self: start;
+    min-height: 44px;
+}
+
+@media (max-width: 600px) {
+    .academy-kana-sound-map {
+        gap: 12px;
+    }
+
+    .academy-kana-sound-map-route,
+    .academy-kana-sound-map-choices {
+        gap: 5px;
+    }
+
+    .academy-kana-sound-map-position,
+    .academy-kana-sound-map-choice {
+        min-width: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-kana-sound-map *,
+    .academy-kana-sound-map *::before,
+    .academy-kana-sound-map *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

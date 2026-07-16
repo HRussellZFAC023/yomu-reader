@@ -1,0 +1,1137 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l11",
+  "order": 12,
+  "weekKind": "lesson",
+  "title": {
+    "en": "What kind of place is it?",
+    "ja": "どんな ところですか"
+  },
+  "estimatedMinutes": 75,
+  "identity": {
+    "title": "Level 1+ Lesson 1",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1+",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 11,
+    "moduleId": 6053028,
+    "moduleType": "folder",
+    "sourceOrdering": {
+      "manifestOrder": 2,
+      "moodleSection": 20
+    }
+  },
+  "mapping": {
+    "ucl": "Level 1+ · Moodle Chapter 8 chronology",
+    "minna": "Minna no Nihongo I · Lesson 8",
+    "genki": "≈ Genki I · Lesson 5 (adjectives)",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "source-normalized",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-questions",
+        "reference": "course ucl-japanese-2023-2024 · section rie-level-1-plus-thursday-7pm · module 6053028",
+        "reuse": "user-owned-coursework",
+        "note": "Prompts are normalized from the named Moodle PDFs; source-question IDs retain payload hash and printed item locus."
+      }
+    ],
+    "answerPolicy": "Answers and model responses are revealable only after the learner's first attempt.",
+    "gaps": [
+      "Chapter 8_listening.pdf has no recoverable question text; paired tracks 31 A-31 and 32 A-32 have no verified transcript.",
+      "Picture-led dialogue prompts and the family word-search grid are quarantined because their images are not packaged."
+    ]
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 6053028,
+    "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+    "members": [
+      {
+        "title": "Chapter 8-3_Grammar Exercise_Adjectives modify nouns",
+        "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+        "status": "questions-normalized"
+      },
+      {
+        "title": "Chapter 8_そして_が_speaking",
+        "payloadSha256": "869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623",
+        "status": "questions-normalized"
+      },
+      {
+        "title": "HW Chapter 8 reading_ワットせんせい",
+        "payloadSha256": "e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5",
+        "status": "reading-normalized"
+      },
+      {
+        "title": "Chapter 8_listening",
+        "payloadSha256": "58da771d381fde90585e9aec8b26834f1c9e297073e314c078838cfa067c10ac",
+        "status": "quarantined-no-question-text"
+      }
+    ],
+    "quarantine": [
+      {
+        "sourceId": "moodle:6053028:58da771d:document",
+        "reason": "Title-only PDF; no recoverable prompts or answer basis."
+      },
+      {
+        "sourceId": "moodle:6053028:873decb5:pictures",
+        "reason": "Picture-dependent free speaking prompts; source images are not available to the lesson runtime."
+      },
+      {
+        "sourceId": "moodle:6053028:0a8dde9f:grid",
+        "reason": "Word-search grid is image-only and cannot be represented faithfully as text."
+      }
+    ],
+    "unresolvedMedia": [
+      {
+        "kind": "audio",
+        "label": "31 A-31",
+        "payloadSha256": "9cace3abf3585498aef41c08606d036bbb2f69729de5dbab8273ec391f1368d1",
+        "reason": "No verified transcript or item-to-track timing."
+      },
+      {
+        "kind": "audio",
+        "label": "32 A-32",
+        "payloadSha256": "518494e89d12ffeb3ed2247dd2ac6815f2e8fc6eca5507fb74400d0b0bdbf94c",
+        "reason": "No verified transcript or item-to-track timing."
+      },
+      {
+        "kind": "image",
+        "label": "Chapter 8 picture prompts and word-search grid",
+        "reason": "No public runtime asset locator."
+      }
+    ]
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "supported-for-this-week-once-the-package-hash-is-registered",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l11:lesson-5-workbook-2",
+      "relation": "genki-prerequisite-guided-fill",
+      "source": {
+        "sourceId": "japanese-genki-interactive:5ab2683d567a265548fa0dbfb02af9961bd0bf367b669c2e7cc22aa38d149a65:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-5/workbook-2/index.html",
+        "payloadSha256": "5ab2683d567a265548fa0dbfb02af9961bd0bf367b669c2e7cc22aa38d149a65",
+        "scriptSha256": "470977b7f3e135dcbeefe9121426387f43f20fded2eda92eb6037fd5921cc2fc",
+        "lineLocus": {
+          "start": 76,
+          "end": 140
+        },
+        "title": "Workbook: Adjectives (Present Tense) - Lesson 5 | Genki Study Resources - 2nd Edition",
+        "description": "Complete the following problems using present tense adjectives.",
+        "keywords": "Genki I Workbook, page 46, problem I, problem II, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-5/workbook-2/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Complete the following problems using {!GRI|present tense adjectives|l5-p1}.",
+          "quizlet": "<div class=\"count-problems\"><p class=\"section-desc\">Answer the following questions by translating the given cues.</p><div class=\"problem\">日本語の宿題はやさしいですか。<br>(No, Japanese homework is not easy.)<br>{いいえ、%(日本語の宿題は/)やさしくないです|いいえ、%(にほんごのしゅくだいは/)やさしくないです|%(いいえ、日本語の宿題はやさしくないです/いいえ、日本語のしゅくだいはやさしくないです/いいえ、にほんごの宿題はやさしくないです/いいえ、にほんごのしゅくだいはやさしくないです)|answer}。</div><div class=\"problem\">今日は忙しいですか。<br>(Yes, today is busy.)<br>{はい、%(今日は/)忙しいです|はい、%(きょうは/)いそがしいです|%(はい、今日は忙しいです/はい、今日はいそがしいです/はい、きょうは忙しいです/はい、きょうはいそがしいです)|answer}。</div><div class=\"problem\">あなたの部屋はきれいですか。<br>(No, my room is not clean.)<br>{いいえ、%(私の部屋は/)きれいじゃないです|いいえ、%(わたしのへやは/)きれいじゃないです|%(いいえ、私の部屋はきれいじゃないです/いいえ、私の部屋は綺麗じゃないです/いいえ、私のへやはきれいじゃないです/いいえ、私のへやは綺麗じゃないです/いいえ、わたしの部屋はきれいじゃないです/いいえ、わたしの部屋は綺麗じゃないです/いいえ、わたしのへやはきれいじゃないです/いいえ、わたしのへやは綺麗じゃないです)|answer}。</div><div class=\"problem\">日本語のクラスはおもしろいですか。<br>(Yes, Japanese class is interesting.)<br>{はい、%(日本語のクラスは/)面白いです|はい、%(にほんごのクラスは/)おもしろいです|%(はい、日本語のクラスは面白いです/はい、日本語のクラスはおもしろいです/はい、にほんごのクラスは面白いです/はい、にほんごのクラスはおもしろいです)|answer}。</div><div class=\"problem\">あなたの町は静かですか。<br>(No, my town is not very quiet.)<br>{いいえ、%(私の町は/)あまり静かじゃないです|いいえ、%(わたしのまちは/)あまりしずかじゃないです|%(いいえ、私の町はあまり静かじゃないです/いいえ、私の町はあまりしずかじゃないです/いいえ、私のまちはあまり静かじゃないです/いいえ、私のまちはあまりしずかじゃないです/いいえ、わたしの町はあまり静かじゃないです/いいえ、わたしの町はあまりしずかじゃないです/いいえ、わたしのまちはあまり静かじゃないです/いいえ、わたしのまちはあまりしずかじゃないです)|answer}。</div><p class=\"section-desc\">Translate the following sentences into Japanese.</p><div class=\"problem\">This watch is expensive.<br>{この時計は高いです|このとけいはたかいです|%(この時計は高いです/この時計はたかいです/このとけいは高いです/このとけいはたかいです)|answer}。</div><div class=\"problem\">This coffee is not delicious.<br>{このコーヒーはおいしくないです}。</div><div class=\"problem\">Professor Yamashita is energetic.<br>{山下先生は元気です|やましたせんせいはげんきです|%(山下先生は元気です/山下先生はげんきです/山下せんせいは元気です/山下せんせいはげんきです/やました先生は元気です/やました先生はげんきです/やましたせんせいは元気です/やましたせんせいはげんきです)|answer}。</div><div class=\"problem\">The weather is not good.<br>{天気はよくないです|てんきはよくないです|%(天気はよくないです/天気は良くないです/てんきはよくないです/てんきは良くないです)|answer}。</div><div class=\"problem\">I will not be free tomorrow.<br>{%(私は/)明日ひまじゃないです|%(わたしは/)あしたひまじゃないです|%(私は明日暇じゃないです/私は明日ひまじゃないです/私はあした暇じゃないです/私はあしたひまじゃないです/わたしは明日暇じゃないです/わたしは明日ひまじゃないです/わたしはあした暇じゃないです/わたしはあしたひまじゃないです)|%(明日暇じゃないです/明日ひまじゃないです/あした暇じゃないです/あしたひまじゃないです)|answer}。</div></div>"
+        },
+        "sourceSlice": null,
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/cafe",
+        "cast": [
+          "jenny",
+          "tom"
+        ],
+        "grouping": "pairs",
+        "beat": "At the cafe menu board, Jenny and Tom complete the exact present-tense adjective problems after Sensei’s adjective-form lesson.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "adjective-modifiers",
+          "adjective-joining"
+        ],
+        "evidence": "Start from familiar person, place, food, and book descriptions before changing their form."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 20,
+        "conceptIds": [
+          "adjective-modifiers"
+        ],
+        "form": "い-adjective + N / な-adjective + な + N",
+        "meaning": "Describe the kind of noun it is.",
+        "contrast": "い-adjectives attach directly; な-adjectives need な before a noun.",
+        "workedExample": "この ほんは おもしろい ほんです。この まちは しずかな まちです。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 20,
+        "conceptIds": [
+          "adjective-modifiers"
+        ],
+        "activity": "Sort the supplied adjective into the direct or な-before-noun frame before completing a sentence."
+      },
+      {
+        "id": "join-instruction",
+        "phase": "instruction",
+        "componentOrder": 35,
+        "conceptIds": [
+          "adjective-joining"
+        ],
+        "form": "A です。そして B です / A ですが、B です",
+        "meaning": "Join two descriptions that agree or contrast.",
+        "contrast": "そして adds compatible information; が introduces a contrast.",
+        "workedExample": "この まちは しずかです。そして、きれいです。"
+      },
+      {
+        "id": "join-guided",
+        "phase": "guided-practice",
+        "componentOrder": 35,
+        "conceptIds": [
+          "adjective-joining"
+        ],
+        "activity": "Decide whether two evaluations agree or contrast before choosing their connector."
+      },
+      {
+        "id": "modifier-assessment",
+        "phase": "assessed-production",
+        "componentOrder": 30,
+        "assessmentIds": [
+          "l11-dfec-q1-1",
+          "l11-dfec-q1-2",
+          "l11-dfec-q1-3",
+          "l11-dfec-q5-3"
+        ],
+        "conceptIds": [
+          "adjective-modifiers"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Find the adjective type.",
+            "Choose direct attachment or な.",
+            "Add the noun and です."
+          ],
+          "feedback": {
+            "error": "If な is missing after a な-adjective or added after an い-adjective, the noun phrase has the wrong form.",
+            "retry": "Classify the adjective, rebuild the noun phrase, and submit again."
+          }
+        }
+      },
+      {
+        "id": "join-assessment",
+        "phase": "assessed-production",
+        "componentOrder": 40,
+        "assessmentIds": [
+          "l11-869c-q1-1",
+          "l11-869c-q1-2"
+        ],
+        "conceptIds": [
+          "adjective-joining"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Read both evaluations.",
+            "Decide whether they agree or contrast.",
+            "Join two complete adjective clauses."
+          ],
+          "feedback": {
+            "error": "If そして joins a contrast or が joins matching facts, the relationship is misleading.",
+            "retry": "Name the relationship first, then choose the connector and rebuild both clauses."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Put い- and な-adjectives before nouns.",
+    "Ask and answer with どんな.",
+    "Join matching descriptions with そして and contrasting descriptions with が."
+  ],
+  "sourceActivityBindings": [
+    {
+      "activityIds": [
+        "l11-dfec-q1-1",
+        "l11-dfec-q1-2",
+        "l11-dfec-q1-3",
+        "l11-dfec-q2-2",
+        "l11-dfec-q2-5",
+        "l11-dfec-q5-3"
+      ],
+      "place": "academy/world/classroom",
+      "cast": [
+        "jenny",
+        "tom"
+      ],
+      "grouping": "pairs",
+      "beat": "Jenny and Tom sort the exact source adjective cards aloud before each learner submits the original item.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    },
+    {
+      "activityIds": [
+        "l11-869c-q1-1",
+        "l11-869c-q1-2"
+      ],
+      "place": "academy/world/cafe",
+      "cast": [
+        "aakash",
+        "mika"
+      ],
+      "grouping": "pairs",
+      "beat": "Aakash and Mika compare two menu descriptions; the learner keeps the source connector task intact.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    },
+    {
+      "activityIds": [
+        "l11-e9bb-read-1",
+        "l11-e9bb-read-2"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "rie",
+        "henry",
+        "jenny"
+      ],
+      "grouping": "reading-circle",
+      "beat": "Rie hosts a short reading circle; classmates take the source passage roles without replacing its questions.",
+      "sourceTaskPreserved": true,
+      "answerVisibility": "after-attempt"
+    }
+  ],
+  "components": [
+    {
+      "id": "l11-classroom-description-context",
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "Jenny and Tom label the class table",
+        "ja": "ジェニーと トムの ラベル"
+      },
+      "provenance": {
+        "reuse": "original-yomu-context-before-verbatim-source-task",
+        "note": "Fresh narrative input introduces the source grammar without reproducing an assessed cue."
+      },
+      "delivery": {
+        "place": "academy/world/classroom",
+        "cast": [
+          "jenny",
+          "tom"
+        ],
+        "grouping": "pairs",
+        "beat": "Jenny writes descriptions for the class display while Tom checks what each label says."
+      },
+      "reading": {
+        "title": {
+          "en": "Three labels",
+          "ja": "みっつの ラベル"
+        },
+        "gloss": "Read each whole description first; the adjective shape will be taught next.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "これは おもしろい ほんです。",
+            "reading": "これは おもしろい ほんです。",
+            "en": "This is an interesting book."
+          },
+          {
+            "ja": "ここは しずかな ところです。",
+            "reading": "ここは しずかな ところです。",
+            "en": "This is a quiet place."
+          },
+          {
+            "ja": "この ほんは やさしいです。そして、おもしろいです。",
+            "reading": "この ほんは やさしいです。そして、おもしろいです。",
+            "en": "This book is easy. And it is interesting."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "l11-context-label-recognition",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which label describes a quiet place?",
+            "ja": "しずかな ところの ラベルは どれですか。"
+          },
+          "explanation": "ここは しずかな ところです describes a quiet place. Notice しずか becomes しずかな before ところ.",
+          "reviewTag": "adjective-modifier-context",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "quiet",
+              "label": {
+                "en": "ここは しずかな ところです。",
+                "ja": "ここは しずかな ところです。"
+              },
+              "correct": true
+            },
+            {
+              "id": "book",
+              "label": {
+                "en": "これは おもしろい ほんです。",
+                "ja": "これは おもしろい ほんです。"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "book",
+              "message": "That label describes an interesting book. Look for both しずかな and ところ, then retry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l11-adjective-modifier-scaffold",
+      "type": "grammar",
+      "order": 20,
+      "phase": "instruction",
+      "title": {
+        "en": "Build an adjective noun phrase",
+        "ja": "けいようしで めいしを せつめい"
+      },
+      "provenance": {
+        "reuse": "yomu-scaffold-before-verbatim-source-task",
+        "sourceConcept": "moodle:6053028:dfec00d8"
+      },
+      "delivery": {
+        "place": "academy/world/classroom",
+        "cast": [
+          "jenny",
+          "tom"
+        ],
+        "grouping": "partner-check",
+        "beat": "Jenny sorts the adjective cards; Tom checks the noun phrase only after the learner chooses."
+      },
+      "instruction": {
+        "form": "い-adjective + noun / な-adjective + な + noun",
+        "meaning": "Put an adjective directly before a noun to say what kind of person, place, or thing it is.",
+        "contrast": "An い-adjective attaches directly. A な-adjective keeps な before the noun.",
+        "workedExample": "おもしろい ほん / しずかな ところ"
+      },
+      "exercises": [
+        {
+          "id": "l11-guided-modifier-recognition",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Choose the complete phrase for “a quiet library.”",
+            "ja": "「a quiet library」は どれですか。"
+          },
+          "explanation": "しずか is a な-adjective, so な must remain before としょかん: しずかな としょかん.",
+          "reviewTag": "adjective-modifiers",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "na",
+              "label": {
+                "en": "しずかな としょかん",
+                "ja": "しずかな としょかん"
+              },
+              "correct": true
+            },
+            {
+              "id": "no-na",
+              "label": {
+                "en": "しずか としょかん",
+                "ja": "しずか としょかん"
+              },
+              "correct": false
+            },
+            {
+              "id": "extra-na",
+              "label": {
+                "en": "しずかい としょかん",
+                "ja": "しずかい としょかん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "no-na",
+              "message": "しずか is a な-adjective. Put な between the adjective and としょかん, then retry."
+            },
+            {
+              "trigger": "extra-na",
+              "message": "Do not invent an い ending. The dictionary form is しずか, followed by な before the noun."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Adjectives before nouns",
+        "ja": "けいようし + めいし"
+      },
+      "provenance": {
+        "sourceId": "moodle:6053028:dfec00d8",
+        "reuse": "verbatim-source-cues-with-yomu-translation-and-formatting-support"
+      },
+      "sourceInstructionExact": [
+        "1: Please telling what the subject like.",
+        "2: Please change the sentence structure.",
+        "5: Ask the question using どんな and give one’s opinion about people/things/places."
+      ],
+      "sourceWorkedExamplesExact": [
+        "れい）ロンドン まち 〈たのしい〉 → ロンドンは たのしい まちです。",
+        "れい）ロンドン まち 〈にぎやかな〉 → ロンドンは にぎやかな まちです。"
+      ],
+      "sourceDocument": {
+        "moduleId": 6053028,
+        "archiveOccurrenceId": "archive-000011",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+        "memberOccurrenceId": "member-000111",
+        "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+        "pageRange": "pages 1-6",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "exercises": [
+        {
+          "id": "l11-dfec-q1-1",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p1:q1:1",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ワットさん／せんせい〈しんせつな〉",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p1:q1:1",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Describe Watt as a kind teacher.",
+            "ja": "ワットさん／せんせい〈しんせつな〉"
+          },
+          "japanese": "ワットさんは ＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "しんせつなせんせいです",
+            "alternatives": [
+              "しんせつな せんせいです"
+            ]
+          },
+          "explanation": "しんせつ is a な-adjective, so な stays before せんせい."
+        },
+        {
+          "id": "l11-dfec-q1-2",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p1:q1:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ハイドパーク／こうえん〈きれいな〉",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p1:q1:2",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Describe Hyde Park as a beautiful park.",
+            "ja": "ハイドパーク／こうえん〈きれいな〉"
+          },
+          "japanese": "ハイドパークは ＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "きれいなこうえんです",
+            "alternatives": [
+              "きれいな こうえんです"
+            ]
+          },
+          "explanation": "きれい is a な-adjective before a noun."
+        },
+        {
+          "id": "l11-dfec-q1-3",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p1:q1:3",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ハリーポッター／ほん〈おもしろい〉",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p1:q1:3",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Describe Harry Potter as an interesting book.",
+            "ja": "ハリーポッター／ほん〈おもしろい〉"
+          },
+          "japanese": "ハリーポッターは ＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "おもしろいほんです",
+            "alternatives": [
+              "おもしろい ほんです"
+            ]
+          },
+          "explanation": "An い-adjective goes directly before the noun."
+        },
+        {
+          "id": "l11-dfec-q2-2",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p2:q2:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "ふじさんは（ゆうめいです → ＿＿）やまです。",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p2:q2:2",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Change the predicate adjective into a noun modifier.",
+            "ja": "ふじさんは（ゆうめいです → ＿＿）やまです。"
+          },
+          "japanese": "ふじさんは ＿＿ やまです。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "ゆうめいな",
+                "alternatives": []
+              }
+            }
+          ],
+          "explanation": "ゆうめい becomes ゆうめいな before やま."
+        },
+        {
+          "id": "l11-dfec-q2-5",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p2:q2:5",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "さくらは（きれいです → ＿＿）はなです。",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p2:q2:5",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Change the predicate adjective into a noun modifier.",
+            "ja": "さくらは（きれいです → ＿＿）はなです。"
+          },
+          "japanese": "さくらは ＿＿ はなです。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "きれいな",
+                "alternatives": []
+              }
+            }
+          ],
+          "explanation": "きれい becomes きれいな before はな."
+        },
+        {
+          "id": "l11-dfec-q5-3",
+          "sourceQuestionId": "moodle:6053028:dfec00d8:p4:q5:3",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "きょうとは どんな まちですか。〈きれい〉",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000111",
+            "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
+            "centralDirectoryIndex": 7,
+            "payloadSha256": "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba",
+            "locus": "p4:q5:3",
+            "page": 4,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba/pages/page-4.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Answer: What kind of town is Kyoto? (beautiful)",
+            "ja": "きょうとは どんな まちですか。〈きれい〉"
+          },
+          "japanese": "＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "きれいなまちです",
+            "alternatives": [
+              "きれいな まちです"
+            ]
+          },
+          "explanation": "どんな asks for the kind; answer with adjective + noun."
+        }
+      ]
+    },
+    {
+      "id": "l11-connector-scaffold",
+      "type": "grammar",
+      "order": 35,
+      "phase": "instruction",
+      "title": {
+        "en": "Add or contrast two descriptions",
+        "ja": "そして・がを えらぶ"
+      },
+      "provenance": {
+        "reuse": "yomu-scaffold-before-verbatim-source-task",
+        "sourceConcept": "moodle:6053028:869c7d84"
+      },
+      "delivery": {
+        "place": "academy/world/cafe",
+        "cast": [
+          "aakash",
+          "mika"
+        ],
+        "grouping": "pairs",
+        "beat": "Aakash and Mika compare two café notes before opening Sensei’s exact connector task."
+      },
+      "instruction": {
+        "form": "A です。そして、B です。 / A ですが、B です。",
+        "meaning": "そして adds a compatible description; が connects descriptions that contrast.",
+        "contrast": "Use そして when both facts point the same way. Use が when the second fact changes the evaluation.",
+        "workedExample": "この カフェは しずかです。そして、きれいです。 / コーヒーは たかいですが、おいしいです。"
+      },
+      "exercises": [
+        {
+          "id": "l11-guided-connector-recognition",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "The coffee is expensive but delicious. Which connector fits?",
+            "ja": "コーヒーは たかいです＿＿、おいしいです。"
+          },
+          "explanation": "Expensive and delicious contrast here, so join the clauses with が: たかいですが、おいしいです.",
+          "reviewTag": "adjective-joining",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "ga",
+              "label": {
+                "en": "が",
+                "ja": "が"
+              },
+              "correct": true
+            },
+            {
+              "id": "soshite",
+              "label": {
+                "en": "そして",
+                "ja": "そして"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "soshite",
+              "message": "The second description reverses the evaluation from expensive to delicious. Choose the contrast connector が and retry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 40,
+      "phase": "instruction",
+      "title": {
+        "en": "And or but",
+        "ja": "そして・が"
+      },
+      "provenance": {
+        "sourceId": "moodle:6053028:869c7d84",
+        "reuse": "verbatim-source-cues-with-yomu-translation-and-formatting-support"
+      },
+      "sourceInstructionExact": [
+        "1: Ask the characteristics of people, objects, and places, then answer them using そして or が"
+      ],
+      "sourceWorkedExamplesExact": [
+        "にほんの さくらは きれいです。そして、ゆうめいです。",
+        "にほんごの べんきょうは むずかしいですが、おもしろいです。"
+      ],
+      "sourceDocument": {
+        "moduleId": 6053028,
+        "archiveOccurrenceId": "archive-000011",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+        "memberOccurrenceId": "member-000109",
+        "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
+        "centralDirectoryIndex": 5,
+        "payloadSha256": "869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623",
+        "pageRange": "pages 1-3",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "exercises": [
+        {
+          "id": "l11-869c-q1-1",
+          "sourceQuestionId": "moodle:6053028:869c7d84:p2:q1:1",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "にほんの たべもの（おいしい、たかい）",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000109",
+            "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
+            "centralDirectoryIndex": 5,
+            "payloadSha256": "869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623",
+            "locus": "p2:q1:1",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Describe Japanese food: delicious and expensive.",
+            "ja": "にほんの たべもの（おいしい、たかい）"
+          },
+          "japanese": "にほんの たべものは ＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "おいしいですが、たかいです",
+            "alternatives": [
+              "おいしいですが たかいです"
+            ]
+          },
+          "explanation": "The positive and negative evaluations contrast, so が is appropriate."
+        },
+        {
+          "id": "l11-869c-q1-2",
+          "sourceQuestionId": "moodle:6053028:869c7d84:p2:q1:2",
+          "sourcePromptStatus": "verbatim-source-cue-preserved",
+          "sourceCueExact": "にほんの ちかてつ（べんり、きれい）",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000109",
+            "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
+            "centralDirectoryIndex": 5,
+            "payloadSha256": "869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623",
+            "locus": "p2:q1:2",
+            "page": 2,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623/pages/page-2.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Describe the Japanese subway: convenient and clean.",
+            "ja": "にほんの ちかてつ（べんり、きれい）"
+          },
+          "japanese": "にほんの ちかてつは ＿＿。",
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "answer": {
+            "primary": "べんりです。そして、きれいです",
+            "alternatives": [
+              "べんりです。そして きれいです"
+            ]
+          },
+          "explanation": "The descriptions point in the same direction, so そして joins them."
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 60,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Mr Watt's university day",
+        "ja": "ワットさんの だいがく"
+      },
+      "provenance": {
+        "sourceId": "moodle:6053028:e9bb9ce8:p1",
+        "reuse": "verbatim-source-passage-with-yomu-derived-guidance"
+      },
+      "sourceInstructionExact": [
+        "1: Reading: Mr. Watt’s day at University. Please read and put ○ or × in the brackets."
+      ],
+      "sourcePassageExact": "ワットさん は さくらだいがく の えいご の せんせいです。まいにち あかい くるま で だいがく へ いきます。さくらだいがく は おおきい だいがくでは ありませんが、いい だいがくです。ワットさん は いつも しょくどう で ひるごはん を たべます。しょくどう は １２じ から １じ まで とても にぎやかです。しょくどう の たべもの は おいしいです。そして、やすいです。だいがく の しごと は いそがしいですが、たのしいです。",
+      "sourceDocument": {
+        "moduleId": 6053028,
+        "archiveOccurrenceId": "archive-000011",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+        "memberOccurrenceId": "member-000113",
+        "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",
+        "centralDirectoryIndex": 9,
+        "payloadSha256": "e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5",
+        "pageRange": "page 1",
+        "pageRenderBase": "artifacts/yomu-academy/source-pipeline/pdf-census/e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5/pages",
+        "mediaStatus": "review-artifacts-present-not-runtime-assets"
+      },
+      "passage": "ワットさんは さくらだいがくの えいごの せんせいです。まいにち あかい くるまで だいがくへ いきます。さくらだいがくは おおきい だいがくでは ありませんが、いい だいがくです。しょくどうの たべものは おいしいです。そして、やすいです。",
+      "exercises": [
+        {
+          "id": "l11-e9bb-read-1",
+          "sourceQuestionId": "moodle:6053028:e9bb9ce8:p1:derived-detail:1",
+          "sourcePromptStatus": "yomu-derived-guided-question-over-verbatim-source-passage",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000113",
+            "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",
+            "centralDirectoryIndex": 9,
+            "payloadSha256": "e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5",
+            "locus": "p1:derived-detail:1",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "How does Mr Watt go to university?",
+            "ja": "ワットさんは どうやって だいがくへ いきますか。"
+          },
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "By red car",
+                "ja": "あかい くるまで"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "By subway",
+                "ja": "ちかてつで"
+              },
+              "correct": false
+            }
+          ],
+          "explanation": "The passage says あかい くるまで だいがくへ いきます."
+        },
+        {
+          "id": "l11-e9bb-read-2",
+          "sourceQuestionId": "moodle:6053028:e9bb9ce8:p1:derived-detail:2",
+          "sourcePromptStatus": "yomu-derived-guided-question-over-verbatim-source-passage",
+          "source": {
+            "moduleId": 6053028,
+            "archiveOccurrenceId": "archive-000011",
+            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
+            "memberOccurrenceId": "member-000113",
+            "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",
+            "centralDirectoryIndex": 9,
+            "payloadSha256": "e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5",
+            "locus": "p1:derived-detail:2",
+            "page": 1,
+            "pageRenderArtifact": "artifacts/yomu-academy/source-pipeline/pdf-census/e9bb9ce8bd04ce53cbce9a216085b74524715ecfb2efec2c4ff9caf0c4421dd5/pages/page-1.png",
+            "pageRenderStatus": "review-artifact-present-not-runtime-asset",
+            "answerVisibility": "after-attempt"
+          },
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What is the cafeteria food like?",
+            "ja": "しょくどうの たべものは どうですか。"
+          },
+          "autoGraded": true,
+          "answerVisibility": "after-attempt",
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Delicious and inexpensive",
+                "ja": "おいしいです。そして、やすいです"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Expensive but good",
+                "ja": "たかいですが、いいです"
+              },
+              "correct": false
+            }
+          ],
+          "explanation": "The passage gives both adjectives explicitly."
+        }
+      ]
+    }
+  ],
+  "preStudyVocabulary": {
+    "status": "gap-declared",
+    "gap": "no-exact-source-vocabulary-sheet",
+    "authority": "public/academy/content/source-pipeline/vocabulary-parity.v1.json",
+    "sourceModuleId": 6053028,
+    "learnerPolicy": "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
+  }
+}

@@ -43,6 +43,19 @@ export async function loadClassWeekDeliveryCatalog(
     const resolver = createGroundedLessonResolver(fetcher);
 
     for (const registration of ACADEMY_LESSON_CONTENT_REGISTRY) {
+        if (registration.kind === 'authored-week') {
+            if (!canonicalWeekIds.has(registration.classWeekId as CanonicalClassWeekId)) {
+                throw new TypeError(`Authored package ${registration.packageId} names a non-canonical class Week ${registration.classWeekId}.`);
+            }
+            const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
+            if (!response.ok) throw new Error(`Unable to load authored class Week ${registration.packageId}.`);
+            registration.validate(await response.json());
+            auditedByWeek.set(registration.classWeekId as CanonicalClassWeekId, {
+                lessonId: `authored-week:${registration.packageId}`,
+                status: 'playable',
+            });
+            continue;
+        }
         if (registration.kind !== 'lesson' || !registration.classWeekId) continue;
         if (!canonicalWeekIds.has(registration.classWeekId as CanonicalClassWeekId)) {
             throw new TypeError(`Complete lesson ${registration.lessonId} names a non-canonical class Week.`);

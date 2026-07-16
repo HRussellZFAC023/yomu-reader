@@ -1,6 +1,7 @@
 import path from 'node:path';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, type ProxyOptions } from 'vite';
+import { defineConfig, type Plugin, type ProxyOptions } from 'vite';
 import { academyCookieForRemote, academySetCookieForLocal } from './academy-cookie-proxy';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -29,7 +30,30 @@ function remoteAcademyProxy(): ProxyOptions {
     };
 }
 
+function academyRootRedirect(): Plugin {
+    const redirect = (request: IncomingMessage, response: ServerResponse, next: () => void): void => {
+        const pathname = new URL(request.url ?? '/', 'http://academy.local').pathname;
+        if (pathname !== '/') {
+            next();
+            return;
+        }
+        response.statusCode = 302;
+        response.setHeader('location', '/academy/');
+        response.end();
+    };
+    return {
+        name: 'academy-root-redirect',
+        configureServer(server) {
+            server.middlewares.use(redirect);
+        },
+        configurePreviewServer(server) {
+            server.middlewares.use(redirect);
+        },
+    };
+}
+
 export default defineConfig(({ command }) => ({
+    plugins: [academyRootRedirect()],
     // Dev serves the same hosted Reader + Academy tree as GitHub Pages so the
     // real annotation runtime is exercised during browser acceptance.
     publicDir: command === 'serve' ? path.join(root, 'docs/public') : false,

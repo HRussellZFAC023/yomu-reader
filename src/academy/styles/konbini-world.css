@@ -1,0 +1,162 @@
+/* Konbini owns one working register surface over the approved rainy-evening scene. */
+.academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] > .academy-world-action-speaker,
+.academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] > .academy-world-section-title,
+.academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] > .academy-world-activity-detail,
+.academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] > .academy-world-curriculum {
+    display: none;
+}
+
+.academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] {
+    max-height: min(60dvh, 520px);
+}
+
+.academy-konbini-register,
+.academy-konbini-receipt {
+    display: grid;
+    gap: 9px;
+}
+
+.academy-konbini-register-label {
+    margin: 0;
+    color: #b84538;
+    font: 900 0.68rem/1.1 var(--academy-font);
+    text-transform: uppercase;
+}
+
+.academy-konbini-item {
+    margin: 0;
+    color: #102f29;
+    font: 900 1.35rem/1.05 var(--academy-japanese-font);
+}
+
+.academy-konbini-register .academy-world-practice-prompt,
+.academy-konbini-register .academy-world-transcript,
+.academy-konbini-register .academy-world-practice-status,
+.academy-konbini-register .academy-konbini-request {
+    margin: 0;
+}
+
+.academy-konbini-cash-counter {
+    display: grid;
+    grid-template-columns: 44px minmax(110px, 1fr) 44px;
+    gap: 7px;
+    align-items: center;
+}
+
+.academy-konbini-counter-button {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 2px solid #2b6f59;
+    border-radius: 0;
+    color: #11372d;
+    background: #c7f2d6;
+    box-shadow: 3px 3px 0 rgba(17, 55, 45, 0.24);
+    font: 900 1.25rem/1 var(--academy-font);
+}
+
+.academy-konbini-counter-button:focus-visible,
+.academy-konbini-primary-action:focus-visible {
+    outline: 3px solid #0d2b2a;
+    outline-offset: 2px;
+}
+
+.academy-konbini-counter-button:disabled {
+    opacity: 0.42;
+    box-shadow: none;
+}
+
+.academy-konbini-amount {
+    min-width: 0;
+    color: #f2fff7;
+    background: #153f38;
+    box-shadow: inset 0 0 0 3px #0b2825;
+    font: 900 1.22rem/44px var(--academy-font);
+    text-align: center;
+}
+
+.academy-konbini-note-rail {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 3px;
+    height: 19px;
+}
+
+.academy-konbini-note {
+    border: 1px solid rgba(29, 91, 70, 0.38);
+    background: rgba(126, 189, 153, 0.15);
+    transform: translateY(2px);
+}
+
+.academy-konbini-note.is-counted {
+    border-color: #2d805f;
+    background: repeating-linear-gradient(90deg, #91d4ad 0 35%, #e8f3d9 36% 64%, #91d4ad 65% 100%);
+    transform: translateY(0);
+}
+
+.academy-konbini-primary-action {
+    width: 100%;
+    min-height: 46px;
+    margin: 1px 0 0;
+}
+
+.academy-konbini-request {
+    padding: 7px 9px;
+    border-left: 4px solid #c44f3e;
+    color: #17312d;
+    background: rgba(141, 240, 189, 0.2);
+    font: 800 1rem/1.25 var(--academy-japanese-font);
+}
+
+.academy-konbini-character-presence {
+    border-left: 4px solid #e8624e;
+    color: #f1fff6;
+    background: rgba(4, 30, 30, 0.9);
+}
+
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='konbini'] .academy-world-characters {
+        inset: 232px auto 104px 6%;
+        height: min(54dvh, 540px);
+    }
+}
+
+@media (max-width: 760px) {
+    .academy-world-screen[data-current-place='konbini'] .academy-world-action-dock[data-purpose-surface='checkout-counter'] {
+        max-height: min(48svh, 370px);
+    }
+
+    .academy-konbini-register,
+    .academy-konbini-receipt {
+        gap: 6px;
+    }
+
+    .academy-konbini-item { font-size: 1rem; }
+    .academy-konbini-register .academy-world-practice-prompt { font-size: 0.76rem; }
+    .academy-konbini-cash-counter { grid-template-columns: 44px minmax(80px, 1fr) 44px; gap: 4px; }
+    .academy-konbini-amount { font-size: 0.98rem; }
+    .academy-konbini-note-rail { height: 13px; }
+    .academy-konbini-primary-action { min-height: 44px; }
+
+    .academy-world-screen[data-current-place='konbini'] .academy-world-character[data-presence] .academy-konbini-character-presence {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 2;
+        width: min(112px, 76%);
+        max-height: 54px;
+        margin: 0;
+        overflow: hidden;
+        text-align: left;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-world-screen[data-current-place='konbini'] .academy-konbini-note,
+    .academy-world-screen[data-current-place='konbini'] .academy-konbini-counter-button,
+    .academy-world-screen[data-current-place='konbini'] .academy-konbini-primary-action {
+        animation: none !important;
+        transition: none !important;
+    }
+}

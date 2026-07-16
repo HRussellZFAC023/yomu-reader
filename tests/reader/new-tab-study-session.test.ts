@@ -55,7 +55,7 @@ describe('new-tab study session model', () => {
             hasRecallCloze: false,
         });
 
-        expect(session.steps.map(step => step.kind)).toEqual(['word', 'listen-pitch', 'speaking', 'final-reveal']);
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'type-word', 'listen-pitch', 'speaking', 'final-reveal']);
         expect(session.activeStep.kind).toBe('final-reveal');
         expect(session.gradeStep.kind).toBe('final-reveal');
     });
@@ -111,12 +111,10 @@ describe('new-tab study session model', () => {
 
         expect(session.steps.map(step => step.kind)).toEqual([
             'word',
+            'type-word',
             'listen-pitch',
             'recall-cloze',
             'kanji-doodle',
-            // type-word has no configured position, so it lands after the ordered
-            // steps (before the always-last reveal), gated on the recall cloze.
-            'type-word',
             'final-reveal',
         ]);
         expect(session.gradeStep.kind).toBe('final-reveal');

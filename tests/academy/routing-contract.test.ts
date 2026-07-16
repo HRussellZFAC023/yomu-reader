@@ -6,7 +6,9 @@ import {
     navigationForRoute,
     normalizeResumeCheckpoint,
     themeForRoute,
+    themeForWorldPlace,
 } from '../../src/academy/routing/contract';
+import { AUTHORIZED_AUDIO_CATALOG } from '../../src/academy/audio/manifest';
 
 const SESSION = {
     sessionId: 'session',
@@ -142,6 +144,21 @@ describe('Academy resume route contract', () => {
     it('keeps Class inside the native overflow navigation and classroom audio state', () => {
         expect(navigationForRoute('class')).toBe('class');
         expect(themeForRoute('class')).toBe('classroom.focus');
+    });
+
+    it('gives every current place a distinct authorized theme and preserves world-place routing', () => {
+        const places = [
+            'courtyard', 'classroom', 'library', 'cafe', 'lab', 'street', 'station', 'konbini', 'ramen',
+            'japan-centre', 'home', 'park', 'station-platform',
+        ] as const;
+        const themes = places.map(themeForWorldPlace);
+        const tracks = themes.map(theme => AUTHORIZED_AUDIO_CATALOG[theme].music?.id);
+        expect(new Set(themes).size).toBe(places.length);
+        expect(new Set(tracks).size).toBe(places.length);
+        expect(themeForRoute('world', 'station')).toBe('world.station');
+        expect(themeForRoute('station')).toBe('world.station');
+        expect(AUTHORIZED_AUDIO_CATALOG['world.station'].crossfadeMs).toBeGreaterThan(0);
+        expect(themeForRoute('world', 'train')).toBe('silence');
     });
 
     it('keeps global destinations available on a focused activity after enrollment', () => {

@@ -56,6 +56,7 @@ interface TypeWordInternals {
     index: number;
     reviewCountMode: boolean;
     state: Record<string, unknown>;
+    typeAnswers: Map<string, string>;
     typeOutcomes: Map<string, string>;
     recallOutcomes: Map<string, string>;
     pitchOutcomes: Map<string, { position: number; outcome: 'correct' | 'wrong' }>;
@@ -65,7 +66,11 @@ interface TypeWordInternals {
     submitTypeWordAnswer(root: HTMLElement): void;
 }
 
-function typeWordController(cards: JPDBCard[], settings: Partial<ReaderSettings> = {}) {
+function typeWordController(
+    cards: JPDBCard[],
+    settings: Partial<ReaderSettings> = {},
+    overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {},
+) {
     const mergedSettings: ReaderSettings = {
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
@@ -93,6 +98,7 @@ function typeWordController(cards: JPDBCard[], settings: Partial<ReaderSettings>
         dismissLookup: vi.fn(),
         toast: vi.fn(),
         playWordAudio: vi.fn(async () => undefined),
+        ...overrides,
     } as never);
     const internals = controller as unknown as TypeWordInternals;
     internals.allWords = cards.slice();
@@ -145,6 +151,18 @@ describe('type-word step sequencing and gating', () => {
         ]);
     });
 
+    it('keeps Type immediately after Word even when a saved order placed it elsewhere', () => {
+        const session = createNewTabStudySession(typeCard(), {
+            mode: 'word',
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasRecallCloze: true,
+            stepOrder: ['type-word', 'speaking', 'word'],
+        });
+        const kinds = session.steps.map(step => step.kind);
+        expect(kinds.indexOf('type-word')).toBe(kinds.indexOf('word') + 1);
+    });
+
     it('is optional: disabling the step removes it from the flow', () => {
         const session = createNewTabStudySession(typeCard(), {
             mode: 'word',
@@ -156,20 +174,71 @@ describe('type-word step sequencing and gating', () => {
         expect(session.steps.map(step => step.kind)).not.toContain('type-word');
     });
 
-    it('is gated on an example sentence: no cloze means no type-word step', () => {
+    it('does not leave Type in the flow when its preceding Word step is disabled', () => {
         const session = createNewTabStudySession(typeCard(), {
+            mode: 'word',
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasRecallCloze: true,
+            disabledSteps: ['word'],
+        });
+        expect(session.steps.map(step => step.kind)).not.toContain('word');
+        expect(session.steps.map(step => step.kind)).not.toContain('type-word');
+    });
+
+    it('keeps the mobile release flow Word to Type while a sourced cloze is unavailable', () => {
+        const session = createNewTabStudySession(typeCard({ spelling: 'のみもの', reading: 'のみもの', sentence: undefined }), {
             mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
         });
-        expect(session.steps.map(step => step.kind)).not.toContain('type-word');
-        // Recall shares the same gate, so it should also be absent.
-        expect(session.steps.map(step => step.kind)).not.toContain('recall-cloze');
+        expect(session.steps.map(step => step.kind)).toEqual([
+            'word',
+            'type-word',
+            'listen-pitch',
+            'speaking',
+            'final-reveal',
+        ]);
     });
 });
 
 describe('type-word typed answers', () => {
+    it('upgrades Type to an installed-dictionary N+1 cloze without exposing the answer', async () => {
+        const card = typeCard({ sentence: undefined });
+        const dictionarySentence = '冷たい飲み物が欲しい。';
+        const { controller, internals } = typeWordController([card], {}, {
+            loadCardRenderData: vi.fn(async () => ({
+                localEntries: [{
+                    expression: '飲み物',
+                    reading: 'のみもの',
+                    glossary: [{
+                        tag: 'div',
+                        'data-sc-content': 'example-sentence',
+                        content: dictionarySentence,
+                    }],
+                    dictionary: 'Installed test dictionary',
+                }],
+            } as never)),
+        });
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            await vi.waitFor(() => {
+                const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
+                expect(prompt?.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
+                expect(prompt?.textContent).toContain('冷たい');
+                expect(prompt?.textContent).not.toContain('飲み物');
+            });
+            const steps = [...root.querySelectorAll<HTMLElement>('[data-study-step-kind]')]
+                .map(step => step.dataset.studyStepKind);
+            expect(steps.indexOf('type-word')).toBe(steps.indexOf('word') + 1);
+            expect(steps).not.toContain('recall-cloze');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('grades a typed answer and records the first attempt only', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
@@ -179,9 +248,7 @@ describe('type-word typed answers', () => {
             renderTypeWordStep(internals, root, card);
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             expect(input).not.toBeNull();
-            // Writing is a copy exercise now: the full sentence with the
-            // blank filled by the kanji spelling is a full "correct".
-            input!.value = '冷たい飲み物が欲しい。';
+            input!.value = '飲み物';
             internals.submitTypeWordAnswer(root);
             expect(internals.typeOutcomes.get(cardKey(card))).toBe('correct');
             expect(root.querySelector('[data-newtab-type-result]')?.getAttribute('data-newtab-type-result')).toBe('correct');
@@ -212,7 +279,7 @@ describe('type-word typed answers', () => {
         }
     });
 
-    it('grades the copied sentence with the reading filled in as accepted', () => {
+    it('converts a romaji answer to kana before grading', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -220,11 +287,74 @@ describe('type-word typed answers', () => {
             internals.bindRootEvents(root);
             renderTypeWordStep(internals, root, card);
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
-            input!.value = '冷たいのみものが欲しい。';
+            input!.value = 'nomimono';
             internals.submitTypeWordAnswer(root);
+            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+            expect(root.querySelector<HTMLInputElement>('[data-newtab-type-input]')?.value).toBe('のみもの');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('submits Type with Enter and preserves in-progress input across rerenders', () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            internals.bindRootEvents(root);
+            renderTypeWordStep(internals, root, card);
+            const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            input.value = 'nomimono';
+            input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+            expect(internals.typeAnswers.get(cardKey(card))).toBe('nomimono');
+
+            internals.renderWord(root, card);
+            const rerendered = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            expect(rerendered.value).toBe('nomimono');
+            rerendered.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
             expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
         } finally {
             controller.destroy();
+        }
+    });
+
+    it('handles mobile form submission but ignores Enter used to commit IME composition', () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            internals.bindRootEvents(root);
+            renderTypeWordStep(internals, root, card);
+            const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            input.value = 'nomimono';
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true }));
+            expect(internals.typeOutcomes.has(cardKey(card))).toBe(false);
+
+            const form = root.querySelector<HTMLFormElement>('[data-newtab-type-form]')!;
+            const submit = new Event('submit', { bubbles: true, cancelable: true });
+            expect(form.dispatchEvent(submit)).toBe(false);
+            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('focuses the Type input synchronously while a mobile tap still owns user activation', () => {
+        const originalMatchMedia = window.matchMedia;
+        Object.defineProperty(window, 'matchMedia', {
+            configurable: true,
+            value: vi.fn((query: string) => ({ matches: query === '(pointer: coarse)' })),
+        });
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            expect(document.activeElement).toBe(root.querySelector('[data-newtab-type-input]'));
+        } finally {
+            controller.destroy();
+            if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+            else delete (window as { matchMedia?: typeof window.matchMedia }).matchMedia;
         }
     });
 
@@ -311,8 +441,8 @@ describe('type-word typed answers', () => {
     });
 });
 
-describe('final-reveal per-step summary and suggested grade', () => {
-    it('renders a per-step results strip above the grade buttons and highlights a suggestion', () => {
+describe('final-reveal suggested grade', () => {
+    it('removes the results pills while retaining the advisory grade suggestion', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
@@ -322,11 +452,7 @@ describe('final-reveal per-step summary and suggested grade', () => {
             internals.typeOutcomes.set(cardKey(card), 'correct');
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
-            const strip = root.querySelector('[data-newtab-study-summary]');
-            expect(strip).not.toBeNull();
-            expect(strip?.querySelector('[data-study-summary-step="recall-cloze"]')?.getAttribute('data-study-summary-outcome')).toBe('correct');
-            expect(strip?.querySelector('[data-study-summary-step="type-word"]')?.getAttribute('data-study-summary-outcome')).toBe('correct');
-            expect(strip?.querySelector('[data-study-summary-step="speaking"]')?.getAttribute('data-study-summary-outcome')).toBe('none');
+            expect(root.querySelector('[data-newtab-study-summary]')).toBeNull();
             const suggested = root.querySelector<HTMLElement>('[data-grade][data-suggested="true"]');
             expect(suggested?.dataset.grade).toBe('okay');
         } finally {

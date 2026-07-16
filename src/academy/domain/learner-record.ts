@@ -40,6 +40,13 @@ type LearnerEventData =
         readonly sceneId: string;
     }
     | {
+        /** A grounded scene that the learner actually completed, with its exact attendees. */
+        readonly kind: 'characters-encountered';
+        readonly encounterId: string;
+        readonly sceneId: string;
+        readonly attendeeIds: readonly string[];
+    }
+    | {
         readonly kind: 'bond-changed';
         readonly characterId: string;
         readonly delta: number;
@@ -59,6 +66,7 @@ type LearnerEventData =
         readonly itemIds: readonly string[];
         readonly scores: Readonly<Record<PlacementSkill, number>>;
         readonly recommendedBand: JlptBand;
+        readonly recommendedStart?: JlptBand | 'lesson-zero';
         readonly calibration: 'vertical-slice' | 'validated';
     }
     | {
@@ -129,6 +137,15 @@ type LearnerEventData =
         readonly majorTurn?: 'recognition' | 'friction' | 'support';
     }
     | {
+        /** A short, authored learner-owned line earned from a completed task. */
+        readonly kind: 'journal-line-recorded';
+        readonly journalLineId: string;
+        readonly characterId: string;
+        readonly text: Readonly<{ ja: string; en: string }>;
+        readonly activityId: string;
+        readonly sourceQuestionId?: string;
+    }
+    | {
         readonly kind: 'support-used';
         readonly activityId: string;
         readonly supportKind: SupportKind;
@@ -163,6 +180,12 @@ export interface LearnerProjection {
     readonly reviewRatings: Readonly<Record<string, ReviewRating>>;
     readonly grammarKnowledge: Readonly<Record<string, GrammarKnowledge>>;
     readonly completedScenes: readonly string[];
+    /** Canonical record of people met in completed grounded encounters. */
+    readonly encounteredCharacters: Readonly<Record<string, {
+        readonly encounterIds: readonly string[];
+        readonly sceneIds: readonly string[];
+    }>>;
+    readonly completedEncounterIds: readonly string[];
     readonly bonds: Readonly<Record<string, number>>;
     readonly unlockedAssets: readonly string[];
     readonly profile: LearnerProfileSnapshot | null;
@@ -176,6 +199,7 @@ export interface LearnerProjection {
         readonly chapters: readonly number[];
         readonly majorTurns: readonly ('recognition' | 'friction' | 'support')[];
     }>>;
+    readonly journalLines: Readonly<Record<string, Extract<LearnerEvent, { kind: 'journal-line-recorded' }>>>;
     readonly supportUses: readonly Extract<LearnerEvent, { kind: 'support-used' }>[];
 }
 
@@ -267,6 +291,8 @@ interface LearnerProjectionState {
     readonly reviewRatings: Record<string, ReviewRating>;
     readonly grammarKnowledge: Record<string, GrammarKnowledge>;
     readonly completedScenes: Set<string>;
+    readonly encounteredCharacters: Record<string, { encounterIds: Set<string>; sceneIds: Set<string> }>;
+    readonly completedEncounterIds: Set<string>;
     readonly bonds: Record<string, number>;
     readonly unlockedAssets: Set<string>;
     profile: LearnerProfileSnapshot | null;
@@ -277,6 +303,7 @@ interface LearnerProjectionState {
     readonly closedDays: Record<string, LearnerEventOfKind<'academy-day-closed'>>;
     readonly seenAchievementCeremonies: Set<string>;
     readonly relationshipJournal: MutableRelationshipJournal;
+    readonly journalLines: Record<string, LearnerEventOfKind<'journal-line-recorded'>>;
     readonly supportUses: LearnerEventOfKind<'support-used'>[];
     readonly neutralizedReviewScheduleIds: ReadonlySet<string>;
     lastEventAt: number | null;
@@ -300,11 +327,31 @@ const LEARNER_PROJECTION_REDUCERS: LearnerProjectionReducers = {
     'scene-completed': (state, event) => {
         state.completedScenes.add(event.sceneId);
     },
+    'characters-encountered': (state, event) => {
+        state.completedEncounterIds.add(event.encounterId);
+        event.attendeeIds.forEach(characterId => {
+            const character = state.encounteredCharacters[characterId] ??= {
+                encounterIds: new Set(),
+                sceneIds: new Set(),
+            };
+            character.encounterIds.add(event.encounterId);
+            character.sceneIds.add(event.sceneId);
+        });
+    },
     'bond-changed': (state, event) => {
         state.bonds[event.characterId] = Math.max(0, (state.bonds[event.characterId] ?? 0) + event.delta);
     },
     'asset-unlocked': (state, event) => {
         state.unlockedAssets.add(event.assetId);
+        const characterId = event.assetId.startsWith('character:')
+            ? event.assetId.slice('character:'.length)
+            : null;
+        if (!characterId) return;
+        const character = state.encounteredCharacters[characterId] ??= {
+            encounterIds: new Set(),
+            sceneIds: new Set(),
+        };
+        character.encounterIds.add(`legacy:${event.assetId}`);
     },
     'profile-changed': (state, event) => {
         state.profile = clone(event.profile);
@@ -333,6 +380,9 @@ const LEARNER_PROJECTION_REDUCERS: LearnerProjectionReducers = {
         state.seenAchievementCeremonies.add(`${event.achievementId}:${event.tier}`);
     },
     'relationship-chapter-unlocked': projectRelationshipChapter,
+    'journal-line-recorded': (state, event) => {
+        state.journalLines[event.journalLineId] ??= clone(event);
+    },
     'support-used': (state, event) => {
         state.supportUses.push(clone(event));
     },
@@ -350,6 +400,8 @@ function createLearnerProjectionState(events: readonly LearnerEvent[]): LearnerP
         reviewRatings: {},
         grammarKnowledge: {},
         completedScenes: new Set(),
+        encounteredCharacters: {},
+        completedEncounterIds: new Set(),
         bonds: {},
         unlockedAssets: new Set(),
         profile: null,
@@ -360,6 +412,7 @@ function createLearnerProjectionState(events: readonly LearnerEvent[]): LearnerP
         closedDays: {},
         seenAchievementCeremonies: new Set(),
         relationshipJournal: {},
+        journalLines: {},
         supportUses: [],
         neutralizedReviewScheduleIds: reviewScheduleNeutralizations(events),
         lastEventAt: null,
@@ -413,6 +466,12 @@ function learnerProjectionFromState(eventCount: number, state: LearnerProjection
         reviewRatings: state.reviewRatings,
         grammarKnowledge: state.grammarKnowledge,
         completedScenes: [...state.completedScenes].sort(),
+        encounteredCharacters: Object.fromEntries(Object.entries(state.encounteredCharacters)
+            .map(([characterId, encounter]) => [characterId, {
+                encounterIds: [...encounter.encounterIds].sort(),
+                sceneIds: [...encounter.sceneIds].sort(),
+            }])),
+        completedEncounterIds: [...state.completedEncounterIds].sort(),
         bonds: state.bonds,
         unlockedAssets: [...state.unlockedAssets].sort(),
         profile: state.profile,
@@ -426,6 +485,7 @@ function learnerProjectionFromState(eventCount: number, state: LearnerProjection
             chapters: [...journal.chapters].sort((left, right) => left - right),
             majorTurns: [...journal.majorTurns].sort(),
         }])),
+        journalLines: state.journalLines,
         supportUses: state.supportUses,
     };
 }
@@ -484,6 +544,12 @@ const LEARNER_EVENT_VALIDATORS: LearnerEventValidators = {
     'scene-completed': event => {
         requireText(event.sceneId, 'sceneId');
     },
+    'characters-encountered': event => {
+        requireText(event.encounterId, 'encounterId');
+        requireText(event.sceneId, 'sceneId');
+        if (!event.attendeeIds.length) throw new TypeError('Character encounter needs attendees.');
+        unique(event.attendeeIds.map(id => requireText(id, 'encounter.attendeeId')));
+    },
     'bond-changed': validateBondChanged,
     'asset-unlocked': event => {
         requireText(event.assetId, 'assetId');
@@ -499,6 +565,7 @@ const LEARNER_EVENT_VALIDATORS: LearnerEventValidators = {
     'academy-day-closed': validateAcademyDayClosed,
     'achievement-ceremony-seen': validateAchievementCeremonySeen,
     'relationship-chapter-unlocked': validateRelationshipChapterUnlocked,
+    'journal-line-recorded': validateJournalLineRecorded,
     'support-used': validateSupportUsed,
 };
 
@@ -546,6 +613,15 @@ function validateRelationshipChapterUnlocked(event: Extract<LearnerEvent, { kind
     if (event.majorTurn && !['recognition', 'friction', 'support'].includes(event.majorTurn)) throw new TypeError('Invalid relationship major turn.');
 }
 
+function validateJournalLineRecorded(event: Extract<LearnerEvent, { kind: 'journal-line-recorded' }>): void {
+    requireText(event.journalLineId, 'journalLineId');
+    requireText(event.characterId, 'journalLine.characterId');
+    requireText(event.text.ja, 'journalLine.text.ja');
+    requireText(event.text.en, 'journalLine.text.en');
+    requireText(event.activityId, 'journalLine.activityId');
+    if (event.sourceQuestionId !== undefined) requireText(event.sourceQuestionId, 'journalLine.sourceQuestionId');
+}
+
 function validateSupportUsed(event: Extract<LearnerEvent, { kind: 'support-used' }>): void {
     requireText(event.activityId, 'activityId');
     if (!['hint', 'transcript', 'translation', 'definition', 'example-gloss', 'model-answer'].includes(event.supportKind)) throw new TypeError('Invalid support kind.');
@@ -582,6 +658,9 @@ function validatePlacementAssessed(event: Extract<LearnerEvent, { kind: 'placeme
     requireText(event.assessmentId, 'assessmentId');
     requireJlptBand(event.targetBand, 'targetBand');
     requireJlptBand(event.recommendedBand, 'recommendedBand');
+    if (event.recommendedStart && event.recommendedStart !== 'lesson-zero') {
+        requireJlptBand(event.recommendedStart, 'recommendedStart');
+    }
     if (!event.itemIds.length) throw new TypeError('Placement assessment needs item ids.');
     unique(event.itemIds.map(id => requireText(id, 'placement.itemId')));
     for (const skill of ['language-knowledge', 'reading', 'listening', 'speaking-confidence', 'writing-confidence'] as const) {

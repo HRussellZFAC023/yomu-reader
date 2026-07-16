@@ -234,6 +234,16 @@ export interface NewTabRuntimeOptions {
     readonly mountHost?: HTMLElement;
     readonly sessionClock?: StudySessionClock;
     readonly interfaceLanguage?: 'en' | 'ja';
+    /** Read-only lesson context. Scheduler writes are owned by Academy learner evidence. */
+    readonly sessionVocabulary?: readonly ReaderStudyVocabulary[];
+}
+
+export interface ReaderStudyVocabulary {
+    readonly id: string;
+    readonly expression: string;
+    readonly reading?: string;
+    readonly meaning?: string;
+    readonly source?: string;
 }
 
 /** Mounts the production Study runtime without replacing the Academy document. */
@@ -242,12 +252,14 @@ export async function mountNewTabStudySurface(
     options: {
         readonly language: 'en' | 'ja';
         readonly sessionClock: StudySessionClock;
+        readonly sessionVocabulary?: readonly ReaderStudyVocabulary[];
     },
 ): Promise<{ dispose(): void }> {
     const runtime = new NewTabRuntime({
         mountHost: host,
         sessionClock: options.sessionClock,
         interfaceLanguage: options.language,
+        sessionVocabulary: options.sessionVocabulary,
     });
     await runtime.init();
     return {
@@ -285,7 +297,8 @@ export class NewTabRuntime {
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
-    private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
+    private yomuLocalSrsRepository = new LocalYomuSrsRepository();
+    private yomuLocalSrs = createYomuLocalSrsAdapter(this.yomuLocalSrsRepository);
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -470,6 +483,7 @@ export class NewTabRuntime {
         configureLogger({ forceEnabled: this.settings.enableLogging });
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
         this.applyTheme();
+        this.assertSessionVocabularyReadOnly();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
         void this.refreshDictionaryStyles();
@@ -482,6 +496,14 @@ export class NewTabRuntime {
         this.installCardStateSignalSubscription();
         this.installSettingsStorageSubscription();
         void this.settingsDialog.resumePendingCloudSettingsSync();
+    }
+
+    private assertSessionVocabularyReadOnly(): void {
+        for (const item of this.options.sessionVocabulary ?? []) {
+            if (!item.id.trim() || !item.expression.trim()) {
+                throw new TypeError('Academy session vocabulary requires stable ids and expressions.');
+            }
+        }
     }
 
     // Cross-tab card-state mutation bus: grading or mining a card on a page

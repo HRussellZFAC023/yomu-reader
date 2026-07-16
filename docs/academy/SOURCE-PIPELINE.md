@@ -38,6 +38,30 @@ npm run academy:library:validate
 
 `publish` reads only completed private caches and fails if a ledger or census denominator is missing; it never reopens source archives. Its public artifact contains aggregate allowlisted fields only. The current mechanical baseline is 15,790 filesystem entries, 13,123 regular files, 11,081 unique payloads, and 68 hashes overlapping Moodle. Archive census is 84/89, with five `failed:zip64-unsupported` containers recorded by reason; PDF census is 450/450 and media probe census is 5,090/5,090. These counts do not imply reviewed questions, cleared rights, transcripts, pairings, or playable activities.
 
+## Permitted corpus gate
+
+The lesson-authoring corpus is closed to Moodle raw/digitized material, the shared Japanese library, `references/soya-research`, and the provided story sources. Build and validate its crosswalks after the Moodle and library ledgers exist:
+
+```bash
+npm run academy:corpus:build
+npm run academy:corpus:validate
+```
+
+The progression precedence is fixed:
+
+1. Moodle module chronology owns class order.
+2. Minna no Nihongo and Genki provide prerequisite anchors inside that order.
+3. Other Japanese-library, Soya, textbook, and story material may enrich an introduced prerequisite but may not advance or reorder it.
+
+Exact private manifests are written under `artifacts/yomu-academy/source-pipeline/permitted-corpus/`. Public manifests contain only logical source IDs, hashes, counts, ordered content fingerprints, controlled states, and gap codes:
+
+- `permitted-corpus.v1.json` closes the allowlist and records the source-census evidence;
+- `curriculum-crosswalk.v1.json` records Moodle, Minna, and Genki anchors for every lesson;
+- `vocabulary-parity.v1.json` compares every lesson pre-study list against source-sheet order, readings, meanings, and media;
+- `media-crosswalk.v1.json` accounts for Moodle, digitized-pack, Soya, Genki/Minna, and story media.
+
+Vocabulary parity is exact or it is a gap. Functional similarity, a subset of the sheet, reordered rows, authored gloss substitutions, and unresolved media cannot be reported as parity. Source-provided and model answers are separately attributed and always use the `after-attempt` gate. A blank source cell remains blank unless a separately attributed model answer exists.
+
 ## Private outputs
 
 Ignored artifacts live under `artifacts/yomu-academy/source-pipeline/`:

@@ -1,0 +1,249 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const ROOT = process.cwd();
+const PUBLIC_ART = path.resolve(ROOT, 'public/academy/art');
+const OUTPUT = path.join(PUBLIC_ART, 'CLASSMATE-SPRITE-INVENTORY.json');
+const DOCS_OUTPUT = path.resolve(ROOT, 'docs/public/academy/art/CLASSMATE-SPRITE-INVENTORY.json');
+const BATCH_MANIFEST = JSON.parse(fs.readFileSync(path.join(PUBLIC_ART, 'SPRITE-BATCH-MANIFEST.json'), 'utf8'));
+const ASSET_USAGE = JSON.parse(fs.readFileSync(path.join(PUBLIC_ART, 'ASSET-USAGE.json'), 'utf8'));
+const RECOVERY = JSON.parse(fs.readFileSync(path.resolve(ROOT, 'docs/academy/recovery/ASSET-CARRYOVER.json'), 'utf8'));
+
+const ANGLES = ['left-three-quarter', 'front-near-front', 'right-three-quarter'];
+const EXPRESSIONS = [
+    'neutral',
+    'happy',
+    'encouraging-listening',
+    'surprised-shocked',
+    'sad-vulnerable',
+    'determined',
+    'comedic',
+];
+
+const APPROVED_PATHS = new Set([
+    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
+    '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
+    '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
+]);
+
+const CURRENT_SLOT_OVERRIDES = new Map([
+    ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'neutral']],
+    ['/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png', ['right-three-quarter', 'neutral']],
+]);
+
+const ledgerByDelivery = new Map();
+for (const asset of ASSET_USAGE.assets) {
+    for (const delivery of asset.deliveries ?? []) ledgerByDelivery.set(delivery.path, asset);
+}
+
+function sha256(file) {
+    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function readPngHeader(file) {
+    const png = fs.readFileSync(file);
+    if (png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new TypeError(`${file} is not a PNG.`);
+    return {
+        width: png.readUInt32BE(16),
+        height: png.readUInt32BE(20),
+        bitDepth: png[24],
+        colorType: png[25],
+        transparency: png[25] === 6 || png[25] === 4 ? 'alpha-channel' : 'no-alpha-channel',
+    };
+}
+
+function normalizeCurrentSlot(publicPath) {
+    const override = CURRENT_SLOT_OVERRIDES.get(publicPath);
+    if (override) return { angle: override[0], expression: override[1] };
+    const name = path.basename(publicPath, '.png');
+    const angle = ANGLES.find(value => name.includes(`__${value}__`)) ?? 'front-near-front';
+    let expression = name.split('__')[1] ?? '';
+    if (expression === 'encouraging') expression = 'encouraging-listening';
+    if (expression === 'surprised') expression = 'surprised-shocked';
+    return EXPRESSIONS.includes(expression) ? { angle, expression } : null;
+}
+
+function versionFor(publicPath) {
+    return path.basename(publicPath).match(/__(v\d+)\.png$/)?.[1] ?? 'unversioned';
+}
+
+function currentAssetsFor(character) {
+    const directory = path.join(PUBLIC_ART, 'characters', character.id);
+    if (!fs.existsSync(directory)) return [];
+    return fs.readdirSync(directory)
+        .filter(file => file.endsWith('.png'))
+        .sort()
+        .map(file => {
+            const absolute = path.join(directory, file);
+            const publicPath = `/academy/art/characters/${character.id}/${file}`;
+            const ledger = ledgerByDelivery.get(publicPath);
+            const slot = normalizeCurrentSlot(publicPath);
+            const status = APPROVED_PATHS.has(publicPath) ? 'approved' : 'review-candidate';
+            return {
+                path: publicPath,
+                sha256: sha256(absolute),
+                styleVersion: character.id === 'sophie'
+                    ? 'current-hand-painted-standard'
+                    : character.id === 'rie' ? 'hand-painted-production-family' : 'current-review-family',
+                fileVersion: versionFor(publicPath),
+                pose: slot ? `${character.basePose}; ${slot.angle}` : `off-contract ${path.basename(file, '.png').split('__')[1] ?? 'unknown'} pose`,
+                angle: slot?.angle ?? null,
+                expression: slot?.expression ?? null,
+                dimensions: readPngHeader(absolute),
+                runtimeUses: ledger?.runtimeHome ?? [],
+                reviewUses: ledger?.reviewHome ?? [],
+                decision: 'keep',
+                migrationStatus: status === 'approved'
+                    ? 'approved-and-registered'
+                    : slot ? 'retained-review-candidate-not-approved' : 'retained-off-matrix-review-evidence',
+                coverageStatus: slot ? status : 'off-matrix',
+            };
+        });
+}
+
+function historicalDecision(asset) {
+    if (asset.bindingVerdict === 'must-not-bind' || asset.qualityVerdict?.startsWith('rejected-')) return 'delete';
+    if (asset.destination?.status === 'current-runtime' || asset.destination?.status === 'current-review') return 'keep';
+    return 'replace';
+}
+
+const castIds = new Set(BATCH_MANIFEST.characters.map(character => character.id));
+const historicalAssets = RECOVERY.assets
+    .filter(asset => asset.assetType === 'character-sprite' && asset.characters.some(character => castIds.has(character)))
+    .map(asset => ({
+        id: asset.id,
+        sha256: asset.sha256,
+        characters: asset.characters.filter(character => castIds.has(character)),
+        dimensions: asset.dimensions,
+        transparency: {
+            status: asset.extension === '.png' ? 'unknown-not-retained' : 'not-applicable',
+            evidence: 'Recovery ledger preserves dimensions and hashes but not decoded alpha samples.',
+        },
+        styleVersion: {
+            generationFamily: asset.provenance?.generationFamily ?? 'unknown',
+            provenanceStatus: asset.provenance?.status ?? 'unknown',
+            variants: asset.variants ?? [],
+        },
+        poses: asset.poses ?? [],
+        angles: ANGLES.filter(angle => [...(asset.poses ?? []), ...(asset.variants ?? [])].some(value => String(value).includes(angle))),
+        expressions: asset.expressions ?? [],
+        runtimeUses: asset.runtimeUses ?? [],
+        qualityVerdict: asset.qualityVerdict,
+        bindingVerdict: asset.bindingVerdict,
+        decision: historicalDecision(asset),
+        migrationStatus: asset.orphanState,
+        occurrenceCount: asset.occurrenceCount,
+        occurrences: asset.occurrences,
+    }))
+    .sort((a, b) => a.sha256.localeCompare(b.sha256));
+
+const historicalIdsByCharacter = new Map(BATCH_MANIFEST.characters.map(character => [character.id, []]));
+for (const asset of historicalAssets) {
+    for (const character of asset.characters) historicalIdsByCharacter.get(character)?.push(asset.id);
+}
+
+const characters = BATCH_MANIFEST.characters.map(character => {
+    const currentAssets = currentAssetsFor(character);
+    const currentBySlot = new Map(currentAssets
+        .filter(asset => asset.angle && asset.expression)
+        .map(asset => [`${asset.angle}:${asset.expression}`, asset]));
+    const requiredVariants = ANGLES.flatMap(angle => EXPRESSIONS.map(expression => {
+        const current = currentBySlot.get(`${angle}:${expression}`);
+        return current ? {
+            angle,
+            expression,
+            status: current.coverageStatus,
+            path: current.path,
+        } : {
+            angle,
+            expression,
+            status: 'missing',
+            path: null,
+            plannedPath: `/academy/art/characters/${character.id}/${character.id}__${expression}__${angle}__halfbody__v001.png`,
+        };
+    }));
+    const missingVariants = requiredVariants.filter(variant => variant.status === 'missing');
+    const approved = requiredVariants.filter(variant => variant.status === 'approved').length;
+    const reviewCandidates = requiredVariants.filter(variant => variant.status === 'review-candidate').length;
+    return {
+        id: character.id,
+        firstName: character.firstName,
+        category: character.category,
+        basePose: character.basePose,
+        targetMatrix: { angles: ANGLES, expressions: EXPRESSIONS, slots: ANGLES.length * EXPRESSIONS.length },
+        progress: {
+            approved,
+            reviewCandidates,
+            missing: missingVariants.length,
+            deliveredPercent: Number((((approved + reviewCandidates) / requiredVariants.length) * 100).toFixed(2)),
+            approvedPercent: Number(((approved / requiredVariants.length) * 100).toFixed(2)),
+        },
+        currentAssets,
+        requiredVariants,
+        missingVariants,
+        historicalAssetIds: historicalIdsByCharacter.get(character.id),
+    };
+});
+
+const coverage = characters.reduce((total, character) => ({
+    approved: total.approved + character.progress.approved,
+    reviewCandidates: total.reviewCandidates + character.progress.reviewCandidates,
+    missing: total.missing + character.progress.missing,
+}), { approved: 0, reviewCandidates: 0, missing: 0 });
+
+const output = {
+    schemaVersion: 1,
+    snapshotDate: '2026-07-16',
+    purpose: 'Single machine-readable migration ledger for every canonical Academy cast sprite across current delivery and audited older worktrees.',
+    truthPolicy: {
+        matrixTarget: 'Every character requires three angles by seven expressions. A file is never inferred from a brief.',
+        missingArt: 'Undelivered cells remain explicitly missing.',
+        approval: 'Generation and physical presence do not imply runtime approval.',
+        variedPoses: 'Each character keeps the unique base pose from SPRITE-BATCH-MANIFEST.json; pose cloning is forbidden.',
+        deprecatedArt: 'Flat, wrong-style, and rejected-likeness assets are reference-only audit evidence and must not be learner-facing.',
+    },
+    sources: {
+        canonicalCast: 'public/academy/art/SPRITE-BATCH-MANIFEST.json',
+        currentAuthorization: 'public/academy/art/ASSET-USAGE.json',
+        olderWorktrees: 'docs/academy/recovery/ASSET-CARRYOVER.json',
+    },
+    target: {
+        characters: characters.length,
+        angles: ANGLES,
+        expressions: EXPRESSIONS,
+        slotsPerCharacter: ANGLES.length * EXPRESSIONS.length,
+        totalSlots: characters.length * ANGLES.length * EXPRESSIONS.length,
+    },
+    summary: {
+        ...coverage,
+        currentPhysicalRasters: characters.reduce((total, character) => total + character.currentAssets.length, 0),
+        currentOffMatrixRasters: characters.reduce((total, character) => total + character.currentAssets.filter(asset => asset.coverageStatus === 'off-matrix').length, 0),
+        historicalUniqueRasters: historicalAssets.length,
+        historicalOccurrences: historicalAssets.reduce((total, asset) => total + asset.occurrenceCount, 0),
+        charactersWithApprovedCoverage: characters.filter(character => character.progress.approved > 0).length,
+        charactersWithAnyCurrentCoverage: characters.filter(character => character.progress.approved + character.progress.reviewCandidates > 0).length,
+    },
+    migrations: [{
+        id: 'sophie-flat-v002-to-painted-v003',
+        character: 'sophie',
+        from: '/academy/art/characters/sophie/sophie__neutral__halfbody__v002.png',
+        to: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
+        decision: 'delete',
+        status: 'deprecated-file-removed-after-zero-runtime-reference-scan',
+        runtimeReferencesAfterMigration: [],
+    }],
+    characters,
+    historicalAssets,
+};
+
+const serialized = `${JSON.stringify(output, null, 2)}\n`;
+fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
+fs.mkdirSync(path.dirname(DOCS_OUTPUT), { recursive: true });
+fs.writeFileSync(OUTPUT, serialized);
+fs.writeFileSync(DOCS_OUTPUT, serialized);
+console.log(`Wrote ${path.relative(ROOT, OUTPUT)} and docs mirror: ${characters.length} characters, ${output.target.totalSlots} slots, ${historicalAssets.length} historical hashes.`);

@@ -1,0 +1,2233 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l08",
+  "order": 35,
+  "weekKind": "lesson",
+  "title": {
+    "en": "The person wearing the red coat",
+    "ja": "赤い コートを 着ている 人"
+  },
+  "estimatedMinutes": 90,
+  "identity": {
+    "title": "Level 2+ Lesson 7",
+    "academyYear": 2,
+    "termId": "l2",
+    "termLabel": "Level 2+",
+    "courseYear": "2024/25",
+    "levelBand": "N4",
+    "weekNumberInTerm": 8,
+    "moduleId": 6974656,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 14,
+      "canonicalClassOrder": 43
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveId": "archive-000070",
+    "archiveModuleId": 6974656,
+    "archiveSha256": "c43954869cb523aa2aff9052780bc14d31f06731d8c4e1fe8132914e0d33fe5d",
+    "archiveBytes": 24939478,
+    "memberFileCount": 12,
+    "members": [
+      {
+        "title": "audio materials/32 B-32.mp3",
+        "role": "audio",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2502078,
+        "payloadSha256": "881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2"
+      },
+      {
+        "title": "audio materials/33 B-33.mp3",
+        "role": "audio",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2917247,
+        "payloadSha256": "cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753"
+      },
+      {
+        "title": "Handouts/Chapter 22 listening-1.pdf",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1713024,
+        "payloadSha256": "d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a"
+      },
+      {
+        "title": "Handouts/Chapter 22 Noun modification.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 711582,
+        "payloadSha256": "d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f"
+      },
+      {
+        "title": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 8935904,
+        "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685"
+      },
+      {
+        "title": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 4225999,
+        "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6"
+      },
+      {
+        "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 282519,
+        "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82"
+      },
+      {
+        "title": "Handouts/Reference_Chapter 22 Vocabulary_Clothes.pdf",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 469870,
+        "payloadSha256": "812f502f9e5539bf57a3b083aaf55498f93fcf0de642b8ed6fd72d2811bcb93f"
+      },
+      {
+        "title": "Homework/HW Chapter 21_reading_consultation for marriage life.pdf",
+        "role": "reading",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1930861,
+        "payloadSha256": "d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196"
+      },
+      {
+        "title": "Homework/HW Chapter 22-1 exercise to make noun-modifying clause.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 81695,
+        "payloadSha256": "cafe471621a53924277551cb7abec75444de53448a3a050576a12e6f66e14e6d"
+      },
+      {
+        "title": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 629293,
+        "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f"
+      },
+      {
+        "title": "Homework/HW Chapter 22-2_person who is weaning….pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1132526,
+        "payloadSha256": "0dedfb0af53d202eae9f61f45f7625f75880660be49f8d2fd47eb337725809d0"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [
+      "2 audio file(s) remain quarantined pending exact transcript, task and answer verification.",
+      "10 document answer set(s) were not independently verified; no source answer was promoted."
+    ],
+    "coverageMap": [
+      {
+        "payloadSha256": "881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2",
+        "sourceTitle": "audio materials/32 B-32.mp3",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753",
+        "sourceTitle": "audio materials/33 B-33.mp3",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a",
+        "sourceTitle": "Handouts/Chapter 22 listening-1.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f",
+        "sourceTitle": "Handouts/Chapter 22 Noun modification.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685",
+        "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+        "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+        "sourceTitle": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "812f502f9e5539bf57a3b083aaf55498f93fcf0de642b8ed6fd72d2811bcb93f",
+        "sourceTitle": "Handouts/Reference_Chapter 22 Vocabulary_Clothes.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196",
+        "sourceTitle": "Homework/HW Chapter 21_reading_consultation for marriage life.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "cafe471621a53924277551cb7abec75444de53448a3a050576a12e6f66e14e6d",
+        "sourceTitle": "Homework/HW Chapter 22-1 exercise to make noun-modifying clause.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f",
+        "sourceTitle": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "0dedfb0af53d202eae9f61f45f7625f75880660be49f8d2fd47eb337725809d0",
+        "sourceTitle": "Homework/HW Chapter 22-2_person who is weaning….pdf",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ]
+  },
+  "mapping": {
+    "ucl": "Level 2+ · Level 2+ Lesson 7",
+    "canonicalClassWeekId": "l2plus-l07",
+    "canonicalClassOrder": 43,
+    "minna": "Minna no Nihongo I · Chapter 22 (source inventory label)",
+    "genki": "No verified Genki crosswalk asserted.",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000070 · module 6974656 · sha256 c43954869cb523aa2aff9052780bc14d31f06731d8c4e1fe8132914e0d33fe5d",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Archive identity, file inventory and topic labels are retained. Source wording, source media and source answers are not reproduced."
+      },
+      {
+        "sourceId": "source-ucl-level-2-plus-syllabus",
+        "relation": "course-scope",
+        "reference": "Japanese Level 2 plus · Minna no Nihongo I Lessons 20–25",
+        "reuse": "scope-only",
+        "note": "The syllabus grounds the N4 course range and communication aims; learner-facing material is newly authored."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000070; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "gaps": [],
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2",
+          "sourceTitle": "audio materials/32 B-32.mp3",
+          "sourceRole": "audio",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753",
+          "sourceTitle": "audio materials/33 B-33.mp3",
+          "sourceRole": "audio",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a",
+          "sourceTitle": "Handouts/Chapter 22 listening-1.pdf",
+          "sourceRole": "listening",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f",
+          "sourceTitle": "Handouts/Chapter 22 Noun modification.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f",
+          "sourceTitle": "Handouts/Chapter 22 Noun modification.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 7,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000002",
+            "archive-000038",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 8,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000002",
+            "archive-000038",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "sourceTitle": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000002",
+            "archive-000038",
+            "archive-000090"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+          "sourceTitle": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "812f502f9e5539bf57a3b083aaf55498f93fcf0de642b8ed6fd72d2811bcb93f",
+          "sourceTitle": "Handouts/Reference_Chapter 22 Vocabulary_Clothes.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:812f502f9e5539bf57a3b083aaf55498f93fcf0de642b8ed6fd72d2811bcb93f:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196",
+          "sourceTitle": "Homework/HW Chapter 21_reading_consultation for marriage life.pdf",
+          "sourceRole": "reading",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196",
+          "sourceTitle": "Homework/HW Chapter 21_reading_consultation for marriage life.pdf",
+          "sourceRole": "reading",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "cafe471621a53924277551cb7abec75444de53448a3a050576a12e6f66e14e6d",
+          "sourceTitle": "Homework/HW Chapter 22-1 exercise to make noun-modifying clause.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 10,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:cafe471621a53924277551cb7abec75444de53448a3a050576a12e6f66e14e6d:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f",
+          "sourceTitle": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f",
+          "sourceTitle": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f",
+          "sourceTitle": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 10,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "0dedfb0af53d202eae9f61f45f7625f75880660be49f8d2fd47eb337725809d0",
+          "sourceTitle": "Homework/HW Chapter 22-2_person who is weaning….pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000070",
+          "crossSourceArchiveIds": [
+            "archive-000038"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:0dedfb0af53d202eae9f61f45f7625f75880660be49f8d2fd47eb337725809d0:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Place a plain clause directly before the noun it modifies.",
+    "Identify people and things by actions, states and possessions.",
+    "Describe clothing without inserting の between a verb clause and its noun."
+  ],
+  "scene": {
+    "where": "A Level 2+ classroom conversation",
+    "hook": "The person wearing the red coat",
+    "cast": [
+      "rie",
+      "jenny",
+      "stasi"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "jenny",
+        "expression": "focused",
+        "pose": "explain",
+        "japanese": "赤い コートを 着ている 人は だれですか。",
+        "reading": "赤い コートを 着ている 人は だれですか。",
+        "english": "Original Yomu line for the verified lesson scope.",
+        "note": "Not copied from source material."
+      },
+      {
+        "speakerId": "stasi",
+        "expression": "focused",
+        "pose": "explain",
+        "japanese": "昨日 会った 友だちです。",
+        "reading": "昨日 会った 友だちです。",
+        "english": "Original Yomu line for the verified lesson scope.",
+        "note": "Not copied from source material."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 8,
+    "recap": "This week continues the verified Level 2+ sequence.",
+    "intro": "Place a plain clause directly before the noun it modifies. Identify people and things by actions, states and possessions. Describe clothing without inserting の between a verb clause and its noun.",
+    "grammarPoints": [
+      {
+        "pattern": "plain clause + noun",
+        "nameJa": "plain clause + noun",
+        "meaning": "a noun identified by a clause",
+        "explanation": "a noun identified by a clause",
+        "watchFor": "Keep the verified form intact.",
+        "commonError": "Do not substitute an unverified source answer.",
+        "examples": [
+          {
+            "ja": "赤い コートを 着ている 人",
+            "reading": "赤い コートを 着ている 人",
+            "en": "the person wearing a red coat",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Vた + noun",
+        "nameJa": "Vた + noun",
+        "meaning": "the noun connected to a completed action",
+        "explanation": "the noun connected to a completed action",
+        "watchFor": "Keep the verified form intact.",
+        "commonError": "Do not substitute an unverified source answer.",
+        "examples": [
+          {
+            "ja": "昨日 買った かばん",
+            "reading": "昨日 買った かばん",
+            "en": "the bag I bought yesterday",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Vる + noun",
+        "nameJa": "Vる + noun",
+        "meaning": "the noun connected to a current or future action",
+        "explanation": "the noun connected to a current or future action",
+        "watchFor": "Keep the verified form intact.",
+        "commonError": "Do not substitute an unverified source answer.",
+        "examples": [
+          {
+            "ja": "明日 会う 人",
+            "reading": "明日 会う 人",
+            "en": "the person I will meet tomorrow",
+            "note": "Original Yomu example."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "Grounded source signals",
+        "ja": "出典で 確認した ポイント"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Fresh presentation constrained to verified source inventory and syllabus signals; source wording is not reproduced."
+      },
+      "reading": {
+        "title": {
+          "en": "The person wearing the red coat",
+          "ja": "赤い コートを 着ている 人"
+        },
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "赤い コートを 着ている 人は だれですか。",
+            "reading": "赤い コートを 着ている 人は だれですか。",
+            "en": "Jenny",
+            "note": "Original Yomu example."
+          },
+          {
+            "ja": "昨日 会った 友だちです。",
+            "reading": "昨日 会った 友だちです。",
+            "en": "Stasi",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l2-l08-modifier-person",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which means “the person wearing a red coat”?",
+            "ja": "Which means “the person wearing a red coat”?"
+          },
+          "explanation": "Original Yomu check for the verified lesson pattern. Correct response: 赤い コートを 着ている 人",
+          "reviewTag": "ex-l2-l08-modifier-person",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "赤い コートを 着ている 人",
+                "ja": "赤い コートを 着ている 人"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "赤い コートの 着ている 人",
+                "ja": "赤い コートの 着ている 人"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "人を 赤い コートが 着ている",
+                "ja": "人を 赤い コートが 着ている"
+              },
+              "correct": false
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "grammar",
+      "order": 20,
+      "title": {
+        "en": "Verified lesson forms",
+        "ja": "確認できた 文型"
+      },
+      "provenance": {
+        "reuse": "sequence-only",
+        "note": "Pattern scope follows named source handouts; explanations and examples are original Yomu authorship."
+      },
+      "points": [
+        {
+          "pattern": "plain clause + noun",
+          "meaning": "a noun identified by a clause",
+          "explanation": "a noun identified by a clause",
+          "examples": [
+            {
+              "ja": "赤い コートを 着ている 人",
+              "reading": "赤い コートを 着ている 人",
+              "en": "the person wearing a red coat",
+              "note": "Original Yomu example."
+            }
+          ]
+        },
+        {
+          "pattern": "Vた + noun",
+          "meaning": "the noun connected to a completed action",
+          "explanation": "the noun connected to a completed action",
+          "examples": [
+            {
+              "ja": "昨日 買った かばん",
+              "reading": "昨日 買った かばん",
+              "en": "the bag I bought yesterday",
+              "note": "Original Yomu example."
+            }
+          ]
+        },
+        {
+          "pattern": "Vる + noun",
+          "meaning": "the noun connected to a current or future action",
+          "explanation": "the noun connected to a current or future action",
+          "examples": [
+            {
+              "ja": "明日 会う 人",
+              "reading": "明日 会う 人",
+              "en": "the person I will meet tomorrow",
+              "note": "Original Yomu example."
+            }
+          ]
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l2-l08-modifier-past",
+          "kind": "exact",
+          "prompt": {
+            "en": "Complete: 昨日 ___ 本 (the book I bought yesterday).",
+            "ja": "Complete: 昨日 ___ 本 (the book I bought yesterday)."
+          },
+          "explanation": "Original Yomu form check for the verified lesson pattern.",
+          "reviewTag": "ex-l2-l08-modifier-past",
+          "autoGraded": true,
+          "answer": {
+            "primary": "買った",
+            "alternatives": []
+          },
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "guided-practice"
+        },
+        {
+          "id": "ex-l2-l08-modifier-future",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which means “the person I will meet tomorrow”?",
+            "ja": "Which means “the person I will meet tomorrow”?"
+          },
+          "explanation": "Original Yomu check for the verified lesson pattern. Correct response: 明日 会う 人",
+          "reviewTag": "ex-l2-l08-modifier-future",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "明日 会う 人",
+                "ja": "明日 会う 人"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "明日 会った 人",
+                "ja": "明日 会った 人"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "明日の 会う 人",
+                "ja": "明日の 会う 人"
+              },
+              "correct": false
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "vocabulary",
+      "order": 30,
+      "title": {
+        "en": "Words for this week",
+        "ja": "今週の ことば"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+        "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+        "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "answerVisibility": "after-attempt",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "items": [
+        {
+          "ja": "きょうかしょ（教科書）",
+          "reading": "きょうかしょ",
+          "en": "textbook",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-1",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "きょうかしょ（教科書）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "きょうかしょ（教科書）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ケーキ",
+          "reading": "ケーキ",
+          "en": "cake",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-2",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "ケーキ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ケーキ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "コート",
+          "reading": "コート",
+          "en": "coat",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-3",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "コート",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "コート",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "セーター",
+          "reading": "セーター",
+          "en": "sweater",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-4",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "セーター",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "セーター",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "スーツ",
+          "reading": "スーツ",
+          "en": "suit",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-5",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "スーツ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "スーツ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ドレス",
+          "reading": "ドレス",
+          "en": "dress",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-6",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "ドレス",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ドレス",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "きます（着ます）",
+          "reading": "きる",
+          "en": "to wear; to put on (upper body)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-7",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "きます（着ます）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "きます（着ます）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ずぼん",
+          "reading": "ズボン",
+          "en": "trousers; pants",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-8",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "ずぼん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ずぼん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "はきます（履きます）",
+          "reading": "はく",
+          "en": "to wear; to put on (lower body)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-9",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "はきます（履きます）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "はきます（履きます）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ぼうし（帽子）",
+          "reading": "ぼうし",
+          "en": "hat; cap",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-10",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "ぼうし（帽子）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ぼうし（帽子）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かぶります（被ります）",
+          "reading": "かぶる",
+          "en": "to wear; to put on (head)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-11",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "かぶります（被ります）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "かぶります（被ります）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "めがね（眼鏡）",
+          "reading": "めがね",
+          "en": "glasses",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-12",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "めがね（眼鏡）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "めがね（眼鏡）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かけます（掛けます）",
+          "reading": "かける",
+          "en": "to wear; to put on (glasses)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-13",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "かけます（掛けます）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "かけます（掛けます）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "[ネクタイを]します",
+          "reading": "ネクタイをする",
+          "en": "to wear a tie",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-14",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "[ネクタイを]します",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "[ネクタイを]します",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うまれます（生まれます）",
+          "reading": "うまれる",
+          "en": "to be born",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-15",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 15
+            },
+            "exact": {
+              "words": "うまれます（生まれます）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "うまれます（生まれます）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おべんとう（お弁当）",
+          "reading": "おべんとう",
+          "en": "boxed lunch",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-16",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 16
+            },
+            "exact": {
+              "words": "おべんとう（お弁当）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "おべんとう（お弁当）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "わたしたち",
+          "reading": "わたしたち",
+          "en": "we; us",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-17",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 17
+            },
+            "exact": {
+              "words": "わたしたち",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "わたしたち",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "よく",
+          "reading": "よく",
+          "en": "often",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-22-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:6974656:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:p1:row-18",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 18
+            },
+            "exact": {
+              "words": "よく",
+              "pronunciation": null,
+              "meaning": "often"
+            },
+            "normalizedStudySurface": "よく",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-sheet-pages-recorded-awaiting-item-renderer",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82:page:1",
+            "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+            "sourceTitle": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+            "sourceRole": "vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                      Chapter 22-1 Vocabulary Sheet\nNo     Words (with accent)       Pronunciation           Meaning\n     きょうかしょ\n1\n     （教科書）\n\n2    ケーキ\n\n3    コート\n\n4    セーター\n\n5    スーツ\n\n6    ドレス\n7    きます（着ます）\n\n8    ずぼん\n9    はきます（履きます）\n10   ぼうし（帽子）\n11   かぶります（被ります）\n\n12   めがね（眼鏡）\n\n13   かけます（掛けます）\n\n14 [ネクタイを]します\n\n     うまれます\n15\n     （生まれます）\n\n16   おべんとう（お弁当）\n\n17   わたしたち\n\n18   よく                                          often\n\n\n\n                                                              Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1263
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening held for verification",
+        "ja": "音声は 確認中"
+      },
+      "provenance": {
+        "reuse": "quarantined",
+        "note": "Archive audio exists, but exact worksheet pairing, transcript and answer key are unresolved. No audio or answer is exposed."
+      },
+      "availability": {
+        "status": "unavailable",
+        "reason": "unresolved-transcript-pairing-and-answers"
+      },
+      "sourceAudioCount": 2,
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "Read the model",
+        "ja": "モデルを 読む"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short reading using only the verified target form."
+      },
+      "reading": {
+        "lines": [
+          {
+            "ja": "赤い コートを 着ている 人",
+            "reading": "赤い コートを 着ている 人",
+            "en": "the person wearing a red coat"
+          },
+          {
+            "ja": "昨日 買った かばん",
+            "reading": "昨日 買った かばん",
+            "en": "the bag I bought yesterday"
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l2-l08-modifier-no",
+          "kind": "exact",
+          "prompt": {
+            "en": "How many の particles belong between 読んでいる and 本 in 読んでいる本?",
+            "ja": "How many の particles belong between 読んでいる and 本 in 読んでいる本?"
+          },
+          "explanation": "Original Yomu form check for the verified lesson pattern.",
+          "reviewTag": "ex-l2-l08-modifier-no",
+          "autoGraded": true,
+          "answer": {
+            "primary": "0",
+            "alternatives": []
+          },
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false
+          },
+          "curriculumPhase": "guided-practice"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "Say it for a reason",
+        "ja": "目的を もって 話す"
+      },
+      "prompt": "Identify two people or objects with noun-modifying clauses.",
+      "model": {
+        "revealAfterFirstAttempt": true,
+        "ja": "あそこで 写真を 撮っている 人は 友だちです。友だちが 持っている かばんは 青いです。",
+        "reading": "あそこで 写真を 撮っている 人は 友だちです。友だちが 持っている かばんは 青いです。",
+        "en": "Original Yomu model; one possible response, not a source answer."
+      },
+      "assessment": {
+        "autoGraded": false,
+        "rubric": [
+          "Uses the verified target form.",
+          "Communicates a clear personal meaning.",
+          "Adds one checkable detail."
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "Write your version",
+        "ja": "自分の 文を 書く"
+      },
+      "prompt": "Identify two people or objects with noun-modifying clauses.",
+      "assessment": {
+        "autoGraded": false,
+        "sourceAnswerStatus": "not-applicable-original-yomu",
+        "rubric": [
+          "Target form is recognisable.",
+          "Meaning is coherent.",
+          "The response is the learner’s own."
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "review",
+      "order": 80,
+      "title": {
+        "en": "Close the notebook",
+        "ja": "ノートを とじる"
+      },
+      "reviewFrom": [
+        "l2plus-l05",
+        "l2plus-l06"
+      ],
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "The person wearing the red coat",
+    "framedBy": "jenny",
+    "prompt": "Identify two people or objects with noun-modifying clauses.",
+    "successCriteria": [
+      "Use only the verified lesson form.",
+      "Give a clear personal meaning.",
+      "Add one detail a listener or reader can check."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "あそこで 写真を 撮っている 人は 友だちです。友だちが 持っている かばんは 青いです。",
+      "reading": "あそこで 写真を 撮っている 人は 友だちです。友だちが 持っている かばんは 青いです。",
+      "en": "Original Yomu model answer."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "target",
+          "label": {
+            "en": "Uses the verified target form"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet shown."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Used clearly."
+              }
+            }
+          ]
+        },
+        {
+          "id": "meaning",
+          "label": {
+            "en": "Meaning is clear"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet clear."
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Easy to understand."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "jenny",
+      "stasi"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l2plus-l07",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a",
+          "title": "Handouts/Chapter 22 listening-1.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "d9eb255038f8ab08100426fc9fafe557698b6d760c5e463731d6a78cbe338f5f",
+          "title": "Handouts/Chapter 22 Noun modification.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685",
+          "title": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "e1852743f2358a785baee02a115816f940f75adca9c3d344b558dd71a35325c6",
+          "title": "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-2.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "d15120789831ab8a2cac59a1b90e70faf828abec0457d2fad519cee44b9bce82",
+          "title": "Handouts/Chapter 22-1 Vocabulary Sheet.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "812f502f9e5539bf57a3b083aaf55498f93fcf0de642b8ed6fd72d2811bcb93f",
+          "title": "Handouts/Reference_Chapter 22 Vocabulary_Clothes.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "d1c6b71cf5368554d0c80c0d5301701fcd92a7f25639405a8bf51b276797f196",
+          "title": "Homework/HW Chapter 21_reading_consultation for marriage life.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "cafe471621a53924277551cb7abec75444de53448a3a050576a12e6f66e14e6d",
+          "title": "Homework/HW Chapter 22-1 exercise to make noun-modifying clause.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "fb42629fc189625ecd821c6ed87e1e2289952c24239333ee2f9b175b0015741f",
+          "title": "Homework/HW Chapter 22-1_grammar and writing practice.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "0dedfb0af53d202eae9f61f45f7625f75880660be49f8d2fd47eb337725809d0",
+          "title": "Homework/HW Chapter 22-2_person who is weaning….pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "source-audio-881f4264aa1d",
+          "payloadSha256": "881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2",
+          "locator": "academy://quarantine/l2plus-l07/881f4264aa1d30610e9a5b2c53f8cbf5fd070558b44ee4624e5efa5be49e9cf2",
+          "title": "audio materials/32 B-32.mp3",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-cd50cf7a5204",
+          "payloadSha256": "cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753",
+          "locator": "academy://quarantine/l2plus-l07/cd50cf7a5204bb2f594e5bec38ad943a56228efe1104aa15df62ef42e5436753",
+          "title": "audio materials/33 B-33.mp3",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "plain clause + noun",
+        "back": "a noun identified by a clause",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "grammar",
+          "original-yomu"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Vた + noun",
+        "back": "the noun connected to a completed action",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "grammar",
+          "original-yomu"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Vる + noun",
+        "back": "the noun connected to a current or future action",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "grammar",
+          "original-yomu"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "着る",
+        "back": "to wear (upper body)",
+        "reading": "きる",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "original-yomu"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "服",
+        "back": "clothes",
+        "reading": "ふく",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "original-yomu"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "持つ",
+        "back": "to hold, carry, own",
+        "reading": "もつ",
+        "tags": [
+          "academy",
+          "academy:lesson:l2plus-l07",
+          "original-yomu"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l08:noun-modifier",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 20,
+          "form": "plain clause + noun",
+          "meaning": "identify a person or thing by an action or description",
+          "register": "neutral descriptive language",
+          "commonContrast": "the describing clause comes before the noun in Japanese, unlike many English relative clauses",
+          "workedExamples": [
+            {
+              "ja": "赤い コートを 着ている 人は だれですか。",
+              "reading": "赤い コートを 着ている 人は だれですか。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use plain clause + noun; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries identify a person or thing by an action or description."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral descriptive language with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: the describing clause comes before the noun in Japanese, unlike many English relative clauses",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1",
+      "payloadSha256": "d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "A Level 2+ classroom conversation",
+      "characterId": "jenny",
+      "beat": "The person wearing the red coat",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l08:1:contextual-task",
+        "mode": "contextual-task",
+        "responseMode": "select-and-say",
+        "sourceItemIds": [
+          "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l08:2:drag-drop",
+        "mode": "drag-drop",
+        "responseMode": "drag-drop",
+        "sourceItemIds": [
+          "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l08:3:longer-reading",
+        "mode": "longer-reading",
+        "responseMode": "read-and-select",
+        "sourceItemIds": [
+          "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l08:1:contextual-task",
+      "activityIds": [
+        "assessment:l2-l08:1:contextual-task"
+      ],
+      "sourceItemIds": [
+        "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "jenny",
+        "stasi"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical contextual-task task with jenny as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l08:2:drag-drop",
+      "activityIds": [
+        "assessment:l2-l08:2:drag-drop"
+      ],
+      "sourceItemIds": [
+        "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "jenny",
+        "stasi"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while stasi takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l08:3:longer-reading",
+      "activityIds": [
+        "assessment:l2-l08:3:longer-reading"
+      ],
+      "sourceItemIds": [
+        "moodle:d0cd9a6f599e24d36c04187532d44ca945f236fe65d2c2f11d08408d18d6b95a:page:1"
+      ],
+      "place": "academy/world/library",
+      "cast": [
+        "stasi",
+        "jenny"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with stasi; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}
