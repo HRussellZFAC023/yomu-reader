@@ -154,15 +154,16 @@ async function runEngine(name, browserType) {
             if (healthy[id].reading !== 'にほんご') fail(`${name}: healthy engine lost detached reading on ${id}`, healthy[id]);
         }
 
-        // Styled framework host: text concealed, box paint intact, icon and
-        // mirror text keep their real colours.
+        // Styled framework host: the additive mirror preserves host-owned text,
+        // box paint, and icons. Its duplicate base glyphs stay transparent;
+        // only detached readings and pitch decoration are painted by Yomu.
         const conceal = await page.evaluate(() => window.runConcealProbe());
         if (!conceal.mirror || conceal.mirrorReading !== 'にほんご') fail(`${name}: styled framework host was not mirrored with a reading`, conceal);
         if (conceal.hostVisibility === 'hidden') fail(`${name}: styled framework host was visibility-hidden (box paint erased)`, conceal);
-        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.hostColor)) fail(`${name}: styled framework host text not concealed`, conceal);
+        if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.hostColor) || !conceal.hostColor) fail(`${name}: styled framework host text was concealed`, conceal);
         if (conceal.hostBackground !== 'rgb(31, 41, 55)') fail(`${name}: styled framework host lost its background`, conceal);
         if (conceal.hostBorderWidth === '0px') fail(`${name}: styled framework host lost its border`, conceal);
-        if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.wordColor) || !conceal.wordColor) fail(`${name}: mirror word text is transparent`, conceal);
+        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.wordColor)) fail(`${name}: additive mirror repainted duplicate base text`, conceal);
         if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.svgColor) || !conceal.svgColor) fail(`${name}: host icon inherited the transparent text colour`, conceal);
 
         console.log(`${name}: natural verdict = ${JSON.stringify({ bareMirrored: natural['bare-title'].mirror, pillMirrored: natural.pill.mirror })}, forced + healthy rounds ${process.exitCode ? 'FAILED' : 'passed'}`);

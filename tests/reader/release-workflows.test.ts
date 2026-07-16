@@ -6,6 +6,7 @@ const buildUserscriptWorkflow = readFileSync(
     join(process.cwd(), '.github/workflows/build-userscript.yml'),
     'utf8',
 );
+const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 
 describe('release workflow safety', () => {
     it('does not suppress Actions from the generated-assets commit', () => {
@@ -44,5 +45,11 @@ describe('release workflow safety', () => {
         expect(docsBuild).toBeGreaterThan(academyBuild);
         expect(deployPagesWorkflow).toContain('- academy/**');
         expect(deployPagesWorkflow).toContain('- public/academy/**');
+    });
+
+    it('runs the cross-browser layout release boundary before PRs can merge', () => {
+        expect(ciWorkflow).toContain('npx playwright install --with-deps chromium webkit');
+        expect(ciWorkflow).toContain('npm run smoke:layout-regressions');
+        expect(ciWorkflow).toMatch(/needs: \[typecheck, test, test-jpdb, gaming-smoke, layout-smoke\]/);
     });
 });
