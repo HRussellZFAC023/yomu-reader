@@ -43,8 +43,15 @@ function clickButton(root: ParentNode, label: string): void {
     button.click();
 }
 
+function settleDialogue(root: ParentNode): void {
+    const japanese = root.querySelector<HTMLElement>('.academy-vn-japanese');
+    if (japanese?.dataset.performanceText === 'revealing') japanese.click();
+}
+
 function next(root: HTMLElement): void {
+    settleDialogue(root);
     root.querySelector<HTMLButtonElement>('.academy-vn-action-slot > .academy-vn-primary-action')!.click();
+    settleDialogue(root);
 }
 
 function completeKanaStudio(root: HTMLElement): void {
@@ -78,6 +85,7 @@ function enterClassroom(root: HTMLElement): void {
     root.querySelector<HTMLButtonElement>('.academy-lesson-zero-source-audio button')!.click();
     root.querySelector<HTMLButtonElement>('.academy-vn-action-slot > .academy-vn-primary-action')!.click();
     completeKanaStudio(root);
+    settleDialogue(root);
 }
 
 function advanceToAssessment(root: HTMLElement): void {
@@ -326,6 +334,7 @@ describe('Lesson 0 source-led proof', () => {
         input.value = 'もう一度お願いします。';
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await flush();
+        settleDialogue(proof.element);
         expect(evaluations).toEqual(['lapse', 'pass']);
         expect(proof.element.querySelector('.academy-vn-japanese')?.textContent)
             .toBe('９）もう いちど（おねがいします）。');
@@ -370,6 +379,7 @@ describe('Lesson 0 source-led proof', () => {
         expect(reward.textContent).toContain('Replay this task');
 
         reward.querySelector<HTMLButtonElement>('.academy-lesson-zero-replay-task')!.click();
+        settleDialogue(proof.element);
         expect(proof.element.querySelector('[data-first-task-reward]')).toBeNull();
         expect(proof.element.querySelector('form')).not.toBeNull();
         expect(proof.element.querySelector('[data-page="2"]')?.getAttribute('data-answer-concealed')).toBe('true');
@@ -417,6 +427,7 @@ describe('Lesson 0 source-led proof', () => {
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await flush();
         proof.element.querySelector<HTMLButtonElement>('.academy-lesson-zero-after-pass')!.click();
+        settleDialogue(proof.element);
 
         const expected = [
             '１０）（とても）いいです。',

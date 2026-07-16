@@ -17,8 +17,15 @@ const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0)
 
 afterEach(() => document.body.replaceChildren());
 
+function settleDialogue(root: ParentNode): void {
+    const japanese = root.querySelector<HTMLElement>('.academy-vn-japanese');
+    if (japanese?.dataset.performanceText === 'revealing') japanese.click();
+}
+
 function next(root: HTMLElement): void {
+    settleDialogue(root);
     root.querySelector<HTMLButtonElement>('.academy-vn-action-slot > .academy-vn-primary-action')!.click();
+    settleDialogue(root);
 }
 
 function guidedChoice(root: HTMLElement, choiceId: string): void {
@@ -179,6 +186,7 @@ describe('Aakash rainy-directions bond beat', () => {
         input.value = 'この道をまっすぐ行って、左です。';
         form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await flush();
+        settleDialogue(screen);
 
         hint.click();
         expect(screen.textContent).toContain('まっすぐ (massugu)');
@@ -210,6 +218,7 @@ describe('Aakash rainy-directions bond beat', () => {
 
         form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await flush();
+        settleDialogue(screen);
         expect(onEvaluation).toHaveBeenCalledTimes(2);
         expect(onEvaluation.mock.calls[1]?.[0].result.outcome).toBe('pass');
         expect(screen.querySelector('.academy-vn-japanese')?.textContent).toBe('分かりました。ありがとうございます。');
@@ -233,6 +242,7 @@ describe('Aakash rainy-directions bond beat', () => {
         input.value = 'この道をまっすぐ行って、左です。';
         form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await flush();
+        settleDialogue(screen);
 
         expect(input.disabled).toBe(false);
         expect(screen.querySelector('.academy-constructed-feedback-repair')).toBeNull();
@@ -246,6 +256,7 @@ describe('Aakash rainy-directions bond beat', () => {
         input.value = 'この道をまっすぐ行って、右です。';
         form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await flush();
+        settleDialogue(screen);
 
         expect(onEvaluation).toHaveBeenCalledTimes(2);
         expect(screen.querySelector('.academy-vn-japanese')?.textContent).toBe('分かりました。ありがとうございます。');
@@ -264,6 +275,7 @@ describe('Aakash rainy-directions bond beat', () => {
             onContinue: vi.fn(),
         });
         document.body.append(completed);
+        settleDialogue(completed);
         expect(completed.querySelector('.academy-aakash-route-note')).toBeNull();
         expect(completed.querySelector('.academy-constructed-response')).toBeNull();
         expect(completed.querySelector('.academy-vn-japanese')?.textContent).toBe('分かりました。ありがとうございます。');
