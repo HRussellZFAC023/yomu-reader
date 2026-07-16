@@ -8872,7 +8872,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('excludes the VitePress hosted hero heading and tagline from scanning', () => {
+    it('covers the VitePress hosted hero heading and tagline via the passive residual pass', () => {
         const rectSpy = mockElementBoundingClientRect({ height: 240 });
         document.body.innerHTML = `
             <section class="VPHero has-image">
@@ -8887,10 +8887,14 @@ describe('reader helpers', () => {
         `;
 
         try {
-            const texts = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text);
-            // The homepage hero is marketing chrome — a hard no-scan boundary.
-            expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(false);
-            expect(texts.some(text => text.includes('どこでも単語をタップし'))).toBe(false);
+            const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+            const texts = targets.map(target => target.text);
+            // The homepage hero is covered passively — no visible Japanese stays bare.
+            expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(true);
+            expect(texts.some(text => text.includes('どこでも単語をタップし'))).toBe(true);
+            for (const target of targets) {
+                if (target.text.includes('好きなものを読んで')) expect(target.passiveInteraction).toBe(true);
+            }
             // Real docs prose stays reading material.
             expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
         } finally {
@@ -35073,7 +35077,7 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('つづ');
     });
 
-    it('collects hosted .vp-doc prose and Try Me content in page order while excluding chrome', () => {
+    it('collects hosted .vp-doc prose and Try Me content in page order with chrome covered passively', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main>
@@ -35118,12 +35122,15 @@ describe('reader helpers', () => {
         const texts = targets.map(target => target.text);
         // Collection never wraps text in place.
         expect(document.querySelector('.yomu-try-me .jpdb-reader-word')).toBeNull();
-        // Homepage hero and the install panel are chrome — excluded from scanning
-        // even though the install panel sits inside `.vp-doc`.
-        expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(false);
-        expect(texts.some(text => text.includes('よむ turns real Japanese pages'))).toBe(false);
-        expect(texts.some(text => text.includes('Install よむ as a userscript'))).toBe(false);
-        expect(targets.find(target => target.text.trim() === '2 Install よむ')).toBeUndefined();
+        // Homepage hero and the install panel are chrome — kept out of the
+        // curated prose scan but covered by the passive residual pass, so
+        // their Japanese is annotated without destructive rewrites.
+        const chromeSamples = ['好きなものを読んで日本語を学ぶ', 'Install よむ as a userscript'];
+        for (const sample of chromeSamples) {
+            const target = targets.find(item => item.text.includes(sample));
+            expect(target, `chrome text "${sample}" must be scanned`).toBeDefined();
+            expect(target?.passiveInteraction, `chrome text "${sample}" must stay passive`).toBe(true);
+        }
         // Real `.vp-doc` prose and the Try Me sample stay covered, in page order.
         expect(texts.some(text => text.includes('よむ runs inside your browser'))).toBe(true);
         expect(texts).toContain('青空の下で本を読む');
@@ -35232,7 +35239,7 @@ describe('reader helpers', () => {
         expect(words[1]?.querySelector('rt')?.textContent).toBe('どくしょ');
     });
 
-    it('excludes the hosted docs overflow menu from passive scanning', () => {
+    it('covers the hosted docs overflow menu passively', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main><div class="vp-doc"><p>今日は本を読みます。</p></div></main>
@@ -35246,11 +35253,14 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
 
         const texts = targets.map(target => target.text);
-        // The "more" overflow menu is navigation chrome — a hard no-scan boundary,
-        // so its button/link labels are never collected as lookup targets.
-        expect(texts.some(text => text.includes('設定'))).toBe(false);
-        expect(texts.some(text => text.includes('動画プレイヤー'))).toBe(false);
-        expect(document.querySelector('.yomu-hosted-overflow-group .jpdb-reader-word')).toBeNull();
+        // The "more" overflow menu is navigation chrome — covered by the
+        // passive residual pass so its labels get lookups while click-through
+        // navigation is preserved.
+        for (const label of ['設定', '動画プレイヤー']) {
+            const target = targets.find(item => item.text.includes(label));
+            expect(target, `overflow label "${label}" must be scanned`).toBeDefined();
+            expect(target?.passiveInteraction, `overflow label "${label}" must stay passive`).toBe(true);
+        }
         // Real `.vp-doc` prose is still covered.
         expect(texts).toContain('今日は本を読みます。');
     });
