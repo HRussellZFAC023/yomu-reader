@@ -277,14 +277,37 @@ export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {
         ?? new DOMRect(0, 0, visibleViewportWidth(), visibleViewportHeight());
 }
 
+// One frame vocabulary for every YouTube player topology. Desktop watch uses
+// #movie_player/ytd-player; DESKTOP shorts wrap the recycled <video> in
+// ytd-reel-video-renderer/ytd-shorts; MOBILE (m.youtube.com) uses ytm-player
+// and the shorts-* reel cells. A recycled reel <video> is transform-positioned
+// and its own bounding box frequently sits far outside the viewport even
+// while its CELL fills the screen — measuring the frame, never the raw video,
+// is what keeps the visibility gates truthful on every topology.
+const YOUTUBE_PLAYER_FRAME_SELECTORS = [
+    '#movie_player',
+    '.html5-video-player',
+    'ytm-player',
+    'ytd-player',
+    'ytd-reel-video-renderer',
+    'ytd-shorts',
+    'shorts-video',
+    'shorts-page',
+    'shorts-carousel',
+    '#shorts-player',
+] as const;
+
+function youtubePlayerFrameForVideo(video: HTMLVideoElement): HTMLElement | undefined {
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+        const frame = video.closest<HTMLElement>(selector);
+        if (frame) return frame;
+    }
+    return undefined;
+}
+
 export function subtitleVideoLayoutTarget(video?: HTMLVideoElement): HTMLElement | undefined {
     if (!video) return undefined;
-    if (isYouTubePage()) {
-        return video.closest<HTMLElement>('#movie_player')
-            ?? video.closest<HTMLElement>('.html5-video-player')
-            ?? video.closest<HTMLElement>('ytd-player')
-            ?? video;
-    }
+    if (isYouTubePage()) return youtubePlayerFrameForVideo(video) ?? video;
     return genericVideoLayoutTarget(video);
 }
 
@@ -511,8 +534,7 @@ function leftYouTubePlayerMargin(inset: number, element: HTMLElement): string {
 
 function youtubeVisiblePlayerRect(): DOMRect | undefined {
     const rects = [
-        '#movie_player',
-        '.html5-video-player',
+        ...YOUTUBE_PLAYER_FRAME_SELECTORS,
         'ytd-watch-flexy #player-container-inner',
         'ytd-watch-flexy #player-container-outer',
         'ytd-watch-flexy #player',
@@ -523,15 +545,8 @@ function youtubeVisiblePlayerRect(): DOMRect | undefined {
 }
 
 function youtubePlayerRectForVideo(video: HTMLVideoElement): DOMRect | undefined {
-    const candidates = [
-        video.closest<HTMLElement>('#movie_player'),
-        video.closest<HTMLElement>('.html5-video-player'),
-        video.closest<HTMLElement>('ytd-player'),
-        video.closest<HTMLElement>('ytd-reel-video-renderer'),
-        video.closest<HTMLElement>('ytd-shorts'),
-    ];
-    for (const element of candidates) {
-        const rect = element?.getBoundingClientRect();
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+        const rect = video.closest<HTMLElement>(selector)?.getBoundingClientRect();
         if (usableVideoRect(rect)) return rect;
     }
     const rect = video.getBoundingClientRect();
