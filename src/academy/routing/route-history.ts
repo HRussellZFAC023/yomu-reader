@@ -1,5 +1,3 @@
-import type { WorldPlaceId } from '../domain/world-locations';
-
 const ACADEMY_ROUTE_DEFINITIONS = {
     access: 'enrollment',
     profile: 'enrollment',
@@ -11,25 +9,15 @@ const ACADEMY_ROUTE_DEFINITIONS = {
     'arrival-bridge': 'story-bridge',
     'band-entry': 'legacy-ungrounded-activity',
     'lesson-overview': 'lesson-overview',
-    'lesson-fork': 'lesson-activity',
-    'source-activity': 'lesson-activity',
-    'aakash-meet': 'lesson-activity',
-    'writing-practice': 'lesson-activity',
+    'lesson-fork': 'legacy-ungrounded-activity',
+    'source-activity': 'legacy-ungrounded-activity',
+    'aakash-meet': 'legacy-ungrounded-activity',
+    'writing-practice': 'legacy-ungrounded-activity',
     campus: 'world',
-    classroom: 'world',
-    cafe: 'world',
-    lab: 'world',
-    street: 'world',
-    station: 'world',
-    konbini: 'world',
-    ramen: 'world',
-    home: 'world',
-    world: 'world',
-    story: 'story',
     class: 'class',
+    lab: 'legacy-ungrounded-activity',
     review: 'canonical-study',
     journal: 'world',
-    'profile-sync': 'world',
     'day-end': 'world',
 } as const;
 
@@ -50,8 +38,6 @@ export interface AcademyRouteContextState {
     readonly lessonId?: string;
     readonly sectionId?: string;
     readonly activityId?: string;
-    /** Registry id for the generic, data-driven world route. */
-    readonly worldPlace?: WorldPlaceId;
 }
 
 export interface AcademyRouteFrame extends AcademyRouteContextState {
@@ -70,8 +56,6 @@ export interface AcademyRouteHistoryState extends AcademyRouteFrame {
 export type AcademyRouteTransition =
     | { readonly kind: 'push'; readonly route: AcademyRoute; readonly context?: Partial<AcademyRouteContextState> }
     | { readonly kind: 'replace'; readonly route: AcademyRoute; readonly context?: Partial<AcademyRouteContextState> }
-    /** Restore a known prior frame and discard the transient route frames above it. */
-    | { readonly kind: 'return'; readonly destination: AcademyRouteFrame }
     | { readonly kind: 'back' }
     | { readonly kind: 'reset'; readonly route: AcademyRoute; readonly context?: Partial<AcademyRouteContextState> }
     | { readonly kind: 'presentation'; readonly mode: AcademyPresentationMode };
@@ -93,8 +77,6 @@ export function transitionAcademyRoute<State extends AcademyRouteHistoryState>(
             return pushRoute(state, transition.route, transition.context);
         case 'replace':
             return replaceRoute(state, transition.route, transition.context);
-        case 'return':
-            return returnRoute(state, transition.destination);
         case 'back':
             return backRoute(state);
         case 'reset':
@@ -126,22 +108,6 @@ function replaceRoute<State extends AcademyRouteHistoryState>(
     const next = mergeRouteFrame(state, route, context);
     if (routeFramesAreEqual(state, next)) return state;
     return withRouteFrame(state, next, state.routeHistory);
-}
-
-function returnRoute<State extends AcademyRouteHistoryState>(
-    state: State,
-    destination: AcademyRouteFrame,
-): TransitionedRouteState<State> {
-    const target = compactRouteFrame(destination);
-    const index = lastRouteFrameIndex(state.routeHistory, target);
-    return withRouteFrame(state, target, index >= 0 ? state.routeHistory.slice(0, index) : state.routeHistory);
-}
-
-function lastRouteFrameIndex(frames: readonly AcademyRouteFrame[], target: AcademyRouteFrame): number {
-    for (let index = frames.length - 1; index >= 0; index -= 1) {
-        if (routeFramesAreEqual(frames[index]!, target)) return index;
-    }
-    return -1;
 }
 
 function backRoute<State extends AcademyRouteHistoryState>(state: State): TransitionedRouteState<State> {
@@ -182,7 +148,6 @@ const ROUTE_CONTEXT_KEYS = [
     'lessonId',
     'sectionId',
     'activityId',
-    'worldPlace',
 ] as const satisfies readonly (keyof AcademyRouteContextState)[];
 
 function routeFrame(state: AcademyRouteFrame): AcademyRouteFrame {
@@ -194,7 +159,6 @@ function routeFrame(state: AcademyRouteFrame): AcademyRouteFrame {
         lessonId: state.lessonId,
         sectionId: state.sectionId,
         activityId: state.activityId,
-        worldPlace: state.worldPlace,
     });
 }
 

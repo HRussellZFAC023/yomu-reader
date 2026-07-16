@@ -1,7 +1,7 @@
 import type { AcademyCopyKey, AcademyLanguage } from '../../reader/app/academy-copy';
 import { academyText } from '../../reader/app/academy-copy';
 import type { AcademyPlateId } from '../assets';
-import { ACADEMY_ASSETS, ACADEMY_PLATE_RESPONSIVE_PRESENTATION } from '../assets';
+import { ACADEMY_ASSETS } from '../assets';
 import type { LocalizedText } from '../domain/source-library';
 
 export interface ScreenFrameOptions {
@@ -64,15 +64,6 @@ export function copyButton(language: AcademyLanguage, key: AcademyCopyKey, class
     return button;
 }
 
-export function backButton(language: AcademyLanguage): HTMLButtonElement {
-    const button = element('button', 'academy-lesson-overview-back');
-    button.type = 'button';
-    button.textContent = `\u2190 ${academyText(language, 'back')}`;
-    button.setAttribute('aria-label', academyText(language, 'back'));
-    button.dataset.jpdbReaderSurfaceIgnore = '';
-    return button;
-}
-
 export function setCopy(node: HTMLElement, language: AcademyLanguage, key: AcademyCopyKey): void {
     node.textContent = academyText(language, key);
     node.lang = language;
@@ -108,14 +99,8 @@ export function fieldError(message: string): HTMLParagraphElement {
 /** Shared non-VN place plate. VN scenes use the stage's parallax plate stack. */
 export function academyBackgroundPicture(plateId: AcademyPlateId): HTMLPictureElement {
     const plate = ACADEMY_ASSETS.locations[plateId];
-    const presentation = ACADEMY_PLATE_RESPONSIVE_PRESENTATION[plateId];
     const picture = element('picture', 'academy-background');
     picture.setAttribute('aria-hidden', 'true');
-    if (presentation?.mobile) {
-        picture.dataset.mobilePresentation = presentation.mobile.strategy;
-        picture.dataset.mobileSourceVariant = presentation.mobile.sourceVariant;
-        picture.style.setProperty('--academy-mobile-object-position', presentation.mobile.objectPosition);
-    }
     const source = document.createElement('source');
     source.media = '(max-width: 700px)';
     source.srcset = plate.mobile;

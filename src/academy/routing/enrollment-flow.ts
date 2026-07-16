@@ -1,14 +1,11 @@
-import { isAnonymousAcademyCode, type AccessGateway } from '../access/gateway';
-import type { AcademySyncStatus } from '../account/sync-client';
+import type { AccessGateway } from '../access/gateway';
 import { createDonationClaimService, type DonationClaimService } from '../access/donation-claim';
-import { createN3AdvancedEntryPlan } from '../content/advanced-entry';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
-import type { OrientationMockResult, PlacementMockDraft } from '../placement/orientation';
+import type { OrientationMockResult } from '../placement/orientation';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAccessScreen } from '../ui/access-screen';
-import { renderAdvancedArrivalBridge } from '../ui/advanced-arrival-bridge';
 import { renderRieUnlockScreen } from '../ui/character-scenes';
 import { renderArrivalBridge } from '../ui/lesson-screen';
 import { renderPlacementMockScreen, renderPlacementResultScreen } from '../ui/placement-screen';
@@ -20,14 +17,7 @@ export interface EnrollmentFlowOptions {
     readonly access: AccessGateway;
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
-    readonly audio?: { beginExternalLesson(duck?: number): () => void };
     readonly donationClaim?: DonationClaimService;
-    /** Paid access must settle its account gate before Academy onboarding. */
-    readonly account?: Pick<AcademyAccountGate, 'connect'>;
-}
-
-interface AcademyAccountGate {
-    connect(): Promise<AcademySyncStatus>;
 }
 
 export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRouteFlow {
@@ -36,8 +26,6 @@ export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRou
 
 class EnrollmentFlow implements AcademyRouteFlow {
     private readonly donationClaim: DonationClaimService;
-    private placementDraft: PlacementMockDraft | null = null;
-    private releaseExternalListening: (() => void) | null = null;
 
     constructor(private readonly options: EnrollmentFlowOptions) {
         this.donationClaim = options.donationClaim ?? createDonationClaimService();
@@ -57,9 +45,6 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     language: context.language,
                     profile: context.projection.profile,
                     onSubmit: profile => this.saveProfile(profile, context),
-                    onBack: context.checkpoint.routeHistory.length > 0
-                        ? () => void context.back()
-                        : undefined,
                 }));
                 return true;
             case 'rie-unlock':
@@ -79,52 +64,18 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 context.shell.replace(renderPlacementMockScreen({
                     language: context.language,
                     pronunciation: this.options.pronunciation,
-                    onListeningStart: () => this.beginExternalListening(),
-                    onListeningStop: () => this.endExternalListening(),
-                    draft: this.placementDraft ?? undefined,
-                    onResult: (result, draft) => void this.savePlacement(result, draft, context),
-                    onBack: () => {
-                        this.placementDraft = null;
-                        void context.back();
-                    },
+                    onResult: result => void this.savePlacement(result, context),
+                    onBack: () => void context.back(),
                 }));
                 return true;
             case 'placement-result':
                 this.renderPlacementResult(context);
                 return true;
             case 'arrival-bridge':
-                if (requiredBand(context) === 'n3') {
-                    const plan = createN3AdvancedEntryPlan({
-                        events: await this.options.evidence.history(),
-                        placementAccepted: context.projection.curriculumEntry?.route === 'placement-mock'
-                            && context.projection.curriculumEntry.recommendationAccepted === true,
-                        now: Date.now(),
-                    });
-                    context.shell.replace(renderAdvancedArrivalBridge({
-                        language: context.language,
-                        plan,
-                        onEvaluation: evaluation => this.options.evidence.recordActivity(
-                            evaluation,
-                            plan.lessonId,
-                            undefined,
-                            {
-                                modeId: `advanced-entry:n3:${plan.mode}`,
-                                skill: 'listening',
-                                action: 'listen',
-                                sourceId: plan.sourceId,
-                                independent: plan.independent,
-                            },
-                        ),
-                        onListeningStart: () => this.beginExternalListening(),
-                        onListeningStop: () => this.endExternalListening(),
-                        onContinue: () => void context.go('campus'),
-                    }));
-                    return true;
-                }
                 context.shell.replace(renderArrivalBridge(
                     context.language,
                     requiredBand(context),
-                    () => void context.go('campus'),
+                    () => void context.go('class'),
                 ));
                 return true;
             default:
@@ -132,32 +83,9 @@ class EnrollmentFlow implements AcademyRouteFlow {
         }
     }
 
-    private beginExternalListening(): void {
-        this.endExternalListening();
-        try {
-            this.releaseExternalListening = this.options.audio?.beginExternalLesson(0.25) ?? null;
-        } catch {
-            // The native control remains usable if the shared director is still locked.
-            this.releaseExternalListening = null;
-        }
-    }
-
-    private endExternalListening(): void {
-        this.releaseExternalListening?.();
-        this.releaseExternalListening = null;
-    }
-
     private async openSession(code: string, context: AcademyRouteContext): Promise<void> {
         const session = await this.options.access.exchange(code);
-        if (isAnonymousAcademyCode(code)) {
-            await context.go(academyEntryRoute(context), { session });
-            return;
-        }
-
-        // The paid session cookie is already established by the exchange. The
-        // account route is persisted before its Google recovery controls run.
-        await this.options.account?.connect();
-        await context.go('profile-sync', { session });
+        await context.go(context.projection.profile ? 'start' : 'profile', { session });
     }
 
     private async saveProfile(profile: LearnerProfileSnapshot, context: AcademyRouteContext): Promise<void> {
@@ -169,7 +97,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
         if (route === 'manual-band') return context.go('manual-band', { placementOverride: false });
         if (route === 'placement-mock') return context.go('placement-mock', { placementOverride: false });
         await this.options.evidence.chooseCurriculumEntry({ route: 'lesson-zero' });
-        await context.go('campus', {
+        await context.go('lesson-overview', {
             selectedBand: undefined,
             lessonId: 'lesson:foundation-00',
             sectionId: undefined,
@@ -184,21 +112,10 @@ class EnrollmentFlow implements AcademyRouteFlow {
             band,
             ...(fromPlacement ? { recommendationAccepted: false } : {}),
         });
-        await context.go('arrival-bridge', {
-            selectedBand: band,
-            placementOverride: false,
-            lessonId: undefined,
-            sectionId: undefined,
-            activityId: undefined,
-        });
+        await context.go('arrival-bridge', { selectedBand: band, placementOverride: false });
     }
 
-    private async savePlacement(
-        result: OrientationMockResult,
-        draft: PlacementMockDraft,
-        context: AcademyRouteContext,
-    ): Promise<void> {
-        this.placementDraft = draft;
+    private async savePlacement(result: OrientationMockResult, context: AcademyRouteContext): Promise<void> {
         await this.options.evidence.savePlacement(result);
         await context.go('placement-result', { selectedBand: result.recommendedBand });
     }
@@ -210,14 +127,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
             return;
         }
         const result: OrientationMockResult = {
-            assessmentId: placement.assessmentId === 'academy-orientation-mock:v2'
-                ? 'academy-orientation-mock:v2'
-                : 'academy-orientation-mock:v1',
+            assessmentId: 'academy-orientation-mock:v1',
             targetBand: placement.targetBand,
             itemIds: placement.itemIds,
             scores: placement.scores,
             recommendedBand: placement.recommendedBand,
-            recommendedStart: placement.recommendedStart ?? placement.recommendedBand,
             calibration: 'vertical-slice',
         };
         context.shell.replace(renderPlacementResultScreen({
@@ -225,43 +139,18 @@ class EnrollmentFlow implements AcademyRouteFlow {
             result,
             onAccept: () => void this.acceptPlacement(result, context),
             onChoose: () => void context.go('manual-band', { placementOverride: true }),
-            onReview: () => void context.back(),
         }));
     }
 
     private async acceptPlacement(result: OrientationMockResult, context: AcademyRouteContext): Promise<void> {
-        this.placementDraft = null;
-        if (result.recommendedStart === 'lesson-zero') {
-            await this.options.evidence.chooseCurriculumEntry({
-                route: 'lesson-zero',
-            });
-            await context.go('campus', {
-                selectedBand: undefined,
-                placementOverride: false,
-                lessonId: 'lesson:foundation-00',
-                sectionId: undefined,
-                activityId: undefined,
-            });
-            return;
-        }
         await this.options.evidence.chooseCurriculumEntry({
             route: 'placement-mock',
-            band: result.recommendedStart,
+            band: result.recommendedBand,
             recommendationAccepted: true,
         });
-        await context.go('arrival-bridge', {
-            selectedBand: result.recommendedStart,
-            placementOverride: false,
-            lessonId: undefined,
-            sectionId: undefined,
-            activityId: undefined,
-        });
+        await context.go('arrival-bridge', { selectedBand: result.recommendedBand, placementOverride: false });
     }
 
-}
-
-function academyEntryRoute(context: AcademyRouteContext): 'profile' | 'start' {
-    return context.projection.profile ? 'start' : 'profile';
 }
 
 function requiredBand(context: AcademyRouteContext): JlptBand {

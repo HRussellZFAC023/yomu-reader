@@ -1,20 +1,12 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-
-- Academy's first Lesson 0 task now records one learner-owned journal line, schedules exactly one Yomu review, and shows both rewards with an immediate answer-concealed replay. On narrow phones, the Yomu puck moves clear of the portrait-selection action strip.
-- Academy Lesson 0 now enters through the sourced Genki greeting and class-present moment before teaching the Moodle hiragana A-row. Its multimodal kana route uses Yomu pronunciation instead of browser speech, accepts romaji or kana with IME-safe feedback, and requeues any supported mastery item before completion.
-- The Academy N5 placement mock now plays its two byte-verified Soya recordings through the shared listening registry. N4–N1 remain clearly labelled exact-text browser speech until their specific recordings are reviewed and packaged, and changing placement level still preserves story progress.
-- N3 Academy entry now uses the exact Moodle-owned Minna 074 listening task and packaged recording. The existing adaptive learner model chooses guided, placement-backed test-out, repair, or independent support while keeping all story and encounter progress untouched.
-
 ## [1.6.167] - 2026-07-16
 
 ### Fixed
 
 - Remote parser fragments are now replaced only when an enabled local dictionary supplies an exact longer expression and reading across their boundary. This repairs evidence-backed splits such as `2時` + `間` without a `時間` exception, adjacent-kanji guessing, full rescans, or synthesized compound pitch.
 - Pitch accent now uses the four positional Tokyo classes—heiban, atamadaka, nakadaka, and odaka—consistently across reader words, popups, subtitles, and study. Malformed contours are treated as unknown, multiple sourced variants remain distinct, and the obsolete “Kifuku (variable)” fifth colour setting is removed while old settings payloads still load safely.
+
 ## [1.6.166] - 2026-07-16
 
 ### Fixed
@@ -135,6 +127,7 @@
 - Multiple accepted pitch patterns now show compact percentages instead of "Most common" and "Also used". Source-order-only data is displayed as relative shares that total 100%, while measured commonality will take precedence when a source supplies it.
 - Furigana in compact single-line tabs and “show more” rows now opens every safe ancestor clip, so readings are no longer cut off even when both the label and its fixed-height parent hide overflow.
 - On touch/coarse-pointer layouts, clipped multi-line mirrors now keep individually safe detached readings visible at rest while continuing to hide any reading that would clip or overlap another line.
+
 ## [1.6.149] - 2026-07-13
 
 ### Added

@@ -1,4 +1,4 @@
-import type { GrammarExample } from './grammar-registry';
+import type { GrammarExample } from './tools';
 
 export const GRAMMAR_PATTERN_DATA = String.raw`
 potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/

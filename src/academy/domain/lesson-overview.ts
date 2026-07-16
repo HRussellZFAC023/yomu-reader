@@ -36,10 +36,6 @@ export interface LessonOverviewState {
     readonly needsReviewActivityIds: ReadonlySet<string>;
 }
 
-export interface LessonOverviewDeliveryPolicy {
-    readonly releaseChannel: 'trusted-source' | 'grounded-verified';
-}
-
 export type LessonSectionRuntimeStatus = 'not-bound' | 'partial' | 'bound';
 export type LessonSectionLearningStatus = 'not-started' | 'in-progress' | 'needs-review' | 'complete';
 
@@ -76,7 +72,6 @@ export function createLessonOverviewModel(
     definition: LessonOverviewDefinition,
     grounding: GroundedLessonContract,
     state: LessonOverviewState,
-    delivery: LessonOverviewDeliveryPolicy = { releaseChannel: 'grounded-verified' },
 ): LessonOverviewModel {
     validateDefinition(definition);
     if (grounding.lessonId !== definition.id) throw new TypeError('Lesson overview grounding belongs to another lesson.');
@@ -90,13 +85,9 @@ export function createLessonOverviewModel(
 
     const sections = definition.sections.map(section => sectionModel(section, state));
     const allRuntimeBound = sections.every(section => section.runtimeStatus === 'bound');
-    const trustedSourcePlayable = delivery.releaseChannel === 'trusted-source'
-        && sections.some(section => section.boundActivityIds.length > 0);
-    const blockerIds = trustedSourcePlayable
-        ? []
-        : allRuntimeBound
-            ? [...grounding.blockerIds]
-            : [...new Set([...grounding.blockerIds, 'blocker:lesson-runtime-bindings'])].sort();
+    const blockerIds = allRuntimeBound
+        ? [...grounding.blockerIds]
+        : [...new Set([...grounding.blockerIds, 'blocker:lesson-runtime-bindings'])].sort();
     const current = sections.find(section => section.learningStatus !== 'complete' && section.nextActivityId)
         ?? sections.find(section => section.learningStatus !== 'complete');
     return {

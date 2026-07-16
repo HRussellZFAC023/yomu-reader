@@ -14,64 +14,7 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 .academy-root {
     position: relative;
     overflow: hidden;
-    color-scheme: dark;
     background: var(--academy-night);
-    /* Reader theme classes live on <html>. Re-anchor their shared variables at
-       the Academy boundary so page-level dark/light changes cannot recolour
-       lesson paper or its controls. */
-    --jpdb-reader-bg: var(--academy-night);
-    --jpdb-reader-surface: var(--academy-panel);
-    --jpdb-reader-surface-2: var(--academy-panel-soft);
-    --jpdb-reader-text: var(--academy-ink);
-    --jpdb-reader-muted: var(--academy-ink-muted);
-    --jpdb-reader-border: var(--academy-line);
-    --jpdb-reader-accent: var(--academy-accent);
-    --jpdb-reader-accent-readable: var(--academy-accent-strong);
-    --jpdb-reader-accent-text: #11161d;
-}
-
-/* The Academy's living-paper controls remain light even when the separately
-   installed Reader userscript is in dark mode. */
-.academy-root input,
-.academy-root textarea,
-.academy-root select {
-    color-scheme: light;
-}
-
-.academy-root input::selection,
-.academy-root textarea::selection {
-    color: #fffdf5;
-    background: #6d5149;
-}
-
-/* Reader and host styles can reset native form outlines. Keep the keyboard
-   indicator on Academy controls explicit, including at phone widths. */
-#yomu-academy :is(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible {
-    outline: 3px solid var(--academy-accent-strong) !important;
-    outline-offset: 3px;
-}
-
-/* Keep form focus inside the control edge. An outside outline can look like a
-   detached underline on living-paper fields and is easily clipped by panels. */
-#yomu-academy :is(
-    input:not([type]),
-    input[type="text"],
-    input[type="search"],
-    input[type="email"],
-    input[type="url"],
-    input[type="tel"],
-    input[type="password"],
-    input[type="number"],
-    input[type="date"],
-    input[type="time"],
-    input[type="datetime-local"],
-    input[type="month"],
-    input[type="week"],
-    textarea,
-    select
-):focus-visible {
-    outline-offset: -4px;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--academy-accent-strong) 38%, transparent);
 }
 
 .academy-header {
@@ -107,10 +50,6 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     background: rgba(31, 32, 28, 0.96);
     box-shadow: var(--academy-shadow);
     backdrop-filter: blur(14px);
-}
-
-.academy-utility:not([open]) > .academy-header-actions {
-    display: none;
 }
 
 .academy-utility {
@@ -225,12 +164,9 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     display: grid;
     gap: 12px;
     width: min(920px, 100%);
-    max-width: 100%;
-    min-width: 0;
     min-height: 100dvh;
     margin: 0 auto;
     padding: max(72px, calc(env(safe-area-inset-top) + 62px)) clamp(12px, 3vw, 34px) 32px;
-    overflow-x: clip;
     color: var(--academy-paper-ink);
     color-scheme: light;
     background:
@@ -267,7 +203,6 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 }
 
 .academy-study-back,
-.academy-study-vocabulary,
 .academy-study-clock-toggle {
     min-height: 42px;
     padding: 7px 13px;
@@ -279,7 +214,6 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 }
 
 .academy-study-back:hover,
-.academy-study-vocabulary:hover,
 .academy-study-clock-toggle:hover {
     border-color: var(--academy-accent);
     background: color-mix(in srgb, var(--academy-accent) 11%, var(--academy-paper));
@@ -318,22 +252,7 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     }
 
     .academy-study-chrome {
-        flex-wrap: nowrap;
-        gap: 6px;
-    }
-
-    .academy-study-back,
-    .academy-study-vocabulary {
-        min-width: 0;
-        padding-inline: 8px;
-        font-size: 0.85rem;
-        white-space: nowrap;
-    }
-
-    .academy-study-clock-host {
-        flex: 0 0 auto;
-        margin-left: auto;
-        gap: 6px;
+        gap: 8px;
     }
 }
 
@@ -381,9 +300,8 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 }
 
 .academy-button-secondary {
-    color: #29271f !important;
-    background: rgba(255, 252, 241, 0.9);
-    -webkit-text-fill-color: #29271f !important;
+    color: var(--academy-ink);
+    background: rgba(255, 252, 241, 0.58);
 }
 
 .academy-button-quiet {

@@ -99,30 +99,6 @@ describe('publicLookupFallbackCards', () => {
         }
     });
 
-    it('keeps exact nouns ahead of ambiguous continuative-stem verbs', async () => {
-        const movement = fallbackCard({ vid: -1, sid: -1, spelling: '動き', fallbackLookupTerms: ['動く'] });
-        const listening = fallbackCard({ vid: -2, sid: -2, spelling: '聞き', fallbackLookupTerms: ['聞く'] });
-        const movementNoun = jitenCard({ vid: 10, spelling: '動き', reading: 'うごき' });
-        const movementVerb = jitenCard({ vid: 11, spelling: '動く', reading: 'うごく' });
-        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく' });
-        const lookupMany = vi.fn(async (terms: string[]) => new Map<string, JPDBCard>(terms.flatMap(term => {
-            if (term === '動き') return [[term, movementNoun]];
-            if (term === '動く') return [[term, movementVerb]];
-            if (term === '聞く') return [[term, listeningVerb]];
-            return [];
-        })));
-
-        const result = await publicLookupFallbackCards(
-            [movement, listening],
-            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
-            { concurrency: 2, jpdbPublicLookup: false },
-        );
-
-        expect(lookupMany).toHaveBeenCalledWith(['動き', '動く', '聞き', '聞く'], undefined);
-        expect(result.get(cardKey(movement))).toBe(movementNoun);
-        expect(result.get(cardKey(listening))).toBe(listeningVerb);
-    });
-
     it('sweeps only jiten misses through the bounded public lookup and stops at the first hit per entry', async () => {
         const resolvedByJiten = fallbackCard({ vid: -1, sid: -1, spelling: '青空' });
         const missed = fallbackCard({ vid: -2, sid: -2, spelling: '食べました', fallbackLookupTerms: ['食べる', '食う'] });
@@ -167,28 +143,6 @@ describe('publicLookupFallbackCards', () => {
         expect(lookupMany).toHaveBeenCalledWith([allTerms[0]], undefined);
         expect(publicSpellingCard).toHaveBeenCalledTimes(1);
         expect(publicSpellingCard).toHaveBeenCalledWith(allTerms[0]);
-    });
-
-    it('keeps both ながら lemma candidates when background lookup is capped to one term', async () => {
-        const card = fallbackCard({
-            vid: -1,
-            sid: -1,
-            spelling: '聞きながら',
-            fallbackLookupTerms: ['聞きる', '聞く'],
-        });
-        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく' });
-        const lookupMany = vi.fn(async (terms: string[]) => new Map(
-            terms.includes('聞く') ? [['聞く', listeningVerb]] : [],
-        ));
-
-        const result = await publicLookupFallbackCards(
-            [card],
-            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
-            { concurrency: 2, termLimit: 1, jpdbPublicLookup: false },
-        );
-
-        expect(lookupMany).toHaveBeenCalledWith(['聞きる', '聞く'], undefined);
-        expect(result.get(cardKey(card))).toBe(listeningVerb);
     });
 
     it('resolves whitespace-carrying terms via the stripped keys jiten lookupMany maps use', async () => {

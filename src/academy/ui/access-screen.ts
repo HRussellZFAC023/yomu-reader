@@ -18,14 +18,11 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
     const { screen, content } = screenFrame({
         language: options.language,
         className: 'academy-access-screen',
-        plate: 'campusEnsemble',
+        plate: 'home',
         title: 'academyName',
         body: 'accessBody',
     });
     const form = element('form', 'academy-form academy-access-form');
-    // Keep validation inside the paper panel; the browser bubble covers the
-    // primary action at narrow viewports.
-    form.noValidate = true;
     const label = copyElement('label', 'academy-label', options.language, 'accessCodeLabel');
     const input = element('input', 'academy-input');
     input.name = 'code';
@@ -56,21 +53,9 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
     const actions = element('div', 'academy-access-actions');
     actions.append(submit, getCode);
     form.append(label, actions, feedback);
-    input.addEventListener('input', () => {
-        if (!input.value.trim()) return;
-        input.removeAttribute('aria-invalid');
-        feedback.replaceChildren();
-    }, { signal: lifecycle.signal });
     form.addEventListener('submit', event => {
         event.preventDefault();
         feedback.replaceChildren();
-        if (!input.value.trim()) {
-            input.setAttribute('aria-invalid', 'true');
-            feedback.replaceChildren(fieldError(input.validationMessage || academyText(options.language, 'accessInvalid')));
-            input.focus();
-            return;
-        }
-        input.removeAttribute('aria-invalid');
         setBusy(submit, true, academyText(options.language, 'accessChecking'));
         void options.onSubmit(input.value).catch(error => {
             const unavailable = error instanceof Error && 'code' in error && error.code === 'unavailable';

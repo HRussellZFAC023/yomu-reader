@@ -96,7 +96,7 @@ describe('Academy audio manifest', () => {
     it('loads the checked-in owner-approved catalog through protected media routes', () => {
         const raw = JSON.parse(readFileSync(path.resolve('src/academy/audio/manifest.json'), 'utf8'));
         const manifest = parseAudioManifest(raw);
-        expect(manifest.themes).toHaveLength(25);
+        expect(manifest.themes).toHaveLength(13);
         expect(manifest.sfx).toHaveLength(16);
         // Every entry that lands here must already reference a protected media key.
         for (const entry of [...manifest.themes.map(theme => theme.mediaKey), ...manifest.sfx.map(sfx => sfx.mediaKey)]) {

@@ -15,19 +15,7 @@ export type ThemeSlot =
     | 'unlock.world'
     | 'support.kindness'
     | 'resolve.late'
-    | 'ending.reflective'
-    | 'world.courtyard'
-    | 'world.classroom'
-    | 'world.library'
-    | 'world.cafe'
-    | 'world.lab'
-    | 'world.street'
-    | 'world.station'
-    | 'world.konbini'
-    | 'world.ramen'
-    | 'world.home'
-    | 'world.japan-centre'
-    | 'world.park';
+    | 'ending.reflective';
 
 export type SfxCue =
     | 'menu.move'

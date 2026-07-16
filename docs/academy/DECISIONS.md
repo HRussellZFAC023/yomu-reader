@@ -146,17 +146,3 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 **Decision:** Shaun is a canonical first-term classmate and Peter remains a separate canonical classmate. Both appear in the Foundation story record and first-term scrapbook spread. Shaun's owner-supplied reference may produce a review sprite; Peter does not receive an invented likeness.
 
 **Why:** A group image is not a substitute for two character records. Keeping name, story membership, and likeness evidence separate prevents forgotten classmates from being merged or visually fabricated.
-
-## D-025 — Placement audio resolves through the listening crosswalk
-
-**Decision:** Placement may expose a source recording only when the authored item names a completed listening-crosswalk locator and the crosswalk's packaged entry has the same SHA-256. An unavailable or mismatched recording does not fall back silently. Exact-text browser speech remains an explicitly labelled delivery mode for levels without a completed mapping.
-
-**Why:** Remote source paths and matching filenames prove neither byte identity nor permission to ship. Reusing the existing crosswalk keeps placement, Moodle, Minna, and later Genki audio on one auditable delivery seam while preserving an honest usable diagnostic for unmapped levels.
-
-## D-026 — Advanced arrival reuses authored-week tasks and canonical adaptive evidence
-
-**Decision:** The first advanced arrival slice is N3 and directly reuses the exact `l2-l07` Moodle/Minna 074 activity, task binding, packaged audio, and authored-week evidence owner. `academy-adaptive-learner-v1` selects guided, test-out, repair, or independent arrival support from canonical learner events. The arrival task may write activity and learning evidence, but it may not write scenes, encounters, bonds, or replay memories.
-
-**Why:** A separate entry-task or audio registry would duplicate active source ownership and could drift from the reviewed recording, question order, answer gate, and packaging digest. Plot progression must remain based on authored story evidence rather than placement convenience.
-
-**Consequence:** N3 entrants receive a real, source-owned task with honest exact audio and adaptive support before campus entry. N2/N1 receive no fabricated source mapping, and Genki audio remains unclaimed until an exact task binding exists.

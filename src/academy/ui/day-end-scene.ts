@@ -32,7 +32,7 @@ export function renderDayEndScene(options: DayEndSceneOptions): HTMLElement {
         expression: 'happy',
         expressions: {
             neutral: { still: ACADEMY_ASSETS.rie },
-            happy: { still: ACADEMY_ASSETS.rie },
+            happy: { still: ACADEMY_ASSETS.rieExpressions.happy },
         },
     }]);
     stage.setLine({

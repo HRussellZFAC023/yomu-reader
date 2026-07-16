@@ -5227,32 +5227,9 @@ export class ReaderApp {
         stackOverSettings: boolean,
     ): Promise<boolean> {
         if (await this.showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings)) return true;
-        if (await this.showLocalRenderedWordCandidate(card, context, options, stackOverSettings)) return true;
         if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings)) return true;
         if (this.shouldSuppressRenderedKanaFragmentFallback(word, card, context)) return true;
         return this.showOcrKanjiRenderedWord(word, card, context);
-    }
-
-    private async showLocalRenderedWordCandidate(
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-        stackOverSettings: boolean,
-    ): Promise<boolean> {
-        if (!this.settings.localDictionariesEnabled || card.source !== 'fallback') return false;
-        for (const term of fallbackLookupTermsForCard(card)) {
-            const entries = await this.dictionaries.lookup(
-                term,
-                term,
-                this.settings.localDictionaryMaxResults,
-                this.settings.dictionaryPreferences,
-            ).catch(() => [] as YomitanTermEntry[]);
-            const entry = entries[0];
-            if (!entry) continue;
-            await this.showRenderedWordCard(this.parser.localCardFromEntry(entry), context, options, stackOverSettings);
-            return true;
-        }
-        return false;
     }
 
     private shouldIgnoreRenderedWordLookup(word: HTMLElement, options: RenderedWordLookupOptions): boolean {

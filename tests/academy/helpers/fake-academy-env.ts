@@ -28,8 +28,6 @@ interface SessionRow {
     offline_resume_until: number;
     revoked_at: number | null;
     account_id: string | null;
-    profile_id: string | null;
-    device_id: string | null;
 }
 
 interface PurchaseRow {
@@ -41,8 +39,6 @@ interface PurchaseRow {
     created_at: number;
     fulfilled_at: number | null;
     invite_id: string | null;
-    redeemed_by_account_id: string | null;
-    redeemed_at: number | null;
 }
 
 interface AccountDbRow {
@@ -70,24 +66,6 @@ interface ProgressDbRow {
     updated_at: number;
 }
 
-interface ProfileDbRow {
-    id: string;
-    public_id: string;
-    account_id: string | null;
-    sync_key_version: number;
-    created_at: number;
-    updated_at: number;
-}
-
-interface ProfileDeviceDbRow {
-    id: string;
-    public_id: string;
-    profile_id: string;
-    created_at: number;
-    last_seen_at: number;
-    revoked_at: number | null;
-}
-
 function retainedProgressValue(current: number | undefined, incoming: unknown): number {
     return Math.max(current ?? 0, incoming as number);
 }
@@ -105,8 +83,6 @@ class FakeAcademyDb implements D1Database {
     readonly progressImports = new Map<string, { guard: string; received_at: number }>();
     readonly progress = new Map<string, ProgressDbRow>();
     readonly studyDays = new Set<string>();
-    readonly profiles: ProfileDbRow[] = [];
-    readonly profileDevices: ProfileDeviceDbRow[] = [];
 
     prepare(query: string): D1PreparedStatement {
         return new FakeStatement(this, query.replace(/\s+/g, ' ').trim());
@@ -155,7 +131,6 @@ class FakeStatement implements D1PreparedStatement {
             this.executePurchaseQuery,
             this.executeOauthQuery,
             this.executeAccountQuery,
-            this.executeProfileQuery,
             this.executeClassQuery,
             this.executeProgressWriteQuery,
             this.executeProgressReadQuery,
@@ -201,28 +176,11 @@ class FakeStatement implements D1PreparedStatement {
             const now = v[1] as number;
             const invite = db.invites.find(row =>
                 row.code_hash === v[0] && row.uses_remaining > 0 && row.revoked_at === null
-                && row.kind === 'seed'
                 && (row.expires_at === null || row.expires_at > now));
             if (!invite) return [];
             invite.uses_remaining -= 1;
             this.lastChanges = 1;
             return [{ id: invite.id }];
-        }
-        if (sql.startsWith('INSERT INTO invites') && sql.includes('ON CONFLICT(id) DO NOTHING')) {
-            if (db.invites.some(row => row.id === v[0])) return [];
-            db.invites.push({
-                id: v[0] as string,
-                code_hash: v[1] as string,
-                uses_remaining: 100_000,
-                kind: 'seed',
-                created_at: v[2] as number,
-                expires_at: null,
-                revoked_at: null,
-                purchase_id: null,
-                class_id: null,
-            });
-            this.lastChanges = 1;
-            return [];
         }
         if (sql.startsWith('INSERT INTO invites')) {
             const codeHash = v[1] as string;
@@ -266,10 +224,6 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [];
         }
-        if (sql.startsWith("SELECT id FROM invites WHERE id = ?1 AND kind = 'seed' AND code_hash = ?2")) {
-            const invite = db.invites.find(row => row.id === v[0] && row.kind === 'seed' && row.code_hash === v[1]);
-            return invite ? [{ id: invite.id }] : [];
-        }
         return undefined;
     }
 
@@ -298,8 +252,6 @@ class FakeStatement implements D1PreparedStatement {
             offline_resume_until: v[4] as number,
             revoked_at: null,
             account_id: null,
-            profile_id: null,
-            device_id: null,
         });
         this.lastChanges = 1;
         return [{ public_id: v[1] }];
@@ -307,12 +259,8 @@ class FakeStatement implements D1PreparedStatement {
 
     private inviteAllowsSession(invite: InviteRow, codeHash: unknown, now: number): boolean {
         if (invite.code_hash !== codeHash) return false;
+        if (invite.uses_remaining <= 0) return false;
         if (invite.revoked_at !== null) return false;
-        if (invite.kind === 'seed' && invite.uses_remaining <= 0) return false;
-        if (invite.kind === 'paid') {
-            const purchase = this.db.purchases.find(row => row.id === invite.purchase_id);
-            if (purchase?.status !== 'paid') return false;
-        }
         return this.inviteHasNotExpired(invite, now);
     }
 
@@ -332,8 +280,6 @@ class FakeStatement implements D1PreparedStatement {
             offline_resume_until: v[5] as number,
             revoked_at: null,
             account_id: null,
-            profile_id: null,
-            device_id: null,
         });
         this.lastChanges = 1;
         return [];
@@ -377,9 +323,6 @@ class FakeStatement implements D1PreparedStatement {
             this.markPurchasePaid,
             this.updatePurchaseInvite,
             this.selectPurchaseForClaim,
-            this.selectSessionEntitlement,
-            this.bindEntitlement,
-            this.selectEntitlement,
         ]);
     }
 
@@ -397,8 +340,6 @@ class FakeStatement implements D1PreparedStatement {
             created_at: v[3] as number,
             fulfilled_at: null,
             invite_id: null,
-            redeemed_by_account_id: null,
-            redeemed_at: null,
         });
         this.lastChanges = 1;
         return [];
@@ -457,57 +398,11 @@ class FakeStatement implements D1PreparedStatement {
         return purchase ? [{ id: purchase.id, status: purchase.status, invite_id: purchase.invite_id }] : [];
     }
 
-    private selectSessionEntitlement(): unknown[] | undefined {
-        if (!this.sql.startsWith('SELECT i.kind AS invite_kind')) return undefined;
-        const invite = this.db.invites.find(row => row.id === this.values[0]);
-        if (!invite) return [];
-        const purchase = this.db.purchases.find(row => row.id === invite.purchase_id);
-        return [{
-            invite_kind: invite.kind,
-            id: purchase?.id ?? null,
-            status: purchase?.status ?? null,
-            amount_pence: purchase?.amount_pence ?? null,
-            fulfilled_at: purchase?.fulfilled_at ?? null,
-            redeemed_by_account_id: purchase?.redeemed_by_account_id ?? null,
-            redeemed_at: purchase?.redeemed_at ?? null,
-        }];
-    }
-
-    private bindEntitlement(): unknown[] | undefined {
-        if (!this.sql.startsWith('UPDATE purchases SET redeemed_by_account_id')) return undefined;
-        const accountId = this.values[0] as string;
-        const purchaseId = this.values[2] as string;
-        const purchase = this.db.purchases.find(row => row.id === purchaseId && row.status === 'paid');
-        const accountAlreadyBound = this.db.purchases.some(row => row.id !== purchaseId && row.redeemed_by_account_id === accountId);
-        if (!purchase || purchase.redeemed_at !== null || purchase.redeemed_by_account_id !== null || accountAlreadyBound) return [];
-        purchase.redeemed_by_account_id = accountId;
-        purchase.redeemed_at = this.values[1] as number;
-        this.lastChanges = 1;
-        return [{ ...purchase }];
-    }
-
-    private selectEntitlement(): unknown[] | undefined {
-        const prefix = 'SELECT id, status, amount_pence, fulfilled_at, redeemed_by_account_id, redeemed_at FROM purchases WHERE';
-        if (!this.sql.startsWith(prefix)) return undefined;
-        const purchase = this.sql.endsWith('WHERE id = ?1')
-            ? this.db.purchases.find(row => row.id === this.values[0])
-            : this.db.purchases.find(row => row.redeemed_by_account_id === this.values[0]);
-        return purchase ? [{ ...purchase }] : [];
-    }
-
     private executeOauthQuery(): unknown[] | undefined {
         const db = this.db;
         const sql = this.sql;
         const v = this.values;
 
-        if (sql.startsWith('DELETE FROM oauth_flows')) {
-            const before = db.oauthFlows.length;
-            db.oauthFlows.splice(0, db.oauthFlows.length, ...db.oauthFlows.filter(row =>
-                row.expires_at > (v[0] as number)
-                && (row.consumed_at === null || row.consumed_at > (v[1] as number))));
-            this.lastChanges = before - db.oauthFlows.length;
-            return [];
-        }
         if (sql.startsWith('INSERT INTO oauth_flows')) {
             db.oauthFlows.push({
                 state_hash: v[0] as string,
@@ -544,10 +439,6 @@ class FakeStatement implements D1PreparedStatement {
             const account = db.accounts.find(row => row.id === v[0]);
             return account ? [{ ...account }] : [];
         }
-        if (sql.startsWith('SELECT id FROM accounts WHERE id')) {
-            const account = db.accounts.find(row => row.id === v[0]);
-            return account ? [{ id: account.id }] : [];
-        }
         if (sql.startsWith('INSERT INTO accounts')) {
             if (db.accounts.some(row => row.google_sub_hash === v[2] || row.discriminator === v[3])) {
                 throw new Error('UNIQUE constraint failed: accounts');
@@ -579,87 +470,6 @@ class FakeStatement implements D1PreparedStatement {
             account.updated_at = v[5] as number;
             this.lastChanges = 1;
             return [];
-        }
-        return undefined;
-    }
-
-    private executeProfileQuery(): unknown[] | undefined {
-        const db = this.db;
-        const sql = this.sql;
-        const v = this.values;
-
-        if (sql.startsWith('SELECT p.id AS profile_id, p.public_id AS profile_public_id')) {
-            const session = db.sessions.find(row => row.public_id === v[0] && row.revoked_at === null);
-            const profile = session?.profile_id ? db.profiles.find(row => row.id === session.profile_id) : undefined;
-            const device = session?.device_id ? db.profileDevices.find(row =>
-                row.id === session.device_id && row.profile_id === profile?.id && row.revoked_at === null) : undefined;
-            if (!profile || !device) return [];
-            const account = profile.account_id ? db.accounts.find(row => row.id === profile.account_id) : undefined;
-            return [{
-                profile_id: profile.id,
-                profile_public_id: profile.public_id,
-                account_id: profile.account_id,
-                account_public_id: account?.public_id ?? null,
-                sync_key_version: profile.sync_key_version,
-                profile_created_at: profile.created_at,
-                profile_updated_at: profile.updated_at,
-                device_id: device.id,
-                device_public_id: device.public_id,
-                device_created_at: device.created_at,
-                device_last_seen_at: device.last_seen_at,
-                device_revoked_at: device.revoked_at,
-            }];
-        }
-        if (sql.startsWith('INSERT INTO profiles (id, public_id, account_id, sync_key_version')) {
-            const session = db.sessions.find(row => row.public_id === v[3] && row.revoked_at === null && row.profile_id === null && row.device_id === null);
-            if (!session) return [];
-            db.profiles.push({
-                id: v[0] as string,
-                public_id: v[1] as string,
-                account_id: null,
-                sync_key_version: 1,
-                created_at: v[2] as number,
-                updated_at: v[2] as number,
-            });
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('INSERT INTO profile_devices')) {
-            if (!db.profiles.some(row => row.id === v[2])) return [];
-            db.profileDevices.push({
-                id: v[0] as string,
-                public_id: v[1] as string,
-                profile_id: v[2] as string,
-                created_at: v[3] as number,
-                last_seen_at: v[3] as number,
-                revoked_at: null,
-            });
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('UPDATE sessions SET profile_id = ?1, device_id = ?2')) {
-            const session = db.sessions.find(row => row.public_id === v[2] && row.revoked_at === null && row.profile_id === null && row.device_id === null);
-            if (!session) return [];
-            session.profile_id = v[0] as string;
-            session.device_id = v[1] as string;
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('SELECT id, public_id, account_id, sync_key_version, created_at, updated_at FROM profiles WHERE account_id')) {
-            const profile = db.profiles.find(row => row.account_id === v[0]);
-            return profile ? [{ ...profile }] : [];
-        }
-        if (sql.startsWith('UPDATE profiles SET account_id') || sql.startsWith('UPDATE OR IGNORE profiles SET account_id')) {
-            const profile = db.profiles.find(row => row.id === v[2] && (row.account_id === null || row.account_id === v[0]));
-            if (!profile) return [];
-            profile.account_id = v[0] as string;
-            profile.updated_at = v[1] as number;
-            this.lastChanges = 1;
-            return [];
-        }
-        if (sql.startsWith('SELECT p.account_id, (SELECT COUNT(*) FROM srs_events')) {
-            const profile = db.profiles.find(row => row.id === v[0]);
-            return profile ? [{ account_id: profile.account_id, event_count: 0, device_count: 1, session_count: 1 }] : [];
         }
         return undefined;
     }
@@ -866,7 +676,7 @@ export function createFakeAcademy(overrides: Partial<Env> = {}): FakeAcademy {
         ACADEMY_INVITE_HMAC_KEY: 'test-invite-hmac-key',
         ACADEMY_RATE_HMAC_KEY: 'test-rate-hmac-key',
         ACADEMY_ADMIN_TOKEN: 'test-admin-token',
-        STRIPE_SECRET_KEY: 'sk_test_fake',
+        STRIPE_SECRET_KEY: 'sk_live_fake',
         STRIPE_WEBHOOK_SECRET: 'whsec_test_fake',
         GOOGLE_OIDC_CLIENT_ID: 'test.apps.googleusercontent.com',
         GOOGLE_OIDC_CLIENT_SECRET: 'test-google-client-secret',

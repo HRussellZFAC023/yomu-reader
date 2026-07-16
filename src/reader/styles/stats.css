@@ -10,11 +10,9 @@
 
 .jpdb-reader-stats {
   width: 100%;
-  max-width: 100%;
   min-width: 0;
   display: grid;
   gap: 16px;
-  overflow-x: clip;
 }
 
 .jpdb-reader-stats-header {
@@ -66,7 +64,6 @@
 
 .jpdb-reader-stats-tabs {
   justify-self: start;
-  max-width: 100%;
   display: inline-grid;
   grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(88px, 1fr));
   gap: 2px;
@@ -177,7 +174,7 @@
 .jpdb-reader-stats-panel-actions {
   min-width: 0;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -755,10 +752,6 @@
   .jpdb-reader-stats-tabs {
     width: 100%;
     grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(0, 1fr));
-  }
-
-  .jpdb-reader-stats-panel-actions {
-    flex-wrap: wrap;
   }
 
   .jpdb-reader-stats-metrics,

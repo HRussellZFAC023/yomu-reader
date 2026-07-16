@@ -25,7 +25,6 @@ const GODAN_ROWS = [
 ];
 
 const ICHIDAN_RULES = [
-    ['ながら', 'る', 'simultaneous action'],
     ['ました', 'る', 'polite past'],
     ['ませんでした', 'る', 'polite negative past'],
     ['ません', 'る', 'polite negative'],
@@ -73,7 +72,6 @@ const I_ADJECTIVE_RULES = [
 ] satisfies Array<[string, string, string]>;
 
 const SURU_RULES = [
-    ['しながら', 'する', 'simultaneous action'],
     ['しませんでした', 'する', 'polite negative past'],
     ['しません', 'する', 'polite negative'],
     ['しました', 'する', 'polite past'],
@@ -105,7 +103,6 @@ const SURU_RULES = [
 ] satisfies Array<[string, string, string]>;
 
 const KURU_RULES = [
-    ['来ながら', '来る', 'simultaneous action'],
     ['来ませんでした', '来る', 'polite negative past'],
     ['来ません', '来る', 'polite negative'],
     ['来ました', '来る', 'polite past'],
@@ -123,7 +120,6 @@ const KURU_RULES = [
     ['来い', '来る', 'imperative'],
     ['来た', '来る', 'past'],
     ['来て', '来る', 'te-form'],
-    ['きながら', 'くる', 'simultaneous action'],
     ['きませんでした', 'くる', 'polite negative past'],
     ['きません', 'くる', 'polite negative'],
     ['きました', 'くる', 'polite past'],
@@ -231,14 +227,14 @@ function expandDeinflectionQueue(queue: DeinflectedTerm[], results: DeinflectedT
 }
 
 function expandDeinflectedTerm(current: DeinflectedTerm, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
-    if (isTerminalDeinflection(current)) return;
+    if (isDeinflectionDepthLimitReached(current)) return;
     for (const rule of RULES) {
         rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
 }
 
-function isTerminalDeinflection(current: DeinflectedTerm): boolean {
-    return current.depth >= 2 || current.reasons.at(-1) === 'simultaneous action';
+function isDeinflectionDepthLimitReached(current: DeinflectedTerm): boolean {
+    return current.depth >= 2;
 }
 
 function rememberExpandedDeinflection(current: DeinflectedTerm, rule: DeinflectionRule, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
@@ -303,8 +299,6 @@ function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
     const rules = row.rules;
     return [
         ...teCompoundRules(row.te, row.ending, rules),
-        { from: `${row.i}ながら`, to: row.ending, reason: 'simultaneous action', rules },
-        { from: row.i, to: row.ending, reason: 'continuative stem', rules },
         { from: row.te, to: row.ending, reason: 'te-form', rules },
         { from: row.ta, to: row.ending, reason: 'past', rules },
         { from: `${row.a}なかった`, to: row.ending, reason: 'negative past', rules },

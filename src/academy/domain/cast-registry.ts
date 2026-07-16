@@ -19,7 +19,6 @@ export interface AcademyCastMember {
     readonly eligibility: CastEligibility;
     readonly nameEvidence?: 'owner-named';
     readonly teacherSalutation?: Readonly<{ en: 'Rie-sensei'; ja: 'りえ先生' }>;
-    readonly visualBrief?: string;
 }
 
 const ELIGIBLE_WITH_PENDING_LIKENESS = {
@@ -74,15 +73,6 @@ export const ACADEMY_CAST = [
         teacherSalutation: { en: 'Rie-sensei', ja: 'りえ先生' },
     },
     ...REAL_CLASS_MEMBERS,
-    {
-        id: 'felix',
-        firstName: 'Felix',
-        category: 'classmate',
-        visualEvidence: 'candidate-needs-owner',
-        eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
-        nameEvidence: 'owner-named',
-        visualBrief: 'White; glasses; longer curly dark-blond to light-brown hair; likes cats.',
-    },
     {
         id: 'shaun',
         firstName: 'Shaun',
@@ -149,12 +139,6 @@ export function getAcademyCastMember(id: string): AcademyCastMember {
     const member = CAST_BY_ID.get(id);
     if (!member) throw new TypeError(`Unknown Academy cast id: ${id}.`);
     return member;
-}
-
-export function displayAcademyCastName(id: string, language: 'en' | 'ja'): string {
-    const member = getAcademyCastMember(id);
-    if (member.category === 'teacher') return member.teacherSalutation?.[language] ?? member.firstName;
-    return `${member.firstName}-san`;
 }
 
 export type AcademyCastPortraitUse = 'story-runtime' | 'journal-review-preview';

@@ -13,13 +13,8 @@ import { collectPrivateTokens, findLeakedTokens } from './academy-source-pipelin
 import { updateResourceLedger } from './academy-source-pipeline/resource-ledger.mjs';
 import { publicOutputsPresent, validatePublicOutputs } from './academy-source-pipeline/validate.mjs';
 import { loadManifest } from './academy-source-pipeline/manifest.mjs';
-import {
-    normalizeLessonSourcePayloadOwnership,
-    validateLessonSourceOwnershipManifest,
-    writeLessonSourceOwnershipManifest,
-} from './academy-source-pipeline/lesson-source-ownership.mjs';
 
-const COMMANDS = new Set(['ledger', 'census', 'packs', 'publish', 'ownership', 'validate', 'all']);
+const COMMANDS = new Set(['ledger', 'census', 'packs', 'publish', 'validate', 'all']);
 
 async function main() {
     const command = process.argv[2] ?? 'all';
@@ -38,19 +33,8 @@ async function main() {
             console.warn('[source-pipeline] public outputs not generated yet; run `npm run academy:source:pipeline` locally against the private corpus.');
             return;
         }
-        const violations = [
-            ...validatePublicOutputs(roots.publicRoot),
-            ...validateLessonSourceOwnershipManifest(roots),
-        ];
+        const violations = validatePublicOutputs(roots.publicRoot);
         report('public output validation', violations);
-        return;
-    }
-
-    if (command === 'ownership') {
-        normalizeLessonSourcePayloadOwnership(roots, { log });
-        const ownershipManifest = writeLessonSourceOwnershipManifest(roots);
-        log(`lesson source ownership written: ${ownershipManifest}`);
-        report('lesson source ownership validation', validateLessonSourceOwnershipManifest(roots));
         return;
     }
 
@@ -88,15 +72,12 @@ async function main() {
         throw new Error(`Refusing to publish: private tokens would leak into public outputs: ${leaks.slice(0, 5).join(', ')}`);
     }
     const written = writePublicOutputs(roots, outputs);
-    normalizeLessonSourcePayloadOwnership(roots, { log });
-    const ownershipManifest = writeLessonSourceOwnershipManifest(roots);
     updateResourceLedger(roots, outputs);
     log(`public outputs written under ${roots.publicRoot}`);
 
     const violations = validatePublicOutputs(roots.publicRoot);
     report('post-publish validation', violations);
     Object.values(written).forEach(filePath => log(`wrote ${filePath}`));
-    log(`wrote ${ownershipManifest}`);
 }
 
 function report(label, violations) {

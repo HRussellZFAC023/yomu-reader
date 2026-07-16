@@ -122,6 +122,7 @@ export function upsertAcademyVocabulary(
 ): AcademyVocabularyUpsertMutation {
     const identity = canonicalStudyCardIdentity(input.expression, input.reading);
     const meanings = uniqueText(input.meanings);
+    if (!meanings.length) throw new TypeError('Academy vocabulary needs at least one meaning.');
     const provenance = normalizeProvenance(input.provenance, now);
     const existing = deck.cards[identity.key];
     const previousProvenance = existing?.academyProvenance?.[provenance.id];
@@ -286,7 +287,8 @@ function sameProvenance(left: StoredAcademyVocabularyProvenance, right: StoredAc
         && left.kind === right.kind
         && left.activityId === right.activityId
         && left.conceptId === right.conceptId
-        && left.sourceId === right.sourceId;
+        && left.sourceId === right.sourceId
+        && left.reason === right.reason;
 }
 
 function retainsWithoutAcademy(card: StoredYomuSrsCard): boolean {

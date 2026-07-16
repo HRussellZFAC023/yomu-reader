@@ -43,8 +43,6 @@ const THEME_SLOTS = new Set<ThemeSlot>([
     'silence', 'opening.invitation', 'campus.evening', 'classroom.focus', 'library.quiet',
     'lab.listening', 'cafe.social', 'bond.quiet', 'mystery.page', 'challenge.kanji',
     'challenge.major', 'unlock.world', 'support.kindness', 'resolve.late', 'ending.reflective',
-    'world.courtyard', 'world.classroom', 'world.library', 'world.cafe', 'world.lab',
-    'world.street', 'world.station', 'world.konbini', 'world.ramen', 'world.home', 'world.japan-centre', 'world.park',
 ]);
 const SFX_CUES = new Set<SfxCue>([
     'menu.move', 'menu.confirm', 'menu.cancel', 'action.unavailable', 'scene.advance', 'page.turn',
@@ -85,37 +83,6 @@ export function catalogFromManifest(manifest: AudioManifest, releaseMode = true)
         overrides[entry.slot] = { ...overrides[entry.slot], [entry.bus]: track };
     }
     return createAudioCatalog(overrides);
-}
-
-/** Theme slots used by the 13 current, curriculum-grounded world locations. */
-export const GROUNDED_LOCATION_THEME_SLOTS = Object.freeze([
-    'world.courtyard',
-    'world.classroom',
-    'world.library',
-    'world.cafe',
-    'world.lab',
-    'world.street',
-    'world.station',
-    'world.konbini',
-    'world.ramen',
-    'world.japan-centre',
-    'world.home',
-    'world.park',
-    'challenge.major',
-] as const satisfies readonly ThemeSlot[]);
-
-/** Protected music and SFX eligible for the Academy's optional offline cache. */
-export function audioPrecacheUrlsFromManifest(
-    manifest: AudioManifest,
-    releaseMode = true,
-): readonly string[] {
-    const catalog = catalogFromManifest(manifest, releaseMode);
-    const music = GROUNDED_LOCATION_THEME_SLOTS.flatMap(slot => {
-        const track = catalog[slot].music;
-        return track ? [track.url] : [];
-    });
-    const sfx = [...sfxSourcesFromManifest(manifest, releaseMode).values()].map(source => source.url);
-    return Object.freeze([...new Set([...music, ...sfx])]);
 }
 
 /** Map SFX cues to authorized sources, dropping entries that fail the rights gate. */
@@ -221,4 +188,3 @@ function assertUnique(values: readonly string[], label: string): void {
 export const AUTHORIZED_AUDIO_MANIFEST = parseAudioManifest(authorizedManifestJson);
 export const AUTHORIZED_AUDIO_CATALOG = catalogFromManifest(AUTHORIZED_AUDIO_MANIFEST, true);
 export const AUTHORIZED_SFX_SOURCES = sfxSourcesFromManifest(AUTHORIZED_AUDIO_MANIFEST, true);
-export const AUTHORIZED_AUDIO_PRECACHE_URLS = audioPrecacheUrlsFromManifest(AUTHORIZED_AUDIO_MANIFEST, true);

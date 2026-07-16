@@ -91,12 +91,9 @@ export class AudioDirector implements AudioDirectorControl {
     async setTheme(slot: ThemeSlot): Promise<void> {
         this.assertActive();
         if (!this.catalog[slot]) throw new RangeError(`Unknown audio theme: ${slot}`);
-        const changed = this.requestedTheme !== slot;
         this.requestedTheme = slot;
-        if (changed) this.emit({ type: 'theme', slot });
-        if (this.stateValue !== 'locked' && this.stateValue !== 'suspended' && (changed || !this.themeIsApplied())) {
-            await this.applyTheme();
-        }
+        this.emit({ type: 'theme', slot });
+        if (this.stateValue !== 'locked' && this.stateValue !== 'suspended') await this.applyTheme();
     }
 
     async startLesson(playback: LessonPlayback): Promise<boolean> {
@@ -148,9 +145,8 @@ export class AudioDirector implements AudioDirectorControl {
     }
 
     playSfx(cue: SfxCue): void {
-        const volume = this.effectiveVolume('sfx');
-        if (!this.canPlay() || volume <= 0) return;
-        this.sfx.play(cue, volume);
+        if (!this.canPlay()) return;
+        this.sfx.play(cue, this.effectiveVolume('sfx'));
         this.emit({ type: 'sfx', cue });
     }
 
@@ -244,18 +240,6 @@ export class AudioDirector implements AudioDirectorControl {
     private currentMusicVolume(duckFactor: number): number {
         const track = this.catalog[this.requestedTheme].music;
         return track ? this.trackVolume('music', track) * duckFactor : 0;
-    }
-
-    /** A same-place rerender must not restart its media fade; failed loads stay retryable. */
-    private themeIsApplied(): boolean {
-        const definition = this.catalog[this.requestedTheme];
-        return this.trackMatches('music', definition.music)
-            && this.trackMatches('ambience', definition.ambience);
-    }
-
-    private trackMatches(bus: 'music' | 'ambience', expected: AudioTrack | undefined): boolean {
-        const playable = expected && trackCanPlay(expected, this.releaseMode) ? expected : null;
-        return this.currentTracks[bus]?.id === playable?.id;
     }
 
     private currentDuckFactor(): number {

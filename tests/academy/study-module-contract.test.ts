@@ -44,37 +44,6 @@ describe('Academy shared Study contract', () => {
         countdown.dispose();
     });
 
-    it('keeps session vocabulary optional and forwards it when Academy has a grounded syllabus', async () => {
-        const mountNewTabStudySurface = vi.fn(async () => ({ dispose: vi.fn() }));
-        const module = createCanonicalAcademyStudyModule(async () => ({ mountNewTabStudySurface }));
-        const host = document.createElement('section');
-        const countdown = createAcademyStudyCountdown();
-        const sessionVocabulary = [{
-            id: 'lesson-01:read',
-            expression: '読む',
-            reading: 'よむ',
-            meaning: 'to read',
-            source: 'academy:lesson-01',
-            audioAvailable: true,
-        }] as const;
-
-        const mounted = await module.mount(host, {
-            language: 'en',
-            surface: { id: 'academy', theme: 'living-paper' },
-            countdown,
-            sessionVocabulary,
-            onExit() {},
-        });
-
-        expect(mountNewTabStudySurface).toHaveBeenCalledWith(host, {
-            language: 'en',
-            sessionClock: countdown,
-            sessionVocabulary,
-        });
-        mounted.dispose();
-        countdown.dispose();
-    });
-
     it('defaults to a 15:00 countdown and never exposes count-up time', () => {
         let now = 1_000;
         const countdown = createAcademyStudyCountdown(undefined, () => now);

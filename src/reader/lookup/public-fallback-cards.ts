@@ -46,7 +46,7 @@ function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: num
         seen.add(key);
         const allTerms = fallbackLookupTermsForCard(card);
         const terms = typeof termLimit === 'number'
-            ? allTerms.slice(0, Math.max(card.spelling.endsWith('ながら') ? 2 : 1, Math.floor(termLimit)))
+            ? allTerms.slice(0, Math.max(1, Math.floor(termLimit)))
             : allTerms;
         if (terms.length) entries.push({ key, terms });
     }

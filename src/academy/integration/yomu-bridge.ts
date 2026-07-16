@@ -36,19 +36,8 @@ export interface ReviewQueueItem {
     readonly provenance: Readonly<Record<string, string>>;
 }
 
-/** A selected Academy syllabus row, before Yomu assigns its schedule. */
-export interface ReviewSyllabusItem {
-    readonly id: string;
-    readonly expression: string;
-    readonly reading?: string;
-}
-
-/** Due cards remain scheduler-owned; this only reports whether a syllabus is already shared with Yomu. */
-export type ReviewSyllabusState = 'new' | 'cleared' | 'empty';
-
 export interface ReviewQueueService {
     due(limit: number): Promise<readonly ReviewQueueItem[]>;
-    syllabusState?(items: readonly ReviewSyllabusItem[]): Promise<ReviewSyllabusState>;
     ingest(seeds: readonly ReviewSeed[]): Promise<void>;
     rate(itemId: string, rating: ReviewRating): Promise<void>;
 }

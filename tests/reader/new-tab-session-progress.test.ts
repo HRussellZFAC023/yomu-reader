@@ -231,8 +231,6 @@ describe('new-tab session progress', () => {
         expect(root?.querySelectorAll('.jpdb-reader-newtab-mode > [data-newtab-action="mode"]')).toHaveLength(3);
         expect(root?.querySelector('.jpdb-reader-newtab-brand')).toBeNull();
         expect(root?.querySelector('[data-newtab-session-clock-host]')).toBeNull();
-        expect(root?.querySelector('.jpdb-reader-newtab-theme-controls')).toBeNull();
-        expect(root?.querySelector('.jpdb-reader-newtab-overflow')).toBeNull();
         expect(document.body.firstElementChild).toBe(outside);
 
         controller.destroy();

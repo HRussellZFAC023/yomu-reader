@@ -4,11 +4,7 @@ import {
     migrateAcademyCheckpoint,
     openAcademyPersistence,
 } from '../../src/academy/persistence/indexeddb';
-import {
-    createLearnerRecord,
-    type LearnerEvent,
-} from '../../src/academy/domain/learner-record';
-import { projectCharacterDirectory } from '../../src/academy/domain/progress-projections';
+import type { LearnerEvent } from '../../src/academy/domain/learner-record';
 
 describe('Academy IndexedDB persistence', () => {
     it('recovers a corrupt checkpoint without discarding learner events or blocking boot', async () => {
@@ -225,39 +221,6 @@ describe('Academy IndexedDB persistence', () => {
         await persistence.events.append([{ ...event, at: 200 }]);
         expect(await persistence.events.readAll()).toEqual([event]);
         persistence.close();
-    });
-
-    it('restores an encountered classmate as a journal and roster unlock after reopening', async () => {
-        const name = `academy-test-${crypto.randomUUID()}`;
-        const persistence = await openAcademyPersistence(fakeIndexedDB, name);
-        const record = createLearnerRecord({ repository: persistence.events, now: () => 100 });
-        await record.record({
-            kind: 'characters-encountered',
-            eventId: 'encounter:class-week:l1-l01',
-            encounterId: 'class-week:l1-l01',
-            sceneId: 'scene:class-week:l1-l01',
-            attendeeIds: ['aakash'],
-        });
-        persistence.close();
-
-        const restored = await openAcademyPersistence(fakeIndexedDB, name);
-        const projection = await createLearnerRecord({ repository: restored.events }).snapshot();
-        const aakash = projectCharacterDirectory(projection).find(character => character.characterId === 'aakash');
-
-        expect(projection.encounteredCharacters.aakash).toEqual({
-            encounterIds: ['class-week:l1-l01'],
-            sceneIds: ['scene:class-week:l1-l01'],
-        });
-        expect(aakash).toMatchObject({
-            unlocked: true,
-            portrait: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
-            revisitPaths: [{
-                encounterId: 'class-week:l1-l01',
-                kind: 'class-week',
-                targetId: 'l1-l01',
-            }],
-        });
-        restored.close();
     });
 });
 

@@ -18,8 +18,6 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
-  --jpdb-reader-study-fail: #d92d20;
-  --jpdb-reader-study-pass: #168a45;
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -65,7 +63,7 @@
   left: 0;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--jpdb-reader-study-fail) 62%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-state-failed) 62%, transparent),
     transparent
   );
 }
@@ -74,21 +72,40 @@
   right: 0;
   background: linear-gradient(
     270deg,
-    color-mix(in srgb, var(--jpdb-reader-study-pass) 62%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent),
     transparent
   );
 }
 
-/* Every Study drag keeps the same directional language: left is red and right
-   is green. Only grade mode submits an SRS result; navigation mode merely moves
-   between steps. */
+/* Fail/pass colour only when the swipe is actually armed to grade
+   (final reveal). A step-nav swipe reuses the same drag but must not flash
+   red "fail" — data-newtab-swipe-mode="grade" gates the coloured glow. */
 .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="left"]::before,
 .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="right"]::after {
   opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::before,
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::after {
+/* Neutral edge hint while dragging between study steps (no grade colour). The
+   hint appears on the edge the content slides toward: swipe LEFT (next) glows
+   the right edge (::after), swipe RIGHT (previous) glows the left (::before). */
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::before {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::after {
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::after,
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::before {
   opacity: calc(0.18 + 0.5 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
@@ -586,8 +603,6 @@
     transparent
   );
   color: var(--jpdb-reader-text);
-  -webkit-text-fill-color: var(--jpdb-reader-text);
-  caret-color: var(--jpdb-reader-accent);
   font: inherit;
   font-size: 18px;
   font-weight: 720;
@@ -597,14 +612,7 @@
 
 .jpdb-reader-newtab-searchbox input::placeholder {
   color: var(--jpdb-reader-faint);
-  -webkit-text-fill-color: var(--jpdb-reader-faint);
   opacity: 1;
-}
-
-.jpdb-reader-newtab-searchbox input::selection {
-  color: var(--jpdb-reader-selection-text);
-  background: var(--jpdb-reader-selection-bg);
-  -webkit-text-fill-color: var(--jpdb-reader-selection-text);
 }
 
 .jpdb-reader-newtab-searchbox input:focus-visible {
@@ -1100,115 +1108,6 @@
      before the swipe threshold, so swipe-to-grade never completed. */
   touch-action: pan-y;
   padding-top: clamp(16px, 3vh, 32px);
-}
-
-.jpdb-reader-newtab:not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-study {
-  grid-template-rows: auto auto auto auto;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"] {
-  --jpdb-reader-bg: var(--academy-paper, #f1ead9);
-  --jpdb-reader-surface: color-mix(
-    in srgb,
-    var(--academy-paper, #f1ead9) 88%,
-    white
-  );
-  --jpdb-reader-surface-2: color-mix(
-    in srgb,
-    var(--academy-paper, #f1ead9) 72%,
-    var(--academy-paper-deep, #ddd0b7)
-  );
-  --jpdb-reader-text: var(--academy-paper-ink, #29271f);
-  --jpdb-reader-muted: var(--academy-paper-muted, #655f51);
-  --jpdb-reader-faint: color-mix(
-    in srgb,
-    var(--academy-paper-muted, #655f51) 68%,
-    transparent
-  );
-  --jpdb-reader-border: color-mix(
-    in srgb,
-    var(--academy-paper-ink, #29271f) 22%,
-    transparent
-  );
-  --jpdb-reader-accent: var(--academy-accent, #5ea780);
-  --jpdb-reader-accent-readable: color-mix(
-    in srgb,
-    var(--academy-accent, #5ea780) 62%,
-    var(--academy-paper-ink, #29271f)
-  );
-  --jpdb-reader-accent-text: var(--academy-paper-ink, #29271f);
-  --jpdb-reader-selection-bg: #6d5149;
-  --jpdb-reader-selection-text: #fffdf5;
-  min-height: 0;
-  overflow: visible;
-  color: var(--jpdb-reader-text);
-  color-scheme: light;
-  background: transparent;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-shell {
-  width: 100%;
-  min-height: 0;
-  gap: 12px;
-  padding: 0 0 12px;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-study {
-  padding-top: 8px;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  :is(
-    .jpdb-reader-newtab-brand,
-    .jpdb-reader-newtab-theme-controls,
-    .jpdb-reader-newtab-overflow,
-    [data-newtab-session-clock-host]
-  ) {
-  display: none !important;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-controls {
-  max-width: 100%;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  .jpdb-reader-newtab-controls
-  button {
-  color: var(--jpdb-reader-text);
-  text-shadow: none;
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  .jpdb-reader-newtab-controls
-  button:not([data-grade]) {
-  border-color: var(--jpdb-reader-border);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 86%,
-    var(--academy-paper, #f1ead9)
-  );
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 54%, transparent);
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  .jpdb-reader-newtab-controls
-  button[data-newtab-action="reveal"] {
-  border-color: color-mix(
-    in srgb,
-    var(--academy-accent, #5ea780) 72%,
-    var(--jpdb-reader-border)
-  );
-  background: var(--academy-accent, #5ea780);
-  color: var(--academy-paper-ink, #29271f);
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
-  position: sticky;
-  left: auto;
-  bottom: 8px;
-  transform: none;
-  width: min(100%, 860px);
 }
 
 .jpdb-reader-newtab-study-anki-card {
@@ -2293,18 +2192,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   visibility: hidden;
 }
 
-/* Type is a production step, not a hidden-answer Word front. Its form lives in
-   the shared answer slot, so restore that slot while the type cloze is active. */
-.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed)
-  .jpdb-reader-newtab-study[data-newtab-study-step="type-word"]
-  .jpdb-reader-newtab-answer {
-  opacity: 1;
-  filter: none;
-  transform: none;
-  pointer-events: auto;
-  visibility: visible;
-}
-
 .jpdb-reader-newtab-recall-form {
   width: min(100%, 560px);
   display: grid;
@@ -2322,30 +2209,9 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   padding: 8px 12px;
   background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
   color: var(--jpdb-reader-text);
-  -webkit-text-fill-color: var(--jpdb-reader-text);
-  caret-color: var(--jpdb-reader-accent);
   font: 820 clamp(1.35rem, 4.5vw, 2.15rem) / 1.1 var(--jpdb-reader-font);
   text-align: center;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 52%, transparent);
-}
-
-.jpdb-reader-newtab-recall-input::placeholder {
-  color: var(--jpdb-reader-faint);
-  -webkit-text-fill-color: var(--jpdb-reader-faint);
-  opacity: 1;
-}
-
-.jpdb-reader-newtab-recall-input::selection {
-  color: var(--jpdb-reader-selection-text);
-  background: var(--jpdb-reader-selection-bg);
-  -webkit-text-fill-color: var(--jpdb-reader-selection-text);
-}
-
-.jpdb-reader-newtab[data-study-surface="academy"]
-  :is(.jpdb-reader-newtab-searchbox input, .jpdb-reader-newtab-recall-input)::selection {
-  color: #fffdf5;
-  background: #6d5149;
-  -webkit-text-fill-color: #fffdf5;
 }
 
 .jpdb-reader-newtab-recall-input:focus-visible {
@@ -2458,6 +2324,42 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-muted);
   font-size: 13px;
   font-weight: 820;
+}
+
+/* ----- Final-reveal per-step results strip + suggested-grade highlight ----- */
+.jpdb-reader-newtab-study-summary {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.jpdb-reader-newtab-study-summary-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--jpdb-reader-border);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
+  color: var(--jpdb-reader-muted);
+  font: 820 11px / 1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="correct"] {
+  color: var(--jpdb-reader-state-known);
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-known) 45%, var(--jpdb-reader-border));
+}
+
+.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="wrong"] {
+  color: var(--jpdb-reader-state-failed);
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed) 45%, var(--jpdb-reader-border));
+}
+
+.jpdb-reader-newtab-study-summary-icon {
+  font-weight: 900;
 }
 
 [data-newtab-action="grade"][data-suggested="true"] {
@@ -2830,16 +2732,16 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-controls button[data-grade="fail"],
 .jpdb-reader-newtab-controls button[data-grade="nothing"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-fail);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="pass"],
 .jpdb-reader-newtab-controls button[data-grade="okay"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="easy"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="something"] {
@@ -4456,45 +4358,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     max-width: calc(100vw - 12px);
   }
 
-  .jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-shell,
-  .jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-mode,
-  .jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-controls {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-recall-form {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-recall-check {
-    width: 100%;
-  }
-
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-type-modes {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    border-radius: 8px;
-  }
-
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-type-mode {
-    min-width: 0;
-    padding-inline: 8px;
-  }
-
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls,
-  .jpdb-reader-newtab[data-study-surface="academy"]
-    .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    max-width: 100%;
-  }
 }
 
 @media (pointer: coarse) {

@@ -32,39 +32,6 @@
       "excludedBasenamePattern": "h_converted"
     }
   ],
-  "privateResearchSnapshots": [
-    {
-      "file": "persona4-dialogue-links.html",
-      "sourceHint": "sirius.client.jp Persona 4 fan dialogue index",
-      "sourceUrlRecorded": false,
-      "redistributionAllowed": false,
-      "sha256": "4d6b432394b7f4fd81dd45d57c0d8a29f6acd1414e354f924303aba9946cc5cb"
-    },
-    {
-      "file": "persona5-dialogue-collection.html",
-      "source": "https://spwiki.net/persona5/",
-      "redistributionAllowed": false,
-      "sha256": "26addacc3bee0489d899c219eac9dcb3f27e5ef4623205dcbe41553cafde803c"
-    },
-    {
-      "file": "persona5r-my-palace-conversations.html",
-      "source": "https://wikiwiki.jp/persona5r/%E3%83%9E%E3%82%A4%E3%83%91%E3%83%AC%E3%82%B9%E4%BC%9A%E8%A9%B1%E9%9B%86",
-      "redistributionAllowed": false,
-      "sha256": "7ddf13f6a24000e650e17b86b7247156f3d521c615d596dfe6183b38765cecb1"
-    },
-    {
-      "file": "pokemon-green-dialogue.html",
-      "source": "https://wikiwiki.jp/poketext/%E3%82%B0%E3%83%AA%E3%83%BC%E3%83%B3",
-      "redistributionAllowed": false,
-      "sha256": "549baca8ad7acd2b7942003ae5ffe64aa4a75b1a4081b491156647b8c09d284e"
-    },
-    {
-      "file": "pokemon-text-wiki-front.html",
-      "source": "https://wikiwiki.jp/poketext/",
-      "redistributionAllowed": false,
-      "sha256": "aa3ec62df111471547cdea26756a2a2274aa3f9b18689a00d53a7dc633d5be4e"
-    }
-  ],
   "citationOnly": [
     "https://gamefaqs.gamespot.com/gameboy/367023-pokemon-red-version/faqs/48982",
     "https://github.com/pret/pokered",

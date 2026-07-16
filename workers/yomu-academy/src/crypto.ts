@@ -36,11 +36,6 @@ export async function sha256Base64Url(value: string): Promise<string> {
     return toBase64Url(new Uint8Array(digest));
 }
 
-export async function sha256Hex(value: string): Promise<string> {
-    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(value));
-    return toHex(new Uint8Array(digest));
-}
-
 export function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
     if (!/^[A-Za-z0-9_-]*$/.test(value)) throw new TypeError('Invalid base64url value.');
     const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - value.length % 4) % 4);

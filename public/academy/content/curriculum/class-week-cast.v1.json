@@ -747,15 +747,15 @@
         "personal-expression"
       ],
       "primary": {
-        "id": "felix",
-        "firstName": "Felix",
-        "matchedSpecialty": "personal-expression"
+        "id": "francis",
+        "firstName": "Francis",
+        "matchedSpecialty": "media"
       },
       "supporting": [
         {
-          "id": "francis",
-          "firstName": "Francis",
-          "matchedSpecialty": "media"
+          "id": "stasi",
+          "firstName": "Stasi",
+          "matchedSpecialty": "personal-expression"
         }
       ]
     },

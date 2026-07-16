@@ -20,7 +20,6 @@ export interface YomuSrsReviewable {
     expression: string;
     reading: string;
     meanings: JPDBMeaning[];
-    sentence?: string;
     state: CardState[];
     srsLevel?: string;
     dueAt?: number | null;

@@ -76,10 +76,6 @@ _Avoid_: Authored, ready, source-backed
 Immutable evidence that learning, story, relationship, unlock, or profile state changed.
 _Avoid_: Progress flag, save field
 
-**Journal Line**:
-A short, authored learner-owned reflection awarded by a completed grounded task and stored as an idempotent Learner Event.
-_Avoid_: Toast copy, inferred diary text
-
 **Mastery Projection**:
 The learner's derived current state for Concepts and review work, calculated from Learner Events.
 _Avoid_: Score, progress state

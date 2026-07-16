@@ -13,162 +13,6 @@
     width: min(46vw, 620px);
 }
 
-.academy-aakash-directions-vn .academy-vn-object-slot {
-    top: clamp(72px, 9vh, 112px);
-    right: clamp(18px, 5vw, 72px);
-    bottom: auto;
-    left: auto;
-    width: min(39vw, 520px);
-    max-height: min(44dvh, 520px);
-    transform: rotate(0.8deg);
-}
-
-.academy-aakash-route-note {
-    display: grid;
-    gap: 12px;
-    max-height: min(44dvh, 520px);
-    margin: 0;
-    padding: clamp(16px, 2.4vw, 28px);
-    overflow-y: auto;
-    border: 1px solid rgba(78, 62, 38, 0.42);
-    color: #29271f;
-    background:
-        linear-gradient(transparent 31px, rgba(77, 92, 76, 0.09) 32px),
-        color-mix(in srgb, var(--academy-paper, #f1ead9) 95%, white);
-    background-size: 100% 32px, auto;
-    box-shadow: 8px 11px 0 rgba(28, 23, 16, 0.24);
-    clip-path: polygon(0.8% 1.4%, 98.8% 0, 100% 96.5%, 96% 100%, 1.4% 98.3%, 0 7%);
-    color-scheme: light;
-    overscroll-behavior: contain;
-}
-
-.academy-aakash-route-note figcaption {
-    width: fit-content;
-    border-bottom: 3px double color-mix(in srgb, var(--academy-accent, #5ea780) 72%, #3f3528);
-    font-size: 1.1rem;
-    font-weight: 760;
-}
-
-.academy-aakash-learning-line {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1px 12px;
-    padding: 7px 9px;
-    border-left: 3px solid transparent;
-}
-
-.academy-aakash-learning-line[data-active="true"],
-.academy-aakash-frame-note[data-active="true"],
-.academy-aakash-vocabulary[data-active="true"],
-.academy-aakash-vocabulary-row[data-active="true"] {
-    border-left-color: var(--academy-accent, #5ea780);
-    background: color-mix(in srgb, var(--academy-accent, #5ea780) 12%, transparent);
-}
-
-.academy-aakash-note-japanese {
-    color: #29271f;
-    font-family: var(--academy-japanese-font, "Hiragino Sans", "Yu Gothic", sans-serif);
-    font-size: 1.14rem;
-    font-weight: 720;
-    -webkit-text-fill-color: #29271f;
-}
-
-.academy-aakash-note-reading,
-.academy-aakash-choice-reading {
-    color: #376d55;
-    font-size: 0.78rem;
-    font-weight: 700;
-}
-
-.academy-aakash-note-meaning {
-    grid-column: 1 / -1;
-    color: #615b4e;
-    font-size: 0.82rem;
-}
-
-.academy-aakash-vocabulary {
-    display: grid;
-    gap: 3px;
-    margin: 0;
-    padding: 4px 0;
-    border-left: 3px solid transparent;
-}
-
-.academy-aakash-vocabulary[hidden],
-.academy-aakash-frame-note[hidden] {
-    display: none;
-}
-
-.academy-aakash-vocabulary-row {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: 8px;
-    align-items: baseline;
-    padding: 4px 9px;
-    border-left: 3px solid transparent;
-}
-
-.academy-aakash-vocabulary-row dt {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-}
-
-.academy-aakash-vocabulary-row .academy-aakash-note-japanese {
-    white-space: nowrap;
-}
-
-.academy-aakash-vocabulary-row dd {
-    margin: 0;
-    color: #615b4e;
-    font-size: 0.82rem;
-}
-
-.academy-aakash-frame-note {
-    display: grid;
-    gap: 4px;
-    padding: 5px 0;
-    border-left: 3px solid transparent;
-}
-
-.academy-aakash-frame-note-copy {
-    margin: 0;
-    padding: 0 9px 5px;
-    color: #615b4e;
-    font-size: 0.78rem;
-    line-height: 1.4;
-}
-
-.academy-aakash-guided-action,
-.academy-aakash-guided-feedback {
-    display: grid;
-    gap: 8px;
-}
-
-.academy-aakash-guided-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.academy-aakash-guided-option {
-    min-height: 52px;
-    align-content: center;
-    gap: 2px;
-}
-
-.academy-aakash-choice-japanese {
-    color: #29271f;
-    font-family: var(--academy-japanese-font, "Hiragino Sans", "Yu Gothic", sans-serif);
-    font-size: 1rem;
-    font-weight: 720;
-    -webkit-text-fill-color: #29271f;
-}
-
-.academy-aakash-guided-feedback p {
-    margin: 0;
-    color: #615b4e;
-    font-size: 0.88rem;
-}
-
 .academy-aakash-response-host .academy-activity {
     --academy-ink: var(--academy-paper-ink, #29271f);
     --academy-ink-muted: #615b4e;
@@ -249,42 +93,6 @@
     margin: 0;
 }
 
-.academy-aakash-response-host .academy-progressive-hints,
-.academy-aakash-response-host .academy-progressive-hints-revealed {
-    display: grid;
-    gap: 5px;
-}
-
-.academy-aakash-response-host .academy-progressive-hint {
-    margin: 0;
-    padding: 5px 8px;
-    border-left: 3px solid var(--academy-accent, #5ea780);
-    background: color-mix(in srgb, var(--academy-accent, #5ea780) 9%, transparent);
-    font-size: 0.84rem;
-}
-
-.academy-aakash-response-host .academy-progressive-hint-button {
-    width: fit-content;
-    padding: 3px 2px;
-    border: 0;
-    border-bottom: 2px solid var(--academy-accent, #5ea780);
-    color: inherit;
-    background: transparent;
-    font-weight: 720;
-    cursor: pointer;
-}
-
-.academy-aakash-response-host .academy-progressive-hint-fill {
-    width: fit-content;
-    min-height: 36px;
-    padding: 6px 12px;
-    border: 1px solid color-mix(in srgb, var(--academy-accent, #5ea780) 70%, #302d27);
-    color: inherit;
-    background: color-mix(in srgb, var(--academy-paper, #f1ead9) 78%, white);
-    font-weight: 720;
-    cursor: pointer;
-}
-
 .academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > h2,
 .academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > .academy-constructed-prompt-support,
 .academy-aakash-response-host .academy-constructed-response[data-outcome="pass"] > form {
@@ -299,43 +107,6 @@
     .academy-aakash-directions-vn .academy-vn-sprite-slot[data-character="aakash"] {
         left: -23vw;
         width: min(82vw, 430px);
-    }
-
-    .academy-aakash-directions-vn .academy-vn-object-slot {
-        top: max(58px, env(safe-area-inset-top));
-        right: 8px;
-        bottom: auto;
-        left: auto;
-        width: min(65vw, 340px);
-        max-height: min(28dvh, 260px);
-        transform: rotate(0.5deg);
-    }
-
-    .academy-aakash-route-note {
-        gap: 7px;
-        max-height: min(28dvh, 260px);
-        padding: 12px 14px;
-    }
-
-    .academy-aakash-route-note figcaption,
-    .academy-aakash-frame-note-copy {
-        font-size: 0.72rem;
-    }
-
-    .academy-aakash-note-japanese {
-        font-size: 0.92rem;
-    }
-
-    .academy-aakash-learning-line,
-    .academy-aakash-vocabulary-row {
-        gap: 1px 7px;
-        padding: 3px 6px;
-    }
-
-    .academy-aakash-note-reading,
-    .academy-aakash-note-meaning,
-    .academy-aakash-vocabulary-row dd {
-        font-size: 0.68rem;
     }
 
     .academy-aakash-response-host {
@@ -353,13 +124,11 @@
     .academy-aakash-response-host .academy-constructed-response-form {
         grid-template-columns: 1fr;
     }
+}
 
-    .academy-aakash-guided-options {
-        grid-template-columns: 1fr;
-    }
-
-    .academy-aakash-guided-option {
-        min-height: 46px;
+@media (max-width: 390px) {
+    .academy-aakash-response-host .academy-constructed-response-support {
+        display: none;
     }
 }
 
