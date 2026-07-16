@@ -61,20 +61,35 @@ Other missing-reading/pitch reports remain `unknown` without their original word
 
 The live probes did not justify replacing the current scan/annotate lifecycle. The confirmed F slice follows the architectural goal by deleting a parallel inference/rendering pipeline rather than adding another abstraction. A broader migration remains gated on a repeatable A/B/E failure with counters.
 
+## v1.6.162 follow-up evidence
+
+Two new supplied screenshots show popup headings for the sentence fragments `ざいます` and `来てく` without a pitch graph. They prove the visible state, but not that an exact pitch exists for either fragment.
+
+| Surface | Classification | Release behavior |
+|---|---|---|
+| `ざいます` in `ありがとうございます` | Tokenizer/lemma fragment plus exact-source coverage unknown. It is not exact evidence for `ございます` or another lemma. | No contour is inferred. Once lookup settles without an exact match, the popup says “Exact pitch unavailable”. |
+| `来てく` in `来てくれて` | Tokenizer/lemma fragment. The surrounding sentence suggests more morphology, but the fragment alone is not exact evidence for `来る`, `来てくる`, or `来てくれる`. | No contour is inferred. A canonical popup refresh occurs only when the fallback candidate list itself names the resolved expression and the source supplies its reading; otherwise the honest unavailable status remains. |
+
+Separate failing-first tests reproduced the async invalidation defect for a canonical inflection (`食べました` → exact `食べる/たべる`) and the silent renderer state for a genuine exact-source miss. The implementation refreshes only the current matching popup, preserves modal/hover mode and position, rejects superseded roots and unproven fragment mappings, and never concatenates component pitch.
+
 ## Verification
 
 - Focused Vitest: compound pitch, expression pitch, and reader styles — 38 passed.
 - `npm run typecheck` — passed.
 - `npm run check` — passed, including regular/JPDB shards, Academy tests, builds, docs build, and userscript verification.
 - `npm run smoke:furigana-local-default` — passed.
-- `npm run qa` — build, checks, P0 smoke, and 11/13 browser-audit checks passed. The two audit failures (hosted Try Me wrapping `下`; compact subtitle rail visibility) reproduce identically on untouched v1.6.159 `origin/main`, so they are recorded baseline failures rather than annotation regressions.
+- `npm run qa` — the embedded `npm run check` passed. Its first feedback smoke timed out waiting for the keyboard-active fixture, then passed immediately when rerun; the same feedback smoke also passed from a detached, freshly built, otherwise untouched v1.6.161 worktree. This is recorded as a transient harness timeout, not a baseline product failure.
+- Deterministic browser audit — 10/13 passed on both the v1.6.162 candidate and detached v1.6.161 (`fcdb6da14955719d354202059351932ac9a41e6b`). The identical failures were hosted Try Me not wrapping `下`, Immersion Kit example grading not reaching the AnkiConnect fixture, and the idle compact subtitle rail hiding its move grip. The A/B establishes that none was introduced by this annotation slice; all three remain release-audit debt.
+- Docs accessibility — 66/66 desktop, iPad, and iPhone checks passed.
+- Complexity audit — the candidate and untouched v1.6.161 both report the same pre-existing over-threshold function, `scripts/chip-mirror-fidelity-smoke.mjs` `runEngine` at 56 versus the threshold of 30. The changed reader enrichment function remains below threshold at 26.
+- Real-page geometry — `smoke:live-furigana-layout` passed on three current ecommerce pages (Bloomee product, Bloomee listing, and Foyer vase category): 528 annotated words in total, with no text, clipping, or overlap failures. A current-build signed-profile YouTube probe also completed at a 390×844 mobile viewport. These are browser/network observations, not claims about iPhone Safari/Tampermonkey.
 - v1.6.160 release preflight — `npm run check`, Academy, docs, verification, P0, Reddit, offline Study, offline local-dictionary/furigana, YouTube control-wake/title-recycler, Study stability, and Gaming smokes passed. The tag's Release workflow exposed two stale layout-smoke contracts that also failed untouched v1.6.159: a synthetic mini-guide shape with no live-page evidence and an assertion that expected the inverse of source-preserving additive mirrors.
 - v1.6.161 CI/CD follow-up — removed the unsupported synthetic mini-guide case from the release boundary and corrected the constrained-row invariant to require visible native host text, transparent duplicate mirror glyphs, preserved host paint/icons, and visible detached evidence. PR CI previously omitted the release-only layout chain; it now installs Chromium and WebKit and makes `smoke:layout-regressions` a prerequisite of the build job. Both browser layout gates and the complete `smoke:release` chain pass.
-- Hosted Japanese changelog coverage — passed after adding the v1.6.160 translation; no new UI copy or `未翻訳` fallback was introduced.
+- Hosted Japanese changelog coverage — passed with Japanese translations for both v1.6.162 release bullets. The new `noExactPitch` UI status is present in English and Japanese, and the localized sources contain no `未翻訳` fallback.
 - Final live YouTube mobile probe — 257 words after scrolling, 44 newly visible additions, zero idle mutation churn, and 100% pitch-class coverage.
-- Built `dist/yomu.user.js`: 1,909,627 bytes, 90,373 bytes below the Greasy Fork limit.
+- Built `dist/yomu.user.js`: 1,911,910 bytes, 88,090 bytes below the Greasy Fork limit.
 - Claude Code implementation/review was attempted as required by `AGENTS.md`, but its weekly quota is exhausted until 2026-07-19 05:00 Europe/London. No cross-model result is claimed.
 
 ## Remaining release gates
 
-Fetch/rebase latest `origin/main`, fold generated v1.6.161 assets into the release commit, push without force, and verify CI, Deploy Docs, plus the latest non-draft GitHub Release asset.
+Rebase the candidate on latest `origin/main`, fold generated v1.6.162 assets and bilingual release copy into the intentional release commit, push without force, and verify the complete PR CI matrix, Deploy Docs, plus the latest non-draft GitHub Release asset.

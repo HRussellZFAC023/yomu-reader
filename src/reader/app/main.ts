@@ -7977,7 +7977,7 @@ export class ReaderApp {
         const card = await this.pitchEnrichedRenderedCard(fallback, options);
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
         if (card !== fallback) {
-            this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+            await this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
             this.queueSubtitleParsedHtmlRefresh(token.sentence);
             return;
         }
@@ -8005,16 +8005,47 @@ export class ReaderApp {
         if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
 
-    private applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): void {
+    private async applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): Promise<void> {
         this.applyPublicVocabularyToRenderedWords(fallback, card, pitchClass || 'unknown');
         token.card = card;
         token.pitchClass = pitchClass;
+        await this.invalidateActivePopoverPitch(card, fallback);
     }
 
     private applyPitchClassToFallbackToken(token: JPDBToken, card: JPDBCard, pitchClass: string): void {
         if (!pitchClass) return;
         token.pitchClass = pitchClass;
         this.applyPitchAccentToRenderedWords(card, pitchClass);
+        void this.invalidateActivePopoverPitch(card);
+    }
+
+    private async invalidateActivePopoverPitch(card: JPDBCard, resolvedFrom?: JPDBCard): Promise<void> {
+        const popover = this.activePopover;
+        const activeCard = this.lastCard;
+        if (!popover?.isConnected || !activeCard) return;
+        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
+        if (cardKey(activeCard) === cardKey(card)) {
+            this.updatePopoverPitch(popover, activeCard, []);
+            this.updateCardPopoverPosition(trigger);
+            return;
+        }
+        if (!resolvedFrom
+            || cardKey(activeCard) !== cardKey(resolvedFrom)
+            || !this.isExactCanonicalFallbackResolution(resolvedFrom, card)) return;
+        await this.showCard(card, this.lastCardSentence, this.activePopoverAnchor, {
+            autoPlay: false,
+            trigger,
+            navigation: 'preserve',
+            preservePosition: true,
+        });
+    }
+
+    private isExactCanonicalFallbackResolution(fallback: JPDBCard, resolved: JPDBCard): boolean {
+        if (fallback.source !== 'fallback' || !resolved.reading.trim()) return false;
+        const expression = normalizedLookupText(resolved.spelling).replace(/\s+/g, '');
+        if (!expression) return false;
+        return fallbackLookupTermsForCard(fallback)
+            .some(term => normalizedLookupText(term).replace(/\s+/g, '') === expression);
     }
 
     private clearPitchEnrichmentQueue(): void {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.161
+// @version 1.6.162
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.161#sha256=lOhngaVUGzit/+GTj0OZw5SeyJkwR0ucnf0ifZWdQ6s=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.161#sha256=9ADdIW1UKO/YOh5FCZ1GkQsqN810vfm7h+U6+GOcq2g=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.161#sha256=YtBFbZfuEN4DcyZvR272LG516jACt4W7a+2phKq06XQ=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.161#sha256=AKb7NeXRAXwXs41d9p/76b1Xh/8GlA6e2azhXD2kJHg=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.161#sha256=MUDDoPvpOKODqKCgJQiQyrRyLfUYFOMLRzmhSanL7GY=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.161#sha256=DwnYZn2NEPCvb7lHIysV3RpFSlFRWQsmY6vLCd57Cg4=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.161#sha256=xs6cHzIckacKbI6S31STbHvnsXgTqJ+YvOm1XDnvTeU=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.162#sha256=lCXxP3qfsxhuW0k9pXPZ/dJL0VS4PA5JN5H2Vgn7kqE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.162#sha256=OaPPX019KRmIq2wxeZ36FTnQkt/HfGeA3El8H1JsF84=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.162#sha256=KmJbEemcwTCfmwdxJuIjywBdF2JQLG6nIy38HiduDII=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.162#sha256=CHmfGNMfBtQQYIGY2kTYUUknEzNahN9OnKl2diUcMv0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.162#sha256=Nbp1yNsEqAikl6h0j3rWtHHtbOV6nSDr6oVqSK5qQHk=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.162#sha256=kIcDmA+zeD2zZazdkHM2/1w7eaS3oxSVpUG4fdQngEQ=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.162#sha256=HqmVZP5DwnL0HQOGtmXqfHzPZM660+tlU+obHoRpp/c=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -8619,12 +8619,29 @@ function collectRubyRoomBoxDecisions(box, curated, mirror, adjustedBoxes, decisi
 }
 function rubyRoomDecisionForBox(roomBox, curated, mirror, adjustedBoxes) {
   if (isClipConstrainedRow(roomBox)) return null;
+  if (participatesInTrackSizing(roomBox)) return null;
   const measuredHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
   if (measuredHeight > RUBY_ROOM_MAX_PX) return null;
   const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox, mirror);
   const roomHeight = measuredHeight + topDeficit;
   const previousHeightIsEnough = previousRubyRoomHeight(roomBox) >= roomHeight && topDeficit === 0;
   return previousHeightIsEnough ? null : { roomHeight, topDeficit };
+}
+const TRACK_SIZED_DISPLAY_VALUES = new Set([
+  "grid",
+  "inline-grid",
+  "table",
+  "inline-table",
+  "table-row",
+  "table-row-group",
+  "table-header-group",
+  "table-footer-group",
+  "table-cell"
+]);
+function participatesInTrackSizing(box) {
+  if (TRACK_SIZED_DISPLAY_VALUES.has(safeComputedStyle(box).display)) return true;
+  const parent = box.parentElement;
+  return Boolean(parent && TRACK_SIZED_DISPLAY_VALUES.has(safeComputedStyle(parent).display));
 }
 function recordBestRubyRoomDecision(decisions, roomBox, decision) {
   if ((decisions.get(roomBox)?.roomHeight ?? 0) >= decision.roomHeight) return;
@@ -16350,7 +16367,9 @@ class CardPopoverRenderer {
   );
   const components = renderExpressionComponentPitches(alignedComponents);
   if (components) return components;
-  return "";
+  if (data.loading) return "";
+  const label = uiText(this.settings().interfaceLanguage, "noExactPitch");
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$1(label)}">${escapeHtml$1(label)}</div>`;
   }
   renderPartOfSpeech(view) {
   return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
@@ -28047,8 +28066,14 @@ function replaceOptionalElement(parent, selector, html, before = null) {
   if (next) parent.insertBefore(next, before);
 }
 function updateRenderedPitch(popover, card, metaEntries, showPitchAccent) {
+  if (!showPitchAccent) return;
+  const spelling = popover.querySelector(".jpdb-reader-spelling");
+  if (spelling) {
+  const reading = cardPronunciationReading(card) || card.reading;
+  setRenderedWordPitchClass(spelling, getPitchClass(card.pitchAccent, reading));
+  }
   const tools = popover.querySelector(".jpdb-reader-card-tools");
-  if (!tools || !showPitchAccent) return;
+  if (!tools) return;
   replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
 }
 function applyPublicVocabularyFurigana(word, card, settings) {
@@ -35845,8 +35870,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.161"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.161"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.162"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.162"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35963,7 +35988,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.161"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.162"}`;
   } catch {
   return null;
   }
@@ -42716,7 +42741,7 @@ class ReaderApp {
   const card = await this.pitchEnrichedRenderedCard(fallback, options);
   const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
   if (card !== fallback) {
-    this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+    await this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
     this.queueSubtitleParsedHtmlRefresh(token.sentence);
     return;
   }
@@ -42740,15 +42765,41 @@ class ReaderApp {
   const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
   if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
   }
-  applyResolvedPitchCardToToken(token, fallback, card, pitchClass) {
+  async applyResolvedPitchCardToToken(token, fallback, card, pitchClass) {
   this.applyPublicVocabularyToRenderedWords(fallback, card, pitchClass || "unknown");
   token.card = card;
   token.pitchClass = pitchClass;
+  await this.invalidateActivePopoverPitch(card, fallback);
   }
   applyPitchClassToFallbackToken(token, card, pitchClass) {
   if (!pitchClass) return;
   token.pitchClass = pitchClass;
   this.applyPitchAccentToRenderedWords(card, pitchClass);
+  void this.invalidateActivePopoverPitch(card);
+  }
+  async invalidateActivePopoverPitch(card, resolvedFrom) {
+  const popover = this.activePopover;
+  const activeCard = this.lastCard;
+  if (!popover?.isConnected || !activeCard) return;
+  const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
+  if (cardKey(activeCard) === cardKey(card)) {
+    this.updatePopoverPitch(popover, activeCard, []);
+    this.updateCardPopoverPosition(trigger);
+    return;
+  }
+  if (!resolvedFrom || cardKey(activeCard) !== cardKey(resolvedFrom) || !this.isExactCanonicalFallbackResolution(resolvedFrom, card)) return;
+  await this.showCard(card, this.lastCardSentence, this.activePopoverAnchor, {
+    autoPlay: false,
+    trigger,
+    navigation: "preserve",
+    preservePosition: true
+  });
+  }
+  isExactCanonicalFallbackResolution(fallback, resolved) {
+  if (fallback.source !== "fallback" || !resolved.reading.trim()) return false;
+  const expression = normalizedLookupText$1(resolved.spelling).replace(/\s+/g, "");
+  if (!expression) return false;
+  return fallbackLookupTermsForCard(fallback).some((term) => normalizedLookupText$1(term).replace(/\s+/g, "") === expression);
   }
   clearPitchEnrichmentQueue() {
   this.pitchEnrichmentQueue = [];

@@ -113,6 +113,28 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it.each([
+        { name: 'grid item', parentDisplay: 'grid', itemDisplay: 'block' },
+        { name: 'table cell', parentDisplay: 'table-row', itemDisplay: 'table-cell' },
+    ])('never writes ruby room into an arbitrary host $name', ({ parentDisplay, itemDisplay }) => {
+        document.body.innerHTML = `
+            <div style="display:${parentDisplay}">
+                <div id="tracked-item" style="display:${itemDisplay};overflow:hidden;height:44px;line-height:20px">
+                    ${annotatedWord('じゅんけっしょう', '準決勝')}
+                </div>
+            </div>
+        `;
+        const item = document.querySelector<HTMLElement>('#tracked-item')!;
+        mockOverflow(item, 80, 44);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(item.dataset.yomuRubyRoom).toBeUndefined();
+        expect(item.style.height).toBe('44px');
+        expect(item.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('準決勝');
+        expect(item.querySelector('rt')?.textContent).toBe('じゅんけっしょう');
+        document.body.innerHTML = '';
+    });
+
     it('re-raises a generic compact row when later ruby layout needs more height', () => {
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>

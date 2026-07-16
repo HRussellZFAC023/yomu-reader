@@ -5915,6 +5915,11 @@ function rubyRoomDecisionForBox(
     // Clip constraints dominate curated selectors and prose classification:
     // their at-rest readings are hidden, so growth can only inflate the card.
     if (isClipConstrainedRow(roomBox)) return null;
+    // Grid and table tracks own their items' block size. Writing a hard height
+    // to an item (or to a table box itself) feeds back into track sizing and can
+    // stretch sibling rows into blank cards. Keep the ruby painted while leaving
+    // host track geometry host-owned.
+    if (participatesInTrackSizing(roomBox)) return null;
     const measuredHeight = curated ? rubyRoomHeight(roomBox, mirror) : genericRubyRoomHeight(roomBox, mirror);
     if (measuredHeight > RUBY_ROOM_MAX_PX) return null;
     // Repeat passes correct height under-growth only. Top padding is exact on
@@ -5923,6 +5928,24 @@ function rubyRoomDecisionForBox(
     const roomHeight = measuredHeight + topDeficit;
     const previousHeightIsEnough = previousRubyRoomHeight(roomBox) >= roomHeight && topDeficit === 0;
     return previousHeightIsEnough ? null : { roomHeight, topDeficit };
+}
+
+const TRACK_SIZED_DISPLAY_VALUES = new Set([
+    'grid',
+    'inline-grid',
+    'table',
+    'inline-table',
+    'table-row',
+    'table-row-group',
+    'table-header-group',
+    'table-footer-group',
+    'table-cell',
+]);
+
+function participatesInTrackSizing(box: HTMLElement): boolean {
+    if (TRACK_SIZED_DISPLAY_VALUES.has(safeComputedStyle(box).display)) return true;
+    const parent = box.parentElement;
+    return Boolean(parent && TRACK_SIZED_DISPLAY_VALUES.has(safeComputedStyle(parent).display));
 }
 
 function recordBestRubyRoomDecision(

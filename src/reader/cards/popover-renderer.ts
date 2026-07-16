@@ -195,7 +195,9 @@ export class CardPopoverRenderer {
         );
         const components = renderExpressionComponentPitches(alignedComponents);
         if (components) return components;
-        return '';
+        if (data.loading) return '';
+        const label = uiText(this.settings().interfaceLanguage, 'noExactPitch');
+        return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
     }
 
     private renderPartOfSpeech(view: CardPopoverRenderView): string {

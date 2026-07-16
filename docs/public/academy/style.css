@@ -9412,6 +9412,15 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   margin-left: auto;
 }
 
+.jpdb-reader-pitch-missing {
+  align-self: center;
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
 /* Multi-graph pitch (per-component or accent variants) does not fit the
    narrow tools column. Give the header explicit rows so the audio control
    stays pinned beside the title while two or three graphs share a compact,

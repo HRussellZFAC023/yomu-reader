@@ -1619,6 +1619,7 @@
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
+      noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
       wordUnderlineColorSource: "Word underline color",
@@ -3364,6 +3365,7 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorKifuku	起伏
 pitchColorUnknown	不明
+noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -42013,7 +42015,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.161".trim() ? "1.6.161".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.162".trim() ? "1.6.162".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -65021,7 +65023,9 @@ ${spelling}`);
       );
       const components2 = renderExpressionComponentPitches(alignedComponents);
       if (components2) return components2;
-      return "";
+      if (data.loading) return "";
+      const label = uiText(this.settings().interfaceLanguage, "noExactPitch");
+      return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$1(label)}">${escapeHtml$1(label)}</div>`;
     }
     renderPartOfSpeech(view) {
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
@@ -66485,8 +66489,14 @@ ${component.reading}`;
     if (next) parent.insertBefore(next, before);
   }
   function updateRenderedPitch(popover, card, metaEntries, showPitchAccent) {
+    if (!showPitchAccent) return;
+    const spelling = popover.querySelector(".jpdb-reader-spelling");
+    if (spelling) {
+      const reading = cardPronunciationReading(card) || card.reading;
+      setRenderedWordPitchClass(spelling, getPitchClass(card.pitchAccent, reading));
+    }
     const tools = popover.querySelector(".jpdb-reader-card-tools");
-    if (!tools || !showPitchAccent) return;
+    if (!tools) return;
     replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
   }
   function applyPublicVocabularyFurigana(word, card, settings) {
