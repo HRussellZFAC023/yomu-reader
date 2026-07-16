@@ -132,7 +132,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -145,7 +145,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -154,7 +154,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,
@@ -581,7 +581,7 @@
       "sourceDocument": {
         "moduleId": 6053028,
         "archiveOccurrenceId": "archive-000011",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
         "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
         "memberOccurrenceId": "member-000111",
         "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -600,7 +600,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -637,7 +637,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -674,7 +674,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -711,7 +711,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -751,7 +751,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -791,7 +791,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000111",
             "member": "Handouts/Chapter 8-3_Grammar Exercise_Adjectives modify nouns.pdf",
@@ -912,7 +912,7 @@
       "sourceDocument": {
         "moduleId": 6053028,
         "archiveOccurrenceId": "archive-000011",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
         "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
         "memberOccurrenceId": "member-000109",
         "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
@@ -931,7 +931,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000109",
             "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
@@ -968,7 +968,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000109",
             "member": "Handouts/Chapter 8_そして_が_speaking.pdf",
@@ -1018,7 +1018,7 @@
       "sourceDocument": {
         "moduleId": 6053028,
         "archiveOccurrenceId": "archive-000011",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
         "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
         "memberOccurrenceId": "member-000113",
         "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",
@@ -1037,7 +1037,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000113",
             "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",
@@ -1084,7 +1084,7 @@
           "source": {
             "moduleId": 6053028,
             "archiveOccurrenceId": "archive-000011",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/02-folder-6053028-lesson-1.zip",
             "archiveSha256": "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d",
             "memberOccurrenceId": "member-000113",
             "member": "Homework/HW Chapter 8 reading_ワットせんせい.pdf",

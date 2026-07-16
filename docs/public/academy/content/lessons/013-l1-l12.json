@@ -122,7 +122,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -135,7 +135,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -144,7 +144,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,
@@ -576,7 +576,7 @@
       "sourceDocument": {
         "moduleId": 5489594,
         "archiveOccurrenceId": "archive-000080",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
         "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
         "memberOccurrenceId": "member-000748",
         "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -595,7 +595,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000748",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -632,7 +632,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000748",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -669,7 +669,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000748",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -706,7 +706,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000748",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -743,7 +743,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000748",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf",
@@ -875,7 +875,7 @@
       "sourceDocument": {
         "moduleId": 5489594,
         "archiveOccurrenceId": "archive-000080",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
         "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
         "memberOccurrenceId": "member-000747",
         "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference using どんな.pdf",
@@ -894,7 +894,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000747",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference using どんな.pdf",
@@ -931,7 +931,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000747",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference using どんな.pdf",
@@ -968,7 +968,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000747",
             "member": "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference using どんな.pdf",
@@ -1088,7 +1088,7 @@
       "sourceDocument": {
         "moduleId": 5489594,
         "archiveOccurrenceId": "archive-000080",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
         "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
         "memberOccurrenceId": "member-000754",
         "member": "Hormwork/HW Chapter 1-7 particle quiz.pdf",
@@ -1107,7 +1107,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000754",
             "member": "Hormwork/HW Chapter 1-7 particle quiz.pdf",
@@ -1147,7 +1147,7 @@
           "source": {
             "moduleId": 5489594,
             "archiveOccurrenceId": "archive-000080",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/03-folder-5489594-lesson-2.zip",
             "archiveSha256": "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26",
             "memberOccurrenceId": "member-000754",
             "member": "Hormwork/HW Chapter 1-7 particle quiz.pdf",

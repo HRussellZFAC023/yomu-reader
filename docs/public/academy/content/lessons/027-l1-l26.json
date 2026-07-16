@@ -115,7 +115,7 @@
         "moduleId": 5489607,
         "archiveOccurrenceId": "archive-000050",
         "memberOccurrenceId": "member-000469",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
         "archiveSha256": "a399798c6bf91c41042cb52ee69c3f87fbbc2856c6c0a304978ddd5df9aef79e",
         "member": "Katakana_worksheets マ、ヤ、ラ、ワ.pdf",
         "centralDirectoryIndex": 1,
@@ -152,7 +152,7 @@
         "moduleId": 5489607,
         "archiveOccurrenceId": "archive-000050",
         "memberOccurrenceId": "member-000470",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
         "archiveSha256": "a399798c6bf91c41042cb52ee69c3f87fbbc2856c6c0a304978ddd5df9aef79e",
         "member": "Katakana_writing practice マ、ヤ.pdf",
         "centralDirectoryIndex": 2,
@@ -189,7 +189,7 @@
         "moduleId": 5489607,
         "archiveOccurrenceId": "archive-000050",
         "memberOccurrenceId": "member-000471",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/27-folder-5489607-katakana-worksheets-マline-ヤline-ラline-ワline.zip",
         "archiveSha256": "a399798c6bf91c41042cb52ee69c3f87fbbc2856c6c0a304978ddd5df9aef79e",
         "member": "Katakana_writing practice ラ、ワ.pdf",
         "centralDirectoryIndex": 3,
@@ -272,7 +272,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -285,7 +285,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -294,7 +294,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,

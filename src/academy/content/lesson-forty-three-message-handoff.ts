@@ -82,13 +82,6 @@ const SOURCE_VISUALS: StateInspectionModel['provenance']['moodle']['sourceSheets
     }),
 ]);
 
-const ANSWER_VISUALS: NonNullable<StateInspectionModel['provenance']['moodle']['answerSheets']> = Object.freeze([
-    sourceVisual(ANSWER_SHA256, ANSWER_TITLE, 1, 'moodle-chapter-30-answer-1.png', '5a5fd16d22b9abfd66109e48daa8e1aff854cc7fd090da51af7b853e7a9c2423', {
-        ja: 'Moodle 原本の Chapter 30 解答ページ。解答後だけ表示します。',
-        en: 'Moodle original Chapter 30 answer page, revealed only after an attempt.',
-    }),
-]);
-
 export function createLessonFortyThreeMessageHandoffBeat(): LessonActivityBeat {
     assertExactPackageSources();
     const rounds = [
@@ -178,7 +171,6 @@ export function createLessonFortyThreeMessageHandoffBeat(): LessonActivityBeat {
                 moduleId: MODULE_ID,
                 archiveId: ARCHIVE_ID,
                 sourceSheets: SOURCE_VISUALS,
-                answerSheets: ANSWER_VISUALS,
                 media: {
                     status: 'audio-member-verified-script-and-worksheet-pairing',
                     sourceAudioMembers: 1,

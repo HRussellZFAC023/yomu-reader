@@ -127,7 +127,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -140,7 +140,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -149,7 +149,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,
@@ -571,7 +571,7 @@
       "sourceDocument": {
         "moduleId": 5489595,
         "archiveOccurrenceId": "archive-000081",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
         "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
         "memberOccurrenceId": "member-000762",
         "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
@@ -590,7 +590,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000762",
             "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
@@ -627,7 +627,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000762",
             "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
@@ -664,7 +664,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000762",
             "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
@@ -701,7 +701,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000762",
             "member": "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf",
@@ -822,7 +822,7 @@
       "sourceDocument": {
         "moduleId": 5489595,
         "archiveOccurrenceId": "archive-000081",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
         "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
         "memberOccurrenceId": "member-000764",
         "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
@@ -841,7 +841,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000764",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
@@ -878,7 +878,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000764",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
@@ -915,7 +915,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000764",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
@@ -952,7 +952,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000764",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf",
@@ -1002,7 +1002,7 @@
       "sourceDocument": {
         "moduleId": 5489595,
         "archiveOccurrenceId": "archive-000081",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
         "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
         "memberOccurrenceId": "member-000765",
         "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",
@@ -1022,7 +1022,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000765",
             "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",
@@ -1070,7 +1070,7 @@
           "source": {
             "moduleId": 5489595,
             "archiveOccurrenceId": "archive-000081",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/05-folder-5489595-lesson-3.zip",
             "archiveSha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839",
             "memberOccurrenceId": "member-000765",
             "member": "Homework/HW Chapter 9-1 reading_山田さんとダンス.pdf",

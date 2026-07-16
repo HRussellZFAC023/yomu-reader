@@ -107,7 +107,7 @@
         "moduleId": 5489604,
         "archiveOccurrenceId": "archive-000079",
         "memberOccurrenceId": "member-000742",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/24-folder-5489604-katakana-work-sheets-アline-カline.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/24-folder-5489604-katakana-work-sheets-アline-カline.zip",
         "archiveSha256": "dd558e4dafc7949e9810e87b6dc82f240d994650b40dde97cd8134d40296b112",
         "member": "Katakana_worksheets ア、カ、ガ.pdf",
         "centralDirectoryIndex": 1,
@@ -144,7 +144,7 @@
         "moduleId": 5489604,
         "archiveOccurrenceId": "archive-000079",
         "memberOccurrenceId": "member-000743",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/24-folder-5489604-katakana-work-sheets-アline-カline.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/24-folder-5489604-katakana-work-sheets-アline-カline.zip",
         "archiveSha256": "dd558e4dafc7949e9810e87b6dc82f240d994650b40dde97cd8134d40296b112",
         "member": "Katakana_writing practice ア、カ.pdf",
         "centralDirectoryIndex": 2,
@@ -227,7 +227,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -240,7 +240,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -249,7 +249,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,

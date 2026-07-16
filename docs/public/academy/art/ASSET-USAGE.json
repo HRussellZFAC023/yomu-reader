@@ -65,7 +65,7 @@
     },
     {
       "id": "rie-neutral-halfbody-v001",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime",
       "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"],
@@ -77,7 +77,7 @@
     },
     {
       "id": "rie-happy-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
+      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "review-candidate/runtime-preview",
       "runtimeHome": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
@@ -89,7 +89,7 @@
     },
     {
       "id": "rie-encouraging-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
+      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "review-candidate/runtime-preview",
       "runtimeHome": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"],
@@ -101,7 +101,7 @@
     },
     {
       "id": "rie-repair-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
+      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "review-candidate/runtime-preview",
       "runtimeHome": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "journal:rie-expression-gallery"],
@@ -113,7 +113,7 @@
     },
     {
       "id": "rie-thinking-halfbody-v001",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
       "sourceSha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
       "provenance": "historical-academy-tree; original generation record not recovered",
       "verdict": "review-candidate/non-runtime",
@@ -127,7 +127,7 @@
     },
     {
       "id": "rie-determined-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
+      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
       "sourceSha256": "3faa1f515a45c1e549ee554f539aa24bcdc4bf5e104c4722275ed1275a03468c",
       "provenance": "direct-openai-image-edit-from-approved-rie-references",
       "verdict": "approved-runtime",
@@ -140,7 +140,7 @@
     },
     {
       "id": "rie-sad-vulnerable-front-near-front-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
+      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
       "sourceSha256": "213ef0df3a09497b38307a855a2e1982fa61589c4768e87ae59bc55636d76900",
       "provenance": "direct-openai-image-edit-from-approved-rie-references",
       "verdict": "approved-runtime",
@@ -153,7 +153,7 @@
     },
     {
       "id": "rie-comedic-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
+      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
       "sourceSha256": "edf8858e7867c877b1a7801a2dfb5700f89cd08be73172f3d09c75af58f4a8fa",
       "provenance": "direct-openai-image-edit-from-approved-rie-references",
       "verdict": "approved-runtime",
@@ -166,7 +166,7 @@
     },
     {
       "id": "aakash-neutral-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+      "source": "generated-image://019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime-preview",
       "runtimeHome": ["journal:aakash"],
@@ -178,7 +178,7 @@
     },
     {
       "id": "shaun-neutral-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
+      "source": "generated-image://019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
       "sourceSha256": "a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
@@ -204,7 +204,7 @@
     },
     {
       "id": "sophie-encouraging-front-near-front-halfbody-v003",
-      "source": "/Users/heru/.codex/generated_images/019f6809-715b-7911-99bf-b1211a580b07/exec-d2a30f91-d841-4537-ba56-d3c59e1620b0.png",
+      "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-d2a30f91-d841-4537-ba56-d3c59e1620b0.png",
       "sourceSha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
@@ -217,7 +217,7 @@
     },
     {
       "id": "sophie-determined-left-three-quarter-halfbody-v003",
-      "source": "/Users/heru/.codex/generated_images/019f6809-715b-7911-99bf-b1211a580b07/exec-f9825ee1-bc15-492d-8aee-a78691204d08.png",
+      "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-f9825ee1-bc15-492d-8aee-a78691204d08.png",
       "sourceSha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
@@ -230,7 +230,7 @@
     },
     {
       "id": "xingyu-neutral-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
+      "source": "generated-image://019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "rejected-wrong-likeness",
       "runtimeHome": [],
@@ -242,7 +242,7 @@
     },
     {
       "id": "peter-neutral-halfbody-v002",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-4640771b-6435-4a84-b8b7-2b49f8e6509c.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-4640771b-6435-4a84-b8b7-2b49f8e6509c.png",
       "sourceSha256": "9f5b505a92b66d0e044374f7ad089ccbc87e751f65e587776329ce58c0ba8d4d",
       "provenance": "direct-openai-image-edit-from-owner-correction",
       "verdict": "review-candidate/runtime-preview",
@@ -255,7 +255,7 @@
     },
     {
       "id": "felix-neutral-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-c0e7b1b2-04a2-4062-a165-a57b00b1b5a8.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-c0e7b1b2-04a2-4062-a165-a57b00b1b5a8.png",
       "sourceSha256": "2ce611919b12a28a27e66456cefec480ad8fe5415c5875a7980bb9696000e576",
       "provenance": "direct-openai-image-generation-from-owner-written-brief",
       "verdict": "review-candidate/runtime-preview",
@@ -268,7 +268,7 @@
     },
     {
       "id": "felix-happy-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-1af208f4-17d9-4aa3-8c7b-5b0bbea6dc4f.png",
+      "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-1af208f4-17d9-4aa3-8c7b-5b0bbea6dc4f.png",
       "sourceSha256": "24edd0ec10856a5a685fcc68e362fb7143d4e22a37b75303203ccbc335532fcd",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
@@ -281,7 +281,7 @@
     },
     {
       "id": "felix-surprised-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-3d878cc4-afc3-41dd-a7ed-a0bcc3e16be4.png",
+      "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3d878cc4-afc3-41dd-a7ed-a0bcc3e16be4.png",
       "sourceSha256": "3890cd09d702ef9a72a5ba1b56fbaab1a97e69ca2be2786cc797123cdf5d94e5",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
@@ -294,7 +294,7 @@
     },
     {
       "id": "peter-encouraging-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-49ce316c-f943-40c3-9891-ac93cabddbaf.png",
+      "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-49ce316c-f943-40c3-9891-ac93cabddbaf.png",
       "sourceSha256": "bbe28f48018ad74ebca6495520f1374ec00ca3654d55b55fd87748387927f10a",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
@@ -307,7 +307,7 @@
     },
     {
       "id": "peter-thoughtful-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-3942d014-b952-47ff-8a92-45b5d0fad22a.png",
+      "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3942d014-b952-47ff-8a92-45b5d0fad22a.png",
       "sourceSha256": "c445d473a34e56256622c8bffe401346739a318dbb561d7e51429f742c90413e",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
@@ -320,7 +320,7 @@
     },
     {
       "id": "protagonist-quality-2",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
       "runtimeHome": ["onboarding:portrait-choice-2", "journal:player"],
@@ -332,7 +332,7 @@
     },
     {
       "id": "protagonist-quality-3",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
       "runtimeHome": ["onboarding:portrait-choice-3", "journal:player"],
@@ -344,7 +344,7 @@
     },
     {
       "id": "protagonist-quality-4",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
       "runtimeHome": ["onboarding:portrait-choice-4", "journal:player"],
@@ -356,7 +356,7 @@
     },
     {
       "id": "protagonist-quality-5",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
       "runtimeHome": ["onboarding:portrait-choice-5", "journal:player"],
@@ -368,7 +368,7 @@
     },
     {
       "id": "campus-home-ensemble-spring",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp",
+      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp",
       "provenance": "owner-approved-existing-reference",
       "verdict": "approved-runtime",
       "runtimeHome": ["access:campus-ensemble"],
@@ -500,8 +500,8 @@
       "source": "approved-local:public/academy/art/items/japan-centre-omiyage-tag__v001.png",
       "sourceSha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd",
       "sourceArtifacts": [
-        {"variant": "wide", "path": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-4994d99a-c4c5-4e0c-be82-81eb2bc6a2cb.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
-        {"variant": "mobile", "path": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-efe1ace7-c154-4211-b6e0-881e3434018b.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
+        {"variant": "wide", "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-4994d99a-c4c5-4e0c-be82-81eb2bc6a2cb.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
+        {"variant": "mobile", "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-efe1ace7-c154-4211-b6e0-881e3434018b.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
       ],
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
@@ -586,7 +586,7 @@
     },
     {
       "id": "rainy-directions-rie-aakash-v001",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime-anchor",
       "runtimeHome": ["scene:aakash-rainy-directions", "unlock:aakash", "memory:aakash-rainy-directions"],
@@ -684,7 +684,7 @@
     },
     {
       "id": "japan-centre-omiyage-tag-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-458f45ca-fa3a-4787-b2d7-69585d29bf1e.png",
+      "source": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-458f45ca-fa3a-4787-b2d7-69585d29bf1e.png",
       "sourceSha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd",
       "reference": "donor-a:codex-production-v1/lesson-assets/wide/handwriting-food-backplate.jpg",
       "referenceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8",
@@ -729,7 +729,7 @@
     },
     {
       "id": "calibration-campus-ensemble",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-c8b9e0f2-65b8-4821-8ade-1eb74ad31241.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-c8b9e0f2-65b8-4821-8ade-1eb74ad31241.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-reference",
       "runtimeHome": null,
@@ -737,7 +737,7 @@
     },
     {
       "id": "calibration-classroom-tutoring",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-47673506-16a5-4045-9dfa-13c590ddf674.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-47673506-16a5-4045-9dfa-13c590ddf674.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-reference",
       "runtimeHome": null,
@@ -745,7 +745,7 @@
     },
     {
       "id": "calibration-rie-classroom",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-76d267a1-01fb-4224-a61a-3514006abc38.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-76d267a1-01fb-4224-a61a-3514006abc38.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-reference",
       "runtimeHome": null,
@@ -786,7 +786,7 @@
     },
     {
       "id": "photoreal-door",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-886a2fdf-6452-497c-8072-1af65575bae4.png",
+      "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-886a2fdf-6452-497c-8072-1af65575bae4.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "reject",
       "runtimeHome": null,

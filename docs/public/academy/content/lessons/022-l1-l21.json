@@ -115,7 +115,7 @@
         "moduleId": 6375062,
         "archiveOccurrenceId": "archive-000076",
         "memberOccurrenceId": "member-000726",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
         "archiveSha256": "d8514ba0c733f2c3eb404987879c1022ccd420a94e3d40dccecee5c75d9a2c4c",
         "member": "46 A-46.mp3",
         "centralDirectoryIndex": 1,
@@ -148,7 +148,7 @@
         "moduleId": 6375062,
         "archiveOccurrenceId": "archive-000076",
         "memberOccurrenceId": "member-000727",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
         "archiveSha256": "d8514ba0c733f2c3eb404987879c1022ccd420a94e3d40dccecee5c75d9a2c4c",
         "member": "Chapter 11_listening.pdf",
         "centralDirectoryIndex": 2,
@@ -184,7 +184,7 @@
         "moduleId": 6375062,
         "archiveOccurrenceId": "archive-000076",
         "memberOccurrenceId": "member-000728",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/17-folder-6375062-summer-homework-to-finalise-chapter-11.zip",
         "archiveSha256": "d8514ba0c733f2c3eb404987879c1022ccd420a94e3d40dccecee5c75d9a2c4c",
         "member": "Chapter 11-4_time period_how long does it take.pdf",
         "centralDirectoryIndex": 3,
@@ -267,7 +267,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -280,7 +280,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -289,7 +289,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,

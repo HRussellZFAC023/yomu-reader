@@ -240,10 +240,13 @@ describe('Japanese inflection lookup boundaries', () => {
             jpdb: {} as never,
             dictionaries: {
                 findTermMatches,
-                lookupTermMeta: vi.fn(async () => [{
-                    expression: 'Academy verb',
+                lookupTermMeta: vi.fn(async (expression: string) => [{
+                    expression,
                     mode: 'pitch',
-                    data: { reading: 'きく', pitches: [{ position: 0 }] },
+                    data: {
+                        reading: examples.find(example => example.expression === expression)?.reading ?? '',
+                        pitches: [{ position: 0 }],
+                    },
                     dictionary: 'Pitch',
                 }]),
             } as never,

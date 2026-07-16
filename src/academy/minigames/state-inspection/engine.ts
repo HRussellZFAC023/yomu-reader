@@ -103,9 +103,6 @@ const LESSON_43_PROFILE = {
         visual('5118e6832fcfd924f93ec8636c2acb046db30bfed53df067e2e471b1e5f1c46f', 'New HW Chapter 26-30 grammar review-1', 1, '/academy/content/lessons/l2-l18/moodle-chapter-26-30-review-1.png', '14ba5a05b417df87caae0929d1911c738b105d31982c6a86e045b5dd9111e9d6'),
         visual('305a4d89c101682a4475ceebfe249ea7ff1129142a9d475391fa0920ea91c9ff', 'New HW Chapter 30 grammar review てある ている ておく', 1, '/academy/content/lessons/l2-l18/moodle-chapter-30-state-review-1.png', 'ccd631965e0684ba9648b77cca66a2779fc6367a37455c198708b6c89c19914b'),
     ],
-    answerSheets: [
-        visual('de21995ba280fc828e67ce6e74a533069b86e03945a9046472a2681b494d0c06', 'Chapter 30 quiz あります います おきます answer', 1, '/academy/content/lessons/l2-l18/moodle-chapter-30-answer-1.png', '5a5fd16d22b9abfd66109e48daa8e1aff854cc7fd090da51af7b853e7a9c2423'),
-    ],
     headings: [
         ['vocabulary', 'Emergency vocabulary: prepare what the reference page names.'],
         [1, '〜とか: give open, general examples.'],
@@ -410,11 +407,14 @@ export function validateStateInspection(model: StateInspectionModel): readonly V
         || moodle.sourceSheets.some((sourceVisual, index) => !validVisual(sourceVisual, profile.sourceSheets[index]))) {
         issues.push({ path: 'provenance.moodle.sourceSheets', message: 'All canonical source pages are required in authored order.' });
     }
-    const expectedAnswerSheets = 'answerSheets' in profile ? profile.answerSheets : [];
+    const expectedAnswerSheets: readonly StateInspectionSourceVisual[] = 'answerSheets' in profile
+        && Array.isArray(profile.answerSheets)
+        ? profile.answerSheets as readonly StateInspectionSourceVisual[]
+        : [];
     const answerSheets = moodle?.answerSheets ?? [];
     if (answerSheets.length !== expectedAnswerSheets.length
         || answerSheets.some((sourceVisual, index) => !validVisual(sourceVisual, expectedAnswerSheets[index]))) {
-        issues.push({ path: 'provenance.moodle.answerSheets', message: 'Canonical answer pages must remain gated until after an attempt.' });
+        issues.push({ path: 'provenance.moodle.answerSheets', message: 'Public packages must not expose unregistered answer pages.' });
     }
     const expectedDeliveredTracks = 'sourceAudioTracksDelivered' in profile
         ? profile.sourceAudioTracksDelivered

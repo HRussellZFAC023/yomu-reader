@@ -26,6 +26,7 @@ const runtimeSources = [
     ['public/academy/content/RESOURCE-LEDGER.json', 'content/RESOURCE-LEDGER.json'],
     ['public/academy/content/audio', 'content/audio'],
     ['public/academy/content/listening', 'content/listening'],
+    ['public/academy/content/n1-sound-discrimination', 'content/n1-sound-discrimination'],
     ['public/academy/content/n2-extensive-reading', 'content/n2-extensive-reading'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
     ['public/academy/vendor', 'vendor'],
@@ -45,6 +46,7 @@ const sourcePaths = [...templates, ...runtimeSources].map(([source]) => source).
 for (const source of sourcePaths) {
     if (!fs.existsSync(path.join(root, source))) throw new Error(`Missing Academy runtime file: ${source}`);
 }
+assertNoPrivatePaths(path.join(root, 'public', 'academy'));
 
 const hash = crypto.createHash('sha256');
 for (const source of sourcePaths.sort()) hashPath(source, path.join(root, source), hash);
@@ -80,4 +82,21 @@ function hashPath(label, absolutePath, digest) {
     digest.update('\0');
     digest.update(fs.readFileSync(absolutePath));
     digest.update('\0');
+}
+
+function assertNoPrivatePaths(directory) {
+    const privatePath = /(?:\/Users\/[^/]+\/|\/home\/[^/]+\/|[A-Za-z]:\\\\Users\\\\[^\\]+\\\\)/;
+    const textExtensions = new Set(['.css', '.html', '.js', '.json', '.md', '.txt', '.webmanifest']);
+    const visit = current => {
+        const stat = fs.statSync(current);
+        if (stat.isDirectory()) {
+            for (const child of fs.readdirSync(current)) visit(path.join(current, child));
+            return;
+        }
+        if (!textExtensions.has(path.extname(current))) return;
+        if (privatePath.test(fs.readFileSync(current, 'utf8'))) {
+            throw new Error(`Academy runtime contains a private workstation path: ${path.relative(root, current)}`);
+        }
+    };
+    visit(directory);
 }

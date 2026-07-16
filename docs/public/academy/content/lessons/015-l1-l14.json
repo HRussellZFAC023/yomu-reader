@@ -130,7 +130,7 @@
     "roots": [
       {
         "id": "japanese-genki-study-resources-2e",
-        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "path": "japanese-resources://Resource Packs/genki-study-resources-master 2",
         "role": "genki-week-sorted-interactive-enrichment",
         "status": "used-with-exact-file-hashes",
         "fileCountAtAudit": 1909,
@@ -143,7 +143,7 @@
       },
       {
         "id": "japanese-lessons",
-        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "path": "japanese-resources://Lessons",
         "role": "supplemental-library-audit",
         "status": "audited-no-selected-level-one-material",
         "fileCountAtAudit": 129,
@@ -152,7 +152,7 @@
       },
       {
         "id": "japanese-vocabulary",
-        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "path": "japanese-resources://Vocabulary",
         "role": "supplemental-vocabulary-audit",
         "status": "excluded-from-level-one-prestudy",
         "fileCountAtAudit": 2,
@@ -616,7 +616,7 @@
       "sourceDocument": {
         "moduleId": 6097314,
         "archiveOccurrenceId": "archive-000083",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
         "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
         "memberOccurrenceId": "member-000788",
         "member": "Handouts/Chapter 9-2_Grammar Exercise_〜ですから.pdf",
@@ -635,7 +635,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000788",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_〜ですから.pdf",
@@ -672,7 +672,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000788",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_〜ですから.pdf",
@@ -709,7 +709,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000788",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_〜ですから.pdf",
@@ -744,7 +744,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000788",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_〜ですから.pdf",
@@ -861,7 +861,7 @@
       "sourceDocument": {
         "moduleId": 6097314,
         "archiveOccurrenceId": "archive-000083",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
         "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
         "memberOccurrenceId": "member-000790",
         "member": "Handouts/Chapter 9-2_Grammar Exercise_どうして.pdf",
@@ -880,7 +880,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000790",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_どうして.pdf",
@@ -917,7 +917,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000790",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_どうして.pdf",
@@ -954,7 +954,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000790",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_どうして.pdf",
@@ -1074,7 +1074,7 @@
       "sourceDocument": {
         "moduleId": 6097314,
         "archiveOccurrenceId": "archive-000083",
-        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+        "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
         "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
         "memberOccurrenceId": "member-000789",
         "member": "Handouts/Chapter 9-2_Grammar Exercise_Describing possessions_things to do, etc and the degree.pdf",
@@ -1093,7 +1093,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000789",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_Describing possessions_things to do, etc and the degree.pdf",
@@ -1130,7 +1130,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000789",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_Describing possessions_things to do, etc and the degree.pdf",
@@ -1167,7 +1167,7 @@
           "source": {
             "moduleId": 6097314,
             "archiveOccurrenceId": "archive-000083",
-            "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
+            "archivePath": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/07-folder-6097314-lesson-4-16-05-24-online.zip",
             "archiveSha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb",
             "memberOccurrenceId": "member-000789",
             "member": "Handouts/Chapter 9-2_Grammar Exercise_Describing possessions_things to do, etc and the degree.pdf",

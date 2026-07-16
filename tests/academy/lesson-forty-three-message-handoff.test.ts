@@ -63,7 +63,7 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
             },
         });
         expect(activity.provenance.moodle.sourceSheets).toHaveLength(11);
-        expect(activity.provenance.moodle.answerSheets).toHaveLength(1);
+        expect(activity.provenance.moodle.answerSheets).toBeUndefined();
         expect(activity.payload.teaching).toHaveLength(7);
         expect(activity.payload.teaching[0]?.title).toBe('Sensei vocabulary first');
         expect(activity.payload.rounds.map(round => round.interaction)).toEqual([
@@ -119,7 +119,7 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
         expect(host.querySelectorAll('input[type="radio"]')).toHaveLength(8);
         expect(host.querySelectorAll('input[type="text"]')).toHaveLength(3);
         expect(host.querySelector<HTMLElement>('[data-answer-visibility="after-attempt"]')?.hidden).toBe(true);
-        expect(host.querySelector('.academy-state-inspection-answer-source')).not.toBeNull();
+        expect(host.querySelector('.academy-state-inspection-answer-source')).toBeNull();
 
         activity.payload.rounds.forEach(round => {
             const row = host.querySelector<HTMLElement>(`[data-round-id="${round.id}"]`)!;
@@ -174,7 +174,7 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
 
     it('pins mirrored source pages, exact package identity, and offline delivery', () => {
         const activity = model();
-        for (const visual of [...activity.provenance.moodle.sourceSheets, ...(activity.provenance.moodle.answerSheets ?? [])]) {
+        for (const visual of activity.provenance.moodle.sourceSheets) {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l18', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l18', filename));
@@ -192,9 +192,12 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain("'/academy/content/lessons/045-l2-l18.json'");
-            [...activity.provenance.moodle.sourceSheets, ...(activity.provenance.moodle.answerSheets ?? [])]
+            activity.provenance.moodle.sourceSheets
                 .forEach(visual => expect(worker).toContain(`'${visual.url}'`));
+            expect(worker).not.toContain('moodle-chapter-30-answer-1.png');
             expect(worker).toContain("'/academy/content/lessons/l2-l18/moodle-track-13.mp3'");
         }
+        expect(() => readFileSync(path.resolve('public/academy/content/lessons/l2-l18/moodle-chapter-30-answer-1.png'))).toThrow();
+        expect(() => readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l18/moodle-chapter-30-answer-1.png'))).toThrow();
     });
 });

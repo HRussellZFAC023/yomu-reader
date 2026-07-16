@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-f3611d0cb295';
+const VERSION = 'yomu-academy-shell-s1-96220748666c';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -65,8 +65,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-f3611d0cb295',
-    '/academy/style.css?v=s1-f3611d0cb295',
+    '/academy/app.js?v=s1-96220748666c',
+    '/academy/style.css?v=s1-96220748666c',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -260,7 +260,6 @@ const CORE = [
     '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-2.png',
     '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-3.png',
     '/academy/content/lessons/l2-l16/moodle-chapter-30-information-gap-page-1.png',
-    '/academy/content/lessons/044-l2-l17.json',
     '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-speaking-page-1.png',
     '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-1.png',
     '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-2.png',
@@ -282,7 +281,6 @@ const CORE = [
     '/academy/content/lessons/l2-l18/moodle-chapter-30-conversation-listening-1.png',
     '/academy/content/lessons/l2-l18/moodle-chapter-26-30-review-1.png',
     '/academy/content/lessons/l2-l18/moodle-chapter-30-state-review-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-answer-1.png',
     '/academy/content/lessons/l2-l18/moodle-track-13.mp3',
     '/academy/content/lessons/046-l2-l19.json',
     '/academy/content/lessons/l2-l19/moodle-chapter-31-volitional-page-1.png',
