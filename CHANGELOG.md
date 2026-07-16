@@ -12,6 +12,8 @@
 ### Fixed
 
 - Remote parser fragments are now replaced only when an enabled local dictionary supplies an exact longer expression and reading across their boundary. This repairs evidence-backed splits such as `2時` + `間` without a `時間` exception, adjacent-kanji guessing, full rescans, or synthesized compound pitch.
+- Boundary evidence is capped at eight left-to-right candidates per paragraph and four IndexedDB lookups across all concurrent parser instances. Ambiguous expression/reading identities stay split, and transient lookup failures are retried on the next scan instead of being cached as permanent misses.
+- Local pitch metadata now requires the same normalized expression and reading as the displayed word. Yomu no longer falls back to a reading-key row or reshapes a lone mismatched reading into a misleading whole-word contour.
 - Pitch accent now uses the four positional Tokyo classes—heiban, atamadaka, nakadaka, and odaka—consistently across reader words, popups, subtitles, and study. Malformed contours are treated as unknown, multiple sourced variants remain distinct, and the obsolete “Kifuku (variable)” fifth colour setting is removed while old settings payloads still load safely.
 
 ## [1.6.166] - 2026-07-16

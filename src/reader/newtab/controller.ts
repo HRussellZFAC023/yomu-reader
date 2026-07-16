@@ -7178,7 +7178,7 @@ export class NewTabController {
             || '';
         if (reading) card.reading = reading;
         if (!card.pitchAccent.length && reading) {
-            const pitch = localPitchPatternFromMeta(reading, data.metaEntries);
+            const pitch = localPitchPatternFromMeta(spelling, reading, data.metaEntries);
             if (pitch) card.pitchAccent = [pitch];
         }
     }
@@ -11514,7 +11514,7 @@ export class NewTabController {
             expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
             { initialEntries: metaEntries },
         ).catch(() => [] as string[]);
-        return patterns[0] ?? (reading === card.spelling ? localPitchPatternFromMeta('', metaEntries) : '');
+        return patterns[0] ?? '';
     }
 
     private wordPitchCacheKey(card: JPDBCard): string {

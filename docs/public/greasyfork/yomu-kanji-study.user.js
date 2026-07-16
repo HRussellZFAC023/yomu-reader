@@ -12550,10 +12550,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const previous = snapshot.entries[ruleId];
     if (previous?.knowledge === knowledge && change.at === void 0 && change.changeId === void 0) return snapshot;
     const at = validTimestamp(change.at) ? change.at : Date.now();
+    const changeId = change.changeId?.trim() || createGrammarChangeId();
+    if (previous?.knowledge === knowledge && previous.at === at && previous.changeId === changeId) return snapshot;
     const entry = {
       knowledge,
       at,
-      changeId: change.changeId?.trim() || createGrammarChangeId()
+      changeId
     };
     const next = { ...snapshot, entries: { ...snapshot.entries, [ruleId]: entry } };
     writeGrammarKnowledge(next);
@@ -13768,6 +13770,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
   ];
   const ICHIDAN_RULES = [
+    ["ながら", "る", "simultaneous action"],
     ["ました", "る", "polite past"],
     ["ませんでした", "る", "polite negative past"],
     ["ません", "る", "polite negative"],
@@ -13813,6 +13816,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["く", "い", "adverbial"]
   ];
   const SURU_RULES = [
+    ["しながら", "する", "simultaneous action"],
     ["しませんでした", "する", "polite negative past"],
     ["しません", "する", "polite negative"],
     ["しました", "する", "polite past"],
@@ -13843,6 +13847,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["して", "する", "te-form"]
   ];
   const KURU_RULES = [
+    ["来ながら", "来る", "simultaneous action"],
     ["来ませんでした", "来る", "polite negative past"],
     ["来ません", "来る", "polite negative"],
     ["来ました", "来る", "polite past"],
@@ -13860,6 +13865,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["来い", "来る", "imperative"],
     ["来た", "来る", "past"],
     ["来て", "来る", "te-form"],
+    ["きながら", "くる", "simultaneous action"],
     ["きませんでした", "くる", "polite negative past"],
     ["きません", "くる", "polite negative"],
     ["きました", "くる", "polite past"],
@@ -13932,6 +13938,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const rules = row.rules;
     return [
       ...teCompoundRules(row.te, row.ending, rules),
+      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+      { from: row.i, to: row.ending, reason: "continuative stem", rules },
       { from: row.te, to: row.ending, reason: "te-form", rules },
       { from: row.ta, to: row.ending, reason: "past", rules },
       { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },

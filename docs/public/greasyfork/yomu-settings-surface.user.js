@@ -11801,6 +11801,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
   ];
   const ICHIDAN_RULES = [
+    ["ながら", "る", "simultaneous action"],
     ["ました", "る", "polite past"],
     ["ませんでした", "る", "polite negative past"],
     ["ません", "る", "polite negative"],
@@ -11846,6 +11847,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["く", "い", "adverbial"]
   ];
   const SURU_RULES = [
+    ["しながら", "する", "simultaneous action"],
     ["しませんでした", "する", "polite negative past"],
     ["しません", "する", "polite negative"],
     ["しました", "する", "polite past"],
@@ -11876,6 +11878,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["して", "する", "te-form"]
   ];
   const KURU_RULES = [
+    ["来ながら", "来る", "simultaneous action"],
     ["来ませんでした", "来る", "polite negative past"],
     ["来ません", "来る", "polite negative"],
     ["来ました", "来る", "polite past"],
@@ -11893,6 +11896,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["来い", "来る", "imperative"],
     ["来た", "来る", "past"],
     ["来て", "来る", "te-form"],
+    ["きながら", "くる", "simultaneous action"],
     ["きませんでした", "くる", "polite negative past"],
     ["きません", "くる", "polite negative"],
     ["きました", "くる", "polite past"],
@@ -11984,13 +11988,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isDeinflectionDepthLimitReached(current)) return;
+    if (isTerminalDeinflection(current)) return;
     for (const rule of RULES) {
       rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
   }
-  function isDeinflectionDepthLimitReached(current) {
-    return current.depth >= 2;
+  function isTerminalDeinflection(current) {
+    return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
   }
   function rememberExpandedDeinflection(current, rule, queue, results, seen) {
     const next = deinflectedCandidate(current, rule);
@@ -12044,6 +12048,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rules = row.rules;
     return [
       ...teCompoundRules(row.te, row.ending, rules),
+      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+      { from: row.i, to: row.ending, reason: "continuative stem", rules },
       { from: row.te, to: row.ending, reason: "te-form", rules },
       { from: row.ta, to: row.ending, reason: "past", rules },
       { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },

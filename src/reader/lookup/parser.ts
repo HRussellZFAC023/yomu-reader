@@ -32,6 +32,8 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
 const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
+const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
+const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // Jiten's /parse endpoint is for batched LINES; a tiny per-word or per-refresh
@@ -49,6 +51,9 @@ const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
 const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
 const log = Logger.scope('ReaderParser');
+// Boundary evidence is IndexedDB-backed and parser instances can overlap
+// during reactive rescans, so the gate must be shared at module scope.
+const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 
 export interface ReaderParserParseOptions {
     apiTimeoutMs?: number;
@@ -403,31 +408,35 @@ export class ReaderParser {
 
         const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
             const text = paragraphs[paragraphIndex] ?? '';
-            const replacements = await mapLimited(candidates[paragraphIndex], 4, async candidate => {
-                const relative = await this.exactLocalBoundaryMatch(candidate.surface);
+            const replacements = await Promise.all(candidates[paragraphIndex].map(async candidate => {
+                const relative = await this.exactLocalBoundaryMatch(candidate);
                 if (!relative) return null;
                 const match = offsetTermMatch(relative, candidate.start);
                 if (!exactMatchSafelyCrossesRemoteBoundary(text, match, tokens)) return null;
                 return this.localTokenFromMatch(text, match, options);
-            });
+            }));
             return replaceRemoteFragments(tokens, replacements.filter((token): token is JPDBToken => Boolean(token)));
         }));
         return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
     }
 
-    private exactLocalBoundaryMatch(surface: string): Promise<YomitanTermMatch | null> {
+    private exactLocalBoundaryMatch(candidate: BoundaryEvidenceCandidate): Promise<YomitanTermMatch | null> {
         const settings = this.dependencies.getSettings();
-        const key = localBoundaryEvidenceCacheKey(surface, settings);
+        const { surface, boundary } = candidate;
+        const key = localBoundaryEvidenceCacheKey(surface, boundary, settings);
         const cached = this.localBoundaryEvidenceCache.get(key);
         if (cached) return cached;
-        const promise = this.dependencies.dictionaries.findTermMatches(
+        const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
             surface,
             LOCAL_BOUNDARY_MATCH_LIMIT,
             settings.dictionaryPreferences,
-        ).then(matches => exactBoundaryMatch(surface, matches)).catch(error => {
-            log.warn('Local boundary evidence lookup failed', { length: surface.length }, error);
-            return null;
-        });
+        ))
+            .then(matches => exactBoundaryMatch(surface, boundary, matches))
+            .catch(error => {
+                if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
+                log.warn('Local boundary evidence lookup failed', { length: surface.length }, error);
+                return null;
+            });
         this.localBoundaryEvidenceCache.set(key, promise);
         while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
             const oldest = this.localBoundaryEvidenceCache.keys().next().value;
@@ -756,6 +765,7 @@ function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {
 interface BoundaryEvidenceCandidate {
     surface: string;
     start: number;
+    boundary: number;
 }
 
 function boundaryEvidenceCandidates(text: string, tokens: JPDBToken[]): BoundaryEvidenceCandidate[] {
@@ -769,6 +779,7 @@ function boundaryEvidenceCandidates(text: string, tokens: JPDBToken[]): Boundary
         if (seen.has(key)) continue;
         seen.add(key);
         candidates.push(candidate);
+        if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
     }
     return candidates;
 }
@@ -782,7 +793,11 @@ function boundaryEvidenceCandidate(text: string, first: JPDBToken, second: JPDBT
     const firstSurface = text.slice(first.start, first.end);
     const secondSurface = text.slice(second.start, second.end);
     if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-    return { surface: text.slice(first.start, second.end), start: first.start };
+    return {
+        surface: text.slice(first.start, second.end),
+        start: first.start,
+        boundary: first.end - first.start,
+    };
 }
 
 function isReconciliableParseToken(token: JPDBToken): boolean {
@@ -797,17 +812,25 @@ function isSingleJapaneseCharacter(surface: string): boolean {
     return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
 }
 
-function exactBoundaryMatch(surface: string, matches: YomitanTermMatch[]): YomitanTermMatch | null {
-    return matches
-        .filter(match => !match.deinflected
+function exactBoundaryMatch(surface: string, boundary: number, matches: YomitanTermMatch[]): YomitanTermMatch | null {
+    const accepted = matches.filter(match => !match.deinflected
             && match.start >= 0
             && match.end <= surface.length
             && match.end - match.start >= 2
+            && match.start < boundary
+            && match.end > boundary
             && match.surface === surface.slice(match.start, match.end)
             && match.entry.expression === match.surface
-            && Boolean(match.entry.reading.trim()))
+            && Boolean(match.entry.reading.trim()));
+    const identities = new Set(accepted.map(match => boundaryMatchIdentity(match)));
+    if (identities.size !== 1) return null;
+    return accepted
         .sort((first, second) => (second.end - second.start) - (first.end - first.start) || first.start - second.start)[0]
         ?? null;
+}
+
+function boundaryMatchIdentity(match: YomitanTermMatch): string {
+    return `${match.entry.expression.normalize('NFKC').trim()}\n${match.entry.reading.normalize('NFKC').trim()}`;
 }
 
 function offsetTermMatch(match: YomitanTermMatch, offset: number): YomitanTermMatch {
@@ -842,9 +865,10 @@ function replaceRemoteFragments(tokens: JPDBToken[], candidates: JPDBToken[]): J
     ].sort(compareTokensByOffset);
 }
 
-function localBoundaryEvidenceCacheKey(surface: string, settings: ReaderSettings): string {
+function localBoundaryEvidenceCacheKey(surface: string, boundary: number, settings: ReaderSettings): string {
     return JSON.stringify({
         surface,
+        boundary,
         dictionaries: settings.dictionaryPreferences.map(preference => ({
             name: preference.name,
             enabled: preference.enabled,

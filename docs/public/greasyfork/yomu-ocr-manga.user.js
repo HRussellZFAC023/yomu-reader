@@ -7334,6 +7334,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
   ];
   const ICHIDAN_RULES = [
+    ["ながら", "る", "simultaneous action"],
     ["ました", "る", "polite past"],
     ["ませんでした", "る", "polite negative past"],
     ["ません", "る", "polite negative"],
@@ -7379,6 +7380,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["く", "い", "adverbial"]
   ];
   const SURU_RULES = [
+    ["しながら", "する", "simultaneous action"],
     ["しませんでした", "する", "polite negative past"],
     ["しません", "する", "polite negative"],
     ["しました", "する", "polite past"],
@@ -7409,6 +7411,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["して", "する", "te-form"]
   ];
   const KURU_RULES = [
+    ["来ながら", "来る", "simultaneous action"],
     ["来ませんでした", "来る", "polite negative past"],
     ["来ません", "来る", "polite negative"],
     ["来ました", "来る", "polite past"],
@@ -7426,6 +7429,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["来い", "来る", "imperative"],
     ["来た", "来る", "past"],
     ["来て", "来る", "te-form"],
+    ["きながら", "くる", "simultaneous action"],
     ["きませんでした", "くる", "polite negative past"],
     ["きません", "くる", "polite negative"],
     ["きました", "くる", "polite past"],
@@ -7517,13 +7521,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isDeinflectionDepthLimitReached(current)) return;
+    if (isTerminalDeinflection(current)) return;
     for (const rule of RULES) {
       rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
   }
-  function isDeinflectionDepthLimitReached(current) {
-    return current.depth >= 2;
+  function isTerminalDeinflection(current) {
+    return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
   }
   function rememberExpandedDeinflection(current, rule, queue, results, seen) {
     const next = deinflectedCandidate(current, rule);
@@ -7559,6 +7563,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rules = row.rules;
     return [
       ...teCompoundRules(row.te, row.ending, rules),
+      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+      { from: row.i, to: row.ending, reason: "continuative stem", rules },
       { from: row.te, to: row.ending, reason: "te-form", rules },
       { from: row.ta, to: row.ending, reason: "past", rules },
       { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
@@ -7625,7 +7631,7 @@ ${candidate.depth}`;
   const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
   const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
   const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
@@ -7899,7 +7905,7 @@ ${candidate.depth}`;
     const suffix = surface.slice(first.length);
     if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
     if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
-    return lookupTerms.some((term) => term.endsWith("する"));
+    return true;
   }
   function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
     return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
