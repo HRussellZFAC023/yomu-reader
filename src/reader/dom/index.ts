@@ -53,6 +53,7 @@ export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
+import { ensureReaderStylesForHost } from './shadow-styles';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -2281,6 +2282,7 @@ function mountNonDestructiveTextMirror(
         stampMirrorWordSourceRanges(mirror, context.safeTokens);
         // Commit atomically: a framework host must never be concealed before
         // its replacement is connected and known to contain paintable text.
+        ensureReaderStylesForHost(host);
         host.append(mirror);
         registerTextMirrorOwner(mirror, host);
         state.mirror = new WeakRef(mirror);
@@ -3122,6 +3124,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
         restoreControlTextMirrorHost(host, state);
         return;
     }
+    ensureReaderStylesForHost(host);
     host.insertAdjacentElement('afterend', mirror);
     observeControlTextMirrorHost(host, state);
 }
@@ -3198,6 +3201,7 @@ function mountCanvasFallbackTextLayer(target: ScanTextTarget, context: CanvasFal
     if (!layer.textContent?.trim()) return;
     const state = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
     canvasFallbackTextLayers.set(context.canvas, state);
+    ensureReaderStylesForHost(context.host);
     context.host.append(layer);
 }
 

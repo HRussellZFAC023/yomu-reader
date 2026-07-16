@@ -336,6 +336,7 @@ import {
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
+import { setShadowReaderCss } from '../dom/shadow-styles';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -1399,10 +1400,15 @@ export class ReaderApp {
         const style = document.createElement('style');
         style.textContent = hasLinkedReaderCss ? '' : initialReaderCss(READER_CSS);
         appendToDocumentHead(style);
+        // Shadow roots never receive document-level CSS; seed the shared
+        // shadow sheet with the same effective reader CSS (hosted pages link
+        // the sheet instead of inlining it, so fall back to the bundled copy).
+        setShadowReaderCss(initialReaderCss(READER_CSS));
         if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
         void loadReaderCssFallback().then(css => {
             if (!css || this.isDestroyed) return;
             style.textContent = css;
+            setShadowReaderCss(css);
             this.applyTheme();
         }).catch(error => {
             log.warn('Reader CSS fallback load failed', error);
