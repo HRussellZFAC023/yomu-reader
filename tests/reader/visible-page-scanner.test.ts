@@ -1906,12 +1906,13 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('excludes hosted homepage chrome from scanning while covering .vp-doc prose', async () => {
+    it('covers hosted homepage chrome passively while covering .vp-doc prose', async () => {
         const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/');
         // The homepage's own nav, hero marketing copy, CTA pills, install panel,
-        // and "what to do next" link grid are a hard no-scan boundary in
-        // 1.6.151; only the curated `.vp-doc` docs prose is reading material.
+        // and "what to do next" link grid are covered by the passive residual
+        // pass (no visible Japanese stays bare); only the curated `.vp-doc`
+        // docs prose is scanned as regular reading material.
         document.body.innerHTML = `
             <main class="jpdb-reader-word-underline-pitch jpdb-reader-word-text-pitch">
                 <header class="VPNav"><a href="/getting-started">はじめる</a></header>
@@ -1940,18 +1941,19 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
             const docHtmlAfterFirstScan = document.querySelector<HTMLElement>('.vp-doc')!.innerHTML;
 
-            // No wrappers, detached mirrors, or ruby anywhere in the chrome.
+            // Every chrome region is annotated in some way (wrapped words or a
+            // non-destructive mirror) — no visible Japanese stays bare.
             for (const selector of ['.VPNav', '.VPHomeHero', '.yomu-install-panel', '.yomu-next-grid', '.yomu-hosted-overflow-group']) {
                 const chrome = document.querySelector<HTMLElement>(selector)!;
-                expect(chrome.querySelectorAll('.jpdb-reader-word, rt, .jpdb-reader-text-mirror, .jpdb-reader-ruby-base')).toHaveLength(0);
+                expect(
+                    chrome.querySelectorAll('.jpdb-reader-word, .jpdb-reader-text-mirror').length,
+                    `${selector} must be annotated`,
+                ).toBeGreaterThan(0);
             }
-            // The chrome copy is never even handed to the parser.
+            // The chrome copy reaches the parser.
             const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
-            expect(parsedText).not.toContain('設定を開く');
-            expect(parsedText).not.toContain('次の手順');
-            expect(parsedText).not.toContain('今すぐ追加');
-            expect(parsedText).not.toContain('はじめる');
-            expect(parsedText).not.toContain('更新履歴');
+            expect(parsedText).toContain('はじめる');
+            expect(parsedText).toContain('設定を開く');
 
             // Real docs prose in the curated `.vp-doc` root stays fully covered.
             const docWords = [...document.querySelectorAll<HTMLElement>('.vp-doc .jpdb-reader-word')];
@@ -1964,12 +1966,15 @@ describe('VisiblePageScanner', () => {
             }
 
             // SPA remount / repeated scan stays stable: docs prose is not
-            // re-parsed or re-wrapped, and chrome stays untouched.
+            // re-parsed or re-wrapped, and chrome is not double-wrapped.
+            const parseCallsAfterFirstScan = parseJapanese.mock.calls.length;
+            const heroWordsAfterFirstScan = document.querySelectorAll('.VPHomeHero .jpdb-reader-word').length;
             await scanner.scanVisiblePage({ silent: true });
-            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese.mock.calls.length).toBe(parseCallsAfterFirstScan);
             expect(document.querySelector<HTMLElement>('.vp-doc')!.innerHTML).toBe(docHtmlAfterFirstScan);
             expect(document.querySelectorAll('.vp-doc .jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
-            expect(document.querySelectorAll('.VPHomeHero .jpdb-reader-word')).toHaveLength(0);
+            expect(document.querySelectorAll('.jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
+            expect(document.querySelectorAll('.VPHomeHero .jpdb-reader-word')).toHaveLength(heroWordsAfterFirstScan);
         } finally {
             scanner.destroy();
             restoreRects();
@@ -2790,6 +2795,9 @@ function tokensForHostedCoverageText(text: string): JPDBToken[] {
         ['追加', 'ついか'],
         ['設定', 'せってい'],
         ['開く', 'ひらく'],
+        ['はじめる', ''],
+        ['更新履歴', 'こうしんりれき'],
+        ['今すぐ', 'いますぐ'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

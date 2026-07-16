@@ -58,26 +58,13 @@ describe('hosted docs annotation reset gating', () => {
 describe('hosted docs reader scan boundary', () => {
     const theme = readProjectFile('docs/.vitepress/theme/index.ts');
 
-    it('stamps homepage chrome at initial mount and after VitePress swaps route content', () => {
-        for (const selector of [
-            "'.VPNav'",
-            "'.VPHero'",
-            "'.VPHomeHero'",
-            "'.yomu-install-panel'",
-            "'.yomu-next-grid'",
-            "'.yomu-hosted-overflow-group'",
-        ]) {
-            expect(theme).toContain(selector);
-        }
-        expect(theme).toContain("element.setAttribute('data-jpdb-reader-surface-ignore', 'true');");
-
-        const initialInstall = theme.slice(theme.indexOf('function installHostedDocsEnhancements'));
-        expect(initialInstall.indexOf('stampHostedSurfaceIgnoreChrome();'))
-            .toBeLessThan(initialInstall.indexOf('syncLandmarks();'));
-
-        const routeSync = theme.slice(theme.indexOf('function scheduleHostedDocsShellSync'));
-        const routeSyncBody = routeSync.slice(0, routeSync.indexOf('\n}'));
-        expect(routeSyncBody).toContain('stampHostedSurfaceIgnoreChrome();');
+    it('never stamps homepage chrome with the hard scan boundary', () => {
+        // Homepage chrome (nav/hero/install panel/next grid) is covered by the
+        // passive residual pass; stamping data-jpdb-reader-surface-ignore on it
+        // shipped a homepage whose own Japanese copy had no annotations. The
+        // theme must not reintroduce the stamp.
+        expect(theme).not.toContain('stampHostedSurfaceIgnoreChrome');
+        expect(theme).not.toContain("element.setAttribute('data-jpdb-reader-surface-ignore', 'true');");
     });
 
 });
