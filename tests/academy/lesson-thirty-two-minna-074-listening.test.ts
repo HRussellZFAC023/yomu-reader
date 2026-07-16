@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtyTwoMinna074ListeningBeat } from '../../src/academy/content/lesson-thirty-two-minna-074-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -8,8 +7,10 @@ import {
     type MinnaTrueFalseListeningModel,
     type MinnaTrueFalseListeningResponse,
 } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0';
+const AUDIO_LOCATOR = 'academy/content/minna/audio/l2-l07-minna-074.mp3';
 const AUDIO_URL = '/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3';
 const SOURCE_PREFIX = `moodle:6974653:${AUDIO_SHA256}:audio:minna074-mondai-2`;
 
@@ -141,13 +142,12 @@ describe('Lesson 32 exact Minna 074 Mondai 2 listening', () => {
     });
 
     it('mirrors exact bytes, precaches the track, binds five questions, and quarantines only unrelated audio', async () => {
-        const publicAudio = readFileSync(path.resolve('public', AUDIO_URL.replace(/^\//u, '')));
-        const docsAudio = readFileSync(path.resolve('docs/public', AUDIO_URL.replace(/^\//u, '')));
-        const sourceAudio = readFileSync(path.resolve('artifacts/yomu-academy/source-pipeline/payloads', AUDIO_SHA256));
-        expect(publicAudio.byteLength).toBe(2_634_658);
-        expect(createHash('sha256').update(publicAudio).digest('hex')).toBe(AUDIO_SHA256);
-        expect(docsAudio).toEqual(publicAudio);
-        expect(sourceAudio).toEqual(publicAudio);
+        verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
+            sha256: AUDIO_SHA256,
+            bytes: 2_634_658,
+        });
 
         const lessonBytes = readFileSync('public/academy/content/lessons/034-l2-l07.json');
         expect(createHash('sha256').update(lessonBytes).digest('hex'))

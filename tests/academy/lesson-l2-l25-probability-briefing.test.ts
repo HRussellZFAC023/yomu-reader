@@ -73,26 +73,38 @@ describe('l2-l25 exact-source Chapter 32 probability briefing', () => {
         expect(activity.payload.rounds.every(round => round.hints.length === 3)).toBe(true);
     });
 
-    it('preserves all eight printed examples, including source punctuation, line joins, and Whatapp spelling', () => {
+    it('preserves all eight printed examples and binds them to committed package provenance', () => {
         const activity = model();
         expect(activity.payload.rounds.map(round => round.answerExpression)).toEqual(ANSWERS);
+        expect(activity.payload.rounds.map(round => round.sourceQuestionId)).toEqual([
+            ...Array.from({ length: 4 }, (_, index) => (
+                `moodle:8121279:${DESHOU_SHA256}:pdf-p1:example-${index + 1}`
+            )),
+            ...Array.from({ length: 4 }, (_, index) => (
+                `moodle:8121279:${KAMOSHIREMASEN_SHA256}:pdf-p1:example-${index + 1}`
+            )),
+        ]);
 
-        const deshouXml = readFileSync(path.resolve(
-            `artifacts/yomu-academy/source-pipeline/pdf-census/${DESHOU_SHA256}/layout/document.xml`,
-        ), 'utf8');
-        ANSWERS.slice(0, 4).forEach(answer => expect(deshouXml).toContain(answer));
-
-        const kamoshiremasenXml = readFileSync(path.resolve(
-            `artifacts/yomu-academy/source-pipeline/pdf-census/${KAMOSHIREMASEN_SHA256}/layout/document.xml`,
-        ), 'utf8');
-        ANSWERS.slice(4, 6).forEach(answer => expect(kamoshiremasenXml).toContain(answer));
-        for (const fragment of [
-            '道(みち)が 混(こ)んでいますから、',
-            '待ち合わせ(まちあわせ)に 間に合わない(まにあわない)かも しれません。',
-            'Whatapp',
-            'に返事(へんじ)が ありません。',
-            'ともだちは 仕事(しごと)で 忙(いそが)しいかも しれません。',
-        ]) expect(kamoshiremasenXml).toContain(fragment);
+        const packageRecord = JSON.parse(readFileSync(
+            path.resolve('public/academy/content/lessons/052-l2-l25.json'),
+            'utf8',
+        )) as {
+            sourceCoverage: { members: Array<Record<string, unknown>> };
+        };
+        expect(packageRecord.sourceCoverage.members.filter(member => (
+            member.payloadSha256 === DESHOU_SHA256 || member.payloadSha256 === KAMOSHIREMASEN_SHA256
+        ))).toEqual([
+            expect.objectContaining({
+                role: 'source-worksheet',
+                payloadSha256: DESHOU_SHA256,
+                uncompressedBytes: 2_175_907,
+            }),
+            expect.objectContaining({
+                role: 'source-worksheet',
+                payloadSha256: KAMOSHIREMASEN_SHA256,
+                uncompressedBytes: 5_287_207,
+            }),
+        ]);
     });
 
     it('conceals the source-example key until submission, then grades and repairs only a missed line', async () => {

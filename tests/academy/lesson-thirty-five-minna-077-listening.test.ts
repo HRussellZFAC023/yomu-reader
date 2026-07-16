@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtyFiveMinna077ListeningBeat } from '../../src/academy/content/lesson-thirty-five-minna-077-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -8,8 +6,10 @@ import {
     type MinnaTrueFalseListeningModel,
     type MinnaTrueFalseListeningResponse,
 } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339';
+const AUDIO_LOCATOR = 'academy/content/minna/audio/l2-l10-minna-077.mp3';
 const AUDIO_URL = '/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3';
 const SOURCE_PREFIX = `moodle:6974659:${AUDIO_SHA256}:audio:minna077-mondai-2`;
 
@@ -131,27 +131,18 @@ describe('Lesson 35 exact Minna 077 Mondai 2 listening', () => {
     });
 
     it('proves source inventory, offline mirrors, route binding, cache, ledger, and quarantine boundary', async () => {
-        const source = readFileSync(path.resolve('artifacts/yomu-academy/source-pipeline/payloads', AUDIO_SHA256));
-        const publicAudio = readFileSync(path.resolve('public', AUDIO_URL.replace(/^\//u, '')));
-        const docsAudio = readFileSync(path.resolve('docs/public', AUDIO_URL.replace(/^\//u, '')));
-        expect(source.byteLength).toBe(2_311_785);
-        expect(createHash('sha256').update(source).digest('hex')).toBe(AUDIO_SHA256);
-        expect(publicAudio).toEqual(source);
-        expect(docsAudio).toEqual(source);
-
-        const inventory = JSON.parse(readFileSync('artifacts/yomu-academy/audio-source-inventory.v1.json', 'utf8'));
-        const minna = inventory.sources.find((item: { id: string }) => item.id === 'minna-shokyu-1');
-        expect(minna.archiveSha256).toBe('b9b3c693080df851f722b7697a57ca66f6c3f0a43434e68e609be14b1afe6da5');
-        expect(minna.assets.find((asset: { textbook: { track: number } }) => asset.textbook.track === 77)).toMatchObject({
-            sourceRelativePath: '0-0001-01-230001/minna_shokyu_1_077.mp3',
+        const provenance = verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
             sha256: AUDIO_SHA256,
             bytes: 2_311_785,
         });
-        expect(inventory.bindings.find((binding: { sha256: string }) => binding.sha256 === AUDIO_SHA256)).toMatchObject({
-            sourceId: 'minna-shokyu-1',
-            moodleReferences: expect.arrayContaining([expect.objectContaining({ moduleId: 6974659 })]),
-            academyPackageReferences: [expect.objectContaining({ packageId: 'l2-l10' })],
+        expect(provenance.source).toMatchObject({
+            corpus: 'minna',
+            questionMapRef: expect.stringContaining('source-minna-077-true-false'),
         });
+        expect(provenance.provenance.join(' ')).toContain('Moodle module 6974659');
+        expect(provenance.provenance.join(' ')).toContain('b9b3c693080df851f722b7697a57ca66f6c3f0a43434e68e609be14b1afe6da5');
 
         const bindings = JSON.parse(readFileSync(
             'public/academy/content/listening/listening-task-bindings.v1.json', 'utf8',

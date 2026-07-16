@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -7,9 +6,9 @@ import {
     resolvePackagedAcademyListeningLocator,
     type SourceVerifiedListeningEntry,
 } from '../../src/academy/content/listening/listening-crosswalk';
+import { verifyCommittedPackagedListening } from './helpers/source-verification';
 
 const LESSON_ROOT = path.resolve('public/academy/content/lessons');
-const MONOREPO_ROOT = path.resolve('../..');
 const PUBLIC_MANIFEST = path.resolve('public/academy/content/listening/listening-crosswalk.v1.json');
 const DOCS_MANIFEST = path.resolve('docs/public/academy/content/listening/listening-crosswalk.v1.json');
 const TASK_MANIFEST = path.resolve('public/academy/content/listening/listening-task-bindings.v1.json');
@@ -54,16 +53,18 @@ describe('Academy listening locator crosswalk', () => {
         });
     });
 
-    it('verifies every resolved source against the real local bytes', () => {
+    it('verifies every resolved source against committed packaged bytes and provenance', () => {
         const verified = ACADEMY_LISTENING_CROSSWALK.entries.filter(
             (entry): entry is SourceVerifiedListeningEntry => entry.availability === 'source-verified',
         );
         for (const entry of verified) {
-            const sourcePath = path.join(MONOREPO_ROOT, entry.source.repositoryRelativePath);
-            const bytes = fs.readFileSync(sourcePath);
-            expect(bytes.byteLength).toBe(entry.source.bytes);
-            expect(crypto.createHash('sha256').update(bytes).digest('hex')).toBe(entry.source.sha256);
-            expect(bytes.subarray(0, 3).toString('ascii')).toBe('ID3');
+            expect(entry.delivery).toBeDefined();
+            verifyCommittedPackagedListening({
+                locator: entry.locator,
+                url: entry.delivery!.url,
+                sha256: entry.source.sha256,
+                bytes: entry.source.bytes,
+            });
 
             const resolution = resolveAcademyListeningLocator(entry.locator);
             expect(resolution.status).toBe('source-verified');

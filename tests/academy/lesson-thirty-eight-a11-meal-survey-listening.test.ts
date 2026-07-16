@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtyEightA11MealSurveyListeningBeat } from '../../src/academy/content/lesson-thirty-eight-a11-meal-survey-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -8,10 +6,12 @@ import {
     type MealSurveyListeningModel,
     type MealSurveyListeningResponse,
 } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening, verifyCommittedPublicAsset } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '596a4499996bd9599a169a8ae9171a0e78fe22a7f9d92bce7045203b794baf25';
 const WORKSHEET_SHA256 = '3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9';
 const IMAGE_SHA256 = '18b086df7e2a30592a4a07d60f5fcb575cc2415e02f1b18c6dcfce415f7bb868';
+const AUDIO_LOCATOR = 'academy/content/moodle/audio/l2-l13-a11.mp3';
 const AUDIO_URL = '/academy/content/listening/media/academy-listening-596a4499996bd959.mp3';
 const IMAGE_URL = '/academy/content/lessons/l2-l13/moodle-a11-meal-survey-page-1.png';
 const SOURCE_PREFIX = `moodle:8121266:${WORKSHEET_SHA256}:pdf-p1:a11-meal-survey`;
@@ -125,17 +125,13 @@ describe('Lesson 38 exact Moodle A-11 meal-survey listening', () => {
     });
 
     it('proves exact byte mirrors, seven bindings, lesson route, offline cache, and honest ledger', async () => {
-        const sourceAudio = readFileSync(path.resolve('artifacts/yomu-academy/source-pipeline/payloads', AUDIO_SHA256));
-        const publicAudio = readFileSync(path.resolve('public', AUDIO_URL.slice(1)));
-        const docsAudio = readFileSync(path.resolve('docs/public', AUDIO_URL.slice(1)));
-        expect(sourceAudio.byteLength).toBe(1_335_328);
-        expect(createHash('sha256').update(sourceAudio).digest('hex')).toBe(AUDIO_SHA256);
-        expect(publicAudio).toEqual(sourceAudio);
-        expect(docsAudio).toEqual(sourceAudio);
-
-        const publicImage = readFileSync(path.resolve('public', IMAGE_URL.slice(1)));
-        expect(createHash('sha256').update(publicImage).digest('hex')).toBe(IMAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public', IMAGE_URL.slice(1)))).toEqual(publicImage);
+        verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
+            sha256: AUDIO_SHA256,
+            bytes: 1_335_328,
+        });
+        verifyCommittedPublicAsset({ url: IMAGE_URL, sha256: IMAGE_SHA256 });
 
         const bindings = JSON.parse(readFileSync('public/academy/content/listening/listening-task-bindings.v1.json', 'utf8'));
         const a11 = bindings.entries.filter((entry: { packageId: string; sourceQuestionId: string }) => (

@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtySevenTrack79FavorDirectionBeat } from '../../src/academy/content/lesson-thirty-seven-track-79-favor-direction';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -8,10 +6,12 @@ import {
     type FavorDirectionListeningModel,
     type FavorDirectionListeningResponse,
 } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening, verifyCommittedPublicAsset } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e';
 const WORKSHEET_SHA256 = '3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617';
 const IMAGE_SHA256 = '8fbb6b9881e26e31bb614c0b3a2048780c3b590d457e9418a7ffeec7f828bc8c';
+const AUDIO_LOCATOR = 'academy/content/moodle/audio/l2-l12-track-79.mp3';
 const AUDIO_URL = '/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3';
 const IMAGE_URL = '/academy/content/lessons/l2-l12/moodle-track-79-favor-direction-page-2.png';
 const SOURCE_PREFIX = `moodle:8121261:${WORKSHEET_SHA256}:pdf-p2:track79-favor-direction`;
@@ -134,17 +134,13 @@ describe('Lesson 37 exact Moodle Track 79 favor-direction listening', () => {
     });
 
     it('proves exact byte mirrors, bindings, route order, offline cache, ledgers, and quarantine boundaries', async () => {
-        const sourceAudio = readFileSync(path.resolve('artifacts/yomu-academy/source-pipeline/payloads', AUDIO_SHA256));
-        const publicAudio = readFileSync(path.resolve('public', AUDIO_URL.slice(1)));
-        const docsAudio = readFileSync(path.resolve('docs/public', AUDIO_URL.slice(1)));
-        expect(sourceAudio.byteLength).toBe(1_267_924);
-        expect(createHash('sha256').update(sourceAudio).digest('hex')).toBe(AUDIO_SHA256);
-        expect(publicAudio).toEqual(sourceAudio);
-        expect(docsAudio).toEqual(sourceAudio);
-
-        const publicImage = readFileSync(path.resolve('public', IMAGE_URL.slice(1)));
-        expect(createHash('sha256').update(publicImage).digest('hex')).toBe(IMAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public', IMAGE_URL.slice(1)))).toEqual(publicImage);
+        verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
+            sha256: AUDIO_SHA256,
+            bytes: 1_267_924,
+        });
+        verifyCommittedPublicAsset({ url: IMAGE_URL, sha256: IMAGE_SHA256 });
 
         const bindings = JSON.parse(readFileSync('public/academy/content/listening/listening-task-bindings.v1.json', 'utf8'));
         const track79 = bindings.entries.filter((entry: { packageId: string; sourceQuestionId: string }) => (

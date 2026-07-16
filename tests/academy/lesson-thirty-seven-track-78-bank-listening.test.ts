@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtySevenTrack78BankListeningBeat } from '../../src/academy/content/lesson-thirty-seven-track-78-bank-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import {
@@ -8,10 +6,12 @@ import {
     type BankListeningClozeModel,
     type BankListeningClozeResponse,
 } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening, verifyCommittedPublicAsset } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2';
 const WORKSHEET_SHA256 = '3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617';
 const IMAGE_SHA256 = '07ae4ae9fa5441f99bf5542d4199215433cc56ddddc4f1ab968d7533c4bd3ef4';
+const AUDIO_LOCATOR = 'academy/content/moodle/audio/l2-l12-track-78.mp3';
 const AUDIO_URL = '/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3';
 const IMAGE_URL = '/academy/content/lessons/l2-l12/moodle-track-78-bank-listening-page-1.png';
 const SOURCE_PREFIX = `moodle:8121261:${WORKSHEET_SHA256}:pdf-p1:track78-bank`;
@@ -139,17 +139,13 @@ describe('Lesson 37 exact Moodle Track 78 bank listening', () => {
     });
 
     it('proves byte mirrors, exact bindings, route order, cache, ledger, and quarantine boundaries', async () => {
-        const sourceAudio = readFileSync(path.resolve('artifacts/yomu-academy/source-pipeline/payloads', AUDIO_SHA256));
-        const publicAudio = readFileSync(path.resolve('public', AUDIO_URL.slice(1)));
-        const docsAudio = readFileSync(path.resolve('docs/public', AUDIO_URL.slice(1)));
-        expect(sourceAudio.byteLength).toBe(1_221_637);
-        expect(createHash('sha256').update(sourceAudio).digest('hex')).toBe(AUDIO_SHA256);
-        expect(publicAudio).toEqual(sourceAudio);
-        expect(docsAudio).toEqual(sourceAudio);
-
-        const publicImage = readFileSync(path.resolve('public', IMAGE_URL.slice(1)));
-        expect(createHash('sha256').update(publicImage).digest('hex')).toBe(IMAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public', IMAGE_URL.slice(1)))).toEqual(publicImage);
+        verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
+            sha256: AUDIO_SHA256,
+            bytes: 1_221_637,
+        });
+        verifyCommittedPublicAsset({ url: IMAGE_URL, sha256: IMAGE_SHA256 });
 
         const bindings = JSON.parse(readFileSync('public/academy/content/listening/listening-task-bindings.v1.json', 'utf8'));
         const track78 = bindings.entries.filter((entry: { packageId: string; sourceQuestionId: string }) => (

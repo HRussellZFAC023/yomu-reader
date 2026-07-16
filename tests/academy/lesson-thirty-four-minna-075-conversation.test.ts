@@ -1,12 +1,13 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { createLessonThirtyFourMinna075ConversationBeat } from '../../src/academy/content/lesson-thirty-four-minna-075-conversation';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type ConversationListeningCheckModel, type ConversationListeningCheckResponse } from '../../src/academy/minigames';
+import { verifyCommittedPackagedListening, verifyCommittedPublicAsset } from './helpers/source-verification';
 
 const AUDIO_SHA256 = '360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834';
 const WORKSHEET_SHA256 = 'c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0';
+const AUDIO_LOCATOR = 'academy/content/minna/audio/l2-l09-minna-075.mp3';
+const AUDIO_URL = '/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3';
 
 function model(): ConversationListeningCheckModel {
     return createLessonThirtyFourMinna075ConversationBeat().activity as ConversationListeningCheckModel;
@@ -107,19 +108,17 @@ describe('Lesson 34 exact Minna 075 room-search listening', () => {
     });
 
     it('mirrors exact source bytes, binds every task offline, and records only this reviewed claim', async () => {
-        const assets = [
-            ['public/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3', AUDIO_SHA256],
-            ['public/academy/content/lessons/l2-l09/moodle-chapter-22-conversation-page-1.png', 'b28a169dac64414fd20e35345e9f5f4e8f5d4261c1a78b396f35542de9c12105'],
-        ] as const;
-        for (const [file, digest] of assets) {
-            const publicBytes = readFileSync(path.resolve(file));
-            const docsBytes = readFileSync(path.resolve('docs/public', file.replace(/^public\//u, '')));
-            expect(createHash('sha256').update(publicBytes).digest('hex')).toBe(digest);
-            expect(docsBytes).toEqual(publicBytes);
-        }
-        expect(createHash('sha256').update(readFileSync(path.resolve(
-            'artifacts/yomu-academy/source-pipeline/payloads/360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834',
-        ))).digest('hex')).toBe(AUDIO_SHA256);
+        verifyCommittedPackagedListening({
+            locator: AUDIO_LOCATOR,
+            url: AUDIO_URL,
+            sha256: AUDIO_SHA256,
+            bytes: 1_039_726,
+        });
+        const imageUrl = '/academy/content/lessons/l2-l09/moodle-chapter-22-conversation-page-1.png';
+        verifyCommittedPublicAsset({
+            url: imageUrl,
+            sha256: 'b28a169dac64414fd20e35345e9f5f4e8f5d4261c1a78b396f35542de9c12105',
+        });
 
         const bindings = JSON.parse(readFileSync('public/academy/content/listening/listening-task-bindings.v1.json', 'utf8'));
         const minna075 = bindings.entries.filter((entry: { packageId: string; sourceQuestionId: string }) => (
@@ -135,7 +134,7 @@ describe('Lesson 34 exact Minna 075 room-search listening', () => {
         const chapter = await loadLessonActivityChapter('l2-l09', { lookup: async () => null });
         expect(chapter?.beats.map(beat => beat.id)).toEqual(['sensei-particle-signal-mixer', 'sensei-minna-075-conversation']);
         const workers = [readFileSync('public/academy/sw.js', 'utf8'), readFileSync('docs/public/academy/sw.js', 'utf8')];
-        workers.forEach(worker => assets.forEach(([file]) => expect(worker).toContain(`'/${file.replace(/^public\//u, '')}'`)));
+        workers.forEach(worker => [AUDIO_URL, imageUrl].forEach(url => expect(worker).toContain(`'${url}'`)));
 
         const ledger = JSON.parse(readFileSync('public/academy/content/RESOURCE-LEDGER.json', 'utf8'));
         expect(ledger.worksheetDigitisation.additionalSlices.find((slice: { lessonId: string }) => slice.lessonId === 'l2-l09')).toMatchObject({
