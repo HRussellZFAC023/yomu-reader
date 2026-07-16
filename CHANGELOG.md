@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.165] - 2026-07-16
+
+### Fixed
+
+- The hosted docs homepage now annotates its own Japanese chrome: the hero headline and tagline, the navigation bar, the install panel, and the next-step grid receive the same passive residual coverage as every other site, so no visible Japanese text stays bare in Japanese mode. Link navigation is preserved and decoration stays bounded by the per-element layout guards.
+- The audio service kill-switch now also disables the raw audio object route, so disabling the service stops serving audio bytes instead of only hiding lookups.
+- Defined the missing success, warning, muted-text, and muted-surface colour tokens, restoring the green confidence badges, the active Anki deck toggle accent, and dictionary card backgrounds that undefined token references silently dropped.
+
 ## [1.6.164] - 2026-07-16
 
 ### Fixed
