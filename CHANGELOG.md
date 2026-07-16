@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.166] - 2026-07-16
+
+### Fixed
+
+- Web-component sites now annotate correctly end to end: Yomu's stylesheet reaches open shadow roots (fixing doubled text such as Reddit's join button and sort menu), component re-renders schedule rescans so buttons no longer wait for a tap to gain their annotations, and Japanese nested more than four component layers deep (Reddit's sort order and pinned labels) is covered by a bounded continuation instead of silently dropped.
+- Short chrome labels that truncate sideways, such as the mobile YouTube share button, keep their full text: horizontally clipped ellipsis rows now route readings to the detached channel instead of stretching the label into its ellipsis.
+- Subtitle and reading annotations over video controls disappear together with the controls: overlay mirrors inherit the page's own visibility instead of forcing themselves visible, so no stray underline floats over the video after YouTube fades its control bar.
+- Yomu subtitles now bind on mobile YouTube Shorts: the player-frame resolver understands the mobile reel cells, so the recycled off-screen video element no longer fails the visibility gates.
+
 ## [1.6.165] - 2026-07-16
 
 ### Fixed

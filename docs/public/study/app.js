@@ -5994,7 +5994,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
   }
   function clipsOverflow(style) {
-    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
   }
   function hasDefiniteCssSize(value) {
     const normalized = value.trim().toLowerCase();
@@ -6656,6 +6656,51 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
       return null;
     }
+  }
+  const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
+  let shadowReaderCssText = "";
+  let sharedShadowSheet;
+  const adoptedShadowRoots = /* @__PURE__ */ new WeakSet();
+  const clonedShadowStyleNodes = /* @__PURE__ */ new Set();
+  function supportsConstructableSheets(root) {
+    if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in root)) return false;
+    if (sharedShadowSheet !== void 0) return sharedShadowSheet !== null;
+    try {
+      sharedShadowSheet = new CSSStyleSheet();
+      sharedShadowSheet.replaceSync(shadowReaderCssText);
+    } catch {
+      sharedShadowSheet = null;
+    }
+    return sharedShadowSheet !== null;
+  }
+  function ensureReaderStylesForHost(host) {
+    const root = host.getRootNode();
+    if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot)) return;
+    ensureReaderStylesInShadowRoot(root);
+  }
+  function ensureReaderStylesInShadowRoot(root) {
+    if (adoptedShadowRoots.has(root)) return;
+    adoptedShadowRoots.add(root);
+    if (supportsConstructableSheets(root) && sharedShadowSheet) {
+      try {
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedShadowSheet];
+        return;
+      } catch {
+      }
+    }
+    if (root.querySelector(`style[${SHADOW_STYLE_MARKER}]`)) return;
+    const style = root.ownerDocument.createElement("style");
+    style.setAttribute(SHADOW_STYLE_MARKER, "true");
+    style.textContent = shadowReaderCssText;
+    root.append(style);
+    clonedShadowStyleNodes.add(new WeakRef(style));
+  }
+  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+  const scannedShadowRoots = /* @__PURE__ */ new WeakSet();
+  function noteScannedShadowRoot(root) {
+    if (scannedShadowRoots.has(root)) return;
+    scannedShadowRoots.add(root);
+    scannedShadowRootRefs.add(new WeakRef(root));
   }
   function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
     return right > rect.left && bottom > rect.top;
@@ -9070,12 +9115,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SHADOW_SCAN_MAX_DEPTH = 4;
   const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
   function visitFragmentShadowRoot(element, state2) {
-    if (state2.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
     const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
+    if (state2.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
+      deferDepthCappedShadowHost(element);
+      return;
+    }
     if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state2.shadowDepth)) return;
     flushFragmentTextTarget(state2);
     if (fragmentCollectionComplete(state2)) return;
+    noteScannedShadowRoot(shadowRoot);
     state2.shadowDepth += 1;
     for (const child of Array.from(shadowRoot.childNodes)) {
       visitFragmentNode(child, state2, false);
@@ -9086,14 +9135,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shadowBranchHasJapanese(root, remainingDepth) {
     if (HAS_JAPANESE.test(root.textContent ?? "")) return true;
-    if (remainingDepth <= 1) return false;
+    if (remainingDepth <= 1) {
+      return shadowRootHasNestedShadowRoot(root);
+    }
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
       const element = node;
       const nested = element.shadowRoot;
       if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+      if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
+        return true;
+      }
     }
     return false;
+  }
+  function shadowRootHasNestedShadowRoot(root) {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
+      if (node.shadowRoot) return true;
+    }
+    return false;
+  }
+  const depthCappedShadowHosts = /* @__PURE__ */ new Set();
+  const depthCappedShadowHostSeen = /* @__PURE__ */ new WeakSet();
+  function deferDepthCappedShadowHost(element) {
+    if (depthCappedShadowHostSeen.has(element)) return;
+    depthCappedShadowHostSeen.add(element);
+    depthCappedShadowHosts.add(new WeakRef(element));
   }
   function shouldIgnoreFragmentElement(element, options) {
     return isRubyAnnotationElement(element) || isSurfaceIgnoredElement(element) || isExcludedReaderRootElement(element, options);
@@ -9927,6 +9995,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       stampMirrorWordSourceRanges(mirror, context.safeTokens);
+      ensureReaderStylesForHost(host);
       host.append(mirror);
       registerTextMirrorOwner(mirror, host);
       state2.mirror = new WeakRef(mirror);
@@ -10443,6 +10512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       restoreControlTextMirrorHost(host, state2);
       return;
     }
+    ensureReaderStylesForHost(host);
     host.insertAdjacentElement("afterend", mirror);
     observeControlTextMirrorHost(host, state2);
   }
@@ -10496,6 +10566,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!layer.textContent?.trim()) return;
     const state2 = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
     canvasFallbackTextLayers.set(context.canvas, state2);
+    ensureReaderStylesForHost(context.host);
     context.host.append(layer);
   }
   function currentCanvasFallbackTextLayer(canvas) {
@@ -10690,7 +10761,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     mirror.style.setProperty("height", "auto");
     mirror.style.setProperty("overflow", "visible");
-    mirror.style.setProperty("visibility", "visible", "important");
     mirror.style.setProperty("pointer-events", "none");
     mirror.style.setProperty("white-space", style.whiteSpace);
     mirror.style.setProperty("font", style.font);
@@ -10917,12 +10987,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     textMirrorHosts.delete(host);
   }
   function syncTextMirrorVisibilityToPage(host, mirror) {
-    mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
+    if (pageConcealsTextMirrorHost(host)) mirror.style.setProperty("visibility", "hidden", "important");
+    else mirror.style.removeProperty("visibility");
   }
   function pageConcealsTextMirrorHost(host) {
     for (let element = host.parentElement; element; element = element.parentElement) {
       const style = safeComputedStyle(element);
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
+      if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
+      if (style.contentVisibility === "hidden") return true;
     }
     return false;
   }
@@ -42080,7 +42153,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.165".trim() ? "1.6.165".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.166".trim() ? "1.6.166".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -50427,11 +50500,28 @@ ${spelling}`);
     }
     return subtitleVideoLayoutTarget(video)?.getBoundingClientRect() ?? new DOMRect(0, 0, visibleViewportWidth(), visibleViewportHeight());
   }
+  const YOUTUBE_PLAYER_FRAME_SELECTORS = [
+    "#movie_player",
+    ".html5-video-player",
+    "ytm-player",
+    "ytd-player",
+    "ytd-reel-video-renderer",
+    "ytd-shorts",
+    "shorts-video",
+    "shorts-page",
+    "shorts-carousel",
+    "#shorts-player"
+  ];
+  function youtubePlayerFrameForVideo(video) {
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+      const frame = video.closest(selector);
+      if (frame) return frame;
+    }
+    return void 0;
+  }
   function subtitleVideoLayoutTarget(video) {
     if (!video) return void 0;
-    if (isYouTubePage$1()) {
-      return video.closest("#movie_player") ?? video.closest(".html5-video-player") ?? video.closest("ytd-player") ?? video;
-    }
+    if (isYouTubePage$1()) return youtubePlayerFrameForVideo(video) ?? video;
     return genericVideoLayoutTarget(video);
   }
   function transcriptAvoidanceTarget(video) {
@@ -50614,8 +50704,7 @@ ${spelling}`);
   }
   function youtubeVisiblePlayerRect() {
     const rects = [
-      "#movie_player",
-      ".html5-video-player",
+      ...YOUTUBE_PLAYER_FRAME_SELECTORS,
       "ytd-watch-flexy #player-container-inner",
       "ytd-watch-flexy #player-container-outer",
       "ytd-watch-flexy #player"
@@ -50623,15 +50712,8 @@ ${spelling}`);
     return rects.sort(compareVideoLayoutRects)[0];
   }
   function youtubePlayerRectForVideo(video) {
-    const candidates = [
-      video.closest("#movie_player"),
-      video.closest(".html5-video-player"),
-      video.closest("ytd-player"),
-      video.closest("ytd-reel-video-renderer"),
-      video.closest("ytd-shorts")
-    ];
-    for (const element of candidates) {
-      const rect2 = element?.getBoundingClientRect();
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+      const rect2 = video.closest(selector)?.getBoundingClientRect();
       if (usableVideoRect(rect2)) return rect2;
     }
     const rect = video.getBoundingClientRect();

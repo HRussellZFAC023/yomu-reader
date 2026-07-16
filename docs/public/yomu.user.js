@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.165
+// @version 1.6.166
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.165#sha256=sxz6s0fLWvL+p2ffj2pKQ9JQ7G7kYaFTE2gr8J/qzRs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.165#sha256=TjaS8EDuD8aw7+KUVj8YxvxDyb7BtIMVIgOU0OdEny0=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.165#sha256=WoOM4JsDuGUrlJeLJ1AMp91GwCs0DlMZYjvHD4cJVes=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.165#sha256=fGeqkZrhjMHPsx9UfwAeIGL4A9oGfwTYLSrsto2NwAw=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.165#sha256=tSECcQLxCnMU0n1JFQi6KPnwQgRnOwo5tAO5h1udJCs=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.165#sha256=hJqbzxxyizel89xQE4fSKNByCiusCe6Z8ZM+nU/djN0=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.165#sha256=WVnATQXfx4ZQvAuxzlTxJVT1jl61TVnp4Xze+TIamVw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.166#sha256=sxz6s0fLWvL+p2ffj2pKQ9JQ7G7kYaFTE2gr8J/qzRs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.166#sha256=TjaS8EDuD8aw7+KUVj8YxvxDyb7BtIMVIgOU0OdEny0=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.166#sha256=WoOM4JsDuGUrlJeLJ1AMp91GwCs0DlMZYjvHD4cJVes=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.166#sha256=fGeqkZrhjMHPsx9UfwAeIGL4A9oGfwTYLSrsto2NwAw=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.166#sha256=XYlQqOn+3zFDhfKd2R5jXiRBfS6FTO42gedp63X5Y2w=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.166#sha256=CdRTolh9JOJS0BpVep1RVhyouQ2K4irfiZlNx5rLs1E=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.166#sha256=WVnATQXfx4ZQvAuxzlTxJVT1jl61TVnp4Xze+TIamVw=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -310,7 +310,7 @@ function isEllipsisTextRow(style) {
   return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
 }
 function clipsOverflow(style) {
-  return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+  return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
 }
 function hasDefiniteCssSize(value) {
   const normalized = value.trim().toLowerCase();
@@ -1241,6 +1241,85 @@ function createTrustedHtmlPolicyWithOptions(factory, options) {
   return factory.createPolicy?.("yomu-reader", options) ?? null;
   } catch {
   return null;
+  }
+}
+const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
+let shadowReaderCssText = "";
+let sharedShadowSheet;
+const adoptedShadowRoots = new WeakSet();
+const clonedShadowStyleNodes = new Set();
+function supportsConstructableSheets(root) {
+  if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in root)) return false;
+  if (sharedShadowSheet !== void 0) return sharedShadowSheet !== null;
+  try {
+  sharedShadowSheet = new CSSStyleSheet();
+  sharedShadowSheet.replaceSync(shadowReaderCssText);
+  } catch {
+  sharedShadowSheet = null;
+  }
+  return sharedShadowSheet !== null;
+}
+function setShadowReaderCss(css) {
+  if (css === shadowReaderCssText) return;
+  shadowReaderCssText = css;
+  if (sharedShadowSheet) {
+  try {
+    sharedShadowSheet.replaceSync(css);
+  } catch {
+  }
+  }
+  for (const ref of clonedShadowStyleNodes) {
+  const node = ref.deref();
+  if (!node || !node.isConnected) {
+    clonedShadowStyleNodes.delete(ref);
+    continue;
+  }
+  node.textContent = css;
+  }
+}
+function ensureReaderStylesForHost(host) {
+  const root = host.getRootNode();
+  if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot)) return;
+  ensureReaderStylesInShadowRoot(root);
+}
+function ensureReaderStylesInShadowRoot(root) {
+  if (adoptedShadowRoots.has(root)) return;
+  adoptedShadowRoots.add(root);
+  if (supportsConstructableSheets(root) && sharedShadowSheet) {
+  try {
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedShadowSheet];
+    return;
+  } catch {
+  }
+  }
+  if (root.querySelector(`style[${SHADOW_STYLE_MARKER}]`)) return;
+  const style = root.ownerDocument.createElement("style");
+  style.setAttribute(SHADOW_STYLE_MARKER, "true");
+  style.textContent = shadowReaderCssText;
+  root.append(style);
+  clonedShadowStyleNodes.add(new WeakRef(style));
+}
+const scannedShadowRootRefs = new Set();
+const scannedShadowRoots = new WeakSet();
+let shadowRootScanHook = null;
+function noteScannedShadowRoot(root) {
+  if (scannedShadowRoots.has(root)) return;
+  scannedShadowRoots.add(root);
+  scannedShadowRootRefs.add(new WeakRef(root));
+  shadowRootScanHook?.(root);
+}
+function setShadowRootScanHook(hook) {
+  shadowRootScanHook = hook;
+  if (hook) forEachScannedShadowRoot(hook);
+}
+function forEachScannedShadowRoot(callback) {
+  for (const ref of scannedShadowRootRefs) {
+  const root = ref.deref();
+  if (!root || !root.host?.isConnected) {
+    scannedShadowRootRefs.delete(ref);
+    continue;
+  }
+  callback(root);
   }
 }
 function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
@@ -5307,12 +5386,16 @@ function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
 const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 function visitFragmentShadowRoot(element2, state) {
-  if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
   const shadowRoot = element2.shadowRoot;
   if (!shadowRoot) return;
+  if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
+  deferDepthCappedShadowHost(element2);
+  return;
+  }
   if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
   flushFragmentTextTarget(state);
   if (fragmentCollectionComplete(state)) return;
+  noteScannedShadowRoot(shadowRoot);
   state.shadowDepth += 1;
   for (const child of Array.from(shadowRoot.childNodes)) {
   visitFragmentNode(child, state, false);
@@ -5323,14 +5406,43 @@ function visitFragmentShadowRoot(element2, state) {
 }
 function shadowBranchHasJapanese(root, remainingDepth) {
   if (HAS_JAPANESE$1.test(root.textContent ?? "")) return true;
-  if (remainingDepth <= 1) return false;
+  if (remainingDepth <= 1) {
+  return shadowRootHasNestedShadowRoot(root);
+  }
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
   const element2 = node;
   const nested = element2.shadowRoot;
   if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+  if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
+    return true;
+  }
   }
   return false;
+}
+function shadowRootHasNestedShadowRoot(root) {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
+  if (node.shadowRoot) return true;
+  }
+  return false;
+}
+const depthCappedShadowHosts = new Set();
+const depthCappedShadowHostSeen = new WeakSet();
+function deferDepthCappedShadowHost(element2) {
+  if (depthCappedShadowHostSeen.has(element2)) return;
+  depthCappedShadowHostSeen.add(element2);
+  depthCappedShadowHosts.add(new WeakRef(element2));
+}
+function drainDepthCappedShadowHosts() {
+  const hosts = [];
+  for (const ref of depthCappedShadowHosts) {
+  const host = ref.deref();
+  if (host) depthCappedShadowHostSeen.delete(host);
+  if (host?.isConnected) hosts.push(host);
+  }
+  depthCappedShadowHosts.clear();
+  return hosts;
 }
 function shouldIgnoreFragmentElement(element2, options) {
   return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
@@ -6125,6 +6237,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     return;
   }
   stampMirrorWordSourceRanges(mirror, context.safeTokens);
+  ensureReaderStylesForHost(host);
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
   state.mirror = new WeakRef(mirror);
@@ -6704,6 +6817,7 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   restoreControlTextMirrorHost(host, state);
   return;
   }
+  ensureReaderStylesForHost(host);
   host.insertAdjacentElement("afterend", mirror);
   observeControlTextMirrorHost(host, state);
 }
@@ -6757,6 +6871,7 @@ function mountCanvasFallbackTextLayer(target, context) {
   if (!layer.textContent?.trim()) return;
   const state = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
   canvasFallbackTextLayers.set(context.canvas, state);
+  ensureReaderStylesForHost(context.host);
   context.host.append(layer);
 }
 function currentCanvasFallbackTextLayer(canvas) {
@@ -6951,7 +7066,6 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   }
   mirror.style.setProperty("height", "auto");
   mirror.style.setProperty("overflow", "visible");
-  mirror.style.setProperty("visibility", "visible", "important");
   mirror.style.setProperty("pointer-events", "none");
   mirror.style.setProperty("white-space", style.whiteSpace);
   mirror.style.setProperty("font", style.font);
@@ -7190,12 +7304,15 @@ function removeTextMirror(host) {
   textMirrorHosts.delete(host);
 }
 function syncTextMirrorVisibilityToPage(host, mirror) {
-  mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host) ? "hidden" : "visible", "important");
+  if (pageConcealsTextMirrorHost(host)) mirror.style.setProperty("visibility", "hidden", "important");
+  else mirror.style.removeProperty("visibility");
 }
 function pageConcealsTextMirrorHost(host) {
   for (let element2 = host.parentElement; element2; element2 = element2.parentElement) {
   const style = safeComputedStyle(element2);
   if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
+  if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
+  if (style.contentVisibility === "hidden") return true;
   }
   return false;
 }
@@ -29790,7 +29907,41 @@ function siteScanResult(profiles, targets) {
 function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
   return scanTargetCollectionSteps(limit, href, options);
 }
+const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
 function* scanTargetCollectionSteps(limit, href, options) {
+  const matchingProfiles = getMatchingSiteParsers(href);
+  const targets = yield* scanTargetPhaseSteps(limit, href, options);
+  return yield* withDeferredShadowScanTargets(targets, effectiveScanTargetLimit(matchingProfiles, limit), matchingProfiles);
+}
+function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
+  let targets = baseTargets;
+  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
+  for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
+  const remaining = effectiveLimit - targets.length;
+  const hosts = drainDepthCappedShadowHosts();
+  if (!hosts.length || remaining <= 0) break;
+  yield;
+  const seen = seenTextNodes(targets);
+  const collected = [];
+  for (const host of hosts) {
+    if (collected.length >= remaining) break;
+    const hostTargets = collectFragmentTextTargetsIn(host, remaining - collected.length, true, residualVisibleJapaneseExcludeSelector(profiles), {
+      allowUiText: true,
+      includeUiChrome: true,
+      includeFormChrome: true,
+      includeTabChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1
+    }).filter((target) => target.fragments.every((fragment) => !seen.has(fragment.node)));
+    collected.push(...hostTargets);
+  }
+  if (!collected.length) continue;
+  targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
+  }
+  return targets;
+}
+function* scanTargetPhaseSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
   const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
   const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
@@ -36134,8 +36285,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.165"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.165"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.166"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.166"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -36252,7 +36403,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.165"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.166"}`;
   } catch {
   return null;
   }
@@ -38009,10 +38160,12 @@ class ReaderApp {
   const style = document.createElement("style");
   style.textContent = hasLinkedReaderCss ? "" : initialReaderCss(READER_CSS);
   appendToDocumentHead(style);
+  setShadowReaderCss(initialReaderCss(READER_CSS));
   if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
   void loadReaderCssFallback().then((css) => {
     if (!css || this.isDestroyed) return;
     style.textContent = css;
+    setShadowReaderCss(css);
     this.applyTheme();
   }).catch((error) => {
     log.warn("Reader CSS fallback load failed", error);
@@ -38578,6 +38731,7 @@ class ReaderApp {
   window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
   window.clearTimeout(this.themeContrastRefreshTimer);
   document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+  setShadowRootScanHook(null);
   this.autoScanObserver?.disconnect();
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
@@ -38661,6 +38815,9 @@ class ReaderApp {
       this.scheduleJpdbPageEnhancements(500);
     }
   });
+  setShadowRootScanHook((root) => {
+    if (!this.isDestroyed) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+  });
   this.observeAutoScanMutations();
   window.addEventListener("scroll", (event) => {
     if (eventTargetsReaderRoot(event)) return;
@@ -38690,6 +38847,7 @@ class ReaderApp {
     return;
   }
   this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
+  forEachScannedShadowRoot((root) => this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS));
   }
   shouldScanEmbeddedFrame() {
   return /(^|\.)youtube\.com$/i.test(location.hostname) && (location.pathname === "/live_chat" || location.pathname === "/live_chat_replay");

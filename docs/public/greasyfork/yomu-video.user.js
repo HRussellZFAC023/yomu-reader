@@ -7307,11 +7307,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return subtitleVideoLayoutTarget(video)?.getBoundingClientRect() ?? new DOMRect(0, 0, visibleViewportWidth(), visibleViewportHeight());
   }
+  const YOUTUBE_PLAYER_FRAME_SELECTORS = [
+    "#movie_player",
+    ".html5-video-player",
+    "ytm-player",
+    "ytd-player",
+    "ytd-reel-video-renderer",
+    "ytd-shorts",
+    "shorts-video",
+    "shorts-page",
+    "shorts-carousel",
+    "#shorts-player"
+  ];
+  function youtubePlayerFrameForVideo(video) {
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+      const frame = video.closest(selector);
+      if (frame) return frame;
+    }
+    return void 0;
+  }
   function subtitleVideoLayoutTarget(video) {
     if (!video) return void 0;
-    if (isYouTubePage$1()) {
-      return video.closest("#movie_player") ?? video.closest(".html5-video-player") ?? video.closest("ytd-player") ?? video;
-    }
+    if (isYouTubePage$1()) return youtubePlayerFrameForVideo(video) ?? video;
     return genericVideoLayoutTarget(video);
   }
   function transcriptAvoidanceTarget(video) {
@@ -7494,8 +7511,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function youtubeVisiblePlayerRect() {
     const rects = [
-      "#movie_player",
-      ".html5-video-player",
+      ...YOUTUBE_PLAYER_FRAME_SELECTORS,
       "ytd-watch-flexy #player-container-inner",
       "ytd-watch-flexy #player-container-outer",
       "ytd-watch-flexy #player"
@@ -7503,15 +7519,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rects.sort(compareVideoLayoutRects)[0];
   }
   function youtubePlayerRectForVideo(video) {
-    const candidates = [
-      video.closest("#movie_player"),
-      video.closest(".html5-video-player"),
-      video.closest("ytd-player"),
-      video.closest("ytd-reel-video-renderer"),
-      video.closest("ytd-shorts")
-    ];
-    for (const element of candidates) {
-      const rect2 = element?.getBoundingClientRect();
+    for (const selector of YOUTUBE_PLAYER_FRAME_SELECTORS) {
+      const rect2 = video.closest(selector)?.getBoundingClientRect();
       if (usableVideoRect(rect2)) return rect2;
     }
     const rect = video.getBoundingClientRect();

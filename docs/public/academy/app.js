@@ -19373,7 +19373,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
   }
   function clipsOverflow(style) {
-    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
   }
   function hasDefiniteCssSize(value) {
     const normalized2 = value.trim().toLowerCase();
@@ -20028,6 +20028,51 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
       return null;
     }
+  }
+  const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
+  let shadowReaderCssText = "";
+  let sharedShadowSheet;
+  const adoptedShadowRoots = /* @__PURE__ */ new WeakSet();
+  const clonedShadowStyleNodes = /* @__PURE__ */ new Set();
+  function supportsConstructableSheets(root) {
+    if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in root)) return false;
+    if (sharedShadowSheet !== void 0) return sharedShadowSheet !== null;
+    try {
+      sharedShadowSheet = new CSSStyleSheet();
+      sharedShadowSheet.replaceSync(shadowReaderCssText);
+    } catch {
+      sharedShadowSheet = null;
+    }
+    return sharedShadowSheet !== null;
+  }
+  function ensureReaderStylesForHost(host2) {
+    const root = host2.getRootNode();
+    if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot)) return;
+    ensureReaderStylesInShadowRoot(root);
+  }
+  function ensureReaderStylesInShadowRoot(root) {
+    if (adoptedShadowRoots.has(root)) return;
+    adoptedShadowRoots.add(root);
+    if (supportsConstructableSheets(root) && sharedShadowSheet) {
+      try {
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedShadowSheet];
+        return;
+      } catch {
+      }
+    }
+    if (root.querySelector(`style[${SHADOW_STYLE_MARKER}]`)) return;
+    const style = root.ownerDocument.createElement("style");
+    style.setAttribute(SHADOW_STYLE_MARKER, "true");
+    style.textContent = shadowReaderCssText;
+    root.append(style);
+    clonedShadowStyleNodes.add(new WeakRef(style));
+  }
+  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+  const scannedShadowRoots = /* @__PURE__ */ new WeakSet();
+  function noteScannedShadowRoot(root) {
+    if (scannedShadowRoots.has(root)) return;
+    scannedShadowRoots.add(root);
+    scannedShadowRootRefs.add(new WeakRef(root));
   }
   function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
     return right > rect.left && bottom > rect.top;
@@ -22442,12 +22487,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SHADOW_SCAN_MAX_DEPTH = 4;
   const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
   function visitFragmentShadowRoot(element2, state) {
-    if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
     const shadowRoot = element2.shadowRoot;
     if (!shadowRoot) return;
+    if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
+      deferDepthCappedShadowHost(element2);
+      return;
+    }
     if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
     flushFragmentTextTarget(state);
     if (fragmentCollectionComplete(state)) return;
+    noteScannedShadowRoot(shadowRoot);
     state.shadowDepth += 1;
     for (const child of Array.from(shadowRoot.childNodes)) {
       visitFragmentNode(child, state, false);
@@ -22458,14 +22507,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shadowBranchHasJapanese(root, remainingDepth) {
     if (HAS_JAPANESE.test(root.textContent ?? "")) return true;
-    if (remainingDepth <= 1) return false;
+    if (remainingDepth <= 1) {
+      return shadowRootHasNestedShadowRoot(root);
+    }
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node2 = walker.nextNode()) {
       const element2 = node2;
       const nested = element2.shadowRoot;
       if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+      if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
+        return true;
+      }
     }
     return false;
+  }
+  function shadowRootHasNestedShadowRoot(root) {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node2 = walker.nextNode()) {
+      if (node2.shadowRoot) return true;
+    }
+    return false;
+  }
+  const depthCappedShadowHosts = /* @__PURE__ */ new Set();
+  const depthCappedShadowHostSeen = /* @__PURE__ */ new WeakSet();
+  function deferDepthCappedShadowHost(element2) {
+    if (depthCappedShadowHostSeen.has(element2)) return;
+    depthCappedShadowHostSeen.add(element2);
+    depthCappedShadowHosts.add(new WeakRef(element2));
   }
   function shouldIgnoreFragmentElement(element2, options) {
     return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
@@ -23299,6 +23367,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       stampMirrorWordSourceRanges(mirror, context.safeTokens);
+      ensureReaderStylesForHost(host2);
       host2.append(mirror);
       registerTextMirrorOwner(mirror, host2);
       state.mirror = new WeakRef(mirror);
@@ -23815,6 +23884,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       restoreControlTextMirrorHost(host2, state);
       return;
     }
+    ensureReaderStylesForHost(host2);
     host2.insertAdjacentElement("afterend", mirror);
     observeControlTextMirrorHost(host2, state);
   }
@@ -23868,6 +23938,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!layer.textContent?.trim()) return;
     const state = mountCanvasTextLayer(context.canvas, context.host, layer, context.nativeCanvas);
     canvasFallbackTextLayers.set(context.canvas, state);
+    ensureReaderStylesForHost(context.host);
     context.host.append(layer);
   }
   function currentCanvasFallbackTextLayer(canvas) {
@@ -24062,7 +24133,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     mirror.style.setProperty("height", "auto");
     mirror.style.setProperty("overflow", "visible");
-    mirror.style.setProperty("visibility", "visible", "important");
     mirror.style.setProperty("pointer-events", "none");
     mirror.style.setProperty("white-space", style.whiteSpace);
     mirror.style.setProperty("font", style.font);
@@ -24289,12 +24359,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     textMirrorHosts.delete(host2);
   }
   function syncTextMirrorVisibilityToPage(host2, mirror) {
-    mirror.style.setProperty("visibility", pageConcealsTextMirrorHost(host2) ? "hidden" : "visible", "important");
+    if (pageConcealsTextMirrorHost(host2)) mirror.style.setProperty("visibility", "hidden", "important");
+    else mirror.style.removeProperty("visibility");
   }
   function pageConcealsTextMirrorHost(host2) {
     for (let element2 = host2.parentElement; element2; element2 = element2.parentElement) {
       const style = safeComputedStyle(element2);
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
+      if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
+      if (style.contentVisibility === "hidden") return true;
     }
     return false;
   }
