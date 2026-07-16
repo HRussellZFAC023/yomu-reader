@@ -340,7 +340,7 @@ function validateModel(model: FollowModelWorkshopModel): readonly ValidationIssu
             || !text(item.sourceQuestionId) || !text(item.prompt.en) || !text(item.prompt.ja) || !text(item.answer)
             || !model.conceptIds.includes(item.conceptId)
             || item.options.length !== (item.interaction === 'typed-source' ? 0 : 2)
-            || (item.options.length > 0 && !item.options.some((option: FollowModelOption) => option.value === item.answer)))) {
+            || (item.options.length > 0 && !item.options.some(option => option.value === item.answer)))) {
         issues.push({ path: 'payload.rounds', message: 'Seven exact-source rounds with all three interaction modes are required.' });
     }
     validateFeedback(model.payload?.feedback, issues);
