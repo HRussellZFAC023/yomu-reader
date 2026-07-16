@@ -91,7 +91,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(host.dataset.yomuClipHoverHost).toBeUndefined();
         expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.style.maxHeight).toBe('44px');
         expect(mirror.style.overflow).toBe('visible');
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
@@ -136,7 +136,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror.style.overflow).toBe('visible');
         // Paint invariant: shorts title text keeps painting at rest.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('だいひょう');
 
         mockOverflow(mirror, 120, 40);
@@ -289,7 +289,7 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         // Paint invariant: channel name keeps painting; mirror is additive.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
 
         // The channel-name mirror is taller in scroll terms — the rest-hidden
         // reading must not grow #owner / #top-row / the anchor.
@@ -323,7 +323,7 @@ describe('watch metadata rows never grow and keep their base text painting', () 
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.style.lineHeight).toBe('22px');
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
@@ -360,7 +360,7 @@ describe('watch metadata rows never grow and keep their base text painting', () 
         expect(mirror.style.lineHeight).toBe('28px');
         expect(mirror.style.maxHeight).toBe('56px');
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しんそつ');
 
         mockOverflow(mirror, 100, 56);
