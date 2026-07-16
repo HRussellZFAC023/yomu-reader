@@ -26,6 +26,7 @@ const runtimeSources = [
     ['public/academy/content/RESOURCE-LEDGER.json', 'content/RESOURCE-LEDGER.json'],
     ['public/academy/content/audio', 'content/audio'],
     ['public/academy/content/listening', 'content/listening'],
+    ['public/academy/content/n2-extensive-reading', 'content/n2-extensive-reading'],
     ['public/academy/content/source-pipeline', 'content/source-pipeline'],
     ['public/academy/vendor', 'vendor'],
     ['dist/academy/app.js', 'app.js'],

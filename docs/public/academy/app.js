@@ -15261,7 +15261,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     atamadaka: "#fe4b74",
     nakadaka: "#fba840",
     odaka: "#57ccb7",
-    kifuku: "#9050f6",
     unknown: "#94a3b8"
   };
   const LOOKUP_PILL_COLOR_TOKENS = {
@@ -17163,7 +17162,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown"
   ];
   const ANKI_TEMPLATE_MODES = ["context", "recognition"];
@@ -17224,7 +17222,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
     pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
     pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
-    pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
@@ -18425,7 +18422,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
   const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
-  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -22924,7 +22921,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return value.replace(/\s+/g, " ").trim();
   }
   const OFFLINE_TRACES = {
-    "一": "/academy/vendor/kanjivg/04e00.svg"
+    "一": "/academy/vendor/kanjivg/04e00.svg",
+    "帰": "/academy/vendor/kanjivg/05e30.svg",
+    "理": "/academy/vendor/kanjivg/07406.svg"
   };
   function createCanonicalKanjiWritingService(options = {}) {
     const fetcher = options.fetcher ?? fetch;
@@ -28919,14 +28918,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     assessmentOrchestration: assessmentOrchestration$u,
     sourceActivityBindings: sourceActivityBindings$y
   };
-  const PACKAGE_ID$_ = "l2-l07";
-  const PACKAGE_ORDER$w = 34;
-  const MODULE_ID$_ = 6974653;
+  const PACKAGE_ID$10 = "l2-l07";
+  const PACKAGE_ORDER$y = 34;
+  const MODULE_ID$10 = 6974653;
   const AUDIO_SHA256$j = "2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0";
   const AUDIO_LOCATOR$9 = "academy/content/minna/audio/l2-l07-minna-074.mp3";
   const AUDIO_URL$2 = "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3";
   const SOURCE_ID = "source-minna-074-true-false";
-  const SOURCE_PREFIX$m = `moodle:${MODULE_ID$_}:${AUDIO_SHA256$j}:audio:minna074-mondai-2`;
+  const SOURCE_PREFIX$m = `moodle:${MODULE_ID$10}:${AUDIO_SHA256$j}:audio:minna074-mondai-2`;
   function createLessonThirtyTwoMinna074ListeningBeat() {
     assertExactPackageSources$S();
     const tasks2 = [
@@ -28936,7 +28935,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       task$8("woman-goes-to-gion", 4, "女の人は 祇園祭に 行きます。", "circle"),
       task$8("man-carries-bag", 5, "男の人は 女の人の かばんを 持ちます。", "cross")
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$_, item2.sourceQuestionId, AUDIO_LOCATOR$9));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$10, item2.sourceQuestionId, AUDIO_LOCATOR$9));
     if (urls.some((url) => url !== AUDIO_URL$2)) {
       throw new TypeError("Expected one exact packaged Minna 074 binding for all five truth judgements.");
     }
@@ -28952,11 +28951,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         en: "Listen to the five dialogues and closing statements in Minna 074. Mark each statement ○ if it matches the dialogue or × if it does not."
       },
       provenance: {
-        packageId: PACKAGE_ID$_,
-        packageOrder: PACKAGE_ORDER$w,
+        packageId: PACKAGE_ID$10,
+        packageOrder: PACKAGE_ORDER$y,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$_,
+          moduleId: MODULE_ID$10,
           audio: {
             sourceId: `moodle:${AUDIO_SHA256$j}:audio`,
             payloadSha256: AUDIO_SHA256$j,
@@ -29057,7 +29056,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function assertExactPackageSources$S() {
     const root = record$12(lessonPackage$L, "l2-l07 package");
     const identity2 = record$12(root.identity, "l2-l07 identity");
-    if (root.id !== PACKAGE_ID$_ || root.order !== PACKAGE_ORDER$w || identity2.moduleId !== MODULE_ID$_) {
+    if (root.id !== PACKAGE_ID$10 || root.order !== PACKAGE_ORDER$y || identity2.moduleId !== MODULE_ID$10) {
       throw new TypeError("Unexpected l2-l07 package identity.");
     }
     const coverage = record$12(root.sourceCoverage, "l2-l07 coverage");
@@ -30701,7 +30700,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return issues;
   }
   function gradeMinnaTrueFalseListening(model2, response) {
-    const answers = parseResponse$J(model2, response);
+    const answers = parseResponse$L(model2, response);
     const errors = model2.payload.tasks.flatMap((task2) => answers.get(task2.id) === task2.correctMark ? [] : [task2.errorTag]);
     return gradeFromScore((model2.payload.tasks.length - errors.length) / model2.payload.tasks.length, model2.payload.passScore, errors, model2.payload.feedback);
   }
@@ -30722,7 +30721,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }];
     });
   }
-  function parseResponse$J(model2, response) {
+  function parseResponse$L(model2, response) {
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.tasks.length) {
       throw new TypeError(`Every exact ${sourceLabel(model2)} statement needs one circle or cross response.`);
     }
@@ -30777,7 +30776,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     host2.replace(root);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const response = responseFromForm$E(model2, form);
+      const response = responseFromForm$G(model2, form);
       if (!response) {
         const message = host2.language === "ja" ? `${model2.payload.tasks.length}つすべてに○か×を付けてください。` : `Mark all ${model2.payload.tasks.length} statements with a circle or cross.`;
         status.textContent = message;
@@ -30870,7 +30869,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     support2.append(title2, transcript, answers);
     root.append(support2);
   }
-  function responseFromForm$E(model2, form) {
+  function responseFromForm$G(model2, form) {
     const data = new FormData(form);
     const answers = model2.payload.tasks.map((task2) => {
       const mark = data.get(`${model2.id}:${task2.id}`);
@@ -33713,7 +33712,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       pitchColorAtamadaka: "Atamadaka (head-high)",
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
       noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
@@ -35465,7 +35463,6 @@ pitchColorHeiban	平板
 pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
-pitchColorKifuku	起伏
 pitchColorUnknown	不明
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
@@ -45482,9 +45479,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$K,
     preStudyVocabulary: preStudyVocabulary$j
   };
-  const PACKAGE_ID$Z = "l1-l01";
-  const MODULE_ID$Z = 5777762;
-  const VOCABULARY_SHA256$r = "c6df5dd2979a7ce376ecfb5d37c813813d99819d825f17a10c2ff2e5be79220e";
+  const PACKAGE_ID$$ = "l1-l01";
+  const MODULE_ID$$ = 5777762;
+  const VOCABULARY_SHA256$s = "c6df5dd2979a7ce376ecfb5d37c813813d99819d825f17a10c2ff2e5be79220e";
   const HANDOUT_SHA256$3 = "42776eb5736dc44caff1809419e41eb189998d3dda04401262cde705676c3fe9";
   const GREETINGS_SHA256 = "843ee30241b15d04c7b1990e8c0f76640379e81be778fbb4bfdf082565e08d6c";
   const HOMEWORK_SHA256$3 = "0e047a101c7607ffc74a0b64e5b1a1ccafc6227bf0e99c7698017ac727c1e66b";
@@ -45493,7 +45490,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const provenance2 = record$11(component.provenance, "l1-l01 vocabulary provenance");
     const sourceId2 = exact$1(provenance2.sourceId, "l1-l01 vocabulary source id");
     const sourceTitle = exact$1(provenance2.title, "l1-l01 vocabulary title");
-    if (digest$8(provenance2.payloadSha256, "l1-l01 vocabulary hash") !== VOCABULARY_SHA256$r) {
+    if (digest$8(provenance2.payloadSha256, "l1-l01 vocabulary hash") !== VOCABULARY_SHA256$s) {
       throw new TypeError("Unexpected l1-l01 vocabulary payload.");
     }
     const items = array$11(component.items, "l1-l01 vocabulary items");
@@ -45511,16 +45508,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       previousPage = page;
       previousRow = row;
-      if (digest$8(source2.payloadSha256, "l1-l01 vocabulary row hash") !== VOCABULARY_SHA256$r || exact$1(source2.title, "l1-l01 vocabulary row title") !== sourceTitle || source2.answerVisibility !== "after-attempt") {
+      if (digest$8(source2.payloadSha256, "l1-l01 vocabulary row hash") !== VOCABULARY_SHA256$s || exact$1(source2.title, "l1-l01 vocabulary row title") !== sourceTitle || source2.answerVisibility !== "after-attempt") {
         throw new TypeError("L1-l01 vocabulary source identity changed.");
       }
       const exactFields = record$11(source2.exact, `l1-l01 vocabulary exact ${index + 1}`);
       const fieldProvenance = record$11(source2.fieldProvenance, `l1-l01 vocabulary provenance ${index + 1}`);
       return Object.freeze({
-        id: `authored:${PACKAGE_ID$Z}/sensei-chapter-1-1-vocabulary:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$$}/sensei-chapter-1-1-vocabulary:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: exact$1(source2.itemId, `l1-l01 vocabulary source id ${index + 1}`),
-        conceptIds: [`concept:${PACKAGE_ID$Z}:source-vocabulary:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$$}:source-vocabulary:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -45528,11 +45525,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$Z,
+          packageId: PACKAGE_ID$$,
           componentId: "sensei-chapter-1-1-vocabulary",
           sourceId: sourceId2,
           sourceQuestionId: exact$1(source2.itemId, `l1-l01 vocabulary item ${index + 1}`),
-          payloadSha256: VOCABULARY_SHA256$r,
+          payloadSha256: VOCABULARY_SHA256$s,
           sourceTitle,
           locus: { page, row }
         },
@@ -45575,8 +45572,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Choose the taught expression for each of the teacher’s six scenes."
       },
       provenance: {
-        packageId: PACKAGE_ID$Z,
-        moodleModuleId: MODULE_ID$Z,
+        packageId: PACKAGE_ID$$,
+        moodleModuleId: MODULE_ID$$,
         handout: {
           sourceId: `moodle-payload:${HANDOUT_SHA256$3}`,
           payloadSha256: HANDOUT_SHA256$3,
@@ -45590,8 +45587,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
           locus: { page: 2 }
         },
         vocabulary: {
-          sourceId: `moodle-vocabulary:${MODULE_ID$Z}:${VOCABULARY_SHA256$r}`,
-          payloadSha256: VOCABULARY_SHA256$r,
+          sourceId: `moodle-vocabulary:${MODULE_ID$$}:${VOCABULARY_SHA256$s}`,
+          payloadSha256: VOCABULARY_SHA256$s,
           title: "Chapter 1-1 Vocabulary Sheet",
           loci: [{ page: 1, row: 8 }, { page: 1, row: 10 }, { page: 2, row: 20 }, { page: 2, row: 21 }]
         },
@@ -45703,10 +45700,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function vocabularyComponent() {
     const root = record$11(lessonPackage$K, "l1-l01 package");
-    if (root.id !== PACKAGE_ID$Z || record$11(root.identity, "l1-l01 identity").moduleId !== MODULE_ID$Z) {
+    if (root.id !== PACKAGE_ID$$ || record$11(root.identity, "l1-l01 identity").moduleId !== MODULE_ID$$) {
       throw new TypeError("Unexpected l1-l01 package.");
     }
-    const matches = array$11(root.components, "l1-l01 components").map((value, index) => record$11(value, `l1-l01 component ${index}`)).filter((component) => record$11(component.provenance, "l1-l01 component provenance").payloadSha256 === VOCABULARY_SHA256$r);
+    const matches = array$11(root.components, "l1-l01 components").map((value, index) => record$11(value, `l1-l01 component ${index}`)).filter((component) => record$11(component.provenance, "l1-l01 component provenance").payloadSha256 === VOCABULARY_SHA256$s);
     if (matches.length !== 1) throw new TypeError("Expected exactly one l1-l01 source vocabulary component.");
     return matches[0];
   }
@@ -49015,10 +49012,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$J,
     preStudyVocabulary: preStudyVocabulary$i
   };
-  const PACKAGE_ID$Y = "l1-l02";
-  const MODULE_ID$Y = 5792908;
+  const PACKAGE_ID$_ = "l1-l02";
+  const MODULE_ID$_ = 5792908;
   const VOCABULARY_COMPONENT_ID$4 = "sensei-chapter-1-2-vocabulary";
-  const VOCABULARY_SHA256$q = "67d2f2f85ee3a0a5e0044ae31d2aa1ad870ab051c0ff2676cbc7540bd2fb372d";
+  const VOCABULARY_SHA256$r = "67d2f2f85ee3a0a5e0044ae31d2aa1ad870ab051c0ff2676cbc7540bd2fb372d";
   const PROFILE_SHA256 = "501846818390b51c277bd67ea9b929dfcf41e06f4af2a26bd1836ae479184115";
   const PROFILE_PAGE_IMAGE_SHA256 = "c474a7aa7bb950d60deb1d84bbcfb3abbf15c0db682f16202f10ac3088d83dcc";
   function createLessonTwoSourceVocabularyActivities() {
@@ -49027,7 +49024,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceId2 = exactText$7(provenance2.sourceId, "l1-l02 vocabulary sourceId");
     const payloadSha256 = digest$7(provenance2.payloadSha256, "l1-l02 vocabulary payloadSha256");
     const sourceTitle = exactText$7(provenance2.title, "l1-l02 vocabulary title");
-    if (payloadSha256 !== VOCABULARY_SHA256$q) throw new TypeError("Unexpected l1-l02 vocabulary payload.");
+    if (payloadSha256 !== VOCABULARY_SHA256$r) throw new TypeError("Unexpected l1-l02 vocabulary payload.");
     const itemIds = /* @__PURE__ */ new Set();
     let previousPage = 0;
     let previousRow = 0;
@@ -49053,10 +49050,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$10(source2.exact, `${sourceQuestionId2} exact fields`);
       const fieldProvenance = record$10(source2.fieldProvenance, `${sourceQuestionId2} field provenance`);
       const model2 = {
-        id: `authored:${PACKAGE_ID$Y}/${VOCABULARY_COMPONENT_ID$4}:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$_}/${VOCABULARY_COMPONENT_ID$4}:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: sourceQuestionId2,
-        conceptIds: [`concept:${PACKAGE_ID$Y}:${VOCABULARY_COMPONENT_ID$4}:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$_}:${VOCABULARY_COMPONENT_ID$4}:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -49064,7 +49061,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$Y,
+          packageId: PACKAGE_ID$_,
           componentId: VOCABULARY_COMPONENT_ID$4,
           sourceId: sourceId2,
           sourceQuestionId: sourceQuestionId2,
@@ -49116,7 +49113,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         payloadSha256: PROFILE_SHA256,
         sourceTitle,
         author: "Rie Tsuruta-Barratt",
-        moodleModuleId: MODULE_ID$Y,
+        moodleModuleId: MODULE_ID$_,
         locus: { page: 2, tasks: ["A", "B"] },
         answerVisibility: "after-attempt",
         exactFields: ["name", "country", "occupation"],
@@ -49219,13 +49216,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceVocabularyComponent$4() {
     const root = record$10(lessonPackage$J, "l1-l02 package");
-    if (root.id !== PACKAGE_ID$Y || record$10(root.identity, "l1-l02 identity").moduleId !== MODULE_ID$Y) {
+    if (root.id !== PACKAGE_ID$_ || record$10(root.identity, "l1-l02 identity").moduleId !== MODULE_ID$_) {
       throw new TypeError("Unexpected l1-l02 package identity.");
     }
     const matches = array$10(root.components, "l1-l02 components").map((value, index) => record$10(value, `l1-l02 component ${index}`)).filter((component) => {
       if (component.type !== "vocabulary") return false;
       const provenance2 = record$10(component.provenance, "l1-l02 component provenance");
-      return provenance2.payloadSha256 === VOCABULARY_SHA256$q;
+      return provenance2.payloadSha256 === VOCABULARY_SHA256$r;
     });
     if (matches.length !== 1) throw new TypeError("Expected one exact l1-l02 source vocabulary component.");
     return matches[0];
@@ -52517,10 +52514,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$I,
     preStudyVocabulary: preStudyVocabulary$h
   };
-  const PACKAGE_ID$X = "l1-l03";
-  const MODULE_ID$X = 5804931;
+  const PACKAGE_ID$Z = "l1-l03";
+  const MODULE_ID$Z = 5804931;
   const VOCABULARY_COMPONENT_ID$3 = "sensei-chapter-1-3-vocabulary";
-  const VOCABULARY_SHA256$p = "88d3eb1787c0754800bcc48a9911c4ae870e41e6c8cce781477add3f3b2f2cd8";
+  const VOCABULARY_SHA256$q = "88d3eb1787c0754800bcc48a9911c4ae870e41e6c8cce781477add3f3b2f2cd8";
   const MOODLE_GRAMMAR_SHA256$3 = "4c9b251ade1fc39cd2d9e31a28575e18f894f3425f8b01584d03ee9c8038da2e";
   const MINNA_AUDIO_SHA256$1 = "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f";
   const GENKI_PAYLOAD_SHA256$4 = "341b1eca3ef498d9c5890601ef4dd5965478675e97fa7dc3a9012bbdd7b292cd";
@@ -52531,7 +52528,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceId2 = exactText$6(provenance2.sourceId, "l1-l03 vocabulary sourceId");
     const payloadSha256 = digest$6(provenance2.payloadSha256, "l1-l03 vocabulary payloadSha256");
     const sourceTitle = exactText$6(provenance2.title, "l1-l03 vocabulary title");
-    if (payloadSha256 !== VOCABULARY_SHA256$p) throw new TypeError("Unexpected l1-l03 vocabulary payload.");
+    if (payloadSha256 !== VOCABULARY_SHA256$q) throw new TypeError("Unexpected l1-l03 vocabulary payload.");
     const itemIds = /* @__PURE__ */ new Set();
     let previousPage = 0;
     let previousRow = 0;
@@ -52557,10 +52554,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$$(source2.exact, `${sourceQuestionId2} exact fields`);
       const fieldProvenance = record$$(source2.fieldProvenance, `${sourceQuestionId2} field provenance`);
       const model2 = {
-        id: `authored:${PACKAGE_ID$X}/${VOCABULARY_COMPONENT_ID$3}:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$Z}/${VOCABULARY_COMPONENT_ID$3}:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: sourceQuestionId2,
-        conceptIds: [`concept:${PACKAGE_ID$X}:${VOCABULARY_COMPONENT_ID$3}:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$Z}:${VOCABULARY_COMPONENT_ID$3}:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -52568,7 +52565,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$X,
+          packageId: PACKAGE_ID$Z,
           componentId: VOCABULARY_COMPONENT_ID$3,
           sourceId: sourceId2,
           sourceQuestionId: sourceQuestionId2,
@@ -52608,12 +52605,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       answer("year", "にねんせいです", "She is a second-year student.")
     ]);
     const rounds = Object.freeze([
-      round$r(1, "name", "おなまえは？", "Mary Hart", "name"),
-      round$r(2, "occupation", "しごとはなんですか。", "Student", "occupation"),
-      round$r(3, "year", "なんねんせいですか。", "2nd year", "year"),
-      round$r(4, "age", "なんさいですか。", "19 years old", "age"),
-      round$r(5, "major", "せんこうはなんですか。", "Major is Japanese", "major"),
-      round$r(6, "phone", "でんわばんごうはなんですか。", "020-6921-4236", "phone")
+      round$t(1, "name", "おなまえは？", "Mary Hart", "name"),
+      round$t(2, "occupation", "しごとはなんですか。", "Student", "occupation"),
+      round$t(3, "year", "なんねんせいですか。", "2nd year", "year"),
+      round$t(4, "age", "なんさいですか。", "19 years old", "age"),
+      round$t(5, "major", "せんこうはなんですか。", "Major is Japanese", "major"),
+      round$t(6, "phone", "でんわばんごうはなんですか。", "020-6921-4236", "phone")
     ]);
     const model2 = {
       id: "activity:l1-l03-profile-question-match",
@@ -52629,7 +52626,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         packageId: "l1-l03",
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$X,
+          moduleId: MODULE_ID$Z,
           sourceId: `moodle-payload:${MOODLE_GRAMMAR_SHA256$3}`,
           payloadSha256: MOODLE_GRAMMAR_SHA256$3,
           sourceTitle: "Chapter 1-3 Grammar Exercise asking name and state where the person belongs",
@@ -52740,7 +52737,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function answer(id2, label, meaning) {
     return Object.freeze({ id: id2, label, meaning });
   }
-  function round$r(sourceOrder, id2, question2, clue2, correctAnswerId) {
+  function round$t(sourceOrder, id2, question2, clue2, correctAnswerId) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -52755,7 +52752,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactSourceMembers$2() {
     const root = record$$(lessonPackage$I, "l1-l03 package");
     const identity2 = record$$(root.identity, "l1-l03 identity");
-    if (root.id !== PACKAGE_ID$X || identity2.moduleId !== MODULE_ID$X) throw new TypeError("Unexpected l1-l03 package identity.");
+    if (root.id !== PACKAGE_ID$Z || identity2.moduleId !== MODULE_ID$Z) throw new TypeError("Unexpected l1-l03 package identity.");
     const members = array$$(record$$(root.sourceCoverage, "l1-l03 source coverage").members, "l1-l03 source members").map((value, index) => record$$(value, `l1-l03 source member ${index}`));
     for (const [payloadSha256, title2] of [
       [MOODLE_GRAMMAR_SHA256$3, "Chapter 1-3 Grammar Exercise asking name and state where the person belongs"],
@@ -52777,13 +52774,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceVocabularyComponent$3() {
     const root = record$$(lessonPackage$I, "l1-l03 package");
-    if (root.id !== PACKAGE_ID$X || record$$(root.identity, "l1-l03 identity").moduleId !== MODULE_ID$X) {
+    if (root.id !== PACKAGE_ID$Z || record$$(root.identity, "l1-l03 identity").moduleId !== MODULE_ID$Z) {
       throw new TypeError("Unexpected l1-l03 package identity.");
     }
     const matches = array$$(root.components, "l1-l03 components").map((value, index) => record$$(value, `l1-l03 component ${index}`)).filter((component) => {
       if (component.type !== "vocabulary") return false;
       const provenance2 = record$$(component.provenance, "l1-l03 component provenance");
-      return provenance2.payloadSha256 === VOCABULARY_SHA256$p;
+      return provenance2.payloadSha256 === VOCABULARY_SHA256$q;
     });
     if (matches.length !== 1) throw new TypeError("Expected one exact l1-l03 source vocabulary component.");
     return matches[0];
@@ -56605,10 +56602,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$H,
     preStudyVocabulary: preStudyVocabulary$g
   };
-  const PACKAGE_ID$W = "l1-l04";
-  const MODULE_ID$W = 5822243;
+  const PACKAGE_ID$Y = "l1-l04";
+  const MODULE_ID$Y = 5822243;
   const VOCABULARY_COMPONENT_ID$2 = "sensei-chapter-2-1-vocabulary";
-  const VOCABULARY_SHA256$o = "a267243216a4c999d8733ed6febeeed938c47b593f0d1841b1dc8c244f37b253";
+  const VOCABULARY_SHA256$p = "a267243216a4c999d8733ed6febeeed938c47b593f0d1841b1dc8c244f37b253";
   const MOODLE_GRAMMAR_SHA256$2 = "83bf2695e5760fdf415c31eabf96586a31f373f6b339849467fa7c88dbdde49b";
   const MOODLE_ANSWER_SHA256 = "0d33601e79064e1d08e46988bab8f1cd7738dabf829ece3efe9ae7e60e575249";
   const MINNA_AUDIO_SHA256 = "62f3b96d10028d1eb1d6e39020a76cd72003d5d9cf651a70bc895bd3c66bd450";
@@ -56620,7 +56617,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceId2 = exactText$5(provenance2.sourceId, "l1-l04 vocabulary sourceId");
     const payloadSha256 = digest$5(provenance2.payloadSha256, "l1-l04 vocabulary payloadSha256");
     const sourceTitle = exactText$5(provenance2.title, "l1-l04 vocabulary title");
-    if (payloadSha256 !== VOCABULARY_SHA256$o) throw new TypeError("Unexpected l1-l04 vocabulary payload.");
+    if (payloadSha256 !== VOCABULARY_SHA256$p) throw new TypeError("Unexpected l1-l04 vocabulary payload.");
     const itemIds = /* @__PURE__ */ new Set();
     let previousPage = 0;
     let previousRow = 0;
@@ -56646,10 +56643,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$_(source2.exact, `${sourceQuestionId2} exact fields`);
       const fieldProvenance = record$_(source2.fieldProvenance, `${sourceQuestionId2} field provenance`);
       const model2 = {
-        id: `authored:${PACKAGE_ID$W}/${VOCABULARY_COMPONENT_ID$2}:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$Y}/${VOCABULARY_COMPONENT_ID$2}:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: sourceQuestionId2,
-        conceptIds: [`concept:${PACKAGE_ID$W}:${VOCABULARY_COMPONENT_ID$2}:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$Y}:${VOCABULARY_COMPONENT_ID$2}:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -56657,7 +56654,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$W,
+          packageId: PACKAGE_ID$Y,
           componentId: VOCABULARY_COMPONENT_ID$2,
           sourceId: sourceId2,
           sourceQuestionId: sourceQuestionId2,
@@ -56689,15 +56686,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFourObjectDistanceModel() {
     assertExactSourceMembers$1();
     const rounds = Object.freeze([
-      round$q(1, "pen", "This is my pen.", "話し手が自分のペンを示します。", "The speaker shows their own pen.", "speaker", "これはわたしのペンです。"),
-      round$q(2, "book", "That is Ken's book.", "聞き手の近くにある、けんさんの本です。", "Ken's book is near the listener.", "listener", "それはけんさんのほんです。"),
-      round$q(3, "building-translation", "What is that? (points to a building in the distance)", "建物は二人から遠いです。", "The building is far from both people.", "far", "あれはなんですか。"),
-      round$q(4, "meat", "Is this meat?", "話し手の近くにある物について聞きます。", "The object is near the speaker.", "speaker", "これはにくですか。"),
-      round$q(5, "umbrella-mary", "メアリー：___ はたけしさんのかさですか。", "メアリーがかさを持っています。", "Mary is holding the umbrella.", "speaker", "これはたけしさんのかさですか。"),
-      round$q(6, "umbrella-takeshi", "たけし：いいえ、___ はみちこさんのかさです。", "たけしから見ると、かさはメアリーの近くです。", "From Takeshi's viewpoint, the umbrella is near Mary.", "listener", "いいえ、それはみちこさんのかさです。"),
-      round$q(7, "wallet-takeshi", "たけし：___ はメアリーさんのさいふですか。", "たけしがさいふを持っています。", "Takeshi is holding the wallet.", "speaker", "これはメアリーさんのさいふですか。"),
-      round$q(8, "bicycle", "メアリー：___ はたけしさんのじてんしゃですか。", "メアリーは遠くのじてんしゃを指しています。", "Mary points to a bicycle in the distance.", "far", "あれはたけしさんのじてんしゃですか。"),
-      round$q(9, "building-dialogue", "メアリー：___ はなんですか。", "メアリーは遠くの建物を指しています。", "Mary points to a building in the distance.", "far", "あれはなんですか。")
+      round$s(1, "pen", "This is my pen.", "話し手が自分のペンを示します。", "The speaker shows their own pen.", "speaker", "これはわたしのペンです。"),
+      round$s(2, "book", "That is Ken's book.", "聞き手の近くにある、けんさんの本です。", "Ken's book is near the listener.", "listener", "それはけんさんのほんです。"),
+      round$s(3, "building-translation", "What is that? (points to a building in the distance)", "建物は二人から遠いです。", "The building is far from both people.", "far", "あれはなんですか。"),
+      round$s(4, "meat", "Is this meat?", "話し手の近くにある物について聞きます。", "The object is near the speaker.", "speaker", "これはにくですか。"),
+      round$s(5, "umbrella-mary", "メアリー：___ はたけしさんのかさですか。", "メアリーがかさを持っています。", "Mary is holding the umbrella.", "speaker", "これはたけしさんのかさですか。"),
+      round$s(6, "umbrella-takeshi", "たけし：いいえ、___ はみちこさんのかさです。", "たけしから見ると、かさはメアリーの近くです。", "From Takeshi's viewpoint, the umbrella is near Mary.", "listener", "いいえ、それはみちこさんのかさです。"),
+      round$s(7, "wallet-takeshi", "たけし：___ はメアリーさんのさいふですか。", "たけしがさいふを持っています。", "Takeshi is holding the wallet.", "speaker", "これはメアリーさんのさいふですか。"),
+      round$s(8, "bicycle", "メアリー：___ はたけしさんのじてんしゃですか。", "メアリーは遠くのじてんしゃを指しています。", "Mary points to a bicycle in the distance.", "far", "あれはたけしさんのじてんしゃですか。"),
+      round$s(9, "building-dialogue", "メアリー：___ はなんですか。", "メアリーは遠くの建物を指しています。", "Mary points to a building in the distance.", "far", "あれはなんですか。")
     ]);
     const model2 = {
       id: "activity:l1-l04-object-distance-board",
@@ -56710,10 +56707,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Place each exact source scenario near the speaker, near the listener, or far from both."
       },
       provenance: {
-        packageId: PACKAGE_ID$W,
+        packageId: PACKAGE_ID$Y,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$W,
+          moduleId: MODULE_ID$Y,
           grammar: {
             sourceId: `moodle-payload:${MOODLE_GRAMMAR_SHA256$2}`,
             payloadSha256: MOODLE_GRAMMAR_SHA256$2,
@@ -56790,7 +56787,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$q(sourceOrder, id2, sourcePrompt, contextJa, contextEn, correctPositionId, answerSentence) {
+  function round$s(sourceOrder, id2, sourcePrompt, contextJa, contextEn, correctPositionId, answerSentence) {
     const pronoun = correctPositionId === "speaker" ? "これ" : correctPositionId === "listener" ? "それ" : "あれ";
     return Object.freeze({
       id: id2,
@@ -56811,7 +56808,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactSourceMembers$1() {
     const root = record$_(lessonPackage$H, "l1-l04 package");
     const identity2 = record$_(root.identity, "l1-l04 identity");
-    if (root.id !== PACKAGE_ID$W || identity2.moduleId !== MODULE_ID$W) throw new TypeError("Unexpected l1-l04 package identity.");
+    if (root.id !== PACKAGE_ID$Y || identity2.moduleId !== MODULE_ID$Y) throw new TypeError("Unexpected l1-l04 package identity.");
     const members = array$_(record$_(root.sourceCoverage, "l1-l04 source coverage").members, "l1-l04 source members").map((value, index) => record$_(value, `l1-l04 source member ${index}`));
     for (const [payloadSha256, title2] of [
       [MOODLE_GRAMMAR_SHA256$2, "Chapter 2-1 Grammar Exercise"],
@@ -56836,13 +56833,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceVocabularyComponent$2() {
     const root = record$_(lessonPackage$H, "l1-l04 package");
-    if (root.id !== PACKAGE_ID$W || record$_(root.identity, "l1-l04 identity").moduleId !== MODULE_ID$W) {
+    if (root.id !== PACKAGE_ID$Y || record$_(root.identity, "l1-l04 identity").moduleId !== MODULE_ID$Y) {
       throw new TypeError("Unexpected l1-l04 package identity.");
     }
     const matches = array$_(root.components, "l1-l04 components").map((value, index) => record$_(value, `l1-l04 component ${index}`)).filter((component) => {
       if (component.type !== "vocabulary") return false;
       const provenance2 = record$_(component.provenance, "l1-l04 component provenance");
-      return provenance2.payloadSha256 === VOCABULARY_SHA256$o;
+      return provenance2.payloadSha256 === VOCABULARY_SHA256$p;
     });
     if (matches.length !== 1) throw new TypeError("Expected one exact l1-l04 source vocabulary component.");
     return matches[0];
@@ -60203,10 +60200,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$G,
     preStudyVocabulary: preStudyVocabulary$f
   };
-  const PACKAGE_ID$V = "l1-l05";
-  const MODULE_ID$V = 5834212;
+  const PACKAGE_ID$X = "l1-l05";
+  const MODULE_ID$X = 5834212;
   const VOCABULARY_COMPONENT_ID$1 = "sensei-chapter-2-2-vocabulary";
-  const VOCABULARY_SHA256$n = "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe";
+  const VOCABULARY_SHA256$o = "e735014a4abb2cd2e281f7a608a546d24a3586e55958c78e515450075fcf3dbe";
   const MOODLE_CONTENT_SHA256 = "3215f31fc58ce0ff7310ee16098e1fb0149f6c09a6fc972415150fc146934915";
   const MOODLE_OWNER_SHA256 = "7d71238e487d8c77d5f618e8529921533ceaea2497e8edd3cc9490220f0ed56f";
   const MINNA_007_SHA256 = "bd797762c73da698d89151f48e3823aea7845064378d0d534f6bbce1af6ba570";
@@ -60219,7 +60216,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceId2 = exactText$4(provenance2.sourceId, "l1-l05 vocabulary sourceId");
     const payloadSha256 = digest$4(provenance2.payloadSha256, "l1-l05 vocabulary payloadSha256");
     const sourceTitle = exactText$4(provenance2.title, "l1-l05 vocabulary title");
-    if (payloadSha256 !== VOCABULARY_SHA256$n) throw new TypeError("Unexpected l1-l05 vocabulary payload.");
+    if (payloadSha256 !== VOCABULARY_SHA256$o) throw new TypeError("Unexpected l1-l05 vocabulary payload.");
     const itemIds = /* @__PURE__ */ new Set();
     let previousPage = 0;
     let previousRow = 0;
@@ -60245,10 +60242,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$Z(source2.exact, `${sourceQuestionId2} exact fields`);
       const fieldProvenance = record$Z(source2.fieldProvenance, `${sourceQuestionId2} field provenance`);
       const model2 = {
-        id: `authored:${PACKAGE_ID$V}/${VOCABULARY_COMPONENT_ID$1}:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$X}/${VOCABULARY_COMPONENT_ID$1}:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: sourceQuestionId2,
-        conceptIds: [`concept:${PACKAGE_ID$V}:${VOCABULARY_COMPONENT_ID$1}:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$X}:${VOCABULARY_COMPONENT_ID$1}:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -60256,7 +60253,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$V,
+          packageId: PACKAGE_ID$X,
           componentId: VOCABULARY_COMPONENT_ID$1,
           sourceId: sourceId2,
           sourceQuestionId: sourceQuestionId2,
@@ -60288,17 +60285,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFivePossessionPhraseModel() {
     assertExactSourceMembers();
     const rounds = Object.freeze([
-      round$p(1, "japanese-student", "Japanese student", "にほんじん", "がくせい", [
+      round$r(1, "japanese-student", "Japanese student", "にほんじん", "がくせい", [
         "にほんじんのがくせい",
         "日本人の学生",
         "日本人のがくせい",
         "にほんじんの学生"
       ], "a Japanese student"),
-      round$p(2, "takeshi-phone", "Takeshi's telephone number", "たけしさん", "でんわばんごう", [
+      round$r(2, "takeshi-phone", "Takeshi's telephone number", "たけしさん", "でんわばんごう", [
         "たけしさんのでんわばんごう",
         "たけしさんの電話番号"
       ], "Takeshi's telephone number"),
-      round$p(3, "my-friend", "My friend", "わたし", "ともだち", [
+      round$r(3, "my-friend", "My friend", "わたし", "ともだち", [
         "わたしのともだち",
         "私の友だち",
         "私の友達",
@@ -60308,13 +60305,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "わたしの友だち",
         "わたしのとも達"
       ], "my friend"),
-      round$p(4, "english-teacher", "English-language teacher", "えいご", "せんせい", [
+      round$r(4, "english-teacher", "English-language teacher", "えいご", "せんせい", [
         "えいごのせんせい",
         "英語の先生",
         "英語のせんせい",
         "えいごの先生"
       ], "an English-language teacher"),
-      round$p(5, "michiko-major", "Michiko's major", "みちこさん", "せんこう", [
+      round$r(5, "michiko-major", "Michiko's major", "みちこさん", "せんこう", [
         "みちこさんのせんこう",
         "みちこさんの専攻"
       ], "Michiko's major")
@@ -60330,10 +60327,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Choose A and B to build all five source AのB phrases."
       },
       provenance: {
-        packageId: PACKAGE_ID$V,
+        packageId: PACKAGE_ID$X,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$V,
+          moduleId: MODULE_ID$X,
           contentRule: moodleSource$1(
             MOODLE_CONTENT_SHA256,
             "Chapter 2-2 Grammar Exercise-1 What the object is about",
@@ -60429,7 +60426,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$p(sourceOrder, id2, sourcePrompt, correctA, correctB, acceptedAnswers, meaning) {
+  function round$r(sourceOrder, id2, sourcePrompt, correctA, correctB, acceptedAnswers, meaning) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -60465,7 +60462,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactSourceMembers() {
     const root = record$Z(lessonPackage$G, "l1-l05 package");
     const identity2 = record$Z(root.identity, "l1-l05 identity");
-    if (root.id !== PACKAGE_ID$V || identity2.moduleId !== MODULE_ID$V) throw new TypeError("Unexpected l1-l05 package identity.");
+    if (root.id !== PACKAGE_ID$X || identity2.moduleId !== MODULE_ID$X) throw new TypeError("Unexpected l1-l05 package identity.");
     const sourceCoverage2 = record$Z(root.sourceCoverage, "l1-l05 source coverage");
     const members = array$Z(sourceCoverage2.members, "l1-l05 source members").map((value, index) => record$Z(value, `l1-l05 source member ${index}`));
     for (const [payloadSha256, title2] of [
@@ -60527,13 +60524,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceVocabularyComponent$1() {
     const root = record$Z(lessonPackage$G, "l1-l05 package");
-    if (root.id !== PACKAGE_ID$V || record$Z(root.identity, "l1-l05 identity").moduleId !== MODULE_ID$V) {
+    if (root.id !== PACKAGE_ID$X || record$Z(root.identity, "l1-l05 identity").moduleId !== MODULE_ID$X) {
       throw new TypeError("Unexpected l1-l05 package identity.");
     }
     const matches = array$Z(root.components, "l1-l05 components").map((value, index) => record$Z(value, `l1-l05 component ${index}`)).filter((component) => {
       if (component.type !== "vocabulary") return false;
       const provenance2 = record$Z(component.provenance, "l1-l05 component provenance");
-      return provenance2.payloadSha256 === VOCABULARY_SHA256$n;
+      return provenance2.payloadSha256 === VOCABULARY_SHA256$o;
     });
     if (matches.length !== 1) throw new TypeError("Expected one exact l1-l05 source vocabulary component.");
     return matches[0];
@@ -64550,11 +64547,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$F,
     preStudyVocabulary: preStudyVocabulary$e
   };
-  const PACKAGE_ID$U = "l1-l06";
-  const MODULE_ID$U = 5860335;
+  const PACKAGE_ID$W = "l1-l06";
+  const MODULE_ID$W = 5860335;
   const VOCABULARY_COMPONENT_ID = "sensei-chapter-3-1-vocabulary";
-  const VOCABULARY_SHA256$m = "29e7e4532cd23ba3153138d0a16b60228a50333d056ae51bd664b8851497b80c";
-  const GRAMMAR_SHA256$a = "45db157c1c0c5bdfa5012f238189bdd2f85da3a098acb2d95b2321511fcf573b";
+  const VOCABULARY_SHA256$n = "29e7e4532cd23ba3153138d0a16b60228a50333d056ae51bd664b8851497b80c";
+  const GRAMMAR_SHA256$c = "45db157c1c0c5bdfa5012f238189bdd2f85da3a098acb2d95b2321511fcf573b";
   const AUDIO_9_SHA256 = "0449362eb519969bbf72ac6d059e1c3ef344c559b905d1fccfcdf4efe2390460";
   const AUDIO_10_SHA256 = "b19723f688559100d53e2ad71e277bedbea949253c6fc67195f33737fc057d20";
   const GENKI_SHA256$w = "e54d3ea575725cfb771f9d9ed2d6b819c7edaa8850c8af1cdd793613012a7d99";
@@ -64567,7 +64564,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceId2 = exactText$3(provenance2.sourceId, "l1-l06 vocabulary sourceId");
     const payloadSha256 = digest$3(provenance2.payloadSha256, "l1-l06 vocabulary payloadSha256");
     const sourceTitle = exactText$3(provenance2.title, "l1-l06 vocabulary title");
-    if (sourceId2 !== `moodle-vocabulary:${MODULE_ID$U}:${VOCABULARY_SHA256$m}` || payloadSha256 !== VOCABULARY_SHA256$m || sourceTitle !== "Chapter 3-1 Vocabulary Sheet" || provenance2.author !== "Rie Tsuruta-Barratt" || provenance2.pageCount !== 3 || array$Y(provenance2.sourceMissingRowNumbers, "l1-l06 missing rows").join(",") !== "27" || array$Y(provenance2.sourceBlankRows, "l1-l06 blank rows").join(",") !== "40,41,42,43" || provenance2.answerVisibility !== "after-attempt") {
+    if (sourceId2 !== `moodle-vocabulary:${MODULE_ID$W}:${VOCABULARY_SHA256$n}` || payloadSha256 !== VOCABULARY_SHA256$n || sourceTitle !== "Chapter 3-1 Vocabulary Sheet" || provenance2.author !== "Rie Tsuruta-Barratt" || provenance2.pageCount !== 3 || array$Y(provenance2.sourceMissingRowNumbers, "l1-l06 missing rows").join(",") !== "27" || array$Y(provenance2.sourceBlankRows, "l1-l06 blank rows").join(",") !== "40,41,42,43" || provenance2.answerVisibility !== "after-attempt") {
       throw new TypeError("Unexpected l1-l06 vocabulary source identity.");
     }
     const items = array$Y(component.items, "l1-l06 vocabulary items");
@@ -64596,10 +64593,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$Y(source2.exact, `${sourceQuestionId2} exact fields`);
       const fieldProvenance = record$Y(source2.fieldProvenance, `${sourceQuestionId2} field provenance`);
       return Object.freeze({
-        id: `authored:${PACKAGE_ID$U}/${VOCABULARY_COMPONENT_ID}:p${page}:r${row}`,
+        id: `authored:${PACKAGE_ID$W}/${VOCABULARY_COMPONENT_ID}:p${page}:r${row}`,
         kind: "academy-source-vocabulary-sheet",
         sourceQuestionId: sourceQuestionId2,
-        conceptIds: [`concept:${PACKAGE_ID$U}:${VOCABULARY_COMPONENT_ID}:p${page}:r${row}`],
+        conceptIds: [`concept:${PACKAGE_ID$W}:${VOCABULARY_COMPONENT_ID}:p${page}:r${row}`],
         responseKind: "source-vocabulary-recall",
         prompt: {
           ja: "先生の行を見て、意味を思い出してから確認しましょう。",
@@ -64607,7 +64604,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         provenance: {
-          packageId: PACKAGE_ID$U,
+          packageId: PACKAGE_ID$W,
           componentId: VOCABULARY_COMPONENT_ID,
           sourceId: sourceId2,
           sourceQuestionId: sourceQuestionId2,
@@ -64688,13 +64685,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Answer four place questions, then assemble three だれの questions."
       },
       provenance: {
-        packageId: PACKAGE_ID$U,
+        packageId: PACKAGE_ID$W,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$U,
+          moduleId: MODULE_ID$W,
           grammar: {
-            sourceId: `moodle-payload:${GRAMMAR_SHA256$a}`,
-            payloadSha256: GRAMMAR_SHA256$a,
+            sourceId: `moodle-payload:${GRAMMAR_SHA256$c}`,
+            payloadSha256: GRAMMAR_SHA256$c,
             sourceTitle: "Chapter 3-1 Grammar Exercise",
             member: "Handouts/Chapter 3-1_Grammar Exercise.pdf",
             author: "Rie Tsuruta-Barratt",
@@ -64870,12 +64867,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$R() {
     const root = record$Y(lessonPackage$F, "l1-l06 package");
     const identity2 = record$Y(root.identity, "l1-l06 identity");
-    if (root.id !== PACKAGE_ID$U || identity2.moduleId !== MODULE_ID$U) throw new TypeError("Unexpected l1-l06 package identity.");
+    if (root.id !== PACKAGE_ID$W || identity2.moduleId !== MODULE_ID$W) throw new TypeError("Unexpected l1-l06 package identity.");
     const coverage = record$Y(root.sourceCoverage, "l1-l06 source coverage");
     const members = array$Y(coverage.members, "l1-l06 source members").map((member, index) => record$Y(member, `l1-l06 source member ${index}`));
     for (const [payload, title2] of [
-      [VOCABULARY_SHA256$m, "Chapter 3-1 Vocabulary Sheet"],
-      [GRAMMAR_SHA256$a, "Chapter 3-1 Grammar Exercise"],
+      [VOCABULARY_SHA256$n, "Chapter 3-1 Vocabulary Sheet"],
+      [GRAMMAR_SHA256$c, "Chapter 3-1 Grammar Exercise"],
       [AUDIO_9_SHA256, "9 A-9"],
       [AUDIO_10_SHA256, "10 A-10"]
     ]) {
@@ -64916,12 +64913,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceVocabularyComponent() {
     const root = record$Y(lessonPackage$F, "l1-l06 package");
-    if (root.id !== PACKAGE_ID$U || record$Y(root.identity, "l1-l06 identity").moduleId !== MODULE_ID$U) {
+    if (root.id !== PACKAGE_ID$W || record$Y(root.identity, "l1-l06 identity").moduleId !== MODULE_ID$W) {
       throw new TypeError("Unexpected l1-l06 package identity.");
     }
     const matches = array$Y(root.components, "l1-l06 components").map((component, index) => record$Y(component, `l1-l06 component ${index}`)).filter((component) => {
       if (component.type !== "vocabulary") return false;
-      return record$Y(component.provenance, "l1-l06 component provenance").payloadSha256 === VOCABULARY_SHA256$m;
+      return record$Y(component.provenance, "l1-l06 component provenance").payloadSha256 === VOCABULARY_SHA256$n;
     });
     if (matches.length !== 1) throw new TypeError("Expected one exact l1-l06 source vocabulary component.");
     return matches[0];
@@ -65541,19 +65538,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ]
     )
   });
-  const EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER = 13;
-  const EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS = Object.freeze(["l2-l18", "l2-l21", "l2-l29"]);
+  const EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER = 11;
   const EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze(
-    [
-      ...Array.from(
-        { length: EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER - 1 },
-        (_, index) => `l2-l${String(index + 2).padStart(2, "0")}`
-      ),
-      ...EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS
-    ]
+    Array.from(
+      { length: EXACT_LIBRARY_VOCABULARY_DELIVERY_FRONTIER - 1 },
+      (_, index) => `l2-l${String(index + 2).padStart(2, "0")}`
+    )
   );
+  const EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS = Object.freeze([
+    "l2-l12",
+    "l2-l13",
+    "l2-l18",
+    "l2-l21",
+    "l2-l29"
+  ]);
+  const ALL_EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze([
+    ...EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS,
+    ...EXACT_LIBRARY_VOCABULARY_EXTENSION_PACKAGE_IDS
+  ]);
   function requiresExactLibraryVocabulary(packageId) {
-    return EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS.includes(packageId);
+    return ALL_EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS.includes(packageId);
   }
   function exactLibraryVocabularyDefinition(packageId, input2) {
     const definition2 = DEFINITIONS$1[packageId];
@@ -70866,8 +70870,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$E,
     preStudyVocabulary: preStudyVocabulary$d
   };
-  const PACKAGE_ID$T = "l1-l08";
-  const MODULE_ID$T = 5866381;
+  const PACKAGE_ID$V = "l1-l08";
+  const MODULE_ID$V = 5866381;
   const TIME_GRAMMAR_SHA256$1 = "a38a8e1f686876ba1b6bc109ce0e5e0f9ddc70f4b18b520d43241f54256406e0";
   const RANGE_GRAMMAR_SHA256$1 = "26f0f7c3397e7a4903e8c62fc79bdd3ecceca09bb7302826c5e7497dbd83ccd7";
   const CHAPTER_VOCABULARY_SHA256 = "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd";
@@ -70953,10 +70957,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the time patterns first, then complete the three source activities."
       },
       provenance: {
-        packageId: PACKAGE_ID$T,
+        packageId: PACKAGE_ID$V,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$T,
+          moduleId: MODULE_ID$V,
           timeGrammar: source$1(TIME_GRAMMAR_SHA256$1, "Chapter 4-1_time_Grammar Exercise", "Handouts/Chapter 4-1_time_Grammar Exercise.pdf", [1, 2]),
           rangeGrammar: source$1(RANGE_GRAMMAR_SHA256$1, "New Chapter 4-1 from time to time Grammar Exercise", "Handouts/New_Chapter 4-1_from time to time_Grammar Exercise.pdf", [1, 2])
         },
@@ -71124,7 +71128,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$Q() {
     const root = record$U(lessonPackage$E, "l1-l08 package");
     const identity2 = record$U(root.identity, "l1-l08 identity");
-    if (root.id !== PACKAGE_ID$T || identity2.moduleId !== MODULE_ID$T) throw new TypeError("Unexpected l1-l08 package identity.");
+    if (root.id !== PACKAGE_ID$V || identity2.moduleId !== MODULE_ID$V) throw new TypeError("Unexpected l1-l08 package identity.");
     const coverage = record$U(root.sourceCoverage, "l1-l08 source coverage");
     const members = array$U(coverage.members, "l1-l08 members").map((value, index) => record$U(value, `member ${index}`));
     for (const [digest2, title2] of [
@@ -74453,8 +74457,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$D,
     preStudyVocabulary: preStudyVocabulary$c
   };
-  const PACKAGE_ID$S = "l1-l09";
-  const MODULE_ID$S = 5889535;
+  const PACKAGE_ID$U = "l1-l09";
+  const MODULE_ID$U = 5889535;
   const MOODLE_SHA256$2 = "4c9419150055497b0771d56b98eccfadbdf10a7506293090701312eeebf3b306";
   const MOODLE_TITLE = "New Chapter 4-2 days and weekly plans desu conjugation Grammar Exercise";
   const MOODLE_MEMBER = "Handouts/New Chapter 4-2_days and weekly plans_desu conjugation_Grammar Exercise.pdf";
@@ -74540,10 +74544,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the weekday and past-tense patterns, then complete the source tasks in order."
       },
       provenance: {
-        packageId: PACKAGE_ID$S,
+        packageId: PACKAGE_ID$U,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$S,
+          moduleId: MODULE_ID$U,
           grammar: {
             sourceId: `moodle-payload:${MOODLE_SHA256$2}`,
             payloadSha256: MOODLE_SHA256$2,
@@ -74758,7 +74762,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$P() {
     const root = record$T(lessonPackage$D, "l1-l09 package");
     const identity2 = record$T(root.identity, "l1-l09 identity");
-    if (root.id !== PACKAGE_ID$S || identity2.moduleId !== MODULE_ID$S) throw new TypeError("Unexpected l1-l09 package identity.");
+    if (root.id !== PACKAGE_ID$U || identity2.moduleId !== MODULE_ID$U) throw new TypeError("Unexpected l1-l09 package identity.");
     const coverage = record$T(root.sourceCoverage, "l1-l09 source coverage");
     const members = array$T(coverage.members, "l1-l09 source members").map((value, index) => record$T(value, `member ${index}`));
     if (members.filter((member) => member.payloadSha256 === MOODLE_SHA256$2 && member.title === MOODLE_TITLE).length !== 1) {
@@ -78083,9 +78087,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     casting: casting$C,
     preStudyVocabulary: preStudyVocabulary$b
   };
-  const PACKAGE_ID$R = "l1-l10";
-  const MODULE_ID$R = 5907552;
-  const VOCABULARY_SHA256$l = "440338339cd23627dc7a3509dd60d4e44f97dd22f90e538485a88a3398cbe897";
+  const PACKAGE_ID$T = "l1-l10";
+  const MODULE_ID$T = 5907552;
+  const VOCABULARY_SHA256$m = "440338339cd23627dc7a3509dd60d4e44f97dd22f90e538485a88a3398cbe897";
   const VERB_SUMMARY_SHA256 = "fd4826082b3e5ec89453bce677937f10240ca5e76325b4ca7fc3806f0914dfad";
   const GRAMMAR_CHECK_SHA256 = "e1a72f416713d5ba430b8e3e97aecd39d03a2da53f0c8baf136d34c16fd3f20a";
   const GENKI_SHA256$t = "cfe95821ca45cc8f5c4225bfa555f967fcf5875f6fd2cd8b41f9ce99a5e2a83f";
@@ -78363,10 +78367,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the four polite verb forms, then complete the source routines in their original order."
       },
       provenance: {
-        packageId: PACKAGE_ID$R,
+        packageId: PACKAGE_ID$T,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$R,
+          moduleId: MODULE_ID$T,
           verbSummary: moodleSource(
             VERB_SUMMARY_SHA256,
             "non past_past_affirmative_negative verb ます",
@@ -78578,10 +78582,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$O() {
     const root = record$S(lessonPackage$C, "l1-l10 package");
     const identity2 = record$S(root.identity, "l1-l10 identity");
-    if (root.id !== PACKAGE_ID$R || identity2.moduleId !== MODULE_ID$R) throw new TypeError("Unexpected l1-l10 package.");
+    if (root.id !== PACKAGE_ID$T || identity2.moduleId !== MODULE_ID$T) throw new TypeError("Unexpected l1-l10 package.");
     const coverage = record$S(root.sourceCoverage, "l1-l10 source coverage");
     const hashes = new Set(array$S(coverage.members, "l1-l10 source members").map((value) => digest$1(record$S(value, "l1-l10 source member").payloadSha256, "l1-l10 source member hash")));
-    for (const required2 of [VOCABULARY_SHA256$l, VERB_SUMMARY_SHA256, GRAMMAR_CHECK_SHA256]) {
+    for (const required2 of [VOCABULARY_SHA256$m, VERB_SUMMARY_SHA256, GRAMMAR_CHECK_SHA256]) {
       if (!hashes.has(required2)) throw new TypeError(`Missing exact l1-l10 Moodle payload ${required2}.`);
     }
     const activities = array$S(root.genkiInteractiveActivities, "l1-l10 Genki activities").map((value) => record$S(value, "l1-l10 Genki activity"));
@@ -79779,8 +79783,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     components: components$E,
     preStudyVocabulary: preStudyVocabulary$a
   };
-  const PACKAGE_ID$Q = "l1-l11";
-  const MODULE_ID$Q = 6053028;
+  const PACKAGE_ID$S = "l1-l11";
+  const MODULE_ID$S = 6053028;
   const ARCHIVE_SHA = "17be2963b1aa0520320c987b9f819a21f578b210614694ee7ed511b2d47ad14d";
   const MOODLE_MODIFIER_SHA$1 = "dfec00d8e4c6d049a2251e0ef90035cbe92edef7fdde0c7ca96ced1e8ed40aba";
   const MOODLE_CONNECTOR_SHA$1 = "869c7d8430e6d18a2c7d56aceda2789408e2fa9dada1643f30ff9bc600cb1623";
@@ -79997,11 +80001,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the forms first, then complete the Moodle, Minna, and Genki tasks in source order."
       },
       provenance: {
-        packageId: PACKAGE_ID$Q,
+        packageId: PACKAGE_ID$S,
         answerVisibility: "after-attempt",
         sourceOrder: ["moodle", "minna", "genki"],
         moodle: {
-          moduleId: MODULE_ID$Q,
+          moduleId: MODULE_ID$S,
           archiveOccurrenceId: "archive-000011",
           archiveSha256: ARCHIVE_SHA,
           documents: [
@@ -80161,7 +80165,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$N() {
     const root = record$R(lessonPackage$B, "l1-l11 package");
     const identity2 = record$R(root.identity, "l1-l11 identity");
-    if (root.id !== PACKAGE_ID$Q || identity2.moduleId !== MODULE_ID$Q) throw new TypeError("Unexpected l1-l11 package identity.");
+    if (root.id !== PACKAGE_ID$S || identity2.moduleId !== MODULE_ID$S) throw new TypeError("Unexpected l1-l11 package identity.");
     const found = [];
     for (const componentValue of array$R(root.components, "l1-l11 components")) {
       const component = record$R(componentValue, "l1-l11 component");
@@ -81423,9 +81427,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     components: components$D,
     preStudyVocabulary: preStudyVocabulary$9
   };
-  const PACKAGE_ID$P = "l1-l12";
-  const MODULE_ID$P = 5489594;
-  const ARCHIVE_SHA256$m = "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26";
+  const PACKAGE_ID$R = "l1-l12";
+  const MODULE_ID$R = 5489594;
+  const ARCHIVE_SHA256$o = "ddec193f603be7e277c0b0636863b129077016afe7e083cc71ffed529a53aa26";
   const PREFERENCE_SHA256 = "6e0a3e02c061f7203d7c8f65db7555993f463e5fee9adf241c36255b959186e4";
   const DONNA_SHA256 = "f1757ed9b43c4fb969deb55aa81351e5c2a873d3af902ed5f5fba05df36240ed";
   const MINNA_SHA256$8 = "66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229";
@@ -81492,12 +81496,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the preference patterns first, then answer Moodle, Minna, and Genki items in source order."
       },
       provenance: {
-        packageId: PACKAGE_ID$P,
+        packageId: PACKAGE_ID$R,
         answerVisibility: "after-attempt",
         sourceOrder: ["moodle", "minna", "genki"],
         moodle: {
-          moduleId: MODULE_ID$P,
-          archiveSha256: ARCHIVE_SHA256$m,
+          moduleId: MODULE_ID$R,
+          archiveSha256: ARCHIVE_SHA256$o,
           documents: [
             { payloadSha256: PREFERENCE_SHA256, member: "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference.pdf", pages: "1-2" },
             { payloadSha256: DONNA_SHA256, member: "Handout/Chapter 9-1_Grammar Exercise_Adjectives describing preference using どんな.pdf", pages: "1" }
@@ -81684,7 +81688,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$M() {
     const root = record$Q(lessonPackage$A, "l1-l12 package");
     const identity2 = record$Q(root.identity, "l1-l12 identity");
-    if (root.id !== PACKAGE_ID$P || identity2.moduleId !== MODULE_ID$P) throw new TypeError("Unexpected l1-l12 package identity.");
+    if (root.id !== PACKAGE_ID$R || identity2.moduleId !== MODULE_ID$R) throw new TypeError("Unexpected l1-l12 package identity.");
     const found = exactExercises$1(root);
     if (found.length !== MOODLE_PROBLEMS.length) throw new TypeError("Expected all eight exact l1-l12 Moodle exercises.");
     found.forEach((item2, index) => {
@@ -82879,9 +82883,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     components: components$C,
     preStudyVocabulary: preStudyVocabulary$8
   };
-  const PACKAGE_ID$O = "l1-l13";
-  const MODULE_ID$O = 5489595;
-  const ARCHIVE_SHA256$l = "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839";
+  const PACKAGE_ID$Q = "l1-l13";
+  const MODULE_ID$Q = 5489595;
+  const ARCHIVE_SHA256$n = "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839";
   const SKILL_SHA256 = "189a165207404014343ed19be7bdba76e59212586273f68d9e27c5f0651d3fde";
   const UNDERSTANDING_SHA256 = "5703647975dcf519399c5a911254a9a418ace4af7f8403242f1255e9e1dcfd1e";
   const MINNA_SHA256$7 = "66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229";
@@ -82946,12 +82950,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Learn the skill and understanding patterns first, then answer Moodle, Minna, and Genki items in source order."
       },
       provenance: {
-        packageId: PACKAGE_ID$O,
+        packageId: PACKAGE_ID$Q,
         answerVisibility: "after-attempt",
         sourceOrder: ["moodle", "minna", "genki"],
         moodle: {
-          moduleId: MODULE_ID$O,
-          archiveSha256: ARCHIVE_SHA256$l,
+          moduleId: MODULE_ID$Q,
+          archiveSha256: ARCHIVE_SHA256$n,
           documents: [
             { payloadSha256: SKILL_SHA256, member: "Handouts/Chapter 9-1_Grammar Exercise_describing skilles.pdf", pages: "2" },
             { payloadSha256: UNDERSTANDING_SHA256, member: "Handouts/Chapter 9-2_Grammar Exercise_describing abilities and the degree.pdf", pages: "1, 4" }
@@ -83103,7 +83107,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$L() {
     const root = record$P(lessonPackage$z, "l1-l13 package");
     const identity2 = record$P(root.identity, "l1-l13 identity");
-    if (root.id !== PACKAGE_ID$O || identity2.moduleId !== MODULE_ID$O) throw new TypeError("Unexpected l1-l13 package identity.");
+    if (root.id !== PACKAGE_ID$Q || identity2.moduleId !== MODULE_ID$Q) throw new TypeError("Unexpected l1-l13 package identity.");
     const exercises = exactExercises(root);
     if (exercises.length !== MOODLE_SOURCES.length) throw new TypeError("Expected all eight exact l1-l13 Moodle exercises.");
     exercises.forEach((item2, index) => {
@@ -88143,8 +88147,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$B,
     preStudyVocabulary: preStudyVocabulary$7
   };
-  const PACKAGE_ID$N = "l1-l19";
-  const MODULE_ID$N = 6223185;
+  const PACKAGE_ID$P = "l1-l19";
+  const MODULE_ID$P = 6223185;
   const ORDERING_FOOD_SHA256 = "e316f2b99ea18663277b112f99680efee75a9dfe60d5ef5e00246e4498e27d6b";
   const TRACK_43_SHA256$1 = "75b031947b395f44f614a544897b2c4f8d5cca0885b8b1a525360dd07cdf0372";
   const TRACK_44_SHA256$1 = "b076fb0e90d9e1b2cdfe7caab6687b22b0eb354c3ee1b0b2b498154c084979bd";
@@ -88200,7 +88204,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ],
         mapping: {
           academyWeek: "Level 1+ Lesson 9 / l1plus-l09",
-          moodleModuleId: MODULE_ID$N,
+          moodleModuleId: MODULE_ID$P,
           curriculum: [
             "Moodle Chapter 11-2 ordering food, page 2, delivered first.",
             "Minna no Nihongo I Lesson 11 supplies sequence support only.",
@@ -88262,7 +88266,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$K() {
     const root = record$O(lessonPackage$y, "l1-l19 package");
-    if (root.id !== PACKAGE_ID$N || record$O(root.identity, "l1-l19 identity").moduleId !== MODULE_ID$N) {
+    if (root.id !== PACKAGE_ID$P || record$O(root.identity, "l1-l19 identity").moduleId !== MODULE_ID$P) {
       throw new TypeError("Unexpected l1-l19 package identity.");
     }
     const members = array$O(record$O(root.sourceCoverage, "l1-l19 coverage").members, "l1-l19 members").map((value, index) => record$O(value, `l1-l19 member ${index}`));
@@ -88288,8 +88292,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$M = "l1-l19";
-  const MODULE_ID$M = 6223185;
+  const PACKAGE_ID$O = "l1-l19";
+  const MODULE_ID$O = 6223185;
   const HANDOUT_SHA256$2 = "797c858bc8070541ec31bae8e631ac03d7c3a28a3409602f331020e1192002e8";
   const TRACK_43_SHA256 = "75b031947b395f44f614a544897b2c4f8d5cca0885b8b1a525360dd07cdf0372";
   const TRACK_44_SHA256 = "b076fb0e90d9e1b2cdfe7caab6687b22b0eb354c3ee1b0b2b498154c084979bd";
@@ -88316,10 +88320,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Listen to the original audio and complete the worksheet blanks."
       },
       provenance: {
-        packageId: PACKAGE_ID$M,
+        packageId: PACKAGE_ID$O,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$M,
+          moduleId: MODULE_ID$O,
           handout: {
             sourceId: `moodle-payload:${HANDOUT_SHA256$2}`,
             payloadSha256: HANDOUT_SHA256$2,
@@ -88420,8 +88424,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function track$1(id2, label, payloadSha256, locator, durationSeconds, tasks2, transcript) {
     const url = tasks2.map((task2) => {
-      const sourceQuestionId2 = task2.sourceQuestionId.replace(`${PACKAGE_ID$M}/`, "");
-      return resolvePackagedListeningTask(PACKAGE_ID$M, sourceQuestionId2, locator);
+      const sourceQuestionId2 = task2.sourceQuestionId.replace(`${PACKAGE_ID$O}/`, "");
+      return resolvePackagedListeningTask(PACKAGE_ID$O, sourceQuestionId2, locator);
     });
     if (url.some((candidate2) => !candidate2) || new Set(url).size !== 1) throw new TypeError(`Missing exact packaged binding for ${label}.`);
     return Object.freeze({
@@ -88438,7 +88442,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function task$7(id2, sourceQuestionId2, prompt2, fields, conceptId, errorTag2, reviewExpression) {
-    return Object.freeze({ id: id2, sourceQuestionId: `${PACKAGE_ID$M}/${sourceQuestionId2}`, prompt: prompt2, fields, conceptId, errorTag: errorTag2, reviewExpression });
+    return Object.freeze({ id: id2, sourceQuestionId: `${PACKAGE_ID$O}/${sourceQuestionId2}`, prompt: prompt2, fields, conceptId, errorTag: errorTag2, reviewExpression });
   }
   function field$2(id2, label, answer2) {
     return Object.freeze({ id: id2, label, answer: answer2 });
@@ -88448,7 +88452,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$J() {
     const root = record$N(lessonPackage$y, "l1-l19 package");
-    if (root.id !== PACKAGE_ID$M || record$N(root.identity, "l1-l19 identity").moduleId !== MODULE_ID$M) {
+    if (root.id !== PACKAGE_ID$O || record$N(root.identity, "l1-l19 identity").moduleId !== MODULE_ID$O) {
       throw new TypeError("Unexpected l1-l19 package identity.");
     }
     const members = array$N(record$N(root.sourceCoverage, "l1-l19 coverage").members, "l1-l19 members").map((value, index) => record$N(value, `l1-l19 member ${index}`));
@@ -95914,9 +95918,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     activityPluginBindings,
     runtimeReachability: runtimeReachability$6
   };
-  const PACKAGE_ID$L = "l1-l20";
-  const MODULE_ID$L = 6310077;
-  const WORKSHEET_SHA256$c = "14bf6fe4ba20b651eebe5639f9e87b2492592dc6ec92893ccd162e78289cc737";
+  const PACKAGE_ID$N = "l1-l20";
+  const MODULE_ID$N = 6310077;
+  const WORKSHEET_SHA256$d = "14bf6fe4ba20b651eebe5639f9e87b2492592dc6ec92893ccd162e78289cc737";
   const A45_SHA256$1 = "7a7f9cf7c9d0a10932007df1528f10fdfd7c0f38fe59bb938aa7a6952ccc47c8";
   const MINNA_039_SHA256$1 = "bca7547d5207c2a6b2abe6fd2df8716a1858fd02bbdf34d6195291900c75389d";
   const CUES = [
@@ -95951,11 +95955,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Use the frequency lens to complete Sensei’s six source cues."
       },
       provenance: {
-        packageId: PACKAGE_ID$L,
+        packageId: PACKAGE_ID$N,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$L,
-          payloadSha256: WORKSHEET_SHA256$c,
+          moduleId: MODULE_ID$N,
+          payloadSha256: WORKSHEET_SHA256$d,
           member: "Handouts/Chapter 11-3_time period_how many times_how long.docx",
           lineLocus: { start: 26, end: 33 },
           sourceSurface: {
@@ -96034,9 +96038,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$I() {
     const root = record$M(lessonPackage$x, "l1-l20 package");
-    if (root.id !== PACKAGE_ID$L || record$M(root.identity, "l1-l20 identity").moduleId !== MODULE_ID$L) throw new TypeError("Unexpected l1-l20 package identity.");
+    if (root.id !== PACKAGE_ID$N || record$M(root.identity, "l1-l20 identity").moduleId !== MODULE_ID$N) throw new TypeError("Unexpected l1-l20 package identity.");
     const members = array$M(record$M(root.sourceCoverage, "l1-l20 coverage").members, "l1-l20 members").map((value, index) => record$M(value, `l1-l20 member ${index}`));
-    for (const [payloadSha256, title2] of [[WORKSHEET_SHA256$c, "Chapter 11-3 time period how many times how long"], [A45_SHA256$1, "45 A-45"], [MINNA_039_SHA256$1, "minna shokyu 1 039"]]) {
+    for (const [payloadSha256, title2] of [[WORKSHEET_SHA256$d, "Chapter 11-3 time period how many times how long"], [A45_SHA256$1, "45 A-45"], [MINNA_039_SHA256$1, "minna shokyu 1 039"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === payloadSha256);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact l1-l20 Moodle source ${title2}.`);
     }
@@ -97882,9 +97886,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$z,
     preStudyVocabulary: preStudyVocabulary$5
   };
-  const PACKAGE_ID$K = "l1-l21";
-  const MODULE_ID$K = 6375062;
-  const WORKSHEET_SHA256$b = "49468890a807f485a2c86cf2c05f6c3e11b6e2bf0cbd2ca50da662de8b91e5f5";
+  const PACKAGE_ID$M = "l1-l21";
+  const MODULE_ID$M = 6375062;
+  const WORKSHEET_SHA256$c = "49468890a807f485a2c86cf2c05f6c3e11b6e2bf0cbd2ca50da662de8b91e5f5";
   const AUDIO_SHA256$i = "4f292de0dd3a5791bfdafd668df598ea1e0dc20036fcce467d3213d7ab53fb97";
   const AUDIO_LOCATOR$8 = "academy/content/moodle/audio/l1-l21-a46.mp3";
   const PAGE_ONE_SHA256$1 = "549fadcb25776014c1901d17cdc3e5ac032da901c615cc1b31e66252cc444e12";
@@ -97915,7 +97919,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rounds = ROUNDS$5.map((round2, index) => Object.freeze({
       id: `sensei-commute-${index + 1}`,
       sourceOrder: index + 1,
-      sourceQuestionId: `${PACKAGE_ID$K}/${SOURCE_QUESTION_IDS[index]}`,
+      sourceQuestionId: `${PACKAGE_ID$M}/${SOURCE_QUESTION_IDS[index]}`,
       sourcePrompt: round2.sourcePrompt,
       disruption: { transportId: round2.disruption[0], durationId: round2.disruption[1] },
       usual: { transportId: round2.usual[0], durationId: round2.usual[1] },
@@ -97923,7 +97927,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptId: `concept:l1-l21:commute-comparison:${index + 1}`,
       errorTag: `l1-l21-commute-comparison-${index + 1}`
     }));
-    const audioUrls = rounds.map((round2) => resolvePackagedListeningTask(PACKAGE_ID$K, round2.sourceQuestionId.split("/").pop(), AUDIO_LOCATOR$8));
+    const audioUrls = rounds.map((round2) => resolvePackagedListeningTask(PACKAGE_ID$M, round2.sourceQuestionId.split("/").pop(), AUDIO_LOCATOR$8));
     if (audioUrls.some((url) => !url) || new Set(audioUrls).size !== 1) throw new TypeError("Missing exact packaged A-46 binding.");
     const activity2 = {
       id: "activity:l1-l21-sensei-commute-comparison-log",
@@ -97934,11 +97938,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptIds: rounds.map((round2) => round2.conceptId),
       prompt: { ja: "ストの日と、いつもの通勤を二行のノートに分けましょう。", en: "Separate the strike-day and usual commutes into a two-line notebook." },
       provenance: {
-        packageId: PACKAGE_ID$K,
+        packageId: PACKAGE_ID$M,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$K,
-          worksheet: { payloadSha256: WORKSHEET_SHA256$b, member: "Chapter 11-4_time period_how long does it take.pdf", pages: [1, 3] },
+          moduleId: MODULE_ID$M,
+          worksheet: { payloadSha256: WORKSHEET_SHA256$c, member: "Chapter 11-4_time period_how long does it take.pdf", pages: [1, 3] },
           audio: { payloadSha256: AUDIO_SHA256$i, member: "46 A-46.mp3", url: audioUrls[0], durationSeconds: 70.066667, transcriptStatus: "worksheet-script-after-attempt" },
           sourceSurfaces: [
             { url: "/academy/content/lessons/l1-l21/moodle-chapter-11-4-duration-page-1.png", sha256: PAGE_ONE_SHA256$1, page: 1 },
@@ -97973,9 +97977,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$H() {
     const root = record$L(lessonPackage$w, "l1-l21 package");
-    if (root.id !== PACKAGE_ID$K || record$L(root.identity, "l1-l21 identity").moduleId !== MODULE_ID$K) throw new TypeError("Unexpected l1-l21 package identity.");
+    if (root.id !== PACKAGE_ID$M || record$L(root.identity, "l1-l21 identity").moduleId !== MODULE_ID$M) throw new TypeError("Unexpected l1-l21 package identity.");
     const members = array$L(record$L(root.sourceCoverage, "l1-l21 coverage").members, "l1-l21 members").map((value, index) => record$L(value, `l1-l21 member ${index}`));
-    for (const [payloadSha256, title2] of [[WORKSHEET_SHA256$b, "Chapter 11-4 time period how long does it take"], [AUDIO_SHA256$i, "46 A-46"]]) {
+    for (const [payloadSha256, title2] of [[WORKSHEET_SHA256$c, "Chapter 11-4 time period how long does it take"], [AUDIO_SHA256$i, "46 A-46"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === payloadSha256);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact l1-l21 Moodle source ${title2}.`);
     }
@@ -99502,8 +99506,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$y,
     preStudyVocabulary: preStudyVocabulary$4
   };
-  const PACKAGE_ID$J = "l1-l22";
-  const MODULE_ID$J = 5489603;
+  const PACKAGE_ID$L = "l1-l22";
+  const MODULE_ID$L = 5489603;
   const LIST_SHA256 = "95f08c8d50b1f64902f707339c48c456157e085249f1bda4b788271302029350";
   const WRITING_SHA256$3 = "5f76dbe42ed8c5643a76bd6b9382eec83c9664778fca13540690918c5f8531dd";
   const LIST_PAGE_SHA256 = "5605d67fd4553c40ab8b41ec40a8302791219964683fff435b4f08684342b038";
@@ -99613,7 +99617,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$G() {
     const root = record$K(lessonPackage$v, "l1-l22 package");
-    if (root.id !== PACKAGE_ID$J || record$K(root.identity, "l1-l22 identity").moduleId !== MODULE_ID$J) {
+    if (root.id !== PACKAGE_ID$L || record$K(root.identity, "l1-l22 identity").moduleId !== MODULE_ID$L) {
       throw new TypeError("Unexpected l1-l22 package identity.");
     }
     const members = array$K(record$K(root.sourceCoverage, "l1-l22 coverage").members, "l1-l22 members").map((value, index) => record$K(value, `l1-l22 member ${index}`));
@@ -101424,8 +101428,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$x,
     preStudyVocabulary: preStudyVocabulary$3
   };
-  const PACKAGE_ID$I = "l1-l23";
-  const MODULE_ID$I = 5489604;
+  const PACKAGE_ID$K = "l1-l23";
+  const MODULE_ID$K = 5489604;
   const WORKSHEETS_SHA256$3 = "3d91645a697548f64c9d7e6d5b95d3ec6b70341fab204954114fd897727d603b";
   const WRITING_SHA256$2 = "fc0dc182111d5827edcd6b8d0e950dd2c325d13f57f9c78ed527820f2ba10731";
   const WORKSHEETS_PAGE_SHA256$3 = "6cbfa4c81eddce26f264bf7f7ec2bf940db3bed1a98390d5404eb36ee9d0df30";
@@ -101530,7 +101534,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$F() {
     const root = record$J(lessonPackage$u, "l1-l23 package");
-    if (root.id !== PACKAGE_ID$I || record$J(root.identity, "l1-l23 identity").moduleId !== MODULE_ID$I) {
+    if (root.id !== PACKAGE_ID$K || record$J(root.identity, "l1-l23 identity").moduleId !== MODULE_ID$K) {
       throw new TypeError("Unexpected l1-l23 package identity.");
     }
     const members = array$J(record$J(root.sourceCoverage, "l1-l23 coverage").members, "l1-l23 members").map((value, index) => record$J(value, `l1-l23 member ${index}`));
@@ -103352,8 +103356,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$w,
     preStudyVocabulary: preStudyVocabulary$2
   };
-  const PACKAGE_ID$H = "l1-l24";
-  const MODULE_ID$H = 5489605;
+  const PACKAGE_ID$J = "l1-l24";
+  const MODULE_ID$J = 5489605;
   const WORKSHEETS_SHA256$2 = "4e80396249d5c18b73b28e9c0f4340ba53e529d848697bd83fb615fb1963f21d";
   const WRITING_SHA256$1 = "edbbbb0c570512ddafcecb513c3bb534e4b609f7c56c0d875c2aa5170aaeadd5";
   const WORKSHEETS_PAGE_SHA256$2 = "cba30d8842877f8687ac5d28ac7b0d7ab6f156c990e71c44b5e9113b79981e2f";
@@ -103450,7 +103454,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$E() {
     const root = record$I(lessonPackage$t, "l1-l24 package");
-    if (root.id !== PACKAGE_ID$H || record$I(root.identity, "l1-l24 identity").moduleId !== MODULE_ID$H) throw new TypeError("Unexpected l1-l24 package identity.");
+    if (root.id !== PACKAGE_ID$J || record$I(root.identity, "l1-l24 identity").moduleId !== MODULE_ID$J) throw new TypeError("Unexpected l1-l24 package identity.");
     const members = array$I(record$I(root.sourceCoverage, "l1-l24 coverage").members, "l1-l24 members").map((value, index) => record$I(value, `l1-l24 member ${index}`));
     for (const [payloadSha256, title2] of [[WORKSHEETS_SHA256$2, "Katakana worksheets サ、ザ、タ、ダ"], [WRITING_SHA256$1, "Katakana writing practice サ、タ"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === payloadSha256);
@@ -105052,11 +105056,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$t,
     sourceActivityBindings: sourceActivityBindings$t
   };
-  const PACKAGE_ID$G = "l2-l23";
-  const PACKAGE_ORDER$v = 50;
-  const MODULE_ID$G = 8121282;
-  const ARCHIVE_ID$n = "archive-000093";
-  const ARCHIVE_SHA256$k = "f5645afdd801a647519a815d08453ca6891b283eb895d49faab72d5528abed26";
+  const PACKAGE_ID$I = "l2-l23";
+  const PACKAGE_ORDER$x = 50;
+  const MODULE_ID$I = 8121282;
+  const ARCHIVE_ID$p = "archive-000093";
+  const ARCHIVE_SHA256$m = "f5645afdd801a647519a815d08453ca6891b283eb895d49faab72d5528abed26";
   const HOMEWORK_ONE_SHA256 = "6342c59291f35db3d62afa139b1aecdebc994cb57ab048fe439bbf5045ce7b78";
   const HOMEWORK_TWO_SHA256 = "c1fb869d36a5bade7cdbed46d145c7f47f23fe88152fbb8a17a4ea635177cbc2";
   const WORKSHEET_DOCX_SHA256 = "5d1e52068c0cb6a6b905ffeb7e4b2496b530cd2a5c47f25d7eb4972c1578d61b";
@@ -105076,7 +105080,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
       provenance: {
-        packageId: PACKAGE_ID$G,
+        packageId: PACKAGE_ID$I,
         componentId: "kanji-6-reading-panels",
         sourceId: `moodle:${WORKSHEET_PDF_SHA256}`,
         sourceQuestionId: sourceId$1(WORKSHEET_PDF_SHA256, 3, "reading-panel-1"),
@@ -105235,11 +105239,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$D() {
     const root = record$H(lessonPackage$s, "l2-l23 package");
     const identity2 = record$H(root.identity, "l2-l23 identity");
-    if (root.id !== PACKAGE_ID$G || root.order !== PACKAGE_ORDER$v || identity2.moduleId !== MODULE_ID$G) {
+    if (root.id !== PACKAGE_ID$I || root.order !== PACKAGE_ORDER$x || identity2.moduleId !== MODULE_ID$I) {
       throw new TypeError("Unexpected l2-l23 package identity.");
     }
     const coverage = record$H(root.sourceCoverage, "l2-l23 source coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$n || coverage.archiveSha256 !== ARCHIVE_SHA256$k || coverage.memberFileCount !== 4) {
+    if (coverage.archiveId !== ARCHIVE_ID$p || coverage.archiveSha256 !== ARCHIVE_SHA256$m || coverage.memberFileCount !== 4) {
       throw new TypeError("Unexpected l2-l23 Moodle archive identity.");
     }
     const members = array$H(coverage.members, "l2-l23 members").map((value, index) => record$H(value, `l2-l23 member ${index + 1}`));
@@ -106837,11 +106841,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$s,
     sourceActivityBindings: sourceActivityBindings$s
   };
-  const PACKAGE_ID$F = "l2-l25";
-  const PACKAGE_ORDER$u = 52;
-  const MODULE_ID$F = 8121279;
-  const ARCHIVE_ID$m = "archive-000078";
-  const ARCHIVE_SHA256$j = "db9e3c5494bcb89e220c4d112c40c777af61b6be0e5c60b174b5e33378ec42eb";
+  const PACKAGE_ID$H = "l2-l25";
+  const PACKAGE_ORDER$w = 52;
+  const MODULE_ID$H = 8121279;
+  const ARCHIVE_ID$o = "archive-000078";
+  const ARCHIVE_SHA256$l = "db9e3c5494bcb89e220c4d112c40c777af61b6be0e5c60b174b5e33378ec42eb";
   const DESHOU_SHA256 = "4327bdf7c9734ac453b5453d6eb8997121d5f3e2e693d37e1d32772f830fad1b";
   const KAMOSHIREMASEN_SHA256 = "b2d999296ac31099b6dafcb7aa129663490c2d4048f12b02a8ac9351635ebc08";
   const SOURCE_VISUALS$m = Object.freeze([
@@ -106855,7 +106859,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L25ProbabilityBriefingBeat() {
     assertExactPackageSources$C();
     const rounds = [
-      round$o(
+      round$q(
         "cloudy-tomorrow",
         1,
         "action-choice",
@@ -106872,7 +106876,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "Check the source furigana and final punctuation."
         )
       ),
-      round$o(
+      round$q(
         "not-rain",
         2,
         "state-select",
@@ -106889,7 +106893,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "Keep じゃないでしょう intact."
         )
       ),
-      round$o(
+      round$q(
         "afternoon-clear",
         3,
         "typed-report",
@@ -106906,7 +106910,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "Finish with でしょう。"
         )
       ),
-      round$o(
+      round$q(
         "rocket-success",
         4,
         "action-choice",
@@ -106923,7 +106927,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "The source ends 成功するでしょう."
         )
       ),
-      round$o(
+      round$q(
         "influenza",
         5,
         "state-select",
@@ -106940,7 +106944,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "The printed line has no final period."
         )
       ),
-      round$o(
+      round$q(
         "cloud-rain",
         6,
         "typed-report",
@@ -106957,7 +106961,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "Enter through かも しれません。"
         )
       ),
-      round$o(
+      round$q(
         "late-meeting",
         7,
         "action-choice",
@@ -106974,7 +106978,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           "Keep the two printed lines as one sentence."
         )
       ),
-      round$o(
+      round$q(
         "whatapp-reply",
         8,
         "typed-report",
@@ -107004,12 +107008,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read all six canonical Chapter 32-2 でしょう and Chapter 32-3 かも しれません pages first, then distinguish eight examples in their source wording."
       },
       provenance: {
-        packageId: PACKAGE_ID$F,
-        packageOrder: PACKAGE_ORDER$u,
+        packageId: PACKAGE_ID$H,
+        packageOrder: PACKAGE_ORDER$w,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$F,
-          archiveId: ARCHIVE_ID$m,
+          moduleId: MODULE_ID$H,
+          archiveId: ARCHIVE_ID$o,
           sourceSheets: SOURCE_VISUALS$m,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 3, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "sensei-verbatim-probability-examples-over-canonical-source-pages"
@@ -107052,7 +107056,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$o(id2, sourceOrder, interaction, payloadSha256, sourcePrompt, answerExpression, options, hints2) {
+  function round$q(id2, sourceOrder, interaction, payloadSha256, sourcePrompt, answerExpression, options, hints2) {
     const sourceTask = payloadSha256 === DESHOU_SHA256 ? "grammar" : "review";
     const sourceItem = sourceItemFor(sourceOrder);
     return Object.freeze({
@@ -107062,7 +107066,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourcePage: 1,
-      sourceQuestionId: `moodle:${MODULE_ID$F}:${payloadSha256}:pdf-p1:example-${sourceItem}`,
+      sourceQuestionId: `moodle:${MODULE_ID$H}:${payloadSha256}:pdf-p1:example-${sourceItem}`,
       sourcePrompt,
       options,
       answerValue: answerExpression,
@@ -107122,7 +107126,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$G(lessonPackage$r, "l2-l25 package");
     const identity2 = record$G(root.identity, "l2-l25 identity");
     const coverage = record$G(root.sourceCoverage, "l2-l25 source coverage");
-    if (root.id !== PACKAGE_ID$F || root.order !== PACKAGE_ORDER$u || identity2.moduleId !== MODULE_ID$F || coverage.archiveId !== ARCHIVE_ID$m || coverage.archiveSha256 !== ARCHIVE_SHA256$j || coverage.memberFileCount !== 11) throw new TypeError("Unexpected l2-l25 package identity.");
+    if (root.id !== PACKAGE_ID$H || root.order !== PACKAGE_ORDER$w || identity2.moduleId !== MODULE_ID$H || coverage.archiveId !== ARCHIVE_ID$o || coverage.archiveSha256 !== ARCHIVE_SHA256$l || coverage.memberFileCount !== 11) throw new TypeError("Unexpected l2-l25 package identity.");
     const members = array$G(coverage.members, "l2-l25 members").map((member) => record$G(member, "l2-l25 member"));
     for (const payload of [DESHOU_SHA256, KAMOSHIREMASEN_SHA256]) {
       if (!members.some((member) => member.payloadSha256 === payload && member.kind === "document")) {
@@ -108950,14 +108954,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$r,
     sourceActivityBindings: sourceActivityBindings$r
   };
-  const PACKAGE_ID$E = "l2-l26";
-  const PACKAGE_ORDER$t = 53;
-  const MODULE_ID$E = 8121288;
-  const ARCHIVE_ID$l = "archive-000082";
-  const ARCHIVE_SHA256$i = "e1dd259116662e0d5abb0952f4aa55a6a35ddbddf34e6c0818931863ca1400f2";
+  const PACKAGE_ID$G = "l2-l26";
+  const PACKAGE_ORDER$v = 53;
+  const MODULE_ID$G = 8121288;
+  const ARCHIVE_ID$n = "archive-000082";
+  const ARCHIVE_SHA256$k = "e1dd259116662e0d5abb0952f4aa55a6a35ddbddf34e6c0818931863ca1400f2";
   const FORM_SHA256 = "91c46375a122493ae872d162e4ac3a6dd40904c41e0b122a2260325ce38a6d35";
   const EXERCISE_SHA256$1 = "f8bb529db82886b4b7c0359383fb371e810141971bbfe5a2077007783a31b12a";
-  const VOCABULARY_SHA256$k = "d12a86de07bba4dbeadca54778692a2d70392a04b26fe356c454986862b77484";
+  const VOCABULARY_SHA256$l = "d12a86de07bba4dbeadca54778692a2d70392a04b26fe356c454986862b77484";
   const HOMEWORK_SHA256$2 = "8235ec47d40dc25274690fa77715763ad8958b59c3e5a799f19ffdd71e2896ed";
   const AUDIO_PAYLOADS$1 = Object.freeze([
     "eedd24d38b003285ef130817c17447a432fbaa3742581b807ffb5b99e71a67b1",
@@ -108973,7 +108977,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       kind: "choice",
       responseKind: "choice",
       curriculumPhase: "assessed-recognition",
-      sourceQuestionId: sourceId(VOCABULARY_SHA256$k, 2, "row-19-meaning"),
+      sourceQuestionId: sourceId(VOCABULARY_SHA256$l, 2, "row-19-meaning"),
       conceptIds: ["concept:l2-l26:shiyou-kinshi"],
       prompt: {
         ja: "Chapter 33-1 Vocabulary Sheetで「使用禁止」に印刷された意味を選びましょう。",
@@ -109142,11 +109146,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$F(lessonPackage$q, "l2-l26 package");
     const identity2 = record$F(root.identity, "l2-l26 identity");
     const coverage = record$F(root.sourceCoverage, "l2-l26 source coverage");
-    if (root.id !== PACKAGE_ID$E || root.order !== PACKAGE_ORDER$t || identity2.moduleId !== MODULE_ID$E || coverage.archiveModuleId !== MODULE_ID$E || coverage.archiveId !== ARCHIVE_ID$l || coverage.archiveSha256 !== ARCHIVE_SHA256$i || coverage.memberFileCount !== 16) {
+    if (root.id !== PACKAGE_ID$G || root.order !== PACKAGE_ORDER$v || identity2.moduleId !== MODULE_ID$G || coverage.archiveModuleId !== MODULE_ID$G || coverage.archiveId !== ARCHIVE_ID$n || coverage.archiveSha256 !== ARCHIVE_SHA256$k || coverage.memberFileCount !== 16) {
       throw new TypeError("Unexpected l2-l26 package identity.");
     }
     const members = array$F(coverage.members, "l2-l26 members").map((value, index) => record$F(value, `l2-l26 member ${index + 1}`));
-    for (const payloadSha256 of [FORM_SHA256, EXERCISE_SHA256$1, VOCABULARY_SHA256$k, HOMEWORK_SHA256$2]) {
+    for (const payloadSha256 of [FORM_SHA256, EXERCISE_SHA256$1, VOCABULARY_SHA256$l, HOMEWORK_SHA256$2]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document" && member.extension === ".pdf")) {
         throw new TypeError(`Missing exact l2-l26 Moodle document ${payloadSha256}.`);
       }
@@ -111226,36 +111230,36 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (typeof dialog.close === "function") dialog.close();
     else dialog.removeAttribute("open");
   }
-  const PACKAGE_ID$D = "l2-l27";
-  const PACKAGE_ORDER$s = 54;
-  const MODULE_ID$D = 8121291;
-  const ARCHIVE_ID$k = "archive-000059";
-  const ARCHIVE_SHA256$h = "abfa64a2063a03e9b61aefd45d76668576750d8e0cb92c9d628087ce7bfeaee1";
+  const PACKAGE_ID$F = "l2-l27";
+  const PACKAGE_ORDER$u = 54;
+  const MODULE_ID$F = 8121291;
+  const ARCHIVE_ID$m = "archive-000059";
+  const ARCHIVE_SHA256$j = "abfa64a2063a03e9b61aefd45d76668576750d8e0cb92c9d628087ce7bfeaee1";
   const MESSAGE_SHA256 = "8c589fc81331f89d5f0d94bfd4914cb9a86c0288b6fad73c330d91337fda4c12";
   const MEANING_SHA256 = "31bf02b4a6685556b4d4daf00f3f25946f7cca5a7ad7e5e45f7a7ff1a88af4bb";
   const L2_L27_SOURCE_VISUALS = Object.freeze([
-    sourceVisual$j(
+    sourceVisual$l(
       MESSAGE_SHA256,
       "Chapter 33-2 〜と言っていました_〜と伝えていただけませんか exercise",
       1,
       "moodle-chapter-33-2-message-page-1.png",
       "c55cc9af4848b91412dee34887a45a617f1d0dbfae414f4935be0d58b91e6fb7"
     ),
-    sourceVisual$j(
+    sourceVisual$l(
       MESSAGE_SHA256,
       "Chapter 33-2 〜と言っていました_〜と伝えていただけませんか exercise",
       2,
       "moodle-chapter-33-2-message-page-2.png",
       "f4df2db3634229f635d4212d66b51d6de3b9f06369bf61abbcbe78e3dfcd53bc"
     ),
-    sourceVisual$j(
+    sourceVisual$l(
       MEANING_SHA256,
       "Chapter 33-2〜という意味です exercise",
       1,
       "moodle-chapter-33-2-meaning-page-1.png",
       "cab45501a727940fb1f311dd64b1c6da55135133ae9a186365bbff5c86718af5"
     ),
-    sourceVisual$j(
+    sourceVisual$l(
       MEANING_SHA256,
       "Chapter 33-2〜という意味です exercise",
       2,
@@ -111265,7 +111269,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ]);
   function createLessonL2L27ReportedMessageBeat() {
     assertExactPackageSources$A();
-    const rounds = createRounds$1();
+    const rounds = createRounds$3();
     const activity2 = {
       id: "activity:l2-l27-reported-message-workshop",
       kind: "academy-reported-message-workshop",
@@ -111287,12 +111291,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ]
       },
       provenance: {
-        packageId: PACKAGE_ID$D,
-        packageOrder: PACKAGE_ORDER$s,
+        packageId: PACKAGE_ID$F,
+        packageOrder: PACKAGE_ORDER$u,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$D,
-          archiveId: ARCHIVE_ID$k,
+          moduleId: MODULE_ID$F,
+          archiveId: ARCHIVE_ID$m,
           sourceSheets: L2_L27_SOURCE_VISUALS,
           media: {
             status: "six-audio-members-quarantined-unpaired",
@@ -111371,10 +111375,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const reportedMessageWorkshopPlugin = {
     kind: "academy-reported-message-workshop",
-    validate: validateModel$1,
-    render: renderWorkshop$1,
+    validate: validateModel$3,
+    render: renderWorkshop$3,
     grade(model2, response) {
-      const answers = parseResponse$I(model2, response);
+      const answers = parseResponse$K(model2, response);
       const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
       const score = (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length;
       return {
@@ -111385,10 +111389,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     },
     toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$e(round2, result)]);
+      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$g(round2, result)]);
     }
   };
-  function createRounds$1() {
+  function createRounds$3() {
     const relayPlain = "さとうさんに あした 休(やす)む と 伝(つた)えて いただけませんか。";
     const relayQuote = "さとうさんに「あした 休みます」と 伝えて いただけませんか。";
     const phonePlain = "さとうさんに あとで 電話(でんわ)して と 伝(つた)えて いただけませんか";
@@ -111398,7 +111402,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const meaningQuestion = "このマークは どういう 意味ですか。";
     const meaningAnswer = "写真(しゃしん) を 撮っては いけない と いう 意味です。";
     return Object.freeze([
-      round$n(
+      round$p(
         "relay-day-off-plain",
         1,
         "relay",
@@ -111410,7 +111414,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         relayPlain,
         [relayPlain, relayQuote]
       ),
-      round$n(
+      round$p(
         "relay-day-off-quote",
         2,
         "relay",
@@ -111422,7 +111426,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         relayQuote,
         []
       ),
-      round$n(
+      round$p(
         "relay-call-plain",
         3,
         "relay",
@@ -111434,7 +111438,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         phonePlain,
         [phonePlain, phoneQuote]
       ),
-      round$n(
+      round$p(
         "relay-call-quote",
         4,
         "relay",
@@ -111446,7 +111450,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         phoneQuote,
         []
       ),
-      round$n(
+      round$p(
         "report-day-off-plain",
         5,
         "report",
@@ -111458,7 +111462,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         reportPlain,
         [reportPlain, reportQuote]
       ),
-      round$n(
+      round$p(
         "report-day-off-quote",
         6,
         "report",
@@ -111470,7 +111474,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         reportQuote,
         [reportQuote, reportPlain]
       ),
-      round$n(
+      round$p(
         "meaning-question",
         7,
         "meaning",
@@ -111482,7 +111486,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         meaningQuestion,
         [meaningQuestion, "これは なんと 読むんですか。"]
       ),
-      round$n(
+      round$p(
         "meaning-no-photography",
         8,
         "meaning",
@@ -111496,14 +111500,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     ]);
   }
-  function round$n(id2, sourceOrder, sourceTask, sourcePage, interaction, payloadSha256, ja, en, answer2, values) {
+  function round$p(id2, sourceOrder, sourceTask, sourcePage, interaction, payloadSha256, ja, en, answer2, values) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceTask,
       sourcePage,
       interaction,
-      sourceQuestionId: `moodle:${MODULE_ID$D}:${payloadSha256}:pdf-p${sourcePage}:${id2}`,
+      sourceQuestionId: `moodle:${MODULE_ID$F}:${payloadSha256}:pdf-p${sourcePage}:${id2}`,
       prompt: Object.freeze({ ja, en }),
       options: Object.freeze(values.map((value) => Object.freeze({ value, label: value }))),
       answer: answer2,
@@ -111511,9 +111515,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTag: `l2-l27-reported-message-${sourceOrder}`
     });
   }
-  function validateModel$1(model2) {
+  function validateModel$3(model2) {
     const issues = [];
-    if (model2.provenance?.packageId !== PACKAGE_ID$D || model2.provenance.packageOrder !== PACKAGE_ORDER$s || model2.provenance.moodle.moduleId !== MODULE_ID$D || model2.provenance.moodle.archiveId !== ARCHIVE_ID$k) {
+    if (model2.provenance?.packageId !== PACKAGE_ID$F || model2.provenance.packageOrder !== PACKAGE_ORDER$u || model2.provenance.moodle.moduleId !== MODULE_ID$F || model2.provenance.moodle.archiveId !== ARCHIVE_ID$m) {
       issues.push({ path: "provenance", message: "The exact l2-l27 package identity is required." });
     }
     const visuals = model2.provenance?.moodle.sourceSheets;
@@ -111547,7 +111551,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     validateFeedback(model2.payload?.feedback, issues);
     return issues;
   }
-  function renderWorkshop$1(model2, host2, submit) {
+  function renderWorkshop$3(model2, host2, submit) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-reported-message-workshop";
@@ -111556,7 +111560,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     heading.id = `${model2.id}-prompt`;
     heading.tabIndex = -1;
     heading.append(...localizedNodes$1(model2.prompt));
-    const teaching2 = renderTeaching$n(model2);
+    const teaching2 = renderTeaching$p(model2);
     const sources = document.createElement("section");
     sources.className = "academy-state-inspection-sources";
     sources.dataset.lessonPhase = "source-reference";
@@ -111574,7 +111578,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
-      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$m(model2, round2, host2)));
+      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$o(model2, round2, host2)));
       section.append(title2, list2);
       groups.append(section);
     });
@@ -111583,13 +111587,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     check.className = "academy-button academy-button-primary";
     check.textContent = host2.language === "ja" ? "八つの伝言を確認する" : "Check all eight source lines";
     form.append(groups, check);
-    const key2 = renderAnswerKey$h(model2, host2.language);
+    const key2 = renderAnswerKey$j(model2, host2.language);
     const feedback2 = statusRegion("academy-kit-feedback academy-state-inspection-feedback");
     root.append(heading, teaching2, sources, form, key2, feedback2);
     host2.replace(root);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const response = responseFromForm$D(model2, form);
+      const response = responseFromForm$F(model2, form);
       if (!response) {
         feedback2.textContent = host2.language === "ja" ? "八つの行に答えてください。" : "Complete all eight source lines.";
         return;
@@ -111621,7 +111625,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
   }
-  function renderTeaching$n(model2) {
+  function renderTeaching$p(model2) {
     const section = document.createElement("section");
     section.className = "academy-state-inspection-teaching";
     section.dataset.lessonPhase = "teaching";
@@ -111636,7 +111640,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return section;
   }
-  function renderRound$m(model2, round2, host2) {
+  function renderRound$o(model2, round2, host2) {
     const item2 = document.createElement("li");
     item2.className = "academy-state-inspection-round";
     item2.dataset.roundId = round2.id;
@@ -111645,7 +111649,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const legend2 = document.createElement("legend");
     legend2.append(...localizedNodes$1(round2.prompt));
     fieldset.append(legend2);
-    const name = fieldName$5(model2, round2);
+    const name = fieldName$7(model2, round2);
     if (round2.interaction === "message-choice") {
       const choices2 = document.createElement("div");
       choices2.className = "academy-state-inspection-choices";
@@ -111682,7 +111686,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     item2.append(fieldset);
     return item2;
   }
-  function renderAnswerKey$h(model2, language) {
+  function renderAnswerKey$j(model2, language) {
     const section = document.createElement("section");
     section.className = "academy-state-inspection-key";
     section.dataset.answerVisibility = "after-attempt";
@@ -111699,15 +111703,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     section.append(heading, list2);
     return section;
   }
-  function responseFromForm$D(model2, form) {
+  function responseFromForm$F(model2, form) {
     const data = new FormData(form);
     const answers = model2.payload.rounds.map((round2) => {
-      const value = data.get(fieldName$5(model2, round2));
+      const value = data.get(fieldName$7(model2, round2));
       return typeof value === "string" && value.trim() ? { roundId: round2.id, value } : null;
     });
     return answers.every((answer2) => answer2 !== null) ? { answers } : null;
   }
-  function parseResponse$I(model2, response) {
+  function parseResponse$K(model2, response) {
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.rounds.length) {
       throw new TypeError("Every reported-message row needs one response.");
     }
@@ -111720,7 +111724,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return answers;
   }
-  function reviewSeed$e(round2, result) {
+  function reviewSeed$g(round2, result) {
     return {
       id: `review:l2-l27:reported-message:${round2.id}`,
       conceptId: round2.conceptId,
@@ -111729,10 +111733,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       content: { expression: round2.answer, meanings: [`Sensei Chapter 33-2 ${round2.sourceTask} example`] }
     };
   }
-  function fieldName$5(model2, round2) {
+  function fieldName$7(model2, round2) {
     return `${model2.id}:${round2.id}:answer`;
   }
-  function sourceVisual$j(payloadSha256, title2, page, filename, sha2562) {
+  function sourceVisual$l(payloadSha256, title2, page, filename, sha2562) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -111750,7 +111754,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$E(lessonPackage$p, "l2-l27 package");
     const identity2 = record$E(root.identity, "l2-l27 identity");
     const coverage = record$E(root.sourceCoverage, "l2-l27 source coverage");
-    if (root.id !== PACKAGE_ID$D || root.order !== PACKAGE_ORDER$s || identity2.moduleId !== MODULE_ID$D || coverage.archiveId !== ARCHIVE_ID$k || coverage.archiveSha256 !== ARCHIVE_SHA256$h || coverage.memberFileCount !== 18) throw new TypeError("Unexpected l2-l27 package identity.");
+    if (root.id !== PACKAGE_ID$F || root.order !== PACKAGE_ORDER$u || identity2.moduleId !== MODULE_ID$F || coverage.archiveId !== ARCHIVE_ID$m || coverage.archiveSha256 !== ARCHIVE_SHA256$j || coverage.memberFileCount !== 18) throw new TypeError("Unexpected l2-l27 package identity.");
     const members = array$E(coverage.members, "l2-l27 members").map((member) => record$E(member, "l2-l27 member"));
     for (const payloadSha256 of [MESSAGE_SHA256, MEANING_SHA256]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
@@ -113420,11 +113424,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$p,
     sourceActivityBindings: sourceActivityBindings$p
   };
-  const PACKAGE_ID$C = "l2-l28";
-  const PACKAGE_ORDER$r = 55;
-  const MODULE_ID$C = 8121293;
-  const ARCHIVE_ID$j = "archive-000096";
-  const ARCHIVE_SHA256$g = "fef6a7e4dab4bfc85a5f02e7713837f771ab4a32b316522c5640896d94063c02";
+  const PACKAGE_ID$E = "l2-l28";
+  const PACKAGE_ORDER$t = 55;
+  const MODULE_ID$E = 8121293;
+  const ARCHIVE_ID$l = "archive-000096";
+  const ARCHIVE_SHA256$i = "fef6a7e4dab4bfc85a5f02e7713837f771ab4a32b316522c5640896d94063c02";
   const TOORI_SHA256 = "561925130d7136e174d858aabb997f36b701f4db5702c925933ed5697c39464e";
   const ATODE_SHA256 = "09c6524d120d34b0d88bf7ee062602d95cfdfa465eab54b64438584a0fd3312e";
   const AUDIO_PAYLOADS = Object.freeze([
@@ -113433,35 +113437,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "be296a3de4f5e02e962ddea398aeeca904b60b0e3b8b6fa2745165fc4d7664bb"
   ]);
   const L2_L28_SOURCE_VISUALS = Object.freeze([
-    sourceVisual$i(
+    sourceVisual$k(
       TOORI_SHA256,
       "Chapter 34-1_〜たとおり_のとおり grammar exercise",
       1,
       "moodle-chapter-34-1-toori-page-1.png",
       "00ffd31387ae408c1713a132502a57ed20b23ca75f2882b44e7bd0ffae6d2ceb"
     ),
-    sourceVisual$i(
+    sourceVisual$k(
       TOORI_SHA256,
       "Chapter 34-1_〜たとおり_のとおり grammar exercise",
       2,
       "moodle-chapter-34-1-toori-page-2.png",
       "739d5731be16c5d9281005e8fc67f6e5394a34fac47455ff6128b4460e28ef80"
     ),
-    sourceVisual$i(
+    sourceVisual$k(
       ATODE_SHA256,
       "Chapter 34-1_〜たあとで_のあとで_grammar exercise",
       1,
       "moodle-chapter-34-1-atode-page-1.png",
       "59f457456021579209149e2d596171fe3452b211f82d47127d2959d2fae9f956"
     ),
-    sourceVisual$i(
+    sourceVisual$k(
       ATODE_SHA256,
       "Chapter 34-1_〜たあとで_のあとで_grammar exercise",
       2,
       "moodle-chapter-34-1-atode-page-2.png",
       "747800474673c50ce6f5565a00ffe8ee48fafc2772800b7d171955f2e069c653"
     ),
-    sourceVisual$i(
+    sourceVisual$k(
       ATODE_SHA256,
       "Chapter 34-1_〜たあとで_のあとで_grammar exercise",
       3,
@@ -113471,7 +113475,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ]);
   function createLessonL2L28FollowModelBeat() {
     assertExactPackageSources$z();
-    const rounds = createRounds();
+    const rounds = createRounds$2();
     const activity2 = {
       id: "activity:l2-l28-follow-the-model-workshop",
       kind: "academy-follow-the-model-workshop",
@@ -113494,12 +113498,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ]
       },
       provenance: {
-        packageId: PACKAGE_ID$C,
-        packageOrder: PACKAGE_ORDER$r,
+        packageId: PACKAGE_ID$E,
+        packageOrder: PACKAGE_ORDER$t,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$C,
-          archiveId: ARCHIVE_ID$j,
+          moduleId: MODULE_ID$E,
+          archiveId: ARCHIVE_ID$l,
           sourceSheets: L2_L28_SOURCE_VISUALS,
           media: {
             status: "three-audio-members-quarantined-unpaired",
@@ -113575,10 +113579,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const followTheModelWorkshopPlugin = {
     kind: "academy-follow-the-model-workshop",
-    validate: validateModel,
-    render: renderWorkshop,
+    validate: validateModel$2,
+    render: renderWorkshop$2,
     grade(model2, response) {
-      const answers = parseResponse$H(model2, response);
+      const answers = parseResponse$J(model2, response);
       const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
       return {
         outcome: missed.length ? "lapse" : "pass",
@@ -113588,10 +113592,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     },
     toReviewSeeds(model2, result) {
-      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$d(round2, result)]);
+      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$f(round2, result)]);
     }
   };
-  function createRounds() {
+  function createRounds$2() {
     const verbToori = "母(はは)に おしえてもらったとおりに、作(つく)ります。";
     const nounToori = "(この) 図(ず)の とおりに、折(お)りました。";
     const dottedLine = "この 点線(てんせん)の とおりに、折(お)ってください。";
@@ -113600,7 +113604,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const preparatory = "ここに お金(かね)を 入(い)れてから、ボタンを 押(お)してください。";
     const laterEvent = "あたらしい時計(とけい)を 買(か)ったあとで、なくした 時計が 見(み)つかりました。";
     return Object.freeze([
-      round$m(
+      round$o(
         "verb-toori-example",
         1,
         "same-way",
@@ -113612,7 +113616,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         verbToori,
         [verbToori, nounToori]
       ),
-      round$m(
+      round$o(
         "noun-toori-pattern",
         2,
         "same-way",
@@ -113624,7 +113628,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "Noun の とおりに、 Verb 2 。",
         ["Verb 1 た-form とおりに、 Verb 2 。", "Noun の とおりに、 Verb 2 。"]
       ),
-      round$m(
+      round$o(
         "dotted-line-source",
         3,
         "same-way",
@@ -113636,7 +113640,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         dottedLine,
         []
       ),
-      round$m(
+      round$o(
         "verb-atode-example",
         4,
         "after",
@@ -113648,7 +113652,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         verbAtode,
         [nounAtode, verbAtode]
       ),
-      round$m(
+      round$o(
         "noun-atode-pattern",
         5,
         "after",
@@ -113660,7 +113664,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "Noun の あとで、 Verb 2.",
         ["Verb た-form あとで、 Verb 2.", "Noun の あとで、 Verb 2."]
       ),
-      round$m(
+      round$o(
         "preparatory-tekara",
         6,
         "contrast",
@@ -113672,7 +113676,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         preparatory,
         [laterEvent, preparatory]
       ),
-      round$m(
+      round$o(
         "later-event-source",
         7,
         "contrast",
@@ -113686,14 +113690,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     ]);
   }
-  function round$m(id2, sourceOrder, sourceTask, sourcePage, interaction, payloadSha256, ja, en, answer2, values) {
+  function round$o(id2, sourceOrder, sourceTask, sourcePage, interaction, payloadSha256, ja, en, answer2, values) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceTask,
       sourcePage,
       interaction,
-      sourceQuestionId: `moodle:${MODULE_ID$C}:${payloadSha256}:pdf-p${sourcePage}:${id2}`,
+      sourceQuestionId: `moodle:${MODULE_ID$E}:${payloadSha256}:pdf-p${sourcePage}:${id2}`,
       prompt: Object.freeze({ ja, en }),
       options: Object.freeze(values.map((value) => Object.freeze({ value, label: value }))),
       answer: answer2,
@@ -113701,9 +113705,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTag: `l2-l28-follow-model-${sourceOrder}`
     });
   }
-  function validateModel(model2) {
+  function validateModel$2(model2) {
     const issues = [];
-    if (model2.provenance?.packageId !== PACKAGE_ID$C || model2.provenance.packageOrder !== PACKAGE_ORDER$r || model2.provenance.moodle.moduleId !== MODULE_ID$C || model2.provenance.moodle.archiveId !== ARCHIVE_ID$j) {
+    if (model2.provenance?.packageId !== PACKAGE_ID$E || model2.provenance.packageOrder !== PACKAGE_ORDER$t || model2.provenance.moodle.moduleId !== MODULE_ID$E || model2.provenance.moodle.archiveId !== ARCHIVE_ID$l) {
       issues.push({ path: "provenance", message: "The exact l2-l28 package identity is required." });
     }
     const visuals = model2.provenance?.moodle.sourceSheets;
@@ -113736,7 +113740,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     validateFeedback(model2.payload?.feedback, issues);
     return issues;
   }
-  function renderWorkshop(model2, host2, submit) {
+  function renderWorkshop$2(model2, host2, submit) {
     const lifecycle = new AbortController();
     const root = document.createElement("section");
     root.className = "academy-activity academy-state-inspection academy-follow-the-model-workshop";
@@ -113745,7 +113749,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     heading.id = `${model2.id}-prompt`;
     heading.tabIndex = -1;
     heading.append(...localizedNodes$1(model2.prompt));
-    const teaching2 = renderTeaching$m(model2);
+    const teaching2 = renderTeaching$o(model2);
     const sources = document.createElement("section");
     sources.className = "academy-state-inspection-sources";
     sources.dataset.lessonPhase = "source-reference";
@@ -113763,7 +113767,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       title2.textContent = group2.text;
       const list2 = document.createElement("ol");
       list2.className = "academy-state-inspection-rounds";
-      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$l(model2, round2, host2)));
+      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$n(model2, round2, host2)));
       section.append(title2, list2);
       groups.append(section);
     });
@@ -113772,13 +113776,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     check.className = "academy-button academy-button-primary";
     check.textContent = host2.language === "ja" ? "七つの原文を確認する" : "Check all seven source items";
     form.append(groups, check);
-    const key2 = renderAnswerKey$g(model2, host2.language);
+    const key2 = renderAnswerKey$i(model2, host2.language);
     const feedback2 = statusRegion("academy-kit-feedback academy-state-inspection-feedback");
     root.append(heading, teaching2, sources, form, key2, feedback2);
     host2.replace(root);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const response = responseFromForm$C(model2, form);
+      const response = responseFromForm$E(model2, form);
       if (!response) {
         feedback2.textContent = host2.language === "ja" ? "七つの項目に答えてください。" : "Complete all seven source items.";
         return;
@@ -113810,7 +113814,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
   }
-  function renderTeaching$m(model2) {
+  function renderTeaching$o(model2) {
     const section = document.createElement("section");
     section.className = "academy-state-inspection-teaching";
     section.dataset.lessonPhase = "teaching";
@@ -113826,7 +113830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return section;
   }
-  function renderRound$l(model2, round2, host2) {
+  function renderRound$n(model2, round2, host2) {
     const item2 = document.createElement("li");
     item2.className = "academy-state-inspection-round";
     item2.dataset.roundId = round2.id;
@@ -113835,7 +113839,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const legend2 = document.createElement("legend");
     legend2.append(...localizedNodes$1(round2.prompt));
     fieldset.append(legend2);
-    const name = fieldName$4(model2, round2);
+    const name = fieldName$6(model2, round2);
     if (round2.interaction === "source-choice") {
       const choices2 = document.createElement("div");
       choices2.className = "academy-state-inspection-choices";
@@ -113872,7 +113876,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     item2.append(fieldset);
     return item2;
   }
-  function renderAnswerKey$g(model2, language) {
+  function renderAnswerKey$i(model2, language) {
     const section = document.createElement("section");
     section.className = "academy-state-inspection-key";
     section.dataset.answerVisibility = "after-attempt";
@@ -113889,15 +113893,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     section.append(heading, list2);
     return section;
   }
-  function responseFromForm$C(model2, form) {
+  function responseFromForm$E(model2, form) {
     const data = new FormData(form);
     const answers = model2.payload.rounds.map((round2) => {
-      const value = data.get(fieldName$4(model2, round2));
+      const value = data.get(fieldName$6(model2, round2));
       return typeof value === "string" && value.trim() ? { roundId: round2.id, value } : null;
     });
     return answers.every((answer2) => answer2 !== null) ? { answers } : null;
   }
-  function parseResponse$H(model2, response) {
+  function parseResponse$J(model2, response) {
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.rounds.length) {
       throw new TypeError("Every follow-the-model row needs one response.");
     }
@@ -113910,7 +113914,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return answers;
   }
-  function reviewSeed$d(round2, result) {
+  function reviewSeed$f(round2, result) {
     return {
       id: `review:l2-l28:follow-model:${round2.id}`,
       conceptId: round2.conceptId,
@@ -113919,10 +113923,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       content: { expression: round2.answer, meanings: [`Sensei Chapter 34-1 ${round2.sourceTask} example`] }
     };
   }
-  function fieldName$4(model2, round2) {
+  function fieldName$6(model2, round2) {
     return `${model2.id}:${round2.id}:answer`;
   }
-  function sourceVisual$i(payloadSha256, title2, page, filename, sha2562) {
+  function sourceVisual$k(payloadSha256, title2, page, filename, sha2562) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -113937,7 +113941,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$D(sharedListeningPackage, "l2-l28 package");
     const identity2 = record$D(root.identity, "l2-l28 identity");
     const coverage = record$D(root.sourceCoverage, "l2-l28 source coverage");
-    if (root.id !== PACKAGE_ID$C || root.order !== PACKAGE_ORDER$r || identity2.moduleId !== MODULE_ID$C || coverage.archiveModuleId !== MODULE_ID$C || coverage.archiveId !== ARCHIVE_ID$j || coverage.archiveSha256 !== ARCHIVE_SHA256$g || coverage.memberFileCount !== 14) {
+    if (root.id !== PACKAGE_ID$E || root.order !== PACKAGE_ORDER$t || identity2.moduleId !== MODULE_ID$E || coverage.archiveModuleId !== MODULE_ID$E || coverage.archiveId !== ARCHIVE_ID$l || coverage.archiveSha256 !== ARCHIVE_SHA256$i || coverage.memberFileCount !== 14) {
       throw new TypeError("Unexpected l2-l28 package identity.");
     }
     const members = array$D(coverage.members, "l2-l28 members").map((member) => record$D(member, "l2-l28 member"));
@@ -115914,8 +115918,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$q,
     preStudyVocabulary: preStudyVocabulary$1
   };
-  const PACKAGE_ID$B = "l1-l25";
-  const MODULE_ID$B = 5489606;
+  const PACKAGE_ID$D = "l1-l25";
+  const MODULE_ID$D = 5489606;
   const WORKSHEETS_SHA256$1 = "64f6bf40afa9e3c1e89752df662400f6ae3031ecb9c3af467ed6ddc884d7ce73";
   const WRITING_SHA256 = "3d81532f1f522b416c2c66b33fc2d5a7280639ae887b7a09e8ee00d997fc814b";
   const WORKSHEETS_PAGE_SHA256$1 = "15f434e6c76102b2956f0634e9a1aebc01fd67ca75a63a2a386c66834e20814e";
@@ -116012,7 +116016,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$y() {
     const root = record$C(lessonPackage$o, "l1-l25 package");
-    if (root.id !== PACKAGE_ID$B || record$C(root.identity, "l1-l25 identity").moduleId !== MODULE_ID$B) throw new TypeError("Unexpected l1-l25 package identity.");
+    if (root.id !== PACKAGE_ID$D || record$C(root.identity, "l1-l25 identity").moduleId !== MODULE_ID$D) throw new TypeError("Unexpected l1-l25 package identity.");
     const members = array$C(record$C(root.sourceCoverage, "l1-l25 coverage").members, "l1-l25 members").map((value, index) => record$C(value, `l1-l25 member ${index}`));
     for (const [payloadSha256, title2] of [[WORKSHEETS_SHA256$1, "Katakana worksheets ナ、ハ、パ、バ"], [WRITING_SHA256, "Katakana writing practice ナ、ハ"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === payloadSha256);
@@ -117982,8 +117986,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceQuestionNormalization: sourceQuestionNormalization$p,
     preStudyVocabulary
   };
-  const PACKAGE_ID$A = "l1-l26";
-  const MODULE_ID$A = 5489607;
+  const PACKAGE_ID$C = "l1-l26";
+  const MODULE_ID$C = 5489607;
   const WORKSHEETS_SHA256 = "fc87ef4717a9260618cc1c1be8db9e9e37ad472bf5cd1f403d6c840075cd90f8";
   const WRITING_MA_YA_SHA256 = "bd66bf86f9aed1ed25aa6f102248d027f15c4730bd8d2ce875ce90f561ece210";
   const WRITING_RA_WA_SHA256 = "9a9536daffb37ea2fe14f0d183acbbfcf0da16f5c653decad5f75a55f53f8406";
@@ -118097,7 +118101,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$x() {
     const root = record$B(lessonPackage$n, "l1-l26 package");
-    if (root.id !== PACKAGE_ID$A || record$B(root.identity, "l1-l26 identity").moduleId !== MODULE_ID$A) throw new TypeError("Unexpected l1-l26 package identity.");
+    if (root.id !== PACKAGE_ID$C || record$B(root.identity, "l1-l26 identity").moduleId !== MODULE_ID$C) throw new TypeError("Unexpected l1-l26 package identity.");
     const members = array$B(record$B(root.sourceCoverage, "l1-l26 coverage").members, "l1-l26 members").map((value, index) => record$B(value, `l1-l26 member ${index}`));
     for (const [payloadSha256, title2] of [
       [WORKSHEETS_SHA256, "Katakana worksheets マ、ヤ、ラ、ワ"],
@@ -120392,15 +120396,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$o,
     sourceActivityBindings: sourceActivityBindings$o
   };
-  const PACKAGE_ID$z = "l2-l02";
-  const MODULE_ID$z = 7011918;
-  const VOCABULARY_SHA256$j = "34763479d18b72f20bf7618aa691b3a5d0f5855ae7f09ebd5799703b7d714097";
+  const PACKAGE_ID$B = "l2-l02";
+  const MODULE_ID$B = 7011918;
+  const VOCABULARY_SHA256$k = "34763479d18b72f20bf7618aa691b3a5d0f5855ae7f09ebd5799703b7d714097";
   const LISTENING_SHA256$2 = "efa1e30112ad8ec1dd606b9d74c70b0bf315896701da851a359f8c468d950b75";
   const AUDIO_SHA256$h = "654c720b3734cb748e45cea2d9a2e6ec938668afc9d07e95451b01daa672f2db";
   const GENKI_SHA256$h = "c60448dea49bb12806d091d10b21890c040d2778d4df20283790e7e2c7ca2aee";
   const VOCABULARY_IMAGE_SHA256$9 = "b9a76542879c20ac1e1519c4f2246bf3d16ca84e510e680e98119d41c40c3802";
   const LISTENING_IMAGE_SHA256$3 = "70b5f991a2cc262205669d21901b2f945b5faf24e8ad41caa5134bb34f2a7414";
-  const SOURCE_PREFIX$l = `moodle:${MODULE_ID$z}:${LISTENING_SHA256$2}:pdf-p1:task-1`;
+  const SOURCE_PREFIX$l = `moodle:${MODULE_ID$B}:${LISTENING_SHA256$2}:pdf-p1:task-1`;
   function createLessonTwentySevenExperiencePostcardListeningBeat() {
     assertExactPackageSources$w();
     const prompts2 = [
@@ -120408,8 +120412,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["awa-dance", "c", "阿波踊りをしたことがあります"],
       ["horse", "b", "馬に乗ったことがあります"]
     ];
-    const vocabularySheet = sourceVisual$h(`moodle:${VOCABULARY_SHA256$j}:page:1`, VOCABULARY_SHA256$j, VOCABULARY_IMAGE_SHA256$9, "Handouts from last lesson/Chapter 19-1 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png");
-    const listeningSheet = sourceVisual$h(`moodle:${LISTENING_SHA256$2}:page:1`, LISTENING_SHA256$2, LISTENING_IMAGE_SHA256$3, "Handouts from last lesson/Chapter 19 listening .pdf", "/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png");
+    const vocabularySheet = sourceVisual$j(`moodle:${VOCABULARY_SHA256$k}:page:1`, VOCABULARY_SHA256$k, VOCABULARY_IMAGE_SHA256$9, "Handouts from last lesson/Chapter 19-1 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png");
+    const listeningSheet = sourceVisual$j(`moodle:${LISTENING_SHA256$2}:page:1`, LISTENING_SHA256$2, LISTENING_IMAGE_SHA256$3, "Handouts from last lesson/Chapter 19 listening .pdf", "/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png");
     const activity2 = {
       id: "activity:l2-l02-sensei-experience-postcard-listening",
       kind: "academy-experience-postcard-listening",
@@ -120419,12 +120423,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptIds: prompts2.map(([id2]) => `concept:l2-l02:b21-${id2}`),
       prompt: { ja: "先生のことばの表とB-21の絵を見てから、音声の三つの経験にA、B、Cの印を一つずつ置きましょう。", en: "Study Sensei’s vocabulary sheet and the B-21 picture page, then place one neutral A, B, or C stamp at each experience stop." },
       provenance: {
-        packageId: PACKAGE_ID$z,
+        packageId: PACKAGE_ID$B,
         answerVisibility: "after-attempt",
         vocabularySheet,
         listeningSheet,
         moodle: {
-          moduleId: MODULE_ID$z,
+          moduleId: MODULE_ID$B,
           vocabularySheet,
           listeningSheet,
           audio: { sourceId: `moodle:${AUDIO_SHA256$h}:audio`, payloadSha256: AUDIO_SHA256$h, url: "/academy/content/lessons/l2-l02/moodle-b-21.mp3", durationSeconds: 127.906667, transcriptStatus: "audio-reviewed-answer-keys-hidden-until-attempt" },
@@ -120450,14 +120454,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze({ id: "sensei-experience-postcard-listening", narrative: { ja: "アレックスが先生の経験の絵を三つの旅行の札にします。ジョディは、聞こえたことを先に決めつけず、一つずつ印を置きます。", en: "Alex turns Sensei’s three experience pictures into travel stops. Jodi places one stamp at a time without deciding what was heard in advance." }, activity: Object.freeze(activity2) });
   }
-  function sourceVisual$h(sourceId2, payloadSha256, sha2562, title2, url) {
+  function sourceVisual$j(sourceId2, payloadSha256, sha2562, title2, url) {
     return { sourceId: sourceId2, payloadSha256, title: title2, url, sha256: sha2562, alt: { ja: `Moodle 原本: ${title2}`, en: `Moodle original: ${title2}` } };
   }
   function assertExactPackageSources$w() {
     const root = record$A(priorLessonPackage$1, "l2-l02 package");
-    if (root.id !== PACKAGE_ID$z || record$A(root.identity, "l2-l02 identity").moduleId !== MODULE_ID$z) throw new TypeError("Unexpected l2-l02 package identity.");
+    if (root.id !== PACKAGE_ID$B || record$A(root.identity, "l2-l02 identity").moduleId !== MODULE_ID$B) throw new TypeError("Unexpected l2-l02 package identity.");
     const members = array$A(record$A(root.sourceCoverage, "l2-l02 coverage").members, "l2-l02 members").map((value, index) => record$A(value, `l2-l02 member ${index}`));
-    for (const [sha2562, title2] of [[VOCABULARY_SHA256$j, "Handouts from last lesson/Chapter 19-1 Vocabulary Sheet.pdf"], [LISTENING_SHA256$2, "Handouts from last lesson/Chapter 19 listening .pdf"], [AUDIO_SHA256$h, "audio materials/21 B-21.mp3"]]) {
+    for (const [sha2562, title2] of [[VOCABULARY_SHA256$k, "Handouts from last lesson/Chapter 19-1 Vocabulary Sheet.pdf"], [LISTENING_SHA256$2, "Handouts from last lesson/Chapter 19 listening .pdf"], [AUDIO_SHA256$h, "audio materials/21 B-21.mp3"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact Lesson 27 Moodle source ${title2}.`);
     }
@@ -123033,14 +123037,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$n,
     sourceActivityBindings: sourceActivityBindings$n
   };
-  const PACKAGE_ID$y = "l2-l04";
-  const MODULE_ID$y = 7011920;
-  const VOCABULARY_SHA256$i = "eadb985342ee844a845bdb8ba0c8eeadc28d23e7e44fc05a025b65b701de9088";
-  const GRAMMAR_SHA256$9 = "87f2476a1e1f9701d058f3b761542a0caba4a9b4da9213f919c4373781d8033c";
+  const PACKAGE_ID$A = "l2-l04";
+  const MODULE_ID$A = 7011920;
+  const VOCABULARY_SHA256$j = "eadb985342ee844a845bdb8ba0c8eeadc28d23e7e44fc05a025b65b701de9088";
+  const GRAMMAR_SHA256$b = "87f2476a1e1f9701d058f3b761542a0caba4a9b4da9213f919c4373781d8033c";
   const GENKI_SHA256$g = "510418850a44517faf16d384412b5cc90f653bfe7426063cdf616723d4c62f55";
   const VOCABULARY_IMAGE_SHA256$8 = "c0069c4fcc3b1d31df9badbb2f4532078b02d925e2c44303c5e50408e95819f2";
   const GRAMMAR_IMAGE_SHA256$3 = "d8d0b2b0ff00c3e6801b4e02d97cde11382a201e85b0ea468b717a448cd9f38f";
-  const SOURCE_PREFIX$k = `moodle:${MODULE_ID$y}:${GRAMMAR_SHA256$9}:pdf-p3:plain-style-matrix`;
+  const SOURCE_PREFIX$k = `moodle:${MODULE_ID$A}:${GRAMMAR_SHA256$b}:pdf-p3:plain-style-matrix`;
   function createLessonTwentyEightPlainStyleMatrixBeat() {
     assertExactPackageSources$v();
     const prompts2 = [
@@ -123058,12 +123062,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptIds: prompts2.map(([id2]) => `concept:l2-l04:plain-matrix-${id2}`),
       prompt: { ja: "先生の Chapter 20-1 の語彙と動詞の表を見てから、四つの行を指定された列へ動かしましょう。", en: "Study Sensei’s Chapter 20-1 vocabulary and verb matrix, then move four rows into their specified plain-form columns." },
       provenance: {
-        packageId: PACKAGE_ID$y,
+        packageId: PACKAGE_ID$A,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$y,
-          vocabularySheet: sourceVisual$g(`moodle:${VOCABULARY_SHA256$i}:page:1`, VOCABULARY_SHA256$i, VOCABULARY_IMAGE_SHA256$8, "Handouts/Chapter 20-1 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l04/moodle-chapter-20-1-vocabulary-page-1.png"),
-          grammarSheet: sourceVisual$g(`moodle:${GRAMMAR_SHA256$9}:page:3`, GRAMMAR_SHA256$9, GRAMMAR_IMAGE_SHA256$3, "Handouts/Chapter 20-1 plain style_verb_Grammar exercise.pdf", "/academy/content/lessons/l2-l04/moodle-chapter-20-1-plain-style-verb-page-3.png"),
+          moduleId: MODULE_ID$A,
+          vocabularySheet: sourceVisual$i(`moodle:${VOCABULARY_SHA256$j}:page:1`, VOCABULARY_SHA256$j, VOCABULARY_IMAGE_SHA256$8, "Handouts/Chapter 20-1 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l04/moodle-chapter-20-1-vocabulary-page-1.png"),
+          grammarSheet: sourceVisual$i(`moodle:${GRAMMAR_SHA256$b}:page:3`, GRAMMAR_SHA256$b, GRAMMAR_IMAGE_SHA256$3, "Handouts/Chapter 20-1 plain style_verb_Grammar exercise.pdf", "/academy/content/lessons/l2-l04/moodle-chapter-20-1-plain-style-verb-page-3.png"),
           answerKeyBasis: "yomu-derived-plain-form-completion-over-verbatim-source-matrix"
         },
         support: {
@@ -123086,14 +123090,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze({ id: "sensei-plain-style-matrix", narrative: { ja: "トムが先生の動詞の表を四つの列に広げます。フランシスは、答えを先に言わず、見えている列だけを確かめます。", en: "Tom opens Sensei’s verb matrix into four columns. Francis checks only the visible column without giving the form away first." }, activity: Object.freeze(activity2) });
   }
-  function sourceVisual$g(sourceId2, payloadSha256, sha2562, title2, url) {
+  function sourceVisual$i(sourceId2, payloadSha256, sha2562, title2, url) {
     return { sourceId: sourceId2, payloadSha256, title: title2, url, sha256: sha2562, alt: { ja: `Moodle 原本: ${title2}`, en: `Moodle original: ${title2}` } };
   }
   function assertExactPackageSources$v() {
     const root = record$z(priorLessonPackage, "l2-l04 package");
-    if (root.id !== PACKAGE_ID$y || record$z(root.identity, "l2-l04 identity").moduleId !== MODULE_ID$y) throw new TypeError("Unexpected l2-l04 package identity.");
+    if (root.id !== PACKAGE_ID$A || record$z(root.identity, "l2-l04 identity").moduleId !== MODULE_ID$A) throw new TypeError("Unexpected l2-l04 package identity.");
     const members = array$z(record$z(root.sourceCoverage, "l2-l04 coverage").members, "l2-l04 members").map((value) => record$z(value, "l2-l04 member"));
-    for (const [sha2562, title2] of [[VOCABULARY_SHA256$i, "Handouts/Chapter 20-1 Vocabulary Sheet.pdf"], [GRAMMAR_SHA256$9, "Handouts/Chapter 20-1 plain style_verb_Grammar exercise.pdf"]]) {
+    for (const [sha2562, title2] of [[VOCABULARY_SHA256$j, "Handouts/Chapter 20-1 Vocabulary Sheet.pdf"], [GRAMMAR_SHA256$b, "Handouts/Chapter 20-1 plain style_verb_Grammar exercise.pdf"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact Lesson 28 Moodle source ${title2}.`);
     }
@@ -125644,15 +125648,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$m,
     sourceActivityBindings: sourceActivityBindings$m
   };
-  const PACKAGE_ID$x = "l2-l03";
-  const MODULE_ID$x = 7011919;
-  const VOCABULARY_SHA256$h = "5e7880ecbaa49b880eae7d78f938bb313bbd3f1eced59ccece97a221a64f0899";
-  const GRAMMAR_SHA256$8 = "17ddaf6b68bcddc8253ca398ae0c7c8015554160fb50f7cd5b7af50b136d6b5a";
+  const PACKAGE_ID$z = "l2-l03";
+  const MODULE_ID$z = 7011919;
+  const VOCABULARY_SHA256$i = "5e7880ecbaa49b880eae7d78f938bb313bbd3f1eced59ccece97a221a64f0899";
+  const GRAMMAR_SHA256$a = "17ddaf6b68bcddc8253ca398ae0c7c8015554160fb50f7cd5b7af50b136d6b5a";
   const AUDIO_SHA256$g = "6dccd9517dc4e10fb1ce3548de2c3c9d07a498f12bbf6e5b734b0e56c1490e6b";
   const GENKI_SHA256$f = "c60448dea49bb12806d091d10b21890c040d2778d4df20283790e7e2c7ca2aee";
   const VOCABULARY_IMAGE_SHA256$7 = "edaa7f991771ccda7ff2a2a00ebffb5418234df2e0cd536c059cce532f38119e";
   const GRAMMAR_IMAGE_SHA256$2 = "20595904296d510ed9aab10a13148c8d0c9d85e27779a637ac9cb5949dccf738";
-  const SOURCE_PREFIX$j = `moodle:${MODULE_ID$x}:${GRAMMAR_SHA256$8}:pdf-p3:summer-holiday:b22`;
+  const SOURCE_PREFIX$j = `moodle:${MODULE_ID$z}:${GRAMMAR_SHA256$a}:pdf-p3:summer-holiday:b22`;
   const B22_LOCATOR = "academy/content/moodle/audio/l2-l03-b22.mp3";
   function createLessonTwentyNineHolidayItineraryTapeBeat() {
     assertExactPackageSources$u();
@@ -125662,7 +125666,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["clara-plan", "speaker-b", "クララさん: 九月に家族とインドネシアのバリへ行き、三週間ゆっくり休みます。"],
       ["clara-activities", "speaker-b", "クララさん: 海で泳いだり、本を読んだりしたいです。"]
     ];
-    const audioUrl = resolvePackagedListeningTask(PACKAGE_ID$x, `${SOURCE_PREFIX$j}:pin-1`, B22_LOCATOR);
+    const audioUrl = resolvePackagedListeningTask(PACKAGE_ID$z, `${SOURCE_PREFIX$j}:pin-1`, B22_LOCATOR);
     if (!audioUrl) throw new TypeError("Expected packaged and task-bound Moodle B-22 audio.");
     const activity2 = {
       id: "activity:l2-l03-sensei-holiday-itinerary-tape",
@@ -125673,12 +125677,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptIds: pins.map(([id2]) => `concept:l2-l03:b22-${id2}`),
       prompt: { ja: "先生のことばと夏休みのページを見てから、B-22を聞きます。四つの音声ピンを話し手AかBの棚に置きましょう。", en: "Study Sensei’s vocabulary and summer-holiday page, then hear B-22. Place each of four audio pins on speaker shelf A or B." },
       provenance: {
-        packageId: PACKAGE_ID$x,
+        packageId: PACKAGE_ID$z,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$x,
-          vocabularySheet: sourceVisual$f(`moodle:${VOCABULARY_SHA256$h}:page:1`, VOCABULARY_SHA256$h, VOCABULARY_IMAGE_SHA256$7, "Handouts from last week/Chapter 19-2,3 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l03/moodle-chapter-19-2-3-vocabulary-page-1.png"),
-          grammarSheet: sourceVisual$f(`moodle:${GRAMMAR_SHA256$8}:page:3`, GRAMMAR_SHA256$8, GRAMMAR_IMAGE_SHA256$2, "Handouts from last week/Chapter 19-2 〜たり、〜たり_Grammar exercise.pdf", "/academy/content/lessons/l2-l03/moodle-chapter-19-2-tari-grammar-page-3.png"),
+          moduleId: MODULE_ID$z,
+          vocabularySheet: sourceVisual$h(`moodle:${VOCABULARY_SHA256$i}:page:1`, VOCABULARY_SHA256$i, VOCABULARY_IMAGE_SHA256$7, "Handouts from last week/Chapter 19-2,3 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l03/moodle-chapter-19-2-3-vocabulary-page-1.png"),
+          grammarSheet: sourceVisual$h(`moodle:${GRAMMAR_SHA256$a}:page:3`, GRAMMAR_SHA256$a, GRAMMAR_IMAGE_SHA256$2, "Handouts from last week/Chapter 19-2 〜たり、〜たり_Grammar exercise.pdf", "/academy/content/lessons/l2-l03/moodle-chapter-19-2-tari-grammar-page-3.png"),
           audio: { sourceId: `moodle:${AUDIO_SHA256$g}:audio`, payloadSha256: AUDIO_SHA256$g, url: audioUrl, durationSeconds: 45.093333, transcriptStatus: "audio-reviewed-speaker-pins-hidden-until-attempt" },
           answerKeyBasis: "source-grammar-page-three-and-audio-reviewed-speaker-pins"
         },
@@ -125713,14 +125717,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze({ id: "sensei-holiday-itinerary-tape", narrative: { ja: "ジョディが先生の夏休みの問いを四つの音声ピンに分けます。アレックスは、内容を先に言わず、聞こえた話し手の棚だけを選ぶようにします。", en: "Jodi turns Sensei’s summer-holiday question into four audio pins. Alex keeps the details hidden and asks the learner to choose only the shelf of the speaker they hear." }, activity: Object.freeze(activity2) });
   }
-  function sourceVisual$f(sourceId2, payloadSha256, sha2562, title2, url) {
+  function sourceVisual$h(sourceId2, payloadSha256, sha2562, title2, url) {
     return { sourceId: sourceId2, payloadSha256, title: title2, url, sha256: sha2562, alt: { ja: `Moodle 原本: ${title2}`, en: `Moodle original: ${title2}` } };
   }
   function assertExactPackageSources$u() {
     const root = record$y(lessonPackage$m, "l2-l03 package");
-    if (root.id !== PACKAGE_ID$x || record$y(root.identity, "l2-l03 identity").moduleId !== MODULE_ID$x) throw new TypeError("Unexpected l2-l03 package identity.");
+    if (root.id !== PACKAGE_ID$z || record$y(root.identity, "l2-l03 identity").moduleId !== MODULE_ID$z) throw new TypeError("Unexpected l2-l03 package identity.");
     const members = array$y(record$y(root.sourceCoverage, "l2-l03 coverage").members, "l2-l03 members").map((value, index) => record$y(value, `l2-l03 member ${index}`));
-    for (const [sha2562, title2] of [[VOCABULARY_SHA256$h, "Handouts from last week/Chapter 19-2,3 Vocabulary Sheet.pdf"], [GRAMMAR_SHA256$8, "Handouts from last week/Chapter 19-2 〜たり、〜たり_Grammar exercise.pdf"], [AUDIO_SHA256$g, "audio materials/22 B-22.mp3"]]) {
+    for (const [sha2562, title2] of [[VOCABULARY_SHA256$i, "Handouts from last week/Chapter 19-2,3 Vocabulary Sheet.pdf"], [GRAMMAR_SHA256$a, "Handouts from last week/Chapter 19-2 〜たり、〜たり_Grammar exercise.pdf"], [AUDIO_SHA256$g, "audio materials/22 B-22.mp3"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact Lesson 29 Moodle source ${title2}.`);
     }
@@ -128318,15 +128322,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$l,
     sourceActivityBindings: sourceActivityBindings$l
   };
-  const PACKAGE_ID$w = "l2-l05";
-  const MODULE_ID$w = 6974651;
-  const VOCABULARY_SHA256$g = "b2835af1a2c829c0c1827ca1cf4518e0f58e05c2219aa59a5f1d64d5aacb8128";
+  const PACKAGE_ID$y = "l2-l05";
+  const MODULE_ID$y = 6974651;
+  const VOCABULARY_SHA256$h = "b2835af1a2c829c0c1827ca1cf4518e0f58e05c2219aa59a5f1d64d5aacb8128";
   const LISTENING_SHEET_SHA256$1 = "a671cfd9822df09775a5e7834f0bd70a222d9d86e4ab0134f1fba6f08ba43edd";
   const AUDIO_SHA256$f = "f39560e74390378765a07f94dd19d1d4f0595935dbef04ffebcf37b10e485df2";
   const GENKI_SHA256$e = "510418850a44517faf16d384412b5cc90f653bfe7426063cdf616723d4c62f55";
   const VOCABULARY_IMAGE_SHA256$6 = "0981cc1579d4cde558ecec3f68dc385e72cc50a09fee38c7d54e36aa1edd6e5c";
   const LISTENING_IMAGE_SHA256$2 = "f14322b70639277f686d7ebffec147e04fa99687e21b61795d2a3d4fb9cce975";
-  const SOURCE_PREFIX$i = `moodle:${MODULE_ID$w}:${LISTENING_SHEET_SHA256$1}:pdf-p1:b24-listening-hinge`;
+  const SOURCE_PREFIX$i = `moodle:${MODULE_ID$y}:${LISTENING_SHEET_SHA256$1}:pdf-p1:b24-listening-hinge`;
   function createLessonThirtyListeningHingeBeat() {
     assertExactPackageSources$t();
     const prompts2 = [["hanami", "left", "日曜日 花見に 行きます。"], ["cooking", "right", "料理を 手伝いません。"], ["bakery", "right", "パン屋へ 行きます。"]];
@@ -128339,12 +128343,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptIds: prompts2.map(([id2]) => `concept:l2-l05:b24-${id2}`),
       prompt: { ja: "先生の Chapter 20-2 の語彙と B-24 のページを見てから、音声を聞きます。三つのヒンジを、聞こえた選択の左右へ動かしましょう。", en: "Study Sensei’s Chapter 20-2 vocabulary and B-24 page, then hear the audio. Set each of three hinges to the side of the choice you hear." },
       provenance: {
-        packageId: PACKAGE_ID$w,
+        packageId: PACKAGE_ID$y,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$w,
-          vocabularySheet: sourceVisual$e(`moodle:${VOCABULARY_SHA256$g}:page:1`, VOCABULARY_SHA256$g, VOCABULARY_IMAGE_SHA256$6, "Handouts/New_Chapter 20-2 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png"),
-          listeningSheet: sourceVisual$e(`moodle:${LISTENING_SHEET_SHA256$1}:page:1`, LISTENING_SHEET_SHA256$1, LISTENING_IMAGE_SHA256$2, "Handouts/Chapter 20 listening .pdf", "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png"),
+          moduleId: MODULE_ID$y,
+          vocabularySheet: sourceVisual$g(`moodle:${VOCABULARY_SHA256$h}:page:1`, VOCABULARY_SHA256$h, VOCABULARY_IMAGE_SHA256$6, "Handouts/New_Chapter 20-2 Vocabulary Sheet.pdf", "/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png"),
+          listeningSheet: sourceVisual$g(`moodle:${LISTENING_SHEET_SHA256$1}:page:1`, LISTENING_SHEET_SHA256$1, LISTENING_IMAGE_SHA256$2, "Handouts/Chapter 20 listening .pdf", "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png"),
           audio: { sourceId: `moodle:${AUDIO_SHA256$f}:audio`, payloadSha256: AUDIO_SHA256$f, url: "/academy/content/lessons/l2-l05/moodle-b-24.mp3", durationSeconds: 82.56, transcriptStatus: "audio-reviewed-b24-choice-pairing-hidden-until-attempt" },
           answerKeyBasis: "source-worksheet-prompts-and-audio-reviewed-b24-choices"
         },
@@ -128368,14 +128372,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze({ id: "sensei-b24-listening-hinge", narrative: { ja: "アレックスが先生のB-24の選択を三つのヒンジにします。トムは、どちらの文かを先に言わず、聞こえた側だけを選ぶようにします。", en: "Alex turns Sensei’s B-24 choices into three hinges. Tom keeps the wording unspoken and asks the learner to choose only the side they hear." }, activity: Object.freeze(activity2) });
   }
-  function sourceVisual$e(sourceId2, payloadSha256, sha2562, title2, url) {
+  function sourceVisual$g(sourceId2, payloadSha256, sha2562, title2, url) {
     return { sourceId: sourceId2, payloadSha256, title: title2, url, sha256: sha2562, alt: { ja: `Moodle 原本: ${title2}`, en: `Moodle original: ${title2}` } };
   }
   function assertExactPackageSources$t() {
     const root = record$x(lessonPackage$l, "l2-l05 package");
-    if (root.id !== PACKAGE_ID$w || record$x(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$w) throw new TypeError("Unexpected l2-l05 package identity.");
+    if (root.id !== PACKAGE_ID$y || record$x(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$y) throw new TypeError("Unexpected l2-l05 package identity.");
     const members = array$x(record$x(root.sourceCoverage, "l2-l05 coverage").members, "l2-l05 members").map((value) => record$x(value, "l2-l05 member"));
-    for (const [sha2562, title2] of [[VOCABULARY_SHA256$g, "Handouts/New_Chapter 20-2 Vocabulary Sheet.pdf"], [LISTENING_SHEET_SHA256$1, "Handouts/Chapter 20 listening .pdf"], [AUDIO_SHA256$f, "audio materials/B-24.mp3"]]) {
+    for (const [sha2562, title2] of [[VOCABULARY_SHA256$h, "Handouts/New_Chapter 20-2 Vocabulary Sheet.pdf"], [LISTENING_SHEET_SHA256$1, "Handouts/Chapter 20 listening .pdf"], [AUDIO_SHA256$f, "audio materials/B-24.mp3"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact Lesson 30 Moodle source ${title2}.`);
     }
@@ -128390,13 +128394,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$v = "l2-l05";
-  const MODULE_ID$v = 6974651;
-  const WORKSHEET_SHA256$a = "a671cfd9822df09775a5e7834f0bd70a222d9d86e4ab0134f1fba6f08ba43edd";
+  const PACKAGE_ID$x = "l2-l05";
+  const MODULE_ID$x = 6974651;
+  const WORKSHEET_SHA256$b = "a671cfd9822df09775a5e7834f0bd70a222d9d86e4ab0134f1fba6f08ba43edd";
   const WORKSHEET_IMAGE_SHA256$7 = "f14322b70639277f686d7ebffec147e04fa99687e21b61795d2a3d4fb9cce975";
   const AUDIO_SHA256$e = "2e5d1ee1e18a31b72e826670a3f6aec1c0f513a6e2f05b654e04b199ad4939f3";
   const AUDIO_LOCATOR$7 = "academy/content/moodle/audio/l2-l05-b25.mp3";
-  const SOURCE_PREFIX$h = `moodle:${MODULE_ID$v}:${WORKSHEET_SHA256$a}:pdf-p1:b25-diary`;
+  const SOURCE_PREFIX$h = `moodle:${MODULE_ID$x}:${WORKSHEET_SHA256$b}:pdf-p1:b25-diary`;
   function createLessonThirtyB25DiaryListeningBeat() {
     assertExactPackageSources$s();
     const tasks2 = [
@@ -128412,7 +128416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         field$1("disneyland", "日曜日 ディズニーランドへ", "けど、お父さんは ゴルフに 行くから、だめだ。", "行きたかった")
       ], "日曜日ディズニーランドへ行きたかった。")
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$v, item2.sourceQuestionId, AUDIO_LOCATOR$7));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$x, item2.sourceQuestionId, AUDIO_LOCATOR$7));
     if (urls.some((url) => !url) || new Set(urls).size !== 1) throw new TypeError("Expected one exact packaged B-25 binding for all three diary items.");
     const activity2 = {
       id: "activity:l2-l05-sensei-b25-diary-listening",
@@ -128426,13 +128430,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Listen to Sensei’s B-25 and complete the five plain-form blanks in Nanako’s picture diary."
       },
       provenance: {
-        packageId: PACKAGE_ID$v,
+        packageId: PACKAGE_ID$x,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$v,
+          moduleId: MODULE_ID$x,
           worksheet: {
-            sourceId: `moodle:${WORKSHEET_SHA256$a}:page:1`,
-            payloadSha256: WORKSHEET_SHA256$a,
+            sourceId: `moodle:${WORKSHEET_SHA256$b}:page:1`,
+            payloadSha256: WORKSHEET_SHA256$b,
             title: "Handouts/Chapter 20 listening .pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png",
@@ -128512,9 +128516,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$s() {
     const root = record$w(lessonPackage$l, "l2-l05 package");
-    if (root.id !== PACKAGE_ID$v || record$w(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$v) throw new TypeError("Unexpected l2-l05 package identity.");
+    if (root.id !== PACKAGE_ID$x || record$w(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$x) throw new TypeError("Unexpected l2-l05 package identity.");
     const members = array$w(record$w(root.sourceCoverage, "l2-l05 coverage").members, "l2-l05 members").map((value) => record$w(value, "l2-l05 member"));
-    for (const [sha2562, title2] of [[WORKSHEET_SHA256$a, "Handouts/Chapter 20 listening .pdf"], [AUDIO_SHA256$e, "audio materials/B-25.mp3"]]) {
+    for (const [sha2562, title2] of [[WORKSHEET_SHA256$b, "Handouts/Chapter 20 listening .pdf"], [AUDIO_SHA256$e, "audio materials/B-25.mp3"]]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562 && candidate2.title === title2);
       if (!member) throw new TypeError(`Missing exact B-25 Moodle source ${title2}.`);
     }
@@ -128530,14 +128534,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$u = "l2-l05";
-  const MODULE_ID$u = 6974651;
-  const WORKSHEET_SHA256$9 = "01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280";
+  const PACKAGE_ID$w = "l2-l05";
+  const MODULE_ID$w = 6974651;
+  const WORKSHEET_SHA256$a = "01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280";
   const WORKSHEET_IMAGE_SHA256$6 = "ad13d146b8e82ad147870d90a1e47c0f8a43b96ac306e6bc869410dc616f2cb1";
-  const SCRIPT_SHA256$3 = "359fa7af358cf5bfbe429806569cc3d885369d23d03546809a65eec2dbdb63e8";
+  const SCRIPT_SHA256$4 = "359fa7af358cf5bfbe429806569cc3d885369d23d03546809a65eec2dbdb63e8";
   const AUDIO_SHA256$d = "f423d074fd31d9efaf34b359c71fde870abc71b850379af3a526758cee9b5d30";
   const AUDIO_LOCATOR$6 = "academy/content/minna/audio/l2-l05-minna-069.mp3";
-  const SOURCE_PREFIX$g = `moodle:${MODULE_ID$u}:${WORKSHEET_SHA256$9}:pdf-p1:minna069-conversation`;
+  const SOURCE_PREFIX$g = `moodle:${MODULE_ID$w}:${WORKSHEET_SHA256$a}:pdf-p1:minna069-conversation`;
   function createLessonThirtyMinna069ConversationBeat() {
     assertExactPackageSources$r();
     const tasks2 = [
@@ -128547,7 +128551,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       task$5("when", 4, "いつごろ富士山へ行きますか。", "８月の初めごろです。", ["８月の初めごろです。", "８月の初めごろ。", "８月の初めごろ"], "８月の初めごろ"),
       task$5("kobayashi-plan", 5, "小林君は何をしますか。", "いろいろ調べて、また電話します。", ["いろいろ調べて、また電話します。", "いろいろ調べて、また電話する。", "いろいろ調べて電話します。"], "いろいろ調べて、また電話します")
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$u, item2.sourceQuestionId, AUDIO_LOCATOR$6));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$w, item2.sourceQuestionId, AUDIO_LOCATOR$6));
     if (urls.some((url) => !url) || new Set(urls).size !== 1) throw new TypeError("Expected one exact packaged Minna 069 binding for all five conversation questions.");
     const activity2 = {
       id: "activity:l2-l05-sensei-minna-069-conversation",
@@ -128561,21 +128565,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Use Sensei’s conversation page, listen to Minna 069, and answer five questions about Tawapon and Kobayashi."
       },
       provenance: {
-        packageId: PACKAGE_ID$u,
+        packageId: PACKAGE_ID$w,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$u,
+          moduleId: MODULE_ID$w,
           worksheet: {
-            sourceId: `moodle:${WORKSHEET_SHA256$9}:page:1`,
-            payloadSha256: WORKSHEET_SHA256$9,
+            sourceId: `moodle:${WORKSHEET_SHA256$a}:page:1`,
+            payloadSha256: WORKSHEET_SHA256$a,
             title: "Handouts/New_Chapter 20_Conversation listening.pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l05/moodle-chapter-20-conversation-page-1.png",
             sha256: WORKSHEET_IMAGE_SHA256$6
           },
           support: {
-            sourceId: `moodle:${SCRIPT_SHA256$3}:page:1`,
-            payloadSha256: SCRIPT_SHA256$3,
+            sourceId: `moodle:${SCRIPT_SHA256$4}:page:1`,
+            payloadSha256: SCRIPT_SHA256$4,
             title: "Homework/Please review_Chapter 20_Conversation listening Script.pdf",
             page: 1,
             role: "reviewed-transcript"
@@ -128647,11 +128651,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$r() {
     const root = record$v(lessonPackage$l, "l2-l05 package");
-    if (root.id !== PACKAGE_ID$u || record$v(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$u) throw new TypeError("Unexpected l2-l05 package identity.");
+    if (root.id !== PACKAGE_ID$w || record$v(root.identity, "l2-l05 identity").moduleId !== MODULE_ID$w) throw new TypeError("Unexpected l2-l05 package identity.");
     const members = array$v(record$v(root.sourceCoverage, "l2-l05 coverage").members, "l2-l05 members").map((value) => record$v(value, "l2-l05 member"));
     for (const [sha2562, title2] of [
-      [WORKSHEET_SHA256$9, "Handouts/New_Chapter 20_Conversation listening.pdf"],
-      [SCRIPT_SHA256$3, "Homework/Please review_Chapter 20_Conversation listening Script.pdf"],
+      [WORKSHEET_SHA256$a, "Handouts/New_Chapter 20_Conversation listening.pdf"],
+      [SCRIPT_SHA256$4, "Homework/Please review_Chapter 20_Conversation listening Script.pdf"],
       [AUDIO_SHA256$d, "audio materials/minna_shokyu_1_069.mp3"]
     ]) {
       if (!members.some((candidate2) => candidate2.payloadSha256 === sha2562 && candidate2.title === title2)) throw new TypeError(`Missing exact Minna 069 source ${title2}.`);
@@ -131511,39 +131515,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$k,
     sourceActivityBindings: sourceActivityBindings$k
   };
-  const PACKAGE_ID$t = "l2-l06";
-  const PACKAGE_ORDER$q = 33;
-  const MODULE_ID$t = 6974652;
-  const VOCABULARY_SHA256$f = "32097fd886f557806cbecf84e943bf8b0b919ff32c6367ba4fddab5c88b11283";
-  const GRAMMAR_SHA256$7 = "837cd9f8468d50c09902520d196089dc84ee4d435a5e1b7b654c346e9e9d701f";
+  const PACKAGE_ID$v = "l2-l06";
+  const PACKAGE_ORDER$s = 33;
+  const MODULE_ID$v = 6974652;
+  const VOCABULARY_SHA256$g = "32097fd886f557806cbecf84e943bf8b0b919ff32c6367ba4fddab5c88b11283";
+  const GRAMMAR_SHA256$9 = "837cd9f8468d50c09902520d196089dc84ee4d435a5e1b7b654c346e9e9d701f";
   const VOCABULARY_IMAGE_SHA256$5 = "a0137ffaab518de2a37d783c5c02c4efe8d719cbe2c8647e186e55e35a00a02f";
   const TEACHING_IMAGE_SHA256$1 = "dc138ddbfe0ff40495511a961485f03767ffae7afada9e5886e922809a48dcdb";
   const TASK_IMAGE_SHA256$1 = "9c93bc53a77ebb3b3cf2a5013400240acfda5b856773c9d14c13be763c9627d9";
-  const SOURCE_PREFIX$f = `moodle:${MODULE_ID$t}:${GRAMMAR_SHA256$7}:pdf-p2:supposition`;
+  const SOURCE_PREFIX$f = `moodle:${MODULE_ID$v}:${GRAMMAR_SHA256$9}:pdf-p2:supposition`;
   function createLessonThirtyOneOpinionTransformationBeat() {
     assertExactPackageSources$q();
     const rounds = [
-      round$l("miller-comes", 1, "ミラーさんは 9時に 来ます。→", "ミラーさんは 9時に 来ると 思います。", [
+      round$n("miller-comes", 1, "ミラーさんは 9時に 来ます。→", "ミラーさんは 9時に 来ると 思います。", [
         hint$a("来ますは動詞の丁寧形です。", "来ます is a polite verb form."),
         hint$a("来ますを普通形の「来る」にします。", "Change 来ます to the plain form 来る."),
         hint$a("来る + と 思います の順につなぎます。", "Join 来る + と 思います in that order.")
       ]),
-      round$l("maria-does-not-drive", 2, "マリアさんは 運転しません。→", "マリアさんは 運転しないと 思います。", [
+      round$n("maria-does-not-drive", 2, "マリアさんは 運転しません。→", "マリアさんは 運転しないと 思います。", [
         hint$a("運転しませんは動詞の否定丁寧形です。", "運転しません is a polite negative verb form."),
         hint$a("運転しませんを普通形の「運転しない」にします。", "Change 運転しません to the plain negative 運転しない."),
         hint$a("運転しない + と 思います の順につなぎます。", "Join 運転しない + と 思います in that order.")
       ]),
-      round$l("pub-crowded", 3, "あのパブは 人が 多いです。→", "あのパブは 人が 多いと 思います。", [
+      round$n("pub-crowded", 3, "あのパブは 人が 多いです。→", "あのパブは 人が 多いと 思います。", [
         hint$a("多いは「い形容詞」です。", "多い is an i-adjective."),
         hint$a("い形容詞では、ですを取って普通形にします。", "For an i-adjective, remove です to make the plain form."),
         hint$a("多い + と 思います の順につなぎます。", "Join 多い + と 思います in that order.")
       ]),
-      round$l("restaurant-quiet", 4, "あのレストランは 静かです。→", "あのレストランは 静かだと 思います。", [
+      round$n("restaurant-quiet", 4, "あのレストランは 静かです。→", "あのレストランは 静かだと 思います。", [
         hint$a("静かは「な形容詞」です。", "静か is a na-adjective."),
         hint$a("な形容詞の普通形では、ですを「だ」にします。", "For a na-adjective plain form, change です to だ."),
         hint$a("静かだ + と 思います の順につなぎます。", "Join 静かだ + と 思います in that order.")
       ]),
-      round$l("tomorrow-snow", 5, "あしたは 雪です。→", "あしたは 雪だと 思います。", [
+      round$n("tomorrow-snow", 5, "あしたは 雪です。→", "あしたは 雪だと 思います。", [
         hint$a("雪は名詞です。", "雪 is a noun."),
         hint$a("名詞の普通形では、ですを「だ」にします。", "For a noun plain form, change です to だ."),
         hint$a("雪だ + と 思います の順につなぎます。", "Join 雪だ + と 思います in that order.")
@@ -131561,30 +131565,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 21 vocabulary and 〜と思います explanation, then change the five original statements into suppositions."
       },
       provenance: {
-        packageId: PACKAGE_ID$t,
-        packageOrder: PACKAGE_ORDER$q,
+        packageId: PACKAGE_ID$v,
+        packageOrder: PACKAGE_ORDER$s,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$t,
-          vocabularySheet: sourceVisual$d(
-            `moodle:${VOCABULARY_SHA256$f}:page:1`,
-            VOCABULARY_SHA256$f,
+          moduleId: MODULE_ID$v,
+          vocabularySheet: sourceVisual$f(
+            `moodle:${VOCABULARY_SHA256$g}:page:1`,
+            VOCABULARY_SHA256$g,
             "Handouts/Chapter 21-1 Vocabulary Sheet.pdf",
             1,
             "/academy/content/lessons/l2-l06/moodle-chapter-21-1-vocabulary-page-1.png",
             VOCABULARY_IMAGE_SHA256$5
           ),
-          teachingSheet: sourceVisual$d(
-            `moodle:${GRAMMAR_SHA256$7}:page:1`,
-            GRAMMAR_SHA256$7,
+          teachingSheet: sourceVisual$f(
+            `moodle:${GRAMMAR_SHA256$9}:page:1`,
+            GRAMMAR_SHA256$9,
             "Handouts/Chapter 21 Grammar Exercise_〜とおもいます.pdf",
             1,
             "/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-teaching-page-1.png",
             TEACHING_IMAGE_SHA256$1
           ),
-          taskSheet: sourceVisual$d(
-            `moodle:${GRAMMAR_SHA256$7}:page:2`,
-            GRAMMAR_SHA256$7,
+          taskSheet: sourceVisual$f(
+            `moodle:${GRAMMAR_SHA256$9}:page:2`,
+            GRAMMAR_SHA256$9,
             "Handouts/Chapter 21 Grammar Exercise_〜とおもいます.pdf",
             2,
             "/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-task-page-2.png",
@@ -131638,7 +131642,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$l(id2, sourceOrder, sourcePrompt, answerExpression, hints2) {
+  function round$n(id2, sourceOrder, sourcePrompt, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -131654,7 +131658,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$a(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$d(sourceId2, payloadSha256, title2, page, url, sha2562) {
+  function sourceVisual$f(sourceId2, payloadSha256, title2, page, url, sha2562) {
     return {
       sourceId: sourceId2,
       payloadSha256,
@@ -131668,13 +131672,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$q() {
     const root = record$u(lessonPackage$k, "l2-l06 package");
     const identity2 = record$u(root.identity, "l2-l06 identity");
-    if (root.id !== PACKAGE_ID$t || root.order !== PACKAGE_ORDER$q || identity2.moduleId !== MODULE_ID$t) {
+    if (root.id !== PACKAGE_ID$v || root.order !== PACKAGE_ORDER$s || identity2.moduleId !== MODULE_ID$v) {
       throw new TypeError("Unexpected l2-l06 package identity.");
     }
     const members = array$u(record$u(root.sourceCoverage, "l2-l06 coverage").members, "l2-l06 members").map((value) => record$u(value, "l2-l06 member"));
     for (const [sha2562, title2] of [
-      [VOCABULARY_SHA256$f, "Handouts/Chapter 21-1 Vocabulary Sheet.pdf"],
-      [GRAMMAR_SHA256$7, "Handouts/Chapter 21 Grammar Exercise_〜とおもいます.pdf"]
+      [VOCABULARY_SHA256$g, "Handouts/Chapter 21-1 Vocabulary Sheet.pdf"],
+      [GRAMMAR_SHA256$9, "Handouts/Chapter 21 Grammar Exercise_〜とおもいます.pdf"]
     ]) {
       const member = members.find((candidate2) => candidate2.payloadSha256 === sha2562);
       if (!member || member.title !== title2) throw new TypeError(`Missing exact Lesson 31 Moodle source ${title2}.`);
@@ -131692,14 +131696,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$s = "l2-l06";
-  const MODULE_ID$s = 6974652;
-  const WORKSHEET_SHA256$8 = "bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0";
+  const PACKAGE_ID$u = "l2-l06";
+  const MODULE_ID$u = 6974652;
+  const WORKSHEET_SHA256$9 = "bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0";
   const WORKSHEET_IMAGE_SHA256$5 = "7ea8c8ebe329839341b3fbcea6f374bdde694295e44e19fca698db5dc04207ad";
   const SUPPORT_SHA256 = "b49f9fb9498eebf9f709262116b64c2488a6d11f7aaf866e798ca5e0d95e548f";
   const AUDIO_SHA256$c = "71cd9a20f51a1c49a53f02fc6080914e6cf229662710f55bd8f9f2dac269d98c";
   const AUDIO_LOCATOR$5 = "academy/content/minna/audio/l2-l06-minna-072.mp3";
-  const SOURCE_PREFIX$e = `moodle:${MODULE_ID$s}:${WORKSHEET_SHA256$8}:pdf-p1:minna072-conversation`;
+  const SOURCE_PREFIX$e = `moodle:${MODULE_ID$u}:${WORKSHEET_SHA256$9}:pdf-p1:minna072-conversation`;
   function createLessonThirtyOneMinna072ConversationBeat() {
     assertExactPackageSources$p();
     const tasks2 = [
@@ -131716,7 +131720,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "強くなりました。"
       ], "最近日本のサッカーも強くなりました")
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$s, item2.sourceQuestionId, AUDIO_LOCATOR$5));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$u, item2.sourceQuestionId, AUDIO_LOCATOR$5));
     if (urls.some((url) => !url) || new Set(urls).size !== 1) {
       throw new TypeError("Expected one exact packaged Minna 072 binding for all four conversation questions.");
     }
@@ -131732,13 +131736,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Use Sensei’s conversation page, listen to Minna 072, and type four Japanese answers about Santos and Matsumoto."
       },
       provenance: {
-        packageId: PACKAGE_ID$s,
+        packageId: PACKAGE_ID$u,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$s,
+          moduleId: MODULE_ID$u,
           worksheet: {
-            sourceId: `moodle:${WORKSHEET_SHA256$8}:page:1`,
-            payloadSha256: WORKSHEET_SHA256$8,
+            sourceId: `moodle:${WORKSHEET_SHA256$9}:page:1`,
+            payloadSha256: WORKSHEET_SHA256$9,
             title: "Handouts/Chapter 21_Conversation listening.pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l06/moodle-chapter-21-conversation-page-1.png",
@@ -131820,12 +131824,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assertExactPackageSources$p() {
     const root = record$t(lessonPackage$k, "l2-l06 package");
-    if (root.id !== PACKAGE_ID$s || record$t(root.identity, "l2-l06 identity").moduleId !== MODULE_ID$s) {
+    if (root.id !== PACKAGE_ID$u || record$t(root.identity, "l2-l06 identity").moduleId !== MODULE_ID$u) {
       throw new TypeError("Unexpected l2-l06 package identity.");
     }
     const members = array$t(record$t(root.sourceCoverage, "l2-l06 coverage").members, "l2-l06 members").map((value) => record$t(value, "l2-l06 member"));
     for (const [sha2562, title2] of [
-      [WORKSHEET_SHA256$8, "Handouts/Chapter 21_Conversation listening.pdf"],
+      [WORKSHEET_SHA256$9, "Handouts/Chapter 21_Conversation listening.pdf"],
       [SUPPORT_SHA256, "Handouts/Chapter 21 grammar point_Conversation listening Script.pdf"],
       [AUDIO_SHA256$c, "Audio materials/minna_shokyu_1_072.mp3"]
     ]) {
@@ -131847,17 +131851,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$r = "l2-l07";
-  const PACKAGE_ORDER$p = 34;
-  const MODULE_ID$r = 6974653;
+  const PACKAGE_ID$t = "l2-l07";
+  const PACKAGE_ORDER$r = 34;
+  const MODULE_ID$t = 6974653;
   const SOURCE_PAYLOAD_SHA256$g = "dca619084366be2c1d89de013f3b7b142b83fb5ee7462175bc4d35af9ecd8ab6";
   const SOURCE_IMAGE_SHA256$5 = "68cdcf841810f4738474a813fd60eafbfdd5e384da0d0e10fcaf987f552c05a9";
   const SOURCE_TITLE$f = "Handouts/Chapter 21-3 〜でしょう_exercise and grammar review.pdf";
-  const SOURCE_PREFIX$d = `moodle:${MODULE_ID$r}:${SOURCE_PAYLOAD_SHA256$g}:pdf-p1:deshou`;
+  const SOURCE_PREFIX$d = `moodle:${MODULE_ID$t}:${SOURCE_PAYLOAD_SHA256$g}:pdf-p1:deshou`;
   function createLessonThirtyTwoConfirmationSignalBeat() {
     assertExactPackageSources$o();
     const rounds = [
-      round$k("okinawa-clean", 1, "沖縄は 海が きれいです →", "okinawa-clean-correct", "沖縄は 海が きれいでしょう？", [
+      round$m("okinawa-clean", 1, "沖縄は 海が きれいです →", "okinawa-clean-correct", "沖縄は 海が きれいでしょう？", [
         option$j("okinawa-clean-correct", "沖縄は 海が きれいでしょう？"),
         option$j("okinawa-clean-da", "沖縄は 海が きれいだでしょう？"),
         option$j("okinawa-clean-katta", "沖縄は 海が きれかったでしょう？")
@@ -131866,7 +131870,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$9("先生の説明では、な形容詞の「〜だ」を でしょう の前で使いません。", "Sensei’s rule removes 〜だ before でしょう for a na-adjective."),
         hint$9("きれい + でしょう？を選び、声を上げる信号を入れます。", "Choose きれい + でしょう？ and switch on the rising signal.")
       ]),
-      round$k("watt-interesting", 2, "ワットさんの 話は おもしろいです →", "watt-interesting-correct", "ワットさんの 話は おもしろいでしょう？", [
+      round$m("watt-interesting", 2, "ワットさんの 話は おもしろいです →", "watt-interesting-correct", "ワットさんの 話は おもしろいでしょう？", [
         option$j("watt-interesting-correct", "ワットさんの 話は おもしろいでしょう？"),
         option$j("watt-interesting-da", "ワットさんの 話は おもしろだでしょう？"),
         option$j("watt-interesting-past", "ワットさんの 話は おもしろかったでしょう？")
@@ -131875,7 +131879,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$9("い形容詞は です を取り、そのまま でしょう？につなぎます。", "Remove です and join the i-adjective directly to でしょう？."),
         hint$9("おもしろい + でしょう？を選び、声を上げる信号を入れます。", "Choose おもしろい + でしょう？ and switch on the rising signal.")
       ]),
-      round$k("kimura-does-not-know", 3, "木村さんは イーさんを 知りません →", "kimura-does-not-know-correct", "木村さんは イーさんを 知らないでしょう？", [
+      round$m("kimura-does-not-know", 3, "木村さんは イーさんを 知りません →", "kimura-does-not-know-correct", "木村さんは イーさんを 知らないでしょう？", [
         option$j("kimura-does-not-know-correct", "木村さんは イーさんを 知らないでしょう？"),
         option$j("kimura-does-not-know-polite", "木村さんは イーさんを 知りませんでしょう？"),
         option$j("kimura-does-not-know-mixed", "木村さんは イーさんを 知るないでしょう？")
@@ -131884,7 +131888,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$9("普通形の否定は「知らない」です。", "Its plain negative form is 知らない."),
         hint$9("知らない + でしょう？を選び、声を上げる信号を入れます。", "Choose 知らない + でしょう？ and switch on the rising signal.")
       ]),
-      round$k("football-match-happened", 4, "きのう サッカーの 試合が ありました →", "football-match-happened-correct", "きのう サッカーの 試合が あったでしょう？", [
+      round$m("football-match-happened", 4, "きのう サッカーの 試合が ありました →", "football-match-happened-correct", "きのう サッカーの 試合が あったでしょう？", [
         option$j("football-match-happened-correct", "きのう サッカーの 試合が あったでしょう？"),
         option$j("football-match-happened-polite", "きのう サッカーの 試合が ありましたでしょう？"),
         option$j("football-match-happened-present", "きのう サッカーの 試合が あるでしょう？")
@@ -131906,11 +131910,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 21 〜でしょう rule and examples first, then signal both the confirmation form and rising intonation for four sentences."
       },
       provenance: {
-        packageId: PACKAGE_ID$r,
-        packageOrder: PACKAGE_ORDER$p,
+        packageId: PACKAGE_ID$t,
+        packageOrder: PACKAGE_ORDER$r,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$r,
+          moduleId: MODULE_ID$t,
           sourceSheet: {
             sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$g}:page:1`,
             payloadSha256: SOURCE_PAYLOAD_SHA256$g,
@@ -131986,7 +131990,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$k(id2, sourceOrder, sourcePrompt, correctOptionId, answerExpression, options, hints2) {
+  function round$m(id2, sourceOrder, sourcePrompt, correctOptionId, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -132009,7 +132013,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$o() {
     const root = record$s(lessonPackage$L, "l2-l07 package");
     const identity2 = record$s(root.identity, "l2-l07 identity");
-    if (root.id !== PACKAGE_ID$r || root.order !== PACKAGE_ORDER$p || identity2.moduleId !== MODULE_ID$r) {
+    if (root.id !== PACKAGE_ID$t || root.order !== PACKAGE_ORDER$r || identity2.moduleId !== MODULE_ID$t) {
       throw new TypeError("Unexpected l2-l07 package identity.");
     }
     const coverage = record$s(root.sourceCoverage, "l2-l07 coverage");
@@ -134287,17 +134291,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$j,
     sourceActivityBindings: sourceActivityBindings$j
   };
-  const PACKAGE_ID$q = "l2-l08";
-  const PACKAGE_ORDER$o = 35;
-  const MODULE_ID$q = 6974656;
+  const PACKAGE_ID$s = "l2-l08";
+  const PACKAGE_ORDER$q = 35;
+  const MODULE_ID$s = 6974656;
   const SOURCE_PAYLOAD_SHA256$f = "262f9da24884b3868c4d87d84fccdffc8be353856f6603072139ef1cec182685";
   const SOURCE_IMAGE_SHA256$4 = "36a073904a47724326460931351b7a5e9c66c60a502e085fd26fb2f64e29c642";
   const SOURCE_TITLE$e = "Handouts/Chapter 22-1 modifying clauses_grammar exercise 1-1.pdf";
-  const SOURCE_PREFIX$c = `moodle:${MODULE_ID$q}:${SOURCE_PAYLOAD_SHA256$f}:pdf-p1:clause-rail`;
+  const SOURCE_PREFIX$c = `moodle:${MODULE_ID$s}:${SOURCE_PAYLOAD_SHA256$f}:pdf-p1:clause-rail`;
   function createLessonThirtyThreeClauseRailBeat() {
     assertExactPackageSources$n();
     const rounds = [
-      round$j("mother-coat", 1, "〈母に もらいました〉 コート →", "コート", [
+      round$l("mother-coat", 1, "〈母に もらいました〉 コート →", "コート", [
         option$i("plain", "母に もらった"),
         option$i("polite", "母に もらいました"),
         option$i("no", "母の もらった")
@@ -134306,7 +134310,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$8("もらいましたを普通形の過去にします。", "Change もらいました to its plain past form."),
         hint$8("母に もらった + コート の順につなぎます。", "Attach 母に もらった + コート in that order.")
       ]),
-      round$j("kyoto-photo", 2, "〈京都で 撮りました〉 写真 →", "写真", [
+      round$l("kyoto-photo", 2, "〈京都で 撮りました〉 写真 →", "写真", [
         option$i("plain", "京都で 撮った"),
         option$i("polite", "京都で 撮りました"),
         option$i("no", "京都の 撮った")
@@ -134315,7 +134319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$8("撮りましたを普通形の過去「撮った」にします。", "Change 撮りました to the plain past 撮った."),
         hint$8("京都で 撮った + 写真 の順につなぎます。", "Attach 京都で 撮った + 写真 in that order.")
       ]),
-      round$j("maria-cake", 3, "〈マリアさんが 作りました〉 ケーキ →", "ケーキ", [
+      round$l("maria-cake", 3, "〈マリアさんが 作りました〉 ケーキ →", "ケーキ", [
         option$i("plain", "マリアさんが 作った"),
         option$i("wa", "マリアさんは 作った"),
         option$i("polite", "マリアさんが 作りました")
@@ -134324,7 +134328,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$8("作りましたを普通形の過去「作った」にします。", "Change 作りました to the plain past 作った."),
         hint$8("マリアさんが 作った + ケーキ の順につなぎます。", "Attach マリアさんが 作った + ケーキ in that order.")
       ]),
-      round$j("karina-picture", 4, "〈カリナさんが かきました〉 絵 →", "絵", [
+      round$l("karina-picture", 4, "〈カリナさんが かきました〉 絵 →", "絵", [
         option$i("plain", "カリナさんが かいた"),
         option$i("wa", "カリナさんは かいた"),
         option$i("polite", "カリナさんが かきました")
@@ -134346,11 +134350,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 22-1 basic sentence and examples, then put each clause in plain form and attach it directly before its noun."
       },
       provenance: {
-        packageId: PACKAGE_ID$q,
-        packageOrder: PACKAGE_ORDER$o,
+        packageId: PACKAGE_ID$s,
+        packageOrder: PACKAGE_ORDER$q,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$q,
+          moduleId: MODULE_ID$s,
           sourceSheet: {
             sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$f}:page:1`,
             payloadSha256: SOURCE_PAYLOAD_SHA256$f,
@@ -134412,7 +134416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$j(id2, sourceOrder, sourcePrompt, noun, options, correctOptionId, answerExpression, hints2) {
+  function round$l(id2, sourceOrder, sourcePrompt, noun, options, correctOptionId, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -134436,7 +134440,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$n() {
     const root = record$r(lessonPackage$j, "l2-l08 package");
     const identity2 = record$r(root.identity, "l2-l08 identity");
-    if (root.id !== PACKAGE_ID$q || root.order !== PACKAGE_ORDER$o || identity2.moduleId !== MODULE_ID$q) {
+    if (root.id !== PACKAGE_ID$s || root.order !== PACKAGE_ORDER$q || identity2.moduleId !== MODULE_ID$s) {
       throw new TypeError("Unexpected l2-l08 package identity.");
     }
     const coverage = record$r(root.sourceCoverage, "l2-l08 coverage");
@@ -137319,20 +137323,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$i,
     sourceActivityBindings: sourceActivityBindings$i
   };
-  const PACKAGE_ID$p = "l2-l09";
-  const PACKAGE_ORDER$n = 36;
-  const MODULE_ID$p = 6974657;
+  const PACKAGE_ID$r = "l2-l09";
+  const PACKAGE_ORDER$p = 36;
+  const MODULE_ID$r = 6974657;
   const SOURCE_PAYLOAD_SHA256$e = "e2e34dd1605354d4e533c936105f391125a6db82f4610365b286ad6f8286c213";
   const SOURCE_TITLE$d = "Handouts/Chapter 22-2 modifying clauses-2_grammar exercise.pdf";
-  const SOURCE_PREFIX$b = `moodle:${MODULE_ID$p}:${SOURCE_PAYLOAD_SHA256$e}`;
+  const SOURCE_PREFIX$b = `moodle:${MODULE_ID$r}:${SOURCE_PAYLOAD_SHA256$e}`;
   const SOURCE_VISUALS$l = Object.freeze([
-    sourceVisual$c(1, "5257d4151ac5111057e4ffe7a227e208adc5bd0b8ca4c5532687266b0a8df406"),
-    sourceVisual$c(3, "3084a14e5136c6ee654d0d984ed11697f7bf757833f99354aa2f7f03159efea6")
+    sourceVisual$e(1, "5257d4151ac5111057e4ffe7a227e208adc5bd0b8ca4c5532687266b0a8df406"),
+    sourceVisual$e(3, "3084a14e5136c6ee654d0d984ed11697f7bf757833f99354aa2f7f03159efea6")
   ]);
   function createLessonThirtyFourParticleSignalMixerBeat() {
     assertExactPackageSources$m();
     const rounds = [
-      round$i("nara-photo", 1, 1, 1, "1) 〈奈良で 撮りました〉 写真を 見せて ください →", "写真を 見せて ください", [
+      round$k("nara-photo", 1, 1, 1, "1) 〈奈良で 撮りました〉 写真を 見せて ください →", "写真を 見せて ください", [
         option$h("plain", "奈良で 撮った"),
         option$h("polite", "奈良で 撮りました"),
         option$h("nonpast", "奈良で 撮る")
@@ -137341,7 +137345,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$7("撮りました の普通形の過去は「撮った」です。", "The plain past form of 撮りました is 撮った."),
         hint$7("写真は 見せて ください の目的語なので、外側の信号は「を」です。", "写真 is the object of 見せて ください, so the outer signal is を.")
       ]),
-      round$i("unneeded-things", 2, 1, 2, "2) 〈要りません〉 物を 捨てます →", "物を 捨てます", [
+      round$k("unneeded-things", 2, 1, 2, "2) 〈要りません〉 物を 捨てます →", "物を 捨てます", [
         option$h("plain", "要らない"),
         option$h("polite", "要りません"),
         option$h("past", "要らなかった")
@@ -137350,7 +137354,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$7("要りません の普通形の否定は「要らない」です。", "The plain negative form of 要りません is 要らない."),
         hint$7("物は 捨てます の目的語なので、外側の信号は「を」です。", "物 is the object of 捨てます, so the outer signal is を.")
       ]),
-      round$i("humorous-person", 3, 3, 1, "1) 〈ユーモアが あります〉 人が 好きです →", "人が 好きです", [
+      round$k("humorous-person", 3, 3, 1, "1) 〈ユーモアが あります〉 人が 好きです →", "人が 好きです", [
         option$h("plain", "ユーモアが ある"),
         option$h("polite", "ユーモアが あります"),
         option$h("past", "ユーモアが あった")
@@ -137359,7 +137363,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         hint$7("あります の普通形は「ある」です。", "The plain form of あります is ある."),
         hint$7("好きです が取る名詞句なので、外側の信号は「が」です。", "好きです takes this noun phrase with the outer signal が.")
       ]),
-      round$i("cooking-robot", 4, 3, 2, "2) 〈料理を 作ります〉 ロボットが 欲しいです →", "ロボットが 欲しいです", [
+      round$k("cooking-robot", 4, 3, 2, "2) 〈料理を 作ります〉 ロボットが 欲しいです →", "ロボットが 欲しいです", [
         option$h("plain", "料理を 作る"),
         option$h("polite", "料理を 作ります"),
         option$h("past", "料理を 作った")
@@ -137381,11 +137385,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 22-2 rules and examples first, then tune the plain form and outer wo/ga signal for four noun-modifying clauses."
       },
       provenance: {
-        packageId: PACKAGE_ID$p,
-        packageOrder: PACKAGE_ORDER$n,
+        packageId: PACKAGE_ID$r,
+        packageOrder: PACKAGE_ORDER$p,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$p,
+          moduleId: MODULE_ID$r,
           sourceSheets: SOURCE_VISUALS$l,
           audio: { status: "quarantined-unresolved-pairing", sourceAudioMembers: 1, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-transformations-over-verbatim-source-teaching-and-prompts"
@@ -137460,7 +137464,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$i(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
+  function round$k(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
     const sourceTask = sourcePage === 1 ? 1 : 4;
     return Object.freeze({
       id: id2,
@@ -137486,7 +137490,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$7(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$c(page, sha2562) {
+  function sourceVisual$e(page, sha2562) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$e}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$e,
@@ -137503,7 +137507,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$m() {
     const root = record$q(lessonPackage$i, "l2-l09 package");
     const identity2 = record$q(root.identity, "l2-l09 identity");
-    if (root.id !== PACKAGE_ID$p || root.order !== PACKAGE_ORDER$n || identity2.moduleId !== MODULE_ID$p) {
+    if (root.id !== PACKAGE_ID$r || root.order !== PACKAGE_ORDER$p || identity2.moduleId !== MODULE_ID$r) {
       throw new TypeError("Unexpected l2-l09 package identity.");
     }
     const coverage = record$q(root.sourceCoverage, "l2-l09 coverage");
@@ -137530,16 +137534,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$o = "l2-l09";
-  const PACKAGE_ORDER$m = 36;
-  const MODULE_ID$o = 6974657;
-  const ARCHIVE_SHA256$f = "09310bcbaaf7ff115e951d343296a8352284d0325a7efc9e80ae863bc45a3da6";
-  const WORKSHEET_SHA256$7 = "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0";
+  const PACKAGE_ID$q = "l2-l09";
+  const PACKAGE_ORDER$o = 36;
+  const MODULE_ID$q = 6974657;
+  const ARCHIVE_SHA256$h = "09310bcbaaf7ff115e951d343296a8352284d0325a7efc9e80ae863bc45a3da6";
+  const WORKSHEET_SHA256$8 = "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0";
   const WORKSHEET_IMAGE_SHA256$4 = "b28a169dac64414fd20e35345e9f5f4e8f5d4261c1a78b396f35542de9c12105";
   const AUDIO_SHA256$b = "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834";
   const AUDIO_LOCATOR$4 = "academy/content/minna/audio/l2-l09-minna-075.mp3";
   const AUDIO_URL$1 = "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3";
-  const SOURCE_PREFIX$a = `moodle:${MODULE_ID$o}:${WORKSHEET_SHA256$7}:pdf-p1:minna075-conversation`;
+  const SOURCE_PREFIX$a = `moodle:${MODULE_ID$q}:${WORKSHEET_SHA256$8}:pdf-p1:minna075-conversation`;
   function createLessonThirtyFourMinna075ConversationBeat() {
     assertExactPackageSources$l();
     const tasks2 = [
@@ -137576,7 +137580,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "今日この部屋を見ることができます"
       )
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$o, item2.sourceQuestionId, AUDIO_LOCATOR$4));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$q, item2.sourceQuestionId, AUDIO_LOCATOR$4));
     if (urls.some((url) => url !== AUDIO_URL$1)) {
       throw new TypeError("Expected one exact packaged Minna 075 binding for all four room-search questions.");
     }
@@ -137592,21 +137596,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Use Sensei's room-search page, listen to Minna 075, and answer four questions about Wang's request and the room offered."
       },
       provenance: {
-        packageId: PACKAGE_ID$o,
+        packageId: PACKAGE_ID$q,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$o,
+          moduleId: MODULE_ID$q,
           worksheet: {
-            sourceId: `moodle:${WORKSHEET_SHA256$7}:page:1`,
-            payloadSha256: WORKSHEET_SHA256$7,
+            sourceId: `moodle:${WORKSHEET_SHA256$8}:page:1`,
+            payloadSha256: WORKSHEET_SHA256$8,
             title: "Homework/HW Chapter 22_Conversation listening.pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l09/moodle-chapter-22-conversation-page-1.png",
             sha256: WORKSHEET_IMAGE_SHA256$4
           },
           support: {
-            sourceId: `moodle:${WORKSHEET_SHA256$7}:page:1+audio-review:${AUDIO_SHA256$b}`,
-            payloadSha256: WORKSHEET_SHA256$7,
+            sourceId: `moodle:${WORKSHEET_SHA256$8}:page:1+audio-review:${AUDIO_SHA256$b}`,
+            payloadSha256: WORKSHEET_SHA256$8,
             title: "Homework/HW Chapter 22_Conversation listening.pdf",
             page: 1,
             role: "worksheet-and-audio-review"
@@ -137695,14 +137699,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$l() {
     const root = record$p(lessonPackage$i, "l2-l09 package");
     const identity2 = record$p(root.identity, "l2-l09 identity");
-    if (root.id !== PACKAGE_ID$o || root.order !== PACKAGE_ORDER$m || identity2.moduleId !== MODULE_ID$o) {
+    if (root.id !== PACKAGE_ID$q || root.order !== PACKAGE_ORDER$o || identity2.moduleId !== MODULE_ID$q) {
       throw new TypeError("Unexpected l2-l09 package identity.");
     }
     const coverage = record$p(root.sourceCoverage, "l2-l09 coverage");
-    if (coverage.archiveSha256 !== ARCHIVE_SHA256$f) throw new TypeError("Unexpected l2-l09 source archive.");
+    if (coverage.archiveSha256 !== ARCHIVE_SHA256$h) throw new TypeError("Unexpected l2-l09 source archive.");
     const members = array$p(coverage.members, "l2-l09 members").map((value) => record$p(value, "l2-l09 member"));
     for (const [sha2562, title2, kind] of [
-      [WORKSHEET_SHA256$7, "Homework/HW Chapter 22_Conversation listening.pdf", "document"],
+      [WORKSHEET_SHA256$8, "Homework/HW Chapter 22_Conversation listening.pdf", "document"],
       [AUDIO_SHA256$b, "Homework/minna_shokyu_1_075.mp3", "audio"]
     ]) {
       if (!members.some((member) => member.payloadSha256 === sha2562 && member.title === title2 && member.kind === kind)) {
@@ -140802,35 +140806,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$h,
     sourceActivityBindings: sourceActivityBindings$h
   };
-  const PACKAGE_ID$n = "l2-l10";
-  const PACKAGE_ORDER$l = 37;
-  const MODULE_ID$n = 6974659;
+  const PACKAGE_ID$p = "l2-l10";
+  const PACKAGE_ORDER$n = 37;
+  const MODULE_ID$p = 6974659;
   const SOURCE_PAYLOAD_SHA256$d = "7f88544f889d1c316fb911a2b67d5fe78893f6f2344e29aee25689994646c381";
   const SOURCE_TITLE$c = "Handouts/Chapter 23-1 〜とき_time and occasion.pdf";
-  const SOURCE_PREFIX$9 = `moodle:${MODULE_ID$n}:${SOURCE_PAYLOAD_SHA256$d}`;
+  const SOURCE_PREFIX$9 = `moodle:${MODULE_ID$p}:${SOURCE_PAYLOAD_SHA256$d}`;
   const SOURCE_VISUALS$k = Object.freeze([
-    sourceVisual$b(4, "948b81d988e549e8b51c5fcc94934eb1607fbe86097b6f4d154b63d4b07c36d6"),
-    sourceVisual$b(5, "646ada214d1e57addc244e105a51957749edcecc897f654dedebb96ff698c187")
+    sourceVisual$d(4, "948b81d988e549e8b51c5fcc94934eb1607fbe86097b6f4d154b63d4b07c36d6"),
+    sourceVisual$d(5, "646ada214d1e57addc244e105a51957749edcecc897f654dedebb96ff698c187")
   ]);
   function createLessonThirtyFiveTokiThresholdBeat() {
     assertExactPackageSources$k();
     const rounds = [
-      round$h("good-night", 1, "1) 「お休みなさい」 →", "寝る とき", "寝た とき", "before", "寝るとき、「お休みなさい」と 言います。", [
+      round$j("good-night", 1, "1) 「お休みなさい」 →", "寝る とき", "寝た とき", "before", "寝るとき、「お休みなさい」と 言います。", [
         hint$6("「お休みなさい」は、寝る動作が終わる前に言います。", "You say good night before the act of going to sleep is complete."),
         hint$6("完了する前の場面は、辞書形を使います。", "A before-completion occasion uses dictionary form."),
         hint$6("この境目では「寝る とき」を選びます。", "At this threshold, choose 寝る とき.")
       ]),
-      round$h("good-morning", 2, "2) 「おはよう ございます」 →", "友達に 会う とき", "友達に 会った とき", "after", "朝、友達に 会ったとき、「おはよう ございます」と 言います。", [
+      round$j("good-morning", 2, "2) 「おはよう ございます」 →", "友達に 会う とき", "友達に 会った とき", "after", "朝、友達に 会ったとき、「おはよう ございます」と 言います。", [
         hint$6("あいさつは、朝に友達と会った場面で出ます。", "The greeting occurs once you have met your friend in the morning."),
         hint$6("会う動作を完了した場面は、た形を使います。", "An occasion after meeting is complete uses the ta-form."),
         hint$6("この境目では「友達に 会った とき」を選びます。", "At this threshold, choose 友達に 会った とき.")
       ]),
-      round$h("thank-you", 3, "3) 「ありがとう ございます」 →", "プレゼントを もらう とき", "プレゼントを もらった とき", "after", "プレゼントを もらったとき、「ありがとう ございます」と 言います。", [
+      round$j("thank-you", 3, "3) 「ありがとう ございます」 →", "プレゼントを もらう とき", "プレゼントを もらった とき", "after", "プレゼントを もらったとき、「ありがとう ございます」と 言います。", [
         hint$6("ありがとうは、プレゼントを受け取ったことへの返事です。", "The thanks responds to receiving the present."),
         hint$6("受け取る動作が終わった場面は、た形を使います。", "An occasion after receiving is complete uses the ta-form."),
         hint$6("この境目では「プレゼントを もらった とき」を選びます。", "At this threshold, choose プレゼントを もらった とき.")
       ]),
-      round$h("excuse-me", 4, "4) 「失礼します」 →", "部屋に 入る とき", "部屋に 入った とき", "before", "部屋に 入るとき、「失礼します」と 言います。", [
+      round$j("excuse-me", 4, "4) 「失礼します」 →", "部屋に 入る とき", "部屋に 入った とき", "before", "部屋に 入るとき、「失礼します」と 言います。", [
         hint$6("「失礼します」は、部屋へ入る前の声かけです。", "You say excuse me before entering the room."),
         hint$6("入る動作が終わる前の場面は、辞書形を使います。", "An occasion before entering is complete uses dictionary form."),
         hint$6("この境目では「部屋に 入る とき」を選びます。", "At this threshold, choose 部屋に 入る とき.")
@@ -140848,11 +140852,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 23-1 rule and examples first, then route four speech bubbles to before or after the action completes."
       },
       provenance: {
-        packageId: PACKAGE_ID$n,
-        packageOrder: PACKAGE_ORDER$l,
+        packageId: PACKAGE_ID$p,
+        packageOrder: PACKAGE_ORDER$n,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$n,
+          moduleId: MODULE_ID$p,
           sourceSheets: SOURCE_VISUALS$k,
           audio: { status: "quarantined-unresolved-pairing", sourceAudioMembers: 4, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-timing-completions-over-verbatim-source-teaching-and-prompts"
@@ -140923,7 +140927,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$h(id2, sourceOrder, sourcePrompt, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
+  function round$j(id2, sourceOrder, sourcePrompt, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -140944,7 +140948,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$6(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$b(page, sha2562) {
+  function sourceVisual$d(page, sha2562) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$d}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$d,
@@ -140961,7 +140965,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$k() {
     const root = record$o(lessonPackage$h, "l2-l10 package");
     const identity2 = record$o(root.identity, "l2-l10 identity");
-    if (root.id !== PACKAGE_ID$n || root.order !== PACKAGE_ORDER$l || identity2.moduleId !== MODULE_ID$n) {
+    if (root.id !== PACKAGE_ID$p || root.order !== PACKAGE_ORDER$n || identity2.moduleId !== MODULE_ID$p) {
       throw new TypeError("Unexpected l2-l10 package identity.");
     }
     const coverage = record$o(root.sourceCoverage, "l2-l10 coverage");
@@ -140988,14 +140992,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$m = "l2-l10";
-  const PACKAGE_ORDER$k = 37;
-  const MODULE_ID$m = 6974659;
-  const ARCHIVE_SHA256$e = "717787bb3eb1af1b75d149b26cef1e1386950430020c3c583b790523d6f0404c";
+  const PACKAGE_ID$o = "l2-l10";
+  const PACKAGE_ORDER$m = 37;
+  const MODULE_ID$o = 6974659;
+  const ARCHIVE_SHA256$g = "717787bb3eb1af1b75d149b26cef1e1386950430020c3c583b790523d6f0404c";
   const AUDIO_SHA256$a = "3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339";
   const AUDIO_LOCATOR$3 = "academy/content/minna/audio/l2-l10-minna-077.mp3";
   const AUDIO_URL = "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3";
-  const SOURCE_PREFIX$8 = `moodle:${MODULE_ID$m}:${AUDIO_SHA256$a}:audio:minna077-mondai-2`;
+  const SOURCE_PREFIX$8 = `moodle:${MODULE_ID$o}:${AUDIO_SHA256$a}:audio:minna077-mondai-2`;
   function createLessonThirtyFiveMinna077ListeningBeat() {
     assertExactPackageSource();
     const tasks2 = [
@@ -141005,7 +141009,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       task$2("man-keeps-child-plan", 4, "男の人は あした 子どもと 遊びますから、テニスに 行きません。", "circle"),
       task$2("karina-short-hair", 5, "カリナさんは 髪が 短いです。", "circle")
     ];
-    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$m, item2.sourceQuestionId, AUDIO_LOCATOR$3));
+    const urls = tasks2.map((item2) => resolvePackagedListeningTask(PACKAGE_ID$o, item2.sourceQuestionId, AUDIO_LOCATOR$3));
     if (urls.some((url) => url !== AUDIO_URL)) {
       throw new TypeError("Expected one exact packaged Minna 077 binding for all five truth judgements.");
     }
@@ -141021,11 +141025,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Recall the Chapter 22 clauses that describe nouns, then listen to Minna 077. Mark each closing statement ○ if it matches the dialogue or × if it does not."
       },
       provenance: {
-        packageId: PACKAGE_ID$m,
-        packageOrder: PACKAGE_ORDER$k,
+        packageId: PACKAGE_ID$o,
+        packageOrder: PACKAGE_ORDER$m,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$m,
+          moduleId: MODULE_ID$o,
           audio: {
             sourceId: `moodle:${AUDIO_SHA256$a}:audio`,
             payloadSha256: AUDIO_SHA256$a,
@@ -141127,11 +141131,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSource() {
     const root = record$n(lessonPackage$h, "l2-l10 package");
     const identity2 = record$n(root.identity, "l2-l10 identity");
-    if (root.id !== PACKAGE_ID$m || root.order !== PACKAGE_ORDER$k || identity2.moduleId !== MODULE_ID$m) {
+    if (root.id !== PACKAGE_ID$o || root.order !== PACKAGE_ORDER$m || identity2.moduleId !== MODULE_ID$o) {
       throw new TypeError("Unexpected l2-l10 package identity.");
     }
     const coverage = record$n(root.sourceCoverage, "l2-l10 coverage");
-    if (coverage.archiveSha256 !== ARCHIVE_SHA256$e) throw new TypeError("Unexpected l2-l10 source archive.");
+    if (coverage.archiveSha256 !== ARCHIVE_SHA256$g) throw new TypeError("Unexpected l2-l10 source archive.");
     const members = array$n(coverage.members, "l2-l10 members").map((value) => record$n(value, "l2-l10 member"));
     const audioMembers = members.filter((member) => member.kind === "audio");
     const audio2 = audioMembers.find((member) => member.payloadSha256 === AUDIO_SHA256$a);
@@ -143938,12 +143942,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$g,
     sourceActivityBindings: sourceActivityBindings$g
   };
-  const PACKAGE_ID$l = "l2-l11";
-  const PACKAGE_ORDER$j = 38;
-  const MODULE_ID$l = 6974661;
+  const PACKAGE_ID$n = "l2-l11";
+  const PACKAGE_ORDER$l = 38;
+  const MODULE_ID$n = 6974661;
   const SOURCE_PAYLOAD_SHA256$c = "f3c29a4d4a9ffd140494c10a8908de1f09aa6387f2172ab8edd65749fd1b3533";
   const SOURCE_TITLE$b = "Handouts/New_Chapter 23-1 〜とき_time and occasion.pdf";
-  const SOURCE_PREFIX$7 = `moodle:${MODULE_ID$l}:${SOURCE_PAYLOAD_SHA256$c}`;
+  const SOURCE_PREFIX$7 = `moodle:${MODULE_ID$n}:${SOURCE_PAYLOAD_SHA256$c}`;
   const SOURCE_VISUAL$1 = Object.freeze({
     sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$c}:page:1`,
     payloadSha256: SOURCE_PAYLOAD_SHA256$c,
@@ -143959,7 +143963,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonThirtySixOccasionRouteBeat() {
     assertExactPackageSources$j();
     const rounds = [
-      round$g(
+      round$i(
         "hospital-card",
         1,
         "1) 病院へ 行きます・保険証を 忘れないで ください →",
@@ -143974,7 +143978,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$5("このカードは「病院へ 行くとき」のルートです。", "Route this card through 病院へ 行くとき.")
         ]
       ),
-      round$g(
+      round$i(
         "umbrella-card",
         2,
         "2) 出かけます・いつも 傘を 持って 行きます →",
@@ -143989,7 +143993,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$5("このカードは「出かけるとき」のルートです。", "Route this card through 出かけるとき.")
         ]
       ),
-      round$g(
+      round$i(
         "kanji-card",
         3,
         "3) 漢字が わかりません・この 辞書を 使います →",
@@ -144004,7 +144008,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$5("このカードは「漢字が わからないとき」のルートです。", "Route this card through 漢字が わからないとき.")
         ]
       ),
-      round$g(
+      round$i(
         "breakfast-card",
         4,
         "4) 時間が ありません・朝ごはんを 食べません →",
@@ -144032,11 +144036,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 23-1 teaching and examples first, then join each exact source pair through the correct affirmative or negative toki route."
       },
       provenance: {
-        packageId: PACKAGE_ID$l,
-        packageOrder: PACKAGE_ORDER$j,
+        packageId: PACKAGE_ID$n,
+        packageOrder: PACKAGE_ORDER$l,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$l,
+          moduleId: MODULE_ID$n,
           sourceSheets: [SOURCE_VISUAL$1],
           media: { status: "no-audio-members-in-package", sourceAudioMembers: 0, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-completions-over-verbatim-source-teaching-and-prompts"
@@ -144117,7 +144121,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$g(id2, sourceOrder, sourcePrompt, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
+  function round$i(id2, sourceOrder, sourcePrompt, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -144142,7 +144146,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$j() {
     const root = record$m(lessonPackage$g, "l2-l11 package");
     const identity2 = record$m(root.identity, "l2-l11 identity");
-    if (root.id !== PACKAGE_ID$l || root.order !== PACKAGE_ORDER$j || identity2.moduleId !== MODULE_ID$l) {
+    if (root.id !== PACKAGE_ID$n || root.order !== PACKAGE_ORDER$l || identity2.moduleId !== MODULE_ID$n) {
       throw new TypeError("Unexpected l2-l11 package identity.");
     }
     const coverage = record$m(root.sourceCoverage, "l2-l11 coverage");
@@ -147207,19 +147211,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$f,
     sourceActivityBindings: sourceActivityBindings$f
   };
-  const PACKAGE_ID$k = "l2-l12";
-  const PACKAGE_ORDER$i = 39;
-  const MODULE_ID$k = 8121261;
-  const ARCHIVE_ID$i = "archive-000032";
+  const PACKAGE_ID$m = "l2-l12";
+  const PACKAGE_ORDER$k = 39;
+  const MODULE_ID$m = 8121261;
+  const ARCHIVE_ID$k = "archive-000032";
   const SOURCE_PAYLOAD_SHA256$b = "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48";
   const SOURCE_TITLE$a = "Handouts/Chapter 28-1 〜ながら_grammar_exercise.pdf";
-  const SOURCE_PREFIX$6 = `moodle:${MODULE_ID$k}:${SOURCE_PAYLOAD_SHA256$b}`;
+  const SOURCE_PREFIX$6 = `moodle:${MODULE_ID$m}:${SOURCE_PAYLOAD_SHA256$b}`;
   const SOURCE_VISUALS$j = Object.freeze([
-    sourceVisual$a(1, "a0e5167eafeacd2316aa60681c14d4de5da5eb8970b3198f335d441d8b3f088f", {
+    sourceVisual$c(1, "a0e5167eafeacd2316aa60681c14d4de5da5eb8970b3198f335d441d8b3f088f", {
       ja: "Moodle 原本: Chapter 28-1「ながら」1ページ。先生の基本文、二つの説明、六つの例、絵の練習、課題2の六問。",
       en: "Moodle original: Chapter 28-1 nagara page 1, with Sensei’s pattern, two explanations, six examples, picture practice, and all six task 2 prompts."
     }),
-    sourceVisual$a(2, "c21841db30455c7bd40b0a8b05382d53e17e857b3d9518e830b88887a18dd241", {
+    sourceVisual$c(2, "c21841db30455c7bd40b0a8b05382d53e17e857b3d9518e830b88887a18dd241", {
       ja: "Moodle 原本: Chapter 28-1「ながら」2ページ。課題3の例、九つの文、三つの絵。",
       en: "Moodle original: Chapter 28-1 nagara page 2, with the task 3 model, nine prompts, and three illustrations."
     })
@@ -147227,7 +147231,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonThirtySevenNagaraWorkshopBeat() {
     assertExactPackageSources$i();
     const rounds = [
-      round$f(
+      round$h(
         "listen-and-note",
         1,
         "stem-select",
@@ -147243,7 +147247,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$4("聞きますから「ます」を取ると「聞きながら」です。", "Remove ます from 聞きます to make 聞きながら.")
         ]
       ),
-      round$f(
+      round$h(
         "drive-no-phone",
         2,
         "stem-select",
@@ -147259,7 +147263,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$4("「します」から「ます」を取ると「しながら」です。", "Remove ます from します to make しながら.")
         ]
       ),
-      round$f(
+      round$h(
         "tea-and-talk",
         3,
         "main-clause-choice",
@@ -147275,7 +147279,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$4("主な動作「話しましょう」を文の最後に残します。", "Keep the main action 話しましょう at the end.")
         ]
       ),
-      round$f(
+      round$h(
         "piano-and-sing",
         4,
         "main-clause-choice",
@@ -147291,7 +147295,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$4("「弾きながら」の後に、主な質問「歌えますか」が続きます。", "Follow 弾きながら with the main question 歌えますか.")
         ]
       ),
-      round$f(
+      round$h(
         "volunteer-and-travel",
         5,
         "typed-join",
@@ -147304,7 +147308,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$4("元の主な動作「世界を旅行しています」を後ろに保ちます。", "Keep the original main action 世界を旅行しています last.")
         ]
       ),
-      round$f(
+      round$h(
         "teach-and-draw",
         6,
         "typed-join",
@@ -147330,12 +147334,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 28-1 pattern, explanations, and examples first, then join the six exact task 2 pairs using form selection, main-action contrast, and typed production."
       },
       provenance: {
-        packageId: PACKAGE_ID$k,
-        packageOrder: PACKAGE_ORDER$i,
+        packageId: PACKAGE_ID$m,
+        packageOrder: PACKAGE_ORDER$k,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$k,
-          archiveId: ARCHIVE_ID$i,
+          moduleId: MODULE_ID$m,
+          archiveId: ARCHIVE_ID$k,
           sourceSheets: SOURCE_VISUALS$j,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 4, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-completions-over-verbatim-source-teaching-and-prompts"
@@ -147404,7 +147408,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$f(id2, sourceOrder, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$h(id2, sourceOrder, interaction, sourcePrompt, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -147429,7 +147433,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$4(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$a(page, sha2562, alt) {
+  function sourceVisual$c(page, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$b}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$b,
@@ -147443,11 +147447,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$i() {
     const root = record$l(lessonPackage$f, "l2-l12 package");
     const identity2 = record$l(root.identity, "l2-l12 identity");
-    if (root.id !== PACKAGE_ID$k || root.order !== PACKAGE_ORDER$i || identity2.moduleId !== MODULE_ID$k) {
+    if (root.id !== PACKAGE_ID$m || root.order !== PACKAGE_ORDER$k || identity2.moduleId !== MODULE_ID$m) {
       throw new TypeError("Unexpected l2-l12 package identity.");
     }
     const coverage = record$l(root.sourceCoverage, "l2-l12 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$i || coverage.archiveSha256 !== "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe") {
+    if (coverage.archiveId !== ARCHIVE_ID$k || coverage.archiveSha256 !== "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe") {
       throw new TypeError("Unexpected l2-l12 source archive.");
     }
     const members = array$l(coverage.members, "l2-l12 members").map((value) => record$l(value, "l2-l12 member"));
@@ -147471,16 +147475,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$j = "l2-l12";
-  const PACKAGE_ORDER$h = 39;
-  const MODULE_ID$j = 8121261;
-  const ARCHIVE_ID$h = "archive-000032";
-  const ARCHIVE_SHA256$d = "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe";
-  const WORKSHEET_SHA256$6 = "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617";
+  const PACKAGE_ID$l = "l2-l12";
+  const PACKAGE_ORDER$j = 39;
+  const MODULE_ID$l = 8121261;
+  const ARCHIVE_ID$j = "archive-000032";
+  const ARCHIVE_SHA256$f = "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe";
+  const WORKSHEET_SHA256$7 = "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617";
   const WORKSHEET_IMAGE_SHA256$3 = "07ae4ae9fa5441f99bf5542d4199215433cc56ddddc4f1ab968d7533c4bd3ef4";
   const AUDIO_SHA256$9 = "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2";
   const AUDIO_LOCATOR$2 = "academy/content/moodle/audio/l2-l12-track-78.mp3";
-  const SOURCE_PREFIX$5 = `moodle:${MODULE_ID$j}:${WORKSHEET_SHA256$6}:pdf-p1:track78-bank`;
+  const SOURCE_PREFIX$5 = `moodle:${MODULE_ID$l}:${WORKSHEET_SHA256$7}:pdf-p1:track78-bank`;
   function createLessonThirtySevenTrack78BankListeningBeat() {
     assertExactPackageSources$h();
     const fields = [
@@ -147506,24 +147510,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Review the service-desk language, then listen to Track 78, complete source blanks 1–8, and choose the final answer."
       },
       provenance: {
-        packageId: PACKAGE_ID$j,
-        packageOrder: PACKAGE_ORDER$h,
+        packageId: PACKAGE_ID$l,
+        packageOrder: PACKAGE_ORDER$j,
         answerVisibility: "after-attempt",
         repairScope: "missed-source-items-only",
         moodle: {
-          moduleId: MODULE_ID$j,
-          archiveId: ARCHIVE_ID$h,
-          archiveSha256: ARCHIVE_SHA256$d,
+          moduleId: MODULE_ID$l,
+          archiveId: ARCHIVE_ID$j,
+          archiveSha256: ARCHIVE_SHA256$f,
           worksheet: {
-            sourceId: `moodle:${MODULE_ID$j}:${WORKSHEET_SHA256$6}:pdf-p1`,
-            payloadSha256: WORKSHEET_SHA256$6,
+            sourceId: `moodle:${MODULE_ID$l}:${WORKSHEET_SHA256$7}:pdf-p1`,
+            payloadSha256: WORKSHEET_SHA256$7,
             title: "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l12/moodle-track-78-bank-listening-page-1.png",
             sha256: WORKSHEET_IMAGE_SHA256$3
           },
           audio: {
-            sourceId: `moodle:${MODULE_ID$j}:${AUDIO_SHA256$9}:audio:track-78`,
+            sourceId: `moodle:${MODULE_ID$l}:${AUDIO_SHA256$9}:audio:track-78`,
             payloadSha256: AUDIO_SHA256$9,
             locator: AUDIO_LOCATOR$2,
             url: requirePackagedAudio$2(choiceQuestionId),
@@ -147620,7 +147624,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Object.freeze({ speaker, text: text2 });
   }
   function requirePackagedAudio$2(sourceQuestionId2) {
-    const url = resolvePackagedListeningTask(PACKAGE_ID$j, sourceQuestionId2, AUDIO_LOCATOR$2);
+    const url = resolvePackagedListeningTask(PACKAGE_ID$l, sourceQuestionId2, AUDIO_LOCATOR$2);
     if (!url) throw new TypeError("Track 78 must have a packaged exact-task binding.");
     return url;
   }
@@ -147628,11 +147632,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$k(lessonPackage$f, "l2-l12 package");
     const identity2 = record$k(root.identity, "l2-l12 identity");
     const coverage = record$k(root.sourceCoverage, "l2-l12 coverage");
-    if (root.id !== PACKAGE_ID$j || root.order !== PACKAGE_ORDER$h || identity2.moduleId !== MODULE_ID$j || coverage.archiveId !== ARCHIVE_ID$h || coverage.archiveSha256 !== ARCHIVE_SHA256$d) {
+    if (root.id !== PACKAGE_ID$l || root.order !== PACKAGE_ORDER$j || identity2.moduleId !== MODULE_ID$l || coverage.archiveId !== ARCHIVE_ID$j || coverage.archiveSha256 !== ARCHIVE_SHA256$f) {
       throw new TypeError("Unexpected l2-l12 package identity.");
     }
     const members = array$k(coverage.members, "l2-l12 members").map((value) => record$k(value, "l2-l12 member"));
-    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$6);
+    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$7);
     const audio2 = members.find((member) => member.payloadSha256 === AUDIO_SHA256$9);
     if (worksheet?.title !== "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf" || worksheet.kind !== "document" || audio2?.title !== "Homework/78 Track 78.mp3" || audio2.kind !== "audio") {
       throw new TypeError("Lesson 37 requires the exact Track 78 worksheet/audio pair.");
@@ -147646,16 +147650,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$i = "l2-l12";
-  const PACKAGE_ORDER$g = 39;
-  const MODULE_ID$i = 8121261;
-  const ARCHIVE_ID$g = "archive-000032";
-  const ARCHIVE_SHA256$c = "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe";
-  const WORKSHEET_SHA256$5 = "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617";
+  const PACKAGE_ID$k = "l2-l12";
+  const PACKAGE_ORDER$i = 39;
+  const MODULE_ID$k = 8121261;
+  const ARCHIVE_ID$i = "archive-000032";
+  const ARCHIVE_SHA256$e = "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe";
+  const WORKSHEET_SHA256$6 = "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617";
   const WORKSHEET_IMAGE_SHA256$2 = "8fbb6b9881e26e31bb614c0b3a2048780c3b590d457e9418a7ffeec7f828bc8c";
   const AUDIO_SHA256$8 = "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e";
   const AUDIO_LOCATOR$1 = "academy/content/moodle/audio/l2-l12-track-79.mp3";
-  const SOURCE_PREFIX$4 = `moodle:${MODULE_ID$i}:${WORKSHEET_SHA256$5}:pdf-p2:track79-favor-direction`;
+  const SOURCE_PREFIX$4 = `moodle:${MODULE_ID$k}:${WORKSHEET_SHA256$6}:pdf-p2:track79-favor-direction`;
   function createLessonThirtySevenTrack79FavorDirectionBeat() {
     assertExactPackageSources$g();
     const tasks2 = [
@@ -147675,24 +147679,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Review the recipient viewpoint, then listen to Track 79 section (2) and give the arrow toward the person receiving the favor plus the 〜てもらう phrase."
       },
       provenance: {
-        packageId: PACKAGE_ID$i,
-        packageOrder: PACKAGE_ORDER$g,
+        packageId: PACKAGE_ID$k,
+        packageOrder: PACKAGE_ORDER$i,
         answerVisibility: "after-attempt",
         repairScope: "missed-source-items-only",
         moodle: {
-          moduleId: MODULE_ID$i,
-          archiveId: ARCHIVE_ID$g,
-          archiveSha256: ARCHIVE_SHA256$c,
+          moduleId: MODULE_ID$k,
+          archiveId: ARCHIVE_ID$i,
+          archiveSha256: ARCHIVE_SHA256$e,
           worksheet: {
-            sourceId: `moodle:${MODULE_ID$i}:${WORKSHEET_SHA256$5}:pdf-p2`,
-            payloadSha256: WORKSHEET_SHA256$5,
+            sourceId: `moodle:${MODULE_ID$k}:${WORKSHEET_SHA256$6}:pdf-p2`,
+            payloadSha256: WORKSHEET_SHA256$6,
             title: "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
             page: 2,
             url: "/academy/content/lessons/l2-l12/moodle-track-79-favor-direction-page-2.png",
             sha256: WORKSHEET_IMAGE_SHA256$2
           },
           audio: {
-            sourceId: `moodle:${MODULE_ID$i}:${AUDIO_SHA256$8}:audio:track-79`,
+            sourceId: `moodle:${MODULE_ID$k}:${AUDIO_SHA256$8}:audio:track-79`,
             payloadSha256: AUDIO_SHA256$8,
             locator: AUDIO_LOCATOR$1,
             url: requirePackagedAudio$1(tasks2[0].sourceQuestionId),
@@ -147778,7 +147782,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Object.freeze({ speaker, text: text2 });
   }
   function requirePackagedAudio$1(sourceQuestionId2) {
-    const url = resolvePackagedListeningTask(PACKAGE_ID$i, sourceQuestionId2, AUDIO_LOCATOR$1);
+    const url = resolvePackagedListeningTask(PACKAGE_ID$k, sourceQuestionId2, AUDIO_LOCATOR$1);
     if (!url) throw new TypeError("Track 79 must have a packaged exact-task binding.");
     return url;
   }
@@ -147786,11 +147790,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$j(lessonPackage$f, "l2-l12 package");
     const identity2 = record$j(root.identity, "l2-l12 identity");
     const coverage = record$j(root.sourceCoverage, "l2-l12 coverage");
-    if (root.id !== PACKAGE_ID$i || root.order !== PACKAGE_ORDER$g || identity2.moduleId !== MODULE_ID$i || coverage.archiveId !== ARCHIVE_ID$g || coverage.archiveSha256 !== ARCHIVE_SHA256$c) {
+    if (root.id !== PACKAGE_ID$k || root.order !== PACKAGE_ORDER$i || identity2.moduleId !== MODULE_ID$k || coverage.archiveId !== ARCHIVE_ID$i || coverage.archiveSha256 !== ARCHIVE_SHA256$e) {
       throw new TypeError("Unexpected l2-l12 package identity.");
     }
     const members = array$j(coverage.members, "l2-l12 members").map((value) => record$j(value, "l2-l12 member"));
-    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$5);
+    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$6);
     const audio2 = members.find((member) => member.payloadSha256 === AUDIO_SHA256$8);
     if (worksheet?.title !== "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf" || worksheet.kind !== "document" || audio2?.title !== "Homework/79 Track 79.mp3" || audio2.kind !== "audio") {
       throw new TypeError("Lesson 37 requires the exact Track 79 worksheet/audio pair.");
@@ -150914,19 +150918,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$e,
     sourceActivityBindings: sourceActivityBindings$e
   };
-  const PACKAGE_ID$h = "l2-l13";
-  const PACKAGE_ORDER$f = 40;
-  const MODULE_ID$h = 8121266;
-  const ARCHIVE_ID$f = "archive-000092";
+  const PACKAGE_ID$j = "l2-l13";
+  const PACKAGE_ORDER$h = 40;
+  const MODULE_ID$j = 8121266;
+  const ARCHIVE_ID$h = "archive-000092";
   const SOURCE_PAYLOAD_SHA256$a = "f04f3f4e3e7fa483f5fa8f5fedc5a33c3d3be2b48eaa028de084b7c137362125";
   const SOURCE_TITLE$9 = "Handouts/Chapter 28-2 〜し、〜し_adding similar information_giving reasons with result.pdf";
-  const SOURCE_PREFIX$3 = `moodle:${MODULE_ID$h}:${SOURCE_PAYLOAD_SHA256$a}`;
+  const SOURCE_PREFIX$3 = `moodle:${MODULE_ID$j}:${SOURCE_PAYLOAD_SHA256$a}`;
   const SOURCE_VISUALS$i = Object.freeze([
-    sourceVisual$9(1, "4327dd0ab969ee7b0cb96673ae4d3d3cc497d76da2e4461bec2883e07b991f5d", {
+    sourceVisual$b(1, "4327dd0ab969ee7b0cb96673ae4d3d3cc497d76da2e4461bec2883e07b991f5d", {
       ja: "Moodle 原本: Chapter 28-2「し」1ページ。基本文、説明、四つの例、ポイント、課題1の四問。",
       en: "Moodle original: Chapter 28-2 shi page 1, with Sensei's pattern, explanation, four examples, note, and all four task 1 prompts."
     }),
-    sourceVisual$9(2, "5295e4d4ec26ab038abd880747cb0f46daba60cda3c0cc8ac1ce25fd62b95cc2", {
+    sourceVisual$b(2, "5295e4d4ec26ab038abd880747cb0f46daba60cda3c0cc8ac1ce25fd62b95cc2", {
       ja: "Moodle 原本: Chapter 28-2「し」2ページ。理由と結論の説明、例、課題2の四問。",
       en: "Moodle original: Chapter 28-2 shi page 2, with reasons-and-result teaching, examples, and all four task 2 prompts."
     })
@@ -150934,7 +150938,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonThirtyEightShiReasonChainBeat() {
     assertExactPackageSources$f();
     const rounds = [
-      round$e(
+      round$g(
         "hokkaido",
         1,
         1,
@@ -150951,7 +150955,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("な形容詞「きれい」は「きれいだし」になります。", "The na-adjective きれい becomes きれいだし.")
         ]
       ),
-      round$e(
+      round$g(
         "salon",
         1,
         2,
@@ -150968,7 +150972,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("「上手だし、速いし」のあとに最後の特徴を置きます。", "After 上手だし、速いし, keep the final feature.")
         ]
       ),
-      round$e(
+      round$g(
         "kitchen",
         1,
         3,
@@ -150985,7 +150989,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("最後の「便利です」は結びなので、丁寧形のままです。", "The final 便利です is the ending, so it stays polite.")
         ]
       ),
-      round$e(
+      round$g(
         "car",
         1,
         4,
@@ -151002,7 +151006,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("最後は否定の「そんなに高くないです」です。", "The final claim is the negative そんなに高くないです.")
         ]
       ),
-      round$e(
+      round$g(
         "shop",
         2,
         1,
@@ -151019,7 +151023,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("結論「いつもここで買い物しています」を最後に残します。", "Keep the conclusion いつもここで買い物しています last.")
         ]
       ),
-      round$e(
+      round$g(
         "day-off",
         2,
         2,
@@ -151036,7 +151040,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("映画を見ることは理由ではなく、この問題の結論です。", "Watching the film is the conclusion, not another reason.")
         ]
       ),
-      round$e(
+      round$g(
         "shoes",
         2,
         3,
@@ -151050,7 +151054,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$3("「デザインもすてきだし、サイズもちょうどいいし」のあとに「この靴を買います」です。", "After デザインもすてきだし、サイズもちょうどいいし, add この靴を買います.")
         ]
       ),
-      round$e(
+      round$g(
         "flat",
         2,
         4,
@@ -151077,12 +151081,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei's two Chapter 28-2 uses and examples first, then connect all eight exact task 1 and 2 prompts through form selection, reason-order choice, and typed production."
       },
       provenance: {
-        packageId: PACKAGE_ID$h,
-        packageOrder: PACKAGE_ORDER$f,
+        packageId: PACKAGE_ID$j,
+        packageOrder: PACKAGE_ORDER$h,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$h,
-          archiveId: ARCHIVE_ID$f,
+          moduleId: MODULE_ID$j,
+          archiveId: ARCHIVE_ID$h,
           sourceSheets: SOURCE_VISUALS$i,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 5, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-completions-over-verbatim-source-teaching-and-prompts"
@@ -151154,7 +151158,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$e(id2, sourcePage, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$g(id2, sourcePage, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourcePage === 1 ? sourceItem : sourceItem + 4;
     return Object.freeze({
       id: id2,
@@ -151180,7 +151184,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$3(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$9(page, sha2562, alt) {
+  function sourceVisual$b(page, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$a}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$a,
@@ -151194,11 +151198,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$f() {
     const root = record$i(lessonPackage$e, "l2-l13 package");
     const identity2 = record$i(root.identity, "l2-l13 identity");
-    if (root.id !== PACKAGE_ID$h || root.order !== PACKAGE_ORDER$f || identity2.moduleId !== MODULE_ID$h) {
+    if (root.id !== PACKAGE_ID$j || root.order !== PACKAGE_ORDER$h || identity2.moduleId !== MODULE_ID$j) {
       throw new TypeError("Unexpected l2-l13 package identity.");
     }
     const coverage = record$i(root.sourceCoverage, "l2-l13 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$f || coverage.archiveSha256 !== "f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217") {
+    if (coverage.archiveId !== ARCHIVE_ID$h || coverage.archiveSha256 !== "f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217") {
       throw new TypeError("Unexpected l2-l13 source archive.");
     }
     const members = array$i(coverage.members, "l2-l13 members").map((value) => record$i(value, "l2-l13 member"));
@@ -151222,16 +151226,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const PACKAGE_ID$g = "l2-l13";
-  const PACKAGE_ORDER$e = 40;
-  const MODULE_ID$g = 8121266;
-  const ARCHIVE_ID$e = "archive-000092";
-  const ARCHIVE_SHA256$b = "f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217";
-  const WORKSHEET_SHA256$4 = "3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9";
+  const PACKAGE_ID$i = "l2-l13";
+  const PACKAGE_ORDER$g = 40;
+  const MODULE_ID$i = 8121266;
+  const ARCHIVE_ID$g = "archive-000092";
+  const ARCHIVE_SHA256$d = "f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217";
+  const WORKSHEET_SHA256$5 = "3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9";
   const WORKSHEET_IMAGE_SHA256$1 = "18b086df7e2a30592a4a07d60f5fcb575cc2415e02f1b18c6dcfce415f7bb868";
   const AUDIO_SHA256$7 = "596a4499996bd9599a169a8ae9171a0e78fe22a7f9d92bce7045203b794baf25";
   const AUDIO_LOCATOR = "academy/content/moodle/audio/l2-l13-a11.mp3";
-  const SOURCE_PREFIX$2 = `moodle:${MODULE_ID$g}:${WORKSHEET_SHA256$4}:pdf-p1:a11-meal-survey`;
+  const SOURCE_PREFIX$2 = `moodle:${MODULE_ID$i}:${WORKSHEET_SHA256$5}:pdf-p1:a11-meal-survey`;
   function createLessonThirtyEightA11MealSurveyListeningBeat() {
     assertExactPackageSources$e();
     const tasks2 = Object.freeze([
@@ -151255,24 +151259,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Review the meal-survey language, then listen to A-11 and record the student’s answers in the source worksheet order."
       },
       provenance: {
-        packageId: PACKAGE_ID$g,
-        packageOrder: PACKAGE_ORDER$e,
+        packageId: PACKAGE_ID$i,
+        packageOrder: PACKAGE_ORDER$g,
         answerVisibility: "after-attempt",
         repairScope: "missed-source-items-only",
         moodle: {
-          moduleId: MODULE_ID$g,
-          archiveId: ARCHIVE_ID$e,
-          archiveSha256: ARCHIVE_SHA256$b,
+          moduleId: MODULE_ID$i,
+          archiveId: ARCHIVE_ID$g,
+          archiveSha256: ARCHIVE_SHA256$d,
           worksheet: {
-            sourceId: `moodle:${MODULE_ID$g}:${WORKSHEET_SHA256$4}:pdf-p1:a11`,
-            payloadSha256: WORKSHEET_SHA256$4,
+            sourceId: `moodle:${MODULE_ID$i}:${WORKSHEET_SHA256$5}:pdf-p1:a11`,
+            payloadSha256: WORKSHEET_SHA256$5,
             title: "Handouts/Chapter 28 listening-2.pdf",
             page: 1,
             url: "/academy/content/lessons/l2-l13/moodle-a11-meal-survey-page-1.png",
             sha256: WORKSHEET_IMAGE_SHA256$1
           },
           audio: {
-            sourceId: `moodle:${MODULE_ID$g}:${AUDIO_SHA256$7}:audio:a11`,
+            sourceId: `moodle:${MODULE_ID$i}:${AUDIO_SHA256$7}:audio:a11`,
             payloadSha256: AUDIO_SHA256$7,
             locator: AUDIO_LOCATOR,
             url: requirePackagedAudio(tasks2[0].sourceQuestionId),
@@ -151371,7 +151375,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Object.freeze({ speaker, text: text2 });
   }
   function requirePackagedAudio(sourceQuestionId2) {
-    const url = resolvePackagedListeningTask(PACKAGE_ID$g, sourceQuestionId2, AUDIO_LOCATOR);
+    const url = resolvePackagedListeningTask(PACKAGE_ID$i, sourceQuestionId2, AUDIO_LOCATOR);
     if (!url) throw new TypeError("A-11 must have a packaged exact-task binding.");
     return url;
   }
@@ -151379,11 +151383,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$h(lessonPackage$e, "l2-l13 package");
     const identity2 = record$h(root.identity, "l2-l13 identity");
     const coverage = record$h(root.sourceCoverage, "l2-l13 coverage");
-    if (root.id !== PACKAGE_ID$g || root.order !== PACKAGE_ORDER$e || identity2.moduleId !== MODULE_ID$g || coverage.archiveId !== ARCHIVE_ID$e || coverage.archiveSha256 !== ARCHIVE_SHA256$b) {
+    if (root.id !== PACKAGE_ID$i || root.order !== PACKAGE_ORDER$g || identity2.moduleId !== MODULE_ID$i || coverage.archiveId !== ARCHIVE_ID$g || coverage.archiveSha256 !== ARCHIVE_SHA256$d) {
       throw new TypeError("Unexpected l2-l13 package identity.");
     }
     const members = array$h(coverage.members, "l2-l13 members").map((value) => record$h(value, "l2-l13 member"));
-    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$4);
+    const worksheet = members.find((member) => member.payloadSha256 === WORKSHEET_SHA256$5);
     const audio2 = members.find((member) => member.payloadSha256 === AUDIO_SHA256$7);
     if (worksheet?.title !== "Handouts/Chapter 28 listening-2.pdf" || worksheet.kind !== "document" || audio2?.title !== "Audio materials/11 A-11.mp3" || audio2.kind !== "audio") {
       throw new TypeError("Lesson 38 requires the exact A-11 worksheet/audio pair.");
@@ -153899,27 +153903,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$d,
     sourceActivityBindings: sourceActivityBindings$d
   };
-  const PACKAGE_ID$f = "l2-l14";
-  const PACKAGE_ORDER$d = 41;
-  const MODULE_ID$f = 8121267;
-  const ARCHIVE_ID$d = "archive-000087";
+  const PACKAGE_ID$h = "l2-l14";
+  const PACKAGE_ORDER$f = 41;
+  const MODULE_ID$h = 8121267;
+  const ARCHIVE_ID$f = "archive-000087";
   const SOURCE_PAYLOAD_SHA256$9 = "3b6d33916d8db01f3aa529f0d908f32cdff051c259f7e3c53f0e90f54e685605";
   const SOURCE_TITLE$8 = "Handouts/New_Chapter 29-1〜ている-4_intransitive verbs_States in Effect grammar exercise.pdf";
-  const SOURCE_PREFIX$1 = `moodle:${MODULE_ID$f}:${SOURCE_PAYLOAD_SHA256$9}`;
+  const SOURCE_PREFIX$1 = `moodle:${MODULE_ID$h}:${SOURCE_PAYLOAD_SHA256$9}`;
   const SOURCE_VISUALS$h = Object.freeze([
-    sourceVisual$8(1, "2e2caf0281d4fded34bbe048ea394bbd68587c65368dcfcb24fc5aa51b3668de", {
+    sourceVisual$a(1, "2e2caf0281d4fded34bbe048ea394bbd68587c65368dcfcb24fc5aa51b3668de", {
       ja: "Moodle 原本: Chapter 29-1 1ページ。自動詞と他動詞、結果の状態、が、六つの例。",
       en: "Moodle original: Chapter 29-1 page 1, with transitive/intransitive contrast, resulting-state teaching, ga, and six examples."
     }),
-    sourceVisual$8(2, "b96eb554de5fe31948496e2584883a77d1a0312ae8a1ba40754fb773b00d7127", {
+    sourceVisual$a(2, "b96eb554de5fe31948496e2584883a77d1a0312ae8a1ba40754fb773b00d7127", {
       ja: "Moodle 原本: Chapter 29-1 2ページ。絵の状態、状態と次の行動、会話の課題。",
       en: "Moodle original: Chapter 29-1 page 2, with picture states, state-plus-action prompts, and conversation practice."
     }),
-    sourceVisual$8(3, "7e96bf07343e125e13aa037620067d968cb6ae4577b3ba575e61b0ba6481225f", {
+    sourceVisual$a(3, "7e96bf07343e125e13aa037620067d968cb6ae4577b3ba575e61b0ba6481225f", {
       ja: "Moodle 原本: Chapter 29-1 3ページ。短い会話、話題の「は」、壊れた物の返答。",
       en: "Moodle original: Chapter 29-1 page 3, with short conversations, topic wa, and damaged-object replies."
     }),
-    sourceVisual$8(4, "6ece5c49c000519585b15a5d3510b8b2943f4c4832199b15642af475f0fadcd9", {
+    sourceVisual$a(4, "6ece5c49c000519585b15a5d3510b8b2943f4c4832199b15642af475f0fadcd9", {
       ja: "Moodle 原本: Chapter 29-1 4ページ。道具の会話と地震後の読み・報告課題。",
       en: "Moodle original: Chapter 29-1 page 4, with tool conversations and the post-earthquake reading/report task."
     })
@@ -153927,7 +153931,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonThirtyNineStateInspectionBeat() {
     assertExactPackageSources$d();
     const rounds = [
-      round$d(
+      round$f(
         "light-on",
         1,
         1,
@@ -153944,7 +153948,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("自動詞「つきます」のて形は「ついて」です。", "The te-form of intransitive つきます is ついて.")
         ]
       ),
-      round$d(
+      round$f(
         "plate-broken",
         1,
         2,
@@ -153961,7 +153965,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("「お皿が」＋自動詞「割れています」です。", "Use お皿が plus the intransitive 割れています.")
         ]
       ),
-      round$d(
+      round$f(
         "button-off",
         1,
         3,
@@ -153978,7 +153982,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("助詞は「が」: ボタンが外れています。", "The particle is ga: ボタンが外れています.")
         ]
       ),
-      round$d(
+      round$f(
         "dirty-table",
         2,
         1,
@@ -153995,7 +153999,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("状態のあとに「から」、次の行動「ふいてください」を置きます。", "Add から after the state, then the action ふいてください.")
         ]
       ),
-      round$d(
+      round$f(
         "stopped-clock",
         2,
         2,
@@ -154012,7 +154016,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("「時計が止まっていますから」のあとに電池の行動を置きます。", "Follow 時計が止まっていますから with the battery action.")
         ]
       ),
-      round$d(
+      round$f(
         "broken-washer",
         2,
         3,
@@ -154029,7 +154033,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("「洗濯機が壊れていますから」のあとに必要な行動を残します。", "Keep the necessary action after 洗濯機が壊れていますから.")
         ]
       ),
-      round$d(
+      round$f(
         "closed-supermarket",
         2,
         4,
@@ -154043,7 +154047,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$2("「スーパーが閉まっていますから」のあとに「コンビニで買いましょう」です。", "After スーパーが閉まっていますから, add コンビニで買いましょう.")
         ]
       ),
-      round$d(
+      round$f(
         "cracked-cup",
         5,
         1,
@@ -154070,12 +154074,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s four Chapter 29-1 pages first, then report visible resulting states, next actions, and topic wa across eight selected source prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$f,
-        packageOrder: PACKAGE_ORDER$d,
+        packageId: PACKAGE_ID$h,
+        packageOrder: PACKAGE_ORDER$f,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$f,
-          archiveId: ARCHIVE_ID$d,
+          moduleId: MODULE_ID$h,
+          archiveId: ARCHIVE_ID$f,
           sourceSheets: SOURCE_VISUALS$h,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 4, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-completions-over-canonical-source-pages-and-prompts"
@@ -154150,7 +154154,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$d(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$f(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor$1(sourceTask, sourceItem);
     const sourcePage = sourceTask === 5 ? 3 : 2;
     return Object.freeze({
@@ -154183,7 +154187,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$2(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$8(page, sha2562, alt) {
+  function sourceVisual$a(page, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$9}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$9,
@@ -154197,11 +154201,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$d() {
     const root = record$g(lessonPackage$d, "l2-l14 package");
     const identity2 = record$g(root.identity, "l2-l14 identity");
-    if (root.id !== PACKAGE_ID$f || root.order !== PACKAGE_ORDER$d || identity2.moduleId !== MODULE_ID$f) {
+    if (root.id !== PACKAGE_ID$h || root.order !== PACKAGE_ORDER$f || identity2.moduleId !== MODULE_ID$h) {
       throw new TypeError("Unexpected l2-l14 package identity.");
     }
     const coverage = record$g(root.sourceCoverage, "l2-l14 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$d || coverage.archiveSha256 !== "ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96") {
+    if (coverage.archiveId !== ARCHIVE_ID$f || coverage.archiveSha256 !== "ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96") {
       throw new TypeError("Unexpected l2-l14 source archive.");
     }
     const members = array$g(coverage.members, "l2-l14 members").map((value) => record$g(value, "l2-l14 member"));
@@ -156270,31 +156274,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$c,
     sourceActivityBindings: sourceActivityBindings$c
   };
-  const PACKAGE_ID$e = "l2-l15";
-  const PACKAGE_ORDER$c = 42;
-  const MODULE_ID$e = 8121268;
-  const ARCHIVE_ID$c = "archive-000016";
+  const PACKAGE_ID$g = "l2-l15";
+  const PACKAGE_ORDER$e = 42;
+  const MODULE_ID$g = 8121268;
+  const ARCHIVE_ID$e = "archive-000016";
   const SOURCE_PAYLOAD_SHA256$8 = "c41e4dd83224a8c29a3e6eb07e7e7955a086e3fccbf4a93a5260efaedcf4e3b8";
   const SOURCE_TITLE$7 = "Handouts/Chapter 29-2 〜てしまいます_しまいました grammar exercise.pdf";
-  const SOURCE_PREFIX = `moodle:${MODULE_ID$e}:${SOURCE_PAYLOAD_SHA256$8}`;
+  const SOURCE_PREFIX = `moodle:${MODULE_ID$g}:${SOURCE_PAYLOAD_SHA256$8}`;
   const SOURCE_VISUALS$g = Object.freeze([
-    sourceVisual$7(1, "740c85dcc650f67e4fa84afccba19eea993e72730fdac67372daa8604299940b", {
+    sourceVisual$9(1, "740c85dcc650f67e4fa84afccba19eea993e72730fdac67372daa8604299940b", {
       ja: "Moodle 原本: Chapter 29-2 1ページ。完了と将来の完了の説明、例、課題1と2。",
       en: "Moodle original: Chapter 29-2 page 1, with completed and future-completion teaching, examples, and tasks 1 and 2."
     }),
-    sourceVisual$7(2, "fc529706b6821d2629b213f7269306b971c5a40c1491cc9e382814fe3d183a39", {
+    sourceVisual$9(2, "fc529706b6821d2629b213f7269306b971c5a40c1491cc9e382814fe3d183a39", {
       ja: "Moodle 原本: Chapter 29-2 2ページ。課題3、残念の用法、例、四つの意味の対照。",
       en: "Moodle original: Chapter 29-2 page 2, with task 3, regret teaching, examples, and a four-way meaning contrast."
     }),
-    sourceVisual$7(3, "a126ab62a102564bb6f8d1ff807da6853009c860dc25be5434ec773afffb6983", {
+    sourceVisual$9(3, "a126ab62a102564bb6f8d1ff807da6853009c860dc25be5434ec773afffb6983", {
       ja: "Moodle 原本: Chapter 29-2 3ページ。残念な出来事をつなぐ課題4、経験を話す課題5、絵の課題6。",
       en: "Moodle original: Chapter 29-2 page 3, with task 4 regret links, task 5 experiences, and picture-based task 6."
     }),
-    sourceVisual$7(4, "966e692b4e190de0d319635e84c536c1d4c2f1f1e983b36934271c3670692b98", {
+    sourceVisual$9(4, "966e692b4e190de0d319635e84c536c1d4c2f1f1e983b36934271c3670692b98", {
       ja: "Moodle 原本: Chapter 29-2 4ページ。どこか、ないと、課題7の短い会話と解決。",
       en: "Moodle original: Chapter 29-2 page 4, with dokoka, naito, task 7 short conversations, and solutions."
     }),
-    sourceVisual$7(5, "6f2aa526c4ff763da9fdf2773a090cfb06d860283ac35a5f046371b36b36e743", {
+    sourceVisual$9(5, "6f2aa526c4ff763da9fdf2773a090cfb06d860283ac35a5f046371b36b36e743", {
       ja: "Moodle 原本: Chapter 29-2 5ページ。課題8の携帯会話と四つの困った場面。",
       en: "Moodle original: Chapter 29-2 page 5, with task 8’s phone conversation and four difficult situations."
     })
@@ -156302,7 +156306,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyCompletionRepairBeat() {
     assertExactPackageSources$c();
     const rounds = [
-      round$c(
+      round$e(
         "report-written",
         1,
         1,
@@ -156319,7 +156323,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("先生の例どおり「書いてしまったんですか」にします。", "Follow Sensei’s model: 書いてしまったんですか.")
         ]
       ),
-      round$c(
+      round$e(
         "homework-finished",
         1,
         2,
@@ -156336,7 +156340,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("終わった驚きの質問は「やってしまったんですか」です。", "The surprised completed question is やってしまったんですか.")
         ]
       ),
-      round$c(
+      round$e(
         "speech-memorized",
         1,
         3,
@@ -156350,7 +156354,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("「覚えて」＋「しまったんですか」で質問を完成します。", "Complete the question with 覚えて plus しまったんですか.")
         ]
       ),
-      round$c(
+      round$e(
         "room-tidied",
         1,
         4,
@@ -156364,7 +156368,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("先生の課題1の型は「Vてしまったんですか」です。", "Sensei’s task 1 pattern is Vてしまったんですか.")
         ]
       ),
-      round$c(
+      round$e(
         "email-first",
         3,
         1,
@@ -156381,7 +156385,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("理由の「から」のあとに「お先にどうぞ」を置きます。", "Put お先にどうぞ after the reason marked by から.")
         ]
       ),
-      round$c(
+      round$e(
         "document-first",
         3,
         2,
@@ -156398,7 +156402,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("「作ってしまいますから、お先にどうぞ」です。", "Use 作ってしまいますから、お先にどうぞ.")
         ]
       ),
-      round$c(
+      round$e(
         "train-left",
         4,
         1,
@@ -156412,7 +156416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint$1("結果は「電車は行ってしまいました」です。", "The result is 電車は行ってしまいました.")
         ]
       ),
-      round$c(
+      round$e(
         "appointment-late",
         4,
         2,
@@ -156439,12 +156443,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s five Chapter 29-2 pages first, then form completed actions, finish-first intentions, and regrettable results across eight selected source prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$e,
-        packageOrder: PACKAGE_ORDER$c,
+        packageId: PACKAGE_ID$g,
+        packageOrder: PACKAGE_ORDER$e,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$e,
-          archiveId: ARCHIVE_ID$c,
+          moduleId: MODULE_ID$g,
+          archiveId: ARCHIVE_ID$e,
           sourceSheets: SOURCE_VISUALS$g,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 3, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-completions-over-canonical-source-pages-and-prompts"
@@ -156517,7 +156521,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$c(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$e(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor(sourceTask, sourceItem);
     const sourcePage = sourceTask === 1 ? 1 : sourceTask === 3 ? 2 : 3;
     return Object.freeze({
@@ -156550,7 +156554,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint$1(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$7(page, sha2562, alt) {
+  function sourceVisual$9(page, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${SOURCE_PAYLOAD_SHA256$8}:page:${page}`,
       payloadSha256: SOURCE_PAYLOAD_SHA256$8,
@@ -156564,11 +156568,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$c() {
     const root = record$f(lessonPackage$c, "l2-l15 package");
     const identity2 = record$f(root.identity, "l2-l15 identity");
-    if (root.id !== PACKAGE_ID$e || root.order !== PACKAGE_ORDER$c || identity2.moduleId !== MODULE_ID$e) {
+    if (root.id !== PACKAGE_ID$g || root.order !== PACKAGE_ORDER$e || identity2.moduleId !== MODULE_ID$g) {
       throw new TypeError("Unexpected l2-l15 package identity.");
     }
     const coverage = record$f(root.sourceCoverage, "l2-l15 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$c || coverage.archiveSha256 !== "28c25403e44ae113f3fd934f1485df26b79da4beddb31b24cfa8fe969913cd92") {
+    if (coverage.archiveId !== ARCHIVE_ID$e || coverage.archiveSha256 !== "28c25403e44ae113f3fd934f1485df26b79da4beddb31b24cfa8fe969913cd92") {
       throw new TypeError("Unexpected l2-l15 source archive.");
     }
     const members = array$f(coverage.members, "l2-l15 members").map((value) => record$f(value, "l2-l15 member"));
@@ -158642,48 +158646,48 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$b,
     sourceActivityBindings: sourceActivityBindings$b
   };
-  const PACKAGE_ID$d = "l2-l16";
-  const PACKAGE_ORDER$b = 43;
-  const MODULE_ID$d = 8121269;
-  const ARCHIVE_ID$b = "archive-000066";
+  const PACKAGE_ID$f = "l2-l16";
+  const PACKAGE_ORDER$d = 43;
+  const MODULE_ID$f = 8121269;
+  const ARCHIVE_ID$d = "archive-000066";
   const GRAMMAR_ONE_SHA256 = "0db539c444b66c4e83424da858d8206c2dfa0e34f80c3d4342605a20ff9ecada";
   const GRAMMAR_TWO_SHA256 = "1c3abd70bbd7971c9bdb119d400634d088356bb22c68495daf9a722b46ed9cf9";
   const INFO_GAP_SHA256 = "ec9736ce5fe4c09b825ad9d47cf216821f7ac96ac461b05f5ab5a85f63ac898e";
-  const VOCABULARY_SHA256$e = "a24f5e14a09ee74f45855296fa1a0df00775a7e9037c0ec6fc350e6b98a26db8";
+  const VOCABULARY_SHA256$f = "a24f5e14a09ee74f45855296fa1a0df00775a7e9037c0ec6fc350e6b98a26db8";
   const GRAMMAR_ONE_TITLE = "Handouts/Chapter 30-1 〜てある-1 Grammar exercise.pdf";
   const GRAMMAR_TWO_TITLE = "Handouts/Chapter 30-1 〜てある-2 Grammar exercise and summary.pdf";
   const INFO_GAP_TITLE = "Handouts/Chapter 30 〜てある information gap exercise_completed.pdf";
   const VOCABULARY_TITLE$2 = "Handouts/Chapter 30-1 Vocabulary Sheet.pdf";
   const SOURCE_VISUALS$f = Object.freeze([
-    sourceVisual$6(VOCABULARY_SHA256$e, VOCABULARY_TITLE$2, 1, "moodle-chapter-30-1-vocabulary-page-1.png", "1152918885025693d42f59d0844e315acf7aacf0fa1747ba5509aac317dd38e1", {
+    sourceVisual$8(VOCABULARY_SHA256$f, VOCABULARY_TITLE$2, 1, "moodle-chapter-30-1-vocabulary-page-1.png", "1152918885025693d42f59d0844e315acf7aacf0fa1747ba5509aac317dd38e1", {
       ja: "Moodle 原本: Chapter 30-1 Vocabulary Sheet、1ページ。玄関、廊下、壁、貼ります、掛けます、並べます、植えます、周り、真ん中などの語彙。",
       en: "Moodle original: Chapter 30-1 Vocabulary Sheet page 1, including entrance, corridor, wall, paste, hang, arrange, plant, around, and middle vocabulary."
-    }),
-    sourceVisual$6(VOCABULARY_SHA256$e, VOCABULARY_TITLE$2, 2, "moodle-chapter-30-1-vocabulary-page-2.png", "5bbae29bcf083f2b9f6c1843c1848b32bbe294b2079ed2528bff2ceea3c12754", {
+    }, "inline-reference"),
+    sourceVisual$8(VOCABULARY_SHA256$f, VOCABULARY_TITLE$2, 2, "moodle-chapter-30-1-vocabulary-page-2.png", "5bbae29bcf083f2b9f6c1843c1848b32bbe294b2079ed2528bff2ceea3c12754", {
       ja: "Moodle 原本: Chapter 30-1 Vocabulary Sheet、2ページ。予定表、ごみ箱、引き出し、入れます、片付けます、しまいます、窓際、茶室などの語彙。",
       en: "Moodle original: Chapter 30-1 Vocabulary Sheet page 2, including schedule, rubbish bin, drawer, put in, tidy up, put away, by the window, and tea-room vocabulary."
-    }),
-    sourceVisual$6(GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE, 1, "moodle-chapter-30-1-tearu-1-page-1.png", "5d9c9a9e3a2b241eb3a31ff96855f2ce24e0987dd6a1c5b5f632226b181d535c", {
+    }, "inline-reference"),
+    sourceVisual$8(GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE, 1, "moodle-chapter-30-1-tearu-1-page-1.png", "5d9c9a9e3a2b241eb3a31ff96855f2ce24e0987dd6a1c5b5f632226b181d535c", {
       ja: "Moodle 原本: Chapter 30-1 その1、1ページ。目的のある行為の結果、場所に物がある型、自動詞の「ています」と他動詞の「てあります」の対照。",
       en: "Moodle original: Chapter 30-1 part 1 page 1, teaching purposeful resultant state, place-ni thing-ga order, and the intransitive ています versus transitive てあります contrast."
     }),
-    sourceVisual$6(GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE, 2, "moodle-chapter-30-1-tearu-1-page-2.png", "b8786e398c80109f92caa5fd9cf9ec129348f1ff541005d5e592f4b7a21a9cd6", {
+    sourceVisual$8(GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE, 2, "moodle-chapter-30-1-tearu-1-page-2.png", "b8786e398c80109f92caa5fd9cf9ec129348f1ff541005d5e592f4b7a21a9cd6", {
       ja: "Moodle 原本: Chapter 30-1 その1、2ページ。絵の配置課題と短い会話。",
       en: "Moodle original: Chapter 30-1 part 1 page 2, with picture-placement tasks and short conversations."
     }),
-    sourceVisual$6(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 1, "moodle-chapter-30-1-tearu-2-page-1.png", "ddc590cf0270e321e98b933ccc2972798367051343e3ca221f88bcfc5dcc430f", {
+    sourceVisual$8(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 1, "moodle-chapter-30-1-tearu-2-page-1.png", "ddc590cf0270e321e98b933ccc2972798367051343e3ca221f88bcfc5dcc430f", {
       ja: "Moodle 原本: Chapter 30-1 その2、1ページ。物を「は」で取り上げる型と台所の課題。",
       en: "Moodle original: Chapter 30-1 part 2 page 1, teaching thing-wa place-ni order and a kitchen task."
     }),
-    sourceVisual$6(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 2, "moodle-chapter-30-1-tearu-2-page-2.png", "9f98114f963287be60c3ab2074af0823c229d078cff290fc15a0c0008853016f", {
+    sourceVisual$8(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 2, "moodle-chapter-30-1-tearu-2-page-2.png", "9f98114f963287be60c3ab2074af0823c229d078cff290fc15a0c0008853016f", {
       ja: "Moodle 原本: Chapter 30-1 その2、2ページ。オフィスの四つの配置問題と持ち物の会話。",
       en: "Moodle original: Chapter 30-1 part 2 page 2, with four office-placement rows and belongings conversation practice."
     }),
-    sourceVisual$6(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 3, "moodle-chapter-30-1-tearu-2-page-3.png", "e44924a1d24809feaa577fb59c0ca90b64fded5743fba2d3ede3457a4b78529d", {
+    sourceVisual$8(GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE, 3, "moodle-chapter-30-1-tearu-2-page-3.png", "e44924a1d24809feaa577fb59c0ca90b64fded5743fba2d3ede3457a4b78529d", {
       ja: "Moodle 原本: Chapter 30-1 その2、3ページ。音声課題、自動詞・他動詞表、三つの「ています／てあります」選択。",
       en: "Moodle original: Chapter 30-1 part 2 page 3, with an unresolved listening task, a verb-pair table, and three ています／てあります choices."
     }),
-    sourceVisual$6(INFO_GAP_SHA256, INFO_GAP_TITLE, 1, "moodle-chapter-30-information-gap-page-1.png", "db345d3097b5e664a19d1274c3c0eda961f6406ac6ac9536614518c45de86556", {
+    sourceVisual$8(INFO_GAP_SHA256, INFO_GAP_TITLE, 1, "moodle-chapter-30-information-gap-page-1.png", "db345d3097b5e664a19d1274c3c0eda961f6406ac6ac9536614518c45de86556", {
       ja: "Moodle 原本: Chapter 30 情報差、1ページ。Room A と Room B、および帽子と花の二つの例。",
       en: "Moodle original: Chapter 30 information gap page 1, with Room A, Room B, and the two hat and flower examples."
     })
@@ -158691,7 +158695,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyOnePreparedStateAuditBeat() {
     assertExactPackageSources$b();
     const rounds = [
-      round$b(
+      round$d(
         "window-neutral",
         1,
         3,
@@ -158711,7 +158715,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("自動詞の結果状態は「閉まっています」です。", "Use 閉まっています for the intransitive resulting state.")
         ]
       ),
-      round$b(
+      round$d(
         "desks-prepared",
         2,
         3,
@@ -158731,7 +158735,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("目的のある準備状態は「並べてありますよ」です。", "The purposeful prepared state is 並べてありますよ.")
         ]
       ),
-      round$b(
+      round$d(
         "trees-prepared",
         3,
         3,
@@ -158751,7 +158755,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("他動詞のて形に「あります」: 植えてあります。", "Use the transitive te-form plus あります: 植えてあります.")
         ]
       ),
-      round$b(
+      round$d(
         "bus-timetable",
         4,
         2,
@@ -158771,7 +158775,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("全文は「壁にバスの時刻表が掛けてあります」です。", "The full report is 壁にバスの時刻表が掛けてあります.")
         ]
       ),
-      round$b(
+      round$d(
         "desk-key",
         5,
         2,
@@ -158791,7 +158795,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("「置く」→「置いてあります」です。", "Change 置く to 置いてあります.")
         ]
       ),
-      round$b(
+      round$d(
         "drawer-tools",
         6,
         2,
@@ -158808,7 +158812,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("「しまいます」→「しまってあります」です。", "Change しまいます to しまってあります.")
         ]
       ),
-      round$b(
+      round$d(
         "copy-paper",
         7,
         2,
@@ -158825,7 +158829,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           hint("話題の「は」を保ち、「コピー機の横に置いてあります」と続けます。", "Keep topic は, then add コピー機の横に置いてあります.")
         ]
       ),
-      round$b(
+      round$d(
         "room-a-dress",
         8,
         1,
@@ -158855,12 +158859,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 30-1 and information-gap originals first, then distinguish a merely visible state from one deliberately prepared and left in place across eight source prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$d,
-        packageOrder: PACKAGE_ORDER$b,
+        packageId: PACKAGE_ID$f,
+        packageOrder: PACKAGE_ORDER$d,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$d,
-          archiveId: ARCHIVE_ID$b,
+          moduleId: MODULE_ID$f,
+          archiveId: ARCHIVE_ID$d,
           sourceSheets: SOURCE_VISUALS$f,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 3, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "yomu-derived-prepared-state-reports-over-canonical-source-pages-and-prompts"
@@ -158916,7 +158920,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, hints2) {
+  function round$d(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -158936,10 +158940,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function grammarQuestion$2(page, task2, item2) {
-    return `moodle:${MODULE_ID$d}:${GRAMMAR_TWO_SHA256}:pdf-p${page}:task-${task2}:q${item2}`;
+    return `moodle:${MODULE_ID$f}:${GRAMMAR_TWO_SHA256}:pdf-p${page}:task-${task2}:q${item2}`;
   }
   function infoGapQuestion(item2) {
-    return `moodle:${MODULE_ID$d}:${INFO_GAP_SHA256}:pdf-p1:task-1:room-a:q${item2}`;
+    return `moodle:${MODULE_ID$f}:${INFO_GAP_SHA256}:pdf-p1:task-1:room-a:q${item2}`;
   }
   function option$c(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -158947,7 +158951,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hint(ja, en) {
     return Object.freeze({ ja, en });
   }
-  function sourceVisual$6(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$8(payloadSha256, title2, page, filename, sha2562, alt, presentation2 = "inspectable") {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -158955,22 +158959,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
       page,
       url: `/academy/content/lessons/l2-l16/${filename}`,
       sha256: sha2562,
-      alt: Object.freeze(alt)
+      alt: Object.freeze(alt),
+      presentation: presentation2
     });
   }
   function assertExactPackageSources$b() {
     const root = record$e(lessonPackage$b, "l2-l16 package");
     const identity2 = record$e(root.identity, "l2-l16 identity");
-    if (root.id !== PACKAGE_ID$d || root.order !== PACKAGE_ORDER$b || identity2.moduleId !== MODULE_ID$d) {
+    if (root.id !== PACKAGE_ID$f || root.order !== PACKAGE_ORDER$d || identity2.moduleId !== MODULE_ID$f) {
       throw new TypeError("Unexpected l2-l16 package identity.");
     }
     const coverage = record$e(root.sourceCoverage, "l2-l16 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$b || coverage.archiveSha256 !== "bae6d71c2784284c17a6bea25cbcc4a4fb75d410193f27c9ce2484d4efd53d32") {
+    if (coverage.archiveId !== ARCHIVE_ID$d || coverage.archiveSha256 !== "bae6d71c2784284c17a6bea25cbcc4a4fb75d410193f27c9ce2484d4efd53d32") {
       throw new TypeError("Unexpected l2-l16 source archive.");
     }
     const members = array$e(coverage.members, "l2-l16 members").map((value) => record$e(value, "l2-l16 member"));
     for (const [payloadSha256, title2] of [
-      [VOCABULARY_SHA256$e, VOCABULARY_TITLE$2],
+      [VOCABULARY_SHA256$f, VOCABULARY_TITLE$2],
       [GRAMMAR_ONE_SHA256, GRAMMAR_ONE_TITLE],
       [GRAMMAR_TWO_SHA256, GRAMMAR_TWO_TITLE],
       [INFO_GAP_SHA256, INFO_GAP_TITLE]
@@ -161859,24 +161864,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$a,
     sourceActivityBindings: sourceActivityBindings$a
   };
-  const PACKAGE_ID$c = "l2-l17";
-  const PACKAGE_ORDER$a = 44;
-  const MODULE_ID$c = 8121270;
-  const ARCHIVE_ID$a = "archive-000008";
-  const ARCHIVE_SHA256$a = "11da659f2aabdb7a3bd0988b530509bf3ccecf1a035232bbfcc855ac7ac2f9d0";
+  const PACKAGE_ID$e = "l2-l17";
+  const PACKAGE_ORDER$c = 44;
+  const MODULE_ID$e = 8121270;
+  const ARCHIVE_ID$c = "archive-000008";
+  const ARCHIVE_SHA256$c = "11da659f2aabdb7a3bd0988b530509bf3ccecf1a035232bbfcc855ac7ac2f9d0";
   const SPEAKING_SHA256$1 = "46a2d4445826046b564660774854fa065595dc103c2baaa2f2aa3ec3c5646bb6";
-  const GRAMMAR_SHA256$6 = "90b589e71a04e270602824c2c12497ca171baa8a347b251dc0ce9f1ec4e32eb3";
-  const VOCABULARY_SHA256$d = "8881424ea8009aec174aee22a0b404d89fc177e1422cd6986ff51ad7e4426eb4";
+  const GRAMMAR_SHA256$8 = "90b589e71a04e270602824c2c12497ca171baa8a347b251dc0ce9f1ec4e32eb3";
+  const VOCABULARY_SHA256$e = "8881424ea8009aec174aee22a0b404d89fc177e1422cd6986ff51ad7e4426eb4";
   const SPEAKING_TITLE = "Chapter 30-2 〜ておきますGrammar Speaking exercise";
   const GRAMMAR_TITLE = "Chapter 30-2 〜ておく-1,2,3 Grammar exercise";
   const VOCABULARY_TITLE$1 = "New Chapter 30-2 Vocabulary Sheet";
   const SOURCE_VISUALS$e = Object.freeze([
-    sourceVisual$5(SPEAKING_SHA256$1, SPEAKING_TITLE, 1, "moodle-chapter-30-2-teoku-speaking-page-1.png", "03e596ec3b21e2f56ac996e5745aa6af45cd6173887582ab4a8f235d801cb902", {
+    sourceVisual$7(SPEAKING_SHA256$1, SPEAKING_TITLE, 1, "moodle-chapter-30-2-teoku-speaking-page-1.png", "03e596ec3b21e2f56ac996e5745aa6af45cd6173887582ab4a8f235d801cb902", {
       ja: "Moodle 原本: Chapter 30-2 会話練習。開ける、閉める、買う、しまう、準備するを使い、先にすることを話します。",
       en: "Moodle original: Chapter 30-2 speaking practice using open, close, buy, put away, and prepare to say what will be done in advance."
     }),
-    ...[1, 2, 3, 4, 5].map((page, index) => sourceVisual$5(
-      GRAMMAR_SHA256$6,
+    ...[1, 2, 3, 4, 5].map((page, index) => sourceVisual$7(
+      GRAMMAR_SHA256$8,
       GRAMMAR_TITLE,
       page,
       `moodle-chapter-30-2-teoku-grammar-page-${page}.png`,
@@ -161892,11 +161897,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: `Moodle original: Chapter 30-2 grammar practice page ${page}, progressively covering deadline preparation, resetting for next use, and deliberately leaving a state as it is.`
       }
     )),
-    sourceVisual$5(VOCABULARY_SHA256$d, VOCABULARY_TITLE$1, 1, "moodle-chapter-30-2-vocabulary-page-1.png", "2cd5b7dae44b376aab79ef533b94153518a6cc221386c2d1423caedd5f050917", {
+    sourceVisual$7(VOCABULARY_SHA256$e, VOCABULARY_TITLE$1, 1, "moodle-chapter-30-2-vocabulary-page-1.png", "2cd5b7dae44b376aab79ef533b94153518a6cc221386c2d1423caedd5f050917", {
       ja: "Moodle 原本: Chapter 30-2 語彙表、1ページ。帰国、準備、選ぶ、決める、予習、復習など。",
       en: "Moodle original: Chapter 30-2 vocabulary sheet page 1, including returning home, preparation, choosing, deciding, preview, and review."
     }),
-    sourceVisual$5(VOCABULARY_SHA256$d, VOCABULARY_TITLE$1, 2, "moodle-chapter-30-2-vocabulary-page-2.png", "8bea9a4e4de77280beea393440b6a06efbed9a6083f395d25543b3d4de4646e7", {
+    sourceVisual$7(VOCABULARY_SHA256$e, VOCABULARY_TITLE$1, 2, "moodle-chapter-30-2-vocabulary-page-2.png", "8bea9a4e4de77280beea393440b6a06efbed9a6083f395d25543b3d4de4646e7", {
       ja: "Moodle 原本: Chapter 30-2 語彙表、2ページ。元の所、戻す、そのままにするなど。",
       en: "Moodle original: Chapter 30-2 vocabulary sheet page 2, including the original place, putting back, and leaving something as it is."
     })
@@ -161904,7 +161909,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyTwoAdvancePreparationBeat() {
     assertExactPackageSources$a();
     const rounds = [
-      round$a(
+      round$c(
         "ticket-before-return",
         1,
         1,
@@ -161923,7 +161928,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["帰国のまえに gives the action a deadline.", "The te-form of 買います is 買って.", "This is something the speaker will prepare, so use 買っておきます."]
         )
       ),
-      round$a(
+      round$c(
         "choose-book",
         2,
         1,
@@ -161942,7 +161947,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use 選びます from Sensei’s vocabulary sheet.", "The book is chosen as preparation before the journey.", "選びます becomes 選んでおきます."]
         )
       ),
-      round$a(
+      round$c(
         "decide-name",
         3,
         1,
@@ -161958,7 +161963,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["までに sets a deadline by which the action is complete.", "Use 決めます from the vocabulary sheet.", "Keep the wish from Sensei’s example: 決めておきたいです."]
         )
       ),
-      round$a(
+      round$c(
         "party-contacts",
         4,
         2,
@@ -161974,7 +161979,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This asks someone to prepare by contacting people before the party.", "The te-form of 連絡します is 連絡して.", "It is a request, so use 連絡しておいてください."]
         )
       ),
-      round$a(
+      round$c(
         "wash-dishes",
         5,
         3,
@@ -161993,7 +161998,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Do the necessary action so the dishes are ready next time.", "Use 洗います from the vocabulary sheet.", "The request form is 洗っておいてください."]
         )
       ),
-      round$a(
+      round$c(
         "return-scissors",
         6,
         3,
@@ -162009,7 +162014,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use 元の所 and 戻します from the vocabulary sheet.", "Put the scissors back after use so they are ready for the next person.", "Sensei’s sentence ends 戻しておいてね."]
         )
       ),
-      round$a(
+      round$c(
         "leave-window-closed",
         7,
         3,
@@ -162028,7 +162033,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Because it is cold, do not change the current closed state.", "The transitive verb for closing the window is 閉める.", "Ask to preserve the state with 閉めておいてください."]
         )
       ),
-      round$a(
+      round$c(
         "three-way-contrast",
         8,
         5,
@@ -162060,12 +162065,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s vocabulary and Chapter 30-2 originals first, then choose or produce eight source-grounded actions: preparation by a deadline, resetting for next use, and deliberately leaving a state as it is."
       },
       provenance: {
-        packageId: PACKAGE_ID$c,
-        packageOrder: PACKAGE_ORDER$a,
+        packageId: PACKAGE_ID$e,
+        packageOrder: PACKAGE_ORDER$c,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$c,
-          archiveId: ARCHIVE_ID$a,
+          moduleId: MODULE_ID$e,
+          archiveId: ARCHIVE_ID$c,
           sourceSheets: SOURCE_VISUALS$e,
           media: { status: "audio-members-quarantined-unpaired", sourceAudioMembers: 4, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "sensei-verbatim-examples-and-yomu-derived-deterministic-completions-over-canonical-source-pages"
@@ -162123,7 +162128,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$c(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -162143,7 +162148,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function grammarQuestion$1(page, task2, item2) {
-    return `moodle:${MODULE_ID$c}:${GRAMMAR_SHA256$6}:pdf-p${page}:task-${task2}:q${item2}`;
+    return `moodle:${MODULE_ID$e}:${GRAMMAR_SHA256$8}:pdf-p${page}:task-${task2}:q${item2}`;
   }
   function option$b(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -162156,7 +162161,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       Object.freeze({ ja: ja[2], en: en[2] })
     ];
   }
-  function sourceVisual$5(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$7(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -162170,18 +162175,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$a() {
     const root = record$d(lessonPackage$a, "l2-l17 package");
     const identity2 = record$d(root.identity, "l2-l17 identity");
-    if (root.id !== PACKAGE_ID$c || root.order !== PACKAGE_ORDER$a || identity2.moduleId !== MODULE_ID$c) {
+    if (root.id !== PACKAGE_ID$e || root.order !== PACKAGE_ORDER$c || identity2.moduleId !== MODULE_ID$e) {
       throw new TypeError("Unexpected l2-l17 package identity.");
     }
     const coverage = record$d(root.sourceCoverage, "l2-l17 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$a || coverage.archiveSha256 !== ARCHIVE_SHA256$a) {
+    if (coverage.archiveId !== ARCHIVE_ID$c || coverage.archiveSha256 !== ARCHIVE_SHA256$c) {
       throw new TypeError("Unexpected l2-l17 source archive.");
     }
     const members = array$d(coverage.members, "l2-l17 members").map((value) => record$d(value, "l2-l17 member"));
     for (const [payloadSha256, title2] of [
       [SPEAKING_SHA256$1, SPEAKING_TITLE],
-      [GRAMMAR_SHA256$6, GRAMMAR_TITLE],
-      [VOCABULARY_SHA256$d, VOCABULARY_TITLE$1]
+      [GRAMMAR_SHA256$8, GRAMMAR_TITLE],
+      [VOCABULARY_SHA256$e, VOCABULARY_TITLE$1]
     ]) {
       const matches = members.filter((member) => member.payloadSha256 === payloadSha256);
       if (!matches.some((member) => member.title === title2) || !matches.every((member) => member.kind === "document")) {
@@ -164222,16 +164227,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$9,
     sourceActivityBindings: sourceActivityBindings$9
   };
-  const PACKAGE_ID$b = "l2-l18";
-  const PACKAGE_ORDER$9 = 45;
-  const MODULE_ID$b = 8121271;
-  const ARCHIVE_ID$9 = "archive-000044";
-  const ARCHIVE_SHA256$9 = "8e397f175c772f0335e845b8ecf141b9e00c23040d296adb083b81d67a6c897a";
+  const PACKAGE_ID$d = "l2-l18";
+  const PACKAGE_ORDER$b = 45;
+  const MODULE_ID$d = 8121271;
+  const ARCHIVE_ID$b = "archive-000044";
+  const ARCHIVE_SHA256$b = "8e397f175c772f0335e845b8ecf141b9e00c23040d296adb083b81d67a6c897a";
   const ANSWER_SHA256 = "de21995ba280fc828e67ce6e74a533069b86e03945a9046472a2681b494d0c06";
   const TOKA_SHA256 = "a3047558bbefa828f2ba023e62bb9ea039e9ddbe1cd507b196b7015c037f3ffe";
-  const VOCABULARY_SHA256$c = "0da41a083ba196d0b8dab00b5ccd06baf4e649bdb9c1ea047b926277a0690851";
+  const VOCABULARY_SHA256$d = "0da41a083ba196d0b8dab00b5ccd06baf4e649bdb9c1ea047b926277a0690851";
   const MEMO_SHA256 = "dacefe0eb959a982fd3df004782eb757da08b278dfa581bd5741d6beddad6f44";
-  const SCRIPT_SHA256$2 = "38a9974c41c43cea05d332ce504149b6614f1cd6069fe00570a2a447ae1d3c13";
+  const SCRIPT_SHA256$3 = "38a9974c41c43cea05d332ce504149b6614f1cd6069fe00570a2a447ae1d3c13";
   const LISTENING_SHA256$1 = "e63689d47daab01e6e21698fc5f0267f17cdabe00cad3f25cc63ceb701b594c6";
   const CUMULATIVE_REVIEW_SHA256 = "5118e6832fcfd924f93ec8636c2acb046db30bfed53df067e2e471b1e5f1c46f";
   const REVIEW_SHA256 = "305a4d89c101682a4475ceebfe249ea7ff1129142a9d475391fa0920ea91c9ff";
@@ -164247,53 +164252,53 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const REVIEW_TITLE = "New HW Chapter 30 grammar review てある ている ておく";
   const EMERGENCY_TITLE = "Reference Chapter 30 Vocabulary Emergency";
   const SOURCE_VISUALS$d = Object.freeze([
-    sourceVisual$4(VOCABULARY_SHA256$c, VOCABULARY_TITLE, 1, "moodle-chapter-30-3-vocabulary-1.png", "b0c0670c80adc4b31ecae77d56f83311b6d22a6184594f025c19d66581f43c38", {
+    sourceVisual$6(VOCABULARY_SHA256$d, VOCABULARY_TITLE, 1, "moodle-chapter-30-3-vocabulary-1.png", "b0c0670c80adc4b31ecae77d56f83311b6d22a6184594f025c19d66581f43c38", {
       ja: "Moodle 原本: Chapter 30-3 語彙表1ページ。台風、植木、伝言、部下、上司、届きます、伺います、非常袋など。",
       en: "Moodle original: Chapter 30-3 vocabulary page 1, including typhoon, plants, messages, workplace roles, arrivals, visits, and emergency bags."
     }),
-    sourceVisual$4(VOCABULARY_SHA256$c, VOCABULARY_TITLE, 2, "moodle-chapter-30-3-vocabulary-2.png", "a7644b9f3dc5c4d2d8a9642c006aa4166a775b37bb6ca2e3eeef78ba79c3a51f", {
+    sourceVisual$6(VOCABULARY_SHA256$d, VOCABULARY_TITLE, 2, "moodle-chapter-30-3-vocabulary-2.png", "a7644b9f3dc5c4d2d8a9642c006aa4166a775b37bb6ca2e3eeef78ba79c3a51f", {
       ja: "Moodle 原本: Chapter 30-3 語彙表2ページ。非常時、懐中電灯、準備します、生活します。",
       en: "Moodle original: Chapter 30-3 vocabulary page 2, including emergencies, torches, preparation, and daily life."
     }),
-    sourceVisual$4(EMERGENCY_SHA256, EMERGENCY_TITLE, 1, "moodle-chapter-30-emergency-vocabulary-1.png", "422c0d4534842be79f1007bd388cf573371e339b9d2c5e47c576aca74424e0de", {
+    sourceVisual$6(EMERGENCY_SHA256, EMERGENCY_TITLE, 1, "moodle-chapter-30-emergency-vocabulary-1.png", "422c0d4534842be79f1007bd388cf573371e339b9d2c5e47c576aca74424e0de", {
       ja: "Moodle 原本: 地震と台風の非常時に備える行動と、非常袋の中身を絵と対訳で確認する参照ページ。",
       en: "Moodle original: illustrated bilingual reference for earthquake and typhoon preparation, including an emergency kit and supplies."
     }),
-    sourceVisual$4(TOKA_SHA256, TOKA_TITLE, 1, "moodle-chapter-30-3-toka-grammar-1.png", "d01f3cd3ac1b2b26fbd26fbc24dd135cafcf99cb58314f605223cd4a17e73db3", {
+    sourceVisual$6(TOKA_SHA256, TOKA_TITLE, 1, "moodle-chapter-30-3-toka-grammar-1.png", "d01f3cd3ac1b2b26fbd26fbc24dd135cafcf99cb58314f605223cd4a17e73db3", {
       ja: "Moodle 原本: Chapter 30-3「〜とか、〜とか」の説明、先生の例、クラスメイトへの五つの質問。",
       en: "Moodle original: Chapter 30-3 explanation of 〜とか, Sensei examples, and five classmate questions."
     }),
-    sourceVisual$4(TOKA_SHA256, TOKA_TITLE, 2, "moodle-chapter-30-3-toka-grammar-2.png", "9e0c96b76d8f0b25881ab8a3a1bd3ae9c181436e44151aa0e97b8d20f6c5f28c", {
+    sourceVisual$6(TOKA_SHA256, TOKA_TITLE, 2, "moodle-chapter-30-3-toka-grammar-2.png", "9e0c96b76d8f0b25881ab8a3a1bd3ae9c181436e44151aa0e97b8d20f6c5f28c", {
       ja: "Moodle 原本: 非常袋の聞き取り五問と、普段の例「とか」と特定の例「たり」の会話練習。",
       en: "Moodle original: five emergency-bag listening questions and speaking practice contrasting general とか examples with specific たり examples."
     }),
-    sourceVisual$4(SCRIPT_SHA256$2, SCRIPT_TITLE, 1, "moodle-chapter-30-conversation-script-1.png", "32845fc5e1416ee779018a2245a5973103b3907523e8e2f3f8a48534f8c5dce0", {
+    sourceVisual$6(SCRIPT_SHA256$3, SCRIPT_TITLE, 1, "moodle-chapter-30-conversation-script-1.png", "32845fc5e1416ee779018a2245a5973103b3907523e8e2f3f8a48534f8c5dce0", {
       ja: "Moodle 原本: Track 13「非常袋を準備しておかないと」の会話全文。",
       en: "Moodle original: full script for Track 13, “We need to prepare an emergency bag.”"
     }),
-    sourceVisual$4(LISTENING_SHA256$1, LISTENING_TITLE, 1, "moodle-chapter-30-conversation-listening-1.png", "97b1a7cbc76a2df6eb8c0813c1b7a7fd8ecf68d39518261aa44e0365066b8b75", {
+    sourceVisual$6(LISTENING_SHA256$1, LISTENING_TITLE, 1, "moodle-chapter-30-conversation-listening-1.png", "97b1a7cbc76a2df6eb8c0813c1b7a7fd8ecf68d39518261aa44e0365066b8b75", {
       ja: "Moodle 原本: 「非常袋を準備しておかないと」の聞き取り五問。",
       en: "Moodle original: five listening questions for “We need to prepare an emergency bag.”"
     }),
-    sourceVisual$4(MEMO_SHA256, MEMO_TITLE, 1, "moodle-chapter-30-message-memo-1.png", "f2ce68d61198cf057550c2075fd7b08eae181fd2ae6c22012092a21d7a760865", {
+    sourceVisual$6(MEMO_SHA256, MEMO_TITLE, 1, "moodle-chapter-30-message-memo-1.png", "f2ce68d61198cf057550c2075fd7b08eae181fd2ae6c22012092a21d7a760865", {
       ja: "Moodle 原本: 五つの手書き風伝言メモ。帰宅、職場、謝罪、家事、ビデオの注意を読み分けます。",
       en: "Moodle original: five handwritten-style message memos about coming home, work, an apology, household tasks, and a warning about a video."
     }),
-    sourceVisual$4(MEMO_SHA256, MEMO_TITLE, 2, "moodle-chapter-30-message-memo-2.png", "4ef9d5d4a08a96608e4ee6dcfcc14eac819c41af325888f5bf26782291ecc833", {
+    sourceVisual$6(MEMO_SHA256, MEMO_TITLE, 2, "moodle-chapter-30-message-memo-2.png", "4ef9d5d4a08a96608e4ee6dcfcc14eac819c41af325888f5bf26782291ecc833", {
       ja: "Moodle 原本: 伝言の読み取りと、ホリデー中の猫、犬、植物の世話を頼む自由会話。",
       en: "Moodle original: message-memo reading followed by free speaking to request cat, dog, or plant care during a holiday."
     }),
-    sourceVisual$4(CUMULATIVE_REVIEW_SHA256, CUMULATIVE_REVIEW_TITLE, 1, "moodle-chapter-26-30-review-1.png", "14ba5a05b417df87caae0929d1911c738b105d31982c6a86e045b5dd9111e9d6", {
+    sourceVisual$6(CUMULATIVE_REVIEW_SHA256, CUMULATIVE_REVIEW_TITLE, 1, "moodle-chapter-26-30-review-1.png", "14ba5a05b417df87caae0929d1911c738b105d31982c6a86e045b5dd9111e9d6", {
       ja: "Moodle 原本: Chapter 26–30 の助詞と活用を復習する宿題ページ。",
       en: "Moodle original: Chapter 26–30 homework review of particles and contextual verb forms."
     }),
-    sourceVisual$4(REVIEW_SHA256, REVIEW_TITLE, 1, "moodle-chapter-30-state-review-1.png", "ccd631965e0684ba9648b77cca66a2779fc6367a37455c198708b6c89c19914b", {
+    sourceVisual$6(REVIEW_SHA256, REVIEW_TITLE, 1, "moodle-chapter-30-state-review-1.png", "ccd631965e0684ba9648b77cca66a2779fc6367a37455c198708b6c89c19914b", {
       ja: "Moodle 原本: Chapter 30「ています・てあります・ておきます」と助詞の復習。",
       en: "Moodle original: Chapter 30 review of ています, てあります, ておきます, and their particles."
     })
   ]);
   const ANSWER_VISUALS = Object.freeze([
-    sourceVisual$4(ANSWER_SHA256, ANSWER_TITLE, 1, "moodle-chapter-30-answer-1.png", "5a5fd16d22b9abfd66109e48daa8e1aff854cc7fd090da51af7b853e7a9c2423", {
+    sourceVisual$6(ANSWER_SHA256, ANSWER_TITLE, 1, "moodle-chapter-30-answer-1.png", "5a5fd16d22b9abfd66109e48daa8e1aff854cc7fd090da51af7b853e7a9c2423", {
       ja: "Moodle 原本の Chapter 30 解答ページ。解答後だけ表示します。",
       en: "Moodle original Chapter 30 answer page, revealed only after an attempt."
     })
@@ -164301,7 +164306,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyThreeMessageHandoffBeat() {
     assertExactPackageSources$9();
     const rounds = [
-      round$9(
+      round$b(
         "emergency-kit",
         1,
         1,
@@ -164320,7 +164325,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Choose preparation done before an emergency.", "Look at item three under earthquake preparation.", "The source says 非常袋を用意しておく."]
         )
       ),
-      round$9(
+      round$b(
         "restaurant-examples",
         2,
         1,
@@ -164339,7 +164344,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Sensei’s first question asks for general examples, not a complete list.", "Chinese and Indian food are the two examples.", "Keep the list open by adding とか to each example."]
         )
       ),
-      round$9(
+      round$b(
         "usual-sports",
         3,
         1,
@@ -164356,7 +164361,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         ["テニスをするとかジョギングをするとかですね。"]
       ),
-      round$9(
+      round$b(
         "three-days",
         4,
         1,
@@ -164375,7 +164380,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Replay Track 13.", "Suzuki explains what happens even if electricity and gas stop.", "The duration that follows is about three days."]
         )
       ),
-      round$9(
+      round$b(
         "memo-warning",
         5,
         1,
@@ -164394,7 +164399,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Read memo five once more.", "Its first sentence uses 絶対に〜ないで.", "It says 絶対にビデオに触らないで."]
         )
       ),
-      round$9(
+      round$b(
         "holiday-handoff",
         6,
         2,
@@ -164411,7 +164416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         ["明日からホリデーに行きますから猫の世話をお願いします。"]
       ),
-      round$9(
+      round$b(
         "lost-card-repair",
         7,
         1,
@@ -164428,7 +164433,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         ["キャッシュカードをなくしてしまったんですがどうしたらいいですか"]
       ),
-      round$9(
+      round$b(
         "prepared-lunch-contrast",
         8,
         1,
@@ -164468,12 +164473,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s emergency vocabulary, Chapter 30-3, Track 13, message memos, and Chapter 26–30 review first, then answer eight source-grounded prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$b,
-        packageOrder: PACKAGE_ORDER$9,
+        packageId: PACKAGE_ID$d,
+        packageOrder: PACKAGE_ORDER$b,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$b,
-          archiveId: ARCHIVE_ID$9,
+          moduleId: MODULE_ID$d,
+          archiveId: ARCHIVE_ID$b,
           sourceSheets: SOURCE_VISUALS$d,
           answerSheets: ANSWER_VISUALS,
           media: {
@@ -164485,7 +164490,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
               url: "/academy/content/lessons/l2-l18/moodle-track-13.mp3",
               payloadSha256: AUDIO_SHA256$6,
               durationSeconds: 50.12,
-              transcriptPayloadSha256: SCRIPT_SHA256$2,
+              transcriptPayloadSha256: SCRIPT_SHA256$3,
               worksheetPayloadSha256: LISTENING_SHA256$1,
               verification: "exact-script-and-independent-transcript-match"
             }
@@ -164547,7 +164552,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$9(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
+  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -164567,22 +164572,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function tokaQuestion(page, item2) {
-    return `moodle:${MODULE_ID$b}:${TOKA_SHA256}:pdf-p${page}:task-${1}:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${TOKA_SHA256}:pdf-p${page}:task-${1}:q${item2}`;
   }
   function memoQuestion(page, item2) {
-    return `moodle:${MODULE_ID$b}:${MEMO_SHA256}:pdf-p${page}:task-${page === 1 ? 1 : 2}:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${MEMO_SHA256}:pdf-p${page}:task-${page === 1 ? 1 : 2}:q${item2}`;
   }
   function emergencyQuestion(item2) {
-    return `moodle:${MODULE_ID$b}:${EMERGENCY_SHA256}:pdf-p1:task-earthquake-preparation:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${EMERGENCY_SHA256}:pdf-p1:task-earthquake-preparation:q${item2}`;
   }
   function listeningQuestion$1(item2) {
-    return `moodle:${MODULE_ID$b}:${LISTENING_SHA256$1}:pdf-p1:track-13:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${LISTENING_SHA256$1}:pdf-p1:track-13:q${item2}`;
   }
   function cumulativeReviewQuestion(item2) {
-    return `moodle:${MODULE_ID$b}:${CUMULATIVE_REVIEW_SHA256}:pdf-p1:task-2:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${CUMULATIVE_REVIEW_SHA256}:pdf-p1:task-2:q${item2}`;
   }
   function chapterThirtyReviewQuestion(item2) {
-    return `moodle:${MODULE_ID$b}:${ANSWER_SHA256}:pdf-p1:task-1:q${item2}`;
+    return `moodle:${MODULE_ID$d}:${ANSWER_SHA256}:pdf-p1:task-1:q${item2}`;
   }
   function option$a(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -164595,7 +164600,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       Object.freeze({ ja: ja[2], en: en[2] })
     ];
   }
-  function sourceVisual$4(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$6(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -164609,20 +164614,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assertExactPackageSources$9() {
     const root = record$c(lessonPackage$9, "l2-l18 package");
     const identity2 = record$c(root.identity, "l2-l18 identity");
-    if (root.id !== PACKAGE_ID$b || root.order !== PACKAGE_ORDER$9 || identity2.moduleId !== MODULE_ID$b) {
+    if (root.id !== PACKAGE_ID$d || root.order !== PACKAGE_ORDER$b || identity2.moduleId !== MODULE_ID$d) {
       throw new TypeError("Unexpected l2-l18 package identity.");
     }
     const coverage = record$c(root.sourceCoverage, "l2-l18 coverage");
-    if (coverage.archiveId !== ARCHIVE_ID$9 || coverage.archiveSha256 !== ARCHIVE_SHA256$9) {
+    if (coverage.archiveId !== ARCHIVE_ID$b || coverage.archiveSha256 !== ARCHIVE_SHA256$b) {
       throw new TypeError("Unexpected l2-l18 source archive.");
     }
     const members = array$c(coverage.members, "l2-l18 members").map((value) => record$c(value, "l2-l18 member"));
     for (const [payloadSha256, title2] of [
       [ANSWER_SHA256, ANSWER_TITLE],
       [TOKA_SHA256, TOKA_TITLE],
-      [VOCABULARY_SHA256$c, VOCABULARY_TITLE],
+      [VOCABULARY_SHA256$d, VOCABULARY_TITLE],
       [MEMO_SHA256, MEMO_TITLE],
-      [SCRIPT_SHA256$2, SCRIPT_TITLE],
+      [SCRIPT_SHA256$3, SCRIPT_TITLE],
       [LISTENING_SHA256$1, LISTENING_TITLE],
       [CUMULATIVE_REVIEW_SHA256, CUMULATIVE_REVIEW_TITLE],
       [REVIEW_SHA256, REVIEW_TITLE],
@@ -166257,27 +166262,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$8,
     sourceActivityBindings: sourceActivityBindings$8
   };
-  const PACKAGE_ID$a = "l2-l19";
-  const PACKAGE_ORDER$8 = 46;
-  const MODULE_ID$a = 8121273;
-  const ARCHIVE_ID$8 = "archive-000084";
-  const ARCHIVE_SHA256$8 = "e38f396ece8bee828fe7d3b44a9fa540f17bb4900fb2fc6b746d4bf0b3d9fb83";
+  const PACKAGE_ID$c = "l2-l19";
+  const PACKAGE_ORDER$a = 46;
+  const MODULE_ID$c = 8121273;
+  const ARCHIVE_ID$a = "archive-000084";
+  const ARCHIVE_SHA256$a = "e38f396ece8bee828fe7d3b44a9fa540f17bb4900fb2fc6b746d4bf0b3d9fb83";
   const VOLITIONAL_SHA256$1 = "092723d74f266e627c7eefba92cc567cba80328fe7961e19ca321e2d1495ddee";
   const FORM_SHEET_SHA256 = "4da024b1ca32facc7b41b03895910d6bc681f98c7116d5789780b7d220f4a2a5";
   const SOURCE_VISUALS$c = Object.freeze([
-    sourceVisual$3(VOLITIONAL_SHA256$1, "Chapter 31 volitional form", 1, "moodle-chapter-31-volitional-page-1.png", "937da5c5e578dfcaf1d651815233f119f8c2da0a82d6f1586c23609e90e6f3b7", {
+    sourceVisual$5(VOLITIONAL_SHA256$1, "Chapter 31 volitional form", 1, "moodle-chapter-31-volitional-page-1.png", "937da5c5e578dfcaf1d651815233f119f8c2da0a82d6f1586c23609e90e6f3b7", {
       ja: "Moodle 原本: Chapter 31 意向形、1ページ。意向、〜ましょうとの対照、例文、五段動詞の作り方。",
       en: "Moodle original: Chapter 31 volitional form page 1, with intention, the 〜ましょう contrast, examples, and group 1 formation."
     }),
-    sourceVisual$3(VOLITIONAL_SHA256$1, "Chapter 31 volitional form", 2, "moodle-chapter-31-volitional-page-2.png", "6f085bcf2b068cc7ae7be47d30696fd556cd111fd2b8e684f4b65ae187308721", {
+    sourceVisual$5(VOLITIONAL_SHA256$1, "Chapter 31 volitional form", 2, "moodle-chapter-31-volitional-page-2.png", "6f085bcf2b068cc7ae7be47d30696fd556cd111fd2b8e684f4b65ae187308721", {
       ja: "Moodle 原本: Chapter 31 意向形、2ページ。一段動詞と不規則動詞の作り方。",
       en: "Moodle original: Chapter 31 volitional form page 2, with group 2 and irregular formation."
     }),
-    sourceVisual$3(FORM_SHEET_SHA256, "New HW Chapter 31 Creating volitional form", 1, "moodle-chapter-31-form-sheet-page-1.png", "de41bd3514974735073a89df40c03fd2f124a343ff2abd28ad37fc8594e595d5", {
+    sourceVisual$5(FORM_SHEET_SHA256, "New HW Chapter 31 Creating volitional form", 1, "moodle-chapter-31-form-sheet-page-1.png", "de41bd3514974735073a89df40c03fd2f124a343ff2abd28ad37fc8594e595d5", {
       ja: "Moodle 原本: Chapter 31 意向形を作るフォームシート、1ページ。語尾の変化を空欄で確かめます。",
       en: "Moodle original: Chapter 31 form-and-word sheet page 1, checking ending changes in the printed blanks."
     }),
-    sourceVisual$3(FORM_SHEET_SHA256, "New HW Chapter 31 Creating volitional form", 2, "moodle-chapter-31-form-sheet-page-2.png", "1ec250f9b336d7dc5dccd8bd875a400da969cc860c0a04f3d1da531a00e30c6b", {
+    sourceVisual$5(FORM_SHEET_SHA256, "New HW Chapter 31 Creating volitional form", 2, "moodle-chapter-31-form-sheet-page-2.png", "1ec250f9b336d7dc5dccd8bd875a400da969cc860c0a04f3d1da531a00e30c6b", {
       ja: "Moodle 原本: Chapter 31 意向形を作るフォームシート、2ページ。三つの動詞グループの表。",
       en: "Moodle original: Chapter 31 form-and-word sheet page 2, with the printed three-group verb chart."
     })
@@ -166285,7 +166290,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyFourVolitionalPlanBeat() {
     assertExactPackageSources$8();
     const rounds = [
-      round$8(
+      round$a(
         "utaimasu-ending",
         1,
         1,
@@ -166301,7 +166306,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["For a group 1 verb, change the last i-row sound to the o-row.", "The い in うたい becomes お.", "うたいます becomes うたおう."]
         )
       ),
-      round$8(
+      round$a(
         "kakimasu-ending",
         2,
         1,
@@ -166317,7 +166322,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Move き to its o-row partner, こ.", "Then add the long う.", "かきます becomes かこう."]
         )
       ),
-      round$8(
+      round$a(
         "oyogimasu-ending",
         3,
         1,
@@ -166333,7 +166338,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This is a group 1 row on the form sheet.", "Move ぎ to the o-row sound, ご.", "およぎます becomes およごう."]
         )
       ),
-      round$8(
+      round$a(
         "karimasu-form",
         4,
         1,
@@ -166349,7 +166354,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["かります sits in the group 2 column.", "Remove ます and add よう.", "かります becomes かりよう."]
         )
       ),
-      round$8(
+      round$a(
         "narai-form",
         5,
         2,
@@ -166365,7 +166370,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The chart places 習います in Group 1.", "Move い to the o-row sound, お.", "習います becomes 習おう."]
         )
       ),
-      round$8(
+      round$a(
         "ukemasu-form",
         6,
         2,
@@ -166381,7 +166386,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The chart places 受けます in Group 2.", "For group 2, remove ます and add よう.", "受けます becomes 受けよう."]
         )
       ),
-      round$8(
+      round$a(
         "moushikomimasu-form",
         7,
         2,
@@ -166397,7 +166402,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The chart places 申し込みます in Group 1.", "Move the final み to the o-row sound, も.", "申し込みます becomes 申し込もう."]
         )
       ),
-      round$8(
+      round$a(
         "kyuukeishimasu-form",
         8,
         2,
@@ -166426,12 +166431,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 31 and form-and-word sheet first, then choose or produce the volitional form for eight source prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$a,
-        packageOrder: PACKAGE_ORDER$8,
+        packageId: PACKAGE_ID$c,
+        packageOrder: PACKAGE_ORDER$a,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$a,
-          archiveId: ARCHIVE_ID$8,
+          moduleId: MODULE_ID$c,
+          archiveId: ARCHIVE_ID$a,
           sourceSheets: SOURCE_VISUALS$c,
           media: { status: "no-audio-members-in-package", sourceAudioMembers: 0, sourceAudioTracksDelivered: 0 },
           answerKeyBasis: "sensei-verbatim-form-tables-and-yomu-derived-deterministic-volitional-completions-over-canonical-source-pages"
@@ -166471,11 +166476,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({ id: id2, interaction, sourceOrder, sourcePage, sourceTask, sourceItem, sourceQuestionId: sourceQuestionId2, sourcePrompt, options, answerValue: answerExpression, answerExpression, acceptedAnswers: [answerExpression], conceptId: `concept:l2-l19:volitional:${sourceOrder}`, errorTag: `l2-l19-volitional-${sourceOrder}`, hints: roundHints });
   }
   function question$3(payloadSha256, page, task2, item2) {
-    return `moodle:${MODULE_ID$a}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
+    return `moodle:${MODULE_ID$c}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
   }
   function choice$3(value) {
     return Object.freeze({ value, label: Object.freeze({ ja: value, en: value }) });
@@ -166484,14 +166489,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (ja.length !== 3 || en.length !== 3) throw new TypeError("Lesson 44 rounds require exactly three bilingual hints.");
     return [Object.freeze({ ja: ja[0], en: en[0] }), Object.freeze({ ja: ja[1], en: en[1] }), Object.freeze({ ja: ja[2], en: en[2] })];
   }
-  function sourceVisual$3(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$5(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({ sourceId: `moodle:${payloadSha256}:page:${page}`, payloadSha256, title: title2, page, url: `/academy/content/lessons/l2-l19/${filename}`, sha256: sha2562, alt: Object.freeze(alt) });
   }
   function assertExactPackageSources$8() {
     const root = record$b(lessonPackage$8, "l2-l19 package");
     const identity2 = record$b(root.identity, "l2-l19 identity");
     const coverage = record$b(root.sourceCoverage, "l2-l19 coverage");
-    if (root.id !== PACKAGE_ID$a || root.order !== PACKAGE_ORDER$8 || identity2.moduleId !== MODULE_ID$a || coverage.archiveId !== ARCHIVE_ID$8 || coverage.archiveSha256 !== ARCHIVE_SHA256$8) throw new TypeError("Unexpected l2-l19 package identity.");
+    if (root.id !== PACKAGE_ID$c || root.order !== PACKAGE_ORDER$a || identity2.moduleId !== MODULE_ID$c || coverage.archiveId !== ARCHIVE_ID$a || coverage.archiveSha256 !== ARCHIVE_SHA256$a) throw new TypeError("Unexpected l2-l19 package identity.");
     const payloads = array$b(coverage.members, "l2-l19 members").map((member) => record$b(member, "l2-l19 member").payloadSha256);
     if (!payloads.includes(VOLITIONAL_SHA256$1) || !payloads.includes(FORM_SHEET_SHA256)) throw new TypeError("The exact l2-l19 Moodle payloads are required.");
   }
@@ -168630,37 +168635,37 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$7,
     sourceActivityBindings: sourceActivityBindings$7
   };
-  const PACKAGE_ID$9 = "l2-l20";
-  const PACKAGE_ORDER$7 = 47;
-  const MODULE_ID$9 = 8121275;
-  const ARCHIVE_ID$7 = "archive-000064";
-  const ARCHIVE_SHA256$7 = "b8875ef88944fc14f33bba4c07dbeee8fc42340c0dc83c39b08892a26c215c80";
+  const PACKAGE_ID$b = "l2-l20";
+  const PACKAGE_ORDER$9 = 47;
+  const MODULE_ID$b = 8121275;
+  const ARCHIVE_ID$9 = "archive-000064";
+  const ARCHIVE_SHA256$9 = "b8875ef88944fc14f33bba4c07dbeee8fc42340c0dc83c39b08892a26c215c80";
   const INTENTION_SHA256 = "ebf8c22c4132b0f7b81fa2389923ec2fd74976ddb89e1ac587a01ccf5d6f9cef";
   const VOLITIONAL_SHA256 = "d76736ced083bb11fe341e9f7f344777b75b3ce1be3dc6be841cef178ff02e3c";
-  const VOCABULARY_SHA256$b = "3a4757f4bdccdc447df62720a1ec466d4272b9f137c8b2d5db90d1a1d953b895";
+  const VOCABULARY_SHA256$c = "3a4757f4bdccdc447df62720a1ec466d4272b9f137c8b2d5db90d1a1d953b895";
   const UNPAIRED_AUDIO_SHA256 = "49383b3d78eae5ac77a7480a56e29fedf1e0ccd41d36e45a2c8d2f8b97f923b7";
   const SOURCE_VISUALS$b = Object.freeze([
-    sourceVisual$2(INTENTION_SHA256, "Chapter 31-1 〜ようと思っています grammar exercise", 1, "moodle-chapter-31-intention-grammar-page-1.png", "28837b83244eb87d41b1cad8afdf980303ed25ba669a39c8864700c44c7ba9f8", {
+    sourceVisual$4(INTENTION_SHA256, "Chapter 31-1 〜ようと思っています grammar exercise", 1, "moodle-chapter-31-intention-grammar-page-1.png", "28837b83244eb87d41b1cad8afdf980303ed25ba669a39c8864700c44c7ba9f8", {
       ja: "Moodle 原本: Chapter 31-1、意向形＋と思っていますの意味、例文、時制との違い。",
       en: "Moodle original: Chapter 31-1, the meaning of volitional form plus と思っています, examples, and the timing contrast."
     }),
-    sourceVisual$2(INTENTION_SHA256, "Chapter 31-1 〜ようと思っています grammar exercise", 2, "moodle-chapter-31-intention-grammar-page-2.png", "6846226c05243a01905183c38d2bf08d24772a28850173e7b55318e363ed30ba", {
+    sourceVisual$4(INTENTION_SHA256, "Chapter 31-1 〜ようと思っています grammar exercise", 2, "moodle-chapter-31-intention-grammar-page-2.png", "6846226c05243a01905183c38d2bf08d24772a28850173e7b55318e363ed30ba", {
       ja: "Moodle 原本: Chapter 31-1、六つの変換と四つの「何をしますか」から作る計画。",
       en: "Moodle original: Chapter 31-1, six transformations and four plans built from “What will you do?” prompts."
     }),
-    sourceVisual$2(VOLITIONAL_SHA256, "Chapter 31-1 verb volitional form exercise", 1, "moodle-chapter-31-volitional-exercise-page-1.png", "67af928bf27e3fc6593eb46419cae00826b2fcf8866ec7d74669b097f91983ce", {
+    sourceVisual$4(VOLITIONAL_SHA256, "Chapter 31-1 verb volitional form exercise", 1, "moodle-chapter-31-volitional-exercise-page-1.png", "67af928bf27e3fc6593eb46419cae00826b2fcf8866ec7d74669b097f91983ce", {
       ja: "Moodle 原本: Chapter 31-1、意向形の作り方と「見よう」の会話例。",
       en: "Moodle original: Chapter 31-1, forming the volitional and a “let’s watch” conversation example."
     }),
-    sourceVisual$2(VOLITIONAL_SHA256, "Chapter 31-1 verb volitional form exercise", 2, "moodle-chapter-31-volitional-exercise-page-2.png", "df2dedc3a96c914a0dd3e72d9dbe1e587baf177c8f32edaca6889b55f6c5949f", {
+    sourceVisual$4(VOLITIONAL_SHA256, "Chapter 31-1 verb volitional form exercise", 2, "moodle-chapter-31-volitional-exercise-page-2.png", "df2dedc3a96c914a0dd3e72d9dbe1e587baf177c8f32edaca6889b55f6c5949f", {
       ja: "Moodle 原本: Chapter 31-1、意向形の質問と普通形の会話例。",
       en: "Moodle original: Chapter 31-1, volitional questions and plain-style conversation examples."
     }),
-    sourceVisual$2(VOCABULARY_SHA256$b, "Chapter 31-1 Vocabulary Sheet", 1, "moodle-chapter-31-vocabulary-page-1.png", "c59b0398fc3587f6a1c3926b22bb233180f25f3e65cbe5cad2a4c6ba9c3d0f2e", {
+    sourceVisual$4(VOCABULARY_SHA256$c, "Chapter 31-1 Vocabulary Sheet", 1, "moodle-chapter-31-vocabulary-page-1.png", "c59b0398fc3587f6a1c3926b22bb233180f25f3e65cbe5cad2a4c6ba9c3d0f2e", {
       ja: "Moodle 原本: Chapter 31-1 語彙表1ページ。受けます、続けます、申し込みます、連休、予定など。",
       en: "Moodle original: Chapter 31-1 vocabulary page 1, including take an exam, continue, apply, long holiday, and plans."
     }),
-    sourceVisual$2(VOCABULARY_SHA256$b, "Chapter 31-1 Vocabulary Sheet", 2, "moodle-chapter-31-vocabulary-page-2.png", "e1cb38564b1a6b8d1e9918f414f6ed980f331dfc3a3e083ac8873d0286757145", {
+    sourceVisual$4(VOCABULARY_SHA256$c, "Chapter 31-1 Vocabulary Sheet", 2, "moodle-chapter-31-vocabulary-page-2.png", "e1cb38564b1a6b8d1e9918f414f6ed980f331dfc3a3e083ac8873d0286757145", {
       ja: "Moodle 原本: Chapter 31-1 語彙表2ページ。日本代表、お子さん、〜の方、うん、ううん。",
       en: "Moodle original: Chapter 31-1 vocabulary page 2, including Japan’s national team, someone else’s child, direction, and casual yes/no."
     })
@@ -168668,41 +168673,41 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortyFiveIntentionRouteBeat() {
     assertExactPackageSources$7();
     const rounds = [
-      round$7("climb-fuji", 1, 1, 1, "action-choice", question$2(1, 1), "富士山に のぼります。", "富士山に 登ろうと 思っています。", [
+      round$9("climb-fuji", 1, 1, 1, "action-choice", question$2(1, 1), "富士山に のぼります。", "富士山に 登ろうと 思っています。", [
         choice$2("富士山に 登ろうと 思っています。"),
         choice$2("富士山に 登りようと 思っています。")
       ], hints$6(
         ["先生の例は、ます形を意向形にしてから「と思っています」へつなげます。", "「のぼります」は五段動詞です。", "のぼります → 登ろう、です。"],
         ["Sensei’s example changes the ます form to volitional before adding と思っています.", "のぼります is a group 1 verb.", "The source transformation is のぼります → 登ろう."]
       )),
-      round$7("learn-piano", 2, 1, 2, "typed-report", question$2(1, 2), "ピアノを ならいます。", "ピアノを 習おうと 思っています。", [], hints$6(
+      round$9("learn-piano", 2, 1, 2, "typed-report", question$2(1, 2), "ピアノを ならいます。", "ピアノを 習おうと 思っています。", [], hints$6(
         ["「ならいます」は五段動詞です。", "最後の「い」を「お」に変え、うを付けます。", "習います → 習おうです。"],
         ["ならいます is a group 1 verb.", "Move the final i-row sound to o-row, then add う.", "The form is 習おう."]
       )),
-      round$7("give-flowers", 3, 1, 4, "state-select", question$2(1, 4), "つまに 花を おくります。", "贈ろう", [choice$2("贈ろう"), choice$2("贈りよう")], hints$6(
+      round$9("give-flowers", 3, 1, 4, "state-select", question$2(1, 4), "つまに 花を おくります。", "贈ろう", [choice$2("贈ろう"), choice$2("贈りよう")], hints$6(
         ["先生の一番の練習は、まず意向形を作る変換です。", "「おくります」は五段動詞です。", "贈ります → 贈ろうです。"],
         ["Sensei’s first task starts by making the volitional transformation.", "おくります is a group 1 verb.", "The source form is 贈ります → 贈ろう."]
       )),
-      round$7("marry-next-year", 4, 1, 6, "typed-report", question$2(1, 6), "来年 けっこんします。", "来年 結婚しようと 思っています。", [], hints$6(
+      round$9("marry-next-year", 4, 1, 6, "typed-report", question$2(1, 6), "来年 けっこんします。", "来年 結婚しようと 思っています。", [], hints$6(
         ["「結婚します」は します動詞です。", "しますは、意向形でしようになります。", "結婚します → 結婚しようです。"],
         ["結婚します is a します verb.", "In the volitional, します becomes しよう.", "The source form is 結婚します → 結婚しよう."]
       )),
-      round$7("family-church", 5, 2, 1, "action-choice", question$2(2, 1), "今度の 日曜日は 何を しますか。 （家族と 教会へ 行きます）", "家族と 教会へ 行こうと 思っています。", [
+      round$9("family-church", 5, 2, 1, "action-choice", question$2(2, 1), "今度の 日曜日は 何を しますか。 （家族と 教会へ 行きます）", "家族と 教会へ 行こうと 思っています。", [
         choice$2("家族と 教会へ 行こうと 思っています。"),
         choice$2("家族と 教会へ 行きますと 思っています。")
       ], hints$6(
         ["二番の例は、かっこの行動をそのまま計画に変えます。", "「行きます」の意向形を先に作ります。", "行きます → 行こうと思っています、です。"],
         ["Task 2 turns the parenthesized action into the plan.", "First make the volitional of 行きます.", "The source pattern gives 行こうと思っています."]
       )),
-      round$7("holiday-rest", 6, 2, 2, "typed-report", question$2(2, 2), "連休は 何を しますか。 （うちで ゆっくり 休みます）", "うちで ゆっくり 休もうと 思っています。", [], hints$6(
+      round$9("holiday-rest", 6, 2, 2, "typed-report", question$2(2, 2), "連休は 何を しますか。 （うちで ゆっくり 休みます）", "うちで ゆっくり 休もうと 思っています。", [], hints$6(
         ["語彙表には連休があります。かっこの行動を計画にします。", "休みますは五段動詞です。", "休みます → 休もうと思っています、です。"],
         ["The vocabulary sheet includes 連休. Turn the parenthesized action into the plan.", "休みます is a group 1 verb.", "The source pattern gives 休もうと思っています."]
       )),
-      round$7("weekend-climb", 7, 2, 3, "state-select", question$2(2, 3), "今度の 週末は 何を しますか。 （山に 登ります）", "登ろう", [choice$2("登ろう"), choice$2("登りよう")], hints$6(
+      round$9("weekend-climb", 7, 2, 3, "state-select", question$2(2, 3), "今度の 週末は 何を しますか。 （山に 登ります）", "登ろう", [choice$2("登ろう"), choice$2("登りよう")], hints$6(
         ["かっこの「登ります」を意向形にしてから文を作ります。", "のぼりますは五段動詞です。", "登ります → 登ろうです。"],
         ["Make the parenthesized 登ります volitional before building the sentence.", "のぼります is a group 1 verb.", "The source form is 登ります → 登ろう."]
       )),
-      round$7("write-novel", 8, 2, 4, "typed-report", question$2(2, 4), "暇に なったら、何を しますか。 （小説を 書きます）", "小説を 書こうと 思っています。", [], hints$6(
+      round$9("write-novel", 8, 2, 4, "typed-report", question$2(2, 4), "暇に なったら、何を しますか。 （小説を 書きます）", "小説を 書こうと 思っています。", [], hints$6(
         ["「暇になったら」は、そのあとにある計画を変えません。", "書きますは五段動詞です。", "書きます → 書こうと思っています、です。"],
         ["暇になったら stays before the plan; it does not change the form after it.", "書きます is a group 1 verb.", "The source pattern gives 書こうと思っています."]
       ))
@@ -168719,12 +168724,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 31-1 pages and vocabulary sheet first, then connect the volitional form to 〜ようと思っています across eight source prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$9,
-        packageOrder: PACKAGE_ORDER$7,
+        packageId: PACKAGE_ID$b,
+        packageOrder: PACKAGE_ORDER$9,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$9,
-          archiveId: ARCHIVE_ID$7,
+          moduleId: MODULE_ID$b,
+          archiveId: ARCHIVE_ID$9,
           sourceSheets: SOURCE_VISUALS$b,
           media: {
             status: "audio-member-quarantined-pairing-unproven",
@@ -168768,7 +168773,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$7(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$9(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -168788,7 +168793,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function question$2(task2, item2) {
-    return `moodle:${MODULE_ID$9}:${INTENTION_SHA256}:pdf-p2:task-${task2}:q${item2}`;
+    return `moodle:${MODULE_ID$b}:${INTENTION_SHA256}:pdf-p2:task-${task2}:q${item2}`;
   }
   function choice$2(value) {
     return Object.freeze({ value, label: Object.freeze({ ja: value, en: value }) });
@@ -168797,18 +168802,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (ja.length !== 3 || en.length !== 3) throw new TypeError("l2-l20 rounds require exactly three bilingual hints.");
     return [Object.freeze({ ja: ja[0], en: en[0] }), Object.freeze({ ja: ja[1], en: en[1] }), Object.freeze({ ja: ja[2], en: en[2] })];
   }
-  function sourceVisual$2(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$4(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({ sourceId: `moodle:${payloadSha256}:page:${page}`, payloadSha256, title: title2, page, url: `/academy/content/lessons/l2-l20/${filename}`, sha256: sha2562, alt: Object.freeze(alt) });
   }
   function assertExactPackageSources$7() {
     const root = record$a(lessonPackage$7, "l2-l20 package");
     const identity2 = record$a(root.identity, "l2-l20 identity");
     const coverage = record$a(root.sourceCoverage, "l2-l20 coverage");
-    if (root.id !== PACKAGE_ID$9 || root.order !== PACKAGE_ORDER$7 || identity2.moduleId !== MODULE_ID$9 || coverage.archiveId !== ARCHIVE_ID$7 || coverage.archiveSha256 !== ARCHIVE_SHA256$7) {
+    if (root.id !== PACKAGE_ID$b || root.order !== PACKAGE_ORDER$9 || identity2.moduleId !== MODULE_ID$b || coverage.archiveId !== ARCHIVE_ID$9 || coverage.archiveSha256 !== ARCHIVE_SHA256$9) {
       throw new TypeError("Unexpected l2-l20 package identity.");
     }
     const members = array$a(coverage.members, "l2-l20 members").map((member) => record$a(member, "l2-l20 member"));
-    for (const payloadSha256 of [INTENTION_SHA256, VOLITIONAL_SHA256, VOCABULARY_SHA256$b]) {
+    for (const payloadSha256 of [INTENTION_SHA256, VOLITIONAL_SHA256, VOCABULARY_SHA256$c]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
         throw new TypeError(`Missing exact l2-l20 Moodle document ${payloadSha256}.`);
       }
@@ -171348,49 +171353,49 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$6,
     sourceActivityBindings: sourceActivityBindings$6
   };
-  const PACKAGE_ID$8 = "l2-l21";
-  const PACKAGE_ORDER$6 = 48;
-  const MODULE_ID$8 = 8121277;
-  const ARCHIVE_ID$6 = "archive-000010";
-  const ARCHIVE_SHA256$6 = "1772085f52b38e5ec8ce5a4362bd1b1c0f0117684e2054e0600e129eca2b9492";
-  const VOCABULARY_SHA256$a = "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9";
+  const PACKAGE_ID$a = "l2-l21";
+  const PACKAGE_ORDER$8 = 48;
+  const MODULE_ID$a = 8121277;
+  const ARCHIVE_ID$8 = "archive-000010";
+  const ARCHIVE_SHA256$8 = "1772085f52b38e5ec8ce5a4362bd1b1c0f0117684e2054e0600e129eca2b9492";
+  const VOCABULARY_SHA256$b = "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9";
   const PLAN_SHA256 = "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74";
   const CONVICTION_SHA256 = "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2";
   const HOMEWORK_SHA256$1 = "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454";
   const SOURCE_VISUALS$a = Object.freeze([
-    sourceVisual$1(VOCABULARY_SHA256$a, "Chapter 31-2 Vocabulary Sheet", 1, "moodle-chapter-31-2-vocabulary-page-1.png", "b6ddb6e94a83d6bae470f30807bf79bd3d672f0128e8dbd1a1407fd995dc2ff6", {
+    sourceVisual$3(VOCABULARY_SHA256$b, "Chapter 31-2 Vocabulary Sheet", 1, "moodle-chapter-31-2-vocabulary-page-1.png", "b6ddb6e94a83d6bae470f30807bf79bd3d672f0128e8dbd1a1407fd995dc2ff6", {
       ja: "Moodle 原本: Chapter 31-2 語彙表1ページ。予定、直行便、経由便、上旬、下旬、休み、式、言い訳、転勤など。",
       en: "Moodle original: Chapter 31-2 vocabulary page 1, including plans, direct and connecting flights, early and late month, leave, ceremonies, excuses, and transfers."
     }),
-    sourceVisual$1(VOCABULARY_SHA256$a, "Chapter 31-2 Vocabulary Sheet", 2, "moodle-chapter-31-2-vocabulary-page-2.png", "566fcbb4db961dbaa03bd0fc1900a90b49eeb9ab6b48e53b1854e8704e97a4c9", {
+    sourceVisual$3(VOCABULARY_SHA256$b, "Chapter 31-2 Vocabulary Sheet", 2, "moodle-chapter-31-2-vocabulary-page-2.png", "566fcbb4db961dbaa03bd0fc1900a90b49eeb9ab6b48e53b1854e8704e97a4c9", {
       ja: "Moodle 原本: Chapter 31-2 語彙表2ページ。単身赴任、転職、実は〜んです、残ります、入学試験など。",
       en: "Moodle original: Chapter 31-2 vocabulary page 2, including solo assignments, career changes, 実は〜んです, remaining behind, and entrance examinations."
     }),
-    sourceVisual$1(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 1, "moodle-chapter-31-2-tsumori-yotei-page-1.png", "251c6515ec63247e1688d2879dd1f55b55f57dee273b69bd5d831277220d079a", {
+    sourceVisual$3(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 1, "moodle-chapter-31-2-tsumori-yotei-page-1.png", "251c6515ec63247e1688d2879dd1f55b55f57dee273b69bd5d831277220d079a", {
       ja: "Moodle 原本: つもりですと予定ですの基本文、肯定・否定の意向、予定の例。",
       en: "Moodle original: basic つもりです and 予定です patterns, affirmative and negative intentions, and scheduled-plan examples."
     }),
-    sourceVisual$1(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 2, "moodle-chapter-31-2-tsumori-yotei-page-2.png", "10649eeb7297c8bbc48b70e1eb39e2e25eef70170edc8fde81b6fa26873d3887", {
+    sourceVisual$3(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 2, "moodle-chapter-31-2-tsumori-yotei-page-2.png", "10649eeb7297c8bbc48b70e1eb39e2e25eef70170edc8fde81b6fa26873d3887", {
       ja: "Moodle 原本: 近い未来の確定行動、つもり／予定／意向形と思っていますの文脈上の使い分け。",
       en: "Moodle original: near-future actions and the context-sensitive contrast among つもり, 予定, and volitional + と思っています."
     }),
-    sourceVisual$1(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 3, "moodle-chapter-31-2-tsumori-yotei-page-3.png", "d835b0dcca0385f8b8f4fedb1a4067a7db23b17a7797fbc9d24f5b4e48aae210", {
+    sourceVisual$3(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 3, "moodle-chapter-31-2-tsumori-yotei-page-3.png", "d835b0dcca0385f8b8f4fedb1a4067a7db23b17a7797fbc9d24f5b4e48aae210", {
       ja: "Moodle 原本: 大英博物館、大学院、フランス出張について予定を作る三問。",
       en: "Moodle original: three scheduled-plan prompts about the British Museum, graduate school, and a business trip to France."
     }),
-    sourceVisual$1(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 4, "moodle-chapter-31-2-tsumori-yotei-page-4.png", "d8e0f90c50716fad63b470486314f3fb0c77f13274836ef6280f88c255fbeee2", {
+    sourceVisual$3(PLAN_SHA256, "Chapter 31-2 つもり よてい grammar exercise", 4, "moodle-chapter-31-2-tsumori-yotei-page-4.png", "d8e0f90c50716fad63b470486314f3fb0c77f13274836ef6280f88c255fbeee2", {
       ja: "Moodle 原本: イースターの予定を相手に尋ね、予定・つもり・と思っていますを文脈で選ぶ会話。",
       en: "Moodle original: an Easter plan conversation that chooses 予定, つもり, or と思っています from the context."
     }),
-    sourceVisual$1(CONVICTION_SHA256, "Chapter 31 つもり-2 grammar exercise", 1, "moodle-chapter-31-3-tsumori-conviction-page-1.png", "4b47397b2c309842c4ea85d5df7b6623993b3f1ab7b8c95ca7830a0c0cd0c214", {
+    sourceVisual$3(CONVICTION_SHA256, "Chapter 31 つもり-2 grammar exercise", 1, "moodle-chapter-31-3-tsumori-conviction-page-1.png", "4b47397b2c309842c4ea85d5df7b6623993b3f1ab7b8c95ca7830a0c0cd0c214", {
       ja: "Moodle 原本: 「〜つもりです」の確信の意味と、若い・元気なつもりの例。",
       en: "Moodle original: the conviction meaning of 〜つもりです, including the young and healthy examples."
     }),
-    sourceVisual$1(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 1, "moodle-chapter-31-homework-plan-review-page-1.png", "5ae680e64834193b0cc80d3b070dec6c4d8e33f30a63dd16ea994a88907aaab5", {
+    sourceVisual$3(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 1, "moodle-chapter-31-homework-plan-review-page-1.png", "5ae680e64834193b0cc80d3b070dec6c4d8e33f30a63dd16ea994a88907aaab5", {
       ja: "Moodle 原本: つもりを使う文完成と旅行の意向を書く宿題ページ。",
       en: "Moodle original: homework page for completing つもり sentences and writing travel intentions."
     }),
-    sourceVisual$1(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 2, "moodle-chapter-31-homework-plan-review-page-2.png", "a4f04e04b3ad749ab36ff3da22849be0782b19e009fa7b5383ffc4bcc767c8ed", {
+    sourceVisual$3(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 2, "moodle-chapter-31-homework-plan-review-page-2.png", "a4f04e04b3ad749ab36ff3da22849be0782b19e009fa7b5383ffc4bcc767c8ed", {
       ja: "Moodle 原本: 日記を読み、話者の予定を確認する宿題ページ。",
       en: "Moodle original: homework page for reading a diary and checking the speaker’s plans."
     })
@@ -171398,14 +171403,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFortySixPlanChangeRepairBeat() {
     assertExactPackageSources$6();
     const rounds = [
-      round$6(
+      round$8(
         "direct-flight-intention",
         1,
         1,
         "vocabulary",
         1,
         "action-choice",
-        question$1(VOCABULARY_SHA256$a, 1, "vocabulary", 1),
+        question$1(VOCABULARY_SHA256$b, 1, "vocabulary", 1),
         "自分で決めた意向を表す、先生のページの文はどれですか。",
         "直行便を買うつもりです。",
         [
@@ -171417,7 +171422,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find 直行便 in vocabulary row four.", "Sensei uses つもり for a settled personal intention.", "The source example is 直行便を買うつもりです."]
         )
       ),
-      round$6(
+      round$8(
         "keep-teaching",
         2,
         1,
@@ -171436,7 +171441,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This is a page-one つもり example.", "It is a decision in the speaker’s mind, not a guaranteed appointment.", "Sensei’s sentence is 仕事を続けるつもりです."]
         )
       ),
-      round$6(
+      round$8(
         "call-back",
         3,
         2,
@@ -171452,7 +171457,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Page two warns against using つもり for an immediate definite action.", "Sensei puts a phone action after 降りたら.", "The source says 降りたら電話をかけなおします."]
         )
       ),
-      round$6(
+      round$8(
         "british-museum",
         4,
         3,
@@ -171471,7 +171476,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Item four on page three gives the noun 大英博物館の見学.", "A noun can take の予定です.", "The answer is 大英博物館の見学の予定です."]
         )
       ),
-      round$6(
+      round$8(
         "graduate-school",
         5,
         3,
@@ -171487,7 +171492,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Item five is an arranged move beginning in September.", "Change 大学院に行きます to its dictionary form.", "Put 予定です after that dictionary form."]
         )
       ),
-      round$6(
+      round$8(
         "easter-arrangement",
         6,
         4,
@@ -171506,7 +171511,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Page four chooses a form based on whether the plan is fixed, personally decided, or still under consideration.", "Here the reply is an arrangement another person can confirm.", "Use 予定です for an arranged plan."]
         )
       ),
-      round$6(
+      round$8(
         "conviction-not-plan",
         7,
         1,
@@ -171525,7 +171530,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Chapter 31-3 teaches a different meaning of つもり.", "This is a conviction, not a future plan.", "Sensei glosses it as “be convinced that; believe.”"]
         )
       ),
-      round$6(
+      round$8(
         "travel-intention",
         8,
         2,
@@ -171554,12 +171559,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Read Sensei’s Chapter 31-2 vocabulary, つもり／予定 grammar, conviction meaning, and homework travel example first, then answer eight source-grounded prompts. Audio is not used because its exact pairings remain unverified."
       },
       provenance: {
-        packageId: PACKAGE_ID$8,
-        packageOrder: PACKAGE_ORDER$6,
+        packageId: PACKAGE_ID$a,
+        packageOrder: PACKAGE_ORDER$8,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$8,
-          archiveId: ARCHIVE_ID$6,
+          moduleId: MODULE_ID$a,
+          archiveId: ARCHIVE_ID$8,
           sourceSheets: SOURCE_VISUALS$a,
           media: {
             status: "audio-members-quarantined-unpaired",
@@ -171609,7 +171614,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -171629,7 +171634,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function question$1(payloadSha256, page, task2, item2) {
-    return `moodle:${MODULE_ID$8}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
+    return `moodle:${MODULE_ID$a}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
   }
   function option$9(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -171642,7 +171647,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       Object.freeze({ ja: ja[2], en: en[2] })
     ];
   }
-  function sourceVisual$1(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$3(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -171657,11 +171662,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$9(lessonPackage$6, "l2-l21 package");
     const identity2 = record$9(root.identity, "l2-l21 identity");
     const coverage = record$9(root.sourceCoverage, "l2-l21 coverage");
-    if (root.id !== PACKAGE_ID$8 || root.order !== PACKAGE_ORDER$6 || identity2.moduleId !== MODULE_ID$8 || coverage.archiveId !== ARCHIVE_ID$6 || coverage.archiveSha256 !== ARCHIVE_SHA256$6) {
+    if (root.id !== PACKAGE_ID$a || root.order !== PACKAGE_ORDER$8 || identity2.moduleId !== MODULE_ID$a || coverage.archiveId !== ARCHIVE_ID$8 || coverage.archiveSha256 !== ARCHIVE_SHA256$8) {
       throw new TypeError("Unexpected l2-l21 package identity.");
     }
     const payloads = array$9(coverage.members, "l2-l21 members").map((member) => record$9(member, "l2-l21 member").payloadSha256);
-    [VOCABULARY_SHA256$a, PLAN_SHA256, CONVICTION_SHA256, HOMEWORK_SHA256$1].forEach((payload) => {
+    [VOCABULARY_SHA256$b, PLAN_SHA256, CONVICTION_SHA256, HOMEWORK_SHA256$1].forEach((payload) => {
       if (!payloads.includes(payload)) throw new TypeError("The exact l2-l21 Moodle payloads are required.");
     });
   }
@@ -173261,52 +173266,52 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$5,
     sourceActivityBindings: sourceActivityBindings$5
   };
-  const PACKAGE_ID$7 = "l2-l29";
-  const PACKAGE_ORDER$5 = 56;
-  const MODULE_ID$7 = 8121295;
-  const ARCHIVE_ID$5 = "archive-000001";
-  const ARCHIVE_SHA256$5 = "0041e877721858174b1398ef81155294cd1e1c1d43dc8c893be0a762acd8c73e";
-  const VOCABULARY_SHA256$9 = "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f";
-  const GRAMMAR_SHA256$5 = "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0";
+  const PACKAGE_ID$9 = "l2-l29";
+  const PACKAGE_ORDER$7 = 56;
+  const MODULE_ID$9 = 8121295;
+  const ARCHIVE_ID$7 = "archive-000001";
+  const ARCHIVE_SHA256$7 = "0041e877721858174b1398ef81155294cd1e1c1d43dc8c893be0a762acd8c73e";
+  const VOCABULARY_SHA256$a = "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f";
+  const GRAMMAR_SHA256$7 = "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0";
   const ALTERNATIVE_SHA256 = "4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a";
   const SPEAKING_SHA256 = "8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e";
   const AUDIO_SHA256$5 = "06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96";
-  const SCRIPT_SHA256$1 = "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927";
-  const WORKSHEET_SHA256$3 = "65aaa460558043b069f759c31a3c0e1663080fbd2f795eb175a8037ad5da2f21";
+  const SCRIPT_SHA256$2 = "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927";
+  const WORKSHEET_SHA256$4 = "65aaa460558043b069f759c31a3c0e1663080fbd2f795eb175a8037ad5da2f21";
   const SOURCE_VISUALS$9 = Object.freeze([
-    sourceVisual(VOCABULARY_SHA256$9, "Chapter 34-2 Vocabulary Sheet", 1, "moodle-chapter-34-2-vocabulary-1.png", "426ba2deb53196efe99959a04d0b90ac40bf49edb5eea6cecf815f94c1a33314", {
+    sourceVisual$2(VOCABULARY_SHA256$a, "Chapter 34-2 Vocabulary Sheet", 1, "moodle-chapter-34-2-vocabulary-1.png", "426ba2deb53196efe99959a04d0b90ac40bf49edb5eea6cecf815f94c1a33314", {
       ja: "Moodle 原本: Chapter 34-2 語彙表1ページ。調理法と調味料の語彙。",
       en: "Moodle original: Chapter 34-2 vocabulary page 1, covering cooking methods and seasonings."
     }),
-    sourceVisual(VOCABULARY_SHA256$9, "Chapter 34-2 Vocabulary Sheet", 2, "moodle-chapter-34-2-vocabulary-2.png", "61e07b85aaaefa3b2a7c7ab4af592322fbf79609128cc25f7f6bf24d46d1a6f2", {
+    sourceVisual$2(VOCABULARY_SHA256$a, "Chapter 34-2 Vocabulary Sheet", 2, "moodle-chapter-34-2-vocabulary-2.png", "61e07b85aaaefa3b2a7c7ab4af592322fbf79609128cc25f7f6bf24d46d1a6f2", {
       ja: "Moodle 原本: Chapter 34-2 語彙表2ページ。旅行、健康診断、目標、参加の語彙。",
       en: "Moodle original: Chapter 34-2 vocabulary page 2, covering travel, health checks, goals, and participation."
     }),
-    sourceVisual(GRAMMAR_SHA256$5, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 1, "moodle-chapter-34-2-te-de-naide-1.png", "c7331af374d28490073b676762e904cb072b8c7c24e30ff20c05f831830ae8fc", {
+    sourceVisual$2(GRAMMAR_SHA256$7, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 1, "moodle-chapter-34-2-te-de-naide-1.png", "c7331af374d28490073b676762e904cb072b8c7c24e30ff20c05f831830ae8fc", {
       ja: "Moodle 原本: 「〜て／〜ないで」の基本文と先生の説明。",
       en: "Moodle original: basic sentences and Sensei explanation for 〜て and 〜ないで."
     }),
-    sourceVisual(GRAMMAR_SHA256$5, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 2, "moodle-chapter-34-2-te-de-naide-2.png", "da47a3e00aac1957d084b4aa9bfbfe8c5878bcdf35e4dbae5457a31cbf09dc98", {
+    sourceVisual$2(GRAMMAR_SHA256$7, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 2, "moodle-chapter-34-2-te-de-naide-2.png", "da47a3e00aac1957d084b4aa9bfbfe8c5878bcdf35e4dbae5457a31cbf09dc98", {
       ja: "Moodle 原本: 括弧から適切な形を選ぶ Chapter 34-2 練習。",
       en: "Moodle original: Chapter 34-2 exercise choosing the appropriate form in brackets."
     }),
-    sourceVisual(GRAMMAR_SHA256$5, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 3, "moodle-chapter-34-2-te-de-naide-3.png", "92c9f661b1eda4b2039c9eafaa6d639f6b80668cf63741a104b952ff0a482ec6", {
+    sourceVisual$2(GRAMMAR_SHA256$7, "Chapter 34-2_〜て_で_ないで-1_grammar exercise", 3, "moodle-chapter-34-2-te-de-naide-3.png", "92c9f661b1eda4b2039c9eafaa6d639f6b80668cf63741a104b952ff0a482ec6", {
       ja: "Moodle 原本: 二つの動作を「〜て／〜ないで」でつなぐ追加練習。",
       en: "Moodle original: further practice linking two actions with 〜て or 〜ないで."
     }),
-    sourceVisual(ALTERNATIVE_SHA256, "Chapter 34-2_〜て_で_ないで-2_grammar exercise", 1, "moodle-chapter-34-2-alternative-naide-1.png", "28e3ecb2843b18af686bbfdf9b1ac90a498d62575179ef4af3681c894bc55e9f", {
+    sourceVisual$2(ALTERNATIVE_SHA256, "Chapter 34-2_〜て_で_ないで-2_grammar exercise", 1, "moodle-chapter-34-2-alternative-naide-1.png", "28e3ecb2843b18af686bbfdf9b1ac90a498d62575179ef4af3681c894bc55e9f", {
       ja: "Moodle 原本: 「〜ないで」で別の行動を選ぶ Chapter 34-2 練習。",
       en: "Moodle original: Chapter 34-2 practice using 〜ないで to choose an alternative action."
     }),
-    sourceVisual(SPEAKING_SHA256, "Chapter 34-2_〜て_で_ないで-1 speaking practice-1", 1, "moodle-chapter-34-2-speaking-1.png", "401544677da0df0fe5c045681fb90db20661d5b9922657ee7bb4653ed3348296", {
+    sourceVisual$2(SPEAKING_SHA256, "Chapter 34-2_〜て_で_ないで-1 speaking practice-1", 1, "moodle-chapter-34-2-speaking-1.png", "401544677da0df0fe5c045681fb90db20661d5b9922657ee7bb4653ed3348296", {
       ja: "Moodle 原本: Chapter 34-2 の会話練習。",
       en: "Moodle original: Chapter 34-2 speaking practice."
     }),
-    sourceVisual(WORKSHEET_SHA256$3, "HW Chapter 34_Conversation listening", 1, "moodle-chapter-34-tea-listening-1.png", "a8f7115154c2ce9258462900513461534b0853bba77da4e588dfde1bf2b4cd8b", {
+    sourceVisual$2(WORKSHEET_SHA256$4, "HW Chapter 34_Conversation listening", 1, "moodle-chapter-34-tea-listening-1.png", "a8f7115154c2ce9258462900513461534b0853bba77da4e588dfde1bf2b4cd8b", {
       ja: "Moodle 原本: Track 27 の茶道会話に関する五つの質問。隣接する l2-l28 所有資料。",
       en: "Moodle original: five questions for the Track 27 tea-ceremony conversation; owned by adjacent package l2-l28."
     }),
-    sourceVisual(SCRIPT_SHA256$1, "Chapter 34_Conversation listening script", 1, "moodle-chapter-34-tea-script-1.png", "89fd7e24c44499e1eeb769088dbd10d0dad4666bca7c1df319532c10d9924bea", {
+    sourceVisual$2(SCRIPT_SHA256$2, "Chapter 34_Conversation listening script", 1, "moodle-chapter-34-tea-script-1.png", "89fd7e24c44499e1eeb769088dbd10d0dad4666bca7c1df319532c10d9924bea", {
       ja: "Moodle 原本: Track 27 の茶道会話全文。",
       en: "Moodle original: full tea-ceremony conversation script for Track 27."
     })
@@ -173314,7 +173319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L29TeaCeremonyBeat() {
     assertExactPackageSources$5();
     const rounds = [
-      round$5(
+      round$7(
         "wallet",
         1,
         2,
@@ -173333,7 +173338,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Choose the circumstance that explains why nothing could be bought.", "The speaker did not take a wallet.", "Use the form for doing the second action without doing the first."]
         )
       ),
-      round$5(
+      round$7(
         "beer",
         2,
         2,
@@ -173352,7 +173357,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The two actions happen at the same time.", "The meal happens during the beer drinking.", "For simultaneous actions, remove ます and add ながら."]
         )
       ),
-      round$5(
+      round$7(
         "suit",
         3,
         2,
@@ -173371,7 +173376,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This describes what is not worn when going to work.", "The speaker does not wear a suit.", "Choose ないで after the action not done."]
         )
       ),
-      round$5(
+      round$7(
         "tea-maker",
         4,
         1,
@@ -173390,7 +173395,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Listen for whom Sensei asks.", "Sensei says お茶をたててください.", "The name immediately before that request is Watanabe."]
         )
       ),
-      round$5(
+      round$7(
         "sweet-first",
         5,
         1,
@@ -173407,7 +173412,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         ["甘いお菓子を食べた後でお茶を飲むとおいしいからです。"]
       ),
-      round$5(
+      round$7(
         "first-step",
         6,
         1,
@@ -173424,7 +173429,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         ["右手でおちゃわんを取って左手に載せます。"]
       ),
-      round$5(
+      round$7(
         "turn-bowl",
         7,
         1,
@@ -173443,7 +173448,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Listen just before それから飲みます.", "The verb is 回します.", "The count is two."]
         )
       ),
-      round$5(
+      round$7(
         "taste",
         8,
         1,
@@ -173473,12 +173478,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s Chapter 34-2 originals and Track 27 first, then answer eight source-grounded prompts."
       },
       provenance: {
-        packageId: PACKAGE_ID$7,
-        packageOrder: PACKAGE_ORDER$5,
+        packageId: PACKAGE_ID$9,
+        packageOrder: PACKAGE_ORDER$7,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$7,
-          archiveId: ARCHIVE_ID$5,
+          moduleId: MODULE_ID$9,
+          archiveId: ARCHIVE_ID$7,
           sourceSheets: SOURCE_VISUALS$9,
           media: {
             status: "audio-member-verified-by-archive-task-script-identity",
@@ -173489,8 +173494,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
               url: "/academy/content/lessons/l2-l29/moodle-track-27.mp3",
               payloadSha256: AUDIO_SHA256$5,
               durationSeconds: 111.44,
-              transcriptPayloadSha256: SCRIPT_SHA256$1,
-              worksheetPayloadSha256: WORKSHEET_SHA256$3,
+              transcriptPayloadSha256: SCRIPT_SHA256$2,
+              worksheetPayloadSha256: WORKSHEET_SHA256$4,
               verification: "same-archive-adjacency-and-exact-task-script-identity"
             }
           },
@@ -173553,7 +173558,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
+  function round$7(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -173573,10 +173578,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function grammarQuestion(item2) {
-    return `moodle:${MODULE_ID$7}:${GRAMMAR_SHA256$5}:pdf-p2:task-2:q${item2}`;
+    return `moodle:${MODULE_ID$9}:${GRAMMAR_SHA256$7}:pdf-p2:task-2:q${item2}`;
   }
   function listeningQuestion(item2) {
-    return `moodle:8121293:${WORKSHEET_SHA256$3}:pdf-p1:track-27:q${item2}`;
+    return `moodle:8121293:${WORKSHEET_SHA256$4}:pdf-p1:track-27:q${item2}`;
   }
   function option$8(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -173589,7 +173594,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       Object.freeze({ ja: ja[2], en: en[2] })
     ];
   }
-  function sourceVisual(payloadSha256, title2, page, filename, sha2562, alt) {
+  function sourceVisual$2(payloadSha256, title2, page, filename, sha2562, alt) {
     return Object.freeze({
       sourceId: `moodle:${payloadSha256}:page:${page}`,
       payloadSha256,
@@ -173604,11 +173609,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$8(lessonPackage$5, "l2-l29 package");
     const identity2 = record$8(root.identity, "l2-l29 identity");
     const coverage = record$8(root.sourceCoverage, "l2-l29 coverage");
-    if (root.id !== PACKAGE_ID$7 || root.order !== PACKAGE_ORDER$5 || identity2.moduleId !== MODULE_ID$7 || coverage.archiveId !== ARCHIVE_ID$5 || coverage.archiveSha256 !== ARCHIVE_SHA256$5) {
+    if (root.id !== PACKAGE_ID$9 || root.order !== PACKAGE_ORDER$7 || identity2.moduleId !== MODULE_ID$9 || coverage.archiveId !== ARCHIVE_ID$7 || coverage.archiveSha256 !== ARCHIVE_SHA256$7) {
       throw new TypeError("Unexpected l2-l29 package identity or source archive.");
     }
     const members = array$8(coverage.members, "l2-l29 members").map((value) => record$8(value, "l2-l29 member"));
-    for (const payloadSha256 of [VOCABULARY_SHA256$9, GRAMMAR_SHA256$5, ALTERNATIVE_SHA256, SPEAKING_SHA256, SCRIPT_SHA256$1]) {
+    for (const payloadSha256 of [VOCABULARY_SHA256$a, GRAMMAR_SHA256$7, ALTERNATIVE_SHA256, SPEAKING_SHA256, SCRIPT_SHA256$2]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
         throw new TypeError(`Missing exact l2-l29 Moodle document ${payloadSha256}.`);
       }
@@ -173620,7 +173625,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sharedRoot = record$8(sharedListeningPackage, "l2-l28 package");
     const sharedCoverage = record$8(sharedRoot.sourceCoverage, "l2-l28 coverage");
     const sharedMembers = array$8(sharedCoverage.members, "l2-l28 members").map((value) => record$8(value, "l2-l28 member"));
-    if (sharedRoot.id !== "l2-l28" || !sharedMembers.some((member) => member.payloadSha256 === WORKSHEET_SHA256$3 && member.kind === "document")) {
+    if (sharedRoot.id !== "l2-l28" || !sharedMembers.some((member) => member.payloadSha256 === WORKSHEET_SHA256$4 && member.kind === "document")) {
       throw new TypeError("l2-l29 requires the declared adjacent Chapter 34 listening worksheet.");
     }
     const mapping2 = record$8(root.mapping, "l2-l29 mapping");
@@ -175243,17 +175248,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$4,
     sourceActivityBindings: sourceActivityBindings$4
   };
-  const PACKAGE_ID$6 = "l2-l30";
-  const PACKAGE_ORDER$4 = 57;
-  const MODULE_ID$6 = 8121299;
-  const ARCHIVE_ID$4 = "archive-000025";
-  const ARCHIVE_SHA256$4 = "511ea72f4f4f8f68f99b383169a223b36bd6c4c0045e2665e4a50028f8e07928";
-  const GRAMMAR_SHA256$4 = "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e";
+  const PACKAGE_ID$8 = "l2-l30";
+  const PACKAGE_ORDER$6 = 57;
+  const MODULE_ID$8 = 8121299;
+  const ARCHIVE_ID$6 = "archive-000025";
+  const ARCHIVE_SHA256$6 = "511ea72f4f4f8f68f99b383169a223b36bd6c4c0045e2665e4a50028f8e07928";
+  const GRAMMAR_SHA256$6 = "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e";
   const PROVERBS_SHA256 = "69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27";
   const EXERCISE_SHA256 = "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb";
   const SOURCE_VISUALS$8 = Object.freeze([
     visual$5(
-      GRAMMAR_SHA256$4,
+      GRAMMAR_SHA256$6,
       "Chapter 35 conditional form",
       1,
       "moodle-chapter-35-conditional-1.png",
@@ -175264,7 +175269,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ),
     visual$5(
-      GRAMMAR_SHA256$4,
+      GRAMMAR_SHA256$6,
       "Chapter 35 conditional form",
       2,
       "moodle-chapter-35-conditional-2.png",
@@ -175306,14 +175311,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L30ConditionalWorkshopBeat() {
     assertExactPackageSources$4();
     const rounds = [
-      round$4(
+      round$6(
         "group-one-say",
         1,
         1,
         "grammar",
         1,
         "action-choice",
-        sourceQuestion$3(GRAMMAR_SHA256$4, 1, "group-1:iimasu"),
+        sourceQuestion$3(GRAMMAR_SHA256$6, 1, "group-1:iimasu"),
         "いいます",
         "いえば",
         [
@@ -175325,14 +175330,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["いう is Group 1.", "Move final う to the e-row sound え.", "Then add ば."]
         )
       ),
-      round$4(
+      round$6(
         "group-two-eat",
         2,
         2,
         "grammar",
         2,
         "state-select",
-        sourceQuestion$3(GRAMMAR_SHA256$4, 2, "group-2:tabemasu"),
+        sourceQuestion$3(GRAMMAR_SHA256$6, 2, "group-2:tabemasu"),
         "たべます",
         "たべれば",
         [
@@ -175344,14 +175349,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["たべる is Group 2.", "Remove final る for Group 2.", "Attach れば to the stem."]
         )
       ),
-      round$4(
+      round$6(
         "negative-do",
         3,
         2,
         "grammar",
         3,
         "typed-report",
-        sourceQuestion$3(GRAMMAR_SHA256$4, 2, "negative:shimasen"),
+        sourceQuestion$3(GRAMMAR_SHA256$6, 2, "negative:shimasen"),
         "しません",
         "しなければ",
         [],
@@ -175360,14 +175365,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Start from negative しない.", "Replace ない with なければ.", "Enter the form exactly as printed in Sensei’s table."]
         )
       ),
-      round$4(
+      round$6(
         "good-adjective",
         4,
         2,
         "grammar",
         4,
         "action-choice",
-        sourceQuestion$3(GRAMMAR_SHA256$4, 2, "i-adjective:ii"),
+        sourceQuestion$3(GRAMMAR_SHA256$6, 2, "i-adjective:ii"),
         "いい",
         "よければ",
         [
@@ -175379,7 +175384,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["いい has an irregular stem.", "Its stem here is よ.", "Sensei’s table prints よければ."]
         )
       ),
-      round$4(
+      round$6(
         "home-proverb",
         5,
         1,
@@ -175398,7 +175403,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This is the first box on Sensei’s proverb page.", "The verb is 住む.", "The source line is 住めば 都."]
         )
       ),
-      round$4(
+      round$6(
         "ask-grandfather",
         6,
         3,
@@ -175414,7 +175419,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The first verb is 聞きます.", "聞く becomes 聞けば.", "Join the two source clauses in their printed order."]
         )
       ),
-      round$4(
+      round$6(
         "glasses-negative",
         7,
         3,
@@ -175433,7 +175438,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["The first clause is negative かけません.", "Change かけない to かけなければ.", "Do not change 読めません in the second clause."]
         )
       ),
-      round$4(
+      round$6(
         "japanese-input",
         8,
         5,
@@ -175462,12 +175467,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s Chapter 35 conditional tables, proverb page, and exercise originals first, then restore eight source-grounded examples and forms."
       },
       provenance: {
-        packageId: PACKAGE_ID$6,
-        packageOrder: PACKAGE_ORDER$4,
+        packageId: PACKAGE_ID$8,
+        packageOrder: PACKAGE_ORDER$6,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$6,
-          archiveId: ARCHIVE_ID$4,
+          moduleId: MODULE_ID$8,
+          archiveId: ARCHIVE_ID$6,
           sourceSheets: SOURCE_VISUALS$8,
           media: {
             status: "no-audio-members-in-package",
@@ -175530,7 +175535,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -175550,7 +175555,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function sourceQuestion$3(payloadSha256, page, locus) {
-    return `moodle:${MODULE_ID$6}:${payloadSha256}:pdf-p${page}:${locus}`;
+    return `moodle:${MODULE_ID$8}:${payloadSha256}:pdf-p${page}:${locus}`;
   }
   function option$7(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -175578,11 +175583,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$7(lessonPackage$4, "l2-l30 package");
     const identity2 = record$7(root.identity, "l2-l30 identity");
     const coverage = record$7(root.sourceCoverage, "l2-l30 coverage");
-    if (root.id !== PACKAGE_ID$6 || root.order !== PACKAGE_ORDER$4 || identity2.moduleId !== MODULE_ID$6 || coverage.archiveModuleId !== MODULE_ID$6 || coverage.archiveId !== ARCHIVE_ID$4 || coverage.archiveSha256 !== ARCHIVE_SHA256$4) {
+    if (root.id !== PACKAGE_ID$8 || root.order !== PACKAGE_ORDER$6 || identity2.moduleId !== MODULE_ID$8 || coverage.archiveModuleId !== MODULE_ID$8 || coverage.archiveId !== ARCHIVE_ID$6 || coverage.archiveSha256 !== ARCHIVE_SHA256$6) {
       throw new TypeError("Unexpected l2-l30 package identity or source archive.");
     }
     const members = array$7(coverage.members, "l2-l30 members").map((value) => record$7(value, "l2-l30 member"));
-    for (const payloadSha256 of [GRAMMAR_SHA256$4, PROVERBS_SHA256, EXERCISE_SHA256]) {
+    for (const payloadSha256 of [GRAMMAR_SHA256$6, PROVERBS_SHA256, EXERCISE_SHA256]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
         throw new TypeError(`Missing exact l2-l30 Moodle document ${payloadSha256}.`);
       }
@@ -177030,17 +177035,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$3,
     sourceActivityBindings: sourceActivityBindings$3
   };
-  const PACKAGE_ID$5 = "l2-l31";
-  const PACKAGE_ORDER$3 = 58;
-  const MODULE_ID$5 = 8121300;
-  const ARCHIVE_ID$3 = "archive-000048";
-  const ARCHIVE_SHA256$3 = "9ad13a036c233ed35d5f56f00c1f928db0575c3932b48322f7ac64907bea7a99";
-  const VOCABULARY_SHA256$8 = "5fafa9605db9ee5937563a442379d249854d74db219767f0fde29e7a7f421411";
-  const GRAMMAR_SHA256$3 = "67bda5b3968519440ae273cf3c59f614ffc1b41a9875e84e79e7b74ca23e1dd4";
+  const PACKAGE_ID$7 = "l2-l31";
+  const PACKAGE_ORDER$5 = 58;
+  const MODULE_ID$7 = 8121300;
+  const ARCHIVE_ID$5 = "archive-000048";
+  const ARCHIVE_SHA256$5 = "9ad13a036c233ed35d5f56f00c1f928db0575c3932b48322f7ac64907bea7a99";
+  const VOCABULARY_SHA256$9 = "5fafa9605db9ee5937563a442379d249854d74db219767f0fde29e7a7f421411";
+  const GRAMMAR_SHA256$5 = "67bda5b3968519440ae273cf3c59f614ffc1b41a9875e84e79e7b74ca23e1dd4";
   const QUARANTINED_AUDIO_SHA256$2 = "5cfe1762cfec2a9e8f4e62c8c35b6b09685428b9721d373b08b2f7a6668ad7e7";
   const SOURCE_VISUALS$7 = Object.freeze([
     visual$4(
-      VOCABULARY_SHA256$8,
+      VOCABULARY_SHA256$9,
       "Chapter 35-2 Vocabulary Sheet",
       1,
       "moodle-chapter-35-2-vocabulary-1.png",
@@ -177051,7 +177056,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ),
     visual$4(
-      VOCABULARY_SHA256$8,
+      VOCABULARY_SHA256$9,
       "Chapter 35-2 Vocabulary Sheet",
       2,
       "moodle-chapter-35-2-vocabulary-2.png",
@@ -177062,7 +177067,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ),
     visual$4(
-      GRAMMAR_SHA256$3,
+      GRAMMAR_SHA256$5,
       "Chapter 35-2_adj_noun conditional form 〜ければ 〜なら_grammar exercise",
       1,
       "moodle-chapter-35-2-adjective-noun-conditional-1.png",
@@ -177073,7 +177078,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ),
     visual$4(
-      GRAMMAR_SHA256$3,
+      GRAMMAR_SHA256$5,
       "Chapter 35-2_adj_noun conditional form 〜ければ 〜なら_grammar exercise",
       2,
       "moodle-chapter-35-2-adjective-noun-conditional-2.png",
@@ -177087,14 +177092,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L31AdjectiveNounConditionalsBeat() {
     assertExactPackageSources$3();
     const rounds = [
-      round$3(
+      round$5(
         "in-that-case",
         1,
         2,
         "vocabulary",
         18,
         "state-select",
-        sourceQuestion$2(VOCABULARY_SHA256$8, 2, "vocabulary:18"),
+        sourceQuestion$2(VOCABULARY_SHA256$9, 2, "vocabulary:18"),
         "In that case",
         "それなら",
         [
@@ -177106,14 +177111,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This is row 18 on vocabulary page 2.", "It responds to the condition just mentioned.", "The source wording is それなら."]
         )
       ),
-      round$3(
+      round$5(
         "travel-agency",
         2,
         2,
         "vocabulary",
         21,
         "action-choice",
-        sourceQuestion$2(VOCABULARY_SHA256$8, 2, "vocabulary:21"),
+        sourceQuestion$2(VOCABULARY_SHA256$9, 2, "vocabulary:21"),
         "Travel agency",
         "りょこうしゃ（旅行社）",
         [
@@ -177125,14 +177130,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["This is row 21 on vocabulary page 2.", "The first source form contains 旅行 and 社.", "Choose the first word printed in the row."]
         )
       ),
-      round$3(
+      round$5(
         "good-condition",
         3,
         1,
         1,
         10,
         "typed-report",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 1, "task-1:item-10"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 1, "task-1:item-10"),
         "いいです",
         "よければ",
         [],
@@ -177141,14 +177146,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["いい uses an irregular stem.", "The stem is よ.", "Attach ければ to よ."]
         )
       ),
-      round$3(
+      round$5(
         "cheap-condition",
         4,
         1,
         1,
         11,
         "action-choice",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 1, "task-1:item-11"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 1, "task-1:item-11"),
         "安いです",
         "安ければ",
         [
@@ -177160,14 +177165,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["安い is an i-adjective.", "Remove the final い.", "Attach ければ to 安."]
         )
       ),
-      round$3(
+      round$5(
         "quiet-condition",
         5,
         1,
         1,
         12,
         "state-select",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 1, "task-1:item-12"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 1, "task-1:item-12"),
         "静かです",
         "静かなら",
         [
@@ -177179,14 +177184,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["静か is a na-adjective.", "Do not keep な in this positive condition.", "Attach なら to 静か."]
         )
       ),
-      round$3(
+      round$5(
         "illness-condition",
         6,
         1,
         1,
         13,
         "typed-report",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 1, "task-1:item-13"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 1, "task-1:item-13"),
         "病気です",
         "病気なら",
         [],
@@ -177195,14 +177200,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["病気 is a noun.", "Use the positive noun condition.", "Attach なら to 病気."]
         )
       ),
-      round$3(
+      round$5(
         "mark-correct-answer",
         7,
         1,
         2,
         1,
         "action-choice",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 1, "task-2:item-1"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 1, "task-2:item-1"),
         "答えが 正しいです・丸を 付けて ください",
         "答えが 正しければ、丸を 付けて ください。",
         [
@@ -177214,14 +177219,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Turn 正しい in the first clause into a condition.", "Remove the final い.", "Continue the printed second clause after 正しければ."]
         )
       ),
-      round$3(
+      round$5(
         "fuji-july",
         8,
         2,
         4,
         1,
         "typed-report",
-        sourceQuestion$2(GRAMMAR_SHA256$3, 2, "task-4:item-1"),
+        sourceQuestion$2(GRAMMAR_SHA256$5, 2, "task-4:item-1"),
         "富士山に 登れますか。（7月に なります）",
         "7月に なれば、富士山に 登れます。",
         [],
@@ -177243,12 +177248,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s Chapter 35-2 vocabulary and adjective/noun conditional forms first, then restore eight source cues."
       },
       provenance: {
-        packageId: PACKAGE_ID$5,
-        packageOrder: PACKAGE_ORDER$3,
+        packageId: PACKAGE_ID$7,
+        packageOrder: PACKAGE_ORDER$5,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$5,
-          archiveId: ARCHIVE_ID$3,
+          moduleId: MODULE_ID$7,
+          archiveId: ARCHIVE_ID$5,
           sourceSheets: SOURCE_VISUALS$7,
           media: {
             status: "audio-member-quarantined-pairing-unproven",
@@ -177311,7 +177316,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -177331,7 +177336,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function sourceQuestion$2(payloadSha256, page, locus) {
-    return `moodle:${MODULE_ID$5}:${payloadSha256}:pdf-p${page}:${locus}`;
+    return `moodle:${MODULE_ID$7}:${payloadSha256}:pdf-p${page}:${locus}`;
   }
   function option$6(value, ja, en) {
     return Object.freeze({ value, label: Object.freeze({ ja, en }) });
@@ -177359,11 +177364,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$6(lessonPackage$3, "l2-l31 package");
     const identity2 = record$6(root.identity, "l2-l31 identity");
     const coverage = record$6(root.sourceCoverage, "l2-l31 coverage");
-    if (root.id !== PACKAGE_ID$5 || root.order !== PACKAGE_ORDER$3 || identity2.moduleId !== MODULE_ID$5 || coverage.archiveModuleId !== MODULE_ID$5 || coverage.archiveId !== ARCHIVE_ID$3 || coverage.archiveSha256 !== ARCHIVE_SHA256$3) {
+    if (root.id !== PACKAGE_ID$7 || root.order !== PACKAGE_ORDER$5 || identity2.moduleId !== MODULE_ID$7 || coverage.archiveModuleId !== MODULE_ID$7 || coverage.archiveId !== ARCHIVE_ID$5 || coverage.archiveSha256 !== ARCHIVE_SHA256$5) {
       throw new TypeError("Unexpected l2-l31 package identity or source archive.");
     }
     const members = array$6(coverage.members, "l2-l31 members").map((value) => record$6(value, "l2-l31 member"));
-    for (const payloadSha256 of [VOCABULARY_SHA256$8, GRAMMAR_SHA256$3]) {
+    for (const payloadSha256 of [VOCABULARY_SHA256$9, GRAMMAR_SHA256$5]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
         throw new TypeError(`Missing exact l2-l31 Moodle document ${payloadSha256}.`);
       }
@@ -178779,12 +178784,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$2,
     sourceActivityBindings: sourceActivityBindings$2
   };
-  const PACKAGE_ID$4 = "l2-l32";
-  const PACKAGE_ORDER$2 = 59;
-  const MODULE_ID$4 = 8121301;
-  const ARCHIVE_ID$2 = "archive-000042";
-  const ARCHIVE_SHA256$2 = "8c1e974b36b4546301ea6d4b90ec8a12d7ac618a37a18b0c3765ff3c248821c3";
-  const VOCABULARY_SHA256$7 = "3368165df2d31b2d17c058e854e0958e55c7f4b0bad8f0339dbbbf9ac2ae0258";
+  const PACKAGE_ID$6 = "l2-l32";
+  const PACKAGE_ORDER$4 = 59;
+  const MODULE_ID$6 = 8121301;
+  const ARCHIVE_ID$4 = "archive-000042";
+  const ARCHIVE_SHA256$4 = "8c1e974b36b4546301ea6d4b90ec8a12d7ac618a37a18b0c3765ff3c248821c3";
+  const VOCABULARY_SHA256$8 = "3368165df2d31b2d17c058e854e0958e55c7f4b0bad8f0339dbbbf9ac2ae0258";
   const CONDITIONAL_SHA256 = "67bda5b3968519440ae273cf3c59f614ffc1b41a9875e84e79e7b74ca23e1dd4";
   const SUGGESTIONS_SHA256 = "89e6a87f527dc69b0535ba6347e84af82ad73f96d7cb3c3b6712420611e427ef";
   const HEALTH_SHA256 = "62242b14c4fd24c272e2f41da3f494757770eda77cec4f46e88344697b452424";
@@ -178795,7 +178800,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ]);
   const SOURCE_VISUALS$6 = Object.freeze([
     visual$3(
-      VOCABULARY_SHA256$7,
+      VOCABULARY_SHA256$8,
       "Chapter 35-2 Vocabulary Sheet",
       1,
       "moodle-chapter-35-2-vocabulary-page-1.png",
@@ -178806,7 +178811,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ),
     visual$3(
-      VOCABULARY_SHA256$7,
+      VOCABULARY_SHA256$8,
       "Chapter 35-2 Vocabulary Sheet",
       2,
       "moodle-chapter-35-2-vocabulary-page-2.png",
@@ -178875,7 +178880,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L32NaraGuidanceWorkshopBeat() {
     assertExactPackageSources$2();
     const rounds = [
-      round$2(
+      round$4(
         "cheap-computer",
         1,
         1,
@@ -178894,7 +178899,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s first Basic sentence example.", "Final い in 安い changes to ければ.", "The printed main clause is パソコンを 買(か)います。"]
         )
       ),
-      round$2(
+      round$4(
         "convenient-party",
         2,
         1,
@@ -178913,7 +178918,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find Sensei’s 都合 example.", "The conditional form of いい is よければ.", "Keep the printed destination パーティへ."]
         )
       ),
-      round$2(
+      round$4(
         "free-evening",
         3,
         1,
@@ -178929,7 +178934,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s affirmative na-adjective example.", "ひま is followed by なら.", "The printed suggestion is 今晩(こんばん) 映画(えいが)に 行きましょう。"]
         )
       ),
-      round$2(
+      round$4(
         "rain-cafe",
         4,
         1,
@@ -178948,7 +178953,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s affirmative noun example.", "雨 is followed by なら.", "The printed place is 近所(きんじょ) の カフェ."]
         )
       ),
-      round$2(
+      round$4(
         "paris-opera",
         5,
         1,
@@ -178967,7 +178972,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s first noun + なら example.", "The recommended place is オペラハウス.", "The printed ending is 絶対(ぜったい) 行ってください。"]
         )
       ),
-      round$2(
+      round$4(
         "eurostar-discount",
         6,
         1,
@@ -178983,7 +178988,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s second suggestion example.", "The recommendation is 早割(はやわり).", "The printed ending is お薦(すす)めですよ。"]
         )
       ),
-      round$2(
+      round$4(
         "chinese-food",
         7,
         1,
@@ -179002,7 +179007,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Use Sensei’s food suggestion example.", "The place is チャイナタウン.", "The recommendation ends が いいですよ。"]
         )
       ),
-      round$2(
+      round$4(
         "kings-cross",
         8,
         1,
@@ -179031,12 +179036,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s Chapter 35-2 and 35-3 originals, vocabulary, and health reference first, then restore eight printed examples."
       },
       provenance: {
-        packageId: PACKAGE_ID$4,
-        packageOrder: PACKAGE_ORDER$2,
+        packageId: PACKAGE_ID$6,
+        packageOrder: PACKAGE_ORDER$4,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$4,
-          archiveId: ARCHIVE_ID$2,
+          moduleId: MODULE_ID$6,
+          archiveId: ARCHIVE_ID$4,
           sourceSheets: SOURCE_VISUALS$6,
           media: {
             status: "three-audio-members-quarantined-unresolved-pairing",
@@ -179098,7 +179103,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -179118,7 +179123,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function sourceQuestion$1(payloadSha256, page, locus) {
-    return `moodle:${MODULE_ID$4}:${payloadSha256}:pdf-p${page}:${locus}`;
+    return `moodle:${MODULE_ID$6}:${payloadSha256}:pdf-p${page}:${locus}`;
   }
   function option$5(value) {
     return Object.freeze({ value, label: Object.freeze({ ja: value, en: value }) });
@@ -179146,11 +179151,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$5(lessonPackage$2, "l2-l32 package");
     const identity2 = record$5(root.identity, "l2-l32 identity");
     const coverage = record$5(root.sourceCoverage, "l2-l32 coverage");
-    if (root.id !== PACKAGE_ID$4 || root.order !== PACKAGE_ORDER$2 || identity2.moduleId !== MODULE_ID$4 || coverage.archiveModuleId !== MODULE_ID$4 || coverage.archiveId !== ARCHIVE_ID$2 || coverage.archiveSha256 !== ARCHIVE_SHA256$2) {
+    if (root.id !== PACKAGE_ID$6 || root.order !== PACKAGE_ORDER$4 || identity2.moduleId !== MODULE_ID$6 || coverage.archiveModuleId !== MODULE_ID$6 || coverage.archiveId !== ARCHIVE_ID$4 || coverage.archiveSha256 !== ARCHIVE_SHA256$4) {
       throw new TypeError("Unexpected l2-l32 package identity or source archive.");
     }
     const members = array$5(coverage.members, "l2-l32 members").map((value) => record$5(value, "l2-l32 member"));
-    for (const payloadSha256 of [VOCABULARY_SHA256$7, CONDITIONAL_SHA256, SUGGESTIONS_SHA256, HEALTH_SHA256]) {
+    for (const payloadSha256 of [VOCABULARY_SHA256$8, CONDITIONAL_SHA256, SUGGESTIONS_SHA256, HEALTH_SHA256]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document")) {
         throw new TypeError(`Missing exact l2-l32 Moodle document ${payloadSha256}.`);
       }
@@ -180567,11 +180572,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration: assessmentOrchestration$1,
     sourceActivityBindings: sourceActivityBindings$1
   };
-  const PACKAGE_ID$3 = "l2-l33";
-  const PACKAGE_ORDER$1 = 60;
-  const MODULE_ID$3 = 8121301;
-  const ARCHIVE_ID$1 = "archive-000042";
-  const ARCHIVE_SHA256$1 = "8c1e974b36b4546301ea6d4b90ec8a12d7ac618a37a18b0c3765ff3c248821c3";
+  const PACKAGE_ID$5 = "l2-l33";
+  const PACKAGE_ORDER$3 = 60;
+  const MODULE_ID$5 = 8121301;
+  const ARCHIVE_ID$3 = "archive-000042";
+  const ARCHIVE_SHA256$3 = "8c1e974b36b4546301ea6d4b90ec8a12d7ac618a37a18b0c3765ff3c248821c3";
   const HOMEWORK_SHA256 = "bf9737e27d9ffc740f8bc597538968157f5b87c63207e28a2c55b6dae9ad66ce";
   const QUARANTINED_AUDIO_SHA256 = Object.freeze([
     "06f3dfb38532d500d7703639865192e443b98e8ecf48da616b4010a04b8aa6b0",
@@ -180601,7 +180606,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonL2L33Chapter35HomeworkReviewBeat() {
     assertExactPackageSources$1();
     const rounds = [
-      round$1(
+      round$3(
         "clothes-model",
         1,
         1,
@@ -180620,7 +180625,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find Sensei’s れい） under task 1.", "The size condition is followed by the price condition.", "The printed model uses 安ければ."]
         )
       ),
-      round$1(
+      round$3(
         "cheap-conditional",
         2,
         1,
@@ -180636,7 +180641,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Return to the same printed clothes model.", "Change the final い of the i-adjective.", "The form visible in the source is 安ければ."]
         )
       ),
-      round$1(
+      round$3(
         "bookshop-recommendation",
         3,
         1,
@@ -180652,7 +180657,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find the town-recommendation speech bubble.", "The recommended shop is 山川ブック.", "The printed ending is がいいです。"]
         )
       ),
-      round$1(
+      round$3(
         "bookshop-reason",
         4,
         1,
@@ -180671,7 +180676,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Read the second line of the speech bubble.", "The second reason describes the people in the shop.", "The source says 店の人も親切ですから。"]
         )
       ),
-      round$1(
+      round$3(
         "watch-repair-model",
         5,
         1,
@@ -180690,7 +180695,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find the 例 under task 4.", "The action done to the watch is 修理する.", "The printed conditional is 修理すれば."]
         )
       ),
-      round$1(
+      round$3(
         "watt-sensei-question",
         6,
         2,
@@ -180706,7 +180711,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find the task 4 model on page 2.", "The reply is 5時ごろ. What is being asked?", "The interrogative in brackets is 何時."]
         )
       ),
-      round$1(
+      round$3(
         "sushi-shop-model",
         7,
         2,
@@ -180725,7 +180730,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           ["Find Sensei’s task 5 model.", "The brackets contain the kind of shop being sought.", "The printed shop name is 大黒ずし."]
         )
       ),
-      round$1(
+      round$3(
         "reason-a",
         8,
         2,
@@ -180754,12 +180759,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study both pages of Sensei’s Chapter 35 homework first, then restore eight printed models and visible reason mappings."
       },
       provenance: {
-        packageId: PACKAGE_ID$3,
-        packageOrder: PACKAGE_ORDER$1,
+        packageId: PACKAGE_ID$5,
+        packageOrder: PACKAGE_ORDER$3,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$3,
-          archiveId: ARCHIVE_ID$1,
+          moduleId: MODULE_ID$5,
+          archiveId: ARCHIVE_ID$3,
           sourceSheets: SOURCE_VISUALS$5,
           media: {
             status: "three-audio-members-quarantined-unresolved-pairing",
@@ -180822,7 +180827,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$1(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options, roundHints) {
+  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -180830,7 +180835,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourcePage,
       sourceTask,
       sourceItem,
-      sourceQuestionId: `moodle:${MODULE_ID$3}:${HOMEWORK_SHA256}:pdf-p${sourcePage}:${locus}`,
+      sourceQuestionId: `moodle:${MODULE_ID$5}:${HOMEWORK_SHA256}:pdf-p${sourcePage}:${locus}`,
       sourcePrompt,
       options,
       answerValue: answerExpression,
@@ -180867,7 +180872,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$4(lessonPackage$1, "l2-l33 package");
     const identity2 = record$4(root.identity, "l2-l33 identity");
     const coverage = record$4(root.sourceCoverage, "l2-l33 coverage");
-    if (root.id !== PACKAGE_ID$3 || root.order !== PACKAGE_ORDER$1 || identity2.moduleId !== MODULE_ID$3 || coverage.archiveModuleId !== MODULE_ID$3 || coverage.archiveId !== ARCHIVE_ID$1 || coverage.archiveSha256 !== ARCHIVE_SHA256$1) {
+    if (root.id !== PACKAGE_ID$5 || root.order !== PACKAGE_ORDER$3 || identity2.moduleId !== MODULE_ID$5 || coverage.archiveModuleId !== MODULE_ID$5 || coverage.archiveId !== ARCHIVE_ID$3 || coverage.archiveSha256 !== ARCHIVE_SHA256$3) {
       throw new TypeError("Unexpected l2-l33 package identity or source archive.");
     }
     const members = array$4(coverage.members, "l2-l33 members").map((value) => record$4(value, "l2-l33 member"));
@@ -181794,12 +181799,126 @@ recommendedJiten	Jiten由来の頻度バッジです。
     assessmentOrchestration,
     sourceActivityBindings
   };
-  const PACKAGE_ID$2 = "l2-l34";
-  const PACKAGE_ORDER = 61;
-  const MODULE_ID$2 = 8121293;
-  const ARCHIVE_ID = "archive-000096";
-  const ARCHIVE_SHA256 = "fef6a7e4dab4bfc85a5f02e7713837f771ab4a32b316522c5640896d94063c02";
-  const WORKSHEET_SHA256$2 = "0139b9a8eac967df4d2f159a9a64077b23e3225a04159eff6f601751d8ff9fbd";
+  const CONCEPT_IDS = Object.freeze([
+    "reading:menu-clue-sequence",
+    "reading:shared-uncertainty",
+    "vocabulary:food-menu"
+  ]);
+  function createPicturelessMenuReaderActivity() {
+    return Object.freeze({
+      id: "activity:l2-l34-pictureless-menu-reader",
+      kind: "academy-story-reader",
+      sourceQuestionId: "story:s1e08-menu-without-pictures",
+      conceptIds: CONCEPT_IDS,
+      responseKind: "extended-reading-checkpoint",
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      prompt: {
+        ja: "シンさんと写真のないメニューを読み、三つの手がかりを追いましょう。",
+        en: "Read the pictureless menu with Shin and follow its three clues."
+      },
+      payload: {
+        title: { ja: "写真のないメニュー", en: "The Menu Without Pictures" },
+        sections: [
+          {
+            id: "shared-uncertainty",
+            heading: { ja: "読み方を一緒に探す", en: "Share the uncertainty" },
+            paragraphs: [
+              "シンさんが、写真のない定食メニューを見つけました。",
+              "「知っているふりをしないで、読み方を一緒に探しましょう」と言いました。"
+            ]
+          },
+          {
+            id: "three-clues",
+            heading: { ja: "三つの手がかり", en: "Three clues" },
+            paragraphs: [
+              "最初の手がかりは読み方、二つ目は数え方、三つ目は好みです。",
+              "みんなが一つずつ手がかりを出すと、注文する料理が分かってきました。"
+            ]
+          },
+          {
+            id: "plain-rice",
+            heading: { ja: "一番特別そうな料理", en: "The most special-looking dish" },
+            paragraphs: [
+              "みんなは一番特別そうな料理を選びましたが、小さい字には「ご飯」と書いてありました。",
+              "シンさんは笑って、「簡単な料理でも、読めたら大きな発見です」と言いました。"
+            ]
+          }
+        ],
+        questions: [
+          {
+            id: "uncertain",
+            prompt: { ja: "シンさんは、分からない読み方をどうしましたか。", en: "What did Shin do with an uncertain reading?" },
+            options: [
+              { id: "shared", label: "みんなと一緒に探した" },
+              { id: "hid", label: "分かったふりをした" },
+              { id: "skipped", label: "メニューを閉じた" }
+            ],
+            correctOptionId: "shared",
+            errorTag: "pictureless-menu-shared-uncertainty"
+          },
+          {
+            id: "clues",
+            prompt: { ja: "料理を見つけるために、手がかりをいくつ使いましたか。", en: "How many clues did the class combine?" },
+            options: [
+              { id: "one", label: "一つ" },
+              { id: "two", label: "二つ" },
+              { id: "three", label: "三つ" }
+            ],
+            correctOptionId: "three",
+            errorTag: "pictureless-menu-clue-count"
+          },
+          {
+            id: "dish",
+            prompt: { ja: "一番特別そうな料理は、実は何でしたか。", en: "What was the special-looking dish really?" },
+            options: [
+              { id: "rice", label: "ご飯" },
+              { id: "meat", label: "肉料理" },
+              { id: "vegetables", label: "野菜料理" }
+            ],
+            correctOptionId: "rice",
+            errorTag: "pictureless-menu-final-dish"
+          }
+        ],
+        passScore: 1,
+        feedback: {
+          pass: {
+            explanation: {
+              ja: "読み方、数え方、好みの手がかりを順番に追えました。",
+              en: "You followed the reading, counter, and preference clues in order."
+            }
+          },
+          lapse: {
+            explanation: {
+              ja: "三つの見出しと、最後の「ご飯」をもう一度確認しましょう。",
+              en: "Recheck the three headings and the final ご飯 reveal."
+            },
+            repairPrompt: {
+              ja: "「読み方・数え方・好み」の順で手がかりを探してください。",
+              en: "Find the clues in this order: reading, counter, preference."
+            },
+            nearbyExample: {
+              ja: "小さい字には「ご飯」と書いてありました。",
+              en: "The small print said ご飯."
+            }
+          }
+        },
+        reviewTargets: [{
+          id: "review:l2-l34:pictureless-menu-clues",
+          conceptId: "reading:menu-clue-sequence",
+          expression: "読み方・数え方・好み",
+          reading: "よみかた・かぞえかた・このみ",
+          meanings: ["reading, counter, and preference clues"],
+          sentence: "読み方、数え方、好みの手がかりを順番に追います。"
+        }]
+      }
+    });
+  }
+  const PACKAGE_ID$4 = "l2-l34";
+  const PACKAGE_ORDER$2 = 61;
+  const MODULE_ID$4 = 8121293;
+  const ARCHIVE_ID$2 = "archive-000096";
+  const ARCHIVE_SHA256$2 = "fef6a7e4dab4bfc85a5f02e7713837f771ab4a32b316522c5640896d94063c02";
+  const WORKSHEET_SHA256$3 = "0139b9a8eac967df4d2f159a9a64077b23e3225a04159eff6f601751d8ff9fbd";
   const SOURCE_TITLE$6 = "Kanji 7-肉、料、理、野、半、大、小_worksheets";
   const L2_L34_SOURCE_PAGES = Object.freeze([
     visual$1(
@@ -181821,29 +181940,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     )
   ]);
+  function createLessonL2L34PicturelessMenuStoryBeat() {
+    return Object.freeze({
+      id: "pictureless-menu-story",
+      narrative: {
+        ja: "先生の漢字7ワークシートを開く前に、シンさんと写真のないメニューの手がかりを追います。",
+        en: "Before opening Sensei’s Kanji 7 worksheet, follow the pictureless menu clues with Shin."
+      },
+      activity: createPicturelessMenuReaderActivity()
+    });
+  }
   function createLessonL2L34KanjiMenuReadingBeat() {
     assertExactPackageSources();
     const rounds = [
-      round("meat-reading", 1, 1, "word-table", 1, "state-select", "word-table:肉", "肉", "にく", [
+      round$2("meat-reading", 1, 1, "word-table", 1, "state-select", "word-table:肉", "肉", "にく", [
         option$3("にく"),
         option$3("りょうり")
       ]),
-      round("cooking-reading", 2, 1, "word-table", 2, "action-choice", "word-table:料理", "料理", "りょうり", [
+      round$2("cooking-reading", 2, 1, "word-table", 2, "action-choice", "word-table:料理", "料理", "りょうり", [
         option$3("りょうり"),
         option$3("りょうきん")
       ]),
-      round("vegetable-reading", 3, 1, "word-table", 3, "typed-report", "word-table:野菜", "野菜", "やさい"),
-      round("half-price-reading", 4, 1, "word-table", 4, "action-choice", "word-table:半額", "半額", "はんがく", [
+      round$2("vegetable-reading", 3, 1, "word-table", 3, "typed-report", "word-table:野菜", "野菜", "やさい"),
+      round$2("half-price-reading", 4, 1, "word-table", 4, "action-choice", "word-table:半額", "半額", "はんがく", [
         option$3("はんがく"),
         option$3("はんぶん")
       ]),
-      round("adult-reading", 5, 2, "word-table", 5, "typed-report", "word-table:大人", "<大人>", "おとな"),
-      round("small-bird-reading", 6, 2, "word-table", 6, "state-select", "word-table:小鳥", "小鳥", "ことり", [
+      round$2("adult-reading", 5, 2, "word-table", 5, "typed-report", "word-table:大人", "<大人>", "おとな"),
+      round$2("small-bird-reading", 6, 2, "word-table", 6, "state-select", "word-table:小鳥", "小鳥", "ことり", [
         option$3("ことり"),
         option$3("しょうがっこう")
       ]),
-      round("fish-card-reading", 7, 2, 2, 1, "typed-report", "task-2:魚", "魚", "さかな"),
-      round("sake-card-reading", 8, 2, 2, 4, "action-choice", "task-2:酒", "酒", "さけ", [
+      round$2("fish-card-reading", 7, 2, 2, 1, "typed-report", "task-2:魚", "魚", "さかな"),
+      round$2("sake-card-reading", 8, 2, 2, 4, "action-choice", "task-2:酒", "酒", "さけ", [
         option$3("さけ"),
         option$3("さかな")
       ])
@@ -181860,12 +181989,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         en: "Study Sensei’s Kanji 7 worksheet first, then restore eight readings printed on it."
       },
       provenance: {
-        packageId: PACKAGE_ID$2,
-        packageOrder: PACKAGE_ORDER,
+        packageId: PACKAGE_ID$4,
+        packageOrder: PACKAGE_ORDER$2,
         answerVisibility: "after-attempt",
         moodle: {
-          moduleId: MODULE_ID$2,
-          archiveId: ARCHIVE_ID,
+          moduleId: MODULE_ID$4,
+          archiveId: ARCHIVE_ID$2,
           sourceSheets: L2_L34_SOURCE_PAGES,
           media: {
             status: "no-audio-members-in-package",
@@ -182020,7 +182149,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options = []) {
+  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -182040,7 +182169,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function sourceQuestion(page, locus) {
-    return `moodle:${MODULE_ID$2}:${WORKSHEET_SHA256$2}:pdf-p${page}:${locus}`;
+    return `moodle:${MODULE_ID$4}:${WORKSHEET_SHA256$3}:pdf-p${page}:${locus}`;
   }
   function option$3(value) {
     return Object.freeze({
@@ -182066,8 +182195,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function visual$1(page, filename, sha2562, alt) {
     return Object.freeze({
-      sourceId: `moodle:${WORKSHEET_SHA256$2}:page:${page}`,
-      payloadSha256: WORKSHEET_SHA256$2,
+      sourceId: `moodle:${WORKSHEET_SHA256$3}:page:${page}`,
+      payloadSha256: WORKSHEET_SHA256$3,
       title: SOURCE_TITLE$6,
       page,
       url: `/academy/content/lessons/l2-l34/${filename}`,
@@ -182079,12 +182208,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const root = record$3(lessonPackage, "l2-l34 package");
     const identity2 = record$3(root.identity, "l2-l34 identity");
     const coverage = record$3(root.sourceCoverage, "l2-l34 coverage");
-    if (root.id !== PACKAGE_ID$2 || root.order !== PACKAGE_ORDER || identity2.moduleId !== MODULE_ID$2 || coverage.archiveModuleId !== MODULE_ID$2 || coverage.archiveId !== ARCHIVE_ID || coverage.archiveSha256 !== ARCHIVE_SHA256 || coverage.memberFileCount !== 1) {
+    if (root.id !== PACKAGE_ID$4 || root.order !== PACKAGE_ORDER$2 || identity2.moduleId !== MODULE_ID$4 || coverage.archiveModuleId !== MODULE_ID$4 || coverage.archiveId !== ARCHIVE_ID$2 || coverage.archiveSha256 !== ARCHIVE_SHA256$2 || coverage.memberFileCount !== 1) {
       throw new TypeError("Unexpected l2-l34 package identity or source archive.");
     }
     const members = array$3(coverage.members, "l2-l34 members").map((value) => record$3(value, "l2-l34 member"));
     if (!members.some(
-      (member) => member.payloadSha256 === WORKSHEET_SHA256$2 && member.kind === "document" && member.title === SOURCE_TITLE$6 && member.extension === ".pdf"
+      (member) => member.payloadSha256 === WORKSHEET_SHA256$3 && member.kind === "document" && member.title === SOURCE_TITLE$6 && member.extension === ".pdf"
     )) {
       throw new TypeError("Missing exact l2-l34 Kanji 7 Moodle worksheet.");
     }
@@ -182102,6 +182231,955 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function array$3(value, label) {
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
+  }
+  const PACKAGE_ID$3 = "l2-l35";
+  const PACKAGE_ORDER$1 = 62;
+  const MODULE_ID$3 = 8824742;
+  const ARCHIVE_ID$1 = "archive-000028";
+  const ARCHIVE_SHA256$1 = "5864abfd10047d8084bf67dd6aeb921852a98e2c873d66a47bab32640c7ac174";
+  const SOURCE_PACKAGE_STATUS = "direct-canonical-archive-extension-no-authored-package-json";
+  const GRAMMAR_SHA256$4 = "b531dcfee3d58e65650ec0dff7eaa271a30721d410e935a47132fb565119808a";
+  const SCRIPT_SHA256$1 = "1571d04cee3a179b55cb202e519d5a366f7c62c0a1ec2483c26cfc1f6b9f5376";
+  const WORKSHEET_SHA256$2 = "d2efe791fb0fbb9693574aa6c3f5f388a2564484978cabc6d0d40ab74d10bbc5";
+  const L2_L35_QUARANTINED_AUDIO = Object.freeze([
+    Object.freeze({
+      member: "Track 28",
+      payloadSha256: "0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e",
+      durationSeconds: 53.506667
+    }),
+    Object.freeze({
+      member: "B-4",
+      payloadSha256: "4fe8f7973ea49725d3bb76988bd5c85f32a2e405bd54280be9806952931ca6aa",
+      durationSeconds: 124.12
+    })
+  ]);
+  const L2_L35_SOURCE_VISUALS = Object.freeze([
+    sourceVisual$1(
+      GRAMMAR_SHA256$4,
+      "Chapter 35-3_〜ありませんか grammar exercise",
+      1,
+      "moodle-chapter-35-3-arimasenka-grammar-page-1.png",
+      "7f5a7b07b7e2fa070e2599f60eddff2ed2722b23d4ce03a88c351c485065364c"
+    ),
+    sourceVisual$1(
+      GRAMMAR_SHA256$4,
+      "Chapter 35-3_〜ありませんか grammar exercise",
+      2,
+      "moodle-chapter-35-3-arimasenka-grammar-page-2.png",
+      "171d78773d6a5c28e3f14d80264764174ae248223d33a8682a538ad182a04254"
+    ),
+    sourceVisual$1(
+      SCRIPT_SHA256$1,
+      "Chapter 35_Conversation listening script",
+      1,
+      "moodle-chapter-35-conversation-listening-script-page-1.png",
+      "750cf34684a764a0376e395751680d9e6dc64d8b1cd5bda0c32e9b8c86eec3f2"
+    ),
+    sourceVisual$1(
+      WORKSHEET_SHA256$2,
+      "Chapter 35_Conversation listening",
+      1,
+      "moodle-chapter-35-conversation-listening-worksheet-page-1.png",
+      "a08aee2d88c59e24afc626f8aae2f79a6f014b22c9c6cf81f43067ece76ff3ce"
+    )
+  ]);
+  function createLessonL2L35ConsiderateRecommendationBeat() {
+    const rounds = createRounds$1();
+    const activity2 = {
+      id: "activity:l2-l35-considerate-recommendation",
+      kind: "academy-considerate-recommendation",
+      responseKind: "moodle-chapter-35-arimasenka-conversation-script",
+      curriculumPhase: "assessed-production",
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      conceptIds: rounds.map((round2) => round2.conceptId),
+      prompt: {
+        ja: "先生の Chapter 35 の四枚を先に読み、印刷された会話スクリプトの八つの部分を、形と順序を変えずに戻してください。",
+        en: "Read Sensei’s four Chapter 35 pages first, then restore the eight printed conversation-script segments without changing their form or order."
+      },
+      teachingSupport: {
+        kind: "vocabulary",
+        title: { ja: "原本を読む前の先生の語彙", en: "Sensei’s vocabulary before retrieval" },
+        entries: [
+          { japanese: "それなら", translation: "In that case" },
+          { japanese: "さあ", translation: "Well, let me see. (used when unsure of something)" },
+          { japanese: "詳(くわ)しい", translation: "detailed" },
+          { japanese: "夜行(やこう)バス", translation: "Overnight bus" },
+          { japanese: "旅行社(りょこうしゃ)／旅行会社(りょこうがいしゃ)", translation: "Travel agency" },
+          { japanese: "スキー場(じょう)", translation: "ski resort, ski area" }
+        ]
+      },
+      provenance: {
+        packageId: PACKAGE_ID$3,
+        packageOrder: PACKAGE_ORDER$1,
+        answerVisibility: "after-attempt",
+        sourcePackageStatus: SOURCE_PACKAGE_STATUS,
+        moodle: {
+          moduleId: MODULE_ID$3,
+          moodleLesson: "Level 3+ Lesson 9",
+          archiveId: ARCHIVE_ID$1,
+          archiveSha256: ARCHIVE_SHA256$1,
+          sourceSheets: L2_L35_SOURCE_VISUALS,
+          media: {
+            status: "two-audio-members-quarantined-unverified-task-binding",
+            sourceAudioMembers: 2,
+            sourceAudioTracksDelivered: 0,
+            quarantinedAudio: L2_L35_QUARANTINED_AUDIO
+          },
+          answerKeyBasis: "sensei-verbatim-visible-transcript-segments-only"
+        },
+        support: {
+          minna: { reference: "Minna no Nihongo II · Lesson 35", reuse: "chronology-and-scope-only" },
+          genki: { used: false, learnerFacingPayload: "none" }
+        }
+      },
+      payload: {
+        teaching: [
+          {
+            title: "〜は ありませんか。＊negative question",
+            text: "The いい ところは ありませんか in example means the same as いい ところは ありますか, but it is a more considerate way of asking something because using ありませんか makes it easier for the listener to answer in the negative.",
+            attribution: "sensei-source"
+          },
+          { title: "それなら", text: "In that case", attribution: "sensei-source" },
+          { title: "さあ", text: "Well, let me see. (used when unsure of something)", attribution: "sensei-source" },
+          { title: "詳(くわ)しい", text: "detailed", attribution: "sensei-source" },
+          { title: "夜行(やこう)バス", text: "Overnight bus", attribution: "sensei-source" },
+          { title: "旅行社(りょこうしゃ)／旅行会社(りょこうがいしゃ)", text: "Travel agency", attribution: "sensei-source" },
+          { title: "スキー場(じょう)", text: "ski resort, ski area", attribution: "sensei-source" },
+          {
+            title: "Sequence boundary",
+            text: "The script moves from desire and duration to recommendation and reason, then transport uncertainty, then equipment and reservation. Only the eight visibly printed script segments are assessed; the open picture prompts and free recommendations are not. Choice and select distractors are Yomu scaffolding, not source text.",
+            attribution: "yomu-boundary"
+          },
+          {
+            title: "Audio boundary",
+            text: "This is exact script reading, not claimed listening: neither archived recording (Track 28 nor B-4) is verified to this owned worksheet and script by a task binding, transcript match, answer relation, or rights review, so both remain quarantined and no audio is delivered.",
+            attribution: "yomu-boundary"
+          }
+        ],
+        taskHeadings: [
+          { sourceTask: "desire-duration", text: "Sensei’s opening: the desire to go and the length of the trip." },
+          { sourceTask: "recommendation-reason", text: "Sensei’s recommendation: the places and one reason offered." },
+          { sourceTask: "transport-uncertainty", text: "Sensei’s transport advice and the honest moment of not knowing." },
+          { sourceTask: "equipment-reservation", text: "Sensei’s close: equipment rental and the reassuring reservation." }
+        ],
+        rounds,
+        passScore: 1,
+        feedback: {
+          pass: { explanation: { ja: "八つの原文スクリプト部分を、形、順序、句読点を変えずに戻せました。", en: "You restored all eight source script segments without changing their form, order, or punctuation." } },
+          lapse: {
+            explanation: { ja: "間違えた原文の部分だけを、表示された四枚のページでもう一度確認しましょう。", en: "Recheck only the missed source segments on the four displayed pages." },
+            repairPrompt: { ja: "先に、その部分が希望・期間か、提案・理由か、交通の不確かさか、道具・予約かを決めます。", en: "First decide whether the segment marks desire or duration, a recommendation with its reason, transport uncertainty, or equipment and reservation." },
+            nearbyExample: { ja: "原本の型: 〜たいんですが、／それなら〜が いいと 思いますよ／〜なら、〜し……。", en: "Source frames: 〜たいんですが、 / それなら〜が いいと 思いますよ / 〜なら、〜し……。" }
+          }
+        }
+      }
+    };
+    return Object.freeze({
+      id: "considerate-recommendation",
+      narrative: {
+        ja: "ジョディ先生がスキー旅行の会話スクリプトを開きます。行きたい気持ちから、思いやりのある質問と提案まで、原本の部分で確かめます。",
+        en: "Jodi opens the ski-trip conversation script. From the wish to go through the considerate question and its recommendations, the class checks each printed source segment."
+      },
+      activity: Object.freeze(activity2)
+    });
+  }
+  const considerateRecommendationPlugin = {
+    kind: "academy-considerate-recommendation",
+    validate: validateModel$1,
+    render: renderWorkshop$1,
+    grade(model2, response) {
+      const answers = parseResponse$I(model2, response);
+      const missed = model2.payload.rounds.filter((round2) => normalizeSourceResponse(answers.get(round2.id) ?? "") !== normalizeSourceResponse(round2.answer));
+      return {
+        outcome: missed.length ? "lapse" : "pass",
+        score: (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
+        errorTags: missed.map((round2) => round2.errorTag),
+        feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
+      };
+    },
+    toReviewSeeds(model2, result) {
+      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$e(round2, result)]);
+    }
+  };
+  function createRounds$1() {
+    const desire = "友達(ともだち)と スキーに 行(い)きたいんですが、";
+    const duration = "３日(みっか)ぐらいです。";
+    const recommendation = "それなら、草津(くさつ)か 志賀高原(しがこうげん)が いいと 思(おも)いますよ。";
+    const onsen = "温泉(おんせん)も あるし……。";
+    const transport = "ＪＲでも 行(い)けますが、夜行(やこう)バスなら、朝(あさ) 着(つ)きますから、便利(べんり)ですよ。";
+    const agency = "さあ……。旅行社(りょこうしゃ)へ 行(い)けば もっと 詳(くわ)しい ことが わかりますよ。";
+    const rental = "全部(ぜんぶ) スキー場(じょう)で 借(か)りられますよ。";
+    const reservation = "心配(しんぱい)なら、旅行社(りょこうしゃ)で 予約(よやく)も できるし……。";
+    return Object.freeze([
+      round$1(
+        "desire-line",
+        1,
+        "desire-duration",
+        "source-choice",
+        "行きたい気持ちを伝える原文の行を選んでください。",
+        "Choose the source line that states the wish to go.",
+        desire,
+        ["友達(ともだち)と 海(うみ)に 行(い)きたいんですが、"]
+      ),
+      round$1(
+        "duration-line",
+        2,
+        "desire-duration",
+        "pattern-select",
+        "旅行の長さを答える原文の行を選んでください。",
+        "Select the source line that answers how long the trip is.",
+        duration,
+        ["１週間(いっしゅうかん)ぐらいです。"]
+      ),
+      round$1(
+        "recommendation-line",
+        3,
+        "recommendation-reason",
+        "typed-source",
+        "場所を勧める原文の行を、原文どおりに入力してください。",
+        "Type the source line that recommends the places, in source wording.",
+        recommendation,
+        []
+      ),
+      round$1(
+        "onsen-reason-line",
+        4,
+        "recommendation-reason",
+        "source-choice",
+        "理由を添える原文の行を選んでください。",
+        "Choose the source line that adds the reason.",
+        onsen,
+        ["温泉(おんせん)は ありません。"]
+      ),
+      round$1(
+        "transport-line",
+        5,
+        "transport-uncertainty",
+        "pattern-select",
+        "交通手段を勧める原文の行を選んでください。",
+        "Select the source line that recommends the transport.",
+        transport,
+        ["ＪＲなら、夜(よる) 着(つ)きますから、便利(べんり)ですよ。"]
+      ),
+      round$1(
+        "agency-line",
+        6,
+        "transport-uncertainty",
+        "typed-source",
+        "知らないと答えて旅行社を勧める原文の行を、原文どおりに入力してください。",
+        "Type the source line that admits not knowing and points to the travel agency, in source wording.",
+        agency,
+        []
+      ),
+      round$1(
+        "rental-line",
+        7,
+        "equipment-reservation",
+        "source-choice",
+        "道具について答える原文の行を選んでください。",
+        "Choose the source line that answers about the equipment.",
+        rental,
+        ["全部(ぜんぶ) 家(いえ)から 持(も)って行(い)きますよ。"]
+      ),
+      round$1(
+        "reservation-line",
+        8,
+        "equipment-reservation",
+        "typed-source",
+        "予約について安心させる原文の行を、原文どおりに入力してください。",
+        "Type the reassuring source line about the reservation, in source wording.",
+        reservation,
+        []
+      )
+    ]);
+  }
+  function round$1(id2, sourceOrder, sourceTask, interaction, ja, en, answer2, scaffolding) {
+    const options = interaction === "typed-source" ? [] : [
+      Object.freeze({ value: answer2, label: answer2, origin: "sensei-source" }),
+      ...scaffolding.map((value) => Object.freeze({ value, label: value, origin: "yomu-scaffolding" }))
+    ].sort((left, right) => left.value.localeCompare(right.value, "ja"));
+    return Object.freeze({
+      id: id2,
+      sourceOrder,
+      sourceTask,
+      sourcePage: 1,
+      interaction,
+      sourceQuestionId: `moodle:${MODULE_ID$3}:${SCRIPT_SHA256$1}:png-p1:${id2}`,
+      prompt: Object.freeze({ ja, en }),
+      options: Object.freeze(options),
+      answer: answer2,
+      conceptId: `concept:l2-l35:considerate-recommendation:${sourceOrder}`,
+      errorTag: `l2-l35-considerate-recommendation-${sourceOrder}`
+    });
+  }
+  function validateModel$1(model2) {
+    const issues = [];
+    if (model2.provenance?.packageId !== PACKAGE_ID$3 || model2.provenance.packageOrder !== PACKAGE_ORDER$1 || model2.provenance.sourcePackageStatus !== SOURCE_PACKAGE_STATUS || model2.provenance.moodle.moduleId !== MODULE_ID$3 || model2.provenance.moodle.archiveId !== ARCHIVE_ID$1 || model2.provenance.moodle.archiveSha256 !== ARCHIVE_SHA256$1) {
+      issues.push({ path: "provenance", message: "The exact l2-l35 direct-archive-extension identity is required." });
+    }
+    const visuals = model2.provenance?.moodle.sourceSheets;
+    if (!Array.isArray(visuals) || visuals.length !== L2_L35_SOURCE_VISUALS.length || visuals.some((visual2, index) => JSON.stringify(visual2) !== JSON.stringify(L2_L35_SOURCE_VISUALS[index]))) {
+      issues.push({ path: "provenance.moodle.sourceSheets", message: "All four SHA-pinned Chapter 35 pages are required." });
+    }
+    const media = model2.provenance?.moodle.media;
+    if (media?.status !== "two-audio-members-quarantined-unverified-task-binding" || media.sourceAudioMembers !== 2 || media.sourceAudioTracksDelivered !== 0 || JSON.stringify(media.quarantinedAudio) !== JSON.stringify(L2_L35_QUARANTINED_AUDIO)) {
+      issues.push({ path: "provenance.moodle.media", message: "Both unverified audio members must remain quarantined with zero tracks delivered." });
+    }
+    if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt" || model2.provenance?.moodle.answerKeyBasis !== "sensei-verbatim-visible-transcript-segments-only") {
+      issues.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
+    }
+    if (model2.provenance?.support.genki.used !== false || model2.provenance.support.genki.learnerFacingPayload !== "none") {
+      issues.push({ path: "provenance.support.genki", message: "Genki is not used and contributes no learner-facing payload." });
+    }
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 9 || model2.payload.teaching.slice(0, 7).some((step2) => step2.attribution !== "sensei-source") || model2.payload.teaching.slice(7).some((step2) => step2.attribution !== "yomu-boundary") || model2.payload.teaching.some((step2) => !text$e(step2.title) || !text$e(step2.text))) {
+      issues.push({ path: "payload.teaching", message: "Seven source teaching steps and two boundaries must precede retrieval." });
+    }
+    const interactions = [
+      "source-choice",
+      "pattern-select",
+      "typed-source",
+      "source-choice",
+      "pattern-select",
+      "typed-source",
+      "source-choice",
+      "typed-source"
+    ];
+    const rounds = model2.payload?.rounds;
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$e(item2.sourceQuestionId) || !text$e(item2.prompt.en) || !text$e(item2.prompt.ja) || !text$e(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && (!item2.options.some((option2) => option2.value === item2.answer && option2.origin === "sensei-source") || item2.options.some((option2) => option2.value !== item2.answer && option2.origin !== "yomu-scaffolding")))) {
+      issues.push({ path: "payload.rounds", message: "Eight exact-source script lines with all three interaction modes are required." });
+    }
+    validateFeedback(model2.payload?.feedback, issues);
+    return issues;
+  }
+  function renderWorkshop$1(model2, host2, submit) {
+    const lifecycle = new AbortController();
+    const root = document.createElement("section");
+    root.className = "academy-activity academy-state-inspection academy-considerate-recommendation";
+    root.dataset.activityId = model2.id;
+    const heading = document.createElement("h2");
+    heading.id = `${model2.id}-prompt`;
+    heading.tabIndex = -1;
+    heading.append(...localizedNodes$1(model2.prompt));
+    const teaching2 = renderTeaching$n(model2);
+    const sources = document.createElement("section");
+    sources.className = "academy-state-inspection-sources";
+    sources.dataset.lessonPhase = "source-reference";
+    model2.provenance.moodle.sourceSheets.forEach((visual2) => sources.append(
+      renderInspectableSourceVisual(visual2, host2.language, "academy-state-inspection-source", "lazy")
+    ));
+    const form = document.createElement("form");
+    form.className = "academy-state-inspection-form";
+    form.setAttribute("aria-labelledby", heading.id);
+    const groups = document.createElement("div");
+    groups.className = "academy-state-inspection-round-groups";
+    model2.payload.taskHeadings.forEach((group2) => {
+      const section = document.createElement("section");
+      const title2 = document.createElement("h3");
+      title2.textContent = group2.text;
+      const list2 = document.createElement("ol");
+      list2.className = "academy-state-inspection-rounds";
+      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$m(model2, round2, host2)));
+      section.append(title2, list2);
+      groups.append(section);
+    });
+    const check = document.createElement("button");
+    check.type = "submit";
+    check.className = "academy-button academy-button-primary";
+    check.textContent = host2.language === "ja" ? "八つの原文部分を確認する" : "Check all eight source segments";
+    form.append(groups, check);
+    const key2 = renderAnswerKey$h(host2.language);
+    const feedback2 = statusRegion("academy-kit-feedback academy-state-inspection-feedback");
+    root.append(heading, teaching2, sources, form, key2, feedback2);
+    host2.replace(root);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const response = responseFromForm$D(model2, form);
+      if (!response) {
+        feedback2.textContent = host2.language === "ja" ? "八つの原文部分に答えてください。" : "Complete all eight source segments.";
+        return;
+      }
+      setPending$1(form, true);
+      void submit(response).then((evaluation) => {
+        root.dataset.outcome = evaluation.result.outcome;
+        revealAnswerKey(key2, model2);
+        key2.hidden = false;
+        showEvaluation$1(feedback2, evaluation, host2);
+        if (evaluation.result.outcome === "lapse") {
+          setPending$1(form, false);
+          model2.payload.rounds.forEach((round2) => {
+            const item2 = groups.querySelector(`[data-round-id="${round2.id}"]`);
+            if (item2) item2.hidden = !evaluation.result.errorTags.includes(round2.errorTag);
+          });
+        }
+      }).catch((error) => {
+        setPending$1(form, false);
+        feedback2.textContent = error instanceof Error ? error.message : String(error);
+      });
+    }, { signal: lifecycle.signal });
+    return {
+      focus() {
+        form.querySelector("[data-round-control]")?.focus();
+      },
+      dispose() {
+        lifecycle.abort();
+        root.remove();
+      }
+    };
+  }
+  function renderTeaching$n(model2) {
+    const section = document.createElement("section");
+    section.className = "academy-state-inspection-teaching";
+    section.dataset.lessonPhase = "teaching";
+    model2.payload.teaching.forEach((step2) => {
+      const block = document.createElement("section");
+      block.dataset.attribution = step2.attribution;
+      const heading = document.createElement("h3");
+      heading.textContent = step2.title;
+      const copy2 = document.createElement("p");
+      copy2.textContent = step2.text;
+      block.append(heading, copy2);
+      section.append(block);
+    });
+    return section;
+  }
+  function renderRound$m(model2, round2, host2) {
+    const item2 = document.createElement("li");
+    item2.className = "academy-state-inspection-round";
+    item2.dataset.roundId = round2.id;
+    item2.dataset.interaction = round2.interaction;
+    const fieldset = document.createElement("fieldset");
+    const legend2 = document.createElement("legend");
+    legend2.append(...localizedNodes$1(round2.prompt));
+    fieldset.append(legend2);
+    const name = fieldName$5(model2, round2);
+    if (round2.interaction === "source-choice") {
+      const choices2 = document.createElement("div");
+      choices2.className = "academy-state-inspection-choices";
+      round2.options.forEach((option2) => {
+        const label = document.createElement("label");
+        const input2 = document.createElement("input");
+        input2.type = "radio";
+        input2.name = name;
+        input2.value = option2.value;
+        input2.dataset.roundControl = "";
+        const copy2 = document.createElement("span");
+        copy2.lang = "ja";
+        copy2.textContent = option2.label;
+        label.append(input2, copy2);
+        choices2.append(label);
+      });
+      fieldset.append(choices2);
+    } else if (round2.interaction === "pattern-select") {
+      const select2 = document.createElement("select");
+      select2.name = name;
+      select2.dataset.roundControl = "";
+      select2.append(new Option("—", ""), ...round2.options.map((option2) => new Option(option2.label, option2.value)));
+      fieldset.append(select2);
+    } else {
+      const input2 = document.createElement("input");
+      input2.type = "text";
+      input2.lang = "ja";
+      input2.name = name;
+      input2.autocomplete = "off";
+      input2.dataset.roundControl = "";
+      input2.setAttribute("aria-label", host2.language === "ja" ? "原文の行" : "Exact source line");
+      fieldset.append(input2);
+    }
+    item2.append(fieldset);
+    return item2;
+  }
+  function renderAnswerKey$h(language) {
+    const section = document.createElement("section");
+    section.className = "academy-state-inspection-key";
+    section.dataset.answerVisibility = "after-attempt";
+    section.hidden = true;
+    const heading = document.createElement("h3");
+    heading.textContent = language === "ja" ? "試したあとの先生の原文" : "Sensei’s source wording after your attempt";
+    const list2 = document.createElement("ol");
+    section.append(heading, list2);
+    return section;
+  }
+  function revealAnswerKey(section, model2) {
+    const list2 = section.querySelector("ol");
+    if (!list2 || list2.childElementCount > 0) return;
+    model2.payload.rounds.forEach((round2) => {
+      const item2 = document.createElement("li");
+      item2.lang = "ja";
+      item2.textContent = round2.answer;
+      list2.append(item2);
+    });
+  }
+  function responseFromForm$D(model2, form) {
+    const data = new FormData(form);
+    const answers = model2.payload.rounds.map((round2) => {
+      const value = data.get(fieldName$5(model2, round2));
+      return typeof value === "string" && value.trim() ? { roundId: round2.id, value } : null;
+    });
+    return answers.every((answer2) => answer2 !== null) ? { answers } : null;
+  }
+  function parseResponse$I(model2, response) {
+    if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.rounds.length) {
+      throw new TypeError("Every conversation-script row needs one response.");
+    }
+    const answers = /* @__PURE__ */ new Map();
+    response.answers.forEach((answer2) => {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$e(answer2.value)) {
+        throw new TypeError("Conversation-script responses must use every authored row exactly once.");
+      }
+      answers.set(answer2.roundId, answer2.value);
+    });
+    return answers;
+  }
+  function normalizeSourceResponse(value) {
+    return normalizeJapanese(value.normalize("NFKC").replace(/\([^)]*\)/gu, ""));
+  }
+  function reviewSeed$e(round2, result) {
+    return {
+      id: `review:l2-l35:considerate-recommendation:${round2.id}`,
+      conceptId: round2.conceptId,
+      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      sourceQuestionId: round2.sourceQuestionId,
+      content: { expression: round2.answer, meanings: [`Sensei Chapter 35 conversation-script ${round2.sourceTask} segment`] }
+    };
+  }
+  function fieldName$5(model2, round2) {
+    return `${model2.id}:${round2.id}:answer`;
+  }
+  function sourceVisual$1(payloadSha256, title2, page, filename, sha2562) {
+    return Object.freeze({
+      sourceId: `moodle:${payloadSha256}:page:${page}`,
+      payloadSha256,
+      title: title2,
+      page,
+      url: `/academy/content/lessons/l2-l35/${filename}`,
+      sha256: sha2562,
+      alt: Object.freeze({ ja: `Moodle 原本: ${title2} ${page}ページ。`, en: `Moodle original: ${title2}, page ${page}.` })
+    });
+  }
+  const PACKAGE_ID$2 = "l2-l36";
+  const PACKAGE_ORDER = 63;
+  const MODULE_ID$2 = 8824742;
+  const ARCHIVE_ID = "archive-000028";
+  const ARCHIVE_SHA256 = "5864abfd10047d8084bf67dd6aeb921852a98e2c873d66a47bab32640c7ac174";
+  const GRAMMAR_SHA256$3 = "8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73";
+  const VOCABULARY_SHA256$7 = "aa2d99c6036efe6f96b766fe682ae06a3f9c9e87e99f92bb687a199de5d902d3";
+  const EXCLUDED_AUDIO_PAYLOADS = Object.freeze([
+    "0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e",
+    "4fe8f7973ea49725d3bb76988bd5c85f32a2e405bd54280be9806952931ca6aa"
+  ]);
+  const L2_L36_SOURCE_VISUALS = Object.freeze([
+    sourceVisual(
+      GRAMMAR_SHA256$3,
+      "Chapter 36-1 〜ように_ないように_Verb2_Grammar exercise",
+      1,
+      "moodle-chapter-36-1-youni-grammar-page-1.png",
+      "de858644344a91af309b2235c973cacc3a3d76df393382e38bd19a5bc268510d"
+    ),
+    sourceVisual(
+      GRAMMAR_SHA256$3,
+      "Chapter 36-1 〜ように_ないように_Verb2_Grammar exercise",
+      2,
+      "moodle-chapter-36-1-youni-grammar-page-2.png",
+      "332ccf3f9d453c80a26696e929a521db7d3e8c3e3d3bf7804b3573d60a71c58e"
+    ),
+    sourceVisual(
+      GRAMMAR_SHA256$3,
+      "Chapter 36-1 〜ように_ないように_Verb2_Grammar exercise",
+      3,
+      "moodle-chapter-36-1-youni-grammar-page-3.png",
+      "a90490477ac90bd12911e906791879fc53554e9ce7807a668940d88c17030581"
+    ),
+    sourceVisual(
+      VOCABULARY_SHA256$7,
+      "Chapter 36-1 Vocabulary Sheet",
+      1,
+      "moodle-chapter-36-1-vocabulary-page-1.png",
+      "e6e3ea9b840146e607d638baf60448d29040f53be96e2d886373bd0261f8c6b0"
+    )
+  ]);
+  function createLessonL2L36YouniGoalWorkshopBeat() {
+    const rounds = createRounds();
+    const activity2 = {
+      id: "activity:l2-l36-youni-goal-workshop",
+      kind: "academy-youni-goal-workshop",
+      responseKind: "moodle-chapter-36-youni-goal-workshop",
+      curriculumPhase: "assessed-production",
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      conceptIds: rounds.map((round2) => round2.conceptId),
+      prompt: {
+        ja: "先生の Chapter 36-1 の四枚を先に読み、八つの印刷例を原文どおりに戻してください。",
+        en: "Read Sensei’s four Chapter 36-1 pages first, then restore eight printed examples in their source wording."
+      },
+      teachingSupport: {
+        kind: "pattern",
+        title: { ja: "目標と、そのための行動", en: "A goal and the action toward it" },
+        entries: [
+          { japanese: "verb 1 dictionary form ように、 verb 2 。", translation: "Take the verb 2 action toward the goal expressed before ように." },
+          { japanese: "verb 1 ない form ない ように、 verb 2 。", translation: "Take the verb 2 action to prevent the situation before ないように." }
+        ]
+      },
+      provenance: {
+        packageId: PACKAGE_ID$2,
+        packageOrder: PACKAGE_ORDER,
+        sourcePackageStatus: "direct-canonical-archive-extension-no-authored-package-json",
+        answerVisibility: "after-attempt",
+        moodle: {
+          moduleId: MODULE_ID$2,
+          archiveId: ARCHIVE_ID,
+          archiveSha256: ARCHIVE_SHA256,
+          sourceSheets: L2_L36_SOURCE_VISUALS,
+          media: {
+            status: "archive-audio-not-attributed-to-chapter-36-slice",
+            archiveAudioMembers: 2,
+            sourceAudioTracksDelivered: 0,
+            excludedPayloadSha256: EXCLUDED_AUDIO_PAYLOADS
+          },
+          answerKeyBasis: "sensei-verbatim-visible-examples-only"
+        },
+        support: {
+          minna: { reference: "Minna no Nihongo II · Lesson 36", reuse: "chronology-and-scope-only" },
+          genki: { reference: "not-used", reuse: "no-learner-facing-payload" }
+        }
+      },
+      payload: {
+        teaching: [
+          {
+            title: "verb 1 dictionary form ように、 verb 2 。",
+            text: "…, so …",
+            attribution: "sensei-source"
+          },
+          {
+            title: "verb 1 ない form ない ように、 verb 2 。",
+            text: "…, so not …",
+            attribution: "sensei-source"
+          },
+          {
+            title: "Goal or aim",
+            text: "The usage indicates taking the action denoted by verb 2 in order to achieve the situation expressed by 〜ように.",
+            attribution: "sensei-source"
+          },
+          {
+            title: "The form before ように",
+            text: "The dictionary form of a non-volitional verbs (such as a potential verb, わかります, みえます, きこえます, なります, etc.,) or a verb’s negative form is used before ように.",
+            attribution: "sensei-source"
+          },
+          {
+            title: "Source boundary",
+            text: "Only the eight examples visibly printed on page 1 are assessed. Homework blanks, open responses, the animal reading, Chapter 35 material, and both unattributed archive audio members remain unconverted.",
+            attribution: "yomu-boundary"
+          }
+        ],
+        taskHeadings: [
+          { sourceTask: "goal", text: "Printed goals: make a possible state achievable." },
+          { sourceTask: "avoidance", text: "Printed avoidance goals: prevent an unwanted state." },
+          { sourceTask: "model", text: "Sensei’s printed task 1 model." }
+        ],
+        rounds,
+        passScore: 1,
+        feedback: {
+          pass: { explanation: { ja: "八つの印刷例を、目標と行動の関係を保って戻せました。", en: "You restored all eight printed examples while preserving the relation between each goal and action." } },
+          lapse: {
+            explanation: { ja: "間違えた印刷例だけを、先生の1ページ目でもう一度確認しましょう。", en: "Recheck only the missed printed example on Sensei’s first page." },
+            repairPrompt: { ja: "先に、できる状態か、避ける状態かを見つけ、その後の行動を原文どおりにつなぎます。", en: "First locate the possible or avoided state, then attach the printed action exactly as shown." },
+            nearbyExample: { ja: "原本の型: V辞書形＋ように／Vない形＋ないように", en: "Source frames: dictionary form + ように / negative form + ないように." }
+          }
+        }
+      }
+    };
+    return Object.freeze({
+      id: "youni-goal-workshop",
+      narrative: {
+        ja: "りえ先生が、目標になる状態と、そのためにする行動を二つの列に分けます。原本を読んでから、印刷された八つの例を戻します。",
+        en: "Rie separates goal states from the actions taken toward them. After reading the originals, restore the eight printed examples."
+      },
+      activity: Object.freeze(activity2)
+    });
+  }
+  const youniGoalWorkshopPlugin = {
+    kind: "academy-youni-goal-workshop",
+    validate: validateModel,
+    render: renderWorkshop,
+    grade(model2, response) {
+      const answers = parseResponse$H(model2, response);
+      const missed = model2.payload.rounds.filter((round2) => normalizeJapanese(answers.get(round2.id) ?? "") !== normalizeJapanese(round2.answer));
+      return {
+        outcome: missed.length ? "lapse" : "pass",
+        score: (model2.payload.rounds.length - missed.length) / model2.payload.rounds.length,
+        errorTags: missed.map((round2) => round2.errorTag),
+        feedback: structuredClone(missed.length ? model2.payload.feedback.lapse : model2.payload.feedback.pass)
+      };
+    },
+    toReviewSeeds(model2, result) {
+      return model2.payload.rounds.flatMap((round2) => result.outcome === "lapse" && !result.errorTags.includes(round2.errorTag) ? [] : [reviewSeed$d(round2, result)]);
+    }
+  };
+  function createRounds() {
+    const bicycle = "自転車(じてんしゃ)に 乗(の)れる ように、毎日(まいにち) 練習(れんしゅう)しました。";
+    const japanese2 = "もっと日本語(にほんご)が はなせるように、毎日(まいにち) 勉強(べんきょう)しています。";
+    const meeting = "会議(かいぎ)に 間(ま)に合(あ)うように、タクシーで 会社へ 行きます。";
+    const coldCare = "風邪(かぜ)を ひかないように、いろいろと 気(き)を つけています。";
+    const mask = "風邪(かぜ)を ひかないように、必(かなら)ず マスクを します。";
+    const memo = "買(か)うものを わすれないように、メモします。";
+    const rush = "ラッシュに 遭(あ)わないように、早(はや)く うちを 出(で)ます。";
+    const newspaper = "日本語の 新聞が 読めるように、漢字を 勉強します。";
+    return Object.freeze([
+      round("bicycle-goal", 1, "goal", "source-choice", "自転車に乗る目標の原文を選んでください。", "Choose the printed bicycle-goal example.", bicycle, [bicycle, meeting]),
+      round("japanese-goal", 2, "goal", "pattern-select", "日本語を話す目標の原文を選んでください。", "Select the printed Japanese-speaking goal.", japanese2, [japanese2, newspaper]),
+      round("meeting-goal", 3, "goal", "typed-source", "会議の例を原文どおりに入力してください。", "Type the printed meeting example in source wording.", meeting, []),
+      round("cold-care", 4, "avoidance", "source-choice", "風邪に気をつける原文を選んでください。", "Choose the printed line about taking care not to catch a cold.", coldCare, [coldCare, mask]),
+      round("mask-avoidance", 5, "avoidance", "pattern-select", "マスクの原文を選んでください。", "Select the printed mask example.", mask, [mask, memo]),
+      round("memo-avoidance", 6, "avoidance", "typed-source", "買うものの例を原文どおりに入力してください。", "Type the printed shopping memo example in source wording.", memo, []),
+      round("rush-avoidance", 7, "avoidance", "source-choice", "ラッシュを避ける原文を選んでください。", "Choose the printed line about avoiding rush hour.", rush, [rush, meeting]),
+      round("newspaper-model", 8, "model", "typed-source", "Task 1 の新聞の見本を原文どおりに入力してください。", "Type Sensei’s newspaper model in source wording.", newspaper, [])
+    ]);
+  }
+  function round(id2, sourceOrder, sourceTask, interaction, ja, en, answer2, values) {
+    return Object.freeze({
+      id: id2,
+      sourceOrder,
+      sourceTask,
+      sourcePage: 1,
+      interaction,
+      sourceQuestionId: `moodle:${MODULE_ID$2}:${GRAMMAR_SHA256$3}:pdf-p1:${id2}`,
+      prompt: Object.freeze({ ja, en }),
+      options: Object.freeze(values.map((value) => Object.freeze({ value, label: value }))),
+      answer: answer2,
+      conceptId: `concept:l2-l36:youni-goal:${sourceOrder}`,
+      errorTag: `l2-l36-youni-goal-${sourceOrder}`
+    });
+  }
+  function validateModel(model2) {
+    const issues = [];
+    if (model2.provenance?.packageId !== PACKAGE_ID$2 || model2.provenance.packageOrder !== PACKAGE_ORDER || model2.provenance.sourcePackageStatus !== "direct-canonical-archive-extension-no-authored-package-json" || model2.provenance.moodle.moduleId !== MODULE_ID$2 || model2.provenance.moodle.archiveId !== ARCHIVE_ID || model2.provenance.moodle.archiveSha256 !== ARCHIVE_SHA256) {
+      issues.push({ path: "provenance", message: "The direct canonical l2-l36 archive extension is required." });
+    }
+    const visuals = model2.provenance?.moodle.sourceSheets;
+    if (!Array.isArray(visuals) || visuals.length !== L2_L36_SOURCE_VISUALS.length || visuals.some((visual2, index) => JSON.stringify(visual2) !== JSON.stringify(L2_L36_SOURCE_VISUALS[index]))) {
+      issues.push({ path: "provenance.moodle.sourceSheets", message: "All four SHA-pinned Chapter 36-1 pages are required." });
+    }
+    const media = model2.provenance?.moodle.media;
+    if (media?.status !== "archive-audio-not-attributed-to-chapter-36-slice" || media.archiveAudioMembers !== 2 || media.sourceAudioTracksDelivered !== 0 || JSON.stringify(media.excludedPayloadSha256) !== JSON.stringify(EXCLUDED_AUDIO_PAYLOADS)) {
+      issues.push({ path: "provenance.moodle.media", message: "Both unattributed archive audio members must remain excluded." });
+    }
+    if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
+      issues.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
+    }
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.slice(0, 4).some((step2) => step2.attribution !== "sensei-source" || !text$e(step2.title) || !text$e(step2.text)) || model2.payload.teaching[4]?.attribution !== "yomu-boundary") {
+      issues.push({ path: "payload.teaching", message: "Four source teaching blocks and one explicit boundary are required." });
+    }
+    const interactions = [
+      "source-choice",
+      "pattern-select",
+      "typed-source",
+      "source-choice",
+      "pattern-select",
+      "typed-source",
+      "source-choice",
+      "typed-source"
+    ];
+    const rounds = model2.payload?.rounds;
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$e(item2.sourceQuestionId) || !text$e(item2.prompt.en) || !text$e(item2.prompt.ja) || !text$e(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+      issues.push({ path: "payload.rounds", message: "Eight verbatim examples with all three interaction modes are required." });
+    }
+    validateFeedback(model2.payload?.feedback, issues);
+    return issues;
+  }
+  function renderWorkshop(model2, host2, submit) {
+    const lifecycle = new AbortController();
+    const root = document.createElement("section");
+    root.className = "academy-activity academy-state-inspection academy-youni-goal-workshop";
+    root.dataset.activityId = model2.id;
+    const heading = document.createElement("h2");
+    heading.id = `${model2.id}-prompt`;
+    heading.tabIndex = -1;
+    heading.append(...localizedNodes$1(model2.prompt));
+    const teaching2 = renderTeaching$m(model2);
+    const sources = document.createElement("section");
+    sources.className = "academy-state-inspection-sources";
+    sources.dataset.lessonPhase = "source-reference";
+    model2.provenance.moodle.sourceSheets.forEach((visual2) => sources.append(
+      renderInspectableSourceVisual(visual2, host2.language, "academy-state-inspection-source", "lazy")
+    ));
+    const form = document.createElement("form");
+    form.className = "academy-state-inspection-form";
+    form.setAttribute("aria-labelledby", heading.id);
+    const groups = document.createElement("div");
+    groups.className = "academy-state-inspection-round-groups";
+    model2.payload.taskHeadings.forEach((group2) => {
+      const section = document.createElement("section");
+      const title2 = document.createElement("h3");
+      title2.textContent = group2.text;
+      const list2 = document.createElement("ol");
+      list2.className = "academy-state-inspection-rounds";
+      model2.payload.rounds.filter((round2) => round2.sourceTask === group2.sourceTask).forEach((round2) => list2.append(renderRound$l(model2, round2, host2)));
+      section.append(title2, list2);
+      groups.append(section);
+    });
+    const check = document.createElement("button");
+    check.type = "submit";
+    check.className = "academy-button academy-button-primary";
+    check.textContent = host2.language === "ja" ? "八つの原文を確認する" : "Check all eight source examples";
+    form.append(groups, check);
+    const key2 = renderAnswerKey$g(model2, host2.language);
+    const feedback2 = statusRegion("academy-kit-feedback academy-state-inspection-feedback");
+    root.append(heading, teaching2, sources, form, key2, feedback2);
+    host2.replace(root);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const response = responseFromForm$C(model2, form);
+      if (!response) {
+        feedback2.textContent = host2.language === "ja" ? "八つの例に答えてください。" : "Complete all eight source examples.";
+        return;
+      }
+      setPending$1(form, true);
+      void submit(response).then((evaluation) => {
+        root.dataset.outcome = evaluation.result.outcome;
+        key2.hidden = false;
+        showEvaluation$1(feedback2, evaluation, host2);
+        if (evaluation.result.outcome === "lapse") {
+          setPending$1(form, false);
+          model2.payload.rounds.forEach((round2) => {
+            const item2 = groups.querySelector(`[data-round-id="${round2.id}"]`);
+            if (item2) item2.hidden = !evaluation.result.errorTags.includes(round2.errorTag);
+          });
+        }
+      }).catch((error) => {
+        setPending$1(form, false);
+        feedback2.textContent = error instanceof Error ? error.message : String(error);
+      });
+    }, { signal: lifecycle.signal });
+    return {
+      focus() {
+        form.querySelector("[data-round-control]")?.focus();
+      },
+      dispose() {
+        lifecycle.abort();
+        root.remove();
+      }
+    };
+  }
+  function renderTeaching$m(model2) {
+    const section = document.createElement("section");
+    section.className = "academy-state-inspection-teaching";
+    section.dataset.lessonPhase = "teaching";
+    model2.payload.teaching.forEach((step2) => {
+      const block = document.createElement("section");
+      block.dataset.attribution = step2.attribution;
+      const heading = document.createElement("h3");
+      heading.textContent = step2.title;
+      const copy2 = document.createElement("p");
+      copy2.textContent = step2.text;
+      block.append(heading, copy2);
+      section.append(block);
+    });
+    return section;
+  }
+  function renderRound$l(model2, round2, host2) {
+    const item2 = document.createElement("li");
+    item2.className = "academy-state-inspection-round";
+    item2.dataset.roundId = round2.id;
+    item2.dataset.interaction = round2.interaction;
+    const fieldset = document.createElement("fieldset");
+    const legend2 = document.createElement("legend");
+    legend2.append(...localizedNodes$1(round2.prompt));
+    fieldset.append(legend2);
+    const name = fieldName$4(model2, round2);
+    if (round2.interaction === "source-choice") {
+      const choices2 = document.createElement("div");
+      choices2.className = "academy-state-inspection-choices";
+      round2.options.forEach((option2) => {
+        const label = document.createElement("label");
+        const input2 = document.createElement("input");
+        input2.type = "radio";
+        input2.name = name;
+        input2.value = option2.value;
+        input2.dataset.roundControl = "";
+        const copy2 = document.createElement("span");
+        copy2.lang = "ja";
+        copy2.textContent = option2.label;
+        label.append(input2, copy2);
+        choices2.append(label);
+      });
+      fieldset.append(choices2);
+    } else if (round2.interaction === "pattern-select") {
+      const select2 = document.createElement("select");
+      select2.name = name;
+      select2.dataset.roundControl = "";
+      select2.append(new Option("—", ""), ...round2.options.map((option2) => new Option(option2.label, option2.value)));
+      fieldset.append(select2);
+    } else {
+      const input2 = document.createElement("input");
+      input2.type = "text";
+      input2.lang = "ja";
+      input2.name = name;
+      input2.autocomplete = "off";
+      input2.dataset.roundControl = "";
+      input2.setAttribute("aria-label", host2.language === "ja" ? "原文の例" : "Exact source example");
+      fieldset.append(input2);
+    }
+    item2.append(fieldset);
+    return item2;
+  }
+  function renderAnswerKey$g(model2, language) {
+    const section = document.createElement("section");
+    section.className = "academy-state-inspection-key";
+    section.dataset.answerVisibility = "after-attempt";
+    section.hidden = true;
+    const heading = document.createElement("h3");
+    heading.textContent = language === "ja" ? "試したあとの先生の印刷例" : "Sensei’s printed examples after your attempt";
+    const list2 = document.createElement("ol");
+    model2.payload.rounds.forEach((round2) => {
+      const item2 = document.createElement("li");
+      item2.lang = "ja";
+      item2.textContent = round2.answer;
+      list2.append(item2);
+    });
+    section.append(heading, list2);
+    return section;
+  }
+  function responseFromForm$C(model2, form) {
+    const data = new FormData(form);
+    const answers = model2.payload.rounds.map((round2) => {
+      const value = data.get(fieldName$4(model2, round2));
+      return typeof value === "string" && value.trim() ? { roundId: round2.id, value } : null;
+    });
+    return answers.every((answer2) => answer2 !== null) ? { answers } : null;
+  }
+  function parseResponse$H(model2, response) {
+    if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.rounds.length) {
+      throw new TypeError("Every l2-l36 source example needs one response.");
+    }
+    const answers = /* @__PURE__ */ new Map();
+    response.answers.forEach((answer2) => {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$e(answer2.value)) {
+        throw new TypeError("l2-l36 responses must use every authored row exactly once.");
+      }
+      answers.set(answer2.roundId, answer2.value);
+    });
+    return answers;
+  }
+  function reviewSeed$d(round2, result) {
+    return {
+      id: `review:l2-l36:youni-goal:${round2.id}`,
+      conceptId: round2.conceptId,
+      reason: result.outcome === "pass" ? "new-learning" : "repair",
+      sourceQuestionId: round2.sourceQuestionId,
+      content: { expression: round2.answer, meanings: ["Sensei Chapter 36-1 printed example"] }
+    };
+  }
+  function fieldName$4(model2, round2) {
+    return `${model2.id}:${round2.id}:answer`;
+  }
+  function sourceVisual(payloadSha256, title2, page, filename, sha2562) {
+    return Object.freeze({
+      sourceId: `moodle:${payloadSha256}:page:${page}`,
+      payloadSha256,
+      title: title2,
+      page,
+      url: `/academy/content/lessons/l2-l36/${filename}`,
+      sha256: sha2562,
+      alt: Object.freeze({ ja: `Moodle 原本: ${title2} ${page}ページ。`, en: `Moodle original: ${title2}, page ${page}.` })
+    });
   }
   const PACKAGE_ID$1 = "l1-l04";
   const MODULE_ID$1 = 5822243;
@@ -182855,7 +183933,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "francis",
         "tom",
         "aakash",
-        "ruparna"
+        "ruparna",
+        "henry"
       ],
       unlocks: [
         "francis"
@@ -187282,8 +188361,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "l2-l33",
     "l1-l07"
   ]);
+  const DIRECT_ACTIVITY_CHAPTER_PACKAGES = Object.freeze(["l2-l35", "l2-l36"]);
   async function loadLessonActivityChapter(packageId, kanjiWriting) {
-    if (!LESSON_ACTIVITY_CHAPTER_PACKAGES.includes(packageId)) return null;
+    const registered = LESSON_ACTIVITY_CHAPTER_PACKAGES.includes(packageId) || DIRECT_ACTIVITY_CHAPTER_PACKAGES.includes(packageId);
+    if (!registered) return null;
     switch (packageId) {
       case "l1-l08": {
         const trace = await kanjiWriting.lookup("一");
@@ -187657,8 +188738,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }, {
           ja: "八つの印刷された読みと「理」の形を、先生の原本へ戻って確認できるようになりました。MinnaとGenkiは順番と範囲だけを示し、音声や未確認の解答は足していません。",
           en: "You can now return to Sensei’s pages to check eight printed readings and the form of 理. Minna and Genki supply chronology and scope only; no audio or unverified answer key has been added."
-        }, [createLessonL2L34KanjiMenuReadingBeat(), createLessonL2L34RiWritingBeat(trace)]);
+        }, [
+          createLessonL2L34PicturelessMenuStoryBeat(),
+          createLessonL2L34KanjiMenuReadingBeat(),
+          createLessonL2L34RiWritingBeat(trace)
+        ]);
       }
+      case "l2-l35":
+        return chapter("l2-l35", "s1e09-the-story-in-two-tenses", "jodi", {
+          ja: "相手を思いやる提案",
+          en: "A considerate recommendation"
+        }, {
+          ja: "ジョディが先生の Chapter 35 の四枚を開きます。相手の状況を聞き、押しつけずに提案する会話を、印刷された順番のまま戻します。",
+          en: "Jodi opens Sensei’s four Chapter 35 pages. Restore the printed exchange in order: listen to the other person’s situation, then offer a suggestion without pushing it on them."
+        }, {
+          ja: "八つの部分が一つの自然な会話に戻り、相手を思いやる「〜ませんか」の提案を原文どおりに使えました。",
+          en: "All eight segments are back in one natural exchange, preserving Sensei’s considerate 〜ませんか recommendation exactly."
+        }, [createLessonL2L35ConsiderateRecommendationBeat()]);
+      case "l2-l36":
+        return chapter("l2-l36", "s1e10-instructions-for-a-cloud", "rie", {
+          ja: "行動につながる目標",
+          en: "Goals you can act toward"
+        }, {
+          ja: "りえ先生が Chapter 36-1 の四枚を作業台に並べます。目標と、そのために今できる行動を「ように」でつなぎます。",
+          en: "Rie lays the four Chapter 36-1 pages across the workbench. Connect each goal to an action you can take now with ように."
+        }, {
+          ja: "八つの印刷例を原文どおりに戻し、目標と行動、避けたい結果と予防を分けられるようになりました。",
+          en: "All eight printed examples are restored in source wording, separating goals from actions and unwanted outcomes from prevention."
+        }, [createLessonL2L36YouniGoalWorkshopBeat()]);
       case "l1-l01":
         return chapter("l1-l01", "s1e01-the-blank-atlas", "rie", {
           ja: "白い地図帳の名札",
@@ -187903,7 +189010,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Across eight source prompts, you connected volitional forms to plans with 〜ようと思っています. Sensei’s originals, three earned hints, missed-item repair, and a full replay remain available."
         }, [createLessonFortyFiveIntentionRouteBeat()]);
       case "l2-l21":
-        return chapter("l2-l21", "s1e07-no-spoilers", "henry", {
+        return chapter("l2-l21", "s1e07-no-spoilers", "ruparna", {
           ja: "決めたこと、決まっていること",
           en: "What you decided, what is arranged"
         }, {
@@ -201371,7 +202478,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     section.className = "academy-state-inspection-sources";
     section.dataset.lessonPhase = "source-reference";
     model2.provenance.moodle.sourceSheets.forEach((visual2) => {
-      section.append(renderInspectableSourceVisual(
+      section.append(visual2.presentation === "inline-reference" ? renderInlineSourceVisual(visual2, language) : renderInspectableSourceVisual(
         visual2,
         language,
         "academy-state-inspection-source",
@@ -201379,6 +202486,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ));
     });
     return section;
+  }
+  function renderInlineSourceVisual(visual2, language) {
+    const selectedLanguage = language === "ja" ? "ja" : "en";
+    const figure = document.createElement("figure");
+    figure.className = "academy-state-inspection-source academy-state-inspection-inline-reference";
+    const image = document.createElement("img");
+    image.src = visual2.url;
+    image.alt = visual2.alt[selectedLanguage];
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.dataset.sourceSha256 = visual2.sha256;
+    const caption2 = document.createElement("figcaption");
+    caption2.textContent = `${visual2.title} · p.${visual2.page}`;
+    figure.append(image, caption2);
+    return figure;
   }
   function renderSourceAudio(model2, language) {
     const source2 = model2.provenance.moodle.media.audio;
@@ -208696,6 +209818,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     reasonChainPlugin,
     reportedMessageWorkshopPlugin,
     followTheModelWorkshopPlugin,
+    considerateRecommendationPlugin,
+    youniGoalWorkshopPlugin,
     stateInspectionPlugin,
     particleSignalMixerPlugin,
     tokiThresholdPlugin,
@@ -209331,7 +210455,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       morae,
       pitchNumber,
       pattern: normalized2,
-      className: pitchClassNameFromProfile(normalized2, morae.length, pitchNumber)
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
     };
   }
   function pitchClassNameForPattern(pattern, reading) {
@@ -209373,31 +210497,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
     if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
     }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
+    return null;
   }
-  function looksLikeShortHeibanPattern(levels) {
+  function looksLikeCompactHeibanPattern(levels) {
     return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
   }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count2 = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count2++;
-    }
-    return count2;
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
   }
   function normalizePitchLevelsForReading(levels, reading) {
     const chars = Array.from(reading);
@@ -231186,6 +232299,8 @@ ${component.reading}`;
   const LOCAL_ENRICHMENT_CONCURRENCY = 12;
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
@@ -231214,6 +232329,7 @@ ${component.reading}`;
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
     localTermDictionaryAvailability;
     enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
@@ -231228,7 +232344,8 @@ ${component.reading}`;
       });
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, parsed);
+        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
         return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
       } finally {
         done();
@@ -231349,6 +232466,7 @@ ${component.reading}`;
       this.localCardCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
+      this.localBoundaryEvidenceCache.clear();
       this.localTermDictionaryAvailability = void 0;
     }
     localCardFromEntry(entry2) {
@@ -231445,26 +232563,66 @@ ${spelling}`);
         log$i.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
-        const card = this.localCardFromEntry(match.entry);
-        const reading = card.reading && card.reading !== match.surface ? card.reading : "";
-        const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
-        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
-        const rubies = reading ? match.deinflected ? inferredInflectedSurfaceRubies(match.surface, card.spelling, reading).map((ruby) => ({
-          ...ruby,
-          start: match.start + ruby.start,
-          end: match.start + ruby.end
-        })) : await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
-        return {
-          card,
-          start: match.start,
-          end: match.end,
-          length: match.end - match.start,
-          rubies,
-          pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-          sentence: text2
-        };
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+    }
+    async localTokenFromMatch(text2, match, options) {
+      const card = this.localCardFromEntry(match.entry);
+      const reading = card.reading && card.reading !== match.surface ? card.reading : "";
+      const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+      if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+      const rubies = reading ? match.deinflected ? inferredInflectedSurfaceRubies(match.surface, card.spelling, reading).map((ruby) => ({
+        ...ruby,
+        start: match.start + ruby.start,
+        end: match.start + ruby.end
+      })) : await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
+      return {
+        card,
+        start: match.start,
+        end: match.end,
+        length: match.end - match.start,
+        rubies,
+        pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
+        sentence: text2
+      };
+    }
+    async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
+      if (!this.canUseLocalDictionaryFallback()) return parsed;
+      const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
+      if (!candidates.some((items) => items.length)) return parsed;
+      if (!await this.hasLocalTermDictionaries(true)) return parsed;
+      const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+        const text2 = paragraphs[paragraphIndex] ?? "";
+        const replacements = await mapLimited(candidates[paragraphIndex], 4, async (candidate2) => {
+          const relative = await this.exactLocalBoundaryMatch(candidate2.surface);
+          if (!relative) return null;
+          const match = offsetTermMatch(relative, candidate2.start);
+          if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
+          return this.localTokenFromMatch(text2, match, options);
+        });
+        return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
+      }));
+      return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
+    }
+    exactLocalBoundaryMatch(surface) {
+      const settings = this.dependencies.getSettings();
+      const key2 = localBoundaryEvidenceCacheKey(surface, settings);
+      const cached = this.localBoundaryEvidenceCache.get(key2);
+      if (cached) return cached;
+      const promise = this.dependencies.dictionaries.findTermMatches(
+        surface,
+        LOCAL_BOUNDARY_MATCH_LIMIT,
+        settings.dictionaryPreferences
+      ).then((matches) => exactBoundaryMatch(surface, matches)).catch((error) => {
+        log$i.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+        return null;
       });
+      this.localBoundaryEvidenceCache.set(key2, promise);
+      while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
+        const oldest = this.localBoundaryEvidenceCache.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.localBoundaryEvidenceCache.delete(oldest);
+      }
+      return promise;
     }
     // A store that cannot report availability still gets a chance in the
     // fallback path (it tolerates empty lookups), but local-first replaces
@@ -231721,6 +232879,80 @@ ${spelling}`);
     return JSON.stringify({
       spelling: card.spelling,
       reading: card.reading,
+      dictionaries: settings.dictionaryPreferences.map((preference) => ({
+        name: preference.name,
+        enabled: preference.enabled,
+        priority: preference.priority
+      }))
+    });
+  }
+  function boundaryEvidenceCandidates(text2, tokens) {
+    const sorted = [...tokens].sort(compareTokensByOffset);
+    const candidates = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let index = 1; index < sorted.length; index += 1) {
+      const candidate2 = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
+      if (!candidate2) continue;
+      const key2 = `${candidate2.start}:${candidate2.surface}`;
+      if (seen.has(key2)) continue;
+      seen.add(key2);
+      candidates.push(candidate2);
+    }
+    return candidates;
+  }
+  function boundaryEvidenceCandidate(text2, first2, second) {
+    if (first2.end !== second.start) return null;
+    if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
+    const left = text2.slice(first2.end - 1, first2.end);
+    const right = text2.slice(second.start, second.start + 1);
+    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
+    const firstSurface = text2.slice(first2.start, first2.end);
+    const secondSurface = text2.slice(second.start, second.end);
+    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
+    return { surface: text2.slice(first2.start, second.end), start: first2.start };
+  }
+  function isReconciliableParseToken(token) {
+    return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
+  }
+  function isSingleJapaneseCharacter(surface) {
+    const characters = Array.from(surface);
+    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+  }
+  function exactBoundaryMatch(surface, matches) {
+    return matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim())).sort((first2, second) => second.end - second.start - (first2.end - first2.start) || first2.start - second.start)[0] ?? null;
+  }
+  function offsetTermMatch(match, offset) {
+    return {
+      ...match,
+      start: match.start + offset,
+      end: match.end + offset
+    };
+  }
+  function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
+    const overlapping = tokens.filter((token) => rangesOverlap(match.start, match.end, token.start, token.end));
+    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
+    return overlapping.every((token) => {
+      const prefix = text2.slice(token.start, Math.min(token.end, match.start));
+      const suffix = text2.slice(Math.max(token.start, match.end), token.end);
+      return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
+    });
+  }
+  function replaceRemoteFragments(tokens, candidates) {
+    if (!candidates.length) return tokens;
+    const accepted = [];
+    for (const candidate2 of [...candidates].sort((first2, second) => second.length - first2.length || first2.start - second.start)) {
+      if (accepted.some((token) => rangesOverlap(candidate2.start, candidate2.end, token.start, token.end))) continue;
+      accepted.push(candidate2);
+    }
+    if (!accepted.length) return tokens;
+    return [
+      ...tokens.filter((token) => !accepted.some((candidate2) => rangesOverlap(candidate2.start, candidate2.end, token.start, token.end))),
+      ...accepted
+    ].sort(compareTokensByOffset);
+  }
+  function localBoundaryEvidenceCacheKey(surface, settings) {
+    return JSON.stringify({
+      surface,
       dictionaries: settings.dictionaryPreferences.map((preference) => ({
         name: preference.name,
         enabled: preference.enabled,
@@ -244280,8 +245512,7 @@ ${options.version}`;
     heiban: "pitchClassHeiban",
     atamadaka: "pitchClassAtamadaka",
     nakadaka: "pitchClassNakadaka",
-    odaka: "pitchClassOdaka",
-    kifuku: "pitchClassNakadaka"
+    odaka: "pitchClassOdaka"
   };
   function pitchClassLabel(className, t) {
     return className ? t(PITCH_CLASS_LABEL_KEYS[className]) : "";
@@ -256947,8 +258178,7 @@ ${entry2.url}`),
     "jpdb-pitch-heiban",
     "jpdb-pitch-atamadaka",
     "jpdb-pitch-nakadaka",
-    "jpdb-pitch-odaka",
-    "jpdb-pitch-kifuku"
+    "jpdb-pitch-odaka"
   ]);
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   function refreshReaderWordContrast(root = document) {
@@ -257335,7 +258565,6 @@ ${entry2.url}`),
       atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
       nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
       odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
-      kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
       unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 }
     };
   }
@@ -258036,7 +259265,6 @@ ${entry2.url}`),
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown"
   ];
   const COLOR_SOURCE_SETTING_NAMES = [
@@ -259668,7 +260896,6 @@ ${entry2.url}`),
     ["pitchColorAtamadaka", "Atamadaka (head-high)"],
     ["pitchColorNakadaka", "Nakadaka (middle-high)"],
     ["pitchColorOdaka", "Odaka (tail-high)"],
-    ["pitchColorKifuku", "Kifuku (variable)"],
     ["pitchColorUnknown", "Unknown"]
   ];
   const OCR_COLOR_FIELDS = [
@@ -260071,7 +261298,7 @@ ${entry2.url}`),
   }
   function appearancePreviewHtml() {
     const word = (classes2, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes2}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-kifuku", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
+    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-unknown", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
   }
   function renderPitchColorSettingsSubsection(settings) {
     return renderColorSettingsSubsection("Pitch accent colors", PITCH_COLOR_FIELDS, settings);
@@ -261350,7 +262577,6 @@ ${entry2.url}`),
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown",
     "wordHighlightColorSource",
     "wordUnderlineColorSource",
