@@ -2367,6 +2367,9 @@
       jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
+      noExampleSentences: "No example sentences",
+      exampleSentencesUnavailable: "Example sentences unavailable",
+      acceptedInputs: "Accepted inputs",
       playJpdbExampleAudio: "Play JPDB example audio",
       wordsUsingKanji: "Words using {kanji}",
       contextVideo: "Video",
@@ -2399,7 +2402,7 @@
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related words.",
-      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and accepted answers.",
+      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -3021,6 +3024,9 @@ sourcePlural	ソース
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+noExampleSentences	例文はありません
+exampleSentencesUnavailable	例文を読み込めません
+acceptedInputs	入力として認められる表現
 playJpdbExampleAudio	JPDB例文音声を再生
 wordsUsingKanji	{kanji}を使う単語
 kanjiDictionaries	漢字辞書
@@ -3721,7 +3727,7 @@ importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います�
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
 sourceHelpJiten	Jiten定義、例文、関連語です。
-sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、正解として認められる答えです。
+sourceHelpBunpro	Bunproの語彙・文法の意味、ニュアンス、例文です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。

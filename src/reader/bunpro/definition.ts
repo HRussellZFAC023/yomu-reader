@@ -2,9 +2,10 @@ import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { BUNPRO_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
+import { formatPartOfSpeech } from '../lookup/pos';
 import { definitionSourceStateKey } from '../sources/definition-render';
-import { speakerIcon } from '../ui/icons';
-import type { BunproClient } from './bunpro';
+import { renderProviderExamples, type ProviderCollection, type ProviderExampleView } from '../sources/provider-examples';
+import { BunproApiError, type BunproClient } from './bunpro';
 
 export interface BunproExampleSentencePart {
     text: string;
@@ -12,10 +13,12 @@ export interface BunproExampleSentencePart {
 }
 
 export interface BunproExampleSentence {
+    id: string;
     parts: BunproExampleSentencePart[];
     text: string;
     translation: string;
-    audioUrl: string;
+    audioUrls: string[];
+    source: { provider: 'bunpro'; url: string };
 }
 
 export interface BunproDefinitionInfo {
@@ -32,6 +35,8 @@ export interface BunproDefinitionInfo {
     jlptLevel: string;
     sourceUrl: string;
     examples: BunproExampleSentence[];
+    examplesAvailability: 'loaded' | 'empty' | 'unavailable';
+    examplesUnavailableReason: '' | 'auth' | 'network' | 'schema';
 }
 
 export type BunproDefinitionNoMatchReason =
@@ -76,11 +81,14 @@ export async function lookupBunproDefinitionResult(client: BunproClient, card: J
     });
     if (!result.info) return result;
     const info = result.info;
-    // Example sentences (with audio) live on the reviewable detail endpoint,
-    // not in the search envelope. A failed detail fetch degrades to an
-    // examples-free card rather than dropping the whole Bunpro source.
-    const detail = await bunproReviewableDetail(client, info).catch(() => null);
-    if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
+    // Detail failure must not erase the definition, but it also must not be
+    // misrepresented as an authoritative zero-example result.
+    try {
+        const detail = await bunproReviewableDetail(client, info);
+        applyBunproExampleCollection(info, normalizeBunproExampleCollection(detail, info.sourceUrl));
+    } catch (error) {
+        applyBunproExampleCollection(info, { availability: 'unavailable', items: [], reason: bunproExampleFailureReason(error) });
+    }
     return { state: 'success', info };
 }
 
@@ -91,17 +99,33 @@ function bunproReviewableDetail(client: BunproClient, info: BunproDefinitionInfo
 }
 
 export function normalizeBunproExampleSentences(raw: unknown): BunproExampleSentence[] {
-    const included = objectRecord(raw)?.included;
-    if (!Array.isArray(included)) return [];
-    return included
-        .map(bunproExampleSentence)
-        .filter((item): item is BunproExampleSentence & { order: number } => item !== null)
-        .sort((a, b) => a.order - b.order)
-        .slice(0, BUNPRO_EXAMPLE_LIMIT)
-        .map(({ order: _order, ...example }) => example);
+    const collection = normalizeBunproExampleCollection(raw, 'https://bunpro.jp/');
+    return collection.availability === 'loaded' ? collection.items : [];
 }
 
-function bunproExampleSentence(value: unknown): (BunproExampleSentence & { order: number }) | null {
+function normalizeBunproExampleCollection(raw: unknown, sourceUrl: string): ProviderCollection<BunproExampleSentence> {
+    const included = objectRecord(raw)?.included;
+    if (!Array.isArray(included)) return { availability: 'unavailable', items: [], reason: 'schema' };
+    const questions = included.filter(value => textValue(objectRecord(value)?.type) === 'study_question');
+    if (!questions.length) return { availability: 'empty', items: [] };
+    const examples = questions
+        .map(value => bunproExampleSentence(value, sourceUrl))
+        .filter((item): item is BunproExampleSentence & { order: number } => item !== null)
+        .sort((a, b) => a.order - b.order);
+    if (!examples.length) return { availability: 'unavailable', items: [], reason: 'schema' };
+    const deduped = dedupeBunproExamples(examples)
+        .slice(0, BUNPRO_EXAMPLE_LIMIT)
+        .map(({ order: _order, ...example }) => example);
+    return { availability: 'loaded', items: deduped };
+}
+
+function applyBunproExampleCollection(info: BunproDefinitionInfo, collection: ProviderCollection<BunproExampleSentence>): void {
+    info.examples = collection.items;
+    info.examplesAvailability = collection.availability;
+    info.examplesUnavailableReason = collection.availability === 'unavailable' ? collection.reason : '';
+}
+
+function bunproExampleSentence(value: unknown, sourceUrl: string): (BunproExampleSentence & { order: number }) | null {
     const record = objectRecord(value);
     if (textValue(record?.type) !== 'study_question') return null;
     const attributes = objectRecord(record?.attributes);
@@ -112,12 +136,38 @@ function bunproExampleSentence(value: unknown): (BunproExampleSentence & { order
     const text = stripBunproFurigana(parts.map(part => part.text).join('')).trim();
     if (!text || !/[぀-ヿ㐀-鿿]/u.test(text)) return null;
     return {
+        id: textValue(record?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
         parts,
         text,
         translation: stripBunproMarkup(textValue(attributes.translation)),
-        audioUrl: bunproHttpsUrl(textValue(attributes.female_audio_url)) || bunproHttpsUrl(textValue(attributes.male_audio_url)),
+        audioUrls: uniqueText([
+            bunproHttpsUrl(textValue(attributes.female_audio_url)),
+            bunproHttpsUrl(textValue(attributes.male_audio_url)),
+        ]),
+        source: { provider: 'bunpro', url: sourceUrl },
         order: Number(attributes.sentence_order) || 0,
     };
+}
+
+function dedupeBunproExamples(examples: Array<BunproExampleSentence & { order: number }>): Array<BunproExampleSentence & { order: number }> {
+    const unique = new Map<string, BunproExampleSentence & { order: number }>();
+    for (const example of examples) {
+        const key = `${normalizedDisplayText(example.text)}\u0000${normalizedDisplayText(example.translation)}`;
+        const current = unique.get(key);
+        if (!current) {
+            unique.set(key, example);
+            continue;
+        }
+        current.audioUrls = uniqueText([...current.audioUrls, ...example.audioUrls]);
+    }
+    return Array.from(unique.values());
+}
+
+function bunproExampleFailureReason(error: unknown): 'auth' | 'network' | 'schema' {
+    const status = error instanceof BunproApiError ? error.status : errorStatus(error);
+    if (status === 401 || status === 403) return 'auth';
+    if (status === 404) return 'schema';
+    return 'network';
 }
 
 // Cloze study questions ship the blank as underscores and the filled answer
@@ -245,57 +295,40 @@ export function renderBunproDefinitionSource(
 ): string {
     if (!info) return '';
     const details = [
-        info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml(info.jlptLevel.toUpperCase())}</span>` : '',
+        info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml(info.jlptLevel)}</span>` : '',
         ...info.partOfSpeech.slice(0, 4).map(value => `<span class="jpdb-reader-dict-tag">${escapeHtml(value)}</span>`),
     ].filter(Boolean).join('');
-    const accepted = info.acceptedAnswers.filter(answer => answer !== info.expression && answer !== info.reading).slice(0, 8);
+    const accepted = info.kind === 'grammar'
+        ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8)
+        : [];
     const japanese = resolveUiLanguage(language) === 'ja';
-    const acceptedLabel = japanese ? '正解として認められる答え' : 'Accepted answers';
     const nuanceLabel = japanese ? 'ニュアンス' : 'Nuance';
+    const glosses = distinctBunproGlosses(info);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
                 ${repeatsLookupHeadword(card, info) ? '' : `<div class="jpdb-reader-local-head"><span class="jpdb-reader-local-expression">${escapeHtml(info.expression)}</span>${info.reading && info.reading !== info.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml(info.reading)}</span>` : ''}</div>`}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ''}
-                ${info.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(info.meaning)}</span></div></div>` : ''}
-                ${info.nuance ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong><div>${escapeHtml(info.nuance)}</div>${info.nuanceTranslation ? `<div>${escapeHtml(info.nuanceTranslation)}</div>` : ''}</div>` : ''}
-                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(acceptedLabel)}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
-                ${renderBunproExamples(info.examples, sourceAttributes, language)}
-                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="${escapeHtml(info.sourceUrl)}" target="_blank" rel="noopener">Bunpro ↗</a>
+                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong>${glosses.nuance.map(value => `<div>${escapeHtml(value)}</div>`).join('')}</div>` : ''}
+                ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'acceptedInputs'))}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
+                ${renderBunproExamples(info, sourceAttributes, language)}
             </article>
         </details>
     `;
 }
 
-function renderBunproExamples(examples: BunproExampleSentence[], sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
-    return examples.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group jpdb-reader-bunpro-examples-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:examples`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map(example => renderBunproExample(example, language)).join('')}
-                </ul>
-            </div>
-        </details>
-    ` : '';
-}
-
-function renderBunproExample(example: BunproExampleSentence, language: InterfaceLanguage): string {
-    return `
-        <li class="jpdb-reader-jpdb-example jpdb-reader-bunpro-example">
-            <div class="jpdb-reader-jpdb-example-row has-audio">
-                ${renderBunproAudioButton(example, language)}
-                <div class="jpdb-reader-jpdb-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${example.parts.map(renderBunproExamplePart).join('')}</div>
-                    ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
-                </div>
-            </div>
-        </li>
-    `;
+function renderBunproExamples(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
+    const collection: ProviderCollection<BunproExampleSentence> = info.examplesAvailability === 'loaded'
+        ? { availability: 'loaded', items: info.examples }
+        : info.examplesAvailability === 'unavailable'
+            ? { availability: 'unavailable', items: [], reason: info.examplesUnavailableReason || 'schema' }
+            : { availability: 'empty', items: [] };
+    const view: ProviderCollection<ProviderExampleView> = collection.availability === 'loaded'
+        ? { availability: 'loaded', items: collection.items.map(example => bunproExampleView(example, language)) }
+        : collection;
+    return renderProviderExamples('bunpro', BUNPRO_DEFINITION_SOURCE_ID, view, sourceAttributes, language);
 }
 
 function renderBunproExamplePart(part: BunproExampleSentencePart): string {
@@ -303,10 +336,21 @@ function renderBunproExamplePart(part: BunproExampleSentencePart): string {
     return part.target ? `<mark class="jpdb-reader-example-target jpdb-reader-bunpro-example-target">${html}</mark>` : html;
 }
 
-function renderBunproAudioButton(example: BunproExampleSentence, language: InterfaceLanguage): string {
-    const label = uiText(language, 'playAudio');
-    const audioUrl = example.audioUrl ? ` data-audio-url="${escapeHtml(example.audioUrl)}"` : '';
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml(example.text)}"${audioUrl} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>`;
+function bunproExampleView(example: BunproExampleSentence, language: InterfaceLanguage): ProviderExampleView {
+    const audioUrl = example.audioUrls[0] ?? '';
+    return {
+        id: example.id,
+        sentenceHtml: example.parts.map(renderBunproExamplePart).join(''),
+        translation: example.translation,
+        audio: {
+            action: 'bunpro-audio',
+            label: uiText(language, 'playAudio'),
+            attributes: {
+                'data-study-sentence': example.text,
+                ...(audioUrl ? { 'data-audio-url': audioUrl } : {}),
+            },
+        },
+    };
 }
 
 // Bunpro annotates readings inline as 漢字（かんじ） (full-width parens right
@@ -352,12 +396,14 @@ function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): Bun
         nuance: textValue(attributes.nuance),
         nuanceTranslation: textValue(attributes.nuance_translation),
         acceptedAnswers: textList(attributes.accepted_answers),
-        partOfSpeech: textList(attributes.jmdict_pos),
-        jlptLevel: textValue(attributes.jlpt_level),
+        partOfSpeech: normalizeBunproPartOfSpeech(attributes.jmdict_pos),
+        jlptLevel: normalizeBunproJlptLevel(attributes.jlpt_level),
         sourceUrl: kind === 'vocabulary'
             ? `https://bunpro.jp/vocabs/${encodeURIComponent(slug)}`
             : `https://bunpro.jp/grammar_points/${encodeURIComponent(slug)}`,
         examples: [],
+        examplesAvailability: 'empty',
+        examplesUnavailableReason: '',
     };
 }
 
@@ -379,6 +425,47 @@ function normalizedLookupText(value: string): string {
     return value.normalize('NFKC').trim();
 }
 
+function normalizeBunproJlptLevel(value: unknown): string {
+    const level = textValue(value).normalize('NFKC').toUpperCase();
+    return /^N[1-5]$/u.test(level) ? level : '';
+}
+
+function normalizeBunproPartOfSpeech(value: unknown): string[] {
+    return uniqueText(textList(value)
+        .filter(tag => !/^(?:unc|unclassified)$/iu.test(tag))
+        .map(tag => formatPartOfSpeech([tag]).trim())
+        .filter(label => label && !/^unclassified$/iu.test(label)));
+}
+
+function distinctBunproGlosses(info: BunproDefinitionInfo): { meaning: string; nuance: string[] } {
+    const meaning = info.meaning.trim();
+    return {
+        meaning,
+        nuance: distinctDisplayText([info.nuance, info.nuanceTranslation], meaning ? [meaning] : []),
+    };
+}
+
+function distinctDisplayText(values: string[], excluded: string[] = []): string[] {
+    const seen = new Set(excluded.map(normalizedDisplayText).filter(Boolean));
+    const result: string[] = [];
+    for (const value of values) {
+        const text = value.trim();
+        const key = normalizedDisplayText(text);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        result.push(text);
+    }
+    return result;
+}
+
+function normalizedDisplayText(value: string): string {
+    return value.normalize('NFKC').replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
+}
+
+function uniqueText(values: string[]): string[] {
+    return [...new Set(values.map(value => value.trim()).filter(Boolean))];
+}
+
 function sameDefinitionIdentity(items: BunproDefinitionInfo[]): boolean {
     const first = items[0];
     return Boolean(first && items.every(item => item.id === first.id && item.kind === first.kind));
@@ -397,6 +484,13 @@ function textValue(value: unknown): string {
 function numberValue(value: unknown): number {
     const number = Number(value);
     return Number.isInteger(number) && number > 0 ? number : 0;
+}
+
+function errorStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const value = error as { status?: unknown; statusCode?: unknown };
+    const status = value.status ?? value.statusCode;
+    return typeof status === 'number' && Number.isFinite(status) ? status : undefined;
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {

@@ -11039,10 +11039,12 @@ describe('new tab review helpers', () => {
             nuanceTranslation: '',
             acceptedAnswers: [],
             partOfSpeech: ['noun'],
-            jlptLevel: 'n5',
+            jlptLevel: 'N5',
             sourceUrl: 'https://bunpro.jp/vocabs/%E7%8C%AB',
             slug: '猫',
             examples: [],
+            examplesAvailability: 'empty' as const,
+            examplesUnavailableReason: '' as const,
         };
         const hydrateBunproDefinitionInfo = vi.fn(async () => bunproDefinitionInfo);
         const cardRenderData = {

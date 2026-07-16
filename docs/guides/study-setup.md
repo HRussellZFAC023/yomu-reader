@@ -37,7 +37,7 @@ What it is *not* is an SRS. Yomitan shows you a word; it does not schedule that 
 
 ### Bunpro — contextual grammar and vocabulary study
 
-[Bunpro](https://bunpro.jp/) is a Japanese SRS best known for grammar, with vocabulary decks and contextual review sentences too. In よむ, the imported Bunpro frontend token supplies your review queue, word states, mining, and a Bunpro definition source with meanings, nuance, and accepted answers. Study uses self-graded reveal controls: **Hard / Good** for regular reviews and **Again / Hard / Good / Easy** for FSRS, never JPDB's five choices.
+[Bunpro](https://bunpro.jp/) is a Japanese SRS best known for grammar, with vocabulary decks and contextual review sentences too. In よむ, the imported Bunpro frontend token supplies your review queue, word states, mining, and a Bunpro definition source with meanings, nuance, and example sentences. Study uses self-graded reveal controls: **Hard / Good** for regular reviews and **Again / Hard / Good / Easy** for FSRS, never JPDB's five choices.
 
 ### Anki — a general-purpose SRS you fully control
 
@@ -78,7 +78,7 @@ From a single lookup popup, よむ lets you:
 - **Use Yomitan dictionaries locally.** Import your Yomitan dictionary ZIPs or JMdict; the dictionaries stay in your browser and power instant definitions, with no upload anywhere.
 - **Use Jiten as a study source.** Connect Jiten for word state, definitions, audio, kanji facts, and mining or grading actions from the popup.
 - **See and act on JPDB state.** The popup shows a word's JPDB state; add the word, mark it never-forget, blacklist it, or send a review grade.
-- **Use Bunpro definitions and reviews.** The popup can show Bunpro meanings, nuance, and accepted answers; Study safely grades due cards inside their live Bunpro session with the regular or FSRS scale.
+- **Use Bunpro definitions and reviews.** The popup can show Bunpro meanings, nuance, and example sentences; Study safely grades due cards inside their live Bunpro session with the regular or FSRS scale.
 - **Mine to Anki via AnkiConnect.** Turn a lookup, subtitle line, or OCR result into an Anki card with the word, reading, meaning, source sentence, audio, and an optional image.
 
 All in one popup, so you adopt the tools gradually: read with the dictionary first, add Jiten, Bunpro, or JPDB for structured reviews, and bring in Anki for cards you own.

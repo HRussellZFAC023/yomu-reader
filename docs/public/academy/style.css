@@ -10998,6 +10998,13 @@ button.jpdb-reader-token-sentence-word {
   white-space: nowrap;
 }
 
+.jpdb-reader-example-availability {
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .jpdb-reader-jpdb-example .jpdb-reader-example-sentence,
 .jpdb-reader-jpdb-example .jpdb-reader-example-translation {
   justify-self: stretch;
