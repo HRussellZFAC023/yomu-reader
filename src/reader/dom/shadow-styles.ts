@@ -64,7 +64,7 @@ export function ensureReaderStylesForHost(host: Element): void {
     ensureReaderStylesInShadowRoot(root);
 }
 
-export function ensureReaderStylesInShadowRoot(root: ShadowRoot): void {
+function ensureReaderStylesInShadowRoot(root: ShadowRoot): void {
     if (adoptedShadowRoots.has(root)) return;
     adoptedShadowRoots.add(root);
     if (supportsConstructableSheets(root) && sharedShadowSheet) {
