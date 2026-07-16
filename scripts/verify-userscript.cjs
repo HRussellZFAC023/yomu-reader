@@ -201,7 +201,7 @@ function assertKanjiStudySplitBoundary() {
     ['installKanjiDoodle', 'function installKanjiDoodle('],
     ['assessKanjiStrokes', 'function assessKanjiStrokes('],
     ['grammar pattern table', 'const GRAMMAR_PATTERNS'],
-    ['grammar pattern parser', 'function grammarPatternFromRow'],
+    ['grammar pattern parser', 'function grammarPatternFromRule'],
     ['grammar false-positive filters', 'const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE'],
     ['grammar hint example renderer', 'function renderGrammarHintExamples'],
   ];

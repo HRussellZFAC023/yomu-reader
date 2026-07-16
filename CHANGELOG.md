@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [1.6.167] - 2026-07-16
 
 ### Changed
 
@@ -9,12 +9,11 @@
 - The Academy N5 placement mock now plays its two byte-verified Soya recordings through the shared listening registry. N4–N1 remain clearly labelled exact-text browser speech until their specific recordings are reviewed and packaged, and changing placement level still preserves story progress.
 - N3 Academy entry now uses the exact Moodle-owned Minna 074 listening task and packaged recording. The existing adaptive learner model chooses guided, placement-backed test-out, repair, or independent support while keeping all story and encounter progress untouched.
 
-## [1.6.167] - 2026-07-16
-
 ### Fixed
 
 - Remote parser fragments are now replaced only when an enabled local dictionary supplies an exact longer expression and reading across their boundary. This repairs evidence-backed splits such as `2時` + `間` without a `時間` exception, adjacent-kanji guessing, full rescans, or synthesized compound pitch.
 - Pitch accent now uses the four positional Tokyo classes—heiban, atamadaka, nakadaka, and odaka—consistently across reader words, popups, subtitles, and study. Malformed contours are treated as unknown, multiple sourced variants remain distinct, and the obsolete “Kifuku (variable)” fifth colour setting is removed while old settings payloads still load safely.
+
 ## [1.6.166] - 2026-07-16
 
 ### Fixed
