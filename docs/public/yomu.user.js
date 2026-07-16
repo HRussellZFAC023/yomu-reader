@@ -22286,22 +22286,25 @@ function boundaryEvidenceCandidates(text2, tokens) {
   const candidates = [];
   const seen = new Set();
   for (let index = 1; index < sorted.length; index += 1) {
-  const first = sorted[index - 1];
-  const second = sorted[index];
-  if (first.end !== second.start || !isReconciliableParseToken(first) || !isReconciliableParseToken(second)) continue;
-  const firstSurface = text2.slice(first.start, first.end);
-  const secondSurface = text2.slice(second.start, second.end);
-  const left = text2.slice(first.end - 1, first.end);
-  const right = text2.slice(second.start, second.start + 1);
-  if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) continue;
-  if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) continue;
-  const surface = text2.slice(first.start, second.end);
-  const key = `${first.start}:${second.end}:${surface}`;
+  const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
+  if (!candidate) continue;
+  const key = `${candidate.start}:${candidate.surface}`;
   if (seen.has(key)) continue;
   seen.add(key);
-  candidates.push({ surface, start: first.start });
+  candidates.push(candidate);
   }
   return candidates;
+}
+function boundaryEvidenceCandidate(text2, first, second) {
+  if (first.end !== second.start) return null;
+  if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
+  const left = text2.slice(first.end - 1, first.end);
+  const right = text2.slice(second.start, second.start + 1);
+  if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
+  const firstSurface = text2.slice(first.start, first.end);
+  const secondSurface = text2.slice(second.start, second.end);
+  if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
+  return { surface: text2.slice(first.start, second.end), start: first.start };
 }
 function isReconciliableParseToken(token) {
   return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
