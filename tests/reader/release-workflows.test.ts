@@ -7,6 +7,11 @@ const buildUserscriptWorkflow = readFileSync(
     'utf8',
 );
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
+const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
+const releaseGamingWorkflow = readFileSync(
+    join(process.cwd(), '.github/workflows/release-gaming.yml'),
+    'utf8',
+);
 
 describe('release workflow safety', () => {
     it('does not suppress Actions from the generated-assets commit', () => {
@@ -51,5 +56,16 @@ describe('release workflow safety', () => {
         expect(ciWorkflow).toContain('npx playwright install --with-deps chromium webkit');
         expect(ciWorkflow).toContain('npm run smoke:layout-regressions');
         expect(ciWorkflow).toMatch(/needs: \[typecheck, test, test-jpdb, gaming-smoke, layout-smoke\]/);
+    });
+
+    it('gives desktop gaming artifacts one release owner', () => {
+        expect(releaseWorkflow).not.toContain('Build Yomu Gaming release packages');
+        expect(releaseWorkflow).not.toContain('npm run release:gaming:');
+        expect(releaseWorkflow).not.toContain('linux_assets=');
+        expect(releaseWorkflow).not.toContain('assets+=(dist-gaming');
+
+        expect(releaseGamingWorkflow).toContain('- name: Build Yomu Gaming');
+        expect(releaseGamingWorkflow).toContain('- name: Write SHA256SUMS');
+        expect(releaseGamingWorkflow).toContain('gh release upload "$TAG" release-assets/* --clobber');
     });
 });
