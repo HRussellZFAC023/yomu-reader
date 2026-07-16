@@ -4072,7 +4072,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.161".trim() ? "1.6.161".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.162".trim() ? "1.6.162".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -4407,6 +4407,7 @@
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
+      noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
       wordUnderlineColorSource: "Word underline color",
@@ -6152,6 +6153,7 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorKifuku	起伏
 pitchColorUnknown	不明
+noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色

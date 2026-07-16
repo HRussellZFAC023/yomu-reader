@@ -14,7 +14,9 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 import { yomuNormalizeOcrRenderedText } from '../companions/registry';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
-import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from '../dom/rendered-word-state';
+import { cardPronunciationReading } from '../popup/pitch';
+import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
+import { clearRenderedWordAnkiState, renderedWordHasAnkiState, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import type { AnkiLookupResult } from '../anki/index';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
@@ -132,8 +134,14 @@ export function replaceOptionalElement(parent: Element, selector: string, html: 
 }
 
 export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], showPitchAccent: boolean): void {
+    if (!showPitchAccent) return;
+    const spelling = popover.querySelector<HTMLElement>('.jpdb-reader-spelling');
+    if (spelling) {
+        const reading = cardPronunciationReading(card) || card.reading;
+        setRenderedWordPitchClass(spelling, getPitchClass(card.pitchAccent, reading));
+    }
     const tools = popover.querySelector<HTMLElement>('.jpdb-reader-card-tools');
-    if (!tools || !showPitchAccent) return;
+    if (!tools) return;
     replaceOptionalElement(tools, '.jpdb-reader-pitch', renderPitch(card, metaEntries), tools.firstElementChild);
 }
 

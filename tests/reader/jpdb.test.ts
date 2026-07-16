@@ -32926,6 +32926,239 @@ describe('reader helpers', () => {
         }
     });
 
+    it('invalidates the connected exact-card popup when background pitch enrichment completes', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard({ pitchAccent: [] });
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 0,
+            end: lookupCard.spelling.length,
+            length: lookupCard.spelling.length,
+            rubies: [],
+            pitchClass: '',
+            sentence: '青空です。',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal' | 'hover';
+            lastCard: JPDBCard;
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parsePopoverJapanese(): Promise<void>;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+            ): void;
+            enrichPitchToken(token: JPDBToken, options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.lastCard = lookupCard;
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false, showPitchAccent: true };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+        try {
+            internals.renderCompletedCardPopover(popover, lookupCard, token.sentence, 'modal', emptyCardRenderData());
+            expect(popover.querySelector('.jpdb-reader-pitch-missing')).not.toBeNull();
+            expect(popover.querySelector('.jpdb-reader-pitch svg')).toBeNull();
+            expect(popover.querySelector('.jpdb-reader-spelling')?.classList.contains('jpdb-pitch-heiban')).toBe(false);
+
+            await internals.enrichPitchToken(token, { publicLookup: true });
+
+            expect(publicPitch).toHaveBeenCalledWith('青空', 'あおぞら');
+            expect(popover.querySelector('.jpdb-reader-pitch')).not.toBeNull();
+            expect(popover.querySelector<HTMLElement>('.jpdb-reader-spelling')?.dataset.pitchClass).toBe('heiban');
+            expect(popover.querySelector('.jpdb-reader-spelling')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('distinguishes exact canonical inflection evidence from unresolved sentence fragments', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            isExactCanonicalFallbackResolution(fallback: JPDBCard, resolved: JPDBCard): boolean;
+        };
+        const resolved = (spelling: string, reading: string): JPDBCard => ({
+            ...card,
+            vid: 88001,
+            sid: 0,
+            rid: 0,
+            spelling,
+            reading,
+            source: 'jiten',
+            pitchAccent: ['LHH'],
+        });
+
+        try {
+            expect(internals.isExactCanonicalFallbackResolution(testFallbackCard({
+                vid: -51,
+                sid: -51,
+                spelling: '食べました',
+                fallbackLookupTerms: ['食べる'],
+            }), resolved('食べる', 'たべる'))).toBe(true);
+            expect(internals.isExactCanonicalFallbackResolution(testFallbackCard({
+                vid: -52,
+                sid: -52,
+                spelling: 'ざいます',
+                fallbackLookupTerms: ['ざいます'],
+            }), resolved('ございます', 'ございます'))).toBe(false);
+            expect(internals.isExactCanonicalFallbackResolution(testFallbackCard({
+                vid: -53,
+                sid: -53,
+                spelling: '来てく',
+                fallbackLookupTerms: ['来てく'],
+            }), resolved('来る', 'くる'))).toBe(false);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('refreshes an inflected surface popup when enrichment resolves an exact canonical card', async () => {
+        const app = new ReaderApp();
+        const surfaceCard = testFallbackCard({
+            vid: -41,
+            sid: -41,
+            spelling: '食べました',
+            reading: '',
+            fallbackLookupTerms: ['食べる'],
+            pitchAccent: [],
+        });
+        const canonicalCard: JPDBCard = {
+            ...card,
+            vid: 1554320,
+            sid: 0,
+            rid: 0,
+            spelling: '食べる',
+            reading: 'たべる',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            pitchAccent: ['LHH'],
+        };
+        const token: JPDBToken = {
+            card: surfaceCard,
+            start: 0,
+            end: surfaceCard.spelling.length,
+            length: surfaceCard.spelling.length,
+            rubies: [],
+            pitchClass: '',
+            sentence: '昨日食べました。',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const showCard = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal' | 'hover';
+            activePopoverAnchor?: HTMLElement;
+            lastCard: JPDBCard;
+            lastCardSentence?: string;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese(): Promise<void>;
+            pitchEnrichedRenderedCard(card: JPDBCard): Promise<JPDBCard>;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+            ): void;
+            showCard: typeof showCard;
+            enrichPitchToken(token: JPDBToken, options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.lastCard = surfaceCard;
+        internals.lastCardSentence = token.sentence;
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false, showPitchAccent: true };
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+        internals.pitchEnrichedRenderedCard = vi.fn(async () => canonicalCard);
+        internals.showCard = showCard;
+
+        try {
+            internals.renderCompletedCardPopover(popover, surfaceCard, token.sentence, 'modal', emptyCardRenderData());
+            await internals.enrichPitchToken(token, { publicLookup: true });
+
+            expect(token.card).toBe(canonicalCard);
+            expect(showCard).toHaveBeenCalledWith(canonicalCard, token.sentence, undefined, expect.objectContaining({
+                autoPlay: false,
+                navigation: 'preserve',
+                preservePosition: true,
+                trigger: 'modal',
+            }));
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not invalidate a superseded popup when late pitch enrichment completes', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard({ pitchAccent: [] });
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 0,
+            end: lookupCard.spelling.length,
+            length: lookupCard.spelling.length,
+            rubies: [],
+            pitchClass: '',
+        };
+        const oldPopover = document.createElement('div');
+        oldPopover.className = 'jpdb-reader-popover';
+        const replacementPopover = document.createElement('div');
+        replacementPopover.className = 'jpdb-reader-popover';
+        document.body.append(oldPopover, replacementPopover);
+        const pitch = deferred<string[]>();
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal' | 'hover';
+            lastCard: JPDBCard;
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup(): Promise<string[]> };
+            parsePopoverJapanese(): Promise<void>;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+            ): void;
+            enrichPitchToken(token: JPDBToken, options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.activePopover = oldPopover;
+        internals.activePopoverMode = 'modal';
+        internals.lastCard = lookupCard;
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false, showPitchAccent: true };
+        internals.jpdbPublicPitch = { lookup: () => pitch.promise };
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+        try {
+            internals.renderCompletedCardPopover(oldPopover, lookupCard, undefined, 'modal', emptyCardRenderData());
+            const enrichment = internals.enrichPitchToken(token, { publicLookup: true });
+            internals.activePopover = replacementPopover;
+            pitch.resolve(['LHHH']);
+            await enrichment;
+
+            expect(oldPopover.querySelector('.jpdb-reader-pitch-missing')).not.toBeNull();
+            expect(oldPopover.querySelector('.jpdb-reader-pitch svg')).toBeNull();
+            expect(replacementPopover.querySelector('.jpdb-reader-pitch')).toBeNull();
+        } finally {
+            oldPopover.remove();
+            replacementPopover.remove();
+            app.destroy();
+        }
+    });
+
     it('continues pitch enrichment when new work is queued as a drain completes', async () => {
         const app = new ReaderApp();
         const token: JPDBToken = {

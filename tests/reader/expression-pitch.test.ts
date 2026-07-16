@@ -71,6 +71,63 @@ function createLoader(options: {
 }
 
 describe('expression component pitch', () => {
+    it('renders an honest exact-source miss after completed lookup instead of a blank pitch area', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showPitchAccent: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const exactMiss = expressionCard('ざいます', 'ざいます');
+
+        const html = renderer.render(exactMiss, 'ありがとうございます。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            expressionComponents: [],
+            componentPitches: [],
+            loading: false,
+        });
+        document.body.innerHTML = html;
+
+        expect(html).toContain('data-pitch-status="no-exact-match"');
+        expect(html).toContain('Exact pitch unavailable');
+        expect(document.querySelector('.jpdb-reader-pitch-missing svg')).toBeNull();
+    });
+
+    it('does not claim an exact pitch miss while lookup data is still loading', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showPitchAccent: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const exactMiss = expressionCard('ざいます', 'ざいます');
+
+        const html = renderer.render(exactMiss, 'ありがとうございます。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: true,
+        });
+
+        expect(html).not.toContain('data-pitch-status="no-exact-match"');
+    });
+
     it('collects per-component pitches for expressions with no pitch of their own', async () => {
         const loader = createLoader({
             entriesByTerm: {

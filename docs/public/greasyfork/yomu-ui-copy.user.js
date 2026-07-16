@@ -1323,6 +1323,7 @@
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
+      noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
       wordUnderlineColorSource: "Word underline color",
@@ -3068,6 +3069,7 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorKifuku	起伏
 pitchColorUnknown	不明
+noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色

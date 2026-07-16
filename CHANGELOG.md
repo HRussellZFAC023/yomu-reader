@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.162] - 2026-07-16
+
+### Fixed
+
+- Furigana no longer writes height or padding into grid and table track sizing, preventing annotated results, fixtures, schedules, and other structured cards from stretching into oversized blank rows while keeping their readings visible.
+- Pitch resolved after a cold popup opens now updates that same connected popup's graph and headword underline without requiring another hover or a page rescan. Exact canonical inflection matches refresh the popup automatically; unresolved fragments show a localized “Exact pitch unavailable” status instead of a silent blank. Late results cannot repaint a superseded popup, cross an unproven expression-and-reading identity, or synthesize compound pitch.
+
 ## [1.6.161] - 2026-07-16
 
 ### Fixed
