@@ -49,7 +49,7 @@ describe('mirror visibility heals after a transient page hide', () => {
         paintMirror(host);
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
 
         // The SPA hides the page, then touches the host's class attribute in
         // the same re-render batch — the per-host observer re-asserts styles
@@ -65,7 +65,7 @@ describe('mirror visibility heals after a transient page hide', () => {
         // The next silent scroll scan consults the skip check; it must heal
         // the stuck-hidden mirror instead of leaving the row blank forever.
         expect(textMirrorAlreadyRenders(host, TEXT)).toBe(true);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
     it('re-shows a stuck-hidden mirror on the guarded-apply sweep even when scans never re-collect the host', async () => {
@@ -85,7 +85,7 @@ describe('mirror visibility heals after a transient page hide', () => {
         // ever consults them. The sweep at the end of every guarded token
         // apply must heal them instead.
         withMirrorTokenApply(() => undefined);
-        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
     it('keeps the mirror hidden while the page still conceals the host', async () => {
@@ -102,6 +102,36 @@ describe('mirror visibility heals after a transient page hide', () => {
 
         expect(textMirrorAlreadyRenders(host, TEXT)).toBe(true);
         expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+    });
+
+    it('never forces inline visibility, so ancestor autohide conceals the mirror by inheritance', () => {
+        // YouTube fades its control bar via an ancestor visibility/opacity
+        // toggle with NO mutation near the host. The mirror must carry no
+        // inline visibility of its own — a forced 'visible !important' once
+        // left underline/furigana floating over the video after the controls
+        // disappeared.
+        document.body.innerHTML = `<div id="page"><div id="host">${TEXT}</div></div>`;
+        const host = document.getElementById('host')!;
+        paintMirror(host);
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.getPropertyValue('visibility')).toBe('');
+    });
+
+    it('treats a faded-out (opacity 0) ancestor as page concealment', async () => {
+        document.body.innerHTML = `<div id="page"><div id="host">${TEXT}</div></div>`;
+        const page = document.getElementById('page')!;
+        const host = document.getElementById('host')!;
+        paintMirror(host);
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+        page.style.opacity = '0';
+        host.classList.add('recycled');
+        await flushMicrotasks();
+        expect(mirror.style.getPropertyValue('visibility')).toBe('hidden');
+
+        page.style.removeProperty('opacity');
+        expect(textMirrorAlreadyRenders(host, TEXT)).toBe(true);
+        expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 });
 

@@ -3475,7 +3475,11 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     }
     mirror.style.setProperty('height', 'auto');
     mirror.style.setProperty('overflow', 'visible');
-    mirror.style.setProperty('visibility', 'visible', 'important');
+    // Visibility is deliberately NOT forced: the mirror inherits the host's
+    // effective visibility, so ancestor hides (player-control autohide, SPA
+    // page swaps) conceal the overlay with zero JS reconciliation. A forced
+    // 'visible !important' here once left underline/furigana floating over
+    // the video after YouTube faded its control bar out.
     // The source DOM owns interaction. A transparent absolute layer must not
     // block player controls or framework handlers; lookup resolves through
     // the stamped source ranges instead of the overlay's potentially stale box.
@@ -3926,16 +3930,28 @@ function removeTextMirror(host: HTMLElement): void {
     textMirrorHosts.delete(host);
 }
 
-// The additive mirror forces its own visibility so a page-owned hidden
-// ancestor must be respected explicitly. Native host visibility is untouched.
+// The mirror inherits host visibility by default (styleTextMirror never
+// forces it), so ancestor hides conceal it natively. This sync only stamps an
+// explicit hidden for conceal mechanisms inheritance cannot follow, and
+// otherwise REMOVES the inline property so inheritance stays in charge —
+// never force 'visible': that defeats player-control autohide and is the
+// mechanism behind stray floating underlines. Native host visibility is
+// untouched.
 function syncTextMirrorVisibilityToPage(host: HTMLElement, mirror: HTMLElement): void {
-    mirror.style.setProperty('visibility', pageConcealsTextMirrorHost(host) ? 'hidden' : 'visible', 'important');
+    if (pageConcealsTextMirrorHost(host)) mirror.style.setProperty('visibility', 'hidden', 'important');
+    else mirror.style.removeProperty('visibility');
 }
 
 function pageConcealsTextMirrorHost(host: HTMLElement): boolean {
     for (let element = host.parentElement; element; element = element.parentElement) {
         const style = safeComputedStyle(element);
         if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return true;
+        // Fade-style concealment does not propagate through the visibility
+        // channel: a faded-out ancestor (opacity transition finished at 0) or
+        // a content-visibility:hidden container hides the native text while a
+        // descendant could still paint. Treat both as concealment.
+        if (style.opacity !== '' && Number.parseFloat(style.opacity) === 0) return true;
+        if (style.contentVisibility === 'hidden') return true;
     }
     return false;
 }

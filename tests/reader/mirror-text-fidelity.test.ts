@@ -330,7 +330,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         const menu = document.getElementById('menu')!;
         const paintMsg = () => paint(host, '日本語', target => [tokenAt(target.text, '日本語', 'にほんご', target.text.indexOf('日本語'))]);
         paintMsg();
-        expect(mirror(host).style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror(host).style.getPropertyValue('visibility')).not.toBe('hidden');
         // The dropdown closes via ancestor visibility — the mirror's forced
         // visibility:visible would otherwise float the label over the page.
         menu.style.visibility = 'hidden';
@@ -338,7 +338,7 @@ describe('sol review: mirror fidelity edge cases', () => {
         expect(mirror(host).style.getPropertyValue('visibility')).toBe('hidden');
         menu.style.visibility = '';
         paintMsg();
-        expect(mirror(host).style.getPropertyValue('visibility')).toBe('visible');
+        expect(mirror(host).style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
     it('flattens nested display:contents into one contiguous anonymous flex item (space renders)', () => {
