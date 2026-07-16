@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.163] - 2026-07-16
+
+### Fixed
+
+- Jiten and JPDB lookup pills now keep independently verified frequency ranks for the exact spelling and reading, so late provider responses cannot overwrite one another and ambiguous matches do not show a misleading rank.
+- Exact local Yomitan entries, including Jitendex dictionaries, no longer disappear when another enabled dictionary fills the shared result cap. Bunpro source loading also retains distinct disabled, authentication, no-match, timeout, and error states instead of collapsing them into a missing result.
+
 ## [1.6.162] - 2026-07-16
 
 ### Fixed
