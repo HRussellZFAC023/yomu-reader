@@ -10,8 +10,8 @@ import { lookupBunproDefinition, type BunproDefinitionInfo } from '../bunpro/def
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
-import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup, shouldRetainDirectCompoundSegments } from '../lookup/pitch-meta';
-import { alignedExpressionComponentPitches, cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
+import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
+import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { isJitenBackedCard } from './srs-providers';
@@ -413,7 +413,6 @@ export class CardRenderDataLoader {
             ankiFieldTargetPlan,
         ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
             if (jpdbDeckMembership) applyPooledJpdbDeckState(card);
-            applyAlignedComponentPitchSegments(card, expressionComponentsValue, componentPitchesValue);
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
         });
     }
@@ -529,18 +528,12 @@ export class CardRenderDataLoader {
             card.spelling,
             card.reading,
             expression => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
-            {
-                initialEntries: metaEntries,
-                includeCompound: !card.pitchAccent.length,
-                includeDirectCompoundSegments: shouldRetainDirectCompoundSegments(card.spelling),
-            },
+            { initialEntries: metaEntries },
         ).catch(error => {
             log.warn('Local pitch lookup failed', { term: card.spelling }, error);
             return { patterns: [] } as import('../lookup/pitch-meta').LocalPitchResolution;
         });
         const patterns = resolution.patterns;
-        if (resolution.compoundSegments?.length) card.pitchSegments = resolution.compoundSegments;
-        else if (patterns.length) delete card.pitchSegments;
         if (!patterns.length) return;
         if (!card.pitchAccent.length) {
             card.pitchAccent = patterns;
@@ -640,16 +633,6 @@ export class CardRenderDataLoader {
     private settings(): ReaderSettings {
         return this.dependencies.getSettings();
     }
-}
-
-function applyAlignedComponentPitchSegments(
-    card: JPDBCard,
-    components: ExpressionComponentLookup[],
-    componentPitches: ExpressionComponentPitch[],
-): void {
-    const segments = alignedExpressionComponentPitches(card, components, componentPitches);
-    if (!segments.length) return;
-    card.pitchSegments = segments.map(segment => ({ pattern: segment.pitch, reading: segment.reading }));
 }
 
 function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {

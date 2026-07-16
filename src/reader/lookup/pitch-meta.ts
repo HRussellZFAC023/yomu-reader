@@ -1,1 +1,1 @@
-export { composeCompoundPitchPatternFromMeta, composeCompoundPitchSegmentsFromMeta, localPitchPatternFromMeta, localPitchPatternsFromMeta, localPitchPatternsFromMetaLookup, localPitchResolutionFromMetaLookup, shouldRetainDirectCompoundSegments, type CompoundPitchSegment, type LocalPitchResolution } from './pitch-meta-pattern';
+export { localPitchPatternFromMeta, localPitchPatternsFromMeta, localPitchPatternsFromMetaLookup, localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta-pattern';

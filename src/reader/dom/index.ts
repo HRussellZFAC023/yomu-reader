@@ -1,5 +1,4 @@
 import { primaryCardState } from '../cards/state';
-import { compoundPitchGradientCss } from '../lookup/pitch-accent';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import {
@@ -5144,24 +5143,9 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join('|');
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
-    if (showPitchAccent) applyCompoundPitchDecoration(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
-}
-
-// Compound words composed from constituent accents paint the one underline
-// with each part's own colour; clearing when absent keeps recycled spans and
-// later whole-word resolutions honest.
-export function applyCompoundPitchDecoration(word: HTMLElement, card: JPDBCard): void {
-    const gradient = card.pitchSegments?.length ? compoundPitchGradientCss(card.pitchSegments) : '';
-    if (gradient) {
-        word.classList.add('jpdb-reader-pitch-compound');
-        word.style.setProperty('--jpdb-reader-pitch-compound-gradient', gradient);
-    } else {
-        word.classList.remove('jpdb-reader-pitch-compound');
-        word.style.removeProperty('--jpdb-reader-pitch-compound-gradient');
-    }
 }
 
 function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
@@ -5197,16 +5181,11 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : '';
-    const compoundGradient = settings.showPitchAccent && token.card.pitchSegments?.length
-        ? compoundPitchGradientCss(token.card.pitchSegments)
-        : '';
     const classes = [
         readerWordClassName(state, token, settings),
         hasRuby ? 'jpdb-reader-has-furi' : '',
         hasMiningInsight ? 'jpdb-reader-i-plus-one' : '',
-        compoundGradient ? 'jpdb-reader-pitch-compound' : '',
     ].filter(Boolean).join(' ');
-    const compoundStyle = compoundGradient ? ` style="--jpdb-reader-pitch-compound-gradient: ${escapeHtml(compoundGradient)}"` : '';
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
@@ -5220,7 +5199,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}"${compoundStyle} data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {
