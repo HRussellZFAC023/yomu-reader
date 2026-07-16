@@ -74,6 +74,16 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--academy-accent-strong) 38%, transparent);
 }
 
+/* Mobile Safari zooms the entire viewport when a focused form control computes
+   below 16px. Academy has intentionally compact display copy, but input text
+   must stay at the platform's stable editing size so a response never breaks
+   the scene framing. */
+@media (max-width: 700px) {
+    .academy-root :is(input, textarea, select) {
+        font-size: 16px !important;
+    }
+}
+
 .academy-header {
     position: fixed;
     z-index: 40;

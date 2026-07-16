@@ -32424,7 +32424,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       let visibleCharacters = 1;
       japanese2.dataset.performanceText = "revealing";
       japanese2.textContent = characters[0] ?? "";
-      const delayMs = Math.max(24, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+      const baseDelayMs = Math.max(30, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
       const revealNext = () => {
         if (typeof window === "undefined") {
           textRevealTimer = void 0;
@@ -32438,9 +32438,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           performance2.completeTextReveal(lineId);
           return;
         }
-        textRevealTimer = window.setTimeout(revealNext, delayMs);
+        textRevealTimer = window.setTimeout(
+          revealNext,
+          textRevealCharacterDelay(characters[visibleCharacters - 1] ?? "", baseDelayMs)
+        );
       };
-      textRevealTimer = window.setTimeout(revealNext, delayMs);
+      textRevealTimer = window.setTimeout(
+        revealNext,
+        textRevealCharacterDelay(characters[0] ?? "", baseDelayMs)
+      );
     }
     function finishTextReveal(lineId) {
       if (activeTextRevealLineId === lineId) {
@@ -32790,6 +32796,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function textRevealDuration(text2) {
     return Math.max(240, Math.min(1200, [...text2].length * 38));
+  }
+  function textRevealCharacterDelay(character, baseDelayMs) {
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 300;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 110;
+    if (/\s/u.test(character)) return Math.max(18, baseDelayMs - 10);
+    return baseDelayMs;
   }
   function prefersReducedMotion() {
     return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

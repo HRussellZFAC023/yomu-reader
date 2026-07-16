@@ -180,9 +180,12 @@ describe('Academy human interface', () => {
 
     it('gives phone portrait selection a full paper page above a separate action strip', () => {
         const styles = fs.readFileSync(path.resolve('src/academy/styles/vn-stage.css'), 'utf8');
+        const screenStyles = fs.readFileSync(path.resolve('src/academy/styles/screens.css'), 'utf8');
         const phone = styles.slice(styles.indexOf('@media (max-width: 700px)'));
         expect(phone).toMatch(/data-profile-step='portrait'\] \.academy-vn-object-slot\s*\{[^}]*inset:\s*max\(64px[^}]*96px/s);
         expect(styles).toMatch(/\.academy-profile-vn-entry \.academy-portrait-option\s*\{[^}]*overflow:\s*visible/s);
+        expect(screenStyles).toMatch(/\.academy-profile-screen \.academy-portrait-option\s*\{[^}]*background:\s*transparent/s);
+        expect(screenStyles).not.toMatch(/\.academy-profile-screen \.academy-portrait-image\s*\{[^}]*height:\s*112px/s);
         expect(styles).toMatch(/\.academy-profile-vn-entry \.academy-portrait-option::before\s*\{[^}]*height:\s*62%[^}]*clip-path:/s);
         expect(styles).toMatch(/\.academy-profile-vn-entry \.academy-portrait-image\s*\{[^}]*object-fit:\s*contain;[^}]*object-position:\s*center bottom/s);
         expect(phone).toMatch(/@media \(max-width: 420px\)[\s\S]*data-profile-step='portrait'\] \.academy-portrait-option\s*\{[^}]*min-height:\s*clamp\(150px, 24dvh, 190px\)/s);
@@ -193,6 +196,13 @@ describe('Academy human interface', () => {
         expect(phone).toMatch(/data-profile-step='portrait'\] \.academy-vn-navigation\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/s);
         expect(phone).toMatch(/data-profile-step='portrait'\] \.academy-vn-back\s*\{[^}]*grid-row:\s*1/s);
         expect(phone).toMatch(/html:has\(\.academy-profile-screen\) \.jpdb-reader-fab\s*\{[^}]*top:\s*max\(8px[^}]*bottom:\s*auto/s);
+    });
+
+    it('keeps Academy form controls at the stable iOS editing size on phones', () => {
+        const shellStyles = fs.readFileSync(path.resolve('src/academy/styles/shell.css'), 'utf8');
+        expect(shellStyles).toMatch(
+            /@media \(max-width: 700px\)\s*\{\s*\.academy-root :is\(input, textarea, select\)\s*\{[^}]*font-size:\s*16px !important/s,
+        );
     });
 
     it('keeps profile prompts inside the dialogue and exposes portrait focus', () => {

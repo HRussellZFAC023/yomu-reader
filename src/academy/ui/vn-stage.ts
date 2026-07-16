@@ -333,7 +333,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         let visibleCharacters = 1;
         japanese.dataset.performanceText = 'revealing';
         japanese.textContent = characters[0] ?? '';
-        const delayMs = Math.max(24, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+        const baseDelayMs = Math.max(30, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
         const revealNext = (): void => {
             if (typeof window === 'undefined') {
                 textRevealTimer = undefined;
@@ -352,9 +352,15 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
                 performance.completeTextReveal(lineId);
                 return;
             }
-            textRevealTimer = window.setTimeout(revealNext, delayMs);
+            textRevealTimer = window.setTimeout(
+                revealNext,
+                textRevealCharacterDelay(characters[visibleCharacters - 1] ?? '', baseDelayMs),
+            );
         };
-        textRevealTimer = window.setTimeout(revealNext, delayMs);
+        textRevealTimer = window.setTimeout(
+            revealNext,
+            textRevealCharacterDelay(characters[0] ?? '', baseDelayMs),
+        );
     }
 
     function finishTextReveal(lineId: string): void {
@@ -750,6 +756,13 @@ function setSceneInert(
 
 function textRevealDuration(text: string): number {
     return Math.max(240, Math.min(1200, [...text].length * 38));
+}
+
+function textRevealCharacterDelay(character: string, baseDelayMs: number): number {
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 300;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 110;
+    if (/\s/u.test(character)) return Math.max(18, baseDelayMs - 10);
+    return baseDelayMs;
 }
 
 function prefersReducedMotion(): boolean {
