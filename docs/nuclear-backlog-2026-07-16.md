@@ -195,3 +195,25 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
   as a soft item; migrate to parseHtmlDocument only with per-source behavioural tests.)
 - "isAbortError DOMException bug" — evidence was wrong about the gaming copy; kept only as
   part of NB-20 dedupe.
+
+---
+
+## Wave 8 — Memory regression audit (2026-07-16)
+
+77 remembered past fixes audited against origin/main by a 7-lens panel: **72 INTACT, 0
+REGRESSED**. Three memories were deliberately superseded by later releases (pitch enrichment
+now paced-public on every host; composed-of chips open the kanji popover instead of the
+in-place step swap; 1.6.149 put prev/next transport back in the rail) and two were stale
+pointers — all five memory files corrected outside the repo. Repo-side follow-ups:
+
+- **NB-70 [sol] NHK duplicate-insert guard coverage shrank 7→4** —
+  tests/reader/nhk-framework-duplication.test.ts no longer has named assertions for two
+  load-bearing invariants of the 1.6.103 double-image fix: (a) `addedNodesDuplicateHostSurface`
+  must return false when `previousText.length >= RENDERED_SCAN_HOST_MAX_TEXT` (truncated-giant
+  false-positive protection), (b) fragment-path gap-text ownership (replaceTextNodeRange choke
+  point registers replacements). Verify whether the 4 remaining cases still exercise them; if
+  not, re-add one test per invariant.
+- **Systemic observation feeding NB-50**: many past fixes are guarded ONLY by unit tests
+  because their named smokes (bookwalker-cty2-scroll, tap-passthrough, nhk-mirror-overlap,
+  ocr-provider-matrix, …) are unwired — consistent with the 63-ungated-smokes finding. The
+  unit gates held this time; NB-50 decides the smokes' fate.
