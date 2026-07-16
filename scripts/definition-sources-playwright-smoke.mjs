@@ -357,45 +357,56 @@ function summarizeSourceDom(node) {
 
 function assertSurface(scenario, dom, requests, surface) {
     const expected = sourceExpectation(scenario, surface);
-    assert(dom.hasJpdb === expected.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
-    assert(dom.hasJiten === expected.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
-    assert(dom.hasBunpro === expected.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
-
-    if (expected.jpdb) {
-        assert(dom.jpdbMeaning, `${scenario.label} ${surface}: JPDB source did not render meanings`, dom);
-        if (createSettings(scenario.settings).apiKey) {
-            assert(dom.jpdbUsedIn, `${scenario.label} ${surface}: credentialed JPDB source did not render used-in words`, dom);
-            assert(dom.jpdbComposedOf, `${scenario.label} ${surface}: credentialed JPDB source did not render composed-of words`, dom);
-            assert(dom.jpdbExampleSentence, `${scenario.label} ${surface}: credentialed JPDB source did not render examples`, dom);
-            assert(dom.jpdbAudioButtonCount >= 2, `${scenario.label} ${surface}: credentialed JPDB source did not render TTS/audio buttons`, dom);
-        }
-    }
-
-    if (expected.jiten) {
-        assert(dom.jitenMeaning, `${scenario.label} ${surface}: Jiten source did not render meanings`, dom);
-        assert(dom.jitenReading, `${scenario.label} ${surface}: Jiten source did not render reading`, dom);
-        assert(dom.jitenUsedIn, `${scenario.label} ${surface}: Jiten source did not render used-in words`, dom);
-        assert(dom.jitenComposedOf, `${scenario.label} ${surface}: Jiten source did not render composed-of words`, dom);
-        assert(dom.jitenExampleSentence, `${scenario.label} ${surface}: Jiten source did not render examples`, dom);
-        assert(dom.jitenAudioButtonCount >= 3, `${scenario.label} ${surface}: Jiten source did not render TTS/audio buttons`, dom);
-        assert(!dom.hasJitenLocalFallbackCard, `${scenario.label} ${surface}: Jiten source rendered the old inner fallback card`, dom);
-        assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
-    }
-    if (expected.bunpro) {
-        assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
-        assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
-        assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
-        assert(!dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro vocabulary repeated review answers`, dom);
-        assert(dom.bunproLearnerPos && !dom.bunproRawTags, `${scenario.label} ${surface}: Bunpro source leaked raw tags`, dom);
-        assert(dom.bunproExampleSentence, `${scenario.label} ${surface}: Bunpro source did not render detail examples`, dom);
-        assert(dom.bunproExampleReading, `${scenario.label} ${surface}: Bunpro example lost its exact upstream reading`, dom);
-        assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
-        assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
-        assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
-    }
+    const settings = createSettings(scenario.settings);
+    assertSourcePresence(scenario, dom, surface, expected);
+    assertJpdbSurface(scenario, dom, surface, expected, settings);
+    assertJitenSurface(scenario, dom, surface, expected);
+    assertBunproSurface(scenario, dom, surface, expected);
 
     const surfaceRequests = requests.filter(request => request.surface === surface);
     assertRequestAuthState(scenario, surface, surfaceRequests);
+}
+
+function assertSourcePresence(scenario, dom, surface, expected) {
+    assert(dom.hasJpdb === expected.jpdb, `${scenario.label} ${surface}: JPDB source state mismatch`, dom);
+    assert(dom.hasJiten === expected.jiten, `${scenario.label} ${surface}: Jiten source state mismatch`, dom);
+    assert(dom.hasBunpro === expected.bunpro, `${scenario.label} ${surface}: Bunpro source state mismatch`, dom);
+}
+
+function assertJpdbSurface(scenario, dom, surface, expected, settings) {
+    if (!expected.jpdb) return;
+    assert(dom.jpdbMeaning, `${scenario.label} ${surface}: JPDB source did not render meanings`, dom);
+    if (!settings.apiKey) return;
+    assert(dom.jpdbUsedIn, `${scenario.label} ${surface}: credentialed JPDB source did not render used-in words`, dom);
+    assert(dom.jpdbComposedOf, `${scenario.label} ${surface}: credentialed JPDB source did not render composed-of words`, dom);
+    assert(dom.jpdbExampleSentence, `${scenario.label} ${surface}: credentialed JPDB source did not render examples`, dom);
+    assert(dom.jpdbAudioButtonCount >= 2, `${scenario.label} ${surface}: credentialed JPDB source did not render TTS/audio buttons`, dom);
+}
+
+function assertJitenSurface(scenario, dom, surface, expected) {
+    if (!expected.jiten) return;
+    assert(dom.jitenMeaning, `${scenario.label} ${surface}: Jiten source did not render meanings`, dom);
+    assert(dom.jitenReading, `${scenario.label} ${surface}: Jiten source did not render reading`, dom);
+    assert(dom.jitenUsedIn, `${scenario.label} ${surface}: Jiten source did not render used-in words`, dom);
+    assert(dom.jitenComposedOf, `${scenario.label} ${surface}: Jiten source did not render composed-of words`, dom);
+    assert(dom.jitenExampleSentence, `${scenario.label} ${surface}: Jiten source did not render examples`, dom);
+    assert(dom.jitenAudioButtonCount >= 3, `${scenario.label} ${surface}: Jiten source did not render TTS/audio buttons`, dom);
+    assert(!dom.hasJitenLocalFallbackCard, `${scenario.label} ${surface}: Jiten source rendered the old inner fallback card`, dom);
+    assert(!dom.hasOpenInJitenButton, `${scenario.label} ${surface}: Jiten source rendered the old Open in Jiten button`, dom);
+}
+
+function assertBunproSurface(scenario, dom, surface, expected) {
+    if (!expected.bunpro) return;
+    assert(dom.bunproMeaning, `${scenario.label} ${surface}: Bunpro source did not render meaning`, dom);
+    assert(dom.bunproReading, `${scenario.label} ${surface}: Bunpro source did not render reading`, dom);
+    assert(dom.bunproNuance, `${scenario.label} ${surface}: Bunpro source did not render nuance`, dom);
+    assert(!dom.bunproAcceptedAnswer, `${scenario.label} ${surface}: Bunpro vocabulary repeated review answers`, dom);
+    assert(dom.bunproLearnerPos && !dom.bunproRawTags, `${scenario.label} ${surface}: Bunpro source leaked raw tags`, dom);
+    assert(dom.bunproExampleSentence, `${scenario.label} ${surface}: Bunpro source did not render detail examples`, dom);
+    assert(dom.bunproExampleReading, `${scenario.label} ${surface}: Bunpro example lost its exact upstream reading`, dom);
+    assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
+    assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
+    assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
 }
 
 function sourceExpectation(scenario, surface) {
@@ -404,6 +415,12 @@ function sourceExpectation(scenario, surface) {
 
 function assertRequestAuthState(scenario, surface, requests) {
     const settings = createSettings(scenario.settings);
+    assertJpdbRequestAuthState(scenario, surface, requests, settings);
+    assertJitenRequestAuthState(scenario, surface, requests, settings);
+    assertBunproRequestAuthState(scenario, surface, requests);
+}
+
+function assertJpdbRequestAuthState(scenario, surface, requests, settings) {
     const jpdbApi = requests.filter(request => request.host === 'jpdb.io' && request.path.startsWith('/api/v1/'));
     if (settings.apiKey) {
         assert(jpdbApi.some(request => request.path.startsWith('/api/v1/parse')), `${scenario.label} ${surface}: JPDB key did not produce a JPDB parse request`, requests);
@@ -414,7 +431,9 @@ function assertRequestAuthState(scenario, surface, requests) {
 
     const publicJpdb = requests.filter(request => request.host === 'jpdb.io' && !request.path.startsWith('/api/v1/'));
     assert(publicJpdb.every(request => !request.hasAuthorization), `${scenario.label} ${surface}: public JPDB requests should be keyless`, publicJpdb);
+}
 
+function assertJitenRequestAuthState(scenario, surface, requests, settings) {
     const jitenDefinitionRequests = requests.filter(request => request.host === 'api.jiten.moe'
         && (/\/api\/vocabulary\/search/.test(request.path)
             || /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)
@@ -429,6 +448,9 @@ function assertRequestAuthState(scenario, surface, requests) {
         assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but examples still loaded`, jitenDefinitionRequests);
     }
     assert(jitenDefinitionRequests.every(request => request.hasAuthorization === Boolean(settings.jitenApiKey)), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
+}
+
+function assertBunproRequestAuthState(scenario, surface, requests) {
     const bunproRequests = requests.filter(request => request.host === 'api.bunpro.jp');
     if (scenario.expect.bunpro) {
         assert(bunproRequests.some(request => request.path === '/api/frontend/search/reviewables_v1_1'), `${scenario.label} ${surface}: Bunpro search request was not recorded`, bunproRequests);
@@ -489,18 +511,33 @@ function handleSmokeRequest(request, scenario, requests, transport, surface) {
 }
 
 function mockBunproResponse(summary, request) {
+    return mockBunproSearchResponse(summary, request)
+        ?? mockBunproDetailResponse(summary)
+        ?? mockBunproReviewResponse(summary, request)
+        ?? textResponse(404, 'unknown Bunpro endpoint');
+}
+
+function mockBunproSearchResponse(summary, request) {
     if (summary.method === 'POST' && summary.path === '/api/frontend/search/reviewables_v1_1') {
         summary.body = readJsonBody(request.data);
         return jsonHttpResponse(bunproSearchPayload());
     }
+    return null;
+}
+
+function mockBunproDetailResponse(summary) {
     if (summary.method === 'GET' && summary.path.startsWith('/api/frontend/reviewables/vocab/')) {
         return jsonHttpResponse(bunproDetailPayload());
     }
+    return null;
+}
+
+function mockBunproReviewResponse(summary, request) {
     if (summary.method === 'PATCH' && summary.path === '/api/frontend/reviews/update_via_action_type') {
         summary.body = readJsonBody(request.data);
         return jsonHttpResponse({ ok: true });
     }
-    return textResponse(404, 'unknown Bunpro endpoint');
+    return null;
 }
 
 function bunproSearchPayload() {

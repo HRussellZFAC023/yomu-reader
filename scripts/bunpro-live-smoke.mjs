@@ -6,6 +6,16 @@ import { loadLocalEnv } from './lib/qa-env.mjs';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FRONTEND_BASE_URL = 'https://api.bunpro.jp/api/frontend';
 const LEGACY_BASE_URL = 'https://bunpro.jp/api/user';
+const DETAIL_PATH_SOURCES = [
+    { collection: 'vocabs', identityFields: ['slug', 'id'], path: 'vocab' },
+    { collection: 'grammar_points', identityFields: ['id'], path: 'grammar_point' },
+];
+const DETAIL_ROW_REJECTION_RULES = [
+    { reason: 'nonStudyQuestion', rejects: context => context.type !== 'study_question' },
+    { reason: 'missingAttributes', rejects: context => context.attributes === null },
+    { reason: 'missingSentence', rejects: context => !context.sentence.trim() },
+    { reason: 'nonJapaneseSentence', rejects: context => !/[\u3040-\u30ff\u3400-\u9fff]/u.test(context.sentence) },
+];
 
 loadLocalEnv(ROOT);
 
@@ -99,22 +109,27 @@ async function fetchSampleDetail(search) {
 }
 
 function sampleDetailPath(search) {
-    const vocab = collectionItems(search?.vocabs)[0];
-    const vocabIdentity = detailIdentity(vocab, ['slug', 'id']);
-    if (vocabIdentity) return `/reviewables/vocab/${encodeURIComponent(vocabIdentity)}`;
-    const grammar = collectionItems(search?.grammar_points)[0];
-    const grammarIdentity = detailIdentity(grammar, ['id']);
-    return grammarIdentity ? `/reviewables/grammar_point/${encodeURIComponent(grammarIdentity)}` : '';
+    return DETAIL_PATH_SOURCES
+        .map(source => sampleDetailPathFromSource(search, source))
+        .find(Boolean) ?? '';
+}
+
+function sampleDetailPathFromSource(search, source) {
+    const item = collectionItems(search?.[source.collection])[0];
+    const identity = detailIdentity(item, source.identityFields);
+    return identity ? `/reviewables/${source.path}/${encodeURIComponent(identity)}` : '';
 }
 
 function detailIdentity(item, fields) {
     const attributes = item?.attributes ?? item;
-    for (const field of fields) {
-        const value = attributes?.[field] ?? item?.[field];
-        if (typeof value === 'string' && value.trim()) return value.trim();
-        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-    }
-    return '';
+    return fields
+        .map(field => detailIdentityValue(attributes?.[field] ?? item?.[field]))
+        .find(Boolean) ?? '';
+}
+
+function detailIdentityValue(value) {
+    if (typeof value === 'string') return value.trim();
+    return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
 }
 
 async function gradeOneQueueItem(queue, requestedGrade) {
@@ -232,13 +247,13 @@ function summarizeSearch(value) {
 }
 
 function summarizeDetail(value) {
-    const included = Array.isArray(value?.included) ? value.included : null;
+    const included = detailIncludedCollection(value);
     const stats = detailStats();
-    for (const row of included ?? []) recordDetailRow(stats, row);
+    for (const row of included.rows) recordDetailRow(stats, row);
     return {
         topLevelKeys: objectKeys(value),
-        includedLocation: included ? 'root' : 'missing',
-        includedCount: included?.length ?? 0,
+        includedLocation: included.location,
+        includedCount: included.rows.length,
         includedTypeCounts: Object.fromEntries([...stats.types.entries()].sort(([left], [right]) => left.localeCompare(right))),
         studyQuestionAttributeKeys: [...stats.attributeKeys].sort(),
         usableSentenceCount: stats.usableSentences,
@@ -248,6 +263,12 @@ function summarizeDetail(value) {
         duplicateRowCount: stats.duplicateRows,
         dedupedSentenceCount: stats.dedupeKeys.size,
     };
+}
+
+function detailIncludedCollection(value) {
+    return Array.isArray(value?.included)
+        ? { location: 'root', rows: value.included }
+        : { location: 'missing', rows: [] };
 }
 
 function detailStats() {
@@ -264,16 +285,43 @@ function detailStats() {
 }
 
 function recordDetailRow(stats, row) {
-    const type = typeof row?.type === 'string' ? row.type : '(missing)';
+    const context = detailRowContext(row);
+    recordDetailRowType(stats, context.type);
+    recordDetailAttributeKeys(stats, context);
+    const rejection = DETAIL_ROW_REJECTION_RULES.find(rule => rule.rejects(context));
+    if (rejection) return rejectDetailRow(stats, rejection.reason);
+    recordUsableDetailRow(stats, context.sentence, context.attributes);
+}
+
+function detailRowContext(row) {
+    const source = row ?? {};
+    const attributes = detailRowAttributes(source.attributes);
+    return {
+        type: detailRowType(source.type),
+        attributes,
+        sentence: detailRowSentence(attributes),
+    };
+}
+
+function detailRowType(value) {
+    return typeof value === 'string' ? value : '(missing)';
+}
+
+function detailRowSentence(attributes) {
+    return typeof attributes?.content === 'string' ? attributes.content : '';
+}
+
+function detailRowAttributes(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function recordDetailRowType(stats, type) {
     stats.types.set(type, (stats.types.get(type) ?? 0) + 1);
-    if (type !== 'study_question') return rejectDetailRow(stats, 'nonStudyQuestion');
-    const attributes = row?.attributes;
-    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) return rejectDetailRow(stats, 'missingAttributes');
-    Object.keys(attributes).forEach(key => stats.attributeKeys.add(key));
-    const sentence = typeof attributes.content === 'string' ? attributes.content : '';
-    if (!sentence.trim()) return rejectDetailRow(stats, 'missingSentence');
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(sentence)) return rejectDetailRow(stats, 'nonJapaneseSentence');
-    recordUsableDetailRow(stats, sentence, attributes);
+}
+
+function recordDetailAttributeKeys(stats, context) {
+    if (context.type !== 'study_question' || context.attributes === null) return;
+    Object.keys(context.attributes).forEach(key => stats.attributeKeys.add(key));
 }
 
 function rejectDetailRow(stats, reason) {
@@ -283,12 +331,17 @@ function rejectDetailRow(stats, reason) {
 function recordUsableDetailRow(stats, sentence, attributes) {
     stats.usableSentences += 1;
     const translation = typeof attributes.translation === 'string' ? attributes.translation : '';
-    if (translation.trim()) stats.usableTranslations += 1;
+    stats.usableTranslations += Number(Boolean(translation.trim()));
     const audioUrls = [attributes.female_audio_url, attributes.male_audio_url];
-    if (audioUrls.some(url => typeof url === 'string' && url.startsWith('https://'))) stats.usableAudioRows += 1;
+    stats.usableAudioRows += Number(audioUrls.some(isHttpsUrl));
     const key = `${normalizeMetadataText(sentence)}\u0000${normalizeMetadataText(translation)}`;
-    if (stats.dedupeKeys.has(key)) stats.duplicateRows += 1;
-    else stats.dedupeKeys.add(key);
+    const previousKeyCount = stats.dedupeKeys.size;
+    stats.dedupeKeys.add(key);
+    stats.duplicateRows += Number(stats.dedupeKeys.size === previousKeyCount);
+}
+
+function isHttpsUrl(value) {
+    return typeof value === 'string' && value.startsWith('https://');
 }
 
 function normalizeMetadataText(value) {
