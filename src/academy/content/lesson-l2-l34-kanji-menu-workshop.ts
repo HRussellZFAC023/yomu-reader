@@ -1,5 +1,6 @@
 import lessonPackage from '../../../public/academy/content/lessons/061-l2-l34.json';
 import { createKanjiWritingActivity, type KanjiWritingActivityModel } from '../activities/kanji-writing';
+import { createPicturelessMenuReaderActivity } from '../activities/pictureless-menu-reader';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
 import type { KanjiWritingModel } from '../integration/yomu-bridge';
@@ -40,6 +41,17 @@ export const L2_L34_SOURCE_PAGES: StateInspectionModel['provenance']['moodle']['
         },
     ),
 ]);
+
+export function createLessonL2L34PicturelessMenuStoryBeat(): LessonActivityBeat {
+    return Object.freeze({
+        id: 'pictureless-menu-story',
+        narrative: {
+            ja: '先生の漢字7ワークシートを開く前に、シンさんと写真のないメニューの手がかりを追います。',
+            en: 'Before opening Sensei’s Kanji 7 worksheet, follow the pictureless menu clues with Shin.',
+        },
+        activity: createPicturelessMenuReaderActivity(),
+    });
+}
 
 export function createLessonL2L34KanjiMenuReadingBeat(): LessonActivityBeat {
     assertExactPackageSources();

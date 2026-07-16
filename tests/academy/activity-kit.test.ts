@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { parseKanjiVGSvg } from '../../src/reader/kanji/vg';
 import type { KanjiWritingModel, KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
 import {
     LESSON_ACTIVITY_CHAPTER_PACKAGES,
@@ -24,7 +25,12 @@ const TRACE: KanjiWritingModel = {
     source: { name: 'KanjiVG', url: 'https://kanjivg.tagaini.net/', licence: 'CC BY-SA 3.0', revision: 'test' },
 };
 
-const kanjiWriting: KanjiWritingService = { lookup: async character => character === '一' ? TRACE : null };
+const RI_TRACE = kanjiTraceFromPinnedAsset('理', '07406.svg');
+const RETURN_TRACE = kanjiTraceFromPinnedAsset('帰', '05e30.svg');
+
+const kanjiWriting: KanjiWritingService = {
+    lookup: async character => ({ '一': TRACE, '帰': RETURN_TRACE, '理': RI_TRACE })[character] ?? null,
+};
 
 afterEach(() => document.body.replaceChildren());
 
@@ -275,5 +281,23 @@ function katakanaColumnSortResponse(
 ) {
     return {
         placements: model.payload.rounds.map((round, index) => ({ kanaId: round.id, columnId: columns[index]! })),
+    };
+}
+
+function kanjiTraceFromPinnedAsset(character: string, fileName: string): KanjiWritingModel {
+    const svg = readFileSync(path.join(process.cwd(), 'public/academy/vendor/kanjivg', fileName), 'utf8');
+    const parsed = parseKanjiVGSvg(svg, character);
+    if (!parsed) throw new Error(`Unable to parse pinned KanjiVG trace for ${character}.`);
+    return {
+        character: parsed.kanji,
+        svg: parsed.svg,
+        strokeCount: parsed.strokeCount,
+        strokeShapes: parsed.strokeShapes ?? [],
+        source: {
+            name: 'KanjiVG',
+            url: 'https://kanjivg.tagaini.net/',
+            licence: 'CC BY-SA 3.0',
+            revision: 'eab57831f1e418016a029266c4b17bf824b9af68',
+        },
     };
 }

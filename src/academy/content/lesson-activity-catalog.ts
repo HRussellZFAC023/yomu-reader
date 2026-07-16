@@ -80,7 +80,11 @@ import { createLessonL2L30ConditionalWorkshopBeat } from './lesson-l2-l30-condit
 import { createLessonL2L31AdjectiveNounConditionalsBeat } from './lesson-l2-l31-adjective-noun-conditionals';
 import { createLessonL2L32NaraGuidanceWorkshopBeat } from './lesson-l2-l32-nara-guidance-workshop';
 import { createLessonL2L33Chapter35HomeworkReviewBeat } from './lesson-l2-l33-chapter-35-homework-review';
-import { createLessonL2L34KanjiMenuReadingBeat, createLessonL2L34RiWritingBeat } from './lesson-l2-l34-kanji-menu-workshop';
+import {
+    createLessonL2L34KanjiMenuReadingBeat,
+    createLessonL2L34PicturelessMenuStoryBeat,
+    createLessonL2L34RiWritingBeat,
+} from './lesson-l2-l34-kanji-menu-workshop';
 import { createLessonL2L35ConsiderateRecommendationBeat } from './lesson-l2-l35-considerate-recommendation';
 import { createLessonL2L36YouniGoalWorkshopBeat } from './lesson-l2-l36-youni-goal-workshop';
 import { createLessonFourObjectDistanceModel } from './lesson-four-object-distance';
@@ -540,7 +544,11 @@ export async function loadLessonActivityChapter(
             }, {
                 ja: '八つの印刷された読みと「理」の形を、先生の原本へ戻って確認できるようになりました。MinnaとGenkiは順番と範囲だけを示し、音声や未確認の解答は足していません。',
                 en: 'You can now return to Sensei’s pages to check eight printed readings and the form of 理. Minna and Genki supply chronology and scope only; no audio or unverified answer key has been added.',
-            }, [createLessonL2L34KanjiMenuReadingBeat(), createLessonL2L34RiWritingBeat(trace)]);
+            }, [
+                createLessonL2L34PicturelessMenuStoryBeat(),
+                createLessonL2L34KanjiMenuReadingBeat(),
+                createLessonL2L34RiWritingBeat(trace),
+            ]);
         }
         case 'l2-l35':
             return chapter('l2-l35', 's1e09-the-story-in-two-tenses', 'jodi', {

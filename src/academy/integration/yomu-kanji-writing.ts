@@ -3,6 +3,8 @@ import type { KanjiWritingModel, KanjiWritingService } from './yomu-bridge';
 
 const OFFLINE_TRACES: Readonly<Record<string, string>> = {
     '一': '/academy/vendor/kanjivg/04e00.svg',
+    '帰': '/academy/vendor/kanjivg/05e30.svg',
+    '理': '/academy/vendor/kanjivg/07406.svg',
 };
 
 export interface CanonicalKanjiWritingOptions {

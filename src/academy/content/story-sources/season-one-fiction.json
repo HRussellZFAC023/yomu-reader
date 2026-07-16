@@ -170,7 +170,7 @@
       "comedyBeat": "Every safe synonym for the culprit sounds more suspicious than the forbidden answer.",
       "curriculumHooks": ["past tense recap", "opinions", "adjectives", "describing without naming"],
       "minigame": {"id": "game:spoiler-curtain", "mechanic": "taboo-description", "prompt": "Describe an original scene while avoiding the spoiler token.", "success": "The late viewer identifies the clue without losing the reveal."},
-      "cast": ["francis", "tom", "aakash", "ruparna"],
+      "cast": ["francis", "tom", "aakash", "ruparna", "henry"],
       "unlocks": ["francis"],
       "replayVariants": [
         {"id": "variant:e07-object-clue", "label": "Object clue", "changes": "Describe a mysterious prop."},
