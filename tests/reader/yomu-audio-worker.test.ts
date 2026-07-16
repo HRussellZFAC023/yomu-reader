@@ -215,6 +215,30 @@ describe("Yomu audio Worker", () => {
     await expect(response.text()).resolves.toBe("mp3 bytes");
   });
 
+  it("does not serve R2 audio objects when audio is disabled", async () => {
+    const bucket = mockAudioBucket({
+      "nhk16/media/20170726141547.mp3": {
+        contentType: "audio/mpeg",
+        body: "mp3 bytes",
+      },
+    });
+    const get = vi.spyOn(bucket, "get");
+
+    const response = await AudioWorker.fetch(
+      new Request("https://audio.yomureader.com/audio/nhk16/media/20170726141547.mp3", {
+        headers: { origin: "https://yomureader.com" },
+      }),
+      { AUDIO_BUCKET: bucket, AUDIO_DISABLED: "true" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://yomureader.com");
+    expect(response.headers.get("x-yomu-audio-error")).toBe("disabled");
+    await expect(response.json()).resolves.toEqual({ type: "audioSourceList", audioSources: [] });
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("serves status for setup checks", async () => {
     const response = await AudioWorker.fetch(
       new Request("https://audio.yomureader.com/status"),

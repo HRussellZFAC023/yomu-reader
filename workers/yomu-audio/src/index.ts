@@ -121,12 +121,12 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     return jsonResponse(request, audioStatus(env), 200, { "cache-control": "public, max-age=60" });
   }
 
-  if (url.pathname.startsWith("/audio/")) {
-    return serveR2AudioObject(request, env, decodeURIComponent(url.pathname.slice("/audio/".length)));
-  }
-
   if (truthyEnv(env.AUDIO_DISABLED)) {
     return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "disabled" });
+  }
+
+  if (url.pathname.startsWith("/audio/")) {
+    return serveR2AudioObject(request, env, decodeURIComponent(url.pathname.slice("/audio/".length)));
   }
 
   const term = url.searchParams.get("term")?.trim() ?? "";

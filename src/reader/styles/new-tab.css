@@ -4911,8 +4911,8 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-newtab-listen-pos-correct {
-  border-color: var(--jpdb-reader-success, #2e9b57);
-  background: color-mix(in srgb, var(--jpdb-reader-success, #2e9b57) 18%, transparent);
+  border-color: var(--jpdb-reader-success);
+  background: color-mix(in srgb, var(--jpdb-reader-success) 18%, transparent);
 }
 .jpdb-reader-newtab-listen-pos-wrong {
   border-color: var(--jpdb-reader-danger, #d9534f);
@@ -4949,7 +4949,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-weight: 800;
 }
 .jpdb-reader-newtab-listen-verdict-correct {
-  color: var(--jpdb-reader-success, #2e9b57);
+  color: var(--jpdb-reader-success);
 }
 .jpdb-reader-newtab-listen-verdict-wrong {
   color: var(--jpdb-reader-danger, #d9534f);
@@ -4960,7 +4960,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   gap: 4px;
 }
 .jpdb-reader-newtab-listen-verdict[data-listen-outcome='correct'] {
-  color: var(--jpdb-reader-success, #2e9b57);
+  color: var(--jpdb-reader-success);
 }
 .jpdb-reader-newtab-listen-verdict[data-listen-outcome='wrong'] {
   color: var(--jpdb-reader-danger, #d9534f);
@@ -5027,9 +5027,9 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   max-width: min(360px, 100%);
 }
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="good"] {
-  border-color: var(--jpdb-reader-success, #2e9b57);
-  background: color-mix(in srgb, var(--jpdb-reader-success, #2e9b57) 16%, transparent);
-  color: var(--jpdb-reader-success, #2e9b57);
+  border-color: var(--jpdb-reader-success);
+  background: color-mix(in srgb, var(--jpdb-reader-success) 16%, transparent);
+  color: var(--jpdb-reader-success);
 }
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="close"] {
   border-color: var(--jpdb-reader-accent);
