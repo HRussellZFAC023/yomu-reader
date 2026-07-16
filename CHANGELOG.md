@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.160] - 2026-07-16
+
+### Fixed
+
+- Compound words now show a whole-word pitch contour only when the dictionary provides an exact whole-word expression-and-reading match. Yomu no longer invents a compound accent by concatenating component contours; independently sourced component pitch remains available as explicitly labelled component evidence.
+
 ## [1.6.159] - 2026-07-16
 
 ### Fixed
