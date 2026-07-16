@@ -1,4 +1,5 @@
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { readFileSync } from 'node:fs';
 import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { applyTokensToScanTarget, collectTextTargetsIn } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -77,6 +78,65 @@ describe('Academy hosted Yomu runtime', () => {
         lifecycle.dispose();
     });
 
+    it('lets one owning readings state hide and restore every Japanese prose surface', () => {
+        const root = document.createElement('main');
+        root.dataset.readingSupport = 'hidden';
+        const inflected = document.createElement('p');
+        inflected.lang = 'ja';
+        inflected.textContent = '聞き取れませんでした。';
+        const unclassified = document.createElement('p');
+        unclassified.lang = 'ja';
+        unclassified.textContent = 'もう一度言います。';
+        root.append(inflected, unclassified);
+        document.body.replaceChildren(root);
+
+        refreshAcademyAnnotationSurfaces(root);
+        expect(inflected.getAttribute('data-jpdb-reader-surface-ignore')).not.toBeNull();
+        expect(unclassified.dataset.yomuRuntimeSurface).toBeUndefined();
+
+        root.dataset.readingSupport = 'shown';
+        refreshAcademyAnnotationSurfaces(root);
+        expect(inflected.dataset.yomuRuntimeSurface).toBe('academy-copy');
+        expect(unclassified.dataset.yomuFuriganaMode).toBe('all');
+
+        inflected.innerHTML = '<span class="jpdb-reader-word"><ruby>聞き取れませんでした<rt>ききとれませんでした</rt></ruby></span>。';
+        root.dataset.readingSupport = 'hidden';
+        refreshAcademyAnnotationSurfaces(root);
+        expect(inflected.textContent).toBe('聞き取れませんでした。');
+        expect(inflected.querySelector('.jpdb-reader-word')).toBeNull();
+    });
+
+    it('synchronizes a global readings-toggle mutation across Academy prose surfaces', async () => {
+        const root = document.createElement('main');
+        root.dataset.readingSupport = 'hidden';
+        const classroom = document.createElement('p');
+        classroom.className = 'academy-japanese';
+        classroom.textContent = '聞きました。';
+        const dialogue = document.createElement('p');
+        dialogue.lang = 'ja';
+        dialogue.textContent = '言いました。会いました。';
+        root.append(classroom, dialogue);
+        document.body.replaceChildren(root);
+
+        const lifecycle = observeAcademyAnnotationSurfaces(root);
+        expect(classroom.getAttribute('data-jpdb-reader-surface-ignore')).not.toBeNull();
+        expect(dialogue.getAttribute('data-jpdb-reader-surface-ignore')).not.toBeNull();
+
+        root.dataset.readingSupport = 'shown';
+        await settleAnnotationMutation();
+        expect(classroom.dataset.yomuRuntimeSurface).toBe('academy-copy');
+        expect(dialogue.dataset.yomuFuriganaMode).toBe('all');
+
+        classroom.innerHTML = '<span class="jpdb-reader-word"><ruby>聞きました<rt>ききました</rt></ruby></span>。';
+        dialogue.innerHTML = '<span class="jpdb-reader-word"><ruby>言いました<rt>いいました</rt></ruby></span>。<span class="jpdb-reader-word"><ruby>会いました<rt>あいました</rt></ruby></span>。';
+        root.dataset.readingSupport = 'hidden';
+        await settleAnnotationMutation();
+        expect(classroom.textContent).toBe('聞きました。');
+        expect(dialogue.textContent).toBe('言いました。会いました。');
+        expect(root.querySelector('.jpdb-reader-word')).toBeNull();
+        lifecycle.dispose();
+    });
+
     it('forces full ruby and keeps pitch metadata on Academy learning text', () => {
         const root = document.createElement('main');
         const line = document.createElement('p');
@@ -115,6 +175,14 @@ describe('Academy hosted Yomu runtime', () => {
         expect(reading.dataset.yomuRuntimeSurface).toBeUndefined();
         expect(reading.dataset.yomuFuriganaMode).toBeUndefined();
     });
+
+    it('keeps Academy reading surfaces on the paper palette regardless of Reader theme', () => {
+        const css = readFileSync('src/academy/styles/tokens.css', 'utf8');
+        expect(css).toContain('--academy-accent: #5ea780;');
+        expect(css).toContain('.academy-root :is([lang="ja"], [lang^="ja-"], .academy-japanese)[data-yomu-runtime-surface]');
+        expect(css).toContain('--jpdb-reader-text: var(--academy-paper-ink);');
+        expect(css).toContain('--jpdb-reader-accent-readable: var(--academy-paper-ink);');
+    });
 });
 
 function mockVisibleTree(root: HTMLElement): void {
@@ -133,6 +201,10 @@ function mockVisibleTree(root: HTMLElement): void {
         Object.defineProperty(element, 'getBoundingClientRect', { configurable: true, value: () => rect });
         Object.defineProperty(element, 'getClientRects', { configurable: true, value: () => [rect] });
     }
+}
+
+function settleAnnotationMutation(): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 function japaneseLanguageToken(): JPDBToken {

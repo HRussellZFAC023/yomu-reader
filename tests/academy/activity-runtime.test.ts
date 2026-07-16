@@ -66,7 +66,7 @@ describe('activity runtime', () => {
         }]);
     });
 
-    it('renders buttons with stable Japanese text and displays the full repair without duplicate controls', async () => {
+    it('renders buttons with stable Japanese text and earns repair support progressively', async () => {
         const runtime = createActivityRuntime([choiceActivityPlugin]);
         const hostRoot = document.createElement('main');
         document.body.replaceChildren(hostRoot);
@@ -80,9 +80,15 @@ describe('activity runtime', () => {
         wrong?.click();
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        expect(hostRoot.querySelectorAll('button')).toHaveLength(2);
+        expect(hostRoot.querySelectorAll('button')).toHaveLength(3);
         expect(hostRoot.querySelectorAll('input')).toHaveLength(0);
+        expect(hostRoot.querySelector('.academy-feedback-repair')).toBeNull();
+        const hint = hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
+        hint.click();
         expect(hostRoot.querySelector('.academy-feedback-repair .academy-japanese')?.textContent).toContain('もう一度');
+        expect(hint.textContent).toBe('Another hint');
+        hint.click();
+        expect(hostRoot.querySelector('.academy-feedback-example .academy-japanese')?.textContent).toContain('名前をもう一度');
         expect(announcements.at(-1)).toContain('does not ask for help');
         expect(wrong?.disabled).toBe(false);
         controller.dispose();

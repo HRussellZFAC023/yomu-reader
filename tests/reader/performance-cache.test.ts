@@ -57,6 +57,19 @@ function createCardRenderDataLoader({
 }
 
 describe('performance cache bounds', () => {
+    it('loads installed definitions for an authored fallback lemma instead of rendering an empty definition state', async () => {
+        const lookup = vi.fn(async (term: string) => term === '行く'
+            ? [{ expression: '行く', reading: 'いく', glossary: ['to go'], dictionary: 'Jitendex' }]
+            : []);
+        const loader = createCardRenderDataLoader({ lookup });
+        const card = { ...cardFor(1), spelling: '行って', reading: 'いって', source: 'fallback' as const, fallbackLookupTerms: ['行く'] };
+
+        await expect(loader.load(card).localEntries).resolves.toEqual([
+            { expression: '行く', reading: 'いく', glossary: ['to go'], dictionary: 'Jitendex' },
+        ]);
+        expect(lookup.mock.calls[0]?.[0]).toBe('行く');
+    });
+
     it('bounds per-card render data cache entries', async () => {
         const lookup = vi.fn(async (_term: string) => []);
         const loader = createCardRenderDataLoader({ lookup });

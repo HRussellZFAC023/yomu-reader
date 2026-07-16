@@ -130,10 +130,14 @@ describe('constructed Japanese response activity', () => {
         expect(input.value).toBe('わかりました');
         expect(hostRoot.querySelector('.academy-constructed-feedback-contrast')?.textContent)
             .toBe(model().payload.lapseFeedback.contrast.en);
+        const repairHint = hostRoot.querySelector<HTMLButtonElement>('.academy-lesson-repair-hints .academy-progressive-hint-button')!;
+        expect(hostRoot.querySelector('.academy-constructed-feedback-repair')).toBeNull();
+        repairHint.click();
         expect(hostRoot.querySelector('.academy-constructed-feedback-repair')?.textContent)
-            .toBe(model().payload.lapseFeedback.repairPrompt.en);
+            .toContain(model().payload.lapseFeedback.repairPrompt.en);
+        repairHint.click();
         expect(hostRoot.querySelector('.academy-constructed-feedback-example')?.textContent)
-            .toBe(model().payload.lapseFeedback.nearbyExample.en);
+            .toContain(model().payload.lapseFeedback.nearbyExample.en);
         expect(reactions).toEqual(['neutral', 'encouraging', 'repair']);
 
         input.value = 'もう一度お願いします。';
@@ -157,14 +161,255 @@ describe('constructed Japanese response activity', () => {
         expect(hostRoot.textContent).not.toContain('もう一度お願いします');
         expect(hostRoot.querySelector<HTMLInputElement>('input')?.value).toBe('');
         const prompt = hostRoot.querySelector<HTMLElement>('.academy-constructed-response-prompt')!;
+        const readingToggle = hostRoot.querySelector<HTMLButtonElement>('.academy-constructed-prompt-support-toggle')!;
         expect(prompt.dataset.jpdbReaderSurfaceIgnore).toBe('');
         expect(prompt.dataset.yomuRuntimeSurface).toBeUndefined();
+        expect(readingToggle.getAttribute('aria-label')).toBe('Show readings');
+        expect(readingToggle.title).toBe('Show readings');
+        expect(readingToggle.dataset.tooltip).toBe('Show readings');
 
-        hostRoot.querySelector<HTMLButtonElement>('.academy-constructed-prompt-support-toggle')?.click();
+        readingToggle.click();
+        expect(readingToggle.getAttribute('aria-label')).toBe('Hide readings');
+        expect(readingToggle.title).toBe('Hide readings');
+        expect(readingToggle.dataset.tooltip).toBe('Hide readings');
         expect(prompt.dataset.yomuRuntimeSurface).toBe('academy-activity');
         expect(prompt.dataset.yomuFuriganaMode).toBe('all');
         expect(hostRoot.textContent).not.toContain('One more time, please');
         expect(hostRoot.textContent).not.toContain('もう一度お願いします');
+    });
+
+    it('unlocks one progressive hint sequence after a lapse and keeps answer fill last', async () => {
+        const hostRoot = document.createElement('main');
+        const recordSupportUse = vi.fn();
+        const announce = vi.fn();
+        const base = model();
+        const hinted = {
+            ...base,
+            payload: {
+                ...base.payload,
+                hints: [
+                    { text: { en: 'Start with もう一度.', ja: '「もう一度」から。' } },
+                    {
+                        text: { en: 'Add お願いします.', ja: '「お願いします」を足します。' },
+                        fillResponse: 'もう一度お願いします',
+                    },
+                ],
+            },
+        };
+        document.body.replaceChildren(hostRoot);
+        createActivityRuntime([constructedResponseActivityPlugin]).mount(hinted, {
+            language: 'en',
+            replace(view) { hostRoot.replaceChildren(view); },
+            announce,
+            recordSupportUse,
+        }, () => undefined);
+
+        expect(hostRoot.textContent).not.toContain('Start with もう一度.');
+        const support = hostRoot.querySelector<HTMLElement>('.academy-lesson-repair-hints')!;
+        const button = hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
+        expect(support.hidden).toBe(true);
+        button.click();
+        expect(hostRoot.textContent).not.toContain('Start with もう一度.');
+        expect(recordSupportUse).not.toHaveBeenCalled();
+
+        const input = hostRoot.querySelector<HTMLInputElement>('input')!;
+        input.value = 'わかりました';
+        hostRoot.querySelector<HTMLFormElement>('form')!
+            .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+
+        expect(support.hidden).toBe(false);
+        expect(announce).toHaveBeenLastCalledWith(
+            'That does not yet ask the listener to repeat. Hint support is now available.',
+        );
+        expect(hostRoot.querySelectorAll('.academy-progressive-hint-button')).toHaveLength(1);
+        button.click();
+        expect(hostRoot.textContent).toContain('Start with もう一度.');
+        expect(hostRoot.querySelector('.academy-progressive-hint-fill')).toBeNull();
+        expect(button.textContent).toBe('Another hint');
+        button.click();
+        expect(hostRoot.textContent).toContain('Build the request with お願いします.');
+        expect(hostRoot.querySelector('.academy-progressive-hint-fill')).toBeNull();
+        button.click();
+        expect(hostRoot.textContent).toContain('Use the polite request pattern from the handout.');
+        expect(hostRoot.querySelector('.academy-progressive-hint-fill')).toBeNull();
+        button.click();
+        expect(hostRoot.textContent).toContain('Add お願いします.');
+        expect(button.isConnected).toBe(false);
+        const fill = hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-fill')!;
+        expect(document.activeElement).toBe(fill);
+        fill.click();
+        expect(input.value).toBe('もう一度お願いします');
+        expect(document.activeElement).toBe(input);
+        expect(recordSupportUse.mock.calls.map(call => call[0].choiceId)).toEqual([
+            'progressive-hint:1',
+            'progressive-repair:1',
+            'progressive-repair:2',
+            'progressive-hint:2',
+        ]);
+    });
+
+    it('uses learner evidence to resume the beginner hint ladder without revealing a full answer', async () => {
+        const hostRoot = document.createElement('main');
+        const recordSupportUse = vi.fn();
+        const base = model();
+        const hinted: ConstructedResponseActivityModel = {
+            ...base,
+            payload: {
+                ...base.payload,
+                hints: [
+                    {
+                        tier: 'task-meaning',
+                        text: { en: 'Ask Rie to say the classroom phrase again.', ja: 'りえ先生に教室のことばをもう一度言ってもらいます。' },
+                    },
+                    {
+                        tier: 'vocabulary-reading',
+                        text: { en: 'Use the request words below.', ja: '下の頼むことばを使います。' },
+                        vocabulary: [{
+                            expression: 'もう一度',
+                            reading: 'もういちど',
+                            meaning: { en: 'one more time', ja: 'もう一回' },
+                        }, {
+                            expression: 'お願いします',
+                            reading: 'おねがいします',
+                            meaning: { en: 'please', ja: '頼みます' },
+                        }],
+                    },
+                    {
+                        tier: 'form-scaffold',
+                        text: { en: 'Put the request together.', ja: '頼み方を組み立てます。' },
+                        scaffold: { en: '[one more time] + [please]', ja: '［もう一度］＋［お願いします］' },
+                    },
+                ],
+            },
+        };
+        const orderedRoot = document.createElement('main');
+        document.body.replaceChildren(orderedRoot);
+        createActivityRuntime([constructedResponseActivityPlugin]).mount(hinted, {
+            language: 'en',
+            replace(view) { orderedRoot.replaceChildren(view); },
+            announce() {},
+            recordSupportUse,
+        }, () => undefined);
+        orderedRoot.querySelector<HTMLInputElement>('input')!.value = 'わかりました';
+        orderedRoot.querySelector<HTMLFormElement>('form')!
+            .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+        orderedRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!.click();
+        expect(orderedRoot.querySelector('.academy-progressive-hint-task-meaning')?.textContent)
+            .toContain('Ask Rie to say the classroom phrase again.');
+        expect(orderedRoot.querySelector('.academy-progressive-hint-vocabulary')).toBeNull();
+
+        document.body.replaceChildren(hostRoot);
+        createActivityRuntime([constructedResponseActivityPlugin]).mount(hinted, {
+            language: 'en',
+            replace(view) { hostRoot.replaceChildren(view); },
+            announce() {},
+            recordSupportUse,
+            learnerSupportUses: [{
+                activityId: hinted.id,
+                supportKind: 'hint',
+                choiceId: 'progressive-hint:task-meaning',
+            }],
+        }, () => undefined);
+
+        const input = hostRoot.querySelector<HTMLInputElement>('input')!;
+        input.value = 'わかりました';
+        hostRoot.querySelector<HTMLFormElement>('form')!
+            .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+
+        const button = hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
+        expect(hostRoot.textContent).not.toContain('Ask Rie to say the classroom phrase again.');
+        expect(hostRoot.textContent).not.toContain('もう一度お願いします');
+        button.click();
+        expect(hostRoot.querySelector('.academy-progressive-hint-vocabulary')?.textContent).toContain('もう一度 (もういちど)');
+        expect(hostRoot.querySelector('.academy-progressive-hint-scaffold')).toBeNull();
+        expect(hostRoot.querySelector('.academy-progressive-hint-fill')).toBeNull();
+        button.click();
+        expect(hostRoot.querySelector('.academy-progressive-hint-scaffold')?.textContent).toContain('[one more time] + [please]');
+        expect(hostRoot.textContent).not.toContain('もう一度お願いします');
+        expect(recordSupportUse.mock.calls.map(call => call[0].choiceId)).toEqual([
+            'progressive-hint:task-meaning',
+            'progressive-hint:vocabulary-reading',
+            'progressive-hint:form-scaffold',
+        ]);
+    });
+
+    it('resets the single hint sequence when a retry produces a different diagnostic', async () => {
+        const hostRoot = document.createElement('main');
+        const diagnostic: ConstructedResponseActivityModel = {
+            ...model(),
+            payload: {
+                ...model().payload,
+                lapseDiagnostics: [{
+                    responseIncludesAny: ['左'],
+                    feedback: {
+                        errorTag: 'wrong-side',
+                        contrast: { en: 'That is left.', ja: 'それは左です。' },
+                        repairPrompt: { en: 'Use right instead.', ja: '代わりに右を使ってください。' },
+                        nearbyExample: { en: '右 is right.', ja: '「右」は right です。' },
+                    },
+                }],
+            },
+        };
+        document.body.replaceChildren(hostRoot);
+        createActivityRuntime([constructedResponseActivityPlugin]).mount(diagnostic, {
+            language: 'en',
+            replace(view) { hostRoot.replaceChildren(view); },
+            announce() {},
+        }, () => undefined);
+
+        const form = hostRoot.querySelector<HTMLFormElement>('form')!;
+        const input = hostRoot.querySelector<HTMLInputElement>('input')!;
+        input.value = 'わかりました';
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+        hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!.click();
+        expect(hostRoot.textContent).toContain('Build the request with お願いします.');
+
+        input.value = '左です';
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+
+        expect(hostRoot.querySelectorAll('.academy-progressive-hint-button')).toHaveLength(1);
+        expect(hostRoot.textContent).not.toContain('Build the request with お願いします.');
+        hostRoot.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!.click();
+        expect(hostRoot.textContent).toContain('Use right instead.');
+    });
+
+    it('restores already-earned hint state when a retry cannot be persisted', async () => {
+        const hostRoot = document.createElement('main');
+        let rejectPersistence = false;
+        document.body.replaceChildren(hostRoot);
+        createActivityRuntime([constructedResponseActivityPlugin]).mount(model(), {
+            language: 'en',
+            replace(view) { hostRoot.replaceChildren(view); },
+            announce() {},
+        }, () => {
+            if (rejectPersistence) throw new Error('save failed');
+        });
+
+        const form = hostRoot.querySelector<HTMLFormElement>('form')!;
+        const input = hostRoot.querySelector<HTMLInputElement>('input')!;
+        input.value = 'わかりました';
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+        const support = hostRoot.querySelector<HTMLElement>('.academy-lesson-repair-hints')!;
+        const hint = support.querySelector<HTMLButtonElement>('.academy-progressive-hint-button')!;
+        hint.click();
+        expect(hint.textContent).toBe('Another hint');
+
+        rejectPersistence = true;
+        input.value = '左です';
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+
+        expect(support.hidden).toBe(false);
+        expect(hint.isConnected).toBe(true);
+        expect(hint.textContent).toBe('Another hint');
+        expect(hostRoot.textContent).toContain('Build the request with お願いします.');
+        expect(input.disabled).toBe(false);
     });
 
     it('creates review evidence only after a non-empty learner commitment', async () => {
@@ -254,5 +499,16 @@ describe('constructed Japanese response activity', () => {
 
         const englishLeak = { ...model(), prompt: { en: 'Type “One more time, please.”', ja: model().prompt.ja } };
         expect(runtime.validate(englishLeak)).toContainEqual(expect.objectContaining({ path: 'prompt.en' }));
+
+        const leakingTieredHint = {
+            ...model(),
+            payload: {
+                ...model().payload,
+                hints: [{ tier: 'task-meaning', text: { en: 'Ask again.', ja: 'もう一度お願いします。' } }],
+            },
+        };
+        expect(runtime.validate(leakingTieredHint)).toContainEqual(expect.objectContaining({
+            message: expect.stringContaining('must not reveal a complete accepted answer'),
+        }));
     });
 });

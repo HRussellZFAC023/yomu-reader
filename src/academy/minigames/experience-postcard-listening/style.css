@@ -1,0 +1,22 @@
+.academy-experience-postcard-listening { display: grid; gap: 18px; }
+.academy-experience-postcard-teaching, .academy-experience-postcard-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.academy-experience-postcard-teaching article, .academy-experience-postcard-source, .academy-experience-postcard-stop, .academy-experience-postcard-key { margin: 0; border: 1px solid var(--academy-border, #c9c4b8); background: var(--academy-surface, #fff); }
+.academy-experience-postcard-teaching article, .academy-experience-postcard-key { padding: 14px; }
+.academy-experience-postcard-teaching h3, .academy-experience-postcard-teaching p, .academy-experience-postcard-key h3 { margin: 0 0 8px; }
+.academy-experience-postcard-pattern { font-weight: 700; }
+.academy-experience-postcard-source { display: grid; gap: 8px; padding: 8px; }
+.academy-experience-postcard-source img { display: block; width: 100%; height: auto; border: 1px solid var(--academy-border, #c9c4b8); }
+.academy-experience-postcard-source figcaption { font-size: .9rem; }
+.academy-experience-postcard-audio { width: min(100%, 520px); }
+.academy-experience-postcard-form { display: grid; gap: 14px; }
+.academy-experience-postcard-rail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0; margin: 0; list-style: none; }
+.academy-experience-postcard-stop { min-width: 0; padding: 12px; }
+.academy-experience-postcard-stop fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.academy-experience-postcard-stop legend { grid-column: 1 / -1; padding: 0 0 8px; font-weight: 700; }
+.academy-experience-postcard-stop label { display: grid; place-items: center; min-height: 44px; border: 1px solid var(--academy-border, #c9c4b8); border-radius: 6px; cursor: pointer; }
+.academy-experience-postcard-stop label:has(input:checked) { border-color: var(--academy-accent, #146b58); background: var(--academy-accent-soft, #e7f2ee); }
+.academy-experience-postcard-stop input { position: absolute; opacity: 0; }
+.academy-experience-postcard-marker { font-weight: 700; }
+.academy-experience-postcard-check { justify-self: end; }
+@media (max-width: 620px) { .academy-experience-postcard-teaching, .academy-experience-postcard-sources, .academy-experience-postcard-rail { grid-template-columns: 1fr; } .academy-experience-postcard-check { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .academy-experience-postcard-listening * { transition: none !important; animation: none !important; } }

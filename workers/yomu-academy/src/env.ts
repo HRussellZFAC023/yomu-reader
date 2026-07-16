@@ -12,7 +12,7 @@ export interface Env {
     readonly ACADEMY_RATE_HMAC_KEY: string;
     /** Secret: bearer token for the admin invite endpoint. */
     readonly ACADEMY_ADMIN_TOKEN: string;
-    /** Secret: Stripe API secret key (sk_live_… / sk_test_…). */
+    /** Secret: Stripe test-mode API secret key (sk_test_… only; live keys are rejected). */
     readonly STRIPE_SECRET_KEY: string;
     /** Secret: Stripe webhook signing secret (whsec_…). */
     readonly STRIPE_WEBHOOK_SECRET: string;

@@ -16,6 +16,18 @@ const SLOT_SETTINGS: Readonly<Record<ThemeSlot, Omit<ThemeDefinition, 'slot' | '
     'support.kindness': { crossfadeMs: 1200, lessonDuck: 0.22 },
     'resolve.late': { crossfadeMs: 1000, lessonDuck: 0.28 },
     'ending.reflective': { crossfadeMs: 1500, lessonDuck: 0.2 },
+    'world.courtyard': { crossfadeMs: 1050, lessonDuck: 0.3 },
+    'world.classroom': { crossfadeMs: 800, lessonDuck: 0.25 },
+    'world.library': { crossfadeMs: 1100, lessonDuck: 0.2 },
+    'world.cafe': { crossfadeMs: 950, lessonDuck: 0.28 },
+    'world.lab': { crossfadeMs: 750, lessonDuck: 0.18 },
+    'world.street': { crossfadeMs: 900, lessonDuck: 0.25 },
+    'world.station': { crossfadeMs: 700, lessonDuck: 0.24 },
+    'world.konbini': { crossfadeMs: 850, lessonDuck: 0.27 },
+    'world.ramen': { crossfadeMs: 1050, lessonDuck: 0.28 },
+    'world.home': { crossfadeMs: 1300, lessonDuck: 0.22 },
+    'world.japan-centre': { crossfadeMs: 950, lessonDuck: 0.24 },
+    'world.park': { crossfadeMs: 1250, lessonDuck: 0.2 },
 };
 
 export const SILENT_AUDIO_CATALOG: AudioCatalog = createAudioCatalog();

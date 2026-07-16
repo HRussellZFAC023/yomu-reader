@@ -1,0 +1,1553 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l29",
+  "order": 56,
+  "weekKind": "lesson",
+  "title": {
+    "en": "With this, without that",
+    "ja": "〜て、〜ないで行う"
+  },
+  "estimatedMinutes": 70,
+  "identity": {
+    "title": "Level 3+ Lesson 5",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3+",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 29,
+    "moduleId": 8121295,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 8,
+      "canonicalClassOrder": 67
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8121295,
+    "memberFileCount": 13,
+    "members": [
+      {
+        "title": "36 A-36",
+        "role": "source-audio",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2031354,
+        "payloadSha256": "42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707"
+      },
+      {
+        "title": "37 A-37",
+        "role": "source-audio",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2692581,
+        "payloadSha256": "2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee"
+      },
+      {
+        "title": "Chapter 34 〜ないで-2 exercise_speaking practice",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1337169,
+        "payloadSha256": "997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e"
+      },
+      {
+        "title": "Chapter 34 Reference Vocabulary_Cooking",
+        "role": "source-vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1148165,
+        "payloadSha256": "47a4fa25797d32fe343ce6b8d36633c657554b5e5a750b83d9906cdf47a30e9e"
+      },
+      {
+        "title": "Chapter 34_listening",
+        "role": "source-listening-document",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1285657,
+        "payloadSha256": "078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1"
+      },
+      {
+        "title": "Chapter 34-2 Vocabulary Sheet",
+        "role": "source-vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 131336,
+        "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f"
+      },
+      {
+        "title": "Chapter 34-2_〜て_で_ないで-1 speaking practice-1",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 5208544,
+        "payloadSha256": "8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e"
+      },
+      {
+        "title": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 2734235,
+        "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0"
+      },
+      {
+        "title": "Chapter 34-2_〜て_で_ないで-2_grammar exercise",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1180904,
+        "payloadSha256": "4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a"
+      },
+      {
+        "title": "27 Track 27",
+        "role": "source-audio",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2241322,
+        "payloadSha256": "06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96"
+      },
+      {
+        "title": "Chapter 34_Conversation listening script",
+        "role": "source-listening-document",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1332942,
+        "payloadSha256": "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927"
+      },
+      {
+        "title": "HW Chapter 34-2〜て_で_ないで grammar review",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 2285599,
+        "payloadSha256": "73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c"
+      },
+      {
+        "title": "HW_Chapter 34 reading_あなたの国では",
+        "role": "source-reading",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 4237421,
+        "payloadSha256": "ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68"
+      }
+    ],
+    "externalUrlModules": [],
+    "corroboratingCohorts": [],
+    "gaps": [
+      "2 archived audio files remain quarantined because pairing and transcripts are unresolved; Track 27 is delivered by archive adjacency and exact Chapter 34 task/script identity without an independent transcript-match claim.",
+      "The separately registered exact-source runtime promotes 8 source prompts; this authored JSON retains its original Yomu activities and embeds no answer-bearing source-question records."
+    ],
+    "coverageMap": [
+      {
+        "payloadSha256": "42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707",
+        "worksheetTitle": "36 A-36",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee",
+        "worksheetTitle": "37 A-37",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e",
+        "worksheetTitle": "Chapter 34 〜ないで-2 exercise_speaking practice",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "47a4fa25797d32fe343ce6b8d36633c657554b5e5a750b83d9906cdf47a30e9e",
+        "worksheetTitle": "Chapter 34 Reference Vocabulary_Cooking",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1",
+        "worksheetTitle": "Chapter 34_listening",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+        "worksheetTitle": "Chapter 34-2 Vocabulary Sheet",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony", "reader-srs:l2-l29"],
+        "howCovered": "Both canonical pages are rendered before assessment and all 32 numbered lexical rows are projected to Reader and local SRS with source/support field provenance.",
+        "status": "canonical-rendered-and-vocabulary-projected"
+      },
+      {
+        "payloadSha256": "8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e",
+        "worksheetTitle": "Chapter 34-2_〜て_で_ないで-1 speaking practice-1",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony"],
+        "howCovered": "The canonical speaking page is rendered as a source reference before assessment; no speaking prompt is claimed as playable.",
+        "status": "canonical-rendered-reference-only"
+      },
+      {
+        "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0",
+        "worksheetTitle": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony"],
+        "howCovered": "All three canonical pages are rendered before assessment and page 2 bracket items 1-3 are delivered verbatim with answers gated until an attempt.",
+        "status": "canonical-rendered-three-prompts-playable"
+      },
+      {
+        "payloadSha256": "4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a",
+        "worksheetTitle": "Chapter 34-2_〜て_で_ないで-2_grammar exercise",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony"],
+        "howCovered": "The canonical page is rendered as a source reference before assessment; no prompt from this page is claimed as playable.",
+        "status": "canonical-rendered-reference-only"
+      },
+      {
+        "payloadSha256": "06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96",
+        "worksheetTitle": "27 Track 27",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony"],
+        "howCovered": "The exact 111.44-second payload is delivered with the adjacent Chapter 34 worksheet and exact script by archive/task identity. No independent transcript-match claim is made.",
+        "status": "canonical-audio-delivered-structural-pairing"
+      },
+      {
+        "payloadSha256": "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927",
+        "worksheetTitle": "Chapter 34_Conversation listening script",
+        "coveredBy": ["activity:l2-l29-sensei-tea-ceremony"],
+        "howCovered": "The exact script page is rendered with Track 27 and the five adjacent worksheet questions; responses remain hidden until an attempt.",
+        "status": "canonical-rendered-five-listening-prompts-playable"
+      },
+      {
+        "payloadSha256": "73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c",
+        "worksheetTitle": "HW Chapter 34-2〜て_で_ないで grammar review",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68",
+        "worksheetTitle": "HW_Chapter 34 reading_あなたの国では",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ],
+    "archiveId": "archive-000001",
+    "archiveSha256": "0041e877721858174b1398ef81155294cd1e1c1d43dc8c893be0a762acd8c73e",
+    "archiveBytes": 26934972
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3+ · Lesson 5",
+    "genki": "≈ Genki II · parallel N4 scope",
+    "minna": "Minna no Nihongo II · Lesson 34",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3plus-l05",
+    "canonicalClassOrder": 67
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000001 · module 8121295 · sha256 0041e877721858174b1398ef81155294cd1e1c1d43dc8c893be0a762acd8c73e",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Exact inventory and topic labels retained; source wording, media, and answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo II · Lesson 34",
+        "reuse": "sequence-only",
+        "note": "Chapter labels establish scope; all learner-facing work is original."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000001; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "Canonical cast retained: rie, shin, christian.",
+    "gaps": [
+      "2 archived audio files remain quarantined because pairing and transcripts are unresolved; Track 27 is delivered by archive adjacency and exact Chapter 34 task/script identity without an independent transcript-match claim.",
+      "The separately registered exact-source runtime promotes 8 source prompts; this authored JSON retains its original Yomu activities and embeds no answer-bearing source-question records."
+    ],
+    "donorPackage": {
+      "canonicalWeekId": "l3plus-l05",
+      "sha256": "b1eca22fac57646ada08ec4ec6c4e9be5cf506cf98c3c0ff9111eafffa6938d9",
+      "note": "Canonical donor identity and title retained; no source wording, answer, or media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707",
+          "sourceTitle": "36 A-36",
+          "sourceRole": "source-audio",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee",
+          "sourceTitle": "37 A-37",
+          "sourceRole": "source-audio",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e",
+          "sourceTitle": "Chapter 34 〜ないで-2 exercise_speaking practice",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 12,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "47a4fa25797d32fe343ce6b8d36633c657554b5e5a750b83d9906cdf47a30e9e",
+          "sourceTitle": "Chapter 34 Reference Vocabulary_Cooking",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [
+            "archive-000096"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:47a4fa25797d32fe343ce6b8d36633c657554b5e5a750b83d9906cdf47a30e9e:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1",
+          "sourceTitle": "Chapter 34_listening",
+          "sourceRole": "source-listening-document",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [
+            "archive-000096"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1",
+          "sourceTitle": "Chapter 34_listening",
+          "sourceRole": "source-listening-document",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [
+            "archive-000096"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+          "sourceTitle": "Chapter 34-2 Vocabulary Sheet",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+          "sourceTitle": "Chapter 34-2 Vocabulary Sheet",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e",
+          "sourceTitle": "Chapter 34-2_〜て_で_ないで-1 speaking practice-1",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 12,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0",
+          "sourceTitle": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 11,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0",
+          "sourceTitle": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0",
+          "sourceTitle": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 7,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a",
+          "sourceTitle": "Chapter 34-2_〜て_で_ないで-2_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96",
+          "sourceTitle": "27 Track 27",
+          "sourceRole": "source-audio",
+          "sourceOrder": 10,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927",
+          "sourceTitle": "Chapter 34_Conversation listening script",
+          "sourceRole": "source-listening-document",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 4,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c",
+          "sourceTitle": "HW Chapter 34-2〜て_で_ないで grammar review",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c",
+          "sourceTitle": "HW Chapter 34-2〜て_で_ないで grammar review",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68",
+          "sourceTitle": "HW_Chapter 34 reading_あなたの国では",
+          "sourceRole": "source-reading",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68",
+          "sourceTitle": "HW_Chapter 34 reading_あなたの国では",
+          "sourceRole": "source-reading",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000001",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Use Vて in an original sentence.",
+    "Distinguish Vないで from a neighbouring target.",
+    "Read an original passage in the evidenced chapter scope."
+  ],
+  "scene": {
+    "where": "The Level 3+ evening classroom",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "With this, without that",
+    "cast": [
+      "rie",
+      "shin",
+      "christian"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "shin",
+        "expression": "thinking",
+        "pose": "explain",
+        "japanese": "包丁を使って野菜を小さく切ります。",
+        "reading": "包丁を使って野菜を小さく切ります。",
+        "english": "Original Yomu dialogue for the weekly target.",
+        "note": "Not transcribed from source material."
+      },
+      {
+        "speakerId": "christian",
+        "expression": "thinking",
+        "pose": "explain",
+        "japanese": "砂糖を入れないで作ります。",
+        "reading": "砂糖を入れないで作ります。",
+        "english": "Original Yomu dialogue for the weekly target.",
+        "note": "Not transcribed from source material."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Continues chronologically after l3plus-l04.",
+    "intro": "All examples are original and stay within Minna no Nihongo II Lesson 34.",
+    "grammarPoints": [
+      {
+        "pattern": "Vて",
+        "nameJa": "Vて",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "包丁を使って野菜を小さく切ります。",
+            "reading": "包丁を使って野菜を小さく切ります。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Vないで",
+        "nameJa": "Vないで",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "包丁を使って野菜を小さく切ります。",
+            "reading": "包丁を使って野菜を小さく切ります。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Nで",
+        "nameJa": "Nで",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "包丁を使って野菜を小さく切ります。",
+            "reading": "包丁を使って野菜を小さく切ります。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "Situation",
+        "ja": "場面"
+      },
+      "reading": {
+        "ja": "包丁を使って野菜を小さく切ります。 砂糖を入れないで作ります。",
+        "en": "Original Yomu dialogue."
+      },
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-situation",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which line belongs to this week?",
+            "ja": "今週の文を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-situation",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "包丁を使って野菜を小さく切ります。",
+                "ja": "包丁を使って野菜を小さく切ります。"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "包丁を使って野菜を小さく切りますか。",
+                "ja": "包丁を使って野菜を小さく切りますか。"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "title": {
+        "en": "Working words",
+        "ja": "今週の言葉"
+      },
+      "items": [],
+      "provenance": {
+        "reuse": "canonical-moodle-source-first",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "exercises": [
+        {
+          "id": "ex-vocabulary",
+          "kind": "choice",
+          "prompt": {
+            "en": "Choose the first focus word.",
+            "ja": "最初の重点語を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-vocabulary",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "材料",
+                "ja": "材料"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "包丁",
+                "ja": "包丁"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-sheet-pages-recorded-awaiting-item-renderer",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f:page:1",
+            "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+            "sourceTitle": "Chapter 34-2 Vocabulary Sheet",
+            "sourceRole": "source-vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                       Chapter 34-2 Vocabulary Sheet\nNo             Words               Pronunciation                Meaning\n      かさ\n1    [傘 を]さします\n                                                   from evening to night of yesterday\n2    ゆうべ（昨夜）                                       = last night\n\n                                                   Evening, dusk\n2*   ゆうべ（⼣べ）                                       Event which is start from early\n                                                   evening\n\n3    *review しお（塩）\n\n\n4    *review さとう（砂糖）\n\n     *review\n5\n     ぎゅうにゅう（⽜乳）\n6    ソース\n7    *review しょうゆ（醤油）\n      しょうゆ      しお\n                                                   Pour, splash (soy sauce) on\n8    [醤 油 を・塩 を]                                   something, sprinkle (salt) on\n     かけます（掛けます）                                    something\n      しょうゆ\n\n9    [醤 油 を]いれます                                   Pour, put (soy sauce) in something\n               （⼊れます）\n      しょうゆ\n\n10 [醤 油 を]つけます\n                                                   put something in (soy sauce), put\n                                                   little (soy sauce) on something\n          （付けます）\n\n11\n     ひ に かけます                                      put something on the hob, gas fire,\n                                                   IH, electric hob and etc\n     （⽕に かけます）\n\n12   にます（煮ます）\n13   やきます（焼きます）                                    grill, bake, roast\n\n\n14   あげます（揚げます）\n\n15   いためます（炒めます）\n\n16   ゆでます（茹でます）\n                                                                        Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "sourceItemId": "moodle:ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f:page:2",
+            "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+            "sourceTitle": "Chapter 34-2 Vocabulary Sheet",
+            "sourceRole": "source-vocabulary",
+            "page": 2,
+            "sourceOrder": 2,
+            "verbatimText": "No             Words   Pronunciation                Meaning\n\n17   むします（蒸します）\n\n18   たきます（炊きます）                        boil, cook (rice)\n\n\n\n19   むきます（剥きます）\n\n20   きざみます（刻みます）\n\n21\n     かきまぜます\n     （かき混ぜます）\n\n22\n     できあがります\n     （出来上がります）\n\n23\n     かいがいりょこう                          travel abroad\n     （海外旅⾏）\n\n24\n     こくないりょこう                          travel in the country where you\n                                       are staying/living\n     （国内旅⾏）\n\n25\n     けんこうしんだん                          physical check-up, annual health\n                                       check\n     （健康診断）\n\n26   レントゲン                             X-Ray\n\n\n     *review\n27                                     goal\n     もくひょう（⽬標）\n\n28\n     むだ を なくします                        get lid of something ineffective,\n                                       inefficient\n     （無駄を 無くします）\n                                       also, and, additionally, or\n29   〜。また、〜。                           *you can use this conjunction to\n                                       state additional information.\n     *review\n30   さんかします                            participate in, take part in, join\n     （参加します）\n     *review                           as 〜 (much/soon and etc) as\n31\n     できるだけ                             possible\n\n\n\n\n                                                           Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "title": {
+        "en": "Build the pattern",
+        "ja": "文型"
+      },
+      "practiceFor": [
+        "Vて",
+        "Vないで",
+        "Nで"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-pattern",
+          "kind": "choice",
+          "prompt": {
+            "en": "Choose the evidenced target form.",
+            "ja": "今週の文型を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-pattern",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "使って",
+                "ja": "使って"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "使わないで",
+                "ja": "使わないで"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening quarantine",
+        "ja": "音声隔離"
+      },
+      "availability": "unavailable",
+      "sourceAudioCount": 3,
+      "provenance": {
+        "reuse": "none",
+        "note": "Archived audio is non-playable pending exact verification."
+      },
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "Read in context",
+        "ja": "読む"
+      },
+      "passage": {
+        "ja": "野菜を洗って小さく切ります。油を使わないで鍋にだしと野菜を入れます。弱火で十分煮てください。",
+        "reading": "野菜を洗って小さく切ります。油を使わないで鍋にだしと野菜を入れます。弱火で十分煮てください。",
+        "en": "Wash and cut the vegetables. Without oil, simmer them in stock for ten minutes."
+      },
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-reading",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which target appears in the passage?",
+            "ja": "本文にある文型はどれですか。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-reading",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Vて",
+                "ja": "Vて"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Nで",
+                "ja": "Nで"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "Speak",
+        "ja": "話す"
+      },
+      "autoGraded": false,
+      "recording": false,
+      "prompt": {
+        "en": "Make one original sentence with Vて.",
+        "ja": "Vてを使って一文話してください。"
+      },
+      "targets": [
+        "Vて"
+      ],
+      "modelAnswer": null,
+      "rubric": [
+        "Target form",
+        "Clear meaning"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "Write",
+        "ja": "書く"
+      },
+      "autoGraded": false,
+      "reviewMode": "self-check",
+      "minChars": 10,
+      "maxChars": 80,
+      "prompt": {
+        "en": "Write two connected original sentences.",
+        "ja": "つながる二文を書いてください。"
+      },
+      "modelAnswer": null,
+      "rubric": [
+        "Target form",
+        "Connection"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "title": {
+        "en": "Review",
+        "ja": "復習"
+      },
+      "reviewFrom": [
+        "l3plus-l05"
+      ],
+      "cumulativeCheckpoint": false,
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-review",
+          "kind": "exact",
+          "prompt": {
+            "en": "Type the first target pattern exactly as shown.",
+            "ja": "最初の文型を表示どおり入力してください。"
+          },
+          "explanation": "Original package-label recall; no source key is used.",
+          "reviewTag": "pattern",
+          "autoGraded": true,
+          "answer": {
+            "primary": "Vて",
+            "alternatives": []
+          },
+          "curriculumPhase": "guided-practice"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "With this, without that",
+    "framedBy": "shin",
+    "prompt": "Create a short original exchange using this week’s targets.",
+    "successCriteria": [
+      "Uses Vて",
+      "Meaning is clear"
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "包丁を使って野菜を小さく切ります。 砂糖を入れないで作ります。",
+      "reading": "包丁を使って野菜を小さく切ります。 砂糖を入れないで作ります。",
+      "en": "Original Yomu model."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "target",
+          "label": {
+            "en": "Uses the target clearly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "Mostly clear"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Clear and connected"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "Vて",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Vないで",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l05",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Nで",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l05",
+          "grammar"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "shin",
+      "christian"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l3plus-l05",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e",
+          "title": "Chapter 34 〜ないで-2 exercise_speaking practice",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "47a4fa25797d32fe343ce6b8d36633c657554b5e5a750b83d9906cdf47a30e9e",
+          "title": "Chapter 34 Reference Vocabulary_Cooking",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "078842a1c8a9564bcb18f38328a3de451880e02606983cf3c86143e29f71fbd1",
+          "title": "Chapter 34_listening",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "ba7cab72fb58a1573c5c721fef0d7bd11c5258a11a395c4a27f6a37c8503bd9f",
+          "title": "Chapter 34-2 Vocabulary Sheet",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "8633da381ade835b0c1f47a36fbcc5359bb604e9d3733db1f7b8f590d309c62e",
+          "title": "Chapter 34-2_〜て_で_ないで-1 speaking practice-1",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "c1f433123a9cc856eb0445443eb8c76f673601c9ca66a61e0292870962a53fe0",
+          "title": "Chapter 34-2_〜て_で_ないで-1_grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "4ef611211a772b2aa164e4906260b3a719e79abd084dd6a3d81cf96b10521b5a",
+          "title": "Chapter 34-2_〜て_で_ないで-2_grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "d79b17c0a31646378f02d7a8ee4ab75a553d0997cfe636a2342f1eb57cba2927",
+          "title": "Chapter 34_Conversation listening script",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "73aa42d88e31a56aecf32c584aaf168d4424716bad588d4fc2dfc25100a06c1c",
+          "title": "HW Chapter 34-2〜て_で_ないで grammar review",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "ae063fb969a65e280c80b759b35c45152a90498e53a6e995beb69b7bf1957b68",
+          "title": "HW_Chapter 34 reading_あなたの国では",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "source-audio-42c43addf2a6",
+          "payloadSha256": "42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707",
+          "locator": "academy://quarantine/l3plus-l05/42c43addf2a6da1b7d674b5676da5bfdda101feddede2d9b9bb3441b1a72f707",
+          "title": "36 A-36",
+          "reason": "Exact pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-2373482d64ac",
+          "payloadSha256": "2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee",
+          "locator": "academy://quarantine/l3plus-l05/2373482d64acdca44fb15aeafec8bf4510bcce308143cf82cf4b7283a81644ee",
+          "title": "37 A-37",
+          "reason": "Exact pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-06b35860230b",
+          "payloadSha256": "06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96",
+          "locator": "academy://quarantine/l3plus-l05/06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96",
+          "title": "27 Track 27",
+          "reason": "This authored JSON does not bind the audio. The separately registered exact-source runtime delivers the 111.44-second payload by archive adjacency and exact Chapter 34 task/script identity; no independent transcript-match claim is made."
+        }
+      ]
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l29:means-and-without",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 30,
+          "form": "Vて / Vないで / Nで",
+          "meaning": "say how an action is done and what is not used",
+          "register": "neutral instructions",
+          "commonContrast": "Vて can show means; Vないで says without doing; Nで identifies a tool or material",
+          "workedExamples": [
+            {
+              "ja": "包丁を使って野菜を小さく切ります。",
+              "reading": "包丁を使って野菜を小さく切ります。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use Vて / Vないで / Nで; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries say how an action is done and what is not used."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral instructions with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: Vて can show means; Vないで says without doing; Nで identifies a tool or material",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1",
+      "payloadSha256": "997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "The Level 3+ evening classroom",
+      "characterId": "shin",
+      "beat": "With this, without that",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l29:1:longer-reading",
+        "mode": "longer-reading",
+        "responseMode": "read-and-select",
+        "sourceItemIds": [
+          "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l29:2:choice",
+        "mode": "choice",
+        "responseMode": "tap-choice",
+        "sourceItemIds": [
+          "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l29:3:speaking-pronunciation",
+        "mode": "speaking-pronunciation",
+        "responseMode": "speak-or-shadow",
+        "sourceItemIds": [
+          "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l29:1:longer-reading",
+      "activityIds": [
+        "assessment:l2-l29:1:longer-reading"
+      ],
+      "sourceItemIds": [
+        "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+      ],
+      "place": "academy/world/restaurant",
+      "cast": [
+        "shin",
+        "christian"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical longer-reading task with shin as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l29:2:choice",
+      "activityIds": [
+        "assessment:l2-l29:2:choice"
+      ],
+      "sourceItemIds": [
+        "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+      ],
+      "place": "academy/world/restaurant",
+      "cast": [
+        "shin",
+        "christian"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while christian takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l29:3:speaking-pronunciation",
+      "activityIds": [
+        "assessment:l2-l29:3:speaking-pronunciation"
+      ],
+      "sourceItemIds": [
+        "moodle:997f35b3f9dde2e6c5806d1d392e7165c524ea3ba829a633459c45064c591a6e:page:1"
+      ],
+      "place": "academy/world/restaurant",
+      "cast": [
+        "christian",
+        "shin"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with christian; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}

@@ -7,13 +7,16 @@ export const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など']);
+const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など', 'ね']);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
 const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
 const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
+const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
+const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
 const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(['話', '巻', '回', '章', '部', '番', '号', '版', '人', '名', '匹', '頭', '羽', '枚', '本', '冊', '個', '台', '件', '分', '秒', '時', '日', '月', '年', '泊', '円']);
@@ -82,10 +85,27 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
 }
 
 function finalizeJapaneseRunSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
+    const normalizedSegments = splitTrailingPoliteParticleSegments(
+        mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+    );
     return mergeInflectedFallbackSegments(
-        splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
+        splitLeadingParticleSegments(normalizedSegments),
         sourceText,
     );
+}
+
+function splitTrailingPoliteParticleSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    return segments.flatMap((segment, index) => {
+        if (!segment.surface.endsWith('ね') || segment.surface === 'ね') return [segment];
+        const previous = segments[index - 1]?.surface ?? '';
+        if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
+        const particleStart = segment.end - 1;
+        const stem = segment.surface.slice(0, -1);
+        return [
+            ...(stem ? [{ surface: stem, start: segment.start, end: particleStart }] : []),
+            { surface: 'ね', start: particleStart, end: segment.end },
+        ];
+    });
 }
 
 // ICU's `Intl.Segmenter('ja',{granularity:'word'})` has no kana dictionary, so
@@ -303,9 +323,16 @@ function nextInflectedFallbackSegment(
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
     if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isBoundarySegment(current.surface)) return null;
-    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
+}
+
+function isPoliteNegativePastContinuation(segments: JapaneseTextSegment[], index: number, surface: string): boolean {
+    return surface.endsWith('ません')
+        && segments[index]?.surface === 'で'
+        && segments[index + 1]?.surface === 'した';
 }
 
 function isContiguousFallbackSegment(
@@ -346,8 +373,12 @@ function isInflectionContinuationSegment(surface: string): boolean {
 
 function canContinueInflectedFallbackSpan(currentSurface: string, nextSurface: string): boolean {
     return isInflectionContinuationSegment(nextSurface)
+        || (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface)
+            && HIRAGANA_END_RE.test(currentSurface)
+            && SINGLE_KANJI_SEGMENT_RE.test(nextSurface))
         || (HIRAGANA_SEGMENT_RE.test(nextSurface)
-            && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface)
+            && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface)
+                || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface))
             && !hasUsefulFallbackDeinflection(currentSurface));
 }
 
@@ -376,7 +407,7 @@ function shouldKeepSuruAuxiliaryBoundary(
     const suffix = surface.slice(first.length);
     if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
     if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
-    return lookupTerms.some(term => term.endsWith('する'));
+    return true;
 }
 
 function hasSingleKanjiGodanSAlternative(first: string, lookupTerms: string[]): boolean {
@@ -427,13 +458,15 @@ export function fallbackLookupTermsForText(text: string): string[] {
 }
 
 export function fallbackDictionaryLookupTermsForText(text: string): string[] {
-    return dictionaryFirstFallbackLookupTerms(fallbackLookupTermsForText(text));
+    const terms = fallbackLookupTermsForText(text);
+    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ''));
 }
 
 export function fallbackLookupTermsForCard(card: JPDBCard): string[] {
-    return dictionaryFirstFallbackLookupTerms(uniqueStrings([card.spelling, ...(card.fallbackLookupTerms ?? [])]
+    const terms = uniqueStrings([card.spelling, ...(card.fallbackLookupTerms ?? [])]
         .map(normalizeFallbackTerm)
-        .filter(Boolean)));
+        .filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ''));
 }
 
 function isUsefulFallbackLookupCandidate(candidate: DeinflectedTerm): boolean {
@@ -457,10 +490,19 @@ function fallbackRulePriority(candidate: DeinflectedTerm): number {
     return 3;
 }
 
-function dictionaryFirstFallbackLookupTerms(terms: string[]): string[] {
+function dictionaryFirstFallbackLookupTerms(terms: string[], sourceFirst = false): string[] {
     const [source, ...candidates] = terms;
     const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueStrings([...terminal, ...candidates, source ?? '']);
+    return uniqueStrings(sourceFirst
+        ? [source ?? '', ...terminal, ...candidates]
+        : [...terminal, ...candidates, source ?? '']);
+}
+
+function hasAmbiguousContinuativeStemCandidate(source: string): boolean {
+    return deinflectJapaneseTerm(source).some(candidate =>
+        candidate.depth === 1
+        && candidate.reasons.length === 1
+        && candidate.reasons[0] === 'continuative stem');
 }
 
 function isTerminalDictionaryFallbackTerm(term: string): boolean {

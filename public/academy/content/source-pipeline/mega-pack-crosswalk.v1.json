@@ -1,0 +1,651 @@
+{
+  "schema": "yomu-academy.source-pipeline.mega-pack-crosswalk/v1",
+  "revision": "mega-pack-crosswalk/2026-07-15.1",
+  "policy": {
+    "provenance": "user-supplied-local-educational-corpus",
+    "reuse": "user-permitted-verbatim-educational-use",
+    "publication": "Source binaries and absolute local paths are excluded; only mapped excerpts may enter authored Academy activities.",
+    "warning": "This permission records the task owner's reuse instruction and is not a general copyright or licensing claim."
+  },
+  "coverage": {
+    "requestedFolderCount": 8,
+    "mappedFolderCount": 8,
+    "mappedSegmentCount": 8,
+    "corpusSha256": "7f943083e1b4f1a8fae5825745f4e846ee971f41e0cb33a3dac25c8ebfd00844",
+    "folders": [
+      {
+        "packId": "mega-pack-01",
+        "folder": "01.Japanese Writing System",
+        "fileCount": 30,
+        "mappedSegmentIds": [
+          "mega-pack-01-hiragana-quiz-a-ko"
+        ]
+      },
+      {
+        "packId": "mega-pack-02",
+        "folder": "02.Audio Courses, Textbooks",
+        "fileCount": 409,
+        "mappedSegmentIds": [
+          "mega-pack-02-script-study-orientation"
+        ]
+      },
+      {
+        "packId": "mega-pack-03",
+        "folder": "03.Grammar, Workbooks, Usage",
+        "fileCount": 296,
+        "mappedSegmentIds": [
+          "mega-pack-03-topic-particle-wa"
+        ]
+      },
+      {
+        "packId": "mega-pack-04",
+        "folder": "04.Vocabulary, Expressions, Idioms",
+        "fileCount": 189,
+        "mappedSegmentIds": [
+          "mega-pack-04-basic-verb-forms"
+        ]
+      },
+      {
+        "packId": "mega-pack-05",
+        "folder": "05.Children's Books, Readers",
+        "fileCount": 299,
+        "mappedSegmentIds": [
+          "mega-pack-05-momotarou-opening"
+        ]
+      },
+      {
+        "packId": "mega-pack-06",
+        "folder": "06.Dictionaries, Phrasebooks",
+        "fileCount": 66,
+        "mappedSegmentIds": [
+          "mega-pack-06-colloquial-register"
+        ]
+      },
+      {
+        "packId": "mega-pack-07",
+        "folder": "07.Society,Culture,History,Tourism",
+        "fileCount": 37,
+        "mappedSegmentIds": [
+          "mega-pack-07-historical-periods"
+        ]
+      },
+      {
+        "packId": "mega-pack-08",
+        "folder": "08.Miscellaneous",
+        "fileCount": 103,
+        "mappedSegmentIds": [
+          "mega-pack-08-particle-cheatsheet"
+        ]
+      }
+    ]
+  },
+  "segments": [
+    {
+      "id": "mega-pack-01-hiragana-quiz-a-ko",
+      "packId": "mega-pack-01",
+      "packFolder": "01.Japanese Writing System",
+      "source": {
+        "sourceId": "mega-pack:bc6e047118c8bf3322571e198370c713ba39df676b0e5ec5720ebb12d4167ff4:mega-pack-01-hiragana-quiz-a-ko",
+        "relativePath": "01.Japanese Writing System/Hiragana Katakana Worksheet/Hiragana Katakana Worksheet.pdf",
+        "payloadSha256": "bc6e047118c8bf3322571e198370c713ba39df676b0e5ec5720ebb12d4167ff4",
+        "byteLength": 689204,
+        "mediaType": "application/pdf",
+        "title": "Hiragana and Katakana Work Sheets",
+        "sourceChapter": "Hiragana work sheets and quizzes: a-ko",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            4,
+            4
+          ],
+          "printedPages": [
+            2,
+            2
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "playable-writing-system",
+        "skills": [
+          "kana-recognition",
+          "kana-production",
+          "reading"
+        ],
+        "jlpt": [
+          "N5"
+        ],
+        "concepts": [
+          "kana:hiragana-basic",
+          "kana:romaji-to-hiragana",
+          "lexeme:aka",
+          "lexeme:eki"
+        ],
+        "chapters": [
+          "mega-kana-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-02-script-study-orientation",
+      "packId": "mega-pack-02",
+      "packFolder": "02.Audio Courses, Textbooks",
+      "source": {
+        "sourceId": "mega-pack:46515d5710c4c73fa07227f92fa171dd7adb8223bfd9a07a9c5f4178d6b4925a:mega-pack-02-script-study-orientation",
+        "relativePath": "02.Audio Courses, Textbooks/Japanese Is Possible/Japanese Is Possible - Lesson 01 (Ebook - Learn Japanese).pdf",
+        "payloadSha256": "46515d5710c4c73fa07227f92fa171dd7adb8223bfd9a07a9c5f4178d6b4925a",
+        "byteLength": 34545,
+        "mediaType": "application/pdf",
+        "title": "Japanese Is Possible! Lesson 1",
+        "sourceChapter": "4 MYTHS about Japanese",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            2,
+            3
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "supporting-study-material",
+        "skills": [
+          "learning-strategy",
+          "reading",
+          "script-awareness"
+        ],
+        "jlpt": [
+          "pre-N5",
+          "N5"
+        ],
+        "concepts": [
+          "script:hiragana",
+          "script:katakana",
+          "script:kanji",
+          "strategy:distributed-practice"
+        ],
+        "chapters": [
+          "mega-orientation-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-03-topic-particle-wa",
+      "packId": "mega-pack-03",
+      "packFolder": "03.Grammar, Workbooks, Usage",
+      "source": {
+        "sourceId": "mega-pack:30ff10fc0bccf97d97eee824551689df8efd393b9f45bbf79a3829e73f78931e:mega-pack-03-topic-particle-wa",
+        "relativePath": "03.Grammar, Workbooks, Usage/Particles/All About Particles A Handbook of Japanese Function Words.pdf",
+        "payloadSha256": "30ff10fc0bccf97d97eee824551689df8efd393b9f45bbf79a3829e73f78931e",
+        "byteLength": 31475304,
+        "mediaType": "application/pdf",
+        "title": "All About Particles",
+        "sourceChapter": "WA / は",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            4,
+            5
+          ],
+          "printedPages": [
+            10,
+            12
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "grammar-reference",
+        "skills": [
+          "grammar",
+          "reading",
+          "sentence-analysis"
+        ],
+        "jlpt": [
+          "N5",
+          "N4"
+        ],
+        "concepts": [
+          "particle:wa",
+          "particle:ga",
+          "syntax:topic-comment"
+        ],
+        "chapters": [
+          "mega-particles-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-04-basic-verb-forms",
+      "packId": "mega-pack-04",
+      "packFolder": "04.Vocabulary, Expressions, Idioms",
+      "source": {
+        "sourceId": "mega-pack:c6c8c56920c488fefac973d1af8946a52dfb32c19437782499e89c3dbca82c2e:mega-pack-04-basic-verb-forms",
+        "relativePath": "04.Vocabulary, Expressions, Idioms/Basic verb 100/BasicVerb100(Kana).pdf",
+        "payloadSha256": "c6c8c56920c488fefac973d1af8946a52dfb32c19437782499e89c3dbca82c2e",
+        "byteLength": 50556,
+        "mediaType": "application/pdf",
+        "title": "Basic Verb 100 (Kana)",
+        "sourceChapter": "100 basic verbs: masu, te, and nai forms",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            1,
+            4
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "verb-form-reference",
+        "skills": [
+          "reading",
+          "verb-conjugation",
+          "vocabulary"
+        ],
+        "jlpt": [
+          "N5",
+          "N4"
+        ],
+        "concepts": [
+          "verb:masu-form",
+          "verb:te-form",
+          "verb:nai-form"
+        ],
+        "chapters": [
+          "mega-verbs-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-05-momotarou-opening",
+      "packId": "mega-pack-05",
+      "packFolder": "05.Children's Books, Readers",
+      "source": {
+        "sourceId": "mega-pack:767b663768ee7185b8710ebdde7efebdc27bbfc706c8f667ea4c833dcde764af:mega-pack-05-momotarou-opening",
+        "relativePath": "05.Children's Books, Readers/Momotarou.pdf",
+        "payloadSha256": "767b663768ee7185b8710ebdde7efebdc27bbfc706c8f667ea4c833dcde764af",
+        "byteLength": 11576004,
+        "mediaType": "application/pdf",
+        "title": "ももたろう",
+        "sourceChapter": "Opening: the peach in the river",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            3,
+            4
+          ],
+          "printedPages": [
+            1,
+            3
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "playable-reader",
+        "skills": [
+          "extended-reading",
+          "reading-comprehension",
+          "vocabulary-in-context"
+        ],
+        "jlpt": [
+          "N4",
+          "N3"
+        ],
+        "concepts": [
+          "folktale:momotarou",
+          "grammar:hearsay-souna",
+          "particle:destination-ni",
+          "reading:narrative-sequence"
+        ],
+        "chapters": [
+          "mega-reader-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-06-colloquial-register",
+      "packId": "mega-pack-06",
+      "packFolder": "06.Dictionaries, Phrasebooks",
+      "source": {
+        "sourceId": "mega-pack:3ae58a1d464d9c812658c85ca5e107cf4e27a165f20acf5e84166c28c4079c9a:mega-pack-06-colloquial-register",
+        "relativePath": "06.Dictionaries, Phrasebooks/Japanese Slang.txt",
+        "payloadSha256": "3ae58a1d464d9c812658c85ca5e107cf4e27a165f20acf5e84166c28c4079c9a",
+        "byteLength": 16219,
+        "mediaType": "text/plain",
+        "title": "Japanese Slang",
+        "sourceChapter": "Japanese Slang Vol. 2 opening entries",
+        "locus": {
+          "kind": "text-lines",
+          "lines": [
+            146,
+            154
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "register-literacy-reference",
+        "skills": [
+          "pragmatics",
+          "reading",
+          "register-awareness"
+        ],
+        "jlpt": [
+          "N4",
+          "N3"
+        ],
+        "concepts": [
+          "register:colloquial",
+          "register:dated-language",
+          "romanization:interpretation",
+          "safety:context-before-reuse"
+        ],
+        "chapters": [
+          "mega-register-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-07-historical-periods",
+      "packId": "mega-pack-07",
+      "packFolder": "07.Society,Culture,History,Tourism",
+      "source": {
+        "sourceId": "mega-pack:f6ee7ef3e97beead72100bbc1c4622ac419d7898da93ec413c29fadde11deae9:mega-pack-07-historical-periods",
+        "relativePath": "07.Society,Culture,History,Tourism/Culture/Japanese Culture.pdf",
+        "payloadSha256": "f6ee7ef3e97beead72100bbc1c4622ac419d7898da93ec413c29fadde11deae9",
+        "byteLength": 23518181,
+        "mediaType": "application/pdf",
+        "title": "Japanese Culture",
+        "sourceChapter": "Contents and major periods of Japanese history",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            8,
+            11
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "culture-reading-reference",
+        "skills": [
+          "culture-literacy",
+          "reference-reading",
+          "timeline-reading"
+        ],
+        "jlpt": [
+          "N3",
+          "N2"
+        ],
+        "concepts": [
+          "culture:historical-periodization",
+          "history:premodern-japan",
+          "reading:reference-structure"
+        ],
+        "chapters": [
+          "mega-culture-01"
+        ]
+      }
+    },
+    {
+      "id": "mega-pack-08-particle-cheatsheet",
+      "packId": "mega-pack-08",
+      "packFolder": "08.Miscellaneous",
+      "source": {
+        "sourceId": "mega-pack:ac76bbec8250b201e59e61073cd3cdd6a797a5d822b8f9e3e070a0fa9fe0bffa:mega-pack-08-particle-cheatsheet",
+        "relativePath": "08.Miscellaneous/Cheatsheets/japanese-particles-cheatsheet.pdf",
+        "payloadSha256": "ac76bbec8250b201e59e61073cd3cdd6a797a5d822b8f9e3e070a0fa9fe0bffa",
+        "byteLength": 105847,
+        "mediaType": "application/pdf",
+        "title": "Japanese Particles Cheatsheet",
+        "sourceChapter": "は, が, の, も, を, に, へ, and で",
+        "locus": {
+          "kind": "pdf-pages",
+          "pdfPages": [
+            1,
+            1
+          ]
+        },
+        "permission": "user-permitted-verbatim-educational-use"
+      },
+      "mapping": {
+        "role": "playable-supporting-material",
+        "skills": [
+          "grammar",
+          "kana-production",
+          "sentence-construction"
+        ],
+        "jlpt": [
+          "N5"
+        ],
+        "concepts": [
+          "particle:wa",
+          "particle:wo",
+          "particle:ni",
+          "syntax:topic-comment"
+        ],
+        "chapters": [
+          "mega-materials-01",
+          "mega-particles-01"
+        ]
+      }
+    }
+  ],
+  "indexes": {
+    "skill": {
+      "culture-literacy": [
+        "mega-pack-07-historical-periods"
+      ],
+      "extended-reading": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "grammar": [
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "kana-production": [
+        "mega-pack-01-hiragana-quiz-a-ko",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "kana-recognition": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "learning-strategy": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "pragmatics": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "reading": [
+        "mega-pack-01-hiragana-quiz-a-ko",
+        "mega-pack-02-script-study-orientation",
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-04-basic-verb-forms",
+        "mega-pack-06-colloquial-register"
+      ],
+      "reading-comprehension": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "reference-reading": [
+        "mega-pack-07-historical-periods"
+      ],
+      "register-awareness": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "script-awareness": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "sentence-analysis": [
+        "mega-pack-03-topic-particle-wa"
+      ],
+      "sentence-construction": [
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "timeline-reading": [
+        "mega-pack-07-historical-periods"
+      ],
+      "verb-conjugation": [
+        "mega-pack-04-basic-verb-forms"
+      ],
+      "vocabulary": [
+        "mega-pack-04-basic-verb-forms"
+      ],
+      "vocabulary-in-context": [
+        "mega-pack-05-momotarou-opening"
+      ]
+    },
+    "jlpt": {
+      "N2": [
+        "mega-pack-07-historical-periods"
+      ],
+      "N3": [
+        "mega-pack-05-momotarou-opening",
+        "mega-pack-06-colloquial-register",
+        "mega-pack-07-historical-periods"
+      ],
+      "N4": [
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-04-basic-verb-forms",
+        "mega-pack-05-momotarou-opening",
+        "mega-pack-06-colloquial-register"
+      ],
+      "N5": [
+        "mega-pack-01-hiragana-quiz-a-ko",
+        "mega-pack-02-script-study-orientation",
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-04-basic-verb-forms",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "pre-N5": [
+        "mega-pack-02-script-study-orientation"
+      ]
+    },
+    "concept": {
+      "culture:historical-periodization": [
+        "mega-pack-07-historical-periods"
+      ],
+      "folktale:momotarou": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "grammar:hearsay-souna": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "history:premodern-japan": [
+        "mega-pack-07-historical-periods"
+      ],
+      "kana:hiragana-basic": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "kana:romaji-to-hiragana": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "lexeme:aka": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "lexeme:eki": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "particle:destination-ni": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "particle:ga": [
+        "mega-pack-03-topic-particle-wa"
+      ],
+      "particle:ni": [
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "particle:wa": [
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "particle:wo": [
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "reading:narrative-sequence": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "reading:reference-structure": [
+        "mega-pack-07-historical-periods"
+      ],
+      "register:colloquial": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "register:dated-language": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "romanization:interpretation": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "safety:context-before-reuse": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "script:hiragana": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "script:kanji": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "script:katakana": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "strategy:distributed-practice": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "syntax:topic-comment": [
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "verb:masu-form": [
+        "mega-pack-04-basic-verb-forms"
+      ],
+      "verb:nai-form": [
+        "mega-pack-04-basic-verb-forms"
+      ],
+      "verb:te-form": [
+        "mega-pack-04-basic-verb-forms"
+      ]
+    },
+    "chapter": {
+      "mega-culture-01": [
+        "mega-pack-07-historical-periods"
+      ],
+      "mega-kana-01": [
+        "mega-pack-01-hiragana-quiz-a-ko"
+      ],
+      "mega-materials-01": [
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "mega-orientation-01": [
+        "mega-pack-02-script-study-orientation"
+      ],
+      "mega-particles-01": [
+        "mega-pack-03-topic-particle-wa",
+        "mega-pack-08-particle-cheatsheet"
+      ],
+      "mega-reader-01": [
+        "mega-pack-05-momotarou-opening"
+      ],
+      "mega-register-01": [
+        "mega-pack-06-colloquial-register"
+      ],
+      "mega-verbs-01": [
+        "mega-pack-04-basic-verb-forms"
+      ]
+    }
+  },
+  "playableSlice": {
+    "id": "mega-pack-foundations-slice-01",
+    "chapterOrder": [
+      "mega-kana-01",
+      "mega-reader-01",
+      "mega-materials-01"
+    ],
+    "segmentIds": [
+      "mega-pack-01-hiragana-quiz-a-ko",
+      "mega-pack-05-momotarou-opening",
+      "mega-pack-08-particle-cheatsheet"
+    ]
+  }
+}

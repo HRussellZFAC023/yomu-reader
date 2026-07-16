@@ -1,6 +1,8 @@
 import { sessionCanResume } from '../access/gateway';
 import type { ThemeSlot } from '../audio/types';
 import type { LearnerProjection } from '../domain/learner-record';
+import type { WorldPlaceId } from '../domain/world-locations';
+import { worldLocationTheme } from '../vn/world-location-audio';
 import type { AcademyCheckpoint, AcademyRoute } from '../persistence/indexeddb';
 import type { AcademyNavigation } from '../ui/shell';
 import {
@@ -49,7 +51,15 @@ export function normalizeResumeCheckpoint(
     if (normalized.route === 'band-entry' && !normalized.selectedBand && projection.curriculumEntry?.band) {
         normalized = { ...normalized, selectedBand: projection.curriculumEntry.band, updatedAt: now };
     }
-    if (['lesson-fork', 'source-activity', 'writing-practice'].includes(normalized.route)) {
+    if (normalized.route === 'source-activity' && (!normalized.lessonId || !normalized.activityId)) {
+        normalized = {
+            ...transitionCheckpoint(normalized, { kind: 'replace', route: 'lesson-overview' }, now),
+            lessonId: 'lesson:foundation-00',
+            sectionId: undefined,
+            activityId: undefined,
+        };
+    } else if (normalized.route === 'writing-practice'
+        && projection.completedScenes.includes('scene:lesson-zero-writing-desk')) {
         normalized = {
             ...transitionCheckpoint(normalized, { kind: 'replace', route: 'lesson-overview' }, now),
             lessonId: 'lesson:foundation-00',
@@ -58,8 +68,6 @@ export function normalizeResumeCheckpoint(
         };
     } else if (normalized.route === 'band-entry') {
         normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'class' }, now);
-    } else if (normalized.route === 'aakash-meet' || normalized.route === 'lab') {
-        normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'campus' }, now);
     }
     const routeHistory = normalized.routeHistory.filter(frame => !UNGROUNDED_ACTIVITY_ROUTES.has(frame.route));
     if (routeHistory.length !== normalized.routeHistory.length) {
@@ -79,7 +87,7 @@ function transitionCheckpoint(
 }
 
 export function navigationForRoute(route: AcademyRoute): AcademyNavigation | undefined {
-    if (route === 'lab') return 'campus';
+    if (['classroom', 'cafe', 'lab', 'street', 'station', 'konbini', 'ramen', 'home', 'world'].includes(route)) return 'campus';
     if (route === 'lesson-overview') return 'class';
     if (route === 'campus' || route === 'class' || route === 'review' || route === 'journal') return route;
     return undefined;
@@ -89,7 +97,7 @@ export function globalNavigationIsAvailable(checkpoint: AcademyCheckpoint, hasPr
     return hasProfile && checkpoint.session !== undefined && checkpoint.route !== 'access';
 }
 
-export function themeForRoute(route: AcademyRoute): ThemeSlot {
+export function themeForRoute(route: AcademyRoute, worldPlace?: WorldPlaceId): ThemeSlot {
     // Protected soundtrack requests begin only after the invite exchange has
     // established its HttpOnly session cookie. The first authenticated Rie
     // scene still receives the opening theme on the same user gesture.
@@ -97,12 +105,24 @@ export function themeForRoute(route: AcademyRoute): ThemeSlot {
     if (route === 'profile' || route === 'rie-unlock' || route === 'start') return 'opening.invitation';
     if (route === 'placement-mock' || route === 'placement-result') return 'silence';
     if (route === 'writing-practice') return 'challenge.kanji';
-    if (route === 'campus') return 'campus.evening';
+    if (route === 'campus') return 'world.courtyard';
+    if (route === 'world') return worldPlace ? themeForWorldPlace(worldPlace) : 'unlock.world';
+    if (route === 'street') return 'world.street';
+    if (route === 'station') return 'world.station';
+    if (route === 'konbini') return 'world.konbini';
+    if (route === 'ramen') return 'world.ramen';
+    if (route === 'cafe') return 'world.cafe';
+    if (route === 'home') return 'world.home';
     if (route === 'class') return 'classroom.focus';
     if (route === 'lesson-overview') return 'classroom.focus';
-    if (route === 'lab') return 'lab.listening';
-    if (route === 'review') return 'library.quiet';
-    if (route === 'journal') return 'bond.quiet';
+    if (route === 'classroom') return 'world.classroom';
+    if (route === 'lab') return 'world.lab';
+    if (route === 'review') return 'world.library';
+    if (route === 'journal' || route === 'profile-sync') return 'bond.quiet';
     if (route === 'day-end') return 'support.kindness';
     return 'classroom.focus';
+}
+
+export function themeForWorldPlace(place: WorldPlaceId): ThemeSlot {
+    return worldLocationTheme(place);
 }

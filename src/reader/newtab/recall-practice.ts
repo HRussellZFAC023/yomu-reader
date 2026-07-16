@@ -1,4 +1,5 @@
 import type { JPDBCard } from '../app/types';
+import { normalizeJapaneseStudyAnswer } from './japanese-input';
 
 export type NewTabRecallOutcome = 'empty' | 'correct' | 'accepted' | 'incorrect';
 
@@ -101,23 +102,19 @@ export function evaluateNewTabSentenceCopyAnswer(
 
 // NOTE: the long-vowel mark ー is meaningful kana and must never be stripped.
 function normalizeSentenceCopyAnswer(value: string): string {
-    return value
-        .normalize('NFKC')
-        .replace(/[\s\u3000]/gu, '')
+    return normalizeJapaneseStudyAnswer(value)
         .replace(/[。、．，,.!！?？・「」『』（）()［］[\]〔〕【】…‥:：;；〜~"'“”‘’]/gu, '')
         .toLowerCase();
 }
 
 export function normalizeNewTabRecallAnswer(value: string): string {
-    return value
-        .normalize('NFKC')
-        .replace(/[\s\u3000]/gu, '')
-        .toLowerCase();
+    return normalizeJapaneseStudyAnswer(value);
 }
 
 function splitRecallAnswers(value: string | undefined): string[] {
     return (value ?? '')
-        .split(/[;；,，、/／|｜]/u)
+        .split(/[;；/／|｜]/u)
+        .flatMap(part => /[。！？!?]/u.test(part) ? [part] : part.split(/[,，、]/u))
         .map(part => part.trim())
         .filter(Boolean);
 }

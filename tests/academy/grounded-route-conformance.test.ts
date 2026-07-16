@@ -105,8 +105,8 @@ describe('Academy grounded-route conformance', () => {
         expect(normalized.routeHistory.map(frame => frame.route)).toEqual(['class', 'journal']);
     });
 
-    it('ends a midstream arrival bridge at Class, never at a standalone graded bridge activity', async () => {
-        const route = context('arrival-bridge', { selectedBand: 'n3' });
+    it('ends a midstream arrival bridge at the campus entrance before Class', async () => {
+        const route = context('arrival-bridge', { selectedBand: 'n4' });
         const flow = createEnrollmentFlow({
             access: {} as never,
             evidence: {} as never,
@@ -117,10 +117,10 @@ describe('Academy grounded-route conformance', () => {
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-button-primary')?.click();
 
         expect(route.go).toHaveBeenCalled();
-        expect(route.go.mock.calls.at(-1)?.[0]).toBe('class');
+        expect(route.go.mock.calls.at(-1)?.[0]).toBe('campus');
     });
 
-    it('keeps the ungrounded Language Lab unavailable even when Sound was selected', async () => {
+    it('opens the grounded Language Lab when Sound was selected', async () => {
         const route = context('campus', { selectedFork: 'sound' });
         const flow = createWorldFlow({
             evidence: {} as never,
@@ -132,11 +132,12 @@ describe('Academy grounded-route conformance', () => {
 
         const lab = route.shell.current?.querySelector<HTMLButtonElement>('[data-location="lab"]');
         expect(lab).toBeInstanceOf(HTMLButtonElement);
-        expect(lab?.disabled).toBe(true);
-        expect(route.go).not.toHaveBeenCalled();
+        expect(lab?.disabled).toBe(false);
+        lab?.click();
+        expect(route.go.mock.calls.at(-1)?.[0]).toBe('lab');
     });
 
-    it('rejects a real review-blocked lesson before writing attempts or canonical reviews', async () => {
+    it('allows only explicitly registered trusted-source activities from a review-blocked lesson', async () => {
         const lesson = validateLessonZeroGrounding(JSON.parse(fs.readFileSync(LESSON_ZERO_PATH, 'utf8')));
         expect(lesson.status).toBe('review-blocked');
         const activity = lesson.activities.find(candidate => candidate.id === 'activity:lesson-zero-reconstruct-repair');
@@ -173,9 +174,31 @@ describe('Academy grounded-route conformance', () => {
         }, staticGroundedLessonResolver(lesson));
         await evidence.initialize();
 
-        await expect(evidence.recordActivity(evaluation, lesson.lessonId)).rejects.toThrow();
+        await expect(evidence.recordActivity(evaluation, lesson.lessonId)).resolves.toBeUndefined();
 
         expect(ingest).not.toHaveBeenCalled();
-        expect(await repository.readAll()).toEqual([]);
+        expect(await repository.readAll()).toEqual([expect.objectContaining({
+            kind: 'attempt-recorded',
+            activityId: 'activity:lesson-zero-reconstruct-repair',
+        })]);
+
+        const blockedRepository = createMemoryLearnerEventRepository();
+        const blockedIngest = vi.fn(async (_seeds: Parameters<ReviewQueueService['ingest']>[0]) => undefined);
+        const blockedEvidence = createLearnerEvidence(blockedRepository, {
+            ingest: blockedIngest,
+            async due() { return []; },
+            async rate() {},
+        }, staticGroundedLessonResolver(lesson));
+        await blockedEvidence.initialize();
+        const untrustedEvaluation: ActivityEvaluation = {
+            ...evaluation,
+            attempt: { ...evaluation.attempt, activityId: 'activity:lesson-zero-greet-rie' },
+        };
+
+        await expect(blockedEvidence.recordActivity(untrustedEvaluation, lesson.lessonId))
+            .rejects.toThrow('is not in the trusted-source channel');
+
+        expect(blockedIngest).not.toHaveBeenCalled();
+        expect(await blockedRepository.readAll()).toEqual([]);
     });
 });

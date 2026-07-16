@@ -1,0 +1,2038 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e01-the-blank-atlas",
+  "revision": "2026-07-14.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 1,
+  "title": {
+    "en": "The Blank Atlas",
+    "ja": "白紙のアトラス"
+  },
+  "synopsis": "Rie's first evening class discovers that the exhibition atlas has lost its route labels. Greetings, classroom repair, a chosen learning mission, and a practical introduction restore the first lantern point.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "rie",
+      "role": "lead",
+      "portrayal": "likeness-cleared",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie"
+      ],
+      "forbiddenClaims": [
+        "private biography",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "xingyu",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:sound",
+        "src/academy/domain/cast-registry.ts#xingyu"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      "castId": "mika",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:sound",
+        "src/academy/domain/cast-registry.ts#mika"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      "castId": "sophie",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:text",
+        "src/academy/domain/cast-registry.ts#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      "castId": "ruparna",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:text",
+        "src/academy/domain/cast-registry.ts#ruparna"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      "castId": "aakash",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:speaking",
+        "src/academy/domain/cast-registry.ts#aakash"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      "castId": "sam",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "lesson:foundation-00#mission:speaking",
+        "src/academy/domain/cast-registry.ts#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "bridge:opening-arrival",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "curriculum-entry",
+          "route": "lesson-zero"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "offer-repair"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-one-first-meeting"
+    }
+  },
+  "curriculumBinding": {
+    "lessonId": "lesson:foundation-00",
+    "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
+    "contentSha256": "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c",
+    "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
+    "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
+    "sectionSequence": [
+      "arrival-greetings",
+      "sound-script-map",
+      "classroom-survival",
+      "sentence-frames",
+      "useful-vocabulary",
+      "multi-speaker-input",
+      "reading-writing",
+      "transfer",
+      "close"
+    ],
+    "sourceSequence": [
+      {
+        "order": 1,
+        "role": "writing-system-prerequisite",
+        "sourceSha256": "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
+        "policy": "render the reviewed teaching surface; do not reproduce source prose in story dialogue"
+      },
+      {
+        "order": 2,
+        "role": "kana-a-row-writing",
+        "sourceSha256": "fe962ee2dc21478ffe53a24ba77ef0abb5a7685ab7a6eda8f79ac63817ad7dd6",
+        "policy": "use only the registered vowel-row activity and learner evidence"
+      },
+      {
+        "order": 3,
+        "role": "greetings-reference-and-audio",
+        "sourceSha256": "846cc2c9fc4d5310c8e6b3ee711817186239c3810e4433ec350015f32a4004b5",
+        "activityIds": [
+          "activity:lesson-zero-greet-rie"
+        ],
+        "policy": "Genki teaching anchor only; no textbook dialogue is stored in this package"
+      },
+      {
+        "order": 4,
+        "role": "classroom-language",
+        "sourceSha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+        "activityIds": [
+          "activity:lesson-zero-follow-instructions",
+          "activity:lesson-zero-reconstruct-repair",
+          "activity:lesson-zero-desk-language"
+        ],
+        "sourceQuestionIds": [
+          "source-question:classroom-phrase-01",
+          "source-question:classroom-phrase-02",
+          "source-question:classroom-phrase-03",
+          "source-question:classroom-phrase-04",
+          "source-question:classroom-phrase-05",
+          "source-question:classroom-phrase-06",
+          "source-question:classroom-phrase-07",
+          "source-question:classroom-phrase-08",
+          "source-question:classroom-phrase-09",
+          "source-question:classroom-phrase-10",
+          "source-question:classroom-phrase-11",
+          "source-question:classroom-phrase-12",
+          "source-question:classroom-phrase-13",
+          "source-question:classroom-phrase-14"
+        ],
+        "policy": "the registered Moodle reconstruction owns prompts, answers, and grading; story owns only the surrounding need and consequence"
+      }
+    ],
+    "missions": [
+      {
+        "id": "sound",
+        "choiceOptionId": "option:blank-atlas:mission-sound",
+        "sceneId": "scene:blank-atlas:mission-sound",
+        "hostIds": [
+          "xingyu",
+          "mika"
+        ],
+        "locationId": "location:language-lab",
+        "openingActivityId": "activity:lesson-zero-sound-input",
+        "transferActivityId": "activity:lesson-zero-sound-transfer",
+        "mementoId": "memento:lesson-zero-class-recording"
+      },
+      {
+        "id": "text",
+        "choiceOptionId": "option:blank-atlas:mission-text",
+        "sceneId": "scene:blank-atlas:mission-text",
+        "hostIds": [
+          "sophie",
+          "ruparna"
+        ],
+        "locationId": "location:library",
+        "openingActivityId": "activity:lesson-zero-text-input",
+        "transferActivityId": "activity:lesson-zero-text-transfer",
+        "mementoId": "memento:lesson-zero-first-page-clue"
+      },
+      {
+        "id": "speaking",
+        "choiceOptionId": "option:blank-atlas:mission-speaking",
+        "sceneId": "scene:blank-atlas:mission-speaking",
+        "hostIds": [
+          "aakash",
+          "sam"
+        ],
+        "locationId": "location:classroom-entrance",
+        "openingActivityId": "activity:lesson-zero-speaking-input",
+        "transferActivityId": "activity:lesson-zero-speaking-transfer",
+        "mementoId": "memento:lesson-zero-first-bond-scene"
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "scene:blank-atlas:arrival-greetings",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Join the room with a first greeting and discover the class's immediate problem.",
+      "dramaticQuestion": "Can a first greeting count before the learner feels ready?",
+      "learnerNeed": "A natural first-meeting sequence with a repairable production turn.",
+      "curriculum": {
+        "sectionId": "arrival-greetings",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:covered-table",
+          "beatId": "beat:blank-atlas:arrival-image",
+          "cueId": "cue:covered-atlas-open-chair",
+          "description": "A rain-dark cloth covers a wide object on the front table. One corner of a blank paper map shows beneath it."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-konbanwa",
+          "beatId": "beat:blank-atlas:greeting-need",
+          "speakerId": "rie",
+          "intent": "Begin the room with a real evening greeting.",
+          "attentionTarget": "the learner and the waiting class",
+          "variants": {
+            "foundation": {
+              "japanese": "こんばんは。はじめまして。Rieです。",
+              "reading": "こんばんは。はじめまして。Rieです。",
+              "english": "Good evening. Nice to meet you. I'm Rie."
+            },
+            "n5": {
+              "japanese": "こんばんは。はじめまして。先生のRieです。",
+              "reading": "こんばんは。はじめまして。せんせいのRieです。",
+              "english": "Good evening. Nice to meet you. I'm Rie, your teacher."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-greeting",
+          "beatId": "beat:blank-atlas:greeting-attempt",
+          "resume": "Rie has greeted the learner and is waiting for a first-meeting response."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:greet-rie",
+          "beatId": "beat:blank-atlas:greeting-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "speaking",
+            "exerciseId": "activity:lesson-zero-greet-rie"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-greet-rie"
+          },
+          "resumeContext": "Rie is waiting beside the covered atlas after saying good evening and introducing herself.",
+          "onReady": "checkpoint:blank-atlas:after-greeting",
+          "onRepair": "node:blank-atlas:greeting-repair",
+          "onDefer": "checkpoint:blank-atlas:before-greeting"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:greeting-repair",
+          "beatId": "beat:blank-atlas:greeting-repair",
+          "cueId": "cue:rie-greeting-one-step",
+          "description": "Rie answers the part she understood, then offers only the next missing greeting chunk."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-greeting",
+          "beatId": "beat:blank-atlas:greeting-response",
+          "resume": "The greeting has landed. Rie turns to the covered object on the table."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-problem",
+          "beatId": "beat:blank-atlas:obstruction",
+          "speakerId": "rie",
+          "intent": "Reveal that the atlas is unfinished and invite help without making help a test.",
+          "attentionTarget": "the blank route under the cloth",
+          "variants": {
+            "foundation": {
+              "japanese": "これはアトラスです。でも、道がありません。",
+              "reading": "これはアトラスです。でも、みちがありません。",
+              "english": "This is an atlas. But it has no route."
+            },
+            "n5": {
+              "japanese": "これは展示のアトラスです。でも、最初の道が消えました。",
+              "reading": "これはてんじのアトラスです。でも、さいしょのみちがきえました。",
+              "english": "This is the exhibition atlas. But its first route has disappeared."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:first-uncover",
+          "beatId": "beat:blank-atlas:changed-image",
+          "cueId": "cue:atlas-uncovered-unlit",
+          "description": "The cloth comes away. The atlas frame is bright brass; every route inside it is blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:sound-script-map"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:sound-script-map",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Give the blank route its first stable sound and written marks.",
+      "dramaticQuestion": "Will five small sounds be treated as too little, or as enough to begin?",
+      "learnerNeed": "A sound-first map of the five vowels and a first purposeful kana attempt.",
+      "curriculum": {
+        "sectionId": "sound-script-map",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:vowel-slots",
+          "beatId": "beat:blank-atlas:sound-image",
+          "cueId": "cue:five-empty-atlas-slots",
+          "description": "Five empty circles appear along the first route. Each waits for one sound and one mark."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-listen-first",
+          "beatId": "beat:blank-atlas:sound-want",
+          "speakerId": "rie",
+          "intent": "Set listening before explanation.",
+          "attentionTarget": "the five empty circles",
+          "variants": {
+            "foundation": {
+              "japanese": "まず、音です。きいてください。",
+              "reading": "まず、おとです。きいてください。",
+              "english": "First, sound. Please listen."
+            },
+            "n5": {
+              "japanese": "文字の前に、五つの音を聞きましょう。",
+              "reading": "もじのまえに、いつつのおとをききましょう。",
+              "english": "Before the writing, let's listen to five sounds."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-vowel-listen",
+          "beatId": "beat:blank-atlas:vowel-listen",
+          "resume": "Five empty route circles are waiting for the ordered vowel sounds."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:vowel-listen",
+          "beatId": "beat:blank-atlas:vowel-listen",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "listening",
+            "exerciseId": "activity:lesson-zero-vowel-listen"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-vowel-listen"
+          },
+          "resumeContext": "The atlas has five empty sound positions in a fixed order.",
+          "onReady": "checkpoint:blank-atlas:after-vowel-listen",
+          "onRepair": "node:blank-atlas:vowel-listen-repair",
+          "onDefer": "checkpoint:blank-atlas:before-vowel-listen"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:vowel-listen-repair",
+          "beatId": "beat:blank-atlas:vowel-listen-repair",
+          "cueId": "cue:vowels-replay-one-gap",
+          "description": "Only the uncertain sound replays; the other four circles stay in place."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-vowel-listen",
+          "beatId": "beat:blank-atlas:vowel-listen-response",
+          "resume": "The five vowel sounds are ordered; the circles still need written forms."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-vowel-doodle",
+          "beatId": "beat:blank-atlas:vowel-writing",
+          "resume": "The sound map is ready for the learner's first hiragana marks."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:vowel-doodle",
+          "beatId": "beat:blank-atlas:vowel-writing",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "writing",
+            "exerciseId": "activity:lesson-zero-vowel-doodle"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-vowel-doodle"
+          },
+          "resumeContext": "The ordered sounds are visible as five route positions awaiting hiragana.",
+          "onReady": "checkpoint:blank-atlas:after-vowel-doodle",
+          "onRepair": "node:blank-atlas:vowel-doodle-repair",
+          "onDefer": "checkpoint:blank-atlas:before-vowel-doodle"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:vowel-doodle-repair",
+          "beatId": "beat:blank-atlas:vowel-writing-repair",
+          "cueId": "cue:kana-trace-one-stroke",
+          "description": "The route holds the recognisable strokes and returns only the stroke that needs another attempt."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-vowel-doodle",
+          "beatId": "beat:blank-atlas:sound-consequence",
+          "resume": "Five vowel marks now form the first short line across the atlas."
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:first-line",
+          "beatId": "beat:blank-atlas:sound-exit",
+          "cueId": "cue:first-route-line-visible",
+          "description": "A thin route line joins the five marks. It stops at a paper tab labelled CLASS."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:classroom-survival"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:classroom-survival",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Use the complete classroom handout to move the room and repair a missed instruction.",
+      "dramaticQuestion": "Can a request for repetition become the action that keeps the class moving?",
+      "learnerNeed": "All fourteen Moodle classroom expressions grouped by action, repair, feedback, and desk language.",
+      "curriculum": {
+        "sectionId": "classroom-survival",
+        "order": 3
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:handout-arrives",
+          "beatId": "beat:blank-atlas:handout-image",
+          "cueId": "cue:classroom-handout-on-desk",
+          "description": "The classroom handout slides beside the atlas. Its action clusters align with movable tabs on the frame."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-look",
+          "beatId": "beat:blank-atlas:instruction-want",
+          "speakerId": "rie",
+          "intent": "Make the source instruction change a literal object in the room.",
+          "attentionTarget": "the handout's first action cluster",
+          "variants": {
+            "foundation": {
+              "japanese": "みてください。つぎに、きいてください。",
+              "reading": "みてください。つぎに、きいてください。",
+              "english": "Please look. Next, please listen."
+            },
+            "n5": {
+              "japanese": "プリントを見てください。次の指示を聞いてください。",
+              "reading": "プリントをみてください。つぎのしじをきいてください。",
+              "english": "Please look at the handout. Listen to the next instruction."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-commit",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-follow-instructions",
+          "beatId": "beat:blank-atlas:follow-instructions",
+          "resume": "The handout and atlas tabs are ready to respond to Rie's classroom instructions."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:follow-instructions",
+          "beatId": "beat:blank-atlas:follow-instructions",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "authentic-input",
+            "exerciseId": "activity:lesson-zero-follow-instructions"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-follow-instructions"
+          },
+          "resumeContext": "The room is following the start, finish, break, look, say, listen, and write cluster on the source handout.",
+          "onReady": "checkpoint:blank-atlas:after-follow-instructions",
+          "onRepair": "node:blank-atlas:follow-instructions-repair",
+          "onDefer": "checkpoint:blank-atlas:before-follow-instructions"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:follow-instructions-repair",
+          "beatId": "beat:blank-atlas:instruction-repair",
+          "cueId": "cue:instruction-one-object",
+          "description": "Rie resets one object and repeats one instruction; the rest of the room stays where the learner left it."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-follow-instructions",
+          "beatId": "beat:blank-atlas:instruction-response",
+          "resume": "The first seven classroom actions have moved the room into working order."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-too-fast",
+          "beatId": "beat:blank-atlas:repair-obstruction",
+          "speakerId": "rie",
+          "intent": "Create an honest need for repetition by moving too quickly once.",
+          "attentionTarget": "two similar atlas tabs",
+          "variants": {
+            "foundation": {
+              "japanese": "このれいを見て、書いて、つぎを――",
+              "reading": "このれいをみて、かいて、つぎを――",
+              "english": "Look at this example, write, and then the next—"
+            },
+            "n5": {
+              "japanese": "この例を見て、答えを書いて、それから次のカードを――",
+              "reading": "このれいをみて、こたえをかいて、それからつぎのカードを――",
+              "english": "Look at this example, write the answer, and then take the next card—"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-commit",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-repair",
+          "beatId": "beat:blank-atlas:repair-attempt",
+          "resume": "Rie's instruction stopped after becoming too fast to follow."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:reconstruct-repair",
+          "beatId": "beat:blank-atlas:repair-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "speaking",
+            "exerciseId": "activity:lesson-zero-reconstruct-repair"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-reconstruct-repair"
+          },
+          "resumeContext": "The learner needs to ask Rie to repeat a fast classroom instruction before touching either tab.",
+          "onReady": "checkpoint:blank-atlas:after-repair",
+          "onRepair": "node:blank-atlas:repair-smaller-step",
+          "onDefer": "checkpoint:blank-atlas:before-repair"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:repair-smaller-step",
+          "beatId": "beat:blank-atlas:repair-exact-response",
+          "cueId": "cue:repair-phrase-one-gap",
+          "description": "The phrase rebuilds around one missing chunk; no English answer appears before the learner commits."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-repair",
+          "beatId": "beat:blank-atlas:repair-response",
+          "resume": "Rie has repeated the instruction at a usable pace and the correct tab is now clear."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-repetition-works",
+          "beatId": "beat:blank-atlas:repair-consequence",
+          "speakerId": "rie",
+          "intent": "Treat repair language as the contribution that saved the route.",
+          "attentionTarget": "the now-correct atlas tab",
+          "variants": {
+            "foundation": {
+              "japanese": "はい。もう一度です。いい質問です。",
+              "reading": "はい。もういちどです。いいしつもんです。",
+              "english": "Yes. Once more. Good question."
+            },
+            "n5": {
+              "japanese": "はい、もう一度言います。止めてくれて、よかったです。",
+              "reading": "はい、もういちどいいます。とめてくれて、よかったです。",
+              "english": "Yes, I'll say it again. I'm glad you stopped me."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-desk-language",
+          "beatId": "beat:blank-atlas:desk-language",
+          "resume": "The route is moving again; two desk labels still need their classroom meanings."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:desk-language",
+          "beatId": "beat:blank-atlas:desk-language",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "vocabulary",
+            "exerciseId": "activity:lesson-zero-desk-language"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-desk-language"
+          },
+          "resumeContext": "The literal example and homework objects need the correct desk-language labels.",
+          "onReady": "checkpoint:blank-atlas:after-desk-language",
+          "onRepair": "node:blank-atlas:desk-language-repair",
+          "onDefer": "checkpoint:blank-atlas:before-desk-language"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:desk-language-repair",
+          "beatId": "beat:blank-atlas:desk-language-repair",
+          "cueId": "cue:desk-object-context",
+          "description": "The paper example and the take-home card move apart so the labels can be recovered from use."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-desk-language",
+          "beatId": "beat:blank-atlas:handout-consequence",
+          "resume": "All fourteen classroom expressions now have an action or object in the room."
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:handout-flower",
+          "beatId": "beat:blank-atlas:handout-exit",
+          "cueId": "cue:rie-flower-mark",
+          "description": "Rie adds a small flower mark to the handout. A matching paper flower appears at the route's first turn."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:sentence-frames"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:sentence-frames",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Build enough sentence structure to read true and false route labels.",
+      "dramaticQuestion": "Can the class correct the atlas without turning correction into a verdict on a person?",
+      "learnerNeed": "The five registered noun sentence frames in a concrete identification problem.",
+      "curriculum": {
+        "sectionId": "sentence-frames",
+        "order": 4
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:false-label",
+          "beatId": "beat:blank-atlas:frame-image",
+          "cueId": "cue:atlas-classroom-library-labels",
+          "description": "Two labels print at once: THIS IS THE CLASSROOM and THIS IS NOT THE CLASSROOM. The atlas cannot decide which door it drew."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-label-question",
+          "beatId": "beat:blank-atlas:frame-want",
+          "speakerId": "rie",
+          "intent": "Turn sentence forms into a route check rather than isolated grammar display.",
+          "attentionTarget": "the conflicting labels",
+          "variants": {
+            "foundation": {
+              "japanese": "ここは教室ですか。図書室ですか。",
+              "reading": "ここはきょうしつですか。としょしつですか。",
+              "english": "Is this the classroom? Is it the library?"
+            },
+            "n5": {
+              "japanese": "この場所は教室ですか。図書室じゃありませんか。",
+              "reading": "このばしょはきょうしつですか。としょしつじゃありませんか。",
+              "english": "Is this place the classroom? Isn't it the library?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-sentence-frames",
+          "beatId": "beat:blank-atlas:frame-attempt",
+          "resume": "The atlas needs affirmative, negative, question, noun-linking, and parallel-fact frames to verify its labels."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:sentence-frames",
+          "beatId": "beat:blank-atlas:frame-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "grammar",
+            "exerciseId": "activity:lesson-zero-build-sentence-frames"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-build-sentence-frames"
+          },
+          "resumeContext": "Two contradictory route labels need the five Lesson 0 noun sentence frames.",
+          "onReady": "checkpoint:blank-atlas:after-sentence-frames",
+          "onRepair": "node:blank-atlas:sentence-frame-repair",
+          "onDefer": "checkpoint:blank-atlas:before-sentence-frames"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:sentence-frame-repair",
+          "beatId": "beat:blank-atlas:frame-repair",
+          "cueId": "cue:sentence-frame-meaning-contrast",
+          "description": "The two labels stay visible while one particle or copula slot returns for a smaller retry."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-sentence-frames",
+          "beatId": "beat:blank-atlas:frame-response",
+          "resume": "The false label has folded away and the true classroom label remains."
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:label-fixed",
+          "beatId": "beat:blank-atlas:frame-consequence",
+          "cueId": "cue:atlas-classroom-label-fixed",
+          "description": "The atlas draws a clear door around the true label, then leaves a blank name line beneath it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:useful-vocabulary"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:useful-vocabulary",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Draft a useful, bounded name card and choose the first route mission.",
+      "dramaticQuestion": "Can an introduction be true and useful without demanding private information?",
+      "learnerNeed": "People, language, place or role vocabulary with control over personal disclosure.",
+      "curriculum": {
+        "sectionId": "useful-vocabulary",
+        "order": 5
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:name-line",
+          "beatId": "beat:blank-atlas:vocabulary-image",
+          "cueId": "cue:blank-name-card-and-atlas-line",
+          "description": "The learner's blank name card and the atlas's blank route label sit side by side. Neither fills itself."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-share-boundary",
+          "beatId": "beat:blank-atlas:vocabulary-boundary",
+          "speakerId": "rie",
+          "intent": "Keep personal facts optional while requiring a truthful introduction.",
+          "attentionTarget": "the blank name card",
+          "variants": {
+            "foundation": {
+              "japanese": "本当のことを一つ。言いたくないことは、書きません。",
+              "reading": "ほんとうのことをひとつ。いいたくないことは、かきません。",
+              "english": "One true thing. You do not write what you do not want to share."
+            },
+            "n5": {
+              "japanese": "本当のことを一つ選びましょう。でも、話したくないことは選ばなくていいです。",
+              "reading": "ほんとうのことをひとつえらびましょう。でも、はなしたくないことはえらばなくていいです。",
+              "english": "Choose one true thing. But you do not need to choose anything you do not want to share."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "available",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:blank-atlas:disclosure-scope",
+          "beatId": "beat:blank-atlas:vocabulary-stance",
+          "question": "What scope should the first card use?",
+          "options": [
+            {
+              "id": "option:blank-atlas:chosen-fact",
+              "action": "Use your chosen name and one personal fact you want to share.",
+              "japaneseByBand": {
+                "foundation": "名前と、本当のことを一つ。",
+                "n5": "使う名前と、話したいことを一つ書きます。"
+              },
+              "records": [
+                "information",
+                "boundary-heard"
+              ],
+              "next": "checkpoint:blank-atlas:before-name-card-draft"
+            },
+            {
+              "id": "option:blank-atlas:classroom-only",
+              "action": "Keep it classroom-only: your chosen name and that you study Japanese.",
+              "japaneseByBand": {
+                "foundation": "名前と、日本語です。",
+                "n5": "名前と、日本語を勉強していることだけ書きます。"
+              },
+              "records": [
+                "boundary-heard",
+                "support-style"
+              ],
+              "next": "checkpoint:blank-atlas:before-name-card-draft"
+            }
+          ],
+          "convergence": "checkpoint:blank-atlas:before-name-card-draft"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-name-card-draft",
+          "beatId": "beat:blank-atlas:vocabulary-attempt",
+          "resume": "The disclosure scope is chosen and the name-card draft is ready."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:name-card-draft",
+          "beatId": "beat:blank-atlas:vocabulary-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "vocabulary",
+            "exerciseId": "activity:lesson-zero-name-card-draft"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-name-card-draft"
+          },
+          "resumeContext": "The learner has chosen a personal or classroom-only disclosure scope for a truthful card.",
+          "onReady": "checkpoint:blank-atlas:after-name-card-draft",
+          "onRepair": "node:blank-atlas:name-card-repair",
+          "onDefer": "checkpoint:blank-atlas:before-name-card-draft"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:name-card-repair",
+          "beatId": "beat:blank-atlas:vocabulary-repair",
+          "cueId": "cue:name-card-one-rubric",
+          "description": "The learner's chosen facts stay private to the card; only the missing sentence function returns for revision."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-name-card-draft",
+          "beatId": "beat:blank-atlas:vocabulary-response",
+          "resume": "A bounded draft now labels the learner's place without adding unchosen details."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-three-routes",
+          "beatId": "beat:blank-atlas:mission-want",
+          "speakerId": "rie",
+          "intent": "Offer three materially different ways to recover the next atlas label.",
+          "attentionTarget": "three route tabs: sound, text, speaking",
+          "variants": {
+            "foundation": {
+              "japanese": "音、文、会話。どれから始めますか。",
+              "reading": "おと、ぶん、かいわ。どれからはじめますか。",
+              "english": "Sound, text, or conversation. Which will you begin with?"
+            },
+            "n5": {
+              "japanese": "音で確かめる道、文を直す道、話して迎える道があります。どれにしますか。",
+              "reading": "おとでたしかめるみち、ぶんをなおすみち、はなしてむかえるみちがあります。どれにしますか。",
+              "english": "There is a route for checking sound, repairing text, or welcoming someone through speech. Which do you choose?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:blank-atlas:mission",
+          "beatId": "beat:blank-atlas:mission-choice",
+          "question": "Which mission should recover the next route label?",
+          "options": [
+            {
+              "id": "option:blank-atlas:mission-sound",
+              "action": "Go to the language lab and identify people from sound before text.",
+              "japaneseByBand": {
+                "foundation": "音から始めます。",
+                "n5": "語学ラボで、音から確かめます。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "scene:blank-atlas:mission-sound"
+            },
+            {
+              "id": "option:blank-atlas:mission-text",
+              "action": "Go to the library and reconstruct the handwritten route note.",
+              "japaneseByBand": {
+                "foundation": "文から始めます。",
+                "n5": "図書室で、手書きの文を直します。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "scene:blank-atlas:mission-text"
+            },
+            {
+              "id": "option:blank-atlas:mission-speaking",
+              "action": "Return to the entrance and help greet the next arrivals.",
+              "japaneseByBand": {
+                "foundation": "会話から始めます。",
+                "n5": "入口で、来た人に話します。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "scene:blank-atlas:mission-speaking"
+            }
+          ],
+          "convergence": "scene:blank-atlas:reading-writing"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:mission-chosen",
+          "beatId": "beat:blank-atlas:vocabulary-exit",
+          "resume": "The learner's first mission is selected; all routes return to the same unfinished name-card line."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "choice:blank-atlas:mission"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:mission-sound",
+      "locationId": "location:language-lab",
+      "timeState": "evening",
+      "goal": "Identify two speakers from sound before revealing their text.",
+      "dramaticQuestion": "Can incomplete listening still produce one reliable fact?",
+      "learnerNeed": "Audio-first speaker and detail evidence with transcript delayed until commitment.",
+      "curriculum": {
+        "sectionId": "multi-speaker-input",
+        "order": 6,
+        "missionId": "sound"
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:sound-nameplates",
+          "beatId": "beat:blank-atlas:sound-mission-image",
+          "cueId": "cue:sound-route-nameplates-only",
+          "description": "Two nameplates, Xingyu and Mika, rest below an unlit signal meter. No portraits appear."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:xingyu-sound-first",
+          "beatId": "beat:blank-atlas:sound-mission-want",
+          "speakerId": "xingyu",
+          "intent": "Invite an audio-first attempt without pretending every detail must be caught.",
+          "attentionTarget": "the unlit signal meter",
+          "variants": {
+            "foundation": {
+              "japanese": "まず、音だけです。一つ見つけましょう。",
+              "reading": "まず、おとだけです。ひとつみつけましょう。",
+              "english": "First, sound only. Let's find one thing."
+            },
+            "n5": {
+              "japanese": "最初は音だけです。全部ではなく、一つ確かめましょう。",
+              "reading": "さいしょはおとだけです。ぜんぶではなく、ひとつたしかめましょう。",
+              "english": "First comes sound only. Let's verify one thing, not everything."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-sound-input",
+          "beatId": "beat:blank-atlas:sound-mission-attempt",
+          "resume": "Xingyu and Mika's nameplates are visible; the transcript remains hidden until the learner commits."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:sound-input",
+          "beatId": "beat:blank-atlas:sound-mission-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "listening",
+            "exerciseId": "activity:lesson-zero-sound-input"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-sound-input"
+          },
+          "resumeContext": "The Sound mission is waiting for speaker-to-fact links before transcript reveal.",
+          "onReady": "checkpoint:blank-atlas:after-sound-input",
+          "onRepair": "node:blank-atlas:sound-input-repair",
+          "onDefer": "checkpoint:blank-atlas:before-sound-input"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:sound-input-repair",
+          "beatId": "beat:blank-atlas:sound-mission-repair",
+          "cueId": "cue:sound-route-replay-one-speaker",
+          "description": "One speaker turn replays with its nameplate highlighted; the transcript stays committed-gated."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-sound-input",
+          "beatId": "beat:blank-atlas:sound-mission-response",
+          "resume": "The speaker facts are linked and the delayed text can confirm the evidence."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:mika-sound-result",
+          "beatId": "beat:blank-atlas:sound-mission-consequence",
+          "speakerId": "mika",
+          "intent": "Value careful partial listening as a usable route.",
+          "attentionTarget": "one stable signal on the meter",
+          "variants": {
+            "foundation": {
+              "japanese": "一つ、はっきりしました。十分です。",
+              "reading": "ひとつ、はっきりしました。じゅうぶんです。",
+              "english": "One thing is clear. That is enough."
+            },
+            "n5": {
+              "japanese": "一つ確かめたので、次の音も比べられます。",
+              "reading": "ひとつたしかめたので、つぎのおともくらべられます。",
+              "english": "Because we verified one thing, we can compare the next sound too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:sound-memento",
+          "beatId": "beat:blank-atlas:sound-mission-consequence",
+          "command": {
+            "type": "journal.memoryUnlocked",
+            "memoryId": "memento:lesson-zero-class-recording"
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:sound-mission-complete",
+          "beatId": "beat:blank-atlas:sound-mission-exit",
+          "resume": "The Sound route has supplied one reliable speaker label to the atlas."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:mission-text",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "goal": "Restore two missing links in a handwritten introduction note.",
+      "dramaticQuestion": "Can the learner use visible evidence without making the first guess final?",
+      "learnerNeed": "Reading-first reconstruction of the registered noun-link and parallel-fact forms.",
+      "curriculum": {
+        "sectionId": "multi-speaker-input",
+        "order": 6,
+        "missionId": "text"
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:text-note",
+          "beatId": "beat:blank-atlas:text-mission-image",
+          "cueId": "cue:text-route-note-nameplates",
+          "description": "A handwritten note sits beneath nameplates reading Sophie and Ruparna. Two particle spaces have been washed pale."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:sophie-two-gaps",
+          "beatId": "beat:blank-atlas:text-mission-want",
+          "speakerId": "sophie",
+          "intent": "Define the evidence problem precisely without giving the particles away.",
+          "attentionTarget": "the two pale spaces",
+          "variants": {
+            "foundation": {
+              "japanese": "空いているところは二つです。前と後を見ます。",
+              "reading": "あいているところはふたつです。まえとあとをみます。",
+              "english": "There are two gaps. Look before and after them."
+            },
+            "n5": {
+              "japanese": "空欄は二つです。名前だけではなく、前後の意味を比べましょう。",
+              "reading": "くうらんはふたつです。なまえだけではなく、ぜんごのいみをくらべましょう。",
+              "english": "There are two blanks. Compare the surrounding meaning, not only the names."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-text-input",
+          "beatId": "beat:blank-atlas:text-mission-attempt",
+          "resume": "The handwritten introduction has two visible particle gaps and the surrounding evidence remains in view."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:text-input",
+          "beatId": "beat:blank-atlas:text-mission-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "reading",
+            "exerciseId": "activity:lesson-zero-text-input"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-text-input"
+          },
+          "resumeContext": "The Text mission is waiting for the two registered particle restorations.",
+          "onReady": "checkpoint:blank-atlas:after-text-input",
+          "onRepair": "node:blank-atlas:text-input-repair",
+          "onDefer": "checkpoint:blank-atlas:before-text-input"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:text-input-repair",
+          "beatId": "beat:blank-atlas:text-mission-repair",
+          "cueId": "cue:text-route-evidence-lines",
+          "description": "The relevant noun pair or parallel sentence stays highlighted while one gap returns."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-text-input",
+          "beatId": "beat:blank-atlas:text-mission-response",
+          "resume": "The note is readable and its two links have been restored from context."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:ruparna-note-route",
+          "beatId": "beat:blank-atlas:text-mission-consequence",
+          "speakerId": "ruparna",
+          "intent": "Turn the repaired note into a visible route rather than an answer display.",
+          "attentionTarget": "the paper edge aligning with the atlas",
+          "variants": {
+            "foundation": {
+              "japanese": "文がつながりました。道もつながります。",
+              "reading": "ぶんがつながりました。みちもつながります。",
+              "english": "The sentence connects. The route connects too."
+            },
+            "n5": {
+              "japanese": "文のつながりが、そのまま次の道になりました。",
+              "reading": "ぶんのつながりが、そのままつぎのみちになりました。",
+              "english": "The sentence's connection has become the next route."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:text-memento",
+          "beatId": "beat:blank-atlas:text-mission-consequence",
+          "command": {
+            "type": "journal.memoryUnlocked",
+            "memoryId": "memento:lesson-zero-first-page-clue"
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:text-mission-complete",
+          "beatId": "beat:blank-atlas:text-mission-exit",
+          "resume": "The Text route has supplied a repaired written label to the atlas."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:mission-speaking",
+      "locationId": "location:classroom-entrance",
+      "timeState": "evening",
+      "goal": "Join an arrival exchange and recover naturally when a turn is missed.",
+      "dramaticQuestion": "Can speaking practice welcome someone without making recording compulsory?",
+      "learnerNeed": "A real turn-taking need, private recording consent, and a pause route that preserves progress.",
+      "curriculum": {
+        "sectionId": "multi-speaker-input",
+        "order": 6,
+        "missionId": "speaking"
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:speaking-door",
+          "beatId": "beat:blank-atlas:speaking-mission-image",
+          "cueId": "cue:speaking-route-open-door-nameplates",
+          "description": "The classroom door is open again. Nameplates identify Aakash and Sam; the next blank card waits just outside."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:sam-recording-boundary",
+          "beatId": "beat:blank-atlas:speaking-mission-boundary",
+          "speakerId": "sam",
+          "intent": "State the recording scope and make pausing unremarkable.",
+          "attentionTarget": "the learner's unsaved practice control",
+          "variants": {
+            "foundation": {
+              "japanese": "これは練習です。今、録音しなくてもいいです。",
+              "reading": "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
+              "english": "This is practice. You do not have to record now."
+            },
+            "n5": {
+              "japanese": "録音はこの練習だけです。今しないなら、ここで止められます。",
+              "reading": "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
+              "english": "The recording is only for this practice. If you do not want to do it now, you can stop here."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "available",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:blank-atlas:speaking-recording",
+          "beatId": "beat:blank-atlas:speaking-mission-consent",
+          "question": "Do you want to make the private practice recording now?",
+          "options": [
+            {
+              "id": "option:blank-atlas:speaking-record-now",
+              "action": "Record the private practice turn now.",
+              "japaneseByBand": {
+                "foundation": "今、練習します。",
+                "n5": "今、録音して練習します。"
+              },
+              "records": [
+                "boundary-heard",
+                "stance"
+              ],
+              "next": "checkpoint:blank-atlas:before-speaking-input"
+            },
+            {
+              "id": "option:blank-atlas:speaking-defer-recording",
+              "action": "Pause here and return when recording feels workable.",
+              "japaneseByBand": {
+                "foundation": "今はしません。",
+                "n5": "今は録音しません。あとで戻ります。"
+              },
+              "records": [
+                "boundary-heard",
+                "support-style"
+              ],
+              "next": "checkpoint:blank-atlas:speaking-recording-deferred"
+            }
+          ],
+          "convergence": "checkpoint:blank-atlas:after-speaking-input"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:speaking-recording-deferred",
+          "beatId": "beat:blank-atlas:speaking-mission-defer",
+          "resume": "The private speaking turn is deferred. No story, bond, or lesson completion has been written."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-speaking-input",
+          "beatId": "beat:blank-atlas:speaking-mission-attempt",
+          "resume": "The learner consented to this private practice turn; Aakash and Sam are holding the conversational place."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:speaking-input",
+          "beatId": "beat:blank-atlas:speaking-mission-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "speaking",
+            "exerciseId": "activity:lesson-zero-speaking-input"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-speaking-input"
+          },
+          "resumeContext": "The learner has opted into the bounded private recording and the arrival exchange is waiting for their turn.",
+          "onReady": "checkpoint:blank-atlas:after-speaking-input",
+          "onRepair": "node:blank-atlas:speaking-input-repair",
+          "onDefer": "checkpoint:blank-atlas:speaking-recording-deferred"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:speaking-input-repair",
+          "beatId": "beat:blank-atlas:speaking-mission-repair",
+          "cueId": "cue:speaking-route-one-turn",
+          "description": "Aakash repeats only the missed question and leaves the learner's conversational turn open."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-speaking-input",
+          "beatId": "beat:blank-atlas:speaking-mission-response",
+          "resume": "The arrival exchange has a complete learner turn and the door remains open."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:aakash-place-held",
+          "beatId": "beat:blank-atlas:speaking-mission-consequence",
+          "speakerId": "aakash",
+          "intent": "Show that a repaired turn still welcomed someone into the room.",
+          "attentionTarget": "the now-filled arrival card",
+          "variants": {
+            "foundation": {
+              "japanese": "入りました。会話も、カードも。",
+              "reading": "はいりました。かいわも、カードも。",
+              "english": "It came in. The conversation and the card."
+            },
+            "n5": {
+              "japanese": "聞き直したから、会話もカードも部屋に入りました。",
+              "reading": "ききなおしたから、かいわもカードもへやにはいりました。",
+              "english": "Because you asked again, both the conversation and the card made it into the room."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:speaking-memento",
+          "beatId": "beat:blank-atlas:speaking-mission-consequence",
+          "command": {
+            "type": "journal.memoryUnlocked",
+            "memoryId": "memento:lesson-zero-first-bond-scene"
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:speaking-mission-complete",
+          "beatId": "beat:blank-atlas:speaking-mission-exit",
+          "resume": "The Speaking route has supplied a welcomed arrival card to the atlas."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:reading-writing",
+      "locationId": "location:classroom",
+      "timeState": "evening-late",
+      "goal": "Read the recovered class cards and make the learner's own card functional.",
+      "dramaticQuestion": "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
+      "learnerNeed": "Purposeful reading evidence and a controlled written introduction using the selected disclosure scope.",
+      "curriculum": {
+        "sectionId": "reading-writing",
+        "order": 7
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:cards-return",
+          "beatId": "beat:blank-atlas:reading-image",
+          "cueId": "cue:route-cards-around-atlas",
+          "description": "The selected mission's card joins two class cards around the atlas. The learner's draft remains separate and face down."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-read-for-person",
+          "beatId": "beat:blank-atlas:reading-want",
+          "speakerId": "rie",
+          "intent": "Give reading a social purpose before asking for reconstruction.",
+          "attentionTarget": "the class cards",
+          "variants": {
+            "foundation": {
+              "japanese": "だれのカードですか。文を読んでください。",
+              "reading": "だれのカードですか。ぶんをよんでください。",
+              "english": "Whose card is it? Please read the sentence."
+            },
+            "n5": {
+              "japanese": "名前を当てるのではなく、文を証拠にしてカードを戻しましょう。",
+              "reading": "なまえをあてるのではなく、ぶんをしょうこにしてカードをもどしましょう。",
+              "english": "Rather than guessing the name, use the sentence as evidence to return the card."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-read-name-cards",
+          "beatId": "beat:blank-atlas:reading-attempt",
+          "resume": "The recovered class cards need to be matched through their written evidence."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:read-name-cards",
+          "beatId": "beat:blank-atlas:reading-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "reading",
+            "exerciseId": "activity:lesson-zero-read-name-cards"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-read-name-cards"
+          },
+          "resumeContext": "The class cards must be returned using a source line rather than a guessed identity.",
+          "onReady": "checkpoint:blank-atlas:after-read-name-cards",
+          "onRepair": "node:blank-atlas:read-name-cards-repair",
+          "onDefer": "checkpoint:blank-atlas:before-read-name-cards"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:read-name-cards-repair",
+          "beatId": "beat:blank-atlas:reading-repair",
+          "cueId": "cue:name-card-evidence-line",
+          "description": "The relevant line stays visible while the unsupported identity guess clears."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-read-name-cards",
+          "beatId": "beat:blank-atlas:reading-response",
+          "resume": "The class cards have returned to the people described by their own lines."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-write-name-card",
+          "beatId": "beat:blank-atlas:writing-attempt",
+          "resume": "The learner's chosen disclosure scope is ready to become a functional class card."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:write-name-card",
+          "beatId": "beat:blank-atlas:writing-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "writing",
+            "exerciseId": "activity:lesson-zero-write-name-card"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-write-name-card"
+          },
+          "resumeContext": "The learner is writing only the name and facts they chose for this class card.",
+          "onReady": "checkpoint:blank-atlas:after-write-name-card",
+          "onRepair": "node:blank-atlas:write-name-card-repair",
+          "onDefer": "checkpoint:blank-atlas:before-write-name-card"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:write-name-card-repair",
+          "beatId": "beat:blank-atlas:writing-repair",
+          "cueId": "cue:name-card-function-rubric",
+          "description": "Only the missing greeting, name, chosen fact, or closing function is marked; no extra personal detail is requested."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-write-name-card",
+          "beatId": "beat:blank-atlas:writing-response",
+          "resume": "The learner's card is readable, bounded, and ready to help the room address them."
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:card-turns-over",
+          "beatId": "beat:blank-atlas:reading-writing-consequence",
+          "cueId": "cue:learner-card-route-label",
+          "description": "The learner turns the card over. The atlas copies only its public class line, leaving all unchosen spaces blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:transfer"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:transfer",
+      "locationId": "location:classroom",
+      "timeState": "evening-late",
+      "goal": "Use the selected mission skill after its teaching surface disappears, then leave a written route marker.",
+      "dramaticQuestion": "Can the learner use the language when the source page is no longer carrying the task?",
+      "learnerNeed": "One mission-specific changed-context production and the shared written introduction transfer.",
+      "curriculum": {
+        "sectionId": "transfer",
+        "order": 8
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:source-clears",
+          "beatId": "beat:blank-atlas:transfer-image",
+          "cueId": "cue:teaching-surfaces-clear",
+          "description": "The handout, transcript, and sentence frame tray close. A new blank route card drops beside the door."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-transfer",
+          "beatId": "beat:blank-atlas:transfer-want",
+          "speakerId": "rie",
+          "intent": "Make the selected language useful in a changed situation.",
+          "attentionTarget": "the new route card away from the teaching surfaces",
+          "variants": {
+            "foundation": {
+              "japanese": "今度は、プリントなしです。道を一つ、助けてください。",
+              "reading": "こんどは、プリントなしです。みちをひとつ、たすけてください。",
+              "english": "This time, no handout. Please help one route."
+            },
+            "n5": {
+              "japanese": "今度は教える画面を閉じます。選んだ方法で、新しいカードを部屋に入れてください。",
+              "reading": "こんどはおしえるがめんをとじます。えらんだほうほうで、あたらしいカードをへやにいれてください。",
+              "english": "This time the teaching surface closes. Use your chosen method to bring the new card into the room."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:blank-atlas:transfer-recording",
+          "beatId": "beat:blank-atlas:transfer-consent",
+          "when": {
+            "choiceId": "choice:blank-atlas:mission",
+            "optionIds": [
+              "option:blank-atlas:mission-sound",
+              "option:blank-atlas:mission-speaking"
+            ]
+          },
+          "question": "Your selected transfer uses a private recording. Continue now or pause here?",
+          "options": [
+            {
+              "id": "option:blank-atlas:transfer-record-now",
+              "action": "Continue with this private transfer recording.",
+              "japaneseByBand": {
+                "foundation": "今、録音します。",
+                "n5": "この練習だけ、今録音します。"
+              },
+              "records": [
+                "boundary-heard",
+                "stance"
+              ],
+              "next": "checkpoint:blank-atlas:before-route-transfer"
+            },
+            {
+              "id": "option:blank-atlas:transfer-record-later",
+              "action": "Pause before recording and return to this exact card later.",
+              "japaneseByBand": {
+                "foundation": "今はしません。",
+                "n5": "今は録音しません。ここから続けます。"
+              },
+              "records": [
+                "boundary-heard",
+                "support-style"
+              ],
+              "next": "checkpoint:blank-atlas:transfer-recording-deferred"
+            }
+          ],
+          "convergence": "checkpoint:blank-atlas:after-route-transfer"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:transfer-recording-deferred",
+          "beatId": "beat:blank-atlas:transfer-defer",
+          "resume": "The changed-context card is preserved before recording. No story, bond, or lesson completion has been written."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-route-transfer",
+          "beatId": "beat:blank-atlas:route-transfer-attempt",
+          "resume": "The new route card is waiting for the selected Sound, Text, or Speaking transfer."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:sound-transfer",
+          "beatId": "beat:blank-atlas:route-transfer-attempt",
+          "when": {
+            "choiceId": "choice:blank-atlas:mission",
+            "optionId": "option:blank-atlas:mission-sound"
+          },
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "transfer",
+            "exerciseId": "activity:lesson-zero-sound-transfer"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-sound-transfer"
+          },
+          "resumeContext": "The Sound route is applying shadowing and repair to a new card without the source display.",
+          "onReady": "checkpoint:blank-atlas:after-route-transfer",
+          "onRepair": "node:blank-atlas:route-transfer-repair",
+          "onDefer": "checkpoint:blank-atlas:transfer-recording-deferred"
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:text-transfer",
+          "beatId": "beat:blank-atlas:route-transfer-attempt",
+          "when": {
+            "choiceId": "choice:blank-atlas:mission",
+            "optionId": "option:blank-atlas:mission-text"
+          },
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "transfer",
+            "exerciseId": "activity:lesson-zero-text-transfer"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-text-transfer"
+          },
+          "resumeContext": "The Text route is applying the recovered sentence frame to a new personal line without the source display.",
+          "onReady": "checkpoint:blank-atlas:after-route-transfer",
+          "onRepair": "node:blank-atlas:route-transfer-repair",
+          "onDefer": "checkpoint:blank-atlas:before-route-transfer"
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:speaking-transfer",
+          "beatId": "beat:blank-atlas:route-transfer-attempt",
+          "when": {
+            "choiceId": "choice:blank-atlas:mission",
+            "optionId": "option:blank-atlas:mission-speaking"
+          },
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "transfer",
+            "exerciseId": "activity:lesson-zero-speaking-transfer"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-speaking-transfer"
+          },
+          "resumeContext": "The Speaking route is applying greeting, question, repair, and closing to a new arrival card.",
+          "onReady": "checkpoint:blank-atlas:after-route-transfer",
+          "onRepair": "node:blank-atlas:route-transfer-repair",
+          "onDefer": "checkpoint:blank-atlas:transfer-recording-deferred"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:route-transfer-repair",
+          "beatId": "beat:blank-atlas:route-transfer-repair",
+          "cueId": "cue:transfer-one-function",
+          "description": "The changed context stays visible while only the missing language function returns for repair."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-route-transfer",
+          "beatId": "beat:blank-atlas:route-transfer-response",
+          "resume": "The selected mission skill has solved the new card without its original teaching surface."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-written-transfer",
+          "beatId": "beat:blank-atlas:written-transfer-attempt",
+          "resume": "The route now needs one bounded written introduction marker that any mission can leave behind."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:written-transfer",
+          "beatId": "beat:blank-atlas:written-transfer-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "transfer",
+            "exerciseId": "activity:lesson-zero-written-transfer"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-written-transfer"
+          },
+          "resumeContext": "The atlas is waiting for the learner's selected name and one chosen true class fact in writing.",
+          "onReady": "checkpoint:blank-atlas:after-written-transfer",
+          "onRepair": "node:blank-atlas:written-transfer-repair",
+          "onDefer": "checkpoint:blank-atlas:before-written-transfer"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:written-transfer-repair",
+          "beatId": "beat:blank-atlas:written-transfer-repair",
+          "cueId": "cue:written-transfer-one-function",
+          "description": "The learner's chosen content stays intact while one missing name, fact, frame, or greeting function returns."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-written-transfer",
+          "beatId": "beat:blank-atlas:written-transfer-response",
+          "resume": "The selected mission transfer and the shared written marker are complete."
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:first-lantern",
+          "beatId": "beat:blank-atlas:transfer-consequence",
+          "cueId": "cue:first-atlas-lantern-lit",
+          "description": "The route reaches the learner's card. One lantern point warms from grey to gold; the rest of the atlas remains honestly blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-atlas:close"
+      }
+    },
+    {
+      "id": "scene:blank-atlas:close",
+      "locationId": "location:classroom",
+      "timeState": "evening-close",
+      "goal": "Close the first class, preserve the exact resume state, and return learner choice to the wider Academy.",
+      "dramaticQuestion": "Can the first contribution remain enough even though the atlas is mostly unfinished?",
+      "learnerNeed": "A recap, the registered close-room action, and reversible next-step options.",
+      "curriculum": {
+        "sectionId": "close",
+        "order": 9
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:one-light-room",
+          "beatId": "beat:blank-atlas:close-image",
+          "cueId": "cue:one-lantern-reflected-on-desks",
+          "description": "One atlas light reflects across the desks. The corrected arrow card from the entrance now points to the learner's route."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-recap",
+          "beatId": "beat:blank-atlas:close-want",
+          "speakerId": "rie",
+          "intent": "Name the learner's repair and transfer as the first useful contribution.",
+          "attentionTarget": "the first lit point and the learner's card",
+          "variants": {
+            "foundation": {
+              "japanese": "あいさつをしました。聞き直しました。道を一つ作りました。",
+              "reading": "あいさつをしました。ききなおしました。みちをひとつつくりました。",
+              "english": "You greeted, asked again, and made one route."
+            },
+            "n5": {
+              "japanese": "あいさつをして、分からないところを聞き直して、最初の道を一つ作りました。",
+              "reading": "あいさつをして、わからないところをききなおして、さいしょのみちをひとつつくりました。",
+              "english": "You greeted, asked again where you did not understand, and made the first route."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-close-room",
+          "beatId": "beat:blank-atlas:close-attempt",
+          "resume": "Rie has recapped the first route and the room is ready for the learner-controlled close."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:close-room",
+          "beatId": "beat:blank-atlas:close-attempt",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "transfer",
+            "exerciseId": "activity:lesson-zero-close-room"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-close-room"
+          },
+          "resumeContext": "The first class is ready to finish or pause, followed by the learner's wider Academy destination choice.",
+          "onReady": "checkpoint:blank-atlas:after-close-room",
+          "onRepair": "node:blank-atlas:close-room-repair",
+          "onDefer": "checkpoint:blank-atlas:before-close-room"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:close-room-repair",
+          "beatId": "beat:blank-atlas:close-repair",
+          "cueId": "cue:finish-break-context",
+          "description": "The room state makes the difference between finishing and taking a break visible before retry."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-close-room",
+          "beatId": "beat:blank-atlas:close-response",
+          "resume": "Lesson 0 evidence confirms the room close; story completion has not yet been written."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-open-choice",
+          "beatId": "beat:blank-atlas:return-choice",
+          "speakerId": "rie",
+          "intent": "Return control without presenting one destination as the loyal choice.",
+          "attentionTarget": "the classroom door and the learner's journal",
+          "variants": {
+            "foundation": {
+              "japanese": "今日はここまでです。次は、あなたが選びます。",
+              "reading": "きょうはここまでです。つぎは、あなたがえらびます。",
+              "english": "That is all for today. You choose what comes next."
+            },
+            "n5": {
+              "japanese": "今日はここまでです。勉強を続けても、校内を見ても、ここで終わってもいいです。",
+              "reading": "きょうはここまでです。べんきょうをつづけても、こうないをみても、ここでおわってもいいです。",
+              "english": "That is all for today. You may keep studying, explore the campus, or finish here."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:callback-open-chair-echo",
+          "beatId": "beat:blank-atlas:story-consequence",
+          "command": {
+            "type": "callback.transitioned",
+            "callbackId": "callback:open-chair",
+            "to": "echo"
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:callback-first-lantern-seed",
+          "beatId": "beat:blank-atlas:story-consequence",
+          "command": {
+            "type": "callback.transitioned",
+            "callbackId": "callback:first-lantern",
+            "to": "seed"
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:bond-rie-one",
+          "beatId": "beat:blank-atlas:story-consequence",
+          "command": {
+            "type": "bond.chapterCompleted",
+            "castId": "rie",
+            "chapter": 1
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:scene-seen",
+          "beatId": "beat:blank-atlas:story-consequence",
+          "command": {
+            "type": "story.seen",
+            "packageId": "s1e01-the-blank-atlas",
+            "sceneId": "scene:blank-atlas:close"
+          }
+        },
+        {
+          "kind": "command",
+          "id": "node:blank-atlas:story-completed",
+          "beatId": "beat:blank-atlas:story-consequence",
+          "command": {
+            "type": "story.completed",
+            "packageId": "s1e01-the-blank-atlas"
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:complete",
+          "beatId": "beat:blank-atlas:exit-image",
+          "resume": "Chapter 1 and Lesson 0 are complete. One atlas lantern is lit; all remaining routes are still open."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:open-chair",
+      "state": "echo",
+      "ownerIds": [
+        "rie"
+      ],
+      "meaningNow": "The learner's bounded card occupies the place that was kept open without requiring extra disclosure.",
+      "priorUse": {
+        "packageId": "bridge:opening-arrival",
+        "state": "seed"
+      },
+      "maximumFutureUses": 4
+    },
+    {
+      "id": "callback:first-lantern",
+      "state": "seed",
+      "ownerIds": [
+        "rie"
+      ],
+      "meaningNow": "One repaired exchange creates the first visible route; unfinished work is not failure.",
+      "maximumFutureUses": 6
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:blank-atlas:first-route",
+      "kind": "story",
+      "description": "The first atlas route and lantern point are restored through greeting, repair, and transfer evidence."
+    },
+    {
+      "id": "outcome:blank-atlas:rie-bond-one",
+      "kind": "bond",
+      "castId": "rie",
+      "chapter": 1,
+      "description": "Rie recognises repair language as a contribution and leaves the next choice open."
+    },
+    {
+      "id": "outcome:blank-atlas:lesson-zero-return",
+      "kind": "curriculum-return",
+      "lessonId": "lesson:foundation-00",
+      "description": "All completion truth comes from registered Lesson 0 evidence; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:rie-watches-the-first-route"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-selected-mission"
+    ],
+    "withdrawnContentFallback": "Use the same activity evidence with neutral nameplates and environmental consequence beats."
+  }
+}

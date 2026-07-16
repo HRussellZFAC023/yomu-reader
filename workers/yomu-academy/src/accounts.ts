@@ -1,7 +1,9 @@
 import { hmacSha256Hex, randomBytes } from './crypto';
+import { assertSessionEntitlementCanLink, bindSessionEntitlement } from './entitlements';
 import type { Clock, Env } from './env';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
-import { activeSession, type ActiveSession } from './sessions';
+import { attachSessionProfileToAccount } from './profiles';
+import { ACCOUNT_RECOVERY_INVITE_ID, activeSession, type ActiveSession } from './sessions';
 
 const AVATARS = new Set(['quality-2', 'quality-3', 'quality-4', 'quality-5']);
 const DISPLAY_NAME_MAX = 32;
@@ -30,6 +32,14 @@ async function googleSubjectHash(env: Env, subject: string): Promise<string> {
 export async function linkGoogleSubject(env: Env, session: ActiveSession, subject: string, now: number): Promise<AccountRow> {
     const subjectHash = await googleSubjectHash(env, subject);
     let account = await accountBySubjectHash(env, subjectHash);
+    let createdAccountId: string | null = null;
+    if (session.account_id && account?.id !== session.account_id) {
+        throw new HttpError(409, 'Log out before linking a different Academy account.');
+    }
+    if (!account && session.invite_id === ACCOUNT_RECOVERY_INVITE_ID) {
+        throw new HttpError(403, 'No recoverable Academy account was found.');
+    }
+    await assertSessionEntitlementCanLink(env, session, account?.id ?? null);
 
     if (!account) {
         for (let attempt = 0; attempt < 24 && !account; attempt += 1) {
@@ -37,11 +47,12 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             const publicId = crypto.randomUUID();
             const discriminator = randomDiscriminator();
             try {
-                await env.ACADEMY_DB.prepare(
+                const inserted = await env.ACADEMY_DB.prepare(
                     'INSERT INTO accounts '
                     + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, created_at, updated_at) '
                     + "VALUES (?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, ?5, ?5)",
                 ).bind(id, publicId, subjectHash, discriminator, now).run();
+                if ((inserted.meta.changes ?? 0) === 1) createdAccountId = id;
                 account = await accountBySubjectHash(env, subjectHash);
             } catch {
                 // A concurrent callback may have inserted the Google subject,
@@ -52,6 +63,13 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
         }
     }
     if (!account) throw new HttpError(503, 'Could not allocate an Academy identity.');
+    try {
+        await bindSessionEntitlement(env, session, account.id, now);
+    } catch (error) {
+        if (createdAccountId === account.id) await deleteUnclaimedAccount(env, account.id);
+        throw error;
+    }
+    await attachSessionProfileToAccount(env, session, account.id, now);
 
     await env.ACADEMY_DB.batch([
         env.ACADEMY_DB.prepare(
@@ -64,6 +82,17 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
         ).bind(account.id, session.public_id, now),
     ]);
     return account;
+}
+
+/** Remove only an account that lost entitlement redemption before any owner adopted it. */
+async function deleteUnclaimedAccount(env: Env, accountId: string): Promise<void> {
+    await env.ACADEMY_DB.prepare(
+        'DELETE FROM accounts WHERE id = ?1 '
+        + 'AND NOT EXISTS (SELECT 1 FROM purchases WHERE redeemed_by_account_id = ?1) '
+        + 'AND NOT EXISTS (SELECT 1 FROM sessions WHERE account_id = ?1) '
+        + 'AND NOT EXISTS (SELECT 1 FROM profiles WHERE account_id = ?1) '
+        + 'AND NOT EXISTS (SELECT 1 FROM class_memberships WHERE account_id = ?1)',
+    ).bind(accountId).run();
 }
 
 export async function requireAccount(request: Request, env: Env, now: number): Promise<AccountContext> {
@@ -80,7 +109,7 @@ export async function requireAccount(request: Request, env: Env, now: number): P
 
 export async function handleGetAccount(request: Request, env: Env, clock: Clock): Promise<Response> {
     const { account } = await requireAccount(request, env, clock());
-    return jsonResponse(await accountView(env, account));
+    return jsonResponse(await getAccountView(env, account));
 }
 
 export async function handlePatchAccount(request: Request, env: Env, clock: Clock): Promise<Response> {
@@ -114,7 +143,7 @@ export async function handlePatchAccount(request: Request, env: Env, clock: Cloc
         + 'FROM accounts WHERE id = ?1',
     ).bind(account.id).first<AccountRow>();
     if (!updated) throw new HttpError(500, 'Account update failed.');
-    return jsonResponse(await accountView(env, updated));
+    return jsonResponse(await getAccountView(env, updated));
 }
 
 export function normalizeDisplayName(value: unknown): string {
@@ -147,7 +176,7 @@ async function accountBySubjectHash(env: Env, subjectHash: string): Promise<Acco
     ).bind(subjectHash).first<AccountRow>();
 }
 
-async function accountView(env: Env, account: AccountRow): Promise<Record<string, unknown>> {
+export async function getAccountView(env: Env, account: AccountRow): Promise<Record<string, unknown>> {
     const memberships = await env.ACADEMY_DB.prepare(
         'SELECT m.class_id, c.name, m.role, m.board_hidden FROM class_memberships m '
         + 'JOIN classes c ON c.id = m.class_id WHERE m.account_id = ?1 AND c.archived_at IS NULL ORDER BY c.name',

@@ -42,4 +42,17 @@ describe('public Academy lesson grounding gate', () => {
             expect('audit' in shard).toBe(false);
         }
     });
+
+    it('validates every imported authored week through its privacy-preserving adapter', () => {
+        const weeks = ACADEMY_LESSON_CONTENT_REGISTRY.filter(entry => entry.kind === 'authored-week');
+        expect(weeks).toHaveLength(59);
+
+        for (const week of weeks) {
+            const value = JSON.parse(fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename), 'utf8'));
+            const adapted = week.validate(value);
+            expect(adapted.id).toBe(week.packageId);
+            expect(adapted.activities.length).toBeGreaterThan(0);
+            expect(adapted.provenance.source.sha256).toBe(week.expectedSha256);
+        }
+    });
 });

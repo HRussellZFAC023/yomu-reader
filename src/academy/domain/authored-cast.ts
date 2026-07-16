@@ -78,6 +78,7 @@ export const ACADEMY_CAST_SPECIALTIES = {
     ruparna: ['subtitles', 'inference', 'ambiguity'],
     rose: ['nature', 'work-language', 'lived-memory'],
     peter: ['review', 'questions', 'observation'],
+    felix: ['nature', 'description', 'personal-expression'],
 } as const satisfies Partial<Record<AcademyCastMemberId, readonly AcademyLearningSpecialty[]>>;
 
 function specialtiesFor(id: AcademyCastMemberId): readonly AcademyLearningSpecialty[] {

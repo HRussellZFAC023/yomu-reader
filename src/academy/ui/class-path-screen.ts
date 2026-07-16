@@ -1,8 +1,18 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_CLASS_EVENTS, type AcademyClassEvent } from '../content/class-event-catalog';
+import { ACADEMY_ASSETS } from '../assets';
+import { ACADEMY_CLASS_EVENTS } from '../content/class-event-catalog';
 import type { ClassWeekCastPlan, ClassWeekCastPlanEntry } from '../content/class-week-cast-plan';
-import { ACADEMY_CAST, type AcademyCastMemberId } from '../domain/cast-registry';
-import { academyBackgroundPicture, copyElement, element } from './dom';
+import {
+    ACADEMY_CAST,
+    canRenderAcademyCastPortrait,
+    displayAcademyCastName,
+    type AcademyCastMember,
+    type AcademyCastMemberId,
+    type CastCategory,
+} from '../domain/cast-registry';
+import type { CharacterDirectoryEntryProjection } from '../domain/progress-projections';
+import { academyBackgroundPicture, backButton, copyElement, element } from './dom';
+import { createAcademySprite } from './sprite';
 
 export interface ClassPathScreenOptions {
     readonly language: AcademyLanguage;
@@ -10,222 +20,396 @@ export interface ClassPathScreenOptions {
     readonly currentOrder: number;
     readonly playableWeekIds: ReadonlySet<string>;
     readonly completedWeekIds?: ReadonlySet<string>;
+    readonly characters?: readonly CharacterDirectoryEntryProjection[];
+    readonly onBack: () => void;
     readonly onOpenWeek: (weekId: string) => void;
 }
 
-interface PathGroup {
+interface PathLevel {
     readonly id: string;
     readonly label: { readonly en: string; readonly ja: string };
     readonly from: number;
     readonly to: number;
-    readonly seasons: readonly AcademyClassEvent['season'][];
 }
 
-const PATH_GROUPS: readonly PathGroup[] = [
-    { id: 'level-1', label: { en: 'Foundation', ja: '基礎' }, from: 0, to: 18, seasons: ['foundation'] },
-    { id: 'level-1-plus', label: { en: 'N5', ja: 'N5' }, from: 19, to: 35, seasons: ['n5'] },
-    { id: 'level-2-plus', label: { en: 'N4', ja: 'N4' }, from: 36, to: 47, seasons: ['n4'] },
-    { id: 'level-3-2', label: { en: 'N3', ja: 'N3' }, from: 48, to: 61, seasons: ['n3'] },
-    { id: 'level-3-plus', label: { en: 'N2 → N1', ja: 'N2 → N1' }, from: 62, to: 72, seasons: ['n2', 'n1', 'alumni'] },
+type ClassPathSectionId = 'weeks' | 'people' | 'events';
+type WeekStatus = 'complete' | 'current' | 'available' | 'locked' | 'unavailable';
+
+interface WeekPresentation {
+    readonly status: WeekStatus;
+    readonly openable: boolean;
+    readonly statusLabel: string;
+    readonly actionLabel?: string;
+}
+
+const PATH_LEVELS: readonly PathLevel[] = [
+    { id: 'level-1', label: { en: 'Foundation', ja: '基礎' }, from: 0, to: 18 },
+    { id: 'level-1-plus', label: { en: 'N5', ja: 'N5' }, from: 19, to: 35 },
+    { id: 'level-2-plus', label: { en: 'N4', ja: 'N4' }, from: 36, to: 47 },
+    { id: 'level-3-2', label: { en: 'N3', ja: 'N3' }, from: 48, to: 61 },
+    { id: 'level-3-plus', label: { en: 'N2 → N1', ja: 'N2 → N1' }, from: 62, to: 72 },
 ];
+
+const CLASS_PATH_COPY = {
+    complete: { en: 'Completed', ja: '完了' },
+    current: { en: 'Recommended', ja: 'おすすめ' },
+    available: { en: 'Earlier lesson', ja: '前のレッスン' },
+    locked: { en: 'Future stop', ja: 'この先' },
+    unavailable: { en: 'Not available', ja: '準備中' },
+    revisit: { en: 'Revisit', ja: 'もう一度' },
+    continue: { en: 'Continue', ja: '続ける' },
+    open: { en: 'Open', ja: '開く' },
+    eventAvailable: { en: 'Available', ja: '見られます' },
+    eventPlanned: { en: 'Planned', ja: '予定' },
+} as const;
+
+const CLASS_PATH_PORTRAITS = {
+    ...ACADEMY_ASSETS.characters.approved,
+} as const satisfies Readonly<Partial<Record<AcademyCastMemberId, string>>>;
 
 export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElement {
     const screen = element('section', 'academy-screen academy-class-path-screen');
     screen.dataset.academyScreen = 'class-path';
     screen.dataset.plate = 'classroom';
     const plate = academyBackgroundPicture('classroom');
-    const paper = element('article', 'academy-class-path-paper');
+    const scene = element('div', 'academy-class-path-scene');
     const header = element('header', 'academy-class-path-header');
-    header.append(copyElement('h1', 'academy-class-path-title', options.language, 'classPathTitle'), localIndex(options.language));
+    const back = backButton(options.language);
+    back.className = 'academy-class-path-back';
+    back.addEventListener('click', options.onBack);
+    const title = copyElement('h1', 'academy-class-path-title', options.language, 'classPathTitle');
 
-    const path = element('section', 'academy-class-path-section');
-    path.id = 'academy-class-path-weeks';
-    path.append(copyElement('h2', 'academy-class-section-title', options.language, 'classPathWeeks'));
-    const groups = element('div', 'academy-class-path-groups');
-    const activeGroup = groupForOrder(options.currentOrder);
-    const people = sectionShell('academy-class-path-people', 'academy-class-people', options.language, 'classPathPeople');
-    const events = sectionShell('academy-class-path-events', 'academy-class-events', options.language, 'classPathEvents');
-    const groupDetails = PATH_GROUPS.map(group => renderGroup(group, options));
-    groupDetails.forEach(details => groups.append(details));
-    updateRelatedSections(people, events, activeGroup, options);
-    for (const [index, details] of groupDetails.entries()) {
-        details.addEventListener('toggle', () => {
-            if (!details.open) return;
-            groupDetails.forEach((candidate, candidateIndex) => {
-                if (candidateIndex !== index) candidate.open = false;
-            });
-            updateRelatedSections(people, events, PATH_GROUPS[index], options);
-        });
+    const path = sectionShell('academy-class-path-weeks', options.language, 'classPathWeeks');
+    const spine = element('ol', 'academy-class-week-spine');
+    let previousPlayable: ClassWeekCastPlanEntry | undefined;
+    for (const week of options.plan.weeks) {
+        spine.append(renderWeek(week, previousPlayable, options));
+        if (options.playableWeekIds.has(week.weekId)) previousPlayable = week;
     }
-    path.append(groups);
-    paper.append(header, path, people, events);
-    screen.append(plate, paper);
+    path.append(spine);
+
+    const people = sectionShell('academy-class-path-people', options.language, 'classPathPeople');
+    people.append(renderPeople(options.plan.weeks, options.language, options.characters));
+
+    const events = sectionShell('academy-class-path-events', options.language, 'classPathEvents');
+    events.append(renderEvents(options.language));
+
+    const panels = new Map<ClassPathSectionId, HTMLElement>([
+        ['weeks', path],
+        ['people', people],
+        ['events', events],
+    ]);
+    const index = localIndex(options.language, panels);
+    const panelHost = element('div', 'academy-class-path-panels');
+    panelHost.append(path, people, events);
+    header.append(back, title, index);
+    scene.append(header, panelHost);
+    screen.append(plate, scene);
+    activateSection('weeks', index, panels);
     return screen;
 }
 
-function localIndex(language: AcademyLanguage): HTMLElement {
-    const nav = element('nav', 'academy-class-path-index');
+function localIndex(
+    language: AcademyLanguage,
+    panels: ReadonlyMap<ClassPathSectionId, HTMLElement>,
+): HTMLElement {
+    const nav = element('div', 'academy-class-path-index');
+    nav.setAttribute('role', 'tablist');
     nav.setAttribute('aria-label', academyText(language, 'classPathTitle'));
-    const links = [
-        ['academy-class-path-weeks', 'classPathWeeks'],
-        ['academy-class-path-people', 'classPathPeople'],
-        ['academy-class-path-events', 'classPathEvents'],
+    const definitions = [
+        ['weeks', 'classPathWeeks'],
+        ['people', 'classPathPeople'],
+        ['events', 'classPathEvents'],
     ] as const;
-    for (const [target, key] of links) {
-        const link = document.createElement('a');
-        link.href = `#${target}`;
-        link.textContent = academyText(language, key);
-        nav.append(link);
-    }
+    const buttons = definitions.map(([sectionId, key]) => {
+        const button = element('button', 'academy-class-path-tab');
+        button.type = 'button';
+        button.id = `academy-class-path-tab-${sectionId}`;
+        button.dataset.classSection = sectionId;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-controls', panels.get(sectionId)!.id);
+        button.textContent = academyText(language, key);
+        button.addEventListener('click', () => {
+            activateSection(sectionId, nav, panels);
+            nav.closest<HTMLElement>('.academy-class-path-scene')?.scrollIntoView?.({ block: 'start' });
+        });
+        nav.append(button);
+        return button;
+    });
+    nav.addEventListener('keydown', event => {
+        const current = event.target instanceof HTMLButtonElement ? buttons.indexOf(event.target) : -1;
+        if (current < 0) return;
+        const next = event.key === 'ArrowRight' ? (current + 1) % buttons.length
+            : event.key === 'ArrowLeft' ? (current + buttons.length - 1) % buttons.length
+                : event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : -1;
+        if (next < 0) return;
+        event.preventDefault();
+        buttons[next].focus();
+        buttons[next].click();
+    });
     return nav;
 }
 
-function renderGroup(group: PathGroup, options: ClassPathScreenOptions): HTMLDetailsElement {
-    const details = document.createElement('details');
-    details.className = 'academy-class-path-group';
-    details.dataset.pathGroup = group.id;
-    details.open = containsOrder(group, options.currentOrder);
-    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
-    const completed = weeks.filter(week => options.completedWeekIds?.has(week.weekId)).length;
-    const summary = document.createElement('summary');
-    summary.className = 'academy-class-path-group-summary';
-    const heading = element('span', 'academy-class-path-group-title');
-    heading.textContent = group.label[options.language];
-    const progress = element('span', 'academy-class-path-group-progress');
-    progress.textContent = options.language === 'ja'
-        ? `${completed} / ${weeks.length}`
-        : `${completed} of ${weeks.length}`;
-    summary.append(heading, progress);
-    const list = element('ol', 'academy-class-week-spine');
-    for (const week of weeks) list.append(renderWeek(week, options));
-    details.append(summary, list);
-    return details;
+function activateSection(
+    sectionId: ClassPathSectionId,
+    index: HTMLElement,
+    panels: ReadonlyMap<ClassPathSectionId, HTMLElement>,
+): void {
+    index.querySelectorAll<HTMLButtonElement>('[role="tab"]').forEach(button => {
+        const selected = button.dataset.classSection === sectionId;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+    });
+    panels.forEach((panel, candidateId) => {
+        panel.hidden = candidateId !== sectionId;
+    });
 }
 
-function renderWeek(week: ClassWeekCastPlanEntry, options: ClassPathScreenOptions): HTMLElement {
+function renderWeek(
+    week: ClassWeekCastPlanEntry,
+    prerequisite: ClassWeekCastPlanEntry | undefined,
+    options: ClassPathScreenOptions,
+): HTMLElement {
     const item = element('li', 'academy-class-week-node');
     item.dataset.weekId = week.weekId;
+    const level = levelForOrder(week.order);
+    item.dataset.pathGroup = level.id;
     const playable = options.playableWeekIds.has(week.weekId);
+    const presentation = weekPresentation(week, playable, options);
     item.dataset.weekRuntime = playable ? 'playable' : 'not-bound';
-    item.dataset.weekStatus = options.completedWeekIds?.has(week.weekId)
-        ? 'complete'
-        : week.order === options.currentOrder ? 'current' : 'planned';
-    if (week.order === options.currentOrder) item.setAttribute('aria-current', 'step');
-    const content = playable ? element('button', 'academy-class-week-entry') : element('span', 'academy-class-week-entry');
+    item.dataset.weekStatus = presentation.status;
+    if (presentation.status === 'current') item.setAttribute('aria-current', 'step');
+
+    const content = presentation.openable
+        ? element('button', 'academy-class-week-entry')
+        : element('div', 'academy-class-week-entry');
     if (content instanceof HTMLButtonElement) {
         content.type = 'button';
+        content.setAttribute('aria-label', `${presentation.actionLabel}: ${week.source.title[options.language]}`);
         content.addEventListener('click', () => options.onOpenWeek(week.weekId));
     } else {
         content.setAttribute('aria-disabled', 'true');
     }
-    const number = element('span', 'academy-class-week-number');
-    number.textContent = String(week.order).padStart(2, '0');
+
+    const copy = element('span', 'academy-class-week-copy');
+    const stage = element('span', 'academy-class-week-stage');
     const label = element('span', 'academy-class-week-label');
+    if (week.order === level.from) {
+        const levelLabel = element('span', 'academy-class-week-level');
+        levelLabel.textContent = level.label[options.language];
+        stage.append(levelLabel);
+    }
+    const sequenceLabel = element('span', 'academy-class-week-sequence');
+    sequenceLabel.textContent = week.order === 0
+        ? (options.language === 'ja' ? 'レッスン0' : 'Lesson 0')
+        : (options.language === 'ja' ? `第${week.order}週` : `Week ${String(week.order).padStart(2, '0')}`);
+    stage.append(sequenceLabel);
     label.textContent = week.source.title[options.language];
-    const kind = element('span', 'academy-class-week-kind');
-    kind.textContent = weekKindMark(week.weekKind);
-    kind.setAttribute('aria-hidden', 'true');
-    content.append(number, label, kind);
+    const status = element('span', 'academy-class-week-status');
+    status.textContent = presentation.statusLabel;
+    const requirement = element('span', 'academy-class-week-prerequisite');
+    requirement.textContent = prerequisiteLabel(prerequisite, options.language);
+    copy.append(stage, label, status, requirement);
+    const cast = renderWeekCast(week, options.language);
+    const action = element('span', 'academy-class-week-action');
+    action.textContent = presentation.actionLabel ?? '';
+    action.setAttribute('aria-hidden', 'true');
+    content.append(copy, cast, action);
     item.append(content);
     return item;
 }
 
-function updateRelatedSections(
-    people: HTMLElement,
-    events: HTMLElement,
-    group: PathGroup,
+function weekPresentation(
+    week: ClassWeekCastPlanEntry,
+    playable: boolean,
     options: ClassPathScreenOptions,
-): void {
-    const weeks = options.plan.weeks.slice(group.from, group.to + 1);
-    people.dataset.pathGroup = group.id;
-    events.dataset.pathGroup = group.id;
-    people.querySelector('.academy-class-section-context')?.remove();
-    events.querySelector('.academy-class-section-context')?.remove();
-    const peopleContext = contextLabel(group, options.language);
-    const eventsContext = contextLabel(group, options.language);
-    people.querySelector('h2')?.after(peopleContext);
-    events.querySelector('h2')?.after(eventsContext);
-    people.querySelector('.academy-class-register')?.remove();
-    events.querySelector('.academy-class-event-line')?.remove();
-    people.append(renderPeople(weeks, group, options.language));
-    events.append(renderEvents(group, options.language));
+): WeekPresentation {
+    const language = options.language;
+    const complete = options.completedWeekIds?.has(week.weekId) ?? false;
+    if (complete) {
+        return playable
+            ? presentation('complete', true, localCopy(language, 'complete'), localCopy(language, 'revisit'))
+            : presentation('unavailable', false, localCopy(language, 'unavailable'));
+    }
+    if (week.order === options.currentOrder) {
+        return playable
+            ? presentation('current', true, localCopy(language, 'current'), localCopy(language, 'continue'))
+            : presentation('unavailable', false, localCopy(language, 'unavailable'));
+    }
+    if (playable && week.order < options.currentOrder) {
+        return presentation('available', true, localCopy(language, 'available'), localCopy(language, 'revisit'));
+    }
+    if (week.order > options.currentOrder) {
+        return presentation('locked', false, localCopy(language, 'locked'));
+    }
+    return presentation('unavailable', false, localCopy(language, 'unavailable'));
+}
+
+function prerequisiteLabel(
+    prerequisite: ClassWeekCastPlanEntry | undefined,
+    language: AcademyLanguage,
+): string {
+    if (!prerequisite) return language === 'ja' ? '前提なし' : 'No prerequisites';
+    const lesson = prerequisite.order === 0
+        ? (language === 'ja' ? 'レッスン0' : 'Lesson 0')
+        : prerequisite.source.title[language];
+    return language === 'ja' ? `前提：${lesson}` : `Requires ${lesson}`;
+}
+
+function renderWeekCast(week: ClassWeekCastPlanEntry, language: AcademyLanguage): HTMLElement {
+    const cast = element('span', 'academy-class-week-cast');
+    const appearances: readonly Readonly<{ id: AcademyCastMemberId; firstName: string }>[] = week.order === 0
+        ? [{ id: 'rie', firstName: language === 'ja' ? 'りえ先生' : 'Rie-sensei' }]
+        : [week.primary, ...week.supporting].filter(
+            (appearance): appearance is NonNullable<typeof appearance> => Boolean(appearance),
+        );
+    if (!appearances.length) {
+        cast.classList.add('is-empty');
+        cast.setAttribute('aria-hidden', 'true');
+        return cast;
+    }
+    cast.setAttribute('role', 'group');
+    cast.setAttribute('aria-label', language === 'ja' ? '登場人物' : 'Appearing in this lesson');
+    for (const appearance of appearances) {
+        const person = element('span', 'academy-class-week-cast-member');
+        person.dataset.weekCastId = appearance.id;
+        const portrait = classPathPortrait(appearance.id);
+        if (portrait) {
+            const sprite = createAcademySprite({
+                characterId: appearance.id,
+                alt: '',
+                className: 'academy-class-week-sprite',
+                expressions: { neutral: { still: portrait } },
+            });
+            sprite.setAttribute('aria-hidden', 'true');
+            person.append(sprite);
+        } else {
+            person.classList.add('is-name-only');
+        }
+        const name = element('span', 'academy-class-week-cast-name');
+        name.textContent = appearance.firstName;
+        person.append(name);
+        cast.append(person);
+    }
+    return cast;
+}
+
+function presentation(
+    status: WeekStatus,
+    openable: boolean,
+    statusLabel: string,
+    actionLabel?: string,
+): WeekPresentation {
+    return { status, openable, statusLabel, ...(actionLabel ? { actionLabel } : {}) };
 }
 
 function renderPeople(
     weeks: readonly ClassWeekCastPlanEntry[],
-    group: PathGroup,
     language: AcademyLanguage,
+    characters: readonly CharacterDirectoryEntryProjection[] | undefined,
 ): HTMLElement {
     const ids = new Set<AcademyCastMemberId>(['rie']);
     for (const week of weeks) {
         if (week.primary) ids.add(week.primary.id);
         week.supporting.forEach(member => ids.add(member.id));
     }
-    eventsForGroup(group).forEach(event => event.castIds.forEach(id => ids.add(id)));
+    ACADEMY_CLASS_EVENTS.forEach(event => event.castIds.forEach(id => ids.add(id)));
+    const directory = new Map(characters?.map(character => [character.characterId, character]));
     const list = element('ul', 'academy-class-register');
     for (const member of ACADEMY_CAST.filter(candidate => ids.has(candidate.id))) {
-        const item = element('li', 'academy-class-register-entry');
-        item.dataset.castId = member.id;
-        item.dataset.castCategory = member.category;
-        const mark = element('span', 'academy-class-register-mark');
-        mark.textContent = member.firstName.slice(0, 1);
-        mark.setAttribute('aria-hidden', 'true');
-        const name = element('span', 'academy-class-register-name');
-        name.textContent = 'teacherSalutation' in member ? member.teacherSalutation[language] : member.firstName;
-        item.append(mark, name);
-        list.append(item);
+        list.append(renderPerson(member, language, directory.get(member.id as AcademyCastMemberId)));
     }
     return list;
 }
 
-function renderEvents(group: PathGroup, language: AcademyLanguage): HTMLElement {
+function renderPerson(
+    member: AcademyCastMember,
+    language: AcademyLanguage,
+    character?: CharacterDirectoryEntryProjection,
+): HTMLElement {
+    const item = element('li', 'academy-class-person-card');
+    item.dataset.castId = member.id;
+    item.dataset.castCategory = member.category;
+    const unlocked = character?.unlocked ?? true;
+    item.dataset.unlocked = String(unlocked);
+    const portrait = unlocked ? classPathPortrait(member.id) : undefined;
+    item.dataset.portraitState = portrait ? 'available' : unlocked ? 'name-only' : 'locked';
+    if (portrait) {
+        const sprite = createAcademySprite({
+            characterId: member.id,
+            alt: '',
+            className: 'academy-class-person-portrait',
+            expressions: { neutral: { still: portrait } },
+        });
+        sprite.setAttribute('aria-hidden', 'true');
+        sprite.querySelector('img')?.setAttribute('loading', 'lazy');
+        item.append(sprite);
+    }
+    const caption = element('div', 'academy-class-person-caption');
+    const name = element('h3', 'academy-class-person-name');
+    name.textContent = displayAcademyCastName(member.id, language);
+    const status = element('p', 'academy-class-person-status');
+    status.textContent = castCategoryLabel(member.category, language);
+    caption.append(name, status);
+    item.append(caption);
+    return item;
+}
+
+function classPathPortrait(id: string): string | undefined {
+    if (!canRenderAcademyCastPortrait(id, 'story-runtime')) return undefined;
+    return (CLASS_PATH_PORTRAITS as Readonly<Record<string, string>>)[id];
+}
+
+function renderEvents(language: AcademyLanguage): HTMLElement {
     const list = element('ol', 'academy-class-event-line');
-    for (const event of eventsForGroup(group)) {
+    for (const event of ACADEMY_CLASS_EVENTS) {
         const item = element('li', 'academy-class-event');
         item.dataset.eventId = event.id;
         item.dataset.eventStatus = event.status;
         const season = element('span', 'academy-class-event-season');
         season.textContent = event.season.toUpperCase();
-        const title = element('span', 'academy-class-event-title');
+        const copy = element('span', 'academy-class-event-copy');
+        const title = element('span', 'academy-class-event-title academy-primary-purpose');
         title.textContent = event.title[language];
         const cast = element('span', 'academy-class-event-cast');
         cast.textContent = event.castIds.map(id => ACADEMY_CAST.find(member => member.id === id)?.firstName ?? id).join(' · ');
-        item.append(season, title, cast);
+        copy.append(title, cast);
+        const status = element('span', 'academy-class-event-status');
+        status.textContent = localCopy(language, event.status === 'playable' ? 'eventAvailable' : 'eventPlanned');
+        item.append(season, copy, status);
         list.append(item);
     }
     return list;
 }
 
-function eventsForGroup(group: PathGroup): readonly AcademyClassEvent[] {
-    return ACADEMY_CLASS_EVENTS.filter(candidate => group.seasons.includes(candidate.season));
-}
-
-function sectionShell(id: string, className: string, language: AcademyLanguage, key: 'classPathPeople' | 'classPathEvents'): HTMLElement {
-    const section = element('section', `academy-class-path-section ${className}`);
+function sectionShell(
+    id: string,
+    language: AcademyLanguage,
+    key: 'classPathWeeks' | 'classPathPeople' | 'classPathEvents',
+): HTMLElement {
+    const section = element('section', 'academy-class-path-section');
     section.id = id;
+    section.tabIndex = -1;
+    section.setAttribute('role', 'tabpanel');
+    section.setAttribute('aria-labelledby', id.replace('academy-class-path-', 'academy-class-path-tab-'));
     section.append(copyElement('h2', 'academy-class-section-title', language, key));
     return section;
 }
 
-function contextLabel(group: PathGroup, language: AcademyLanguage): HTMLElement {
-    const label = element('p', 'academy-class-section-context');
-    label.textContent = group.label[language];
-    return label;
+function levelForOrder(order: number): PathLevel {
+    return PATH_LEVELS.find(level => order >= level.from && order <= level.to) ?? PATH_LEVELS[0];
 }
 
-function groupForOrder(order: number): PathGroup {
-    return PATH_GROUPS.find(group => containsOrder(group, order)) ?? PATH_GROUPS[0];
+function localCopy<Key extends keyof typeof CLASS_PATH_COPY>(language: AcademyLanguage, key: Key): string {
+    return CLASS_PATH_COPY[key][language];
 }
 
-function containsOrder(group: PathGroup, order: number): boolean {
-    return order >= group.from && order <= group.to;
-}
-
-function weekKindMark(kind: string): string {
-    if (kind.includes('kanji')) return '漢';
-    if (kind.includes('hiragana') || kind.includes('katakana') || kind.includes('script')) return 'かな';
-    if (kind.includes('kickoff') || kind === 'orientation') return '始';
-    if (kind.includes('listening')) return '聴';
-    if (kind.includes('writing')) return '書';
-    return '授';
+function castCategoryLabel(category: CastCategory, language: AcademyLanguage): string {
+    const labels: Readonly<Record<CastCategory, Readonly<Record<AcademyLanguage, string>>>> = {
+        teacher: { en: 'Teacher', ja: '先生' },
+        classmate: { en: 'Classmate', ja: 'クラスメート' },
+        'extended-member': { en: 'Extended class', ja: 'クラスの仲間' },
+        'textbook-legend': { en: 'Class story', ja: 'クラスの物語' },
+    };
+    return labels[category][language];
 }

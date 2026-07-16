@@ -1,0 +1,17 @@
+.academy-minna-true-false-listening { display: grid; gap: 16px; }
+.academy-minna-true-false-listening > audio { width: min(100%, 520px); }
+.academy-minna-true-false-listening-form { display: grid; gap: 12px; }
+.academy-minna-true-false-listening-form fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--academy-border, #c9c4b8); }
+.academy-minna-true-false-listening-form legend { padding: 0 4px; font-weight: 700; }
+.academy-minna-true-false-listening-form label { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; min-height: 44px; padding: 6px 10px; }
+.academy-minna-true-false-listening-mark { font-size: 1.5rem; line-height: 1; }
+.academy-minna-true-false-listening-submit { justify-self: end; }
+.academy-minna-true-false-listening-support { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--academy-border, #c9c4b8); background: var(--academy-surface, #fff); }
+.academy-minna-true-false-listening-support h3,
+.academy-minna-true-false-listening-support ol,
+.academy-minna-true-false-listening-support ul { margin: 0; }
+.academy-minna-true-false-listening-support > ol { display: grid; gap: 10px; }
+.academy-minna-true-false-listening-answers { font-weight: 700; }
+@media (max-width: 620px) {
+    .academy-minna-true-false-listening-submit { width: 100%; }
+}

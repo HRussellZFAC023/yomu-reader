@@ -1,0 +1,3867 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l08",
+  "order": 9,
+  "weekKind": "lesson",
+  "title": {
+    "en": "What time do we start?",
+    "ja": "なんじから ですか"
+  },
+  "estimatedMinutes": 90,
+  "identity": {
+    "title": "Lesson 8",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 8,
+    "moduleId": 5866381,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "manifestOrder": 8,
+      "moodleSection": 19
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 5866381,
+    "memberFileCount": 12,
+    "members": [
+      {
+        "title": "11 A-11",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2397887,
+        "payloadSha256": "9068859571953094e679de22a82501e07c400df2143a7b722a33c69ac1217661"
+      },
+      {
+        "title": "12 A-12",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2358307,
+        "payloadSha256": "ccfc8ddad988b6e8b97c858483b8fe6bde03cdd9e828a5b48e271ebd5dd4a090"
+      },
+      {
+        "title": "Chapter 3 listening",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1055746,
+        "payloadSha256": "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e"
+      },
+      {
+        "title": "Chapter 4-1 time Grammar Exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1151022,
+        "payloadSha256": "a38a8e1f686876ba1b6bc109ce0e5e0f9ddc70f4b18b520d43241f54256406e0"
+      },
+      {
+        "title": "Hiragana long vowels writing system",
+        "role": "hiragana",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 397234,
+        "payloadSha256": "3e4a919bd77df0407ef78cde1fb558c3f74022505736ade8005f520655ea5849"
+      },
+      {
+        "title": "New Chapter 4-1 Vocabulary Sheet",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 92999,
+        "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd"
+      },
+      {
+        "title": "New Chapter 4-1 from time to time Grammar Exercise",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1052969,
+        "payloadSha256": "26f0f7c3397e7a4903e8c62fc79bdd3ecceca09bb7302826c5e7497dbd83ccd7"
+      },
+      {
+        "title": "For moodle HW Chapter 1,2,3 review en appendix",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 803998,
+        "payloadSha256": "c4997946634c06eb3eccb06486ee56ff16c17ce0df968e4346db1d00654cf63e"
+      },
+      {
+        "title": "Hiragana writing practice double consonants modified and other syllables",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1312048,
+        "payloadSha256": "fd46a4a52de36c483e53031083824cc20637161dab2f67f3bba44ab970962804"
+      },
+      {
+        "title": "Homework-2 Hiragana reading practice 長音-2",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1225680,
+        "payloadSha256": "f7bba6c0aacb895586648b3f79698fc19ac418e3a7abf88237238ea99b68d731"
+      },
+      {
+        "title": "HW Chapter 1,2,3 review",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1195670,
+        "payloadSha256": "10e96e102407869724307366b66678358d81835fcd864f43f57cc240c6eaa0d0"
+      },
+      {
+        "title": "HW Vocabulary time expression1+ days",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 82704,
+        "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "すうじゲーム Let's play with Numbers!",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 1 conversation はじめまして",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 2 conversation これから おせわに なります。",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 3 conversation これを ください",
+        "externalUrl": null
+      },
+      {
+        "title": "いっしゅうかん の うた",
+        "externalUrl": null
+      },
+      {
+        "title": "Learn Japanese Hiragana Alphabet - AIUEO Song - Funnihongo",
+        "externalUrl": "https://www.youtube.com/embed/"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+      "payloadSha256": "9068859571953094e679de22a82501e07c400df2143a7b722a33c69ac1217661",
+      "worksheetTitle": "11 A-11",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:9068859571953094e679de22a82501e07c400df2143a7b722a33c69ac1217661",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000382",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "audio materials/11 A-11.mp3",
+        "centralDirectoryIndex": 1,
+        "payloadSha256": "9068859571953094e679de22a82501e07c400df2143a7b722a33c69ac1217661",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 91.573333,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "ccfc8ddad988b6e8b97c858483b8fe6bde03cdd9e828a5b48e271ebd5dd4a090",
+      "worksheetTitle": "12 A-12",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:ccfc8ddad988b6e8b97c858483b8fe6bde03cdd9e828a5b48e271ebd5dd4a090",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000383",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "audio materials/12 A-12.mp3",
+        "centralDirectoryIndex": 2,
+        "payloadSha256": "ccfc8ddad988b6e8b97c858483b8fe6bde03cdd9e828a5b48e271ebd5dd4a090",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 87.053333,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
+      "worksheetTitle": "Chapter 3 listening",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000384",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Handouts/Chapter 3 listening.pdf",
+        "centralDirectoryIndex": 3,
+        "payloadSha256": "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "ex-listen-hours",
+          "ex-listen-closed"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "a38a8e1f686876ba1b6bc109ce0e5e0f9ddc70f4b18b520d43241f54256406e0",
+      "worksheetTitle": "Chapter 4-1 time Grammar Exercise",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:a38a8e1f686876ba1b6bc109ce0e5e0f9ddc70f4b18b520d43241f54256406e0",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000385",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Handouts/Chapter 4-1_time_Grammar Exercise.pdf",
+        "centralDirectoryIndex": 4,
+        "payloadSha256": "a38a8e1f686876ba1b6bc109ce0e5e0f9ddc70f4b18b520d43241f54256406e0",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-ni-particle",
+          "ex-verb-past-neg",
+          "ex-verb-transform"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "3e4a919bd77df0407ef78cde1fb558c3f74022505736ade8005f520655ea5849",
+      "worksheetTitle": "Hiragana long vowels writing system",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:3e4a919bd77df0407ef78cde1fb558c3f74022505736ade8005f520655ea5849",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000386",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Handouts/Hiragana_long vowels writing system.pdf",
+        "centralDirectoryIndex": 5,
+        "payloadSha256": "3e4a919bd77df0407ef78cde1fb558c3f74022505736ade8005f520655ea5849",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "authentic-input",
+          "ex-input-longvowel",
+          "writing"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+      "worksheetTitle": "New Chapter 4-1 Vocabulary Sheet",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000387",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Handouts/New Chapter 4-1 Vocabulary Sheet.pdf",
+        "centralDirectoryIndex": 6,
+        "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "ex-vocab-match",
+          "ex-vocab-time"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "26f0f7c3397e7a4903e8c62fc79bdd3ecceca09bb7302826c5e7497dbd83ccd7",
+      "worksheetTitle": "New Chapter 4-1 from time to time Grammar Exercise",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:26f0f7c3397e7a4903e8c62fc79bdd3ecceca09bb7302826c5e7497dbd83ccd7",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000388",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Handouts/New_Chapter 4-1_from time to time_Grammar Exercise.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "26f0f7c3397e7a4903e8c62fc79bdd3ecceca09bb7302826c5e7497dbd83ccd7",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-kara-made"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "c4997946634c06eb3eccb06486ee56ff16c17ce0df968e4346db1d00654cf63e",
+      "worksheetTitle": "For moodle HW Chapter 1,2,3 review en appendix",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:c4997946634c06eb3eccb06486ee56ff16c17ce0df968e4346db1d00654cf63e",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000389",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Homework/For moodle_HW Chapter 1,2,3 review_en appendix.pdf",
+        "centralDirectoryIndex": 8,
+        "payloadSha256": "c4997946634c06eb3eccb06486ee56ff16c17ce0df968e4346db1d00654cf63e",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "review",
+          "ex-review-mo",
+          "ex-review-no"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "fd46a4a52de36c483e53031083824cc20637161dab2f67f3bba44ab970962804",
+      "worksheetTitle": "Hiragana writing practice double consonants modified and other syllables",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:fd46a4a52de36c483e53031083824cc20637161dab2f67f3bba44ab970962804",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000390",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Homework/Hiragana_writing practice_double consonants_modified and other syllables .pdf",
+        "centralDirectoryIndex": 9,
+        "payloadSha256": "fd46a4a52de36c483e53031083824cc20637161dab2f67f3bba44ab970962804",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 4,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "authentic-input",
+          "ex-input-gakkou",
+          "writing"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "f7bba6c0aacb895586648b3f79698fc19ac418e3a7abf88237238ea99b68d731",
+      "worksheetTitle": "Homework-2 Hiragana reading practice 長音-2",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:f7bba6c0aacb895586648b3f79698fc19ac418e3a7abf88237238ea99b68d731",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000391",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Homework/Homework-2 Hiragana reading practice 長音-2.pdf",
+        "centralDirectoryIndex": 10,
+        "payloadSha256": "f7bba6c0aacb895586648b3f79698fc19ac418e3a7abf88237238ea99b68d731",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "authentic-input",
+          "ex-input-longvowel"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "10e96e102407869724307366b66678358d81835fcd864f43f57cc240c6eaa0d0",
+      "worksheetTitle": "HW Chapter 1,2,3 review",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:10e96e102407869724307366b66678358d81835fcd864f43f57cc240c6eaa0d0",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000392",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Homework/HW Chapter 1,2,3 review.pdf",
+        "centralDirectoryIndex": 11,
+        "payloadSha256": "10e96e102407869724307366b66678358d81835fcd864f43f57cc240c6eaa0d0",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "review",
+          "ex-review-ikura"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+      "worksheetTitle": "HW Vocabulary time expression1+ days",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+        "moduleId": 5866381,
+        "archiveOccurrenceId": "archive-000041",
+        "memberOccurrenceId": "member-000393",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/09-folder-5866381-lesson-8.zip",
+        "archiveSha256": "8bc2dbbce431906f8fcb7f7e5dc142b7829a36004417c0a12e4a56667fbefde9",
+        "member": "Homework/HW_Vocabulary time expression1+ days.pdf",
+        "centralDirectoryIndex": 12,
+        "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "ex-vocab-time"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      }
+    ]
+  },
+  "mapping": {
+    "ucl": "2023/24 · Level 1 · Lesson 8",
+    "genki": "≈ Genki L3 (time) + L4 (daily schedule)",
+    "minna": "Minna no Nihongo I · Lessons 1, 3, 4",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "original-yomu",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology",
+        "reference": "course ucl-japanese-2023-2024 · section rie-level-1 · module 5866381",
+        "reuse": "metadata-only",
+        "note": "Week identity and worksheet inventory come from harvest metadata only."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo I · Lessons 1, 3, 4",
+        "reuse": "sequence-only",
+        "note": "Chapter scope (telling time, 〜から〜まで, polite verbs, review of introductions and prices) is a published textbook sequence reference; all wording here is original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N5 grammar band",
+        "reuse": "scope-only",
+        "note": "JLPT band is a placement heuristic, not a score claim."
+      }
+    ],
+    "castingNote": "Grammar picks the person: chapter 4's time-and-schedule theme is led by Angel (spreadsheets, everyone's deadlines) counting the clock, with Jodi's steady checklist, Jenny's cosy routine, and Rie framing the lesson. Angel is an override on the plan's recommended seed because clocks and schedules are squarely her ground.",
+    "gaps": []
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "not-delivered-by-current-authored-week-adapter-for-this-week",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l08:lesson-1-workbook-2",
+      "relation": "post-instruction-guided-fill",
+      "source": {
+        "sourceId": "japanese-genki-interactive:6e6c804c56797542057ad96a56ed65dc0de3c90e066e67586e8cf85ce65a09e4:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-1/workbook-2/index.html",
+        "payloadSha256": "6e6c804c56797542057ad96a56ed65dc0de3c90e066e67586e8cf85ce65a09e4",
+        "scriptSha256": "ecbac7a25b6cefdd604afda0ee11c0ac3ff177440487aadb7ebdae650def7c0b",
+        "lineLocus": {
+          "start": 76,
+          "end": 108
+        },
+        "title": "Workbook: Time - Lesson 1 | Genki Study Resources - 2nd Edition",
+        "description": "Read the question and answer what time it is.",
+        "keywords": "Genki I Workbook, page 14, problem I, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-1/workbook-2/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Read the question and answer what time it is in Japanese.",
+          "quizlet": "<div class=\"count-problems\"><div class=\"problem\">いまなんじですか。（Current Time: 05:00pm）<br>{ごごごじです|午後五時です|%(午後五時です/午後ごじです/ごご五時です/ごごごじです)|answer}。</div><div class=\"problem\">いまなんじですか。（Current Time: 09:00am）<br>{ごぜんくじです|午前九時です|%(午前九時です/午前くじです/ごぜん九時です/ごぜんくじです)|answer}。</div><div class=\"problem\">いまなんじですか。（Current Time: 12:30pm）<br>{ごごじゅうにじはんです|午後十二時半です|%(午後十二時半です/午後十二時はんです/午後じゅうにじ半です/午後じゅうにじはんです/ごご十二時半です/ごご十二時はんです/ごごじゅうにじ半です/ごごじゅうにじはんです)|answer}。</div><div class=\"problem\">いまなんじですか。（Current Time: 04:30am）<br>{ごぜんよじはんです|午前四時半です|%(午前四時半です/午前四時はんです/午前よじ半です/午前よじはんです/ごぜん四時半です/ごぜん四時はんです/ごぜんよじ半です/ごぜんよじはんです)|answer}。</div><div class=\"problem\">いまなんじですか。（Current Time: 07:30pm）<br>{ごごしちじはんです|午後七時半です|%(午後七時半です/午後七時はんです/午後しちじ半です/午後しちじはんです/ごご七時半です/ごご七時はんです/ごごしちじ半です/ごごしちじはんです)|answer}。</div></div>"
+        },
+        "sourceSlice": null,
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/classroom",
+        "cast": [
+          "rie",
+          "mika"
+        ],
+        "grouping": "teacher-supported-pair",
+        "beat": "Rie turns the classroom clock and Mika answers the exact source time questions only after each displayed time is read.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "daily-time"
+        ],
+        "evidence": "Follow one ordinary day and hear when the cafe opens, closes, and takes a break."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 30,
+        "conceptIds": [
+          "daily-time"
+        ],
+        "form": "N じに Vます。N じから N じまで Vます。",
+        "meaning": "State when an action happens and its start-to-finish span.",
+        "contrast": "に marks a clock time; から〜まで gives a span, not two unrelated times.",
+        "workedExample": "わたしは 7じに おきます。9じから 5じまで はたらきます。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 50,
+        "conceptIds": [
+          "daily-time"
+        ],
+        "activity": "Read the shop notice and select the time phrase that matches each opening-hours detail."
+      },
+      {
+        "id": "exact",
+        "phase": "assessed-production",
+        "componentOrder": 30,
+        "assessmentIds": [
+          "ex-verb-transform"
+        ],
+      "conceptIds": [
+        "daily-time"
+      ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Identify present, negative, past, or past negative.",
+            "Keep the verb stem.",
+            "Attach the matching polite ending."
+          ],
+          "feedback": {
+            "error": "If the ending does not match the time cue, the sentence changes when the action happened.",
+            "retry": "Name the four-form target aloud, then rebuild the ending."
+          }
+        }
+      },
+      {
+        "id": "speak",
+        "phase": "assessed-production",
+        "componentOrder": 60,
+        "assessmentIds": [
+          "component:60:speaking"
+        ],
+        "conceptIds": [
+          "daily-time"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Choose wake-up and bedtime times.",
+            "Choose one daytime activity.",
+            "Use N じに Vます and N じから N じまで Vます."
+          ],
+          "feedback": {
+            "error": "If に is omitted after a clock time or から has no まで partner, the schedule relation is unclear.",
+            "retry": "Read your three time notes, then say one sentence for each."
+          }
+        }
+      },
+      {
+        "id": "write",
+        "phase": "assessed-production",
+        "componentOrder": 70,
+        "assessmentIds": [
+          "component:70:writing"
+        ],
+        "conceptIds": [
+          "daily-time"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Write three times as notes first.",
+            "Pair one start time with one end time.",
+            "Turn each note into a polite verb sentence."
+          ],
+          "feedback": {
+            "error": "If a long vowel or small っ is omitted, it changes the written word; if the verb has no polite ending, the timetable is unfinished.",
+            "retry": "Compare the affected word to the kana model and rewrite that sentence."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Tell the time in Japanese with 〜じ and 〜ふん, and say ごぜん (a.m.) / ごご (p.m.).",
+    "Say from when to when something runs with 〜から〜まで.",
+    "Talk about a daily routine with polite verbs — おきます, たべます, ねます — in present and past.",
+    "Read and write two tricky hiragana shapes: long vowels (おばあさん) and the small っ (がっこう).",
+    "Recognise and hand-write your first four kanji: 一, 二, 三, 日."
+  ],
+  "scene": {
+    "where": "The classroom doorway, a few minutes early, everyone glancing at the clock",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "Angel has the whole evening timed to the minute and just wants to know when the break is.",
+    "cast": [
+      "rie",
+      "angel",
+      "jodi",
+      "jenny"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "angel",
+        "expression": "thinking",
+        "pose": "inspect",
+        "japanese": "すみません、じゅぎょうは なんじから なんじまでですか。",
+        "reading": "すみません、じゅぎょうは なんじから なんじまでですか。",
+        "english": "Excuse me — from what time to what time is the class?",
+        "note": "なんじ + 〜から〜まで, tonight's whole lesson in one question."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "welcome",
+        "japanese": "しちじから くじまでです。やすみは はちじごろですよ。",
+        "reading": "しちじから くじまでです。やすみは はちじごろですよ。",
+        "english": "From seven to nine. The break's around eight.",
+        "note": "〜じ for the hour; ごろ = 'around'."
+      },
+      {
+        "speakerId": "jenny",
+        "expression": "relieved",
+        "pose": "listen",
+        "japanese": "よかった。わたしは いつも ろくじに ばんごはんを たべます。",
+        "reading": "よかった。わたしは いつも ろくじに ばんごはんを たべます。",
+        "english": "Good. I always eat dinner at six.",
+        "note": "〜じに + verb ます — 'at' a clock time."
+      },
+      {
+        "speakerId": "jodi",
+        "expression": "warm",
+        "pose": "explain",
+        "japanese": "わたしは あさ しちじに おきます。よる じゅういちじに ねます。",
+        "reading": "わたしは あさ しちじに おきます。よる じゅういちじに ねます。",
+        "english": "I get up at seven in the morning and go to bed at eleven at night.",
+        "note": "Two daily verbs, two times — a whole day in one line."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "handoff",
+        "japanese": "いいですね。きょうは じかんの いいかたを れんしゅうしましょう。",
+        "reading": "いいですね。きょうは じかんの いいかたを れんしゅうしましょう。",
+        "english": "Lovely. Tonight let's practise how to say the time.",
+        "note": "Rie names the lesson and opens the door."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Last week you learned to point and pay — ここ, そこ, いくらですか, これを ください. You can find the shop and buy the cake. Tonight you get the other half of every plan: what time, and from when until when.",
+    "intro": "Japanese tells the time in a tidy, friendly way. The hour is 〜じ, the minutes are 〜ふん, and に means 'at'. Then two little words — から (from) and まで (until) — stretch one time into a whole afternoon. We'll build a real daily schedule with them, and keep an eye on two hiragana shapes that trip everyone up: the stretched long vowel and the tiny っ.",
+    "grammarPoints": [
+      {
+        "pattern": "〜じ ／ 〜ふん ／ 〜に",
+        "nameJa": "じかんの いいかた",
+        "meaning": "telling the time, and 'at' a time",
+        "explanation": "Say the hour with 〜じ and the minutes with 〜ふん (it voices to 〜ぷん after some numbers). To say you do something AT that time, add に after it: しちじに おきます, 'I get up at seven'. はん means 'half past' (くじはん = 9:30). ごぜん is a.m., ごご is p.m. A few readings change shape and are worth learning by ear: よじ (4:00), しちじ (7:00), くじ (9:00). Written out, the hour is usually the kanji 時 and the minutes 分 — tonight we read them in kana so you can hear them.",
+        "watchFor": "に goes on clock times and calendar points, but NOT on あした / きょう / まいにち — those never take に.",
+        "commonError": "Saying よんじ for four o'clock. It's よじ. Likewise しちじ and くじ, not ななじ or きゅうじ.",
+        "examples": [
+          {
+            "ja": "あさ しちじに おきます。",
+            "reading": "あさ しちじに おきます。",
+            "en": "I get up at seven in the morning.",
+            "note": "〜じに + verb ます."
+          },
+          {
+            "ja": "じゅぎょうは くじはんに はじまります。",
+            "reading": "じゅぎょうは くじはんに はじまります。",
+            "en": "The class starts at half past nine.",
+            "note": "はん = half past."
+          },
+          {
+            "ja": "いま なんじですか。ごぜん じゅうじです。",
+            "reading": "いま なんじですか。ごぜん じゅうじです。",
+            "en": "What time is it now? It's ten a.m.",
+            "note": "ごぜん = a.m.; なんじ = what time."
+          }
+        ]
+      },
+      {
+        "pattern": "〜から〜まで",
+        "nameJa": "〜から〜まで",
+        "meaning": "from ... to / until ...",
+        "explanation": "から marks the start, まで marks the end. Put them straight after the time or noun: じゅぎょうは しちじから くじまでです, 'the class is from seven to nine'. You can use just one side: くじから (from nine on) or ごじまで (until five). It works for days and places too — げつようびから きんようびまで, 'from Monday to Friday'.",
+        "watchFor": "から and まで attach right onto the time word, before です. Nothing goes between the time and から.",
+        "commonError": "Swapping them — から is where it begins, まで is where it ends. しちじまで くじから is back to front.",
+        "examples": [
+          {
+            "ja": "しごとは くじから ごじまでです。",
+            "reading": "しごとは くじから ごじまでです。",
+            "en": "Work is from nine to five.",
+            "note": "The classic pair, start and end."
+          },
+          {
+            "ja": "げつようびから きんようびまで がっこうが あります。",
+            "reading": "げつようびから きんようびまで がっこうが あります。",
+            "en": "There's school from Monday to Friday.",
+            "note": "から〜まで works on days, not just clocks."
+          }
+        ]
+      },
+      {
+        "pattern": "〜ます ／ 〜ません ／ 〜ました ／ 〜ませんでした",
+        "nameJa": "どうしの ていねいな かたち",
+        "meaning": "polite verb: do / don't / did / didn't",
+        "explanation": "Four polite endings on the same verb. たべます (eat / will eat), たべません (don't eat), たべました (ate), たべませんでした (didn't eat). The plain 〜ます form covers both present and future — あした はたらきます is 'I'll work tomorrow'. For a question, just add か: たべますか. The time word usually comes near the front, with its に.",
+        "watchFor": "To answer 'no, I didn't', reach for 〜ませんでした, the longest one.",
+        "commonError": "Saying たべますでした for the past. There is no ますでした — the polite past is たべました, with no です on the end.",
+        "examples": [
+          {
+            "ja": "まいにち にほんごを べんきょうします。",
+            "reading": "まいにち にほんごを べんきょうします。",
+            "en": "I study Japanese every day.",
+            "note": "まいにち takes no に."
+          },
+          {
+            "ja": "きのう べんきょうしませんでした。",
+            "reading": "きのう べんきょうしませんでした。",
+            "en": "I didn't study yesterday.",
+            "note": "Past + negative = 〜ませんでした."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "One ordinary day",
+        "ja": "ある いちにち"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short schedule text plus long-vowel and small-っ reading practice; covers the hiragana reading worksheets' function without reproducing them."
+      },
+      "reading": {
+        "title": {
+          "en": "From morning to night",
+          "ja": "あさから よるまで"
+        },
+        "gloss": "One plain day, hour by hour — the way you'd tell a friend.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "まいあさ ろくじに おきます。「おはようございます。」",
+            "reading": "まいあさ ろくじに おきます。「おはようございます。」",
+            "en": "Every morning I get up at six. \"Good morning.\""
+          },
+          {
+            "ja": "がっこうは くじから さんじまでです。",
+            "reading": "がっこうは くじから さんじまでです。",
+            "en": "School is from nine to three."
+          },
+          {
+            "ja": "ゆうがた、ともだちと ばんごはんを たべます。",
+            "reading": "ゆうがた、ともだちと ばんごはんを たべます。",
+            "en": "In the evening I eat dinner with a friend."
+          },
+          {
+            "ja": "よる、テレビを みます。じゅういちじに ねます。",
+            "reading": "よる、テレビを みます。じゅういちじに ねます。",
+            "en": "At night I watch TV. I go to bed at eleven."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-input-time",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What time does the school day start?",
+            "ja": "がっこうは なんじから ですか。"
+          },
+          "explanation": "The note says がっこうは くじから さんじまでです — school runs from nine (くじ) to three.",
+          "reviewTag": "kara-made",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "From nine (くじ)",
+                "ja": "くじから"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "From six (ろくじ)",
+                "ja": "ろくじから"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "From eleven (じゅういちじ)",
+                "ja": "じゅういちじから"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "ろくじ is when they get up (おきます), not when school starts."
+            },
+            {
+              "trigger": "c",
+              "message": "じゅういちじ is bedtime (ねます) — school is くじから さんじまで."
+            }
+          ]
+        },
+        {
+          "id": "ex-input-longvowel",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which word means 'grandmother' — the one with the long vowel?",
+            "ja": "「おばあさん」は どちらですか。ながい おとに きを つけて。"
+          },
+          "explanation": "おばあさん (grandmother) holds the あ for an extra beat; おばさん (aunt) is short. That extra あ is a 長音, a long vowel.",
+          "reviewTag": "long-vowel",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "おばあさん (grandmother)",
+                "ja": "おばあさん"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "おばさん (aunt)",
+                "ja": "おばさん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "おばさん, with one short あ, is 'aunt'. Add a second あ — おばあさん — to hold the long vowel and mean 'grandmother'."
+            }
+          ]
+        },
+        {
+          "id": "ex-input-gakkou",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which spelling of 'school' is correct?",
+            "ja": "「がっこう」の ただしい かきかたは？"
+          },
+          "explanation": "がっこう needs both the small っ (a held beat before こ) and the long vowel こう. Drop either one and it isn't がっこう any more.",
+          "reviewTag": "small-tsu",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "がっこう"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "がこう"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "がっこ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "がこう is missing the small っ — you need the little pause before こ: がっこう."
+            },
+            {
+              "trigger": "c",
+              "message": "がっこ drops the long vowel う. The end is こう, held long: がっこう."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "phase": "prestudy",
+      "title": {
+        "en": "New Chapter 4-1 Vocabulary Sheet",
+        "ja": "Chapter 4-1 Vocabulary Sheet"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+        "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+        "title": "New Chapter 4-1 Vocabulary Sheet",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "author": "Rie Tsuruta-Barratt",
+        "pageCount": 2,
+        "orderedRows": [
+          1,
+          24
+        ],
+        "sourceBlankRows": [
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "exactFieldPolicy": "Source rows, review labels, pronunciation cells, meanings, order, and blank rows are retained in item.source.exact and component provenance; Yomu fills blank study fields without relabeling them as source.",
+        "answerVisibility": "after-attempt"
+      },
+      "items": [
+        {
+          "ja": "ふくしゅう",
+          "reading": "ふくしゅう",
+          "en": "review",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-1",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "ふくしゅう",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ふくしゅう",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜じ",
+          "reading": "〜じ",
+          "en": "〜 o'clock",
+          "example": {
+            "ja": "いま くじです。",
+            "reading": "いま くじです。",
+            "en": "It is nine o'clock now."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-2",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "〜じ",
+              "pronunciation": "-ji",
+              "meaning": null
+            },
+            "normalizedStudySurface": "〜じ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜ふん／ぷん",
+          "reading": "〜ふん／ぷん",
+          "en": "〜 minutes",
+          "example": {
+            "ja": "じゅうじ ごふんです。",
+            "reading": "じゅうじ ごふんです。",
+            "en": "It is five past ten."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-3",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "〜ふん／ぷん",
+              "pronunciation": "-fun/-pun",
+              "meaning": null
+            },
+            "normalizedStudySurface": "〜ふん／ぷん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "はん",
+          "reading": "はん",
+          "en": "half past",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-4",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "はん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "はん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いま",
+          "reading": "いま",
+          "en": "now",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-5",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "いま",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いま",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "どういたしまして",
+          "reading": "どういたしまして",
+          "en": "You're welcome.",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-6",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "どういたしまして",
+              "pronunciation": "dōitashimashite",
+              "meaning": null
+            },
+            "normalizedStudySurface": "どういたしまして",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あさ",
+          "reading": "あさ",
+          "en": "morning",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-7",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "あさ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "あさ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ひる",
+          "reading": "ひる",
+          "en": "noon / daytime",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-8",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "ひる",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ひる",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "よる／ばん",
+          "reading": "よる／ばん",
+          "en": "night / evening",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-9",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "よる／ばん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "よる／ばん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ごぜん",
+          "reading": "ごぜん",
+          "en": "a.m.",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-10",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "ごぜん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ごぜん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ごご",
+          "reading": "ごご",
+          "en": "p.m.",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-11",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "ごご",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ごご",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しごと",
+          "reading": "しごと",
+          "en": "job / work",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-12",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "*review しごと",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しごと",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "パーティ",
+          "reading": "パーティ",
+          "en": "party",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-13",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "パーティ",
+              "pronunciation": "pātī",
+              "meaning": null
+            },
+            "normalizedStudySurface": "パーティ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しけん",
+          "reading": "しけん",
+          "en": "exam",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-14",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "しけん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しけん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かいぎ",
+          "reading": "かいぎ",
+          "en": "meeting",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-15",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 15
+            },
+            "exact": {
+              "words": "かいぎ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "かいぎ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "やすみ",
+          "reading": "やすみ",
+          "en": "holiday / day off",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-16",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 16
+            },
+            "exact": {
+              "words": "やすみ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "やすみ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ひるやすみ／〜やすみ",
+          "reading": "ひるやすみ／〜やすみ",
+          "en": "lunch break / 〜 holiday",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-17",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "ひるやすみ／\n〜やすみ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ひるやすみ／〜やすみ",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜から",
+          "reading": "〜から",
+          "en": "from 〜",
+          "example": {
+            "ja": "としょかんは くじからです。",
+            "reading": "としょかんは くじからです。",
+            "en": "The library opens from nine."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-18",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "〜から",
+              "pronunciation": "- kara",
+              "meaning": "The particle から means ‘from’."
+            },
+            "normalizedStudySurface": "〜から",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜まで",
+          "reading": "〜まで",
+          "en": "until / up to 〜",
+          "example": {
+            "ja": "ごじまでです。",
+            "reading": "ごじまでです。",
+            "en": "It is open until five."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-19",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "〜まで",
+              "pronunciation": "- made",
+              "meaning": "The particle まで means ‘until’, ‘up to’."
+            },
+            "normalizedStudySurface": "〜まで",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ゆうびんきょく",
+          "reading": "ゆうびんきょく",
+          "en": "post office",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-20",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "ゆうびんきょく",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ゆうびんきょく",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "としょかん",
+          "reading": "としょかん",
+          "en": "library",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-21",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 21
+            },
+            "exact": {
+              "words": "としょかん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "としょかん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "びじゅつかん",
+          "reading": "びじゅつかん",
+          "en": "art museum",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-22",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 22
+            },
+            "exact": {
+              "words": "びじゅつかん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "びじゅつかん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "レストラン",
+          "reading": "レストラン",
+          "en": "restaurant",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-23",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 23
+            },
+            "exact": {
+              "words": "レストラン",
+              "pronunciation": "resutoran",
+              "meaning": null
+            },
+            "normalizedStudySurface": "レストラン",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "えいが",
+          "reading": "えいが",
+          "en": "film / movie",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-4-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-24",
+            "payloadSha256": "036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+            "title": "New Chapter 4-1 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 24
+            },
+            "exact": {
+              "words": "えいが",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "えいが",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-vocab-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each word to its meaning.",
+            "ja": "ことばと いみを あわせましょう。"
+          },
+          "explanation": "ごぜん is a.m. and ごご is p.m.; はん is 'half past'; まいにち is 'every day'.",
+          "reviewTag": "ch4-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "ごぜん"
+              },
+              "right": {
+                "en": "a.m., morning"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "ごご"
+              },
+              "right": {
+                "en": "p.m., afternoon"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "はん"
+              },
+              "right": {
+                "en": "half past"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "まいにち"
+              },
+              "right": {
+                "en": "every day"
+              }
+            }
+          ]
+        },
+        {
+          "id": "ex-vocab-time",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which one means 'half past three'?",
+            "ja": "「さんじはん」は どれですか。"
+          },
+          "explanation": "はん means 'half past', so 3:30 is さんじはん — the hour plus はん.",
+          "reviewTag": "ch4-vocab",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "half past three",
+                "ja": "さんじはん"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "three o'clock",
+                "ja": "さんじ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "three minutes",
+                "ja": "さんぷん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "さんじ on its own is just 3:00. Add はん for the half: さんじはん."
+            },
+            {
+              "trigger": "c",
+              "message": "さんぷん is 'three minutes', not 'half past three'. For 3:30 use さんじはん."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "source-hw-time-expression-1-days",
+      "type": "source-vocabulary-reference",
+      "order": 21,
+      "phase": "prestudy",
+      "title": {
+        "en": "HW Vocabulary time expression1+ days",
+        "ja": "ことばの いみを しらべましょう。"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+        "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+        "title": "HW Vocabulary time expression1+ days",
+        "reuse": "verbatim-source-instructions-and-ordered-rows",
+        "pageCount": 1,
+        "answerVisibility": "after-attempt"
+      },
+      "sourceInstructions": {
+        "ja": "ことばの いみ を しらべましょう。",
+        "en": "Please read the words and please check the meaning of these words."
+      },
+      "items": [
+        {
+          "ja": "きょう",
+          "reading": "きょう",
+          "en": "today",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-1",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "きょう",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あした",
+          "reading": "あした",
+          "en": "tomorrow",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-2",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "あした",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あさって",
+          "reading": "あさって",
+          "en": "the day after tomorrow",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-3",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "あさって",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "きのう",
+          "reading": "きのう",
+          "en": "yesterday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-4",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "きのう",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おととい",
+          "reading": "おととい",
+          "en": "the day before yesterday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-5",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "おととい",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "げつようび",
+          "reading": "げつようび",
+          "en": "Monday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-6",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "げつようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かようび",
+          "reading": "かようび",
+          "en": "Tuesday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-7",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "かようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "すいようび",
+          "reading": "すいようび",
+          "en": "Wednesday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-8",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "すいようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "もくようび",
+          "reading": "もくようび",
+          "en": "Thursday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-9",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "もくようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "きんようび",
+          "reading": "きんようび",
+          "en": "Friday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-10",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "きんようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "どようび",
+          "reading": "どようび",
+          "en": "Saturday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-11",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "どようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "にちようび",
+          "reading": "にちようび",
+          "en": "Sunday",
+          "tags": [
+            "source-prestudy",
+            "time-expression",
+            "weekday"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab:p1:row-12",
+            "payloadSha256": "c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab",
+            "title": "HW Vocabulary time expression1+ days",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "にちようび",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Saying when, and how long",
+        "ja": "じかんの ぶんぽう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original practice covering the chapter 4-1 time grammar exercise and the 〜から〜まで exercise."
+      },
+      "practiceFor": [
+        "〜じ／〜ふん（〜に）",
+        "〜から〜まで",
+        "〜ます／〜ません／〜ました／〜ませんでした"
+      ],
+      "exercises": [
+        {
+          "id": "ex-kara-made",
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Fill in から and まで.",
+            "ja": "「から」と「まで」で うめましょう。"
+          },
+          "japanese": "じゅぎょうは しちじ ＿①＿ くじ ＿②＿ です。",
+          "explanation": "から marks the start (しちじ) and まで marks the end (くじ): 'from seven to nine'.",
+          "reviewTag": "kara-made",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "から",
+                "alternatives": []
+              }
+            },
+            {
+              "id": "b2",
+              "answer": {
+                "primary": "まで",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "まで",
+              "message": "The first blank is the start time (しちじ), so it takes から. まで goes on the end time."
+            },
+            {
+              "trigger": "から",
+              "message": "The second blank is the end time (くじ), so it takes まで, not から."
+            }
+          ]
+        },
+        {
+          "id": "ex-ni-particle",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Choose the natural way to say 'I get up at seven'.",
+            "ja": "「しちじに おきます」の ただしい かたちは？"
+          },
+          "explanation": "A clock time takes に: しちじに おきます. The に marks the point in time when the action happens.",
+          "reviewTag": "ni-time",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "しちじに おきます"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "しちじ おきます"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "しちじで おきます"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "A clock time needs に to mark 'at': しちじに おきます."
+            },
+            {
+              "trigger": "c",
+              "message": "で marks where an action happens, not when. For a clock time use に: しちじに."
+            }
+          ]
+        },
+        {
+          "id": "ex-verb-past-neg",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Complete: 'I did NOT study Japanese yesterday.' きのう、にほんごを ＿＿。",
+            "ja": "きのう、にほんごを ＿＿。（べんきょう しなかった）"
+          },
+          "explanation": "きのう is past and the meaning is negative, so it's べんきょうしませんでした — the polite past-negative.",
+          "reviewTag": "masu-forms",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "べんきょうしませんでした"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "べんきょうしません"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "べんきょうしました"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "べんきょうしません is present ('don't study'). きのう is yesterday, so use the past 〜ませんでした."
+            },
+            {
+              "trigger": "c",
+              "message": "べんきょうしました means 'did study' — the opposite of what we want. Add the negative: 〜ませんでした."
+            }
+          ]
+        },
+        {
+          "id": "ex-verb-transform",
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "Change たべます into the polite past-negative ('did not eat').",
+            "ja": "「たべます」を ていねいな かこ・ひてい（たべなかった）に かえましょう。"
+          },
+          "japanese": "たべます → ？",
+          "explanation": "The polite past-negative is 〜ませんでした, so たべます becomes たべませんでした.",
+          "reviewTag": "masu-forms",
+          "autoGraded": true,
+          "answer": {
+            "primary": "たべませんでした",
+            "alternatives": [
+              "たべませんでした。"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "たべますでした",
+              "message": "There's no ますでした. The polite past-negative is 〜ませんでした → たべませんでした."
+            },
+            {
+              "trigger": "たべませんです",
+              "message": "Don't add です. The ending is already complete: たべませんでした."
+            },
+            {
+              "trigger": "たべなかったです",
+              "message": "That's the plain-style past-negative. Here we want the polite form: たべませんでした."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "phase": "guided-practice",
+      "title": {
+        "en": "When is the café open?",
+        "ja": "カフェは なんじから？"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original recorded dialogue covering the chapter 3 listening worksheet and its paired audio tracks; source audio not reused."
+      },
+      "audio": {
+        "assetId": "asset-l1-l08-listening",
+        "locator": "academy://audio/level-1/lesson-08-cafe-hours",
+        "durationSeconds": 34,
+        "voiceNotes": "Two speakers, slow and clear for beginners. Jenny curious; Angel precise, reading the times off like a schedule.",
+        "script": "ジェニー：カフェは なんじから なんじまでですか。 アンジェル：あさ はちじから よる じゅうじまでです。 ジェニー：にちようびも やすみじゃ ないですか。 アンジェル：にちようびは やすみです。 ジェニー：わかりました。じゃあ、どようびに いきましょう。 アンジェル：はい、ぜひ。"
+      },
+      "transcript": {
+        "revealAfterFirstAttempt": true,
+        "body": "Jenny: What time is the café open, from when to when? — Angel: From eight in the morning until ten at night. — Jenny: It's not closed on Sundays, is it? — Angel: Sundays it's closed. — Jenny: Got it. Then let's go on Saturday. — Angel: Yes, let's."
+      },
+      "audioWorksheetPairing": {
+        "pairedWith": "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
+        "note": "Stands in for the source 'Chapter 3 listening' worksheet and audio tracks 11–12: same listen-for-the-times-and-days skill, original script."
+      },
+      "exercises": [
+        {
+          "id": "ex-listen-hours",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What are the café's opening hours?",
+            "ja": "カフェは なんじから なんじまで ですか。"
+          },
+          "explanation": "Angel says あさ はちじから よる じゅうじまで — from 8 a.m. until 10 at night.",
+          "reviewTag": "listening-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "8 a.m. to 10 p.m.",
+                "ja": "あさ はちじから よる じゅうじまで"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "7 a.m. to 9 a.m.",
+                "ja": "しちじから くじまで"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "10 a.m. to 6 p.m.",
+                "ja": "じゅうじから ろくじまで"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "しちじから くじ was the class time in the scene, not the café. Listen for はちじ and じゅうじ."
+            },
+            {
+              "trigger": "c",
+              "message": "The end time is よる じゅうじ (10 at night), not the afternoon. The café runs はちじから じゅうじまで."
+            }
+          ]
+        },
+        {
+          "id": "ex-listen-closed",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which day is the café closed?",
+            "ja": "カフェの やすみは なんようびですか。"
+          },
+          "explanation": "Angel answers にちようびは やすみです — it's closed on Sundays, so they decide to go on Saturday.",
+          "reviewTag": "listening-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Sunday",
+                "ja": "にちようび"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Saturday",
+                "ja": "どようび"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "It never closes",
+                "ja": "やすみは ない"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "どようび is the day they decide to GO, because the café is open then. The closed day is にちようび."
+            },
+            {
+              "trigger": "c",
+              "message": "It does close — にちようびは やすみです, closed on Sundays."
+            }
+          ]
+        },
+        {
+          "id": "ex-soya-n5_listening_009",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "source": "soya",
+          "audioRef": "academy/content/soya/audio/jlpt_n5/n5_listening_009.mp3",
+          "prompt": {
+            "ja": "男の人は何時に起きますか。",
+            "en": null
+          },
+          "explanation": "Catch the number joined to 時 in the man’s short reply.",
+          "transcript": {
+            "revealAfterFirstAttempt": true,
+            "script": [
+              {
+                "speaker": "女",
+                "text": "毎朝(まいあさ)何時(なんじ)に起(お)きますか。"
+              },
+              {
+                "speaker": "男",
+                "text": "6時(ろくじ)に起きます。"
+              },
+              {
+                "speaker": "女",
+                "text": "早(はや)いですね。"
+              }
+            ]
+          },
+          "provenance": {
+            "reuse": "verbatim-soya",
+            "note": "Real exam-practice listening question; audio and text reproduced from the soya corpus with provenance.",
+            "sourceId": "source-soya-eagle",
+            "reference": "bundles/main.3533065e.js#n5_listening_009"
+          },
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "soya-option-1",
+              "label": {
+                "ja": "5時",
+                "en": null
+              },
+              "correct": false
+            },
+            {
+              "id": "soya-option-2",
+              "label": {
+                "ja": "6時",
+                "en": null
+              },
+              "correct": true
+            },
+            {
+              "id": "soya-option-3",
+              "label": {
+                "ja": "7時",
+                "en": null
+              },
+              "correct": false
+            },
+            {
+              "id": "soya-option-4",
+              "label": {
+                "ja": "8時",
+                "en": null
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "5時",
+              "message": "The man says 6時に起きます, not 5時."
+            },
+            {
+              "trigger": "7時",
+              "message": "The reply gives 6時; 7時 is not spoken."
+            },
+            {
+              "trigger": "8時",
+              "message": "The reply gives 6時; 8時 is not spoken."
+            }
+          ]
+        },
+        {
+          "id": "ex-soya-n5_listening_006",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "source": "soya",
+          "audioRef": "academy/content/soya/audio/jlpt_n5/n5_listening_006.mp3",
+          "prompt": {
+            "ja": "二人は何曜日に会いますか。",
+            "en": null
+          },
+          "explanation": "One suggestion is declined; keep listening until both speakers agree.",
+          "transcript": {
+            "revealAfterFirstAttempt": true,
+            "script": [
+              {
+                "speaker": "男",
+                "text": "土曜日(どようび)に会(あ)いませんか。"
+              },
+              {
+                "speaker": "女",
+                "text": "土曜日は用事(ようじ)があります。日曜日(にちようび)はどうですか。"
+              },
+              {
+                "speaker": "男",
+                "text": "日曜日はいいですよ。"
+              }
+            ]
+          },
+          "provenance": {
+            "reuse": "verbatim-soya",
+            "note": "Real exam-practice listening question; audio and text reproduced from the soya corpus with provenance.",
+            "sourceId": "source-soya-eagle",
+            "reference": "bundles/main.3533065e.js#n5_listening_006"
+          },
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "soya-option-1",
+              "label": {
+                "ja": "土曜日",
+                "en": null
+              },
+              "correct": false
+            },
+            {
+              "id": "soya-option-2",
+              "label": {
+                "ja": "日曜日",
+                "en": null
+              },
+              "correct": true
+            },
+            {
+              "id": "soya-option-3",
+              "label": {
+                "ja": "月曜日",
+                "en": null
+              },
+              "correct": false
+            },
+            {
+              "id": "soya-option-4",
+              "label": {
+                "ja": "金曜日",
+                "en": null
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "土曜日",
+              "message": "土曜日 is suggested, but the woman says she has an errand and cannot agree to it."
+            },
+            {
+              "trigger": "月曜日",
+              "message": "月曜日 is never mentioned; the agreement follows the woman’s 日曜日 suggestion."
+            },
+            {
+              "trigger": "金曜日",
+              "message": "金曜日 is never mentioned; both speakers settle on 日曜日."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "phase": "guided-practice",
+      "title": {
+        "en": "The shop notice",
+        "ja": "みせの おしらせ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short notice; covers reading comprehension of chapter 3/4 times and prices."
+      },
+      "passage": {
+        "title": {
+          "en": "Café hours and prices",
+          "ja": "カフェの じかんと ねだん"
+        },
+        "gloss": "A little notice by the door — times on top, prices below.",
+        "lines": [
+          {
+            "ja": "この みせは あさ じゅうじから よる はちじまでです。",
+            "reading": "この みせは あさ じゅうじから よる はちじまでです。",
+            "en": "This shop is open from 10 in the morning until 8 at night."
+          },
+          {
+            "ja": "げつようびは やすみです。",
+            "reading": "げつようびは やすみです。",
+            "en": "It's closed on Mondays."
+          },
+          {
+            "ja": "コーヒーは さんびゃくえん、ケーキは ごひゃくえんです。",
+            "reading": "コーヒーは さんびゃくえん、ケーキは ごひゃくえんです。",
+            "en": "Coffee is 300 yen, cake is 500 yen."
+          },
+          {
+            "ja": "どうぞ、ゆっくり どうぞ。",
+            "reading": "どうぞ、ゆっくり どうぞ。",
+            "en": "Please, stay as long as you like."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-read-closed",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which day is the shop closed?",
+            "ja": "この みせの やすみは なんようびですか。"
+          },
+          "explanation": "The notice says げつようびは やすみです — closed on Mondays.",
+          "reviewTag": "reading",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Monday",
+                "ja": "げつようび"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Sunday",
+                "ja": "にちようび"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "It doesn't close",
+                "ja": "やすみは ない"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "にちようび (Sunday) was the café in the listening. This notice closes げつようび — Monday."
+            },
+            {
+              "trigger": "c",
+              "message": "It does close one day: げつようびは やすみです."
+            }
+          ]
+        },
+        {
+          "id": "ex-read-price",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "How much is the cake?",
+            "ja": "ケーキは いくらですか。"
+          },
+          "explanation": "ケーキは ごひゃくえんです — the cake is 500 yen. The coffee is the cheaper one, 300 yen.",
+          "reviewTag": "prices",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "500 yen",
+                "ja": "ごひゃくえん"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "300 yen",
+                "ja": "さんびゃくえん"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "800 yen",
+                "ja": "はっぴゃくえん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "さんびゃくえん (300 yen) is the coffee. The cake is ごひゃくえん — 500 yen."
+            },
+            {
+              "trigger": "c",
+              "message": "800 yen isn't on the notice. The cake is ごひゃくえん, 500 yen."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Tell us your day",
+        "ja": "あなたの いちにちを はなす"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Speaking task shaped like the chapter-4 daily-routine practice; content original."
+      },
+      "prompt": "Tell the class about your day. Say three things you do and what time — when you get up, one thing that runs 〜から〜まで, and when you go to bed. About thirty seconds.",
+      "targets": [
+        "〜じに + verb ます",
+        "〜から〜まで",
+        "おきます／たべます／ねます"
+      ],
+      "recording": {
+        "minSeconds": 20,
+        "maxSeconds": 60
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "わたしは まいあさ ろくじはんに おきます。しごとは くじから ごじまでです。よる、じゅういちじに ねます。",
+        "reading": "わたしは まいあさ ろくじはんに おきます。しごとは くじから ごじまでです。よる、じゅういちじに ねます。",
+        "en": "Every morning I get up at half past six. Work is from nine to five. At night I go to bed at eleven."
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "time",
+            "label": {
+              "en": "Uses 〜じに and 〜から〜まで correctly"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Times missing or misformed"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "One time expression works"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Both a clock time and a から〜まで are clear"
+                }
+              }
+            ]
+          },
+          {
+            "id": "clarity",
+            "label": {
+              "en": "The day is easy to follow"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Hard to follow"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Mostly clear"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Clear, in order, three actions"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Write your timetable",
+        "ja": "いちにちの よてい"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original hiragana production task covering the chapter-4 daily-schedule homework and the hiragana long-vowel / small-っ writing worksheets."
+      },
+      "prompt": "Write your own daily timetable in 3–4 sentences, all in hiragana. Say what time you get up (〜じに おきます), when your main activity runs (〜から〜まで), and when you go to bed. Watch the long vowels (おはよう, がっこう) and the small っ.",
+      "minChars": 40,
+      "maxChars": 160,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "わたしは まいあさ しちじに おきます。がっこうは くじから さんじまでです。ゆうがた、ともだちと ばんごはんを たべます。よる、じゅういちじに ねます。おやすみなさい。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "time",
+            "label": {
+              "en": "Times are correct (〜じに, 〜から〜まで)"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Missing or wrong"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Clear clock time and a から〜まで"
+                }
+              }
+            ]
+          },
+          {
+            "id": "kana",
+            "label": {
+              "en": "Long vowels and small っ written correctly"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Long vowels or small っ dropped"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Mostly right, one slip"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "がっこう, ゆうがた and friends all spelled right"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Your first four kanji",
+        "ja": "はじめての かんじ"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "First numeral and day kanji drawn from tonight's time-and-schedule theme; character selection is original, not a copied source sheet."
+      },
+      "items": [
+        {
+          "character": "一",
+          "readings": {
+            "on": [
+              "イチ"
+            ],
+            "kun": [
+              "ひと-つ"
+            ]
+          },
+          "meaning": "one",
+          "exampleWord": {
+            "ja": "一つ",
+            "reading": "ひとつ",
+            "en": "one (thing)"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'one'?",
+            "answer": "一"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 1,
+            "mnemonic": "One flat line — the simplest number there is.",
+            "tracePrompt": "Trace 一 left to right, then write it twice from memory."
+          }
+        },
+        {
+          "character": "二",
+          "readings": {
+            "on": [
+              "ニ"
+            ],
+            "kun": [
+              "ふた-つ"
+            ]
+          },
+          "meaning": "two",
+          "exampleWord": {
+            "ja": "二つ",
+            "reading": "ふたつ",
+            "en": "two (things)"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'two'?",
+            "answer": "二"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 2,
+            "mnemonic": "Two lines stacked — the top one a little shorter.",
+            "tracePrompt": "Trace 二, top line then bottom, then write it from memory."
+          }
+        },
+        {
+          "character": "三",
+          "readings": {
+            "on": [
+              "サン"
+            ],
+            "kun": [
+              "みっ-つ"
+            ]
+          },
+          "meaning": "three",
+          "exampleWord": {
+            "ja": "三つ",
+            "reading": "みっつ",
+            "en": "three (things)"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'three'?",
+            "answer": "三"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 3,
+            "mnemonic": "Three lines — the middle one is the shortest.",
+            "tracePrompt": "Trace 三 top to bottom, then write it from memory."
+          }
+        },
+        {
+          "character": "日",
+          "readings": {
+            "on": [
+              "ニチ",
+              "ジツ"
+            ],
+            "kun": [
+              "ひ",
+              "-び",
+              "か"
+            ]
+          },
+          "meaning": "day, sun",
+          "exampleWord": {
+            "ja": "日ようび",
+            "reading": "にちようび",
+            "en": "Sunday"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'day' or 'sun'?",
+            "answer": "日"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 4,
+            "mnemonic": "A little window with a line across it — the sun in the sky.",
+            "tracePrompt": "Trace 日, then write 日ようび once from memory."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-kanji-count",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which kanji means 'three'?",
+            "ja": "「みっつ」の かんじは どれですか。"
+          },
+          "explanation": "Three lines stacked is 三. One line is 一, two lines is 二.",
+          "reviewTag": "kanji-numbers",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "三"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "二"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "一"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "二 has two lines — that's 'two'. 'Three' has three lines: 三."
+            },
+            {
+              "trigger": "c",
+              "message": "一 is a single line — 'one'. Count three lines for 三."
+            }
+          ]
+        },
+        {
+          "id": "ex-kanji-read",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "How do you read 日ようび?",
+            "ja": "「日ようび」の よみかたは？"
+          },
+          "explanation": "日ようび is にちようび (Sunday). Here 日 takes its on-reading にち.",
+          "reviewTag": "kanji-day",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "にちようび"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ひようび"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "かようび"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "ひ is 日 on its own (as in 'day/sun'). In 日ようび it reads にち: にちようび."
+            },
+            {
+              "trigger": "c",
+              "message": "かようび is Tuesday (火ようび), a different kanji. 日ようび is にちようび, Sunday."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "phase": "transfer",
+      "title": {
+        "en": "Cumulative review",
+        "ja": "ふくしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review folding in the chapter 1 and chapter 3 material of this term (introductions, particles, prices)."
+      },
+      "reviewFrom": [
+        "l1-l07",
+        "l1-l06",
+        "l1-l05"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [
+          "l1-l05",
+          "l1-l06",
+          "l1-l07"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-review-mo",
+          "kind": "cloze",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Chapter 1 review — fill the particle for 'too'.",
+            "ja": "「も」で うめましょう。"
+          },
+          "japanese": "わたしは がくせいです。ジェニーさん ＿①＿ がくせいです。",
+          "explanation": "も means 'also / too' and replaces は: 'Jenny is a student too.'",
+          "reviewTag": "mo-particle",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "も",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "は",
+              "message": "は would just restate the topic. To say Jenny is a student TOO, swap in も."
+            },
+            {
+              "trigger": "が",
+              "message": "が isn't the 'too' particle here. For 'also', use も: ジェニーさんも."
+            }
+          ]
+        },
+        {
+          "id": "ex-review-no",
+          "kind": "cloze",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Chapter 1 review — link the two nouns.",
+            "ja": "「の」で うめましょう。"
+          },
+          "japanese": "これは にほんご ＿①＿ ほんです。",
+          "explanation": "の links two nouns, X の Y = 'Y of X': にほんごの ほん, 'a Japanese-language book'.",
+          "reviewTag": "no-particle",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "の",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "は",
+              "message": "は marks a topic, not a link between two nouns. Use の: にほんごの ほん."
+            },
+            {
+              "trigger": "を",
+              "message": "を marks an object of a verb. To join にほんご and ほん, use の."
+            }
+          ]
+        },
+        {
+          "id": "ex-review-ikura",
+          "kind": "choice",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Chapter 3 review — pick the natural answer to 「この ケーキは いくらですか。」",
+            "ja": "「この ケーキは いくらですか。」に あう こたえは？"
+          },
+          "explanation": "いくら asks a price, so the answer is a price with 〜えんです: ごひゃくえんです.",
+          "reviewTag": "prices",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "ごひゃくえんです"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ごひゃくえんに"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "おいしいです"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "A price answer ends in 〜えんです, not 〜えんに. Say ごひゃくえんです."
+            },
+            {
+              "trigger": "c",
+              "message": "おいしいです ('it's tasty') answers 'how is it?', not 'how much?'. いくら wants a price."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "title": "The free-time board",
+    "framedBy": "jodi",
+    "prompt": "Jodi's setting up a study meet-up and needs everyone's free times. In Japanese, post when you're free on two different days — use a day name and 〜から〜まで — then reply to one classmate to suggest a time you could both meet.",
+    "successCriteria": [
+      "Give at least one clear time with 〜じ (and 〜はん if you like).",
+      "Use 〜から〜まで to show a stretch of free time.",
+      "Name two different days (どようび, にちようび…).",
+      "Reply to one classmate and suggest a time you could both meet."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "わたしは どようびが ひまです。ごご いちじから ごじまで だいじょうぶです。にちようびは ゆうがたから ひまです。ヘンリーさん、どようびの さんじに あいましょう。",
+      "reading": "わたしは どようびが ひまです。ごご いちじから ごじまで だいじょうぶです。にちようびは ゆうがたから ひまです。ヘンリーさん、どようびの さんじに あいましょう。",
+      "en": "I'm free on Saturday. From 1 p.m. to 5 p.m. I'm fine. On Sunday I'm free from the evening. Henry, let's meet at three on Saturday."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "time",
+          "label": {
+            "en": "Time and 〜から〜まで used correctly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Missing or wrong"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "A clear time and a から〜まで"
+              }
+            }
+          ]
+        },
+        {
+          "id": "warmth",
+          "label": {
+            "en": "Kind, clear reply to a classmate"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "No reply"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "Reply present"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Warm reply with a real suggested time"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "〜から〜まで",
+        "back": "from ... to / until ... (から = start, まで = end)",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "〜じ／〜ふん（〜に）",
+        "back": "telling time: hour 〜じ, minutes 〜ふん; に = 'at' a time",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "〜ます／〜ません／〜ました／〜ませんでした",
+        "back": "polite verb: do / don't / did / didn't",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "いま",
+        "back": "now",
+        "reading": "いま",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "なんじ",
+        "back": "what time",
+        "reading": "なんじ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ごぜん",
+        "back": "a.m., morning",
+        "reading": "ごぜん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ごご",
+        "back": "p.m., afternoon",
+        "reading": "ごご",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "はん",
+        "back": "half past",
+        "reading": "はん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "まいにち",
+        "back": "every day",
+        "reading": "まいにち",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "おきます",
+        "back": "to get up, wake up",
+        "reading": "おきます",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ねます",
+        "back": "to go to bed, sleep",
+        "reading": "ねます",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "一",
+        "back": "one — イチ / ひと-つ (一つ)",
+        "reading": "いち",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "二",
+        "back": "two — ニ / ふた-つ (二つ)",
+        "reading": "に",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "三",
+        "back": "three — サン / みっ-つ (三つ)",
+        "reading": "さん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "日",
+        "back": "day, sun — ニチ / ひ (日ようび)",
+        "reading": "にち",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l08",
+          "kanji"
+        ]
+      }
+    ]
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "angel",
+      "jodi",
+      "jenny",
+      "henry"
+    ]
+  },
+  "preStudyVocabulary": {
+    "status": "source-exact-with-yomu-support",
+    "primarySourceId": "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd",
+    "primaryComponentOrder": 20,
+    "orderedItemIds": [
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-1",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-2",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-3",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-4",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-5",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-6",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-7",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-8",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-9",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-10",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-11",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-12",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-13",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-14",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-15",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p1:row-16",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-17",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-18",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-19",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-20",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-21",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-22",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-23",
+      "moodle-vocabulary:5866381:036a057edcccc409c987027b0a4d3fef00dc8134fd0e4bb0bc5341c2cdc2dadd:p2:row-24"
+    ],
+    "additionalSourceIds": [
+      "moodle-vocabulary:5866381:c69d083fd61bcc6d179c70b9da81a68eb759d483ab9c66614ffa3c63ec0780ab"
+    ],
+    "answerVisibility": "after-attempt"
+  }
+}

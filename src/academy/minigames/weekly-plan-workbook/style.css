@@ -1,0 +1,130 @@
+.academy-weekly-plan {
+    display: grid;
+    gap: 20px;
+}
+
+.academy-weekly-plan-teaching,
+.academy-weekly-plan-form,
+.academy-weekly-plan-group,
+.academy-weekly-plan-rounds {
+    display: grid;
+    gap: 16px;
+}
+
+.academy-weekly-plan-teaching-step {
+    border-inline-start: 3px solid var(--academy-accent, #b73a43);
+    padding-inline-start: 14px;
+}
+
+.academy-weekly-plan-teaching-step h4,
+.academy-weekly-plan-teaching-step p {
+    margin-block: 4px;
+}
+
+.academy-weekly-plan-model {
+    font-weight: 700;
+}
+
+.academy-weekly-plan-rounds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.academy-weekly-plan-round {
+    min-width: 0;
+    border: 1px solid var(--academy-border, #c9c7c1);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.academy-weekly-plan-round legend {
+    max-width: 100%;
+    padding-inline: 4px;
+    white-space: pre-line;
+}
+
+.academy-weekly-plan-pair,
+.academy-weekly-plan-choice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.academy-weekly-plan-select,
+.academy-weekly-plan-typed {
+    display: grid;
+    gap: 6px;
+}
+
+.academy-weekly-plan-select select,
+.academy-weekly-plan-typed input,
+.academy-weekly-plan-hint,
+.academy-weekly-plan-check,
+.academy-weekly-plan-start {
+    min-height: 44px;
+}
+
+.academy-weekly-plan-select select,
+.academy-weekly-plan-typed input {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.academy-weekly-plan-polarity {
+    display: flex;
+    min-width: 0;
+    gap: 12px;
+    border: 0;
+    padding: 0;
+}
+
+.academy-weekly-plan-polarity label {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+}
+
+.academy-weekly-plan-copula {
+    align-self: center;
+    font-weight: 700;
+}
+
+.academy-weekly-plan-hints {
+    display: grid;
+    gap: 8px;
+    margin-block-start: 14px;
+}
+
+.academy-weekly-plan-hint {
+    justify-self: start;
+}
+
+.academy-weekly-plan-hint-output:empty {
+    display: none;
+}
+
+.academy-weekly-plan-hint-output:not(:empty) {
+    border-inline-start: 3px solid var(--academy-focus, #176b73);
+    padding-inline-start: 10px;
+}
+
+.academy-weekly-plan-repair .academy-weekly-plan-round[data-needs-repair='true'] {
+    border-color: var(--academy-warning, #a84b00);
+}
+
+@media (max-width: 620px) {
+    .academy-weekly-plan-rounds,
+    .academy-weekly-plan-pair,
+    .academy-weekly-plan-choice {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-weekly-plan,
+    .academy-weekly-plan * {
+        scroll-behavior: auto;
+        transition: none;
+    }
+}

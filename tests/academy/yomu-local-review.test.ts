@@ -3,7 +3,10 @@ import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import { createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
 import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
+import { n3StoryPractice } from '../../src/academy/content/n3-story-practice';
+import { storyReplayReviewSeed } from '../../src/academy/content/story-replay-catalog';
 import type { ActivityEvaluation, ReviewSeed } from '../../src/academy/domain/activity-runtime';
+import { createLibraryVocabularySheet, libraryVocabularyReviewSeeds } from '../../src/academy/content/library-vocabulary-sheet';
 import { groundedLessonForEvaluation, staticGroundedLessonResolver } from './fixtures/grounded-lesson';
 
 describe('Academy Yomu review bridge', () => {
@@ -63,6 +66,25 @@ describe('Academy Yomu review bridge', () => {
         ]);
     });
 
+    it('reads new and cleared syllabus state from the same shared Yomu deck', async () => {
+        let now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const service = createYomuLocalReviewService(repository, () => now);
+        const syllabus = [{ id: 'lesson:read', expression: '読む', reading: 'よむ' }] as const;
+
+        await expect(service.syllabusState?.(syllabus)).resolves.toBe('new');
+        const collected = await repository.collectAcademyVocabulary({
+            expression: '読む',
+            reading: 'よむ',
+            meanings: ['to read'],
+            provenance: { id: 'academy:study-syllabus:lesson:read', kind: 'study-encounter', sourceId: 'lesson:read' },
+        });
+        await repository.review({ card: collected.card, grade: 'good' });
+        now += 1;
+
+        await expect(service.syllabusState?.(syllabus)).resolves.toBe('cleared');
+    });
+
     it('carries a real Academy attempt through the canonical Study card, grade, stats, and reload', async () => {
         let now = Date.parse('2026-07-13T10:00:00.000Z');
         const repository = new LocalYomuSrsRepository(() => now);
@@ -112,11 +134,58 @@ describe('Academy Yomu review bridge', () => {
         now += 1;
 
         const reloaded = new LocalYomuSrsRepository(() => now);
-        const reloadedQueue = await reloaded.queue(10);
-        expect(reloadedQueue.cards).toHaveLength(1);
-        expect(reloadedQueue.cards[0]).toMatchObject({ providerCardId: semanticId, state: ['learning'] });
+        expect((await reloaded.queue(10)).cards).toEqual([]);
         expect(await reloaded.stats()).toMatchObject({ reviewsToday: 1, levelCounts: { new: 0, learning: 1, known: 0 } });
         expect(await createYomuLocalReviewService(reloaded, () => now).due(10)).toHaveLength(0);
+
+        now += 2 * 86_400_000;
+        const [rescheduled] = (await reloaded.queue(10)).cards;
+        expect(rescheduled).toMatchObject({ providerCardId: semanticId, state: ['due'] });
+    });
+
+    it('ingests a passed story replay into the real Yomu SRS queue before scheduling its callback', async () => {
+        const now = Date.parse('2026-07-15T10:00:00.000Z');
+        const repository = new LocalYomuSrsRepository(() => now);
+        const review = createYomuLocalReviewService(repository, () => now);
+        const events = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(events, review);
+        const practice = n3StoryPractice('activity:story-n3:after-applause-tone')!;
+        await evidence.initialize();
+
+        await evidence.recordAuthoredStoryPractice({
+            ...practice,
+            reviewSeed: storyReplayReviewSeed(practice),
+        }, 'pass');
+
+        const [card] = (await repository.queue(10)).cards;
+        expect(card).toMatchObject({ expression: 'まだ決定していない。', state: ['new'] });
+        expect(Object.values(evidence.projection.scheduledReviews)).toEqual([
+            expect.objectContaining({ reviewItemId: canonicalStudyCardKey('まだ決定していない。'), conceptId: practice.conceptIds[0] }),
+        ]);
+    });
+
+    it('seeds verified pre-study rows into the real local SRS without recording pretend answers', async () => {
+        let now = Date.parse('2026-07-15T10:00:00.000Z');
+        const repository = new LocalYomuSrsRepository(() => now);
+        const review = createYomuLocalReviewService(repository, () => now);
+        const events = createMemoryLearnerEventRepository();
+        const evidence = createLearnerEvidence(events, review);
+        const seeds = libraryVocabularyReviewSeeds(createLibraryVocabularySheet());
+        await evidence.initialize();
+
+        await evidence.seedVocabularyPrerequisite('authored-week:l1-l01', seeds);
+        const [first] = (await repository.queue(100)).cards;
+        expect(first).toMatchObject({ state: ['new'] });
+        expect((await events.readAll()).filter(event => event.kind === 'attempt-recorded')).toEqual([]);
+        const scheduled = (await events.readAll()).filter(event => event.kind === 'review-scheduled');
+        expect(scheduled.length).toBeGreaterThan(0);
+        expect(scheduled.every(event => event.provenance.prerequisite === 'authored-week:l1-l01')).toBe(true);
+
+        await repository.review({ card: first!, grade: 'good' });
+        now += 1;
+        await evidence.seedVocabularyPrerequisite('authored-week:l1-l01', seeds);
+        expect((await repository.queue(100)).cards.some(card => card.providerCardId === first!.providerCardId)).toBe(false);
+        expect((await events.readAll()).filter(event => event.kind === 'review-scheduled')).toHaveLength(scheduled.length);
     });
 });
 

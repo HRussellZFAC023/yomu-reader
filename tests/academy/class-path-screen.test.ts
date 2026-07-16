@@ -12,26 +12,38 @@ function plan() {
 afterEach(() => document.body.replaceChildren());
 
 describe('Class path', () => {
-    it('shows the whole course as collapsed level chapters and expands only the current level', () => {
+    it('shows the whole course as one continuous chronological path with quiet level metadata', () => {
         const screen = renderClassPathScreen({
             language: 'en',
             plan: plan(),
             currentOrder: 2,
-            playableWeekIds: new Set(['orientation']),
+            playableWeekIds: new Set(['orientation', 'l1-l01']),
             completedWeekIds: new Set(),
+            onBack: vi.fn(),
             onOpenWeek: vi.fn(),
         });
 
         expect(screen.querySelector('.academy-panel')).toBeNull();
-        expect(screen.querySelectorAll('.academy-class-path-group')).toHaveLength(5);
-        expect(screen.querySelectorAll('.academy-class-path-group[open]')).toHaveLength(1);
-        expect([...screen.querySelectorAll('.academy-class-path-group-title')].map(node => node.textContent)).toEqual([
+        expect(screen.querySelector('.academy-class-path-paper')).toBeNull();
+        expect(screen.querySelector('details')).toBeNull();
+        expect(screen.querySelectorAll('.academy-class-week-spine')).toHaveLength(1);
+        expect([...screen.querySelectorAll('.academy-class-week-level')].map(node => node.textContent?.replace(' · ', ''))).toEqual([
             'Foundation', 'N5', 'N4', 'N3', 'N2 → N1',
         ]);
-        expect(screen.querySelector('[data-path-group="level-1"]')?.hasAttribute('open')).toBe(true);
         expect(screen.querySelectorAll('.academy-class-week-node')).toHaveLength(73);
+        expect(screen.querySelector('.academy-class-week-node:first-child')?.getAttribute('data-week-id')).toBe('orientation');
+        expect(screen.querySelector('.academy-class-week-node:last-child')?.getAttribute('data-week-id')).toBe('l3plus-kanji-7');
+        expect(screen.querySelector('[data-week-id="orientation"] .academy-class-week-sequence')?.textContent).toBe('Lesson 0');
+        expect(screen.querySelector('[data-week-id="orientation"] .academy-class-week-prerequisite')?.textContent)
+            .toBe('No prerequisites');
+        expect(screen.querySelector('[data-week-id="l1-kickoff"] .academy-class-week-prerequisite')?.textContent)
+            .toBe('Requires Lesson 0');
+        expect(screen.querySelector('[data-week-id="l1-l01"] .academy-class-week-prerequisite')?.textContent)
+            .toBe('Requires Lesson 0');
+        expect(screen.querySelector('.academy-class-week-number')).toBeNull();
+        expect(screen.querySelector('.academy-class-week-kind')).toBeNull();
         expect(screen.querySelector('[data-week-id="l1-l01"]')?.getAttribute('aria-current')).toBe('step');
-        expect(screen.querySelectorAll('button.academy-class-week-entry')).toHaveLength(1);
+        expect(screen.querySelectorAll('button.academy-class-week-entry')).toHaveLength(2);
         expect(screen.querySelector<HTMLElement>('[data-week-id="l3plus-kanji-7"]')?.dataset.weekRuntime).toBe('not-bound');
     });
 
@@ -42,6 +54,7 @@ describe('Class path', () => {
             plan: plan(),
             currentOrder: 0,
             playableWeekIds: new Set(['orientation']),
+            onBack: vi.fn(),
             onOpenWeek: open,
         });
         screen.querySelector<HTMLButtonElement>('[data-week-id="orientation"] button')?.click();
@@ -51,48 +64,180 @@ describe('Class path', () => {
         expect(screen.querySelector('[data-week-id="l1-kickoff"] [aria-disabled="true"]')).not.toBeNull();
     });
 
-    it('filters people and events to the expanded level and keeps concise Japanese section labels', () => {
+    it('shows people and events for the full path and keeps concise Japanese section labels', () => {
         const screen = renderClassPathScreen({
             language: 'ja',
             plan: plan(),
             currentOrder: 0,
             playableWeekIds: new Set(['orientation']),
+            onBack: vi.fn(),
             onOpenWeek: vi.fn(),
         });
-        const later = screen.querySelector<HTMLDetailsElement>('[data-path-group="level-3-plus"]')!;
-        later.open = true;
-        later.dispatchEvent(new Event('toggle'));
-
         expect(screen.querySelector('h1')?.textContent).toBe('クラス');
         expect(screen.querySelector('#academy-class-path-weeks h2')?.textContent).toBe('道のり');
         expect(screen.querySelector('#academy-class-path-people h2')?.textContent).toBe('みんな');
         expect(screen.querySelector('#academy-class-path-events h2')?.textContent).toBe('イベント');
-        expect(screen.querySelector<HTMLElement>('#academy-class-path-people')?.dataset.pathGroup).toBe('level-3-plus');
         expect(screen.querySelector('#academy-class-path-events')?.textContent).toContain('旅');
-        expect(screen.querySelector('#academy-class-path-events')?.textContent).not.toContain('ひらいた扉');
+        expect(screen.querySelector('#academy-class-path-events')?.textContent).toContain('ひらいた扉');
+        expect(screen.querySelector('#academy-class-path-events')?.textContent).not.toContain('最初の学期');
+        expect(screen.querySelector<HTMLElement>('#academy-class-path-events')?.hidden).toBe(true);
+        screen.querySelector<HTMLButtonElement>('[data-class-section="events"]')?.click();
+        expect(screen.querySelector<HTMLElement>('#academy-class-path-events')?.hidden).toBe(false);
+        expect(screen.querySelector<HTMLElement>('#academy-class-path-weeks')?.hidden).toBe(true);
+        expect([...screen.querySelectorAll('.academy-class-event-title')]
+            .every(title => title.classList.contains('academy-primary-purpose'))).toBe(true);
     });
 
-    it('keeps Peter and Shaun in the first-term people and story records', () => {
+    it('keeps Peter and Shaun in the class-photo people and story records', () => {
         const screen = renderClassPathScreen({
             language: 'en',
             plan: plan(),
             currentOrder: 2,
             playableWeekIds: new Set(['orientation']),
+            onBack: vi.fn(),
             onOpenWeek: vi.fn(),
         });
 
         expect(screen.querySelector('#academy-class-path-people [data-cast-id="peter"]')?.textContent).toContain('Peter');
         expect(screen.querySelector('#academy-class-path-people [data-cast-id="shaun"]')?.textContent).toContain('Shaun');
         const event = screen.querySelector('[data-event-id="event:first-term-photo"]');
-        expect(event?.textContent).toContain('First term');
+        expect(event?.textContent).toContain('The class photograph');
+        expect(event?.textContent).not.toContain('First term');
         expect(event?.textContent).toContain('Peter · Shaun');
     });
 
-    it('uses a vertical syllabus spine instead of horizontal rails', () => {
+    it('revisits completed stops, recommends the current stop, and does not open a grounded future stop', () => {
+        const open = vi.fn();
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 3,
+            playableWeekIds: new Set(['orientation', 'l1-l01', 'l1-l02', 'l1-l03']),
+            completedWeekIds: new Set(['l1-l01']),
+            onBack: vi.fn(),
+            onOpenWeek: open,
+        });
+
+        const complete = screen.querySelector<HTMLElement>('[data-week-id="l1-l01"]')!;
+        expect(complete.dataset.weekStatus).toBe('complete');
+        expect(complete.querySelector('.academy-class-week-status')?.textContent).toBe('Completed');
+        expect(complete.querySelector('.academy-class-week-action')?.textContent).toBe('Revisit');
+        complete.querySelector<HTMLButtonElement>('button')?.click();
+        expect(open).toHaveBeenCalledWith('l1-l01');
+
+        const current = screen.querySelector<HTMLElement>('[data-week-id="l1-l02"]')!;
+        expect(current.dataset.weekStatus).toBe('current');
+        expect(current.getAttribute('aria-current')).toBe('step');
+        expect(current.querySelector('.academy-class-week-status')?.textContent).toBe('Recommended');
+        expect(current.querySelector('.academy-class-week-action')?.textContent).toBe('Continue');
+
+        const earlier = screen.querySelector<HTMLElement>('[data-week-id="orientation"]')!;
+        expect(earlier.dataset.weekStatus).toBe('available');
+        expect(earlier.querySelector('.academy-class-week-status')?.textContent).toBe('Earlier lesson');
+        expect(earlier.querySelector('.academy-class-week-action')?.textContent).toBe('Revisit');
+        earlier.querySelector<HTMLButtonElement>('button')?.click();
+        expect(open).toHaveBeenCalledWith('orientation');
+
+        const future = screen.querySelector<HTMLElement>('[data-week-id="l1-l03"]')!;
+        expect(future.dataset.weekRuntime).toBe('playable');
+        expect(future.dataset.weekStatus).toBe('locked');
+        expect(future.querySelector('button')).toBeNull();
+        expect(future.querySelector('[aria-disabled="true"]')).not.toBeNull();
+        expect(future.querySelector('.academy-class-week-status')?.textContent).toBe('Future stop');
+    });
+
+    it('uses only runtime-approved transparent cutouts and keeps pending likenesses name-only', () => {
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 2,
+            playableWeekIds: new Set(['l1-l01']),
+            onBack: vi.fn(),
+            onOpenWeek: vi.fn(),
+        });
+
+        expect(screen.querySelector('.academy-class-register-mark')).toBeNull();
+        expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite img')?.getAttribute('src')).toContain('/characters/rie/');
+        expect(screen.querySelector('[data-cast-id="sophie"] picture.academy-sprite img')).toBeNull();
+        const peter = screen.querySelector<HTMLElement>('[data-cast-id="peter"]')!;
+        expect(peter.dataset.portraitState).toBe('name-only');
+        expect(peter.querySelector('img')).toBeNull();
+        const fallback = screen.querySelector<HTMLElement>('[data-cast-id="henry"]')!;
+        expect(fallback.dataset.portraitState).toBe('name-only');
+        expect(fallback.querySelector('img')).toBeNull();
+        expect(fallback.querySelector('.academy-class-person-name')?.textContent).toBe('Henry-san');
+        expect(fallback.querySelector('.academy-class-person-caption')?.children).toHaveLength(2);
+
+        const lessonZeroHost = screen.querySelector('[data-week-id="orientation"] [data-week-cast-id="rie"]');
+        expect(lessonZeroHost?.querySelector('picture.academy-sprite img')?.getAttribute('src')).toContain('/characters/rie/');
+        const peterAppearance = screen.querySelector('[data-week-id="l1-l04"] [data-week-cast-id="peter"]');
+        expect(peterAppearance?.classList.contains('is-name-only')).toBe(true);
+        const xingyuAppearance = screen.querySelector('[data-week-id="l1-l03"] [data-week-cast-id="xingyu"]');
+        expect(xingyuAppearance?.classList.contains('is-name-only')).toBe(true);
+        expect(xingyuAppearance?.textContent).toBe('Xingyu');
+    });
+
+    it('shows an approved cutout only after that classmate is unlocked', () => {
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 0,
+            playableWeekIds: new Set(['orientation']),
+            characters: [{
+                characterId: 'rie',
+                name: 'Rie',
+                category: 'teacher',
+                unlocked: false,
+                chapters: [],
+                revisitPaths: [],
+            }],
+            onBack: vi.fn(),
+            onOpenWeek: vi.fn(),
+        });
+
+        const rie = screen.querySelector<HTMLElement>('[data-cast-id="rie"]')!;
+        expect(rie.dataset.unlocked).toBe('false');
+        expect(rie.dataset.portraitState).toBe('locked');
+        expect(rie.querySelector('img')).toBeNull();
+    });
+
+    it('delegates Back to route history instead of choosing a replacement destination', () => {
+        const back = vi.fn();
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 2,
+            playableWeekIds: new Set(['l1-l01']),
+            onBack: back,
+            onOpenWeek: vi.fn(),
+        });
+
+        screen.querySelector<HTMLButtonElement>('.academy-class-path-back')?.click();
+        expect(back).toHaveBeenCalledOnce();
+    });
+
+    it('defines desktop and narrow-phone layout without clipping portrait overhangs', () => {
         const css = fs.readFileSync(path.resolve('src/academy/styles/class-path.css'), 'utf8');
+        const purposeCss = fs.readFileSync(path.resolve('src/academy/styles/primary-purpose.css'), 'utf8');
         expect(css).toMatch(/\.academy-class-week-spine\s*\{/);
+        expect(css).not.toContain('.academy-class-week-number');
+        expect(css).not.toContain('.academy-class-week-kind');
         expect(css).not.toMatch(/grid-auto-flow:\s*column/);
         expect(css).not.toMatch(/overflow-x:\s*auto[^}]*scroll-snap-type/s);
+        expect(css).not.toContain('.academy-class-path-paper');
+        expect(css).toMatch(/\.academy-class-register\s*\{[^}]*overflow:\s*visible/s);
+        expect(css).toMatch(/\.academy-class-person-card\s*\{[^}]*overflow:\s*visible/s);
+        expect(css).toMatch(/\.academy-class-person-portrait\s*\{[^}]*top:\s*-54px/s);
+        expect(css).toMatch(/\.academy-class-person-portrait img\s*\{[^}]*object-fit:\s*contain/s);
+        expect(css).toMatch(/\.academy-class-person-caption\s*\{[^}]*background:/s);
+        expect(css).toMatch(/\.academy-class-week-cast\s*\{/);
+        expect(css).toMatch(/\.academy-class-week-sprite img\s*\{[^}]*object-fit:\s*contain/s);
+        expect(css).toMatch(/@media \(min-width: 980px\)/);
         expect(css).toMatch(/@media \(max-width: 700px\)/);
+        expect(css).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-class-register\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[^}]*row-gap:\s*58px/s);
+        expect(css).not.toMatch(/\.academy-class-person-(?:card|portrait|caption)[^{]*\{[^}]*overflow:\s*hidden/s);
+        expect(purposeCss).toMatch(/academy-class-event \.academy-primary-purpose[\s\S]*text-overflow:\s*clip[\s\S]*white-space:\s*normal/s);
+        expect(purposeCss).toMatch(/\.academy-class-event-season\s*\{[^}]*color:\s*#315d45/s);
+        expect(purposeCss).toMatch(/\.academy-class-event-copy,[\s\S]*\.academy-class-event-status[\s\S]*overflow:\s*visible/s);
     });
 });

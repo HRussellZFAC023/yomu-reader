@@ -1,11 +1,17 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
-import { ACADEMY_CAST } from '../domain/cast-registry';
+import { ACADEMY_ASSETS } from '../assets';
+import {
+    canRenderAcademyCastPortrait,
+    getAcademyCastMember,
+    type AcademyCastMember,
+} from '../domain/cast-registry';
 import type {
     LessonOverviewModel,
     LessonOverviewSection,
     LessonSectionLearningStatus,
 } from '../domain/lesson-overview';
-import { academyBackgroundPicture, element } from './dom';
+import { academyBackgroundPicture, backButton, element } from './dom';
+import { createAcademySprite } from './sprite';
 
 export interface LessonOverviewScreenOptions {
     readonly language: AcademyLanguage;
@@ -14,30 +20,37 @@ export interface LessonOverviewScreenOptions {
     readonly onOpenActivity: (activityId: string) => void;
 }
 
-/** A single continuous handout: context first, then every section in order. */
+/** A clear VN scene with only the lesson's working surfaces lifted onto paper. */
 export function renderLessonOverviewScreen(options: LessonOverviewScreenOptions): HTMLElement {
     const { language, model } = options;
     const screen = element('section', 'academy-screen academy-lesson-overview-screen');
     screen.dataset.academyScreen = 'lesson-overview';
     screen.dataset.lessonId = model.lessonId;
     screen.dataset.releaseStatus = model.releaseStatus;
+    const scene = element('div', 'academy-lesson-overview-scene');
     const paper = element('article', 'academy-lesson-overview-paper');
     const header = element('header', 'academy-lesson-overview-header');
-    const back = element('button', 'academy-lesson-overview-back');
-    back.type = 'button';
-    back.textContent = `← ${academyText(language, 'lessonOverviewBack')}`;
+    const back = backButton(language);
     back.addEventListener('click', options.onBack);
     const heading = element('div', 'academy-lesson-overview-heading');
     const title = element('h1', 'academy-lesson-overview-title');
     title.textContent = model.presentation.title[language];
     const summary = element('p', 'academy-lesson-overview-summary');
     summary.textContent = model.presentation.summary[language];
+    const prerequisite = element('p', 'academy-lesson-overview-prerequisite');
+    const prerequisiteLabel = element('strong', 'academy-lesson-overview-prerequisite-label');
+    prerequisiteLabel.textContent = language === 'ja' ? 'はじめる前に' : 'Before you begin';
+    const prerequisiteValue = element('span', 'academy-lesson-overview-prerequisite-value');
+    prerequisiteValue.textContent = language === 'ja'
+        ? '前提なし。レッスン0は、はじめての人の出発点です。'
+        : 'No prerequisites. Lesson 0 starts from the beginning.';
+    prerequisite.append(prerequisiteLabel, prerequisiteValue);
     const time = element('p', 'academy-lesson-overview-time');
     time.textContent = language === 'ja'
         ? `${model.estimatedMinutes.minimum}〜${model.estimatedMinutes.maximum}分`
         : `${model.estimatedMinutes.minimum}–${model.estimatedMinutes.maximum} min`;
-    heading.append(title, summary, time);
-    header.append(back, heading, progressBlock(options));
+    heading.append(title, summary, prerequisite, time);
+    header.append(back, heading);
 
     const main = element('div', 'academy-lesson-overview-body');
     const goals = element('section', 'academy-lesson-overview-goals');
@@ -53,73 +66,126 @@ export function renderLessonOverviewScreen(options: LessonOverviewScreenOptions)
     const sections = element('section', 'academy-lesson-overview-sections');
     sections.append(sectionTitle(language, 'lessonOverviewSections'));
     const sectionList = element('ol', 'academy-lesson-overview-section-list');
-    model.sections.forEach(section => sectionList.append(sectionRow(section, options)));
+    model.sections.forEach((section, index) => sectionList.append(sectionRow(section, index, options)));
     sections.append(sectionList);
     main.append(goals, sections);
 
+    const roster = rosterBlock(model.presentation.peopleIds, language);
+
     const margin = element('footer', 'academy-lesson-overview-margin');
     const readyMaterials = model.presentation.materials.filter(material => material.state === 'ready');
-    if (readyMaterials.length) margin.append(noteLine(
-        academyText(language, 'lessonOverviewMaterials'),
-        readyMaterials.map(material => material.title[language]).join(' · '),
-        'materials',
-    ));
+    if (readyMaterials.length) margin.append(materialShelf(readyMaterials, options));
     margin.append(noteLine(
-        academyText(language, 'lessonOverviewPeople'),
-        model.presentation.peopleIds.map(id => personName(id, language)).join(' · '),
-        'people',
+        language === 'ja' ? '今日の場所' : 'Places today',
+        model.presentation.locationIds.map(id => locationName(id, language)).join(' · '),
+        'locations',
     ));
-    margin.append(noteLine('', model.presentation.locationIds.map(locationName).join(' · '), 'locations'));
 
     paper.append(header, main, margin);
-    screen.append(academyBackgroundPicture('classroom'), paper);
+    scene.append(paper, roster);
+    screen.append(academyBackgroundPicture('classroom'), scene);
     return screen;
 }
 
-function progressBlock(options: LessonOverviewScreenOptions): HTMLElement {
-    const { language, model } = options;
-    const block = element('section', 'academy-lesson-overview-progress');
-    const label = element('span', 'academy-lesson-overview-progress-label');
-    label.textContent = academyText(language, 'lessonOverviewProgress');
-    const value = element('strong', 'academy-lesson-overview-progress-value');
-    value.textContent = `${model.progress.completedSections} / ${model.progress.totalSections}`;
-    const meter = document.createElement('progress');
-    meter.className = 'academy-lesson-overview-meter';
-    meter.max = model.progress.totalSections;
-    meter.value = model.progress.completedSections;
-    meter.setAttribute('aria-label', academyText(language, 'lessonOverviewProgress'));
-    block.append(label, value, meter);
-    return block;
+function rosterBlock(personIds: readonly string[], language: AcademyLanguage): HTMLElement {
+    const roster = element('aside', 'academy-lesson-overview-roster');
+    roster.setAttribute('aria-label', academyText(language, 'lessonOverviewPeople'));
+    const title = element('h2', 'academy-lesson-overview-roster-title');
+    title.textContent = academyText(language, 'lessonOverviewPeople');
+    const list = element('ul', 'academy-lesson-overview-roster-list');
+    personIds.forEach((id, index) => list.append(rosterMember(id, language, index)));
+    roster.append(title, list);
+    return roster;
 }
 
-function sectionRow(section: LessonOverviewSection, options: LessonOverviewScreenOptions): HTMLElement {
+function rosterMember(id: string, language: AcademyLanguage, index: number): HTMLLIElement {
+    const person = getAcademyCastMember(id);
+    const item = element('li', 'academy-lesson-overview-roster-member');
+    item.dataset.castId = person.id;
+    item.style.setProperty('--academy-roster-order', String(index));
+    const portrait = portraitAsset(person);
+    if (portrait) {
+        const image = createAcademySprite({
+            characterId: person.id,
+            alt: '',
+            className: 'academy-lesson-overview-roster-portrait',
+            expressions: { neutral: { still: portrait } },
+        });
+        image.setAttribute('aria-hidden', 'true');
+        item.dataset.portraitStatus = 'approved';
+        item.append(image);
+    } else {
+        item.dataset.portraitStatus = 'unavailable';
+        item.classList.add('is-name-only');
+    }
+    const name = element('span', 'academy-lesson-overview-roster-name');
+    name.textContent = displayName(person, language);
+    item.append(name);
+    return item;
+}
+
+function portraitAsset(person: AcademyCastMember): string | undefined {
+    if (!canRenderAcademyCastPortrait(person.id, 'story-runtime')) return undefined;
+    return (ACADEMY_ASSETS.characters.approved as Readonly<Record<string, string>>)[person.id];
+}
+
+function sectionRow(section: LessonOverviewSection, index: number, options: LessonOverviewScreenOptions): HTMLElement {
     const { language, model } = options;
     const item = element('li', 'academy-lesson-overview-section');
     item.dataset.sectionId = section.id;
     item.dataset.learningStatus = section.learningStatus;
     item.dataset.runtimeStatus = section.runtimeStatus;
     if (section.id === model.currentSectionId) item.setAttribute('aria-current', 'step');
-    const number = element('span', 'academy-lesson-overview-section-number');
-    number.textContent = String(section.order).padStart(2, '0');
     const copy = element('span', 'academy-lesson-overview-section-copy');
     const title = element('strong', 'academy-lesson-overview-section-title');
     title.textContent = section.title[language];
     const status = element('span', 'academy-lesson-overview-section-status');
-    status.textContent = statusLabel(section.learningStatus, language);
+    const priorCompleted = model.sections
+        .slice(0, index)
+        .filter(candidate => candidate.learningStatus === 'complete').length;
+    status.textContent = section.id === model.currentSectionId && section.learningStatus === 'not-started' && priorCompleted > 0
+        ? (language === 'ja' ? `次へ · 前の${priorCompleted}項目は完了` : `Next · ${priorCompleted} earlier steps complete`)
+        : statusLabel(section.learningStatus, language);
     copy.append(title, status);
     const target = section.nextActivityId ?? section.boundActivityIds[0];
-    const canOpen = model.releaseStatus === 'playable' && Boolean(target);
+    const isCurrent = section.id === model.currentSectionId;
+    const isRevisitable = section.learningStatus === 'complete' || section.learningStatus === 'needs-review';
+    const canOpen = model.releaseStatus === 'playable' && Boolean(target) && (isCurrent || isRevisitable);
     if (canOpen && target) {
         const action = element('button', 'academy-lesson-overview-section-action');
         action.type = 'button';
-        action.textContent = actionLabel(section.learningStatus, language);
+        action.dataset.actionPriority = isCurrent ? 'primary' : 'secondary';
+        action.textContent = actionLabel(section.learningStatus, language, priorCompleted > 0);
         action.setAttribute('aria-label', `${action.textContent}: ${section.title[language]}`);
         action.addEventListener('click', () => options.onOpenActivity(target));
-        item.append(number, copy, action);
+        item.append(copy, action);
     } else {
-        item.append(number, copy);
+        item.append(copy);
     }
     return item;
+}
+
+function materialShelf(
+    materials: LessonOverviewModel['presentation']['materials'],
+    options: LessonOverviewScreenOptions,
+): HTMLElement {
+    const shelf = element('section', 'academy-lesson-overview-materials');
+    shelf.dataset.noteKind = 'materials';
+    const title = element('strong', 'academy-lesson-overview-note-label');
+    title.textContent = academyText(options.language, 'lessonOverviewMaterials');
+    const actions = element('div', 'academy-lesson-overview-material-actions');
+    for (const material of materials) {
+        const activityId = material.activityIds[0];
+        if (!activityId) continue;
+        const button = element('button', 'academy-lesson-overview-material-action');
+        button.type = 'button';
+        button.textContent = material.title[options.language];
+        button.setAttribute('aria-label', `${material.title[options.language]} →`);
+        button.addEventListener('click', () => options.onOpenActivity(activityId));
+        actions.append(button);
+    }
+    shelf.append(title, actions);
+    return shelf;
 }
 
 function sectionTitle(language: AcademyLanguage, key: 'lessonOverviewGoals' | 'lessonOverviewSections'): HTMLElement {
@@ -152,8 +218,8 @@ function statusLabel(status: LessonSectionLearningStatus, language: AcademyLangu
     return academyText(language, key[status]);
 }
 
-function actionLabel(status: LessonSectionLearningStatus, language: AcademyLanguage): string {
-    const key = status === 'not-started'
+function actionLabel(status: LessonSectionLearningStatus, language: AcademyLanguage, hasPriorProgress = false): string {
+    const key = status === 'not-started' && !hasPriorProgress
         ? 'lessonOverviewStart'
         : status === 'needs-review' || status === 'complete'
             ? 'lessonOverviewReview'
@@ -161,16 +227,14 @@ function actionLabel(status: LessonSectionLearningStatus, language: AcademyLangu
     return academyText(language, key);
 }
 
-function personName(id: string, language: AcademyLanguage): string {
-    const person = ACADEMY_CAST.find(candidate => candidate.id === id);
-    if (!person) throw new TypeError(`Lesson overview references unknown person ${id}.`);
-    return 'teacherSalutation' in person ? person.teacherSalutation[language] : person.firstName;
+function displayName(person: AcademyCastMember, language: AcademyLanguage): string {
+    return person.teacherSalutation ? person.teacherSalutation[language] : person.firstName;
 }
 
-function locationName(id: string): string {
+function locationName(id: string, language: AcademyLanguage): string {
     const name = ({
         'location:classroom': '教室',
-        'location:language-lab': 'LL教室',
+        'location:language-lab': academyText(language, 'locationLab'),
         'location:library': '図書館',
         'location:classroom-entrance': '教室前',
     } as Readonly<Record<string, string>>)[id];

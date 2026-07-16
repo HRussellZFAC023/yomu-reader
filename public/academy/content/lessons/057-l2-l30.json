@@ -1,0 +1,1585 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l30",
+  "order": 57,
+  "weekKind": "lesson",
+  "title": {
+    "en": "If the condition changes",
+    "ja": "条件が変われば"
+  },
+  "estimatedMinutes": 70,
+  "identity": {
+    "title": "Level 3+ Lesson 6",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3+",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 30,
+    "moduleId": 8121299,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 10,
+      "canonicalClassOrder": 68
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8121299,
+    "memberFileCount": 9,
+    "members": [
+      {
+        "title": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 4926797,
+        "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6"
+      },
+      {
+        "title": "Chapter 35 conditional form",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 192286,
+        "payloadSha256": "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e"
+      },
+      {
+        "title": "Chapter 35 Reference Vocabulary_Proverbs",
+        "role": "source-vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1179068,
+        "payloadSha256": "69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27"
+      },
+      {
+        "title": "Chapter 35 verb conditional form exercise",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1293330,
+        "payloadSha256": "3280a1e2d5ce83b8be5a621caad5fec529e896f6a660198956d8f0f066aab1a0"
+      },
+      {
+        "title": "Chapter 35-1 Vocabulary Sheet",
+        "role": "source-vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 110267,
+        "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01"
+      },
+      {
+        "title": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1342188,
+        "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb"
+      },
+      {
+        "title": "Homework kanji 7_exerise-1",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 3118984,
+        "payloadSha256": "622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60"
+      },
+      {
+        "title": "HW Chapter 35-1 creating conditional form",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 565207,
+        "payloadSha256": "0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4"
+      },
+      {
+        "title": "New_HW Chapter 35-1 conditional form grammar exercise",
+        "role": "source-worksheet",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 4189152,
+        "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c"
+      }
+    ],
+    "externalUrlModules": [],
+    "corroboratingCohorts": [],
+    "gaps": [
+      "0 archived audio file(s) quarantined: pairing, transcript, duration, rights, and answers are unresolved.",
+      "Zero source questions are promoted; every playable exercise is original Yomu authorship."
+    ],
+    "coverageMap": [
+      {
+        "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+        "worksheetTitle": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e",
+        "worksheetTitle": "Chapter 35 conditional form",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27",
+        "worksheetTitle": "Chapter 35 Reference Vocabulary_Proverbs",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "3280a1e2d5ce83b8be5a621caad5fec529e896f6a660198956d8f0f066aab1a0",
+        "worksheetTitle": "Chapter 35 verb conditional form exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+        "worksheetTitle": "Chapter 35-1 Vocabulary Sheet",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+        "worksheetTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60",
+        "worksheetTitle": "Homework kanji 7_exerise-1",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4",
+        "worksheetTitle": "HW Chapter 35-1 creating conditional form",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c",
+        "worksheetTitle": "New_HW Chapter 35-1 conditional form grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ],
+    "archiveId": "archive-000025",
+    "archiveSha256": "511ea72f4f4f8f68f99b383169a223b36bd6c4c0045e2665e4a50028f8e07928",
+    "archiveBytes": 16221530
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3+ · Lesson 6",
+    "genki": "≈ Genki II · parallel N4 scope",
+    "minna": "Minna no Nihongo II · Lesson 35",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3plus-l06",
+    "canonicalClassOrder": 68
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000025 · module 8121299 · sha256 511ea72f4f4f8f68f99b383169a223b36bd6c4c0045e2665e4a50028f8e07928",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Exact inventory and topic labels retained; source wording, media, and answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo II · Lesson 35",
+        "reuse": "sequence-only",
+        "note": "Chapter labels establish scope; all learner-facing work is original."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000025; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "Canonical cast retained: rie, sophie, shin.",
+    "gaps": [
+      "0 archived audio file(s) quarantined: pairing, transcript, duration, rights, and answers are unresolved.",
+      "Zero source questions are promoted; every playable exercise is original Yomu authorship."
+    ],
+    "donorPackage": {
+      "canonicalWeekId": "l3plus-l06",
+      "sha256": "fbac93dc4426efdb4c3b5c58deeee3f96bfcdd997367bb5ec506461866624025",
+      "note": "Canonical donor identity and title retained; no source wording, answer, or media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+          "sourceTitle": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [
+            "archive-000048"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 8,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+          "sourceTitle": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [
+            "archive-000048"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 7,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+          "sourceTitle": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [
+            "archive-000048"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+          "sourceTitle": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [
+            "archive-000048"
+          ],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:4",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 4,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e",
+          "sourceTitle": "Chapter 35 conditional form",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e",
+          "sourceTitle": "Chapter 35 conditional form",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27",
+          "sourceTitle": "Chapter 35 Reference Vocabulary_Proverbs",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "no-vector-signal",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "3280a1e2d5ce83b8be5a621caad5fec529e896f6a660198956d8f0f066aab1a0",
+          "sourceTitle": "Chapter 35 verb conditional form exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:3280a1e2d5ce83b8be5a621caad5fec529e896f6a660198956d8f0f066aab1a0:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 5,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+          "sourceTitle": "Chapter 35-1 Vocabulary Sheet",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+          "sourceTitle": "Chapter 35-1 Vocabulary Sheet",
+          "sourceRole": "source-vocabulary",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "sourceTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 12,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "sourceTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 7,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "sourceTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 4,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "sourceTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb:page:4",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 4,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "sourceTitle": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb:page:5",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 5,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60",
+          "sourceTitle": "Homework kanji 7_exerise-1",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 23,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60",
+          "sourceTitle": "Homework kanji 7_exerise-1",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4",
+          "sourceTitle": "HW Chapter 35-1 creating conditional form",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4",
+          "sourceTitle": "HW Chapter 35-1 creating conditional form",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c",
+          "sourceTitle": "New_HW Chapter 35-1 conditional form grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c",
+          "sourceTitle": "New_HW Chapter 35-1 conditional form grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c",
+          "sourceTitle": "New_HW Chapter 35-1 conditional form grammar exercise",
+          "sourceRole": "source-worksheet",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000025",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Use Vば／Vなければ in an original sentence.",
+    "Distinguish Vる + と from a neighbouring target.",
+    "Read an original passage in the evidenced chapter scope."
+  ],
+  "scene": {
+    "where": "The Level 3+ evening classroom",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "If the condition changes",
+    "cast": [
+      "rie",
+      "sophie",
+      "shin"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "sophie",
+        "expression": "thinking",
+        "pose": "explain",
+        "japanese": "時間があれば、ことわざを調べましょう。",
+        "reading": "時間があれば、ことわざを調べましょう。",
+        "english": "Original Yomu dialogue for the weekly target.",
+        "note": "Not transcribed from source material."
+      },
+      {
+        "speakerId": "shin",
+        "expression": "thinking",
+        "pose": "explain",
+        "japanese": "分からなければ例を読んでください。",
+        "reading": "分からなければ例を読んでください。",
+        "english": "Original Yomu dialogue for the weekly target.",
+        "note": "Not transcribed from source material."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Continues chronologically after l3plus-l05.",
+    "intro": "All examples are original and stay within Minna no Nihongo II Lesson 35.",
+    "grammarPoints": [
+      {
+        "pattern": "Vば／Vなければ",
+        "nameJa": "Vば／Vなければ",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "時間があれば、ことわざを調べましょう。",
+            "reading": "時間があれば、ことわざを調べましょう。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Vる + と",
+        "nameJa": "Vる + と",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "時間があれば、ことわざを調べましょう。",
+            "reading": "時間があれば、ことわざを調べましょう。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      },
+      {
+        "pattern": "Vたら",
+        "nameJa": "Vたら",
+        "meaning": "weekly target",
+        "explanation": "Use this form for the relationship named by the target.",
+        "watchFor": "Check the form before the ending.",
+        "commonError": "Do not substitute a neighbouring form without checking meaning.",
+        "examples": [
+          {
+            "ja": "時間があれば、ことわざを調べましょう。",
+            "reading": "時間があれば、ことわざを調べましょう。",
+            "en": "Original example.",
+            "note": "Original Yomu example."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "Situation",
+        "ja": "場面"
+      },
+      "reading": {
+        "ja": "時間があれば、ことわざを調べましょう。 分からなければ例を読んでください。",
+        "en": "Original Yomu dialogue."
+      },
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-situation",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which line belongs to this week?",
+            "ja": "今週の文を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-situation",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "時間があれば、ことわざを調べましょう。",
+                "ja": "時間があれば、ことわざを調べましょう。"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "時間があれば、ことわざを調べましょうか。",
+                "ja": "時間があれば、ことわざを調べましょうか。"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "title": {
+        "en": "Working words",
+        "ja": "今週の言葉"
+      },
+      "items": [],
+      "provenance": {
+        "reuse": "canonical-moodle-source-first",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "exercises": [
+        {
+          "id": "ex-vocabulary",
+          "kind": "choice",
+          "prompt": {
+            "en": "Choose the first focus word.",
+            "ja": "最初の重点語を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-vocabulary",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "条件",
+                "ja": "条件"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "必要",
+                "ja": "必要"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-sheet-pages-recorded-awaiting-item-renderer",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01:page:1",
+            "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+            "sourceTitle": "Chapter 35-1 Vocabulary Sheet",
+            "sourceRole": "source-vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                       Chapter 35-1 Vocabulary Sheet\nNo             Words               Pronunciation               Meaning\n     *review\n1\n     さきます（咲きます）\n     *review                                       explanatory pamphlet, instruction\n2\n     せつめいしょ（説明書）                                   note/book\n\n\n3    しま（島）\n\n4    〜とう（〜島）\n\n5    きかい（機会）                                       Opportunity, chance\n\n\n\n6    [機会が]あります                                     Have an opportunity, chance\n\n\n\n7    じょうけん（条件）                                     condition\n\n\n\n8    どうさ（動作）                                       action\n\n\n9    いし（意志）                                        will, volition, determination\n\n\n\n10   もっと                                           more\n\n\n\n11   むかし（昔）                                        old days, ancient time\n\n\n\n12   は（葉）\n      いろ\n\n13 [⾊が]かわります\n           （変わります）\n      こしょう\n\n14 [故障が]なおります\n       （直ります）\n      びょうき\n\n15 [病気が]なおります\n       （治ります）\n\n16   こまります（困ります）\n\n                                                                     Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "sourceItemId": "moodle:7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01:page:2",
+            "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+            "sourceTitle": "Chapter 35-1 Vocabulary Sheet",
+            "sourceRole": "source-vocabulary",
+            "page": 2,
+            "sourceOrder": 2,
+            "verbatimText": "No        Words   Pronunciation               Meaning\n\n17   カーテン\n\n18   ひも（紐）\n\n                                  kana above or beside kanji\n19   ふりがな                         indicating its pronunciation\n\n\n     [ふりがな を]\n20                                add kana above/beside kanji\n        つけます\n21   クリックします                      click\n\n\n\n22\n     にゅうりょくします                    input\n     （⼊⼒します）\n\n23\n\n24\n\n25\n\n\n26\n\n\n27\n\n\n28\n\n\n29\n\n\n30\n\n31\n\n\n32\n\n\n                                                    Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "title": {
+        "en": "Build the pattern",
+        "ja": "文型"
+      },
+      "practiceFor": [
+        "Vば／Vなければ",
+        "Vる + と",
+        "Vたら"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-pattern",
+          "kind": "choice",
+          "prompt": {
+            "en": "Choose the evidenced target form.",
+            "ja": "今週の文型を選んでください。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-pattern",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "行けば",
+                "ja": "行けば"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "行くと",
+                "ja": "行くと"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening quarantine",
+        "ja": "音声隔離"
+      },
+      "availability": "unavailable",
+      "sourceAudioCount": 0,
+      "provenance": {
+        "reuse": "none",
+        "note": "Archived audio is non-playable pending exact verification."
+      },
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "Read in context",
+        "ja": "読む"
+      },
+      "passage": {
+        "ja": "駅に早く着けば八時の電車に間に合います。間に合わなければ次の電車を待ちます。雨が降ったら駅の中で待ってください。",
+        "reading": "駅に早く着けば八時の電車に間に合います。間に合わなければ次の電車を待ちます。雨が降ったら駅の中で待ってください。",
+        "en": "Arrive early for the eight o’clock train. If it rains, wait inside the station."
+      },
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-reading",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which target appears in the passage?",
+            "ja": "本文にある文型はどれですか。"
+          },
+          "explanation": "Original Yomu item; no archived answer is reproduced.",
+          "reviewTag": "ex-reading",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Vば／Vなければ",
+                "ja": "Vば／Vなければ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Vたら",
+                "ja": "Vたら"
+              },
+              "correct": false
+            }
+          ],
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "Speak",
+        "ja": "話す"
+      },
+      "autoGraded": false,
+      "recording": false,
+      "prompt": {
+        "en": "Make one original sentence with Vば／Vなければ.",
+        "ja": "Vば／Vなければを使って一文話してください。"
+      },
+      "targets": [
+        "Vば／Vなければ"
+      ],
+      "modelAnswer": null,
+      "rubric": [
+        "Target form",
+        "Clear meaning"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "Write",
+        "ja": "書く"
+      },
+      "autoGraded": false,
+      "reviewMode": "self-check",
+      "minChars": 10,
+      "maxChars": 80,
+      "prompt": {
+        "en": "Write two connected original sentences.",
+        "ja": "つながる二文を書いてください。"
+      },
+      "modelAnswer": null,
+      "rubric": [
+        "Target form",
+        "Connection"
+      ],
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "title": {
+        "en": "Review",
+        "ja": "復習"
+      },
+      "reviewFrom": [
+        "l3plus-l06"
+      ],
+      "cumulativeCheckpoint": false,
+      "provenance": {
+        "reuse": "original-yomu"
+      },
+      "exercises": [
+        {
+          "id": "ex-review",
+          "kind": "exact",
+          "prompt": {
+            "en": "Type the first target pattern exactly as shown.",
+            "ja": "最初の文型を表示どおり入力してください。"
+          },
+          "explanation": "Original package-label recall; no source key is used.",
+          "reviewTag": "pattern",
+          "autoGraded": true,
+          "answer": {
+            "primary": "Vば／Vなければ",
+            "alternatives": []
+          },
+          "curriculumPhase": "guided-practice"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "If the condition changes",
+    "framedBy": "sophie",
+    "prompt": "Create a short original exchange using this week’s targets.",
+    "successCriteria": [
+      "Uses Vば／Vなければ",
+      "Meaning is clear"
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "時間があれば、ことわざを調べましょう。 分からなければ例を読んでください。",
+      "reading": "時間があれば、ことわざを調べましょう。 分からなければ例を読んでください。",
+      "en": "Original Yomu model."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "target",
+          "label": {
+            "en": "Uses the target clearly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Not yet"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "Mostly clear"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Clear and connected"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "Vば／Vなければ",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l06",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Vる + と",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l06",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "Vたら",
+        "back": "weekly target",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3plus-l06",
+          "grammar"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "sophie",
+      "shin"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l3plus-l06",
+    "groundedSourceQuestionCount": 0,
+    "playableSourceQuestionCount": 0,
+    "sourceQuestions": [],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+          "title": "Chapter 35_Verb 〜ば・〜と・〜たら summary",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "9094654d6999483fedebbd644a7c13966c754c1f2d5e456c6a0ab8d3feb0948e",
+          "title": "Chapter 35 conditional form",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "69cded81bfe44567286f274456fcd9bdfe4cfc771f4bcb7aa20e26b9512f7d27",
+          "title": "Chapter 35 Reference Vocabulary_Proverbs",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "3280a1e2d5ce83b8be5a621caad5fec529e896f6a660198956d8f0f066aab1a0",
+          "title": "Chapter 35 verb conditional form exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "7cc8bd273243d312686e4ea5f7117f6003ad11f2cb4630376bc958278d4adb01",
+          "title": "Chapter 35-1 Vocabulary Sheet",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "36993b824e4fe4f4ffee180d3dcc38e87aba11b05e19394736887135c8d485cb",
+          "title": "Chapter 35-1_Verb conditionalば_なければ_grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "622970f5e7226d6b0dd7566b33f7fb6f6dc001325f3e0e557054a050f94b3c60",
+          "title": "Homework kanji 7_exerise-1",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "0195ff753654a8be9f7117362887fa6e96b5f2c1666fa2165419c08520a0e6d4",
+          "title": "HW Chapter 35-1 creating conditional form",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "c95bedf26c1206b8964126b6c984ead8ab5ef8ed8f755644853c99ed1524016c",
+          "title": "New_HW Chapter 35-1 conditional form grammar exercise",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": []
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l30:conditional-reasoning",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 30,
+          "form": "Vば／Vなければ / Vる + と / Vたら",
+          "meaning": "choose a condition form for a general result or a particular situation",
+          "register": "neutral problem-solving",
+          "commonContrast": "ば is conditional, と is automatic, and たら suits a particular sequence or situation",
+          "workedExamples": [
+            {
+              "ja": "時間があれば、ことわざを調べましょう。",
+              "reading": "時間があれば、ことわざを調べましょう。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use Vば／Vなければ / Vる + と / Vたら; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries choose a condition form for a general result or a particular situation."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral problem-solving with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: ば is conditional, と is automatic, and たら suits a particular sequence or situation",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1",
+      "payloadSha256": "344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "The Level 3+ evening classroom",
+      "characterId": "sophie",
+      "beat": "If the condition changes",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l30:1:drag-drop",
+        "mode": "drag-drop",
+        "responseMode": "drag-drop",
+        "sourceItemIds": [
+          "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l30:2:kanji-doodle",
+        "mode": "kanji-doodle",
+        "responseMode": "draw-kanji",
+        "sourceItemIds": [
+          "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l30:3:matching",
+        "mode": "matching",
+        "responseMode": "tap-pair",
+        "sourceItemIds": [
+          "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l30:1:drag-drop",
+      "activityIds": [
+        "assessment:l2-l30:1:drag-drop"
+      ],
+      "sourceItemIds": [
+        "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+      ],
+      "place": "academy/world/classroom",
+      "cast": [
+        "sophie",
+        "shin"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical drag-drop task with sophie as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l30:2:kanji-doodle",
+      "activityIds": [
+        "assessment:l2-l30:2:kanji-doodle"
+      ],
+      "sourceItemIds": [
+        "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+      ],
+      "place": "academy/world/classroom",
+      "cast": [
+        "sophie",
+        "shin"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while shin takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l30:3:matching",
+      "activityIds": [
+        "assessment:l2-l30:3:matching"
+      ],
+      "sourceItemIds": [
+        "moodle:344c22e03a2b0786bfd30635bd5d767c9a47783e64373a0c9b16134b04bacdc6:page:1"
+      ],
+      "place": "academy/world/classroom",
+      "cast": [
+        "shin",
+        "sophie"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with shin; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}

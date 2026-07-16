@@ -1,0 +1,3310 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l1-l07",
+  "order": 8,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Where is the sales floor?",
+    "ja": "うりばは どこですか"
+  },
+  "estimatedMinutes": 90,
+  "identity": {
+    "title": "Lesson 7",
+    "academyYear": 1,
+    "termId": "l1",
+    "termLabel": "Level 1",
+    "courseYear": "2023/24",
+    "levelBand": "N5",
+    "weekNumberInTerm": 7,
+    "moduleId": 5864904,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "manifestOrder": 7,
+      "moodleSection": 19
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 5864904,
+    "memberFileCount": 13,
+    "members": [
+      {
+        "title": "minna shokyu 1 009",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 906814,
+        "payloadSha256": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0"
+      },
+      {
+        "title": "Chapter 3 Big Numbers 1,000~100,000 completed",
+        "role": "handout",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 130497,
+        "payloadSha256": "90e3258b0f612a33b15bb90c3fa5995d852fe88b97221a17aa3079e36a7d328b"
+      },
+      {
+        "title": "Chapter 3 Conversation listening script en",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 703147,
+        "payloadSha256": "a602ebb8b7f00584dc3769d4100d69c509f047d031a972ee94b783d5b5327d73"
+      },
+      {
+        "title": "Chapter 3 Conversation listening speaking",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1498462,
+        "payloadSha256": "342057945c46246458b49231a122fbeb36ce613231e9aa62e8a5f23206ecb35b"
+      },
+      {
+        "title": "Chapter 3 Excercise N（国、会社) のN",
+        "role": "handout",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 3841819,
+        "payloadSha256": "c3a97eca55aa613abb8bd5c4d3080766db7deb5533de7d3e0b58252437a0e1bd"
+      },
+      {
+        "title": "Chapter 3-2 Vocabulary Sheet",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 102403,
+        "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb"
+      },
+      {
+        "title": "Chapter 3-2 Grammar Exercise-1 あちら、こちら、そちら、どちら",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1389988,
+        "payloadSha256": "061571e95dfb14d256b0ce8cb354ef531cb493e56582a2017678b502c3e50166"
+      },
+      {
+        "title": "Chapter 3-2 Grammar Exercise-2 2 Asking which country the item made in and how much",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1912529,
+        "payloadSha256": "f089277bc4d994472a3b856a4d6b07a019e77d065d0c35ddd6a19e04d678b55b"
+      },
+      {
+        "title": "Hiragana writing practice modified syllables",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1165801,
+        "payloadSha256": "552fd1787dd956c86e52f0bae088c915ad730100c216c1e9612a7da1c7e6f61a"
+      },
+      {
+        "title": "HW Chapter 3 big numbers",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 233370,
+        "payloadSha256": "1cfd84523fb5aee552b632908eb6f7d008e51236a08b5cdab246aafbeb7deddf"
+      },
+      {
+        "title": "HW Chapter 3-2 Grammar",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1780686,
+        "payloadSha256": "761c3e156199ac08c8ce5c5c804114a447f29c738c6251359392a770bd2a5b7d"
+      },
+      {
+        "title": "Chapter 3 なんですか いくらですか answer",
+        "role": "answer-key",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 499909,
+        "payloadSha256": "c2240f2d6aa7edc41cea8073742c0db7143ede296d121cac3ff4611ed4dfcdbe"
+      },
+      {
+        "title": "Numbers in Japanese reference",
+        "role": "unclassified",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1785906,
+        "payloadSha256": "03b0c32871704a892a4025e6221b92aa309e03fbdbdabf33352fac602b922189"
+      }
+    ],
+    "externalUrlModules": [
+      {
+        "title": "すうじゲーム Let's play with Numbers!",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 1 conversation はじめまして",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 2 conversation これから おせわに なります。",
+        "externalUrl": null
+      },
+      {
+        "title": "Chapter 3 conversation これを ください",
+        "externalUrl": null
+      },
+      {
+        "title": "いっしゅうかん の うた",
+        "externalUrl": null
+      },
+      {
+        "title": "Learn Japanese Hiragana Alphabet - AIUEO Song - Funnihongo",
+        "externalUrl": "https://www.youtube.com/embed/"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+      "payloadSha256": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+      "worksheetTitle": "minna shokyu 1 009",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000150",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "audio materials/minna_shokyu_1_009.mp3",
+        "centralDirectoryIndex": 1,
+        "payloadSha256": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+        "classification": {
+          "kind": "audio",
+          "extension": ".mp3"
+        },
+        "pageCensus": null,
+        "audioProbe": {
+          "durationSeconds": 37.694708,
+          "codec": "mp3",
+          "status": "probed"
+        },
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "90e3258b0f612a33b15bb90c3fa5995d852fe88b97221a17aa3079e36a7d328b",
+      "worksheetTitle": "Chapter 3 Big Numbers 1,000~100,000 completed",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:90e3258b0f612a33b15bb90c3fa5995d852fe88b97221a17aa3079e36a7d328b",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000151",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3_Big Numbers 1,000~100,000_completed.pdf",
+        "centralDirectoryIndex": 2,
+        "payloadSha256": "90e3258b0f612a33b15bb90c3fa5995d852fe88b97221a17aa3079e36a7d328b",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "grammar",
+          "ex-ikura-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "a602ebb8b7f00584dc3769d4100d69c509f047d031a972ee94b783d5b5327d73",
+      "worksheetTitle": "Chapter 3 Conversation listening script en",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:a602ebb8b7f00584dc3769d4100d69c509f047d031a972ee94b783d5b5327d73",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000152",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3_Conversation listening script_en.pdf",
+        "centralDirectoryIndex": 3,
+        "payloadSha256": "a602ebb8b7f00584dc3769d4100d69c509f047d031a972ee94b783d5b5327d73",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "ex-listen-gist",
+          "ex-listen-detail"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "342057945c46246458b49231a122fbeb36ce613231e9aa62e8a5f23206ecb35b",
+      "worksheetTitle": "Chapter 3 Conversation listening speaking",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:342057945c46246458b49231a122fbeb36ce613231e9aa62e8a5f23206ecb35b",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000153",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3_Conversation listening_speaking.pdf",
+        "centralDirectoryIndex": 4,
+        "payloadSha256": "342057945c46246458b49231a122fbeb36ce613231e9aa62e8a5f23206ecb35b",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "listening",
+          "speaking"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "c3a97eca55aa613abb8bd5c4d3080766db7deb5533de7d3e0b58252437a0e1bd",
+      "worksheetTitle": "Chapter 3 Excercise N（国、会社) のN",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:c3a97eca55aa613abb8bd5c4d3080766db7deb5533de7d3e0b58252437a0e1bd",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000154",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3_Excercise N（国、会社) のN.pdf",
+        "centralDirectoryIndex": 5,
+        "payloadSha256": "c3a97eca55aa613abb8bd5c4d3080766db7deb5533de7d3e0b58252437a0e1bd",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-dochira",
+          "reading"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+      "worksheetTitle": "Chapter 3-2 Vocabulary Sheet",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000155",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3-2 Vocabulary Sheet.pdf",
+        "centralDirectoryIndex": 6,
+        "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 2,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "ex-vocab-match"
+        ],
+      "howCovered": "Exact Sensei vocabulary rows from this payload are retained in source order in the pre-study component; Yomu readings, examples, and SRS fields are identified as support.",
+      "status": "exact-source-vocabulary-preserved"
+      },
+      {
+      "payloadSha256": "061571e95dfb14d256b0ce8cb354ef531cb493e56582a2017678b502c3e50166",
+      "worksheetTitle": "Chapter 3-2 Grammar Exercise-1 あちら、こちら、そちら、どちら",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:061571e95dfb14d256b0ce8cb354ef531cb493e56582a2017678b502c3e50166",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000156",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3-2_Grammar Exercise-1_あちら、こちら、そちら、どちら.pdf",
+        "centralDirectoryIndex": 7,
+        "payloadSha256": "061571e95dfb14d256b0ce8cb354ef531cb493e56582a2017678b502c3e50166",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 4,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "explanation",
+          "grammar",
+          "ex-dochira"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "f089277bc4d994472a3b856a4d6b07a019e77d065d0c35ddd6a19e04d678b55b",
+      "worksheetTitle": "Chapter 3-2 Grammar Exercise-2 2 Asking which country the item made in and how much",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:f089277bc4d994472a3b856a4d6b07a019e77d065d0c35ddd6a19e04d678b55b",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000157",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Handouts/Chapter 3-2_Grammar Exercise-2_2 Asking which country the item made in and how much.pdf",
+        "centralDirectoryIndex": 8,
+        "payloadSha256": "f089277bc4d994472a3b856a4d6b07a019e77d065d0c35ddd6a19e04d678b55b",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-dochira",
+          "ex-ikura-cloze",
+          "listening"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "552fd1787dd956c86e52f0bae088c915ad730100c216c1e9612a7da1c7e6f61a",
+      "worksheetTitle": "Hiragana writing practice modified syllables",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:552fd1787dd956c86e52f0bae088c915ad730100c216c1e9612a7da1c7e6f61a",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000158",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Homework/Hiragana_writing practice_modified syllables.pdf",
+        "centralDirectoryIndex": 9,
+        "payloadSha256": "552fd1787dd956c86e52f0bae088c915ad730100c216c1e9612a7da1c7e6f61a",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 4,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [],
+        "howCovered": "Modified-syllable hiragana handwriting (dakuten / handakuten / yōon) is a script-strand skill, not a places-and-prices function. It belongs to the dedicated Level 1 hiragana handwriting weeks; covering it here would force off-theme material or guess the sheet's specific syllable set.",
+        "status": "gap"
+      },
+      {
+      "payloadSha256": "1cfd84523fb5aee552b632908eb6f7d008e51236a08b5cdab246aafbeb7deddf",
+      "worksheetTitle": "HW Chapter 3 big numbers",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:1cfd84523fb5aee552b632908eb6f7d008e51236a08b5cdab246aafbeb7deddf",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000159",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Homework/HW Chapter 3_big numbers.pdf",
+        "centralDirectoryIndex": 10,
+        "payloadSha256": "1cfd84523fb5aee552b632908eb6f7d008e51236a08b5cdab246aafbeb7deddf",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "vocabulary",
+          "grammar",
+          "writing"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "761c3e156199ac08c8ce5c5c804114a447f29c738c6251359392a770bd2a5b7d",
+      "worksheetTitle": "HW Chapter 3-2 Grammar",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:761c3e156199ac08c8ce5c5c804114a447f29c738c6251359392a770bd2a5b7d",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000160",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "Homework/HW Chapter 3-2 Grammar.pdf",
+        "centralDirectoryIndex": 11,
+        "payloadSha256": "761c3e156199ac08c8ce5c5c804114a447f29c738c6251359392a770bd2a5b7d",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "writing"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "c2240f2d6aa7edc41cea8073742c0db7143ede296d121cac3ff4611ed4dfcdbe",
+      "worksheetTitle": "Chapter 3 なんですか いくらですか answer",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:c2240f2d6aa7edc41cea8073742c0db7143ede296d121cac3ff4611ed4dfcdbe",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000161",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "reference/Chapter 3_なんですか いくらですか _answer.pdf",
+        "centralDirectoryIndex": 12,
+        "payloadSha256": "c2240f2d6aa7edc41cea8073742c0db7143ede296d121cac3ff4611ed4dfcdbe",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 1,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "grammar",
+          "ex-ikura-cloze"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      },
+      {
+      "payloadSha256": "03b0c32871704a892a4025e6221b92aa309e03fbdbdabf33352fac602b922189",
+      "worksheetTitle": "Numbers in Japanese reference",
+      "sourceTrace": {
+        "sourceId": "moodle-payload:03b0c32871704a892a4025e6221b92aa309e03fbdbdabf33352fac602b922189",
+        "moduleId": 5864904,
+        "archiveOccurrenceId": "archive-000015",
+        "memberOccurrenceId": "member-000162",
+        "archivePath": "/Users/heru/Documents/Projects/yomu/resources/yomu-academy/moodle-raw/ucl-japanese-2023-2024/rie-level-1/08-folder-5864904-lesson-7.zip",
+        "archiveSha256": "279572a4201a691cc75de4c69c0d8143cbf6896b6c08a33d65d4bd6c3be10c44",
+        "member": "reference/Numbers in Japanese reference.pdf",
+        "centralDirectoryIndex": 13,
+        "payloadSha256": "03b0c32871704a892a4025e6221b92aa309e03fbdbdabf33352fac602b922189",
+        "classification": {
+          "kind": "document",
+          "extension": ".pdf"
+        },
+        "pageCensus": {
+          "pageCount": 3,
+          "questionSignalCandidateCount": 0,
+          "imageDependencyReview": "review-required",
+          "imageDependentPageCount": 0,
+          "listeningCuePageCount": 0,
+          "pageCoordinateSystem": "pdf-page-1-based"
+        },
+        "audioProbe": null,
+        "answerVisibility": "after-attempt",
+        "directReadStatus": "raw-ledger-and-census-verified"
+      },
+        "coveredBy": [
+          "kanji",
+          "vocabulary",
+          "grammar"
+        ],
+      "howCovered": "The current Yomu activity is enrichment only. The exact source item is not reproduced as a learner activity in this package; source wording, media or audio delivery, and runtime reachability remain an explicit gap.",
+      "status": "gap-declared-unverified-substitute"
+      }
+    ]
+  },
+  "mapping": {
+    "ucl": "2023/24 · Level 1 · Lesson 7",
+    "genki": "≈ Genki L2–3 (locations, shopping)",
+    "minna": "Minna no Nihongo I · Lesson 3",
+    "jlpt": "N5",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ]
+  },
+  "provenance": {
+    "authoringPolicy": "original-yomu",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology",
+        "reference": "course ucl-japanese · level 1 · module 5864904",
+        "reuse": "metadata-only",
+        "note": "Week identity and worksheet inventory come from harvest metadata only."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo I · Lesson 3",
+        "reuse": "sequence-only",
+        "note": "Chapter scope (ここ・そこ・あそこ・どこ, こちら・どちら, Nは 場所です, いくらですか, これを ください) is a published textbook sequence reference; all wording here is original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N5 grammar band",
+        "reuse": "scope-only",
+        "note": "JLPT band is a placement heuristic, not a score claim."
+      }
+    ],
+    "castingNote": "Grammar picks the person: chapter 3 is a shopping chapter, so the price-and-place talk is led by Aakash (stylish, always shopping for something), with Henry (the learner-insert, a little lost among the floors) and Tom (hunting the Pokémon shop). Rie opens and closes.",
+    "gaps": [
+      "'Hiragana writing practice modified syllables' homework — modified-kana handwriting (dakuten / handakuten / yōon) is deferred to the Level 1 hiragana handwriting weeks; there is no faithful home for it inside a chapter-3 places-and-prices lesson."
+    ]
+  },
+  "runtimeReachability": {
+    "packageSchema": "parseable-authored-week-v1",
+    "exactExerciseAdapter": "not-delivered-by-current-authored-week-adapter-for-this-week",
+    "packageHashRegistration": "blocked-outside-owned-scope",
+    "pluginCatalogRegistration": "blocked-outside-owned-scope",
+    "sourceMediaRegistration": "blocked-outside-owned-scope",
+    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
+    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+  },
+  "sourceRootAudit": {
+    "revision": "level-one-source-roots/2026-07-14",
+    "permittedCorpusAuthority": "public/academy/content/source-pipeline/permitted-corpus.v1.json",
+    "precedence": [
+      "moodle-chronology",
+      "minna-no-nihongo-i",
+      "genki-i",
+      "supplemental-enrichment"
+    ],
+    "roots": [
+      {
+        "id": "japanese-genki-study-resources-2e",
+        "path": "/Users/heru/Documents/Japanese/Resource Packs/genki-study-resources-master 2",
+        "role": "genki-week-sorted-interactive-enrichment",
+        "status": "used-with-exact-file-hashes",
+        "fileCountAtAudit": 1909,
+        "treeSha256AtAudit": "a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de",
+        "licenseFile": {
+          "path": "LICENSE",
+          "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
+        },
+        "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-lessons",
+        "path": "/Users/heru/Documents/Japanese/Lessons",
+        "role": "supplemental-library-audit",
+        "status": "audited-no-selected-level-one-material",
+        "fileCountAtAudit": 129,
+        "treeSha256AtAudit": "8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c",
+        "decision": "The scanned material is later-course and Genki II material; it does not displace Moodle, Minna I, or Genki I Level 1 chronology."
+      },
+      {
+        "id": "japanese-vocabulary",
+        "path": "/Users/heru/Documents/Japanese/Vocabulary",
+        "role": "supplemental-vocabulary-audit",
+        "status": "excluded-from-level-one-prestudy",
+        "fileCountAtAudit": 2,
+        "treeSha256AtAudit": "b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4",
+        "evidence": [
+          {
+            "path": "Vocab 2k.txt",
+            "sha256": "39b8d9ad1b87f3d53bd829a410916d16d87e16e82b92e0e576737782c52dff8d"
+          },
+          {
+            "path": "words.txt",
+            "sha256": "ec7927ab2d2eb0c2847b9c8b489ef71c491937ee8f80f9b494a6a82c588f630c"
+          }
+        ],
+        "decision": "Neither file is a Sensei source sheet or a prerequisite-ordered beginner list, so neither is relabeled as Level 1 pre-study vocabulary."
+      }
+    ]
+  },
+  "genkiInteractiveActivities": [
+    {
+      "id": "genki-2e:l1-l07:lesson-2-workbook-3",
+      "relation": "post-instruction-contextual-transfer",
+      "source": {
+        "sourceId": "japanese-genki-interactive:bd48cc3f3daf8dbb6f2845d25c71e0ace22187966973a8af73aa24cab61cb82b:generateQuiz",
+        "rootId": "japanese-genki-study-resources-2e",
+        "relativePath": "lessons/lesson-2/workbook-3/index.html",
+        "payloadSha256": "bd48cc3f3daf8dbb6f2845d25c71e0ace22187966973a8af73aa24cab61cb82b",
+        "scriptSha256": "5931397140da99a010ceef25f5ca4e530599ba0aa56d72e32c7876255ee3662d",
+        "lineLocus": {
+          "start": 76,
+          "end": 119
+        },
+        "title": "Workbook: この, その, and あの - Lesson 2 | Genki Study Resources - 2nd Edition",
+        "description": "Complete the conversation between the attendant and the customer at a watch shop.",
+        "keywords": "Genki I Workbook, page 22, japanese, quizzes, exercises, 2nd Edition",
+        "canonicalUrl": "https://sethclydesdale.github.io/genki-study-resources/lessons/lesson-2/workbook-3/",
+        "reuse": "verbatim-generated-quiz-configuration"
+      },
+      "exactTask": {
+        "engine": "Genki.generateQuiz",
+        "config": {
+          "type": "fill",
+          "info": "Complete the conversation between the attendant and the customer at a watch shop using {!GRI|この／その／あの|l2-p2}.",
+          "quizlet": "<div class=\"count-problems\"><table class=\"table center\"><tr style=\"font-weight:bold;\"><td>Watch #1</td><td>Watch #2</td><td>Watch #3</td></tr><tr><td>￥3,000</td><td>￥2,800</td><td>￥1,500</td></tr><tr><td>in the Customer's hand</td><td>in the Attendant's hand</td><td>far from both</td></tr></table><br><p>Attendant：いらっしゃいませ。</p><div class=\"problem\">Customer <small>(<em>pointing at watch #1</em>)</small>：{このとけいはいくらですか|この時計はいくらですか|answer;hint:(How much is this watch?)}。</div><p>Attendant：そのとけいはさんぜんえんです。</p><div class=\"problem\">Customer <small>(<em>pointing at watch #2</em>)</small>：{そのとけいはいくらですか|その時計はいくらですか|answer;hint:(How much is that watch?)}。</div><div class=\"problem\">Attendant <small>(<em>holding watch #2</em>)</small>：{%(このとけい/これ)はにせんはっぴゃくえんです|%(この時計/これ)は二千八百円です|%(この時計は二千八百円です/この時計はにせんはっぴゃくえんです/このとけいは二千八百円です/このとけいはにせんはっぴゃくえんです)|answer;hint:(This watch is...)}。</div><div class=\"problem\">Customer <small>(<em>pointing at watch #3</em>)</small>：{あのとけいはいくらですか|あの時計はいくらですか|answer;hint:(How much is that watch?)}。</div><div class=\"problem\">Attendant <small>(<em>pointing at watch #3</em>)</small>：{%(あのとけい/あれ)はせんごひゃくえんです|%(あの時計/あれ)は千五百円です|%(あの時計は千五百円です/あの時計はせんごひゃくえんです/あのとけいは千五百円です/あのとけいはせんごひゃくえんです)|answer;hint:(That watch is...)}。</div><div class=\"problem\">Customer <small>(<em>decided on #3</em>)</small>：{じゃあ、あのとけいをください|じゃあ、あの時計をください|answer;hint:(Then, I'll take that watch.)}。</div></div>"
+        },
+        "sourceSlice": null,
+        "taskIntentPreserved": true,
+        "exerciseOrderPreserved": true
+      },
+      "delivery": {
+        "place": "academy/world/shop",
+        "cast": [
+          "aakash",
+          "jenny"
+        ],
+        "grouping": "customer-and-attendant-pair",
+        "beat": "Jenny plays the watch-shop attendant and Aakash the customer; they keep the source conversation and blanks intact.",
+        "answerVisibility": "after-attempt",
+        "prerequisitePolicy": "deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example"
+      },
+      "runtime": {
+        "sourceType": "fill",
+        "pluginKind": "academy-typed-response",
+        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "preservesSourceTask": true,
+        "answerGate": "after-attempt"
+      }
+    }
+  ],
+
+  "productionSequence": {
+    "version": "yomu-production-sequence.v1",
+    "steps": [
+      {
+        "id": "context",
+        "phase": "context",
+        "componentOrder": 10,
+        "conceptIds": [
+          "shop-directions"
+        ],
+        "evidence": "Read the floor guide and hear a shopper ask where an item is before buying it."
+      },
+      {
+        "id": "instruction",
+        "phase": "instruction",
+        "componentOrder": 30,
+        "conceptIds": [
+          "shop-directions"
+        ],
+        "form": "N は どこですか。N は N かいです。N を ください。",
+        "meaning": "Ask where an item is, state its floor, and request it.",
+        "contrast": "こちら／そちら／あちら politely point to a direction; どちら asks which direction.",
+        "workedExample": "A: かばんは どこですか。 B: 3かいです。"
+      },
+      {
+        "id": "guided",
+        "phase": "guided-practice",
+        "componentOrder": 40,
+        "conceptIds": [
+          "shop-directions"
+        ],
+        "activity": "Identify an item, floor, and price from the counter exchange before choosing a response."
+      },
+      {
+        "id": "exact",
+        "phase": "assessed-production",
+        "componentOrder": 30,
+        "assessmentIds": [
+          "ex-kudasai"
+        ],
+      "conceptIds": [
+        "shop-directions"
+      ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Identify the requested object.",
+            "Mark the object with を.",
+            "Place ください at the end."
+          ],
+          "feedback": {
+            "error": "If を is missing or ください is not final, the request form is incomplete.",
+            "retry": "Point at the item, say N を, then add ください."
+          }
+        }
+      },
+      {
+        "id": "speak",
+        "phase": "assessed-production",
+        "componentOrder": 60,
+        "assessmentIds": [
+          "component:60:speaking"
+        ],
+        "conceptIds": [
+          "shop-directions"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Choose an item and a price.",
+            "Ask where it is and say its price.",
+            "Ask for it with N を ください."
+          ],
+          "feedback": {
+            "error": "If どこ is used without ですか or the floor has no かい, the location exchange is incomplete.",
+            "retry": "Use one item card and repeat the location-to-request sequence."
+          }
+        }
+      },
+      {
+        "id": "write",
+        "phase": "assessed-production",
+        "componentOrder": 70,
+        "assessmentIds": [
+          "component:70:writing"
+        ],
+        "conceptIds": [
+          "shop-directions"
+        ],
+        "revealAnswer": "after-attempt",
+        "support": {
+          "progressiveHints": [
+            "Choose three shop floors.",
+            "Write one item on each floor.",
+            "Use N は N かいです and add one number plus えん."
+          ],
+          "feedback": {
+            "error": "If a floor number lacks かい or a price lacks えん, a reader cannot use the guide.",
+            "retry": "Check each line for one item, one floor, and an ending."
+          }
+        }
+      }
+    ]
+  },
+  "learningObjectives": [
+    "Ask where something is with 〜は どこですか, and answer with ここ・そこ・あそこ.",
+    "Use the polite こちら・そちら・あちら・どちら to point the way and to ask a guest which country they're from.",
+    "Ask a price with いくらですか and read prices in えん up into the thousands.",
+    "Buy or ask for something with 〜を ください.",
+    "Recognise and hand-write the number kanji 一 二 三 on shop and floor signs."
+  ],
+  "scene": {
+    "where": "A big department store on the way to class, everyone still in coats, escalators humming",
+    "sceneImage": "academy/art/scenes/department-store-evening-wide.webp",
+    "hook": "Aakash has found a shirt he likes, and Henry has lost the toilet.",
+    "cast": [
+      "rie",
+      "aakash",
+      "henry",
+      "tom"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "aakash",
+        "expression": "surprised",
+        "pose": "inspect",
+        "japanese": "あっ、この シャツ、いいですね。すみません、これは いくらですか。",
+        "reading": "あっ、この シャツ、いいですね。すみません、これは いくらですか。",
+        "english": "Oh, this shirt's nice. Excuse me — how much is this?",
+        "note": "これ = this thing near me; いくらですか asks the price."
+      },
+      {
+        "speakerId": "henry",
+        "expression": "thinking",
+        "pose": "point",
+        "japanese": "アーカッシュさん、トイレは どこですか。",
+        "reading": "アーカッシュさん、トイレは どこですか。",
+        "english": "Aakash — where's the toilet?",
+        "note": "〜は どこですか asks where something is."
+      },
+      {
+        "speakerId": "tom",
+        "expression": "warm",
+        "pose": "point",
+        "japanese": "トイレは あそこですよ。それから、ポケモンショップは ４かいです！",
+        "reading": "トイレは あそこですよ。それから、ポケモンショップは よんかいです！",
+        "english": "The toilet's over there. And the Pokémon shop is on the fourth floor!",
+        "note": "あそこ = over there, away from us both; ４かい = fourth floor."
+      },
+      {
+        "speakerId": "aakash",
+        "expression": "warm",
+        "pose": "decide",
+        "japanese": "じゃあ、この シャツを ください。３，０００えんですね。",
+        "reading": "じゃあ、この シャツを ください。さんぜんえんですね。",
+        "english": "Then I'll take this shirt. It's 3,000 yen, right?",
+        "note": "〜を ください = please give me 〜."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "welcome",
+        "japanese": "みなさん、かいものは あとで！きょうは 「ここ・そこ・あそこ」と 「いくらですか」を れんしゅうしましょう。",
+        "reading": "みなさん、かいものは あとで！きょうは 「ここ・そこ・あそこ」と 「いくらですか」を れんしゅうしましょう。",
+        "english": "Everyone — shopping later! Tonight let's practise 'here / there / over there' and 'how much is it?'",
+        "note": "Rie names tonight's two tools."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "Last week you learned to point at things: これ (this), それ (that), あれ (that over there), and この かばん, その とけい. Hold on to that こ・そ・あ・ど shape — tonight the very same three distances jump from things to places.",
+    "intro": "Tonight you can walk into any shop. Three small jobs: say where something is (here, there, over there), ask how much it costs, and say the magic words that buy it — これを ください, 'this one, please'. Prices climb into the thousands, so we'll read big numbers too. Everything stays in kana; the only kanji you meet are the number signs on the lift buttons.",
+    "grammarPoints": [
+      {
+        "pattern": "ここ・そこ・あそこ・どこ",
+        "nameJa": "〜は どこですか",
+        "meaning": "here / there / over there / where?",
+        "explanation": "The same three distances as これ・それ・あれ, but now for places. ここ = here, by me. そこ = there, by you. あそこ = over there, away from us both. どこ = where? To ask, use Nは どこですか, and answer with one of the first three: トイレは どこですか。→ あそこです。 It maps one-to-one onto last week's this / that / that-over-there.",
+        "watchFor": "これ points at a thing; ここ points at a place. Same こ・そ・あ start, different job.",
+        "commonError": "Answering どこですか with これ (a thing). A place question wants a place answer — ここ・そこ・あそこ.",
+        "examples": [
+          {
+            "ja": "トイレは どこですか。",
+            "reading": "トイレは どこですか。",
+            "en": "Where's the toilet?",
+            "note": "どこ asks a place."
+          },
+          {
+            "ja": "エレベーターは あそこです。",
+            "reading": "エレベーターは あそこです。",
+            "en": "The lift is over there.",
+            "note": "あそこ = away from both of us."
+          }
+        ]
+      },
+      {
+        "pattern": "こちら・そちら・あちら・どちら",
+        "nameJa": "こちら／どちら",
+        "meaning": "this way / which way (polite); どちら also = a polite 'where from'",
+        "explanation": "The polite, softer twin of ここ・そこ・あそこ・どこ. Shop staff say こちらです — 'this way, please' — while pointing. どちら asks 'which of two?' and, very usefully, is the polite way to ask someone's country: (お)くには どちらですか。 A near cousin is どこの N — 'from where / which make': これは どこの ですか, 'where's this one from?'.",
+        "watchFor": "どちら for a person's country is warmer and more polite than どこ; staff and hosts prefer it.",
+        "commonError": "Using どこの with no noun after it. どこの needs a noun (どこの くに); on its own, the polite question is どちら.",
+        "examples": [
+          {
+            "ja": "エスカレーターは こちらです。",
+            "reading": "エスカレーターは こちらです。",
+            "en": "The escalator is this way.",
+            "note": "こちら = polite ここ / this way."
+          },
+          {
+            "ja": "おくには どちらですか。",
+            "reading": "おくには どちらですか。",
+            "en": "Where are you from?",
+            "note": "Polite way to ask someone's country."
+          }
+        ]
+      },
+      {
+        "pattern": "いくらですか / 〜を ください",
+        "nameJa": "いくらですか",
+        "meaning": "how much? / please give me 〜",
+        "explanation": "To ask a price: これは いくらですか。 The answer is a number + えん: ３，０００えんです。 Prices climb, so keep the big-number words handy — せん (1,000), まん (10,000): １２，０００えん = いちまん にせん えん. To buy or ask for the thing, name it with を and add ください: この かばんを ください, 'this bag, please'.",
+        "watchFor": "を comes right before ください — it marks the thing you want.",
+        "commonError": "Saying これ ください with no を, or giving a price with no えん. Keep both: これを ください / ３，０００えんです.",
+        "examples": [
+          {
+            "ja": "これは いくらですか。",
+            "reading": "これは いくらですか。",
+            "en": "How much is this?",
+            "note": "いくら = how much."
+          },
+          {
+            "ja": "この かばんを ください。",
+            "reading": "この かばんを ください。",
+            "en": "This bag, please.",
+            "note": "〜を ください to buy or ask for something."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "phase": "context",
+      "title": {
+        "en": "The floor guide by the escalator",
+        "ja": "フロアガイド"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original store directory covering the reading function of the chapter's place / floor material; no source text reproduced."
+      },
+      "reading": {
+        "title": {
+          "en": "What's on each floor",
+          "ja": "かいの あんない"
+        },
+        "gloss": "The sign you glance at by the escalator, floors going up.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "４かい　レストラン",
+            "reading": "よんかい　レストラン",
+            "en": "4F — Restaurants"
+          },
+          {
+            "ja": "３かい　ほん・CD",
+            "reading": "さんがい　ほん・CD",
+            "en": "3F — Books & CDs"
+          },
+          {
+            "ja": "２かい　ふく・くつ",
+            "reading": "にかい　ふく・くつ",
+            "en": "2F — Clothes & shoes"
+          },
+          {
+            "ja": "１かい　かばん・とけい",
+            "reading": "いっかい　かばん・とけい",
+            "en": "1F — Bags & watches"
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-input-floor",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which floor are books and CDs on?",
+            "ja": "ほんと CDは どこですか。"
+          },
+          "explanation": "The guide lists ほん・CD on the 3rd floor — 三がい (さんがい).",
+          "reviewTag": "floors",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "3rd floor",
+                "ja": "３かい"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "2nd floor",
+                "ja": "２かい"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "4th floor",
+                "ja": "４かい"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The 2nd floor (２かい) is ふく・くつ — clothes and shoes. Books and CDs are one floor up."
+            },
+            {
+              "trigger": "c",
+              "message": "The 4th floor (４かい) is レストラン — restaurants. Books and CDs are the 3rd floor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "phase": "prestudy",
+      "title": {
+        "en": "Chapter 3-2 Vocabulary Sheet",
+        "ja": "Chapter 3-2 Vocabulary Sheet"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+        "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+        "title": "Chapter 3-2 Vocabulary Sheet",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "author": "Rie Tsuruta-Barratt",
+        "pageCount": 2,
+        "orderedRows": [
+          1,
+          28
+        ],
+        "exactFieldPolicy": "Source rows, review labels, pronunciation cells, meanings, and order are retained in item.source.exact; Yomu fills blank study fields without relabeling them as source.",
+        "answerVisibility": "after-attempt"
+      },
+      "items": [
+        {
+          "ja": "こちら",
+          "reading": "こちら",
+          "en": "this way / here (polite)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-1",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "こちら",
+              "pronunciation": null,
+              "meaning": "this way\nthis place/here ＊polite equivalent of ここ"
+            },
+            "normalizedStudySurface": "こちら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "そちら",
+          "reading": "そちら",
+          "en": "that way / there near you (polite)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-2",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "そちら",
+              "pronunciation": null,
+              "meaning": "that way\nthat place/there ＊polite equivalent of そこ"
+            },
+            "normalizedStudySurface": "そちら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "あちら",
+          "reading": "あちら",
+          "en": "that way / over there (polite)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-3",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "あちら",
+              "pronunciation": null,
+              "meaning": "that way (over there)\nthat place/there over there ＊polite equivalent of あそこ"
+            },
+            "normalizedStudySurface": "あちら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "どちら",
+          "reading": "どちら",
+          "en": "which way / where (polite)",
+          "example": {
+            "ja": "おくには どちらですか。",
+            "reading": "おくには どちらですか。",
+            "en": "Which country are you from?"
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-4",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "どちら",
+              "pronunciation": null,
+              "meaning": "which way, where\nwhat place, where ＊polite equivalent of どこ"
+            },
+            "normalizedStudySurface": "どちら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "(お)くに",
+          "reading": "(お)くに",
+          "en": "country / home country",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-5",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "(お)くに",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "(お)くに",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "フランス",
+          "reading": "フランス",
+          "en": "France",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-6",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "フランス",
+              "pronunciation": "furansu",
+              "meaning": null
+            },
+            "normalizedStudySurface": "フランス",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "イタリア",
+          "reading": "イタリア",
+          "en": "Italy",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-7",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "イタリア",
+              "pronunciation": "itaria",
+              "meaning": null
+            },
+            "normalizedStudySurface": "イタリア",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "インドネシア",
+          "reading": "インドネシア",
+          "en": "Indonesia",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-8",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "インドネシア",
+              "pronunciation": "indoneshia",
+              "meaning": null
+            },
+            "normalizedStudySurface": "インドネシア",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "スイス",
+          "reading": "スイス",
+          "en": "Switzerland",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-9",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "スイス",
+              "pronunciation": "suisu",
+              "meaning": null
+            },
+            "normalizedStudySurface": "スイス",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "どこの",
+          "reading": "どこの",
+          "en": "from which country / made where",
+          "example": {
+            "ja": "これは どこの くるまですか。",
+            "reading": "これは どこの くるまですか。",
+            "en": "Where is this car from?"
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-10",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "どこの",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "どこの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "せん",
+          "reading": "せん",
+          "en": "thousand",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-11",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "せん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "せん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "まん",
+          "reading": "まん",
+          "en": "ten thousand",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-12",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "まん",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "まん",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜えん(¥)",
+          "reading": "〜えん",
+          "en": "〜 yen",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-13",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "〜えん(¥)",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "〜えん(¥)",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いくら",
+          "reading": "いくら",
+          "en": "how much",
+          "example": {
+            "ja": "この Tシャツは いくらですか。",
+            "reading": "この ティーシャツは いくらですか。",
+            "en": "How much is this T-shirt?"
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-14",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "いくら",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "いくら",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "くつ",
+          "reading": "くつ",
+          "en": "shoes",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-15",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 15
+            },
+            "exact": {
+              "words": "*review\nくつ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "くつ",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ネクタイ",
+          "reading": "ネクタイ",
+          "en": "necktie",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-16",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 16
+            },
+            "exact": {
+              "words": "*review\nネクタイ",
+              "pronunciation": "nekutai",
+              "meaning": null
+            },
+            "normalizedStudySurface": "ネクタイ",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ワイン",
+          "reading": "ワイン",
+          "en": "wine",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-17",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "*review\nワイン",
+              "pronunciation": "wain",
+              "meaning": null
+            },
+            "normalizedStudySurface": "ワイン",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ウイスキー",
+          "reading": "ウイスキー",
+          "en": "whisky",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-18",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "ウイスキー",
+              "pronunciation": "uisukī",
+              "meaning": null
+            },
+            "normalizedStudySurface": "ウイスキー",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "くるま",
+          "reading": "くるま",
+          "en": "car",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-19",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "*review\nくるま",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "くるま",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かいもの",
+          "reading": "かいもの",
+          "en": "shopping",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-20",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "かいもの",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "かいもの",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "みせ",
+          "reading": "みせ",
+          "en": "shop / store",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-21",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 21
+            },
+            "exact": {
+              "words": "みせ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "みせ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "てんいん／みせ の ひと",
+          "reading": "てんいん／みせ の ひと",
+          "en": "shop assistant / person in the shop",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-22",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 22
+            },
+            "exact": {
+              "words": "てんいん\n／みせ の ひと",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "てんいん／みせ の ひと",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "Tシャツ",
+          "reading": "ティーシャツ",
+          "en": "T-shirt",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-23",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 23
+            },
+            "exact": {
+              "words": "T シャツ",
+              "pronunciation": "tī shatsu",
+              "meaning": null
+            },
+            "normalizedStudySurface": "Tシャツ",
+            "fieldProvenance": {
+              "words": "source-provided-layout-normalized",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "りんご",
+          "reading": "りんご",
+          "en": "apple",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-24",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 24
+            },
+            "exact": {
+              "words": "りんご",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "りんご",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "いらっしゃいませ",
+          "reading": "いらっしゃいませ",
+          "en": "Welcome / May I help you?",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-25",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 25
+            },
+            "exact": {
+              "words": "いらっしゃいませ",
+              "pronunciation": "irasshai mase",
+              "meaning": "Welcome (to the shop) / May I help you? (a greeting to a customer or a guest entering a shop, restaurant and etc)"
+            },
+            "normalizedStudySurface": "いらっしゃいませ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜を みせてください",
+          "reading": "〜を みせてください",
+          "en": "Please show me 〜.",
+          "example": {
+            "ja": "その かばんを みせてください。",
+            "reading": "その かばんを みせてください。",
+            "en": "Please show me that bag."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-26",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 26
+            },
+            "exact": {
+              "words": "〜を みせてください",
+              "pronunciation": "-o misete kudasai",
+              "meaning": "Please show me 〜 /\nShow me 〜, please."
+            },
+            "normalizedStudySurface": "〜を みせてください",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "じゃ",
+          "reading": "じゃ",
+          "en": "well / then / in that case",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-27",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 27
+            },
+            "exact": {
+              "words": "じゃ",
+              "pronunciation": "jya",
+              "meaning": "well / then / in that case"
+            },
+            "normalizedStudySurface": "じゃ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜を ください",
+          "reading": "〜を ください",
+          "en": "Please give me 〜 / I will take 〜.",
+          "example": {
+            "ja": "これを ください。",
+            "reading": "これを ください。",
+            "en": "I'll take this one."
+          },
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-3-2"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-28",
+            "payloadSha256": "8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+            "title": "Chapter 3-2 Vocabulary Sheet",
+            "locus": {
+              "page": 2,
+              "row": 28
+            },
+            "exact": {
+              "words": "〜を ください",
+              "pronunciation": "-o kudasai",
+              "meaning": "Please give me 〜 /\nGive me 〜, please."
+            },
+            "normalizedStudySurface": "〜を ください",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "source-corroborated-yomu-reading",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-vocab-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each word to its meaning.",
+            "ja": "ことばと いみを あわせましょう。"
+          },
+          "explanation": "これ is a thing (this one); ここ is a place (here); いくら asks a price — three different jobs.",
+          "reviewTag": "ch3-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "これ"
+              },
+              "right": {
+                "en": "this one"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "いくら"
+              },
+              "right": {
+                "en": "how much"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "みせ"
+              },
+              "right": {
+                "en": "shop"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "くに"
+              },
+              "right": {
+                "en": "country"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "phase": "instruction",
+      "title": {
+        "en": "Where, and how much?",
+        "ja": "どこ・いくら の れんしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original practice covering the source Chapter 3-2 grammar exercises (こちら・どちら, which country, how much) and the answer key's いくらですか function."
+      },
+      "practiceFor": [
+        "ここ・そこ・あそこ・どこ",
+        "こちら・どちら",
+        "いくらですか",
+        "〜を ください"
+      ],
+      "exercises": [
+        {
+          "id": "ex-doko",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Which word asks 'where?': 「かばんうりばは ＿ ですか。」",
+            "ja": "「どこ」を きく ことばは？"
+          },
+          "japanese": "かばんうりばは ＿ ですか。",
+          "explanation": "どこ asks a place — 'where is it?'. The answer will be ここ・そこ・あそこ.",
+          "reviewTag": "doko",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "どこ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ここ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "これ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "ここ means 'here' — that's an answer, not the question. To ask, use どこ."
+            },
+            {
+              "trigger": "c",
+              "message": "これ points at a thing ('this one'), not a place. For 'where?' use どこ."
+            }
+          ]
+        },
+        {
+          "id": "ex-asoko",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "The lift is far from both of you. 「エレベーターは ＿＿です。」",
+            "ja": "どちらの ことばですか。"
+          },
+          "japanese": "エレベーターは ＿＿です。",
+          "explanation": "あそこ = over there, away from both speakers — the right distance when it's far from you both.",
+          "reviewTag": "ko-so-a-do",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "あそこ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "そこ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "どこ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "そこ is near the listener. If it's far from you both, use あそこ."
+            },
+            {
+              "trigger": "c",
+              "message": "どこ is the question 'where?', not an answer. Here you're pointing it out."
+            }
+          ]
+        },
+        {
+          "id": "ex-dochira",
+          "kind": "choice",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "The polite way to ask a guest their country: 「おくには ＿＿ですか。」",
+            "ja": "ていねいな ききかたは？"
+          },
+          "japanese": "おくには ＿＿ですか。",
+          "explanation": "おくには どちらですか is the warm, polite 'where are you from?'.",
+          "reviewTag": "dochira",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "どちら"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "どこの"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "どれ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "どこの needs a noun after it (どこの くに). On its own, the polite question is どちら."
+            },
+            {
+              "trigger": "c",
+              "message": "どれ = 'which one' of several things, not a country. Use どちら for a person's country."
+            }
+          ]
+        },
+        {
+          "id": "ex-ikura-cloze",
+          "kind": "cloze",
+          "phase": "constrained-practice",
+          "prompt": {
+            "en": "Fill the two blanks — ask the price, then answer it.",
+            "ja": "２つの ＿ を うめましょう。"
+          },
+          "japanese": "この かばんは ＿＿① ですか。 — ８，０００ ＿＿② です。",
+          "explanation": "いくら asks the price; the answer is a number + えん (8,000 = はっせん).",
+          "reviewTag": "ikura",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "いくら",
+                "alternatives": []
+              }
+            },
+            {
+              "id": "b2",
+              "answer": {
+                "primary": "えん",
+                "alternatives": [
+                  "円"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "なに",
+              "message": "なに asks 'what'. For a price, use いくら — 'how much?'."
+            },
+            {
+              "trigger": "ドル",
+              "message": "In Japan prices are counted in えん (yen), not dollars."
+            }
+          ]
+        },
+        {
+          "id": "ex-kudasai",
+          "kind": "exact",
+          "phase": "assessed-production",
+          "prompt": {
+            "en": "You've decided on this bag. Say 'This bag, please.'",
+            "ja": "「この かばん」を かいましょう。えいご → にほんご"
+          },
+          "japanese": "この かばん＿＿＿。",
+          "explanation": "〜を ください = 'please give me 〜'. Mark the thing with を, then ください: この かばんを ください。",
+          "reviewTag": "kudasai",
+          "autoGraded": true,
+          "answer": {
+            "primary": "このかばんをください",
+            "alternatives": [
+              "この かばんを ください",
+              "このかばんをください。",
+              "この かばんを ください。"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "このかばんください",
+              "message": "Add the object marker を before ください: この かばんを ください。"
+            },
+            {
+              "trigger": "このかばんがください",
+              "message": "Use を (the object marker), not が, before ください: この かばんを ください。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "phase": "guided-practice",
+      "title": {
+        "en": "At the shop counter",
+        "ja": "おみせで"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original shop dialogue covering the source Chapter 3 conversation listening + its paired audio; source audio and script not reused."
+      },
+      "audio": {
+        "assetId": "asset-l1-l07-listening",
+        "locator": "academy://audio/level-1/lesson-07-at-the-shop",
+        "durationSeconds": 38,
+        "voiceNotes": "Two voices, slow and clear. A shop clerk, bright and polite; Aakash friendly, thinking aloud.",
+        "script": "てんいん：いらっしゃいませ。 アーカッシュ：すみません、この シャツは いくらですか。 てんいん：それは ３，０００えんです。 アーカッシュ：じゃあ、これを ください。あのう、CDうりばは どこですか。 てんいん：CDうりばは ３かいです。エスカレーターは あちらです。 アーカッシュ：どうも ありがとう ございます。"
+      },
+      "transcript": {
+        "revealAfterFirstAttempt": true,
+        "body": "Clerk: Welcome. — Aakash: Excuse me, how much is this shirt? — Clerk: That one's 3,000 yen. — Aakash: Then I'll take it. Um, where's the CD counter? — Clerk: The CD counter is on the 3rd floor. The escalator is over that way. — Aakash: Thank you very much."
+      },
+      "audioWorksheetPairing": {
+        "pairedWith": "b8b04bb7505396d6ef339137717422023599b719afadb35f8051757e976e3ff0",
+        "note": "Stands in for the source Chapter 3 conversation audio (minna shokyu 1 009) and the listening / speaking worksheets: same 'listen for the price and the place' skill, original script."
+      },
+      "exercises": [
+        {
+          "id": "ex-listen-gist",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "What is Aakash doing?",
+            "ja": "アーカッシュは 何を していますか。"
+          },
+          "explanation": "He asks the price, buys the shirt, then asks where the CD counter is — a little shopping trip.",
+          "reviewTag": "listening-gist",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "Buying a shirt and asking where the CD counter is",
+                "ja": "シャツを かって、CDうりばを きく"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Ordering food",
+                "ja": "ちゅうもん"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "Asking the time",
+                "ja": "じかんを きく"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "No food here — listen for シャツ, いくら, ください."
+            },
+            {
+              "trigger": "c",
+              "message": "No time is mentioned; he asks いくら (price) and どこ (place)."
+            }
+          ]
+        },
+        {
+          "id": "ex-listen-detail",
+          "kind": "multi-choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Which things are true? (choose all)",
+            "ja": "ただしい ものを ぜんぶ えらびましょう。"
+          },
+          "explanation": "The shirt is 3,000えん, the CD counter is ３かい, and the escalator is あちら. It was 3,000, not 8,000.",
+          "reviewTag": "listening-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "The shirt is 3,000 yen",
+                "ja": "シャツは ３，０００えん"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "The CD counter is on the 3rd floor",
+                "ja": "CDうりばは ３かい"
+              },
+              "correct": true
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "The escalator is over that way",
+                "ja": "エスカレーターは あちら"
+              },
+              "correct": true
+            },
+            {
+              "id": "d",
+              "label": {
+                "en": "The shirt is 8,000 yen",
+                "ja": "シャツは ８，０００えん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "d",
+              "message": "The clerk says ３，０００えん (3,000), not 8,000."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Tom's favourite shop",
+        "ja": "トムの すきな みせ"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original short reading covering comprehension of chapter-3 place and price language; no source text reproduced."
+      },
+      "passage": {
+        "title": {
+          "en": "A shop near the station",
+          "ja": "えきの ちかくの みせ"
+        },
+        "gloss": "A quick message from a classmate about a shop worth a look.",
+        "lines": [
+          {
+            "ja": "この みせは えきの まえです。",
+            "reading": "この みせは えきの まえです。",
+            "en": "This shop is right in front of the station."
+          },
+          {
+            "ja": "１かいは ほんや、２かいは CDうりばです。",
+            "reading": "いっかいは ほんや、にかいは CDうりばです。",
+            "en": "The 1st floor is a bookshop, the 2nd floor is the CD counter."
+          },
+          {
+            "ja": "CDは やすいです。どれも １，０００えんです。",
+            "reading": "CDは やすいです。どれも せんえんです。",
+            "en": "The CDs are cheap — they're all 1,000 yen each."
+          },
+          {
+            "ja": "とても いい みせですよ。",
+            "reading": "とても いい みせですよ。",
+            "en": "It's a really nice shop."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-read-where",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Where is the shop?",
+            "ja": "みせは どこですか。"
+          },
+          "explanation": "えきの まえ = in front of the station.",
+          "reviewTag": "reading-place",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "In front of the station",
+                "ja": "えきの まえ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "Inside the station",
+                "ja": "えきの なか"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "Far from the station",
+                "ja": "えきから とおい"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "It says えきの まえ (in front of), not なか (inside)."
+            },
+            {
+              "trigger": "c",
+              "message": "It's right by the station — えきの まえ."
+            }
+          ]
+        },
+        {
+          "id": "ex-read-price",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "How much are the CDs?",
+            "ja": "CDは いくらですか。"
+          },
+          "explanation": "どれも １，０００えん — every CD is 1,000 yen (せんえん).",
+          "reviewTag": "reading-price",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "1,000 yen each",
+                "ja": "どれも １，０００えん"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "3,000 yen each",
+                "ja": "どれも ３，０００えん"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "100 yen each",
+                "ja": "どれも １００えん"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "3,000 yen was the shirt in the listening; here the CDs are せんえん (1,000)."
+            },
+            {
+              "trigger": "c",
+              "message": "It says せんえん (1,000), not 100."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Be the shopper",
+        "ja": "おかいものを する"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Speaking task shaped like the chapter's shop-conversation speaking practice; content original."
+      },
+      "prompt": "Role-play a shopper. Point at something you want and ask its price with いくらですか, ask where one more thing is with 〜は どこですか, then buy your item with 〜を ください. Tom will be the clerk.",
+      "targets": [
+        "いくらですか",
+        "〜は どこですか",
+        "〜を ください",
+        "prices with えん"
+      ],
+      "recording": {
+        "minSeconds": 15,
+        "maxSeconds": 45
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "すみません、この とけいは いくらですか。……８，０００えんですか。じゃあ、これを ください。あのう、くつうりばは どこですか。",
+        "reading": "すみません、この とけいは いくらですか。……はっせんえんですか。じゃあ、これを ください。あのう、くつうりばは どこですか。",
+        "en": "Excuse me, how much is this watch? … 8,000 yen? Then I'll take it. Um, where's the shoe counter?"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "grammar",
+            "label": {
+              "en": "Uses いくらですか and 〜を ください correctly"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Missing or muddled"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "One of the two clear"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Asks the price and buys, both clear"
+                }
+              }
+            ]
+          },
+          {
+            "id": "delivery",
+            "label": {
+              "en": "Clear, unhurried, polite"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Hard to catch"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "Understandable"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Calm, clear, with すみません / あのう"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "phase": "assessed-production",
+      "title": {
+        "en": "Write a floor guide",
+        "ja": "フロアガイドを かく"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original production task covering the chapter-3 big-numbers and place / price homework function."
+      },
+      "prompt": "Make a tiny floor guide for a shop you'd love to visit. In 3–4 short lines, say what's on each floor (〜は 〜かいです) and give one price as a number + えん. Keep every word in kana.",
+      "minChars": 40,
+      "maxChars": 160,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "わたしの みせです。１かいは ほんや、２かいは CDうりばです。３かいは レストランです。この CDは せんえんです。やすいですよ。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "structure",
+            "label": {
+              "en": "Each floor named with 〜は 〜かいです"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "Floors unclear"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "Floors clearly listed"
+                }
+              }
+            ]
+          },
+          {
+            "id": "price",
+            "label": {
+              "en": "One price given as a number + えん"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "No price, or えん missing"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "A clear price in えん"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "phase": "guided-practice",
+      "title": {
+        "en": "Number kanji on the lift buttons",
+        "ja": "かいの かんじ"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Number kanji 一 二 三 in a floor / price context, drawn from the chapter's numbers and big-numbers handouts. Character selection is original; no source sheet reproduced."
+      },
+      "items": [
+        {
+          "character": "一",
+          "readings": {
+            "on": [
+              "イチ"
+            ],
+            "kun": [
+              "ひと-つ"
+            ]
+          },
+          "meaning": "one",
+          "exampleWord": {
+            "ja": "一かい",
+            "reading": "いっかい",
+            "en": "first floor"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'one'?",
+            "answer": "一"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 1,
+            "mnemonic": "A single line, drawn left to right — one. On a shop sign, 一かい is the ground floor.",
+            "tracePrompt": "Trace the one stroke of 一, then write 一かい (first floor)."
+          }
+        },
+        {
+          "character": "二",
+          "readings": {
+            "on": [
+              "ニ"
+            ],
+            "kun": [
+              "ふた-つ"
+            ]
+          },
+          "meaning": "two",
+          "exampleWord": {
+            "ja": "二かい",
+            "reading": "にかい",
+            "en": "second floor"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'two'?",
+            "answer": "二"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 2,
+            "mnemonic": "Two lines, the top one a little shorter — two.",
+            "tracePrompt": "Trace 二, then write 二かい (second floor)."
+          }
+        },
+        {
+          "character": "三",
+          "readings": {
+            "on": [
+              "サン"
+            ],
+            "kun": [
+              "みっ-つ"
+            ]
+          },
+          "meaning": "three",
+          "exampleWord": {
+            "ja": "三かい",
+            "reading": "さんがい",
+            "en": "third floor"
+          },
+          "recognition": {
+            "prompt": "Which kanji means 'three'?",
+            "answer": "三"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 3,
+            "mnemonic": "Three stacked lines, the middle shortest — three.",
+            "tracePrompt": "Trace 三, then write 三かい (third floor; note the sound softens to さんがい)."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-kanji-floor",
+          "kind": "choice",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "On the lift button you see 三. Which floor is it?",
+            "ja": "「三」は なんがいですか。"
+          },
+          "explanation": "三 = three, so 三かい is the third floor (さんがい).",
+          "reviewTag": "kanji-ch3",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "en": "3rd floor",
+                "ja": "３かい"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "en": "1st floor",
+                "ja": "１かい"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "en": "2nd floor",
+                "ja": "２かい"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "一 is 'one' (一かい). 三 is 'three'."
+            },
+            {
+              "trigger": "c",
+              "message": "二 is 'two' (二かい). 三 is 'three'."
+            }
+          ]
+        },
+        {
+          "id": "ex-kanji-match",
+          "kind": "match",
+          "phase": "guided-practice",
+          "prompt": {
+            "en": "Match each number kanji to its floor.",
+            "ja": "かんじと かいを あわせましょう。"
+          },
+          "explanation": "一 → いっかい, 二 → にかい, 三 → さんがい. The counter かい softens after 三.",
+          "reviewTag": "kanji-ch3",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "一"
+              },
+              "right": {
+                "en": "1st floor (いっかい)"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "二"
+              },
+              "right": {
+                "en": "2nd floor (にかい)"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "三"
+              },
+              "right": {
+                "en": "3rd floor (さんがい)"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "phase": "transfer",
+      "title": {
+        "en": "Looking back",
+        "ja": "ふくしゅう"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review folding in last week's これ・それ・あれ and この N."
+      },
+      "reviewFrom": [
+        "l1-l06"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [
+          "l1-l06"
+        ],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-review-kore-koko",
+          "kind": "choice",
+          "phase": "transfer",
+          "prompt": {
+            "en": "Point at a book near you: 「＿＿は ほんです。」",
+            "ja": "ちかくの ほんを さして: 「＿＿は ほんです。」"
+          },
+          "japanese": "＿＿は ほんです。",
+          "explanation": "これ points at a thing — 'this is a book'. ここ would mean 'here' (a place).",
+          "reviewTag": "kore-vs-koko",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "これ"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "ここ"
+              },
+              "correct": false
+            },
+            {
+              "id": "c",
+              "label": {
+                "ja": "どこ"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "ここ means 'here' — a place, not a thing. For 'this (book)' use これ."
+            },
+            {
+              "trigger": "c",
+              "message": "どこ is the question 'where?'. Here you're naming the thing, so use これ."
+            }
+          ]
+        },
+        {
+          "id": "ex-review-kono",
+          "kind": "cloze",
+          "phase": "transfer",
+          "prompt": {
+            "en": "This bag near you is yours. Fill the blank.",
+            "ja": "「＿＿ かばんは わたしのです。」"
+          },
+          "japanese": "＿＿ かばんは わたしのです。",
+          "explanation": "この attaches to a noun: この かばん = 'this bag'. (これ stands alone; before a noun you need この.)",
+          "reviewTag": "kono",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "この",
+                "alternatives": []
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "これ",
+              "message": "これ stands alone ('this one'). Before a noun like かばん, use この."
+            },
+            {
+              "trigger": "ここ",
+              "message": "ここ = 'here' (a place). For 'this bag' use この."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "title": "The shopping run",
+    "framedBy": "aakash",
+    "prompt": "Aakash's challenge: find one thing you'd actually buy — in a shop or online — and tell the class about it in Japanese. Say what it is (これは 〜です), give its price (いくらですか → 〜えん), and say which floor or where you'd find it (〜は 〜かいです / ここ・そこ・あそこ). Then 'buy' it with 〜を ください.",
+    "successCriteria": [
+      "You name the item with これは 〜です.",
+      "You give its price as a number + えん (into the thousands if you can).",
+      "You say where to find it — a floor (〜かい) or a place (ここ・そこ・あそこ).",
+      "You 'buy' it with 〜を ください, and reply kindly to one classmate's find."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "これは あたらしい かばんです。７，０００えんです。かばんうりばは ３かいです。じゃあ、これを ください！",
+      "reading": "これは あたらしい かばんです。ななせんえんです。かばんうりばは さんがいです。じゃあ、これを ください！",
+      "en": "This is a new bag. It's 7,000 yen. The bag counter is on the 3rd floor. Right then — I'll take it!"
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "grammar",
+          "label": {
+            "en": "いくらですか / 〜えん / 〜を ください used correctly"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "Missing or wrong"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Price and purchase both clear"
+              }
+            }
+          ]
+        },
+        {
+          "id": "warmth",
+          "label": {
+            "en": "Kind reply to a classmate"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "No reply"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "Reply present"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "Genuinely warm reply"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "〜は どこですか",
+        "back": "where is 〜? — answer ここ／そこ／あそこ",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "こちら・そちら・あちら・どちら",
+        "back": "polite this way / which way; どちら = polite 'where from'",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "いくらですか",
+        "back": "how much? — answer with a number + えん",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "〜を ください",
+        "back": "please give me 〜 (buying or asking)",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "これ",
+        "back": "this one (near me)",
+        "reading": "これ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "いくら",
+        "back": "how much",
+        "reading": "いくら",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "みせ",
+        "back": "shop, store",
+        "reading": "みせ",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "くに",
+        "back": "country",
+        "reading": "くに",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "〜かい",
+        "back": "floor (counter)",
+        "reading": "かい",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "ください",
+        "back": "please give me",
+        "reading": "ください",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "一",
+        "back": "one — イチ / ひと-つ (一かい = いっかい)",
+        "reading": "いち",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "二",
+        "back": "two — ニ / ふた-つ (二かい = にかい)",
+        "reading": "に",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "三",
+        "back": "three — サン / みっ-つ (三かい = さんがい)",
+        "reading": "さん",
+        "tags": [
+          "academy",
+          "academy:lesson:l1-l07",
+          "kanji"
+        ]
+      }
+    ]
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "aakash",
+      "henry",
+      "tom"
+    ]
+  },
+  "preStudyVocabulary": {
+    "status": "source-exact-with-yomu-support",
+    "primarySourceId": "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb",
+    "primaryComponentOrder": 20,
+    "orderedItemIds": [
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-1",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-2",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-3",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-4",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-5",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-6",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-7",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-8",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-9",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-10",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-11",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-12",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-13",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p1:row-14",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-15",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-16",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-17",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-18",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-19",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-20",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-21",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-22",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-23",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-24",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-25",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-26",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-27",
+      "moodle-vocabulary:5864904:8bd0536a38a9eb01b9207693772f4e38dac1ac825add49901ec8b96d516b4deb:p2:row-28"
+    ],
+    "answerVisibility": "after-attempt"
+  }
+}

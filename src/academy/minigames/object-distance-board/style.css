@@ -1,0 +1,100 @@
+.academy-object-distance-board {
+    display: grid;
+    gap: 20px;
+}
+
+.academy-object-distance-teaching {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding-block: 16px;
+    border-block: 1px solid var(--academy-border, #c9c4b8);
+}
+
+.academy-object-distance-teaching-step {
+    min-width: 0;
+    padding: 12px;
+    border-inline-start: 3px solid var(--academy-accent, #146b58);
+}
+
+.academy-object-distance-teaching-step:last-child {
+    grid-column: 1 / -1;
+}
+
+.academy-object-distance-teaching-step h3,
+.academy-object-distance-teaching-step p,
+.academy-object-distance-context {
+    margin: 0 0 8px;
+}
+
+.academy-object-distance-example {
+    font-weight: 700;
+}
+
+.academy-object-distance-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.academy-object-distance-round {
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    background: var(--academy-surface, #fff);
+}
+
+.academy-object-distance-round legend {
+    max-width: 100%;
+    padding: 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+}
+
+.academy-object-distance-choices {
+    display: grid;
+    gap: 8px;
+}
+
+.academy-object-distance-choice {
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.academy-object-distance-choice:has(input:checked) {
+    border-color: var(--academy-accent, #146b58);
+    background: var(--academy-accent-soft, #e7f2ee);
+}
+
+.academy-object-distance-choice input {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+}
+
+.academy-object-distance-check,
+.academy-object-distance-feedback {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+    .academy-object-distance-teaching,
+    .academy-object-distance-form {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-object-distance-choice {
+        transition: none;
+    }
+}

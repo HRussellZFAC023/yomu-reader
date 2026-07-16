@@ -1,0 +1,2235 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-07-15",
+  "purpose": "Generated conformance registry for Academy Lessons 27-41 and the station, cafe, and konbini asset stream.",
+  "authority": {
+    "runtimeAuthorization": "public/academy/art/ASSET-USAGE.json",
+    "typedRuntimeUse": "src/academy/assets.ts",
+    "recoveryOnly": "docs/academy/recovery/ASSET-CARRYOVER.json",
+    "recoveryDoesNotAuthorizeRuntime": true
+  },
+  "scope": {
+    "lessons": {
+      "first": 27,
+      "last": 41,
+      "packageIds": [
+        "l2-l02",
+        "l2-l03",
+        "l2-l04",
+        "l2-l05",
+        "l2-l06",
+        "l2-l07",
+        "l2-l08",
+        "l2-l09",
+        "l2-l10",
+        "l2-l11",
+        "l2-l12",
+        "l2-l13",
+        "l2-l14",
+        "l2-l15",
+        "l2-l16"
+      ]
+    },
+    "worlds": [
+      "station",
+      "cafe",
+      "konbini"
+    ]
+  },
+  "counts": {
+    "lessons": 15,
+    "worlds": 3,
+    "sourceMedia": 64,
+    "activeRuntimeAssets": 14,
+    "recoveredCandidates": 14,
+    "missingPurposefulAssets": 0
+  },
+  "lessons": [
+    {
+      "ordinal": 27,
+      "packageId": "l2-l02",
+      "plateAssetId": "location.station",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/029-l2-l02.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l02/moodle-b-21.mp3",
+            "sha256": "654c720b3734cb748e45cea2d9a2e6ec938668afc9d07e95451b01daa672f2db",
+            "type": "source-audio",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/029-l2-l02.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l02",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png",
+            "sha256": "b9a76542879c20ac1e1519c4f2246bf3d16ca84e510e680e98119d41c40c3802",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/029-l2-l02.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l02",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png",
+            "sha256": "70b5f991a2cc262205669d21901b2f945b5faf24e8ad41caa5134bb34f2a7414",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/029-l2-l02.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l02",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.station",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute"
+          },
+          "runtimeUses": [
+            "location:station",
+            "activity:station-announcements",
+            "lesson:l2-l02",
+            "lesson:l2-l05",
+            "lesson:l2-l10",
+            "lesson:l2-l11"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+              "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+              "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+          "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+          "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 28,
+      "packageId": "l2-l03",
+      "plateAssetId": "location.home",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/030-l2-l03.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l03/moodle-b-22.mp3",
+            "sha256": "6dccd9517dc4e10fb1ce3548de2c3c9d07a498f12bbf6e5b734b0e56c1490e6b",
+            "type": "source-audio",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/030-l2-l03.json"
+            },
+            "runtimeUse": "superseded-by-hash-addressed-listening:l2-l03",
+            "orphanStatus": "superseded-duplicate-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l03/moodle-chapter-19-2-3-vocabulary-page-1.png",
+            "sha256": "edaa7f991771ccda7ff2a2a00ebffb5418234df2e0cd536c059cce532f38119e",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/030-l2-l03.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l03",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l03/moodle-chapter-19-2-tari-grammar-page-3.png",
+            "sha256": "20595904296d510ed9aab10a13148c8d0c9d85e27779a637ac9cb5949dccf738",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/030-l2-l03.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l03",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-6dccd9517dc4e10f.mp3",
+            "sha256": "6dccd9517dc4e10fb1ce3548de2c3c9d07a498f12bbf6e5b734b0e56c1490e6b",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l03-b22.mp3",
+              "evidence": "public/academy/content/lessons/030-l2-l03.json#/sourceQuestionNormalization/sourceQuestions"
+            },
+            "runtimeUse": "listening-task:l2-l03",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.home",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/lesson-assets/wide/home-morning-desk.jpg",
+            "sourceSha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+          },
+          "runtimeUses": [
+            "location:home",
+            "lesson:l2-l03"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
+              "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
+              "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+            }
+          ],
+          "responsivePresentation": {
+            "mobile": {
+              "strategy": "art-directed-crop",
+              "sourceVariant": "wide",
+              "objectPosition": "62% center",
+              "purpose": "Keep the clock, notebook, phone, and morning drink legible for Lesson 28 routine recall."
+            }
+          }
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-art-directed-single-source",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
+          "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
+          "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+        },
+        "artDirection": {
+          "strategy": "art-directed-crop",
+          "sourceVariant": "wide",
+          "objectPosition": "62% center",
+          "purpose": "Keep the clock, notebook, phone, and morning drink legible for Lesson 28 routine recall."
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 29,
+      "packageId": "l2-l04",
+      "plateAssetId": "location.classroom",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/031-l2-l04.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l04/moodle-chapter-20-1-plain-style-verb-page-3.png",
+            "sha256": "d8d0b2b0ff00c3e6801b4e02d97cde11382a201e85b0ea468b717a448cd9f38f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/031-l2-l04.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l04",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l04/moodle-chapter-20-1-vocabulary-page-1.png",
+            "sha256": "c0069c4fcc3b1d31df9badbb2f4532078b02d925e2c44303c5e50408e95819f2",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/031-l2-l04.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l04",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.classroom",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit"
+          },
+          "runtimeUses": [
+            "onboarding:profile",
+            "lesson-zero",
+            "placement",
+            "journal",
+            "lesson:l2-l04",
+            "lesson:l2-l15",
+            "lesson:l2-l16"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+              "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+          "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+          "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 30,
+      "packageId": "l2-l05",
+      "plateAssetId": "location.station",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/032-l2-l05.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l05/moodle-b-24.mp3",
+            "sha256": "f39560e74390378765a07f94dd19d1d4f0595935dbef04ffebcf37b10e485df2",
+            "type": "source-audio",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/032-l2-l05.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l05",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png",
+            "sha256": "0981cc1579d4cde558ecec3f68dc385e72cc50a09fee38c7d54e36aa1edd6e5c",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/032-l2-l05.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l05",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l05/moodle-chapter-20-conversation-page-1.png",
+            "sha256": "ad13d146b8e82ad147870d90a1e47c0f8a43b96ac306e6bc869410dc616f2cb1",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/032-l2-l05.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l05",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png",
+            "sha256": "f14322b70639277f686d7ebffec147e04fa99687e21b61795d2a3d4fb9cce975",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/032-l2-l05.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l05",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-2e5d1ee1e18a31b7.mp3",
+            "sha256": "2e5d1ee1e18a31b72e826670a3f6aec1c0f513a6e2f05b654e04b199ad4939f3",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l05-b25.mp3",
+              "evidence": "public/academy/content/lessons/032-l2-l05.json#/sourceQuestionNormalization/sourceQuestions"
+            },
+            "runtimeUse": "listening-task:l2-l05",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3",
+            "sha256": "f423d074fd31d9efaf34b359c71fde870abc71b850379af3a526758cee9b5d30",
+            "provenance": {
+              "family": "minna",
+              "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+              "evidence": "public/academy/content/lessons/032-l2-l05.json#/sourceQuestionNormalization/sourceQuestions"
+            },
+            "runtimeUse": "listening-task:l2-l05",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.station",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute"
+          },
+          "runtimeUses": [
+            "location:station",
+            "activity:station-announcements",
+            "lesson:l2-l02",
+            "lesson:l2-l05",
+            "lesson:l2-l10",
+            "lesson:l2-l11"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+              "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+              "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+          "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+          "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 31,
+      "packageId": "l2-l06",
+      "plateAssetId": "location.library",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/033-l2-l06.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l06/moodle-chapter-21-1-vocabulary-page-1.png",
+            "sha256": "a0137ffaab518de2a37d783c5c02c4efe8d719cbe2c8647e186e55e35a00a02f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/033-l2-l06.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l06",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l06/moodle-chapter-21-conversation-page-1.png",
+            "sha256": "7ea8c8ebe329839341b3fbcea6f374bdde694295e44e19fca698db5dc04207ad",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/033-l2-l06.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l06",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-task-page-2.png",
+            "sha256": "9c93bc53a77ebb3b3cf2a5013400240acfda5b856773c9d14c13be763c9627d9",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/033-l2-l06.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l06",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-teaching-page-1.png",
+            "sha256": "dc138ddbfe0ff40495511a961485f03767ffae7afada9e5886e922809a48dcdb",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/033-l2-l06.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l06",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3",
+            "sha256": "71cd9a20f51a1c49a53f02fc6080914e6cf229662710f55bd8f9f2dac269d98c",
+            "provenance": {
+              "family": "minna",
+              "locator": "academy/content/minna/audio/l2-l06-minna-072.mp3",
+              "evidence": "public/academy/content/lessons/033-l2-l06.json#/sourceQuestionNormalization/sourceQuestions"
+            },
+            "runtimeUse": "listening-task:l2-l06",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.library",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/library__rain-evening"
+          },
+          "runtimeUses": [
+            "location:library",
+            "review:due-queue",
+            "lesson:l2-l06"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp",
+              "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/library__rain-evening--wide.webp",
+          "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp",
+          "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 32,
+      "packageId": "l2-l07",
+      "plateAssetId": "location.ramen",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/034-l2-l07.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l07/moodle-chapter-21-2-vocabulary-page-1.png",
+            "sha256": "581d2bbfb615b0436f47e2f8f3a680395b2b122b6a559211ec079cdc05a1fd5a",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/034-l2-l07.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l07/moodle-chapter-21-deshou-teaching-task-page-1.png",
+            "sha256": "68cdcf841810f4738474a813fd60eafbfdd5e384da0d0e10fcaf987f552c05a9",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/034-l2-l07.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l07",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3",
+            "sha256": "2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0",
+            "provenance": {
+              "family": "minna",
+              "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+              "evidence": "public/academy/content/lessons/034-l2-l07.json#/sourceQuestionNormalization/sourceQuestions"
+            },
+            "runtimeUse": "listening-task:l2-l07",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.ramen",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/ramen__evening-steam"
+          },
+          "runtimeUses": [
+            "location:ramen",
+            "activity:ramen-ordering",
+            "lesson:l2-l07"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/ramen__evening-steam--wide.webp",
+              "sha256": "837cfa0c472fae122f660af6cc72952b164fe4d40169e171a99d7ed08d9a3833"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/ramen__evening-steam--mobile.webp",
+              "sha256": "70dbcbd9c45701821d6836c55b4a80c3d362c0c33eaea31e7334315081c41725"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/ramen__evening-steam--wide.webp",
+          "sha256": "837cfa0c472fae122f660af6cc72952b164fe4d40169e171a99d7ed08d9a3833"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/ramen__evening-steam--mobile.webp",
+          "sha256": "70dbcbd9c45701821d6836c55b4a80c3d362c0c33eaea31e7334315081c41725"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 33,
+      "packageId": "l2-l08",
+      "plateAssetId": "location.park",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/035-l2-l08.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l08/moodle-chapter-22-1-clause-rail-page-1.png",
+            "sha256": "36a073904a47724326460931351b7a5e9c66c60a502e085fd26fb2f64e29c642",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/035-l2-l08.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l08",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l08/moodle-chapter-22-1-vocabulary-page-1.png",
+            "sha256": "a0961cc3b6d648da8624198a5d3112f57229f9b769d9e22b5f0f45229e4438ad",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/035-l2-l08.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.park",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/park__day-overcast"
+          },
+          "runtimeUses": [
+            "location:park",
+            "activity:park-weather-sketchbook",
+            "lesson:l2-l08"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/park__day-overcast--wide.webp",
+              "sha256": "08497720548dd98c872f6787aada425b4c511395a0d0123da00fecb1027abb9f"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/park__day-overcast--mobile.webp",
+              "sha256": "416f6016001be41c59e9f111b5de90b56609b8d03968ee09d94dd27e4669ed53"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/park__day-overcast--wide.webp",
+          "sha256": "08497720548dd98c872f6787aada425b4c511395a0d0123da00fecb1027abb9f"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/park__day-overcast--mobile.webp",
+          "sha256": "416f6016001be41c59e9f111b5de90b56609b8d03968ee09d94dd27e4669ed53"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 34,
+      "packageId": "l2-l09",
+      "plateAssetId": "location.language-lab",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/036-l2-l09.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l09/moodle-chapter-22-2-particle-mixer-page-1.png",
+            "sha256": "5257d4151ac5111057e4ffe7a227e208adc5bd0b8ca4c5532687266b0a8df406",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/036-l2-l09.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l09",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l09/moodle-chapter-22-2-particle-mixer-page-3.png",
+            "sha256": "3084a14e5136c6ee654d0d984ed11697f7bf757833f99354aa2f7f03159efea6",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/036-l2-l09.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l09",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l09/moodle-chapter-22-2-vocabulary-page-1.png",
+            "sha256": "a9dc72fe58ec7e8b89164d91181fcbb9077f61158772446121606a00fa902496",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/036-l2-l09.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l09/moodle-chapter-22-2-vocabulary-page-2.png",
+            "sha256": "d26ad5a5f72edccdfea82625c592715489d7be97d735497573b7d853981b4659",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/036-l2-l09.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l09/moodle-chapter-22-conversation-page-1.png",
+            "sha256": "b28a169dac64414fd20e35345e9f5f4e8f5d4261c1a78b396f35542de9c12105",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/036-l2-l09.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l09",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3",
+            "sha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+            "provenance": {
+              "family": "minna",
+              "locator": "academy/content/minna/audio/l2-l09-minna-075.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MINNA_SOURCES/source-minna-075-conversation"
+            },
+            "runtimeUse": "listening-task:l2-l09",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.language-lab",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/japan-office__evening-close"
+          },
+          "runtimeUses": [
+            "location:language-lab",
+            "activity:listening-shadowing",
+            "lesson:l2-l09",
+            "lesson:l2-l14"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp",
+              "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp",
+              "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp",
+          "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp",
+          "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 35,
+      "packageId": "l2-l10",
+      "plateAssetId": "location.station",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/037-l2-l10.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l10/moodle-chapter-23-1-toki-threshold-page-4.png",
+            "sha256": "948b81d988e549e8b51c5fcc94934eb1607fbe86097b6f4d154b63d4b07c36d6",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/037-l2-l10.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l10",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l10/moodle-chapter-23-1-toki-threshold-page-5.png",
+            "sha256": "646ada214d1e57addc244e105a51957749edcecc897f654dedebb96ff698c187",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/037-l2-l10.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l10",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l10/moodle-chapter-23-1-vocabulary-page-1.png",
+            "sha256": "4374602cc92bd1a04c8409e3a6a7392fb706f3e038f6afeb9a42aa4ec5ced2f9",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/037-l2-l10.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3",
+            "sha256": "3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339",
+            "provenance": {
+              "family": "minna",
+              "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MINNA_SOURCES/source-minna-077-true-false"
+            },
+            "runtimeUse": "listening-task:l2-l10",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.station",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute"
+          },
+          "runtimeUses": [
+            "location:station",
+            "activity:station-announcements",
+            "lesson:l2-l02",
+            "lesson:l2-l05",
+            "lesson:l2-l10",
+            "lesson:l2-l11"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+              "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+              "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+          "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+          "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 36,
+      "packageId": "l2-l11",
+      "plateAssetId": "location.station",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/038-l2-l11.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l11/moodle-new-chapter-23-1-toki-page-1.png",
+            "sha256": "ad277c6188de6603a9cd2fcb3ba33263dd12ddf88340f9c3b79c71bc585fd890",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/038-l2-l11.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l11",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l11/moodle-new-chapter-23-1-vocabulary-page-1.png",
+            "sha256": "4374602cc92bd1a04c8409e3a6a7392fb706f3e038f6afeb9a42aa4ec5ced2f9",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/038-l2-l11.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.station",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "recovered-academy-tree",
+            "ledger": "direct-openai-image-generation-manifest-recovered",
+            "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute"
+          },
+          "runtimeUses": [
+            "location:station",
+            "activity:station-announcements",
+            "lesson:l2-l02",
+            "lesson:l2-l05",
+            "lesson:l2-l10",
+            "lesson:l2-l11"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+              "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+              "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+          "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+          "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 37,
+      "packageId": "l2-l12",
+      "plateAssetId": "location.writing-studio",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/039-l2-l12.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-chapter-28-1-nagara-page-1.png",
+            "sha256": "a0e5167eafeacd2316aa60681c14d4de5da5eb8970b3198f335d441d8b3f088f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l12",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-chapter-28-1-nagara-page-2.png",
+            "sha256": "c21841db30455c7bd40b0a8b05382d53e17e857b3d9518e830b88887a18dd241",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l12",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-new-chapter-28-1-vocabulary-page-1.png",
+            "sha256": "42f00e60069eb85cda745a7ce4dab8a8a92a4f1e55451dd73372c642e7009c85",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-new-chapter-28-1-vocabulary-page-2.png",
+            "sha256": "f370746eb6cb754db370f87e90bc384a675c0c3d399a0791149abbc1888a53a3",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-track-78-bank-listening-page-1.png",
+            "sha256": "07ae4ae9fa5441f99bf5542d4199215433cc56ddddc4f1ab968d7533c4bd3ef4",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l12",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l12/moodle-track-79-favor-direction-page-2.png",
+            "sha256": "8fbb6b9881e26e31bb614c0b3a2048780c3b590d457e9418a7ffeec7f828bc8c",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/039-l2-l12.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l12",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3",
+            "sha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-78-bank"
+            },
+            "runtimeUse": "listening-task:l2-l12",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3",
+            "sha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l12-track-79.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-79-favor-direction"
+            },
+            "runtimeUse": "listening-task:l2-l12",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.writing-studio",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/student-room__rain-night"
+          },
+          "runtimeUses": [
+            "location:writing-studio",
+            "activity:kanji-doodle",
+            "lesson:l2-l12"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp",
+              "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp",
+              "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp",
+          "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp",
+          "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 38,
+      "packageId": "l2-l13",
+      "plateAssetId": "location.cafe",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/040-l2-l13.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-a11-meal-survey-page-1.png",
+            "sha256": "18b086df7e2a30592a4a07d60f5fcb575cc2415e02f1b18c6dcfce415f7bb868",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l13",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-chapter-28-2-shi-page-1.png",
+            "sha256": "4327dd0ab969ee7b0cb96673ae4d3d3cc497d76da2e4461bec2883e07b991f5d",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l13",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-chapter-28-2-shi-page-2.png",
+            "sha256": "5295e4d4ec26ab038abd880747cb0f46daba60cda3c0cc8ac1ce25fd62b95cc2",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l13",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3",
+            "sha256": "596a4499996bd9599a169a8ae9171a0e78fe22a7f9d92bce7045203b794baf25",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a11-meal-survey"
+            },
+            "runtimeUse": "listening-task:l2-l13",
+            "orphanStatus": "active-runtime"
+          }
+        ]
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.cafe",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/cafe__night-rain"
+          },
+          "runtimeUses": [
+            "location:cafe",
+            "lesson:l2-l13"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp",
+              "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/cafe__night-rain--wide.webp",
+          "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp",
+          "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 39,
+      "packageId": "l2-l14",
+      "plateAssetId": "location.language-lab",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/041-l2-l14.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-1.png",
+            "sha256": "2e2caf0281d4fded34bbe048ea394bbd68587c65368dcfcb24fc5aa51b3668de",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/041-l2-l14.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l14",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-2.png",
+            "sha256": "b96eb554de5fe31948496e2584883a77d1a0312ae8a1ba40754fb773b00d7127",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/041-l2-l14.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l14",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-3.png",
+            "sha256": "7e96bf07343e125e13aa037620067d968cb6ae4577b3ba575e61b0ba6481225f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/041-l2-l14.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l14",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-4.png",
+            "sha256": "6ece5c49c000519585b15a5d3510b8b2943f4c4832199b15642af475f0fadcd9",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/041-l2-l14.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l14",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.language-lab",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/japan-office__evening-close"
+          },
+          "runtimeUses": [
+            "location:language-lab",
+            "activity:listening-shadowing",
+            "lesson:l2-l09",
+            "lesson:l2-l14"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp",
+              "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp",
+              "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp",
+          "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp",
+          "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 40,
+      "packageId": "l2-l15",
+      "plateAssetId": "location.classroom",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/042-l2-l15.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-1.png",
+            "sha256": "740c85dcc650f67e4fa84afccba19eea993e72730fdac67372daa8604299940b",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/042-l2-l15.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l15",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-2.png",
+            "sha256": "fc529706b6821d2629b213f7269306b971c5a40c1491cc9e382814fe3d183a39",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/042-l2-l15.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l15",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-3.png",
+            "sha256": "a126ab62a102564bb6f8d1ff807da6853009c860dc25be5434ec773afffb6983",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/042-l2-l15.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l15",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-4.png",
+            "sha256": "966e692b4e190de0d319635e84c536c1d4c2f1f1e983b36934271c3670692b98",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/042-l2-l15.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l15",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-5.png",
+            "sha256": "6f2aa526c4ff763da9fdf2773a090cfb06d860283ac35a5f046371b36b36e743",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/042-l2-l15.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l15",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.classroom",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit"
+          },
+          "runtimeUses": [
+            "onboarding:profile",
+            "lesson-zero",
+            "placement",
+            "journal",
+            "lesson:l2-l04",
+            "lesson:l2-l15",
+            "lesson:l2-l16"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+              "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+          "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+          "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "ordinal": 41,
+      "packageId": "l2-l16",
+      "plateAssetId": "location.classroom",
+      "provenance": {
+        "lessonPackage": "public/academy/content/lessons/043-l2-l16.json",
+        "media": [
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-1-page-1.png",
+            "sha256": "5d9c9a9e3a2b241eb3a31ff96855f2ce24e0987dd6a1c5b5f632226b181d535c",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-1-page-2.png",
+            "sha256": "b8786e398c80109f92caa5fd9cf9ec129348f1ff541005d5e592f4b7a21a9cd6",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-1.png",
+            "sha256": "ddc590cf0270e321e98b933ccc2972798367051343e3ca221f88bcfc5dcc430f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-2.png",
+            "sha256": "9f98114f963287be60c3ab2074af0823c229d078cff290fc15a0c0008853016f",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-3.png",
+            "sha256": "e44924a1d24809feaa577fb59c0ca90b64fded5743fba2d3ede3457a4b78529d",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-information-gap-page-1.png",
+            "sha256": "db345d3097b5e664a19d1274c3c0eda961f6406ac6ac9536614518c45de86556",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          }
+        ],
+        "packagedListening": []
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plateAsset": {
+          "id": "location.classroom",
+          "kind": "background",
+          "approval": "approved",
+          "provenance": {
+            "registry": "current-production",
+            "ledger": "direct-openai-image-generation-manifest",
+            "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit"
+          },
+          "runtimeUses": [
+            "onboarding:profile",
+            "lesson-zero",
+            "placement",
+            "journal",
+            "lesson:l2-l04",
+            "lesson:l2-l15",
+            "lesson:l2-l16"
+          ],
+          "orphanStatus": "active-runtime",
+          "deliveries": [
+            {
+              "variant": "wide",
+              "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+            },
+            {
+              "variant": "mobile",
+              "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+              "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+            }
+          ]
+        }
+      },
+      "orphanStatus": "active-runtime",
+      "responsiveVariants": {
+        "status": "complete-distinct-pair",
+        "wide": {
+          "variant": "wide",
+          "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+          "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+        },
+        "mobile": {
+          "variant": "mobile",
+          "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+          "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+        }
+      },
+      "intentionalOmissions": [
+        "name-only-cast-does-not-authorize-likeness-art"
+      ],
+      "missingPurposefulAssets": []
+    }
+  ],
+  "worlds": [
+    {
+      "id": "station",
+      "provenance": {
+        "runtimeLedger": "public/academy/art/ASSET-USAGE.json",
+        "recoveryLedger": "docs/academy/recovery/ASSET-CARRYOVER.json"
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plates": [
+          {
+            "id": "location.station",
+            "kind": "background",
+            "approval": "approved",
+            "provenance": {
+              "registry": "recovered-academy-tree",
+              "ledger": "direct-openai-image-generation-manifest-recovered",
+              "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute"
+            },
+            "runtimeUses": [
+              "location:station",
+              "activity:station-announcements",
+              "lesson:l2-l02",
+              "lesson:l2-l05",
+              "lesson:l2-l10",
+              "lesson:l2-l11"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "wide",
+                "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+                "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+              },
+              {
+                "variant": "mobile",
+                "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+                "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+              }
+            ]
+          },
+          {
+            "id": "location.station-platform",
+            "kind": "background",
+            "approval": "approved",
+            "provenance": {
+              "registry": "recovered-academy-tree",
+              "ledger": "direct-openai-image-generation-manifest-recovered",
+              "source": "donor-a:codex-production-v1/backgrounds/tube-platform__blue-hour-rain"
+            },
+            "runtimeUses": [
+              "location:station-platform",
+              "activity:station-platform-transfer"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "wide",
+                "path": "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp",
+                "sha256": "08fb7f255467425eea6606a4676a070ca4a9356af403cf839ee750fc730983f5"
+              },
+              {
+                "variant": "mobile",
+                "path": "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp",
+                "sha256": "4838e50466da14cf55c9e3c08f98739f7c945a6332d5cb648718a0c830079eef"
+              }
+            ]
+          }
+        ],
+        "items": [
+          {
+            "id": "item.station-ticket",
+            "kind": "item-art",
+            "approval": "approved",
+            "provenance": {
+              "registry": "recovered-academy-tree",
+              "ledger": "direct-openai-image-generation-manifest-recovered",
+              "source": "donor-a:codex-production-v1/lesson-assets/mobile/travel-ticket-memory.jpg",
+              "sourceSha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663"
+            },
+            "runtimeUses": [
+              "reward:station:platform-ticket"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "default",
+                "path": "/academy/art/items/station-ticket-memory__v001.jpg",
+                "sha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663"
+              }
+            ]
+          }
+        ]
+      },
+      "orphanStatus": "active-runtime-with-explicit-recovery-candidates",
+      "responsiveVariants": [
+        {
+          "assetId": "location.station",
+          "status": "complete-distinct-pair",
+          "wide": {
+            "variant": "wide",
+            "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+            "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+          },
+          "mobile": {
+            "variant": "mobile",
+            "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+            "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+          }
+        },
+        {
+          "assetId": "location.station-platform",
+          "status": "complete-distinct-pair",
+          "wide": {
+            "variant": "wide",
+            "path": "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp",
+            "sha256": "08fb7f255467425eea6606a4676a070ca4a9356af403cf839ee750fc730983f5"
+          },
+          "mobile": {
+            "variant": "mobile",
+            "path": "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp",
+            "sha256": "4838e50466da14cf55c9e3c08f98739f7c945a6332d5cb648718a0c830079eef"
+          }
+        }
+      ],
+      "recoveredCandidates": [
+        {
+          "sha256": "0885bc5b3aacdc1c41bfa3116ab6b26d5394e7e37e18050473667c2dff2dd608",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/mobile/direction-rainy-junction.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "40ef2f1e110e8952c66652ab41fe98655dde155cf5cc4d34d1f62a6c9f0c972b",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/thumb/relationship-umbrella.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "ee67abb3f63f0d8e1c507ab07fc78f8c0e5dfcfd1f24b7746e28f01f156320ed",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-rainy-junction.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "4e437e8914f8ab576b355362a888b4995707a9234bced02d60b8d9bf6e1c538d",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-station-kiosk.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "464fb1e3bab9ecd0cbbffaa64e8bc86f9ba487c56ac7b78e9847be934963406e",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/manga-rain-cafe-panel.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "34e6047cd291a71f4d52c15a55ebe9984e9f7f307592c9e88b38f8d7bb2ce4cb",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/weather-umbrella-mishap.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        }
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "id": "cafe",
+      "provenance": {
+        "runtimeLedger": "public/academy/art/ASSET-USAGE.json",
+        "recoveryLedger": "docs/academy/recovery/ASSET-CARRYOVER.json"
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plates": [
+          {
+            "id": "location.cafe",
+            "kind": "background",
+            "approval": "approved",
+            "provenance": {
+              "registry": "current-production",
+              "ledger": "direct-openai-image-generation-manifest",
+              "source": "donor-a:codex-production-v1/backgrounds/cafe__night-rain"
+            },
+            "runtimeUses": [
+              "location:cafe",
+              "lesson:l2-l13"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "wide",
+                "path": "/academy/art/locations/wide/cafe__night-rain--wide.webp",
+                "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"
+              },
+              {
+                "variant": "mobile",
+                "path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp",
+                "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"
+              }
+            ]
+          }
+        ],
+        "items": [
+          {
+            "id": "item.cafe-order-scene",
+            "kind": "item-art",
+            "approval": "approved",
+            "provenance": {
+              "registry": "recovered-academy-tree",
+              "ledger": "direct-openai-image-generation-manifest-recovered",
+              "source": "donor-a:codex-production-v1/lesson-assets/wide/food-cafe-order.jpg",
+              "sourceSha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
+            },
+            "runtimeUses": [
+              "reward:cafe:inspectable-order-scene"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "default",
+                "path": "/academy/art/items/cafe-order-scene__v001.jpg",
+                "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
+              }
+            ]
+          }
+        ]
+      },
+      "orphanStatus": "active-runtime-with-explicit-recovery-candidates",
+      "responsiveVariants": [
+        {
+          "assetId": "location.cafe",
+          "status": "complete-distinct-pair",
+          "wide": {
+            "variant": "wide",
+            "path": "/academy/art/locations/wide/cafe__night-rain--wide.webp",
+            "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"
+          },
+          "mobile": {
+            "variant": "mobile",
+            "path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp",
+            "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"
+          }
+        }
+      ],
+      "recoveredCandidates": [
+        {
+          "sha256": "33eb0550776db13e775b87f41f8442c1f9e12b0e8a73d35c3daf58f05c6504fe",
+          "type": "responsive-background",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/mobile/cafe__day-open--mobile.webp",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-production-candidate",
+            "rightsStatus": "Original generated production candidate. No real interior, map, protected character, logo, named institution, or copyrighted artist/style shortcut was requested or used.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "bd43b29f35372346d15204c64525927808c2d0f1882bad8940a7748ad175232f",
+          "type": "responsive-background",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/wide/cafe__day-open--wide.webp",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-production-candidate",
+            "rightsStatus": "Original generated production candidate. No real interior, map, protected character, logo, named institution, or copyrighted artist/style shortcut was requested or used.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "0885bc5b3aacdc1c41bfa3116ab6b26d5394e7e37e18050473667c2dff2dd608",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/mobile/direction-rainy-junction.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "40ef2f1e110e8952c66652ab41fe98655dde155cf5cc4d34d1f62a6c9f0c972b",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/thumb/relationship-umbrella.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "ee67abb3f63f0d8e1c507ab07fc78f8c0e5dfcfd1f24b7746e28f01f156320ed",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-rainy-junction.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "464fb1e3bab9ecd0cbbffaa64e8bc86f9ba487c56ac7b78e9847be934963406e",
+          "type": "lesson-illustration",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/manga-rain-cafe-panel.jpg",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-human-signoff-pending",
+            "rightsStatus": "Original Yomu Academy generation; release owner must complete the project rights and human visual sign-off before shipping.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/lesson-assets/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        }
+      ],
+      "missingPurposefulAssets": []
+    },
+    {
+      "id": "konbini",
+      "provenance": {
+        "runtimeLedger": "public/academy/art/ASSET-USAGE.json",
+        "recoveryLedger": "docs/academy/recovery/ASSET-CARRYOVER.json"
+      },
+      "runtimeUse": {
+        "status": "active-runtime",
+        "plates": [
+          {
+            "id": "location.konbini",
+            "kind": "background",
+            "approval": "approved",
+            "provenance": {
+              "registry": "current-production",
+              "ledger": "direct-openai-image-generation-responsive-pair",
+              "source": "openai-image-generation:019f62fa-ae33-78b1-98a9-860c40411b06"
+            },
+            "runtimeUses": [
+              "location:konbini",
+              "activity:counter-shopping"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "wide",
+                "path": "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp",
+                "sha256": "0ea3ba199e2144bfaa8cde1db68640f7ba4395363cbf79f400461c9b9b3ba2e4"
+              },
+              {
+                "variant": "mobile",
+                "path": "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp",
+                "sha256": "4085dce6e04e749fbfdc2fa82a0ceec1d2afa4e625fdbf02f71a86adfebad9ae"
+              }
+            ]
+          }
+        ],
+        "items": [
+          {
+            "id": "item.konbini-shopping-list",
+            "kind": "item-art",
+            "approval": "approved",
+            "provenance": {
+              "registry": "recovered-academy-tree",
+              "ledger": "direct-openai-image-generation-manifest-recovered",
+              "source": "donor-a:codex-production-v1/lesson-assets/wide/handwriting-food-backplate.jpg",
+              "sourceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8"
+            },
+            "runtimeUses": [
+              "reward:konbini:shopping-receipt"
+            ],
+            "orphanStatus": "active-runtime",
+            "deliveries": [
+              {
+                "variant": "default",
+                "path": "/academy/art/items/konbini-shopping-list__v001.jpg",
+                "sha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8"
+              }
+            ]
+          }
+        ]
+      },
+      "orphanStatus": "active-runtime-with-explicit-recovery-candidates",
+      "responsiveVariants": [
+        {
+          "assetId": "location.konbini",
+          "status": "complete-distinct-pair",
+          "wide": {
+            "variant": "wide",
+            "path": "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp",
+            "sha256": "0ea3ba199e2144bfaa8cde1db68640f7ba4395363cbf79f400461c9b9b3ba2e4"
+          },
+          "mobile": {
+            "variant": "mobile",
+            "path": "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp",
+            "sha256": "4085dce6e04e749fbfdc2fa82a0ceec1d2afa4e625fdbf02f71a86adfebad9ae"
+          }
+        }
+      ],
+      "recoveredCandidates": [
+        {
+          "sha256": "3e9a494175cf6409fa16b086c1d4f63c418b67471bf4d58ba9cd578014c3e985",
+          "type": "responsive-background",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/mobile/konbini__midnight-rain--mobile.webp",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-production-candidate",
+            "rightsStatus": "Original generated production candidate. No real interior, map, protected character, logo, named institution, or copyrighted artist/style shortcut was requested or used.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        },
+        {
+          "sha256": "29e5dae4552d52b62f65e95b5d9aa18e978f9cfb6e3f5f7e5273fad9d0ee9ae4",
+          "type": "responsive-background",
+          "path": "docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/wide/konbini__midnight-rain--wide.webp",
+          "provenance": {
+            "generationFamily": "direct-openai-image-generation",
+            "status": "manifest-reviewed-production-candidate",
+            "rightsStatus": "Original generated production candidate. No real interior, map, protected character, logo, named institution, or copyrighted artist/style shortcut was requested or used.",
+            "sourceManifests": [
+              "release:yomu-academy-initial-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json",
+              "release:yomu-academy-rebuild-20260711:public/academy/art/codex-production-v1/backgrounds/manifest.json"
+            ]
+          },
+          "runtimeUses": [],
+          "orphanStatus": "recovered-archive-only",
+          "approval": "manifest-reviewed-recovery-candidate-not-runtime-authorized"
+        }
+      ],
+      "missingPurposefulAssets": []
+    }
+  ],
+  "missingPurposefulAssets": []
+}

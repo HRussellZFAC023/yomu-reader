@@ -11,7 +11,12 @@ import {
     renderStudySentenceBlock,
 } from './section-render';
 import type { InterfaceLanguage } from '../app/types';
-import { GRAMMAR_PATTERN_DATA, GRAMMAR_RULE_EXAMPLES } from './grammar-data';
+import {
+    readGrammarPreferences,
+    setGrammarRuleKnown as persistGrammarRuleKnown,
+    setKnownGrammarVisible as persistKnownGrammarVisible,
+} from './grammar-knowledge';
+import { YOMU_GRAMMAR_REGISTRY } from './grammar-registry';
 
 const log = Logger.scope('StudyTools');
 
@@ -83,7 +88,6 @@ export interface LocalGrammarRuleSummary {
 
 const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
 const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
-const GRAMMAR_PREFERENCES_KEY = 'yomu.grammarPreferences.v1';
 const MAX_LOCAL_GRAMMAR_HINTS = 12;
 const GRAMMAR_HINT_CACHE_LIMIT = 240;
 const TRANSLATION_CACHE_LIMIT = 160;
@@ -105,27 +109,19 @@ function gp(
     return { ruleId, level, pattern: new RegExp(source, 'gu'), name, url, confidence, priority };
 }
 
-function grammarPatternFromRow(row: string): GrammarPattern {
-    const [ruleId, level, name, source, priority, confidence = 'm', url = ''] = row.split('\t');
+function grammarPatternFromRule(rule: (typeof YOMU_GRAMMAR_REGISTRY)[number]): GrammarPattern {
     return gp(
-        ruleId,
-        level as GrammarLevel,
-        name,
-        source.replaceAll('{F}', FORM_CHUNK).replaceAll('{P}', PARTICLE_CHUNK),
-        expandGrammarGuideUrl(url),
-        confidence === 'h' ? 'high' : 'medium',
-        parseInt(priority, 36),
+        rule.ruleId,
+        rule.level,
+        rule.name,
+        rule.patternSource.replaceAll('{F}', FORM_CHUNK).replaceAll('{P}', PARTICLE_CHUNK),
+        rule.url,
+        rule.confidence,
+        rule.priority,
     );
 }
 
-function expandGrammarGuideUrl(url: string): string {
-    if (!url) return '';
-    return url
-        .replace('@g/', 'https://www.tofugu.com/japanese-grammar/')
-        .replace('@j/', 'https://www.tofugu.com/japanese/');
-}
-
-const GRAMMAR_PATTERNS: GrammarPattern[] = GRAMMAR_PATTERN_DATA.trim().split('\n').map(grammarPatternFromRow);
+const GRAMMAR_PATTERNS: GrammarPattern[] = YOMU_GRAMMAR_REGISTRY.map(grammarPatternFromRule);
 
 const translationCache = new Map<string, string>();
 const translationInFlight = new Map<string, Promise<string>>();
@@ -137,7 +133,7 @@ export function resetGrammarRuleDataCacheForTests(): void {
 }
 
 export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
-    return GRAMMAR_PATTERNS.flatMap(rule => (GRAMMAR_RULE_EXAMPLES[rule.ruleId] ?? []).map(example => ({
+    return YOMU_GRAMMAR_REGISTRY.flatMap(rule => rule.examples.map(example => ({
         ruleId: rule.ruleId,
         name: rule.name,
         level: rule.level,
@@ -146,11 +142,11 @@ export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
 }
 
 export function listLocalGrammarRules(): LocalGrammarRuleSummary[] {
-    return GRAMMAR_PATTERNS.map(rule => ({
+    return YOMU_GRAMMAR_REGISTRY.map(rule => ({
         ruleId: rule.ruleId,
         name: rule.name,
         level: rule.level,
-        exampleCount: GRAMMAR_RULE_EXAMPLES[rule.ruleId]?.length ?? 0,
+        exampleCount: rule.examples.length,
     }));
 }
 
@@ -263,50 +259,12 @@ function grammarHintEnd(hint: GrammarHint): number {
     return hint.index + hint.match.length;
 }
 
-function readGrammarPreferences(): GrammarPreferences {
-    const fallback: GrammarPreferences = { knownRuleIds: [], showKnown: false };
-    try {
-        const raw = globalThis.localStorage?.getItem(GRAMMAR_PREFERENCES_KEY);
-        if (!raw) return fallback;
-        const parsed = JSON.parse(raw) as Partial<GrammarPreferences>;
-        return {
-            knownRuleIds: Array.isArray(parsed.knownRuleIds)
-                ? parsed.knownRuleIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
-                : [],
-            showKnown: parsed.showKnown === true,
-        };
-    } catch (error) {
-        log.warn('Grammar preference read failed', { error });
-        return fallback;
-    }
-}
-
-function writeGrammarPreferences(preferences: GrammarPreferences): void {
-    try {
-        const uniqueKnownRuleIds = Array.from(new Set(preferences.knownRuleIds)).sort();
-        globalThis.localStorage?.setItem(GRAMMAR_PREFERENCES_KEY, JSON.stringify({
-            knownRuleIds: uniqueKnownRuleIds,
-            showKnown: preferences.showKnown,
-        }));
-    } catch (error) {
-        log.warn('Grammar preference write failed', { error });
-    }
-}
-
 export function setGrammarRuleKnown(ruleId: string, known: boolean): GrammarPreferences {
-    const preferences = readGrammarPreferences();
-    const knownRuleIds = new Set(preferences.knownRuleIds);
-    if (known) knownRuleIds.add(ruleId);
-    else knownRuleIds.delete(ruleId);
-    const next = { ...preferences, knownRuleIds: Array.from(knownRuleIds) };
-    writeGrammarPreferences(next);
-    return next;
+    return persistGrammarRuleKnown(ruleId, known);
 }
 
 export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
-    const next = { ...readGrammarPreferences(), showKnown };
-    writeGrammarPreferences(next);
-    return next;
+    return persistKnownGrammarVisible(showKnown);
 }
 
 // A "sentence" reaching translation can be OCR or page noise (code

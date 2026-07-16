@@ -54,6 +54,21 @@ describe('authored vocabulary disambiguation', () => {
         expect(applyAuthoredVocabularyOverrides({ text: '行って', parent: root }, [original])).toEqual([original]);
     });
 
+    it('keeps a local parser pitch class when an authored surface supplies only reading and lemma', () => {
+        const root = document.createElement('p');
+        root.setAttribute(AUTHORED_VOCABULARY_ATTRIBUTE, encodeAuthoredVocabularyAnnotations([{
+            surface: '駅', lemma: '駅', reading: 'えき',
+        }]));
+        const parsed = token('駅', '駅', '駅', 'えき');
+        parsed.pitchClass = 'heiban';
+
+        const [result] = applyAuthoredVocabularyOverrides({ text: '駅', parent: root }, [parsed]);
+
+        expect(result?.card).toMatchObject({ source: 'fallback', fallbackLookupTerms: ['駅'] });
+        expect(result?.pitchClass).toBe('heiban');
+        expect(result?.rubies).toEqual([{ text: 'えき', start: 0, end: 1, length: 1 }]);
+    });
+
     it('repairs the contextual reading before the canonical page scanner paints or enriches it', async () => {
         const sentence = 'この道をまっすぐ行って、右です。';
         const line = document.createElement('p');

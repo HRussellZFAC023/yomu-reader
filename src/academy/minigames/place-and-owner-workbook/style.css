@@ -1,0 +1,114 @@
+.academy-place-owner-workbook {
+    display: grid;
+    gap: 20px;
+}
+
+.academy-place-owner-teaching {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding-block: 16px;
+    border-block: 1px solid var(--academy-border, #c9c4b8);
+}
+
+.academy-place-owner-teaching-step {
+    min-width: 0;
+    padding: 12px;
+    border-inline-start: 3px solid var(--academy-accent, #146b58);
+}
+
+.academy-place-owner-teaching-step h3,
+.academy-place-owner-teaching-step p,
+.academy-place-owner-context {
+    margin: 0 0 8px;
+}
+
+.academy-place-owner-example {
+    font-weight: 700;
+}
+
+.academy-place-owner-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.academy-place-owner-round {
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    background: var(--academy-surface, #fff);
+}
+
+.academy-place-owner-round legend {
+    max-width: 100%;
+    padding: 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+}
+
+.academy-place-owner-location-choices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.academy-place-owner-location-choice,
+.academy-place-owner-select select {
+    min-height: 44px;
+}
+
+.academy-place-owner-location-choice {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.academy-place-owner-location-choice:has(input:checked) {
+    border-color: var(--academy-accent, #146b58);
+    background: var(--academy-accent-soft, #e7f2ee);
+}
+
+.academy-place-owner-phrase-builder {
+    display: grid;
+    grid-template-columns: minmax(92px, 1fr) auto minmax(92px, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.academy-place-owner-select,
+.academy-place-owner-select select {
+    min-width: 0;
+    width: 100%;
+}
+
+.academy-place-owner-check,
+.academy-place-owner-feedback {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+    .academy-place-owner-teaching,
+    .academy-place-owner-form {
+        grid-template-columns: 1fr;
+    }
+
+    .academy-place-owner-location-choices,
+    .academy-place-owner-phrase-builder {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-place-owner-location-choice,
+    .academy-place-owner-select select {
+        transition: none;
+    }
+}

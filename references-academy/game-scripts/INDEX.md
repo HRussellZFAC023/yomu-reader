@@ -20,7 +20,7 @@ The [Japanese Open Content Datasets project](https://open_contents_datasets.gitl
 
 ## Citation-only sources
 
-These sources are publicly readable and useful for structural study, but their underlying game dialogue is not licensed for repository redistribution. No local transcript copy is stored.
+These sources are publicly readable and useful for structural study, but their underlying game dialogue is not licensed for repository redistribution. They remain links unless listed in the private-snapshot quarantine below.
 
 | Reference | What was studied | Copy decision |
 | --- | --- | --- |
@@ -31,10 +31,23 @@ These sources are publicly readable and useful for structural study, but their u
 | [Persona 5 Royal: Sojiro Confidant](https://megamitensei.fandom.com/wiki/Confidant/Sojiro_Sakura) and [Yusuke Confidant](https://megamitensei.fandom.com/wiki/Confidant/Yusuke_Kitagawa) | activity-linked bonding, gate conditions, choice-to-affinity distinction, mechanical rewards | Wiki contribution terms do not grant rights in quoted Atlus dialogue. Citation only. |
 | [Video Game Dialogue Corpus](https://github.com/seannyD/VideoGameDialogueCorpusPublic) | machine-readable representation of speakers, actions, aliases, nested choices, provenance, and error checks | Useful research method, but the repository does not include a top-level content licence and fetches third-party scripts. No corpus build or transcript copy stored. |
 
+## Private research snapshots
+
+The user requested local research copies of selected Japanese game-script pages. These HTML snapshots are retained only inside `references-academy`, are not redistributable product assets, and must never be imported, bundled, paraphrased line-by-line, or published. Their presence does not change the product boundary above.
+
+| Local snapshot | Source | SHA-256 |
+| --- | --- | --- |
+| `persona4-dialogue-links.html` | Persona 4 fan dialogue index hosted at `sirius.client.jp`; the original retrieval URL was not recorded, so the snapshot is provenance-incomplete and strictly quarantined | `4d6b432394b7f4fd81dd45d57c0d8a29f6acd1414e354f924303aba9946cc5cb` |
+| `persona5-dialogue-collection.html` | [Persona 5 strategy-wiki dialogue collection](https://spwiki.net/persona5/) | `26addacc3bee0489d899c219eac9dcb3f27e5ef4623205dcbe41553cafde803c` |
+| `persona5r-my-palace-conversations.html` | [Persona 5 Royal My Palace conversations](https://wikiwiki.jp/persona5r/%E3%83%9E%E3%82%A4%E3%83%91%E3%83%AC%E3%82%B9%E4%BC%9A%E8%A9%B1%E9%9B%86) | `7ddf13f6a24000e650e17b86b7247156f3d521c615d596dfe6183b38765cecb1` |
+| `pokemon-green-dialogue.html` | [Pokemon Text Wiki: Green](https://wikiwiki.jp/poketext/%E3%82%B0%E3%83%AA%E3%83%BC%E3%83%B3) | `549baca8ad7acd2b7942003ae5ffe64aa4a75b1a4081b491156647b8c09d284e` |
+| `pokemon-text-wiki-front.html` | [Pokemon Text Wiki](https://wikiwiki.jp/poketext/) | `aa3ec62df111471547cdea26756a2a2274aa3f9b18689a00d53a7dc633d5be4e` |
+
 ## Handling rules
 
 1. Keep downloaded research under `references-academy/game-scripts`; never import it into `src`, `public`, lesson shards, prompts, tests, or generated assets.
 2. Use no source sentence, close paraphrase, named plot device, proprietary character, location, UI wording, or distinctive joke in Academy.
 3. Record only aggregate measurements and generalized craft observations in `RESEARCH-SYNTHESIS.md` and `docs/academy/story/`.
 4. A new source enters `sources/` only after a pinned revision, explicit content licence, retained attribution, archive hash, and adult/private-data review.
-5. Citation-only references remain links. Public accessibility alone is not permission to mirror.
+5. Citation-only references remain links unless explicitly inventoried in the private-snapshot quarantine. Public accessibility alone is not permission to redistribute.
+6. Private snapshots stay out of release archives, build inputs, generated documentation, prompts, tests, and public mirrors.

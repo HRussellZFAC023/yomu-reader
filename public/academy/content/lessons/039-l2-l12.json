@@ -1,0 +1,3015 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l12",
+  "order": 39,
+  "weekKind": "lesson",
+  "title": {
+    "en": "Two things at once",
+    "ja": "〜ながらの 習慣"
+  },
+  "estimatedMinutes": 100,
+  "identity": {
+    "title": "Level 3-2 Lesson 1",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3-2",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 12,
+    "moduleId": 8121261,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 3,
+      "canonicalClassOrder": 50
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8121261,
+    "memberFileCount": 13,
+    "members": [
+      {
+        "title": "〜ながら word card.pdf",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1458538,
+        "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276"
+      },
+      {
+        "title": "audio materials/10 A-10.mp3",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 2356530,
+        "payloadSha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721"
+      },
+      {
+        "title": "audio materials/9-A-9.mp3",
+        "role": "audio-video",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1758515,
+        "payloadSha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e"
+      },
+      {
+        "title": "Handouts/Chapter 28 listening-1.pdf",
+        "role": "listening",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 630615,
+        "payloadSha256": "8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591"
+      },
+      {
+        "title": "Handouts/Chapter 28-1 〜ながら speaking exercise.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1731305,
+        "payloadSha256": "a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77"
+      },
+      {
+        "title": "Handouts/Chapter 28-1 〜ながら_grammar_exercise.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1390211,
+        "payloadSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48"
+      },
+      {
+        "title": "Handouts/Chapter 28-2 〜ている-4_habitual behaviour grammar exercise.pdf",
+        "role": "grammar-practice",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 1234359,
+        "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23"
+      },
+      {
+        "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+        "role": "vocabulary",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 128568,
+        "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5"
+      },
+      {
+        "title": "Homework/78 Track 78.mp3",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1221637,
+        "payloadSha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2"
+      },
+      {
+        "title": "Homework/79 Track 79.mp3",
+        "role": "homework",
+        "kind": "audio",
+        "extension": ".mp3",
+        "uncompressedBytes": 1267924,
+        "payloadSha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e"
+      },
+      {
+        "title": "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 571351,
+        "payloadSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617"
+      },
+      {
+        "title": "Homework/New_HW Chapter 28 〜ながら grammar exercise.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 2336115,
+        "payloadSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0"
+      },
+      {
+        "title": "Homework/New_HW Chapter 28 habitual behavior.pdf",
+        "role": "homework",
+        "kind": "document",
+        "extension": ".pdf",
+        "uncompressedBytes": 591635,
+        "payloadSha256": "48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915"
+      }
+    ],
+    "corroboratingCohorts": [],
+    "gaps": [],
+    "coverageMap": [
+      {
+        "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+        "worksheetTitle": "〜ながら word card",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+        "worksheetTitle": "10 A-10",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+        "worksheetTitle": "9-A-9",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591",
+        "worksheetTitle": "Chapter 28 listening-1",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77",
+        "worksheetTitle": "Chapter 28-1 〜ながら speaking exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+        "worksheetTitle": "Chapter 28-1 〜ながら grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+        "worksheetTitle": "Chapter 28-2 〜ている-4 habitual behaviour grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+        "worksheetTitle": "New Chapter 28-1 Vocabulary Sheet",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2",
+        "worksheetTitle": "78 Track 78",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e",
+        "worksheetTitle": "79 Track 79",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle audio is recorded by immutable payload hash and remains unavailable until its original task pairing is verified.",
+        "status": "canonical-recorded-awaiting-pairing"
+      },
+      {
+        "payloadSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+        "worksheetTitle": "New Homework listening口座を開く て あげます て くれます て もらいます",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+        "worksheetTitle": "New HW Chapter 28 〜ながら grammar exercise",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      },
+      {
+        "payloadSha256": "48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915",
+        "worksheetTitle": "New HW Chapter 28 habitual behavior",
+        "coveredBy": [],
+        "howCovered": "Canonical Moodle pages are recorded by immutable payload hash and full-page coordinates. Existing Yomu material is augmentation only and is not claimed to replace, paraphrase, or cover the teacher material.",
+        "status": "canonical-recorded-awaiting-projection"
+      }
+    ],
+    "archiveId": "archive-000032",
+    "archiveSha256": "62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe",
+    "archiveBytes": 14490796
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3-2 · Lesson 1",
+    "genki": "≈ Genki II · Simultaneous actions and routines",
+    "minna": "Minna no Nihongo II · Lesson 28",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3-2-l01",
+    "canonicalClassOrder": 50
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "chronology-and-scope",
+        "reference": "course archive · archive-000032 · module 8121261 · sha256 62c3a814d3590157a8498d34e5ca172c5afa6608d9f9be1ad149a4ca4b99d4fe",
+        "reuse": "metadata-and-sequence-only",
+        "note": "Archive identity, exact file inventory and topic labels are retained. Source wording, source media and source answers are not reproduced."
+      },
+      {
+        "sourceId": "source-minna-no-nihongo",
+        "relation": "scope",
+        "reference": "Minna no Nihongo II · Lesson 28",
+        "reuse": "sequence-only",
+        "note": "The chapter-28 scope of 〜ながら and habitual 〜ています guides the lesson; all wording and tasks are original."
+      },
+      {
+        "sourceId": "source-jlpt-framework",
+        "relation": "placement",
+        "reference": "N4 grammar band",
+        "reuse": "scope-only",
+        "note": "The band guides task difficulty and is not a score claim."
+      },
+      {
+        "sourceId": "source-ucl-moodle-canonical-corpus",
+        "relation": "canonical-teaching-material",
+        "reference": "Moodle archive archive-000032; immutable payload and page-level items recorded in provenance.canonicalMoodle.sourceItems.",
+        "reuse": "verbatim-authorised",
+        "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
+      }
+    ],
+    "castingNote": "Grammar picks the person: Aakash carries music-filled multitasking, Henry brings the paperwork problem, and Jodi offers calm practical help.",
+    "gaps": [],
+    "donorPackage": {
+      "canonicalWeekId": "l3-2-l01",
+      "sha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634",
+      "note": "Existing Yomu-authored donor content retained; no source wording, source answers or source media imported."
+    },
+    "unresolvedAnswersPolicy": "quarantine",
+    "unresolvedAudioPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, SRS, hints, and retry support may surround a canonical item but may not replace or paraphrase it.",
+      "sourceItems": [
+        {
+          "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+          "sourceTitle": "〜ながら word card.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 48,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+          "sourceTitle": "〜ながら word card.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 1,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 48,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+          "sourceTitle": "audio materials/10 A-10.mp3",
+          "sourceRole": "audio-video",
+          "sourceOrder": 2,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+          "sourceTitle": "audio materials/9-A-9.mp3",
+          "sourceRole": "audio-video",
+          "sourceOrder": 3,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591",
+          "sourceTitle": "Handouts/Chapter 28 listening-1.pdf",
+          "sourceRole": "listening",
+          "sourceOrder": 4,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77",
+          "sourceTitle": "Handouts/Chapter 28-1 〜ながら speaking exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 5,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 9,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+          "sourceTitle": "Handouts/Chapter 28-1 〜ながら_grammar_exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+          "sourceTitle": "Handouts/Chapter 28-1 〜ながら_grammar_exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 6,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 6,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+          "sourceTitle": "Handouts/Chapter 28-2 〜ている-4_habitual behaviour grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 4,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+          "sourceTitle": "Handouts/Chapter 28-2 〜ている-4_habitual behaviour grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+          "sourceTitle": "Handouts/Chapter 28-2 〜ている-4_habitual behaviour grammar exercise.pdf",
+          "sourceRole": "grammar-practice",
+          "sourceOrder": 7,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23:page:3",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 3,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+          "sourceTitle": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+          "sourceTitle": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+          "sourceRole": "vocabulary",
+          "sourceOrder": 8,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 0,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2",
+          "sourceTitle": "Homework/78 Track 78.mp3",
+          "sourceRole": "homework",
+          "sourceOrder": 9,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:1039d11bef7a0575c6f104f780d1b65c79e63eb50dc292ea8c39f05d241123d2:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e",
+          "sourceTitle": "Homework/79 Track 79.mp3",
+          "sourceRole": "homework",
+          "sourceOrder": 10,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:612ff9f8f70e5ce4ac79b3c6826e12e6b2a7c4d2ccccf5a017df7509f474c63e:audio",
+          "sourceType": "audio",
+          "projectionStatus": "requires-pairing-projection",
+          "pairingStatus": "source-audio-recorded-task-pairing-unverified"
+        },
+        {
+          "payloadSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+          "sourceTitle": "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 1,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+          "sourceTitle": "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 11,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+          "sourceTitle": "Homework/New_HW Chapter 28 〜ながら grammar exercise.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 2,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+          "sourceTitle": "Homework/New_HW Chapter 28 〜ながら grammar exercise.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 12,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0:page:2",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 2,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1262,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 4,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        },
+        {
+          "payloadSha256": "48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915",
+          "sourceTitle": "Homework/New_HW Chapter 28 habitual behavior.pdf",
+          "sourceRole": "homework",
+          "sourceOrder": 13,
+          "sourceArchiveId": "archive-000032",
+          "crossSourceArchiveIds": [],
+          "answerPolicy": "gate-until-attempt",
+          "id": "moodle:48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915:page:1",
+          "sourceType": "pdf-page",
+          "projectionStatus": "requires-item-projection",
+          "verbatimPolicy": "render-verbatim-from-canonical-payload",
+          "pageCoordinates": {
+            "page": 1,
+            "coordinateSystem": "pdf-census-layout-pixels",
+            "region": "full-page",
+            "width": 892,
+            "height": 1263,
+            "textExtraction": "extracted"
+          },
+          "visualFidelity": {
+            "imageObjectCount": 3,
+            "vectorReviewState": "vector-heavy-review-required",
+            "policy": "retain-the-canonical-page-layout-and-diagrams-with-the-item"
+          }
+        }
+      ]
+    }
+  },
+  "learningObjectives": [
+    "Join two same-subject actions with 〜ながら.",
+    "Place the main action after 〜ながら.",
+    "Use 〜ています for a repeated habit, not only an action in progress.",
+    "Understand an account-opening dialogue while tracking who gives help.",
+    "Read and hand-write 習 and 働 in routine vocabulary."
+  ],
+  "scene": {
+    "where": "A shared kitchen with a speaker on the counter",
+    "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
+    "hook": "Aakash has music, soup, and one free hand.",
+    "cast": [
+      "rie",
+      "aakash",
+      "henry",
+      "jodi"
+    ],
+    "transcriptToggle": true,
+    "lines": [
+      {
+        "speakerId": "aakash",
+        "expression": "warm",
+        "pose": "listen",
+        "japanese": "音楽を 聞きながら、スープを 作っています。",
+        "reading": "おんがくを ききながら、スープを つくって います。",
+        "english": "I'm making soup while listening to music.",
+        "note": "One person performs both actions."
+      },
+      {
+        "speakerId": "henry",
+        "expression": "thinking",
+        "pose": "inspect",
+        "japanese": "ぼくは 動画を 見ながら 料理すると、いつも 何かを 忘れます。",
+        "reading": "ぼくは どうがを みながら りょうりすると、いつも なにかを わすれます。",
+        "english": "When I cook while watching videos, I always forget something.",
+        "note": "The object supplies the humour."
+      },
+      {
+        "speakerId": "jodi",
+        "expression": "warm",
+        "pose": "offer",
+        "japanese": "普段は 音だけ 聞いています。手は 料理に 使えますから。",
+        "reading": "ふだんは おとだけ きいて います。ては りょうりに つかえますから。",
+        "english": "I usually just listen. Then I can use my hands for cooking.",
+        "note": "Habitual 〜ています."
+      },
+      {
+        "speakerId": "aakash",
+        "expression": "surprised",
+        "pose": "inspect",
+        "japanese": "あっ、スープが もう できています。",
+        "reading": "あっ、スープが もう できて います。",
+        "english": "Oh, the soup is already ready.",
+        "note": "A small result, not the target habit."
+      },
+      {
+        "speakerId": "rie",
+        "expression": "warm",
+        "pose": "explain",
+        "japanese": "いい においですね。まず、「聞きながら」の 作り方を 見ましょう。",
+        "reading": "いい においですね。まず、「ききながら」の つくりかたを みましょう。",
+        "english": "That smells good. First, let's look at how 聞きながら is formed.",
+        "note": "Rie moves from meaning to form."
+      }
+    ]
+  },
+  "explanation": {
+    "order": 5,
+    "recap": "The Chapter 27 self-study lesson made limits precise with しか and separated natural 見えます・聞こえます from deliberate ability. Now 聞く becomes one half of a two-action sentence.",
+    "intro": "〜ながら is compact: one person, two actions, with the main action at the end. Habitual 〜ています then turns a single scene into a routine. Once you place the main action last, you can describe a real habit in one clean sentence.",
+    "grammarPoints": [
+      {
+        "pattern": "Verb(ます-stem) + ながら、main action",
+        "nameJa": "〜ながら",
+        "meaning": "while doing; two actions by one person",
+        "explanation": "Remove ます from the first verb and add ながら: 聞きます → 聞きながら. The same person does both actions. The action after ながら is the main one, so 音楽を聞きながら料理します presents cooking as the main activity.",
+        "watchFor": "Check that both verbs have the same subject. If two different people act, use a different connection.",
+        "commonError": "Do not attach ながら to the て-form. 聞いてながら is wrong; use 聞きながら.",
+        "examples": [
+          {
+            "ja": "音楽を 聞きながら、料理します。",
+            "reading": "おんがくを ききながら、りょうりします。",
+            "en": "I cook while listening to music.",
+            "note": "Cooking is the main action."
+          },
+          {
+            "ja": "地図を 見ながら、駅まで 歩きました。",
+            "reading": "ちずを みながら、えきまで あるきました。",
+            "en": "I walked to the station while looking at a map.",
+            "note": "One walker does both actions."
+          },
+          {
+            "ja": "働きながら、日本語を 勉強しています。",
+            "reading": "はたらきながら、にほんごを べんきょうして います。",
+            "en": "I study Japanese while working.",
+            "note": "A longer parallel arrangement."
+          }
+        ]
+      },
+      {
+        "pattern": "Verb(て) + います",
+        "nameJa": "習慣の 〜ています",
+        "meaning": "a regular habit or ongoing routine",
+        "explanation": "At this level, 〜ています is not only 'doing now'. With a routine word or general context, it describes what someone regularly does: 電車で本を読んでいます, 'I read on the train'. Context separates habit from this-moment action.",
+        "watchFor": "A routine marker such as いつも, よく, or 普段 makes the habitual reading clear.",
+        "commonError": "Do not translate every 〜ています as 'right now'. Ask whether the sentence describes a repeated pattern.",
+        "examples": [
+          {
+            "ja": "普段、朝ごはんを 食べながら ニュースを 読んでいます。",
+            "reading": "ふだん、あさごはんを たべながら ニュースを よんで います。",
+            "en": "I usually read the news while eating breakfast.",
+            "note": "普段 makes this a habit."
+          },
+          {
+            "ja": "ローズさんは 農場で 働きながら、日本語の ラジオを 聞いています。",
+            "reading": "ローズさんは のうじょうで はたらきながら、にほんごの ラジオを きいて います。",
+            "en": "Rose listens to Japanese radio while working on the farm.",
+            "note": "A recurring routine and Rose's farm background."
+          }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "authentic-input",
+      "order": 10,
+      "title": {
+        "en": "Rose's listening habit",
+        "ja": "ローズさんの 習慣"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original profile-style input for simultaneous actions and habitual behaviour."
+      },
+      "reading": {
+        "title": {
+          "en": "Japanese among the fields",
+          "ja": "農場で 聞く 日本語"
+        },
+        "gloss": "Rose has lived in Japan before, but keeps a small listening habit while working on the farm.",
+        "glossToggle": true,
+        "lines": [
+          {
+            "ja": "ローズさんは 前に 日本に 住んでいました。今は 農場で 働いています。",
+            "reading": "ローズさんは まえに にほんに すんで いました。いまは のうじょうで はたらいて います。",
+            "en": "Rose used to live in Japan. She now works on a farm."
+          },
+          {
+            "ja": "仕事を しながら、短い 日本語の ラジオを 聞いています。",
+            "reading": "しごとを しながら、みじかい にほんごの ラジオを きいて います。",
+            "en": "While working, she listens to a short Japanese radio programme."
+          },
+          {
+            "ja": "知っている ことばも ありますが、新しい ことばも たくさん あります。",
+            "reading": "しって いる ことばも ありますが、あたらしい ことばも たくさん あります。",
+            "en": "Some words are familiar, but there are also many new ones."
+          },
+          {
+            "ja": "分からない ことばは メモしないで、まず 音を まねしています。",
+            "reading": "わからない ことばは メモしないで、まず おとを まねして います。",
+            "en": "She does not write unfamiliar words down at first; she imitates the sound."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l01-authentic",
+          "kind": "choice",
+          "prompt": {
+            "en": "What is Rose's regular listening habit?",
+            "ja": "ローズさんの 習慣は 何ですか。"
+          },
+          "explanation": "She listens to short Japanese radio while working on the farm.",
+          "reviewTag": "authentic-habit",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "働きながら 日本語の ラジオを 聞く",
+                "en": "Listen to Japanese radio while working"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "仕事を しないで 辞書を 読む",
+                "en": "Read a dictionary instead of working"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The passage says she works while listening; it does not mention reading a dictionary."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "context"
+    },
+    {
+      "type": "vocabulary",
+      "order": 20,
+      "title": {
+        "en": "Everyday routines",
+        "ja": "普段の ことば"
+      },
+      "provenance": {
+        "sourceId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+        "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+        "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+        "reuse": "verbatim-source-rows-with-labeled-yomu-support",
+        "answerVisibility": "after-attempt",
+        "note": "Pre-study vocabulary is the verbatim sensei source-sheet projection recorded here. Any Yomu vocabulary aid must refer to source item IDs and cannot replace the sheet."
+      },
+      "items": [
+        {
+          "ja": "ねころがります（寝転がります）",
+          "reading": "ねころがる",
+          "en": "to lie down",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-1",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 1
+            },
+            "exact": {
+              "words": "ねころがります（寝転がります）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ねころがります（寝転がります）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "おどります（踊ります）",
+          "reading": "おどる",
+          "en": "to dance",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-2",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 2
+            },
+            "exact": {
+              "words": "おどります（踊ります）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "おどります（踊ります）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょうせつ（⼩説）",
+          "reading": "しょうせつ",
+          "en": "novel",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-3",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 3
+            },
+            "exact": {
+              "words": "しょうせつ（⼩説）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しょうせつ（⼩説）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょうせつか（⼩説家）",
+          "reading": "しょうせつか",
+          "en": "novelist",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-4",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 4
+            },
+            "exact": {
+              "words": "しょうせつか（⼩説家）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しょうせつか（⼩説家）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "〜か（〜家）",
+          "reading": "か",
+          "en": "specialist; professional (suffix)",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-5",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 5
+            },
+            "exact": {
+              "words": "〜か（〜家）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "〜か（〜家）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "かよいます（通います）",
+          "reading": "かよう",
+          "en": "to commute; to attend regularly",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-6",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 6
+            },
+            "exact": {
+              "words": "かよいます（通います）",
+              "pronunciation": null,
+              "meaning": "commute from place 1 to place 2 /\nbetween place 1 and place 2, make\na trip to and from, go\nto/visit/attend a place\nfrequently/regularly"
+            },
+            "normalizedStudySurface": "かよいます（通います）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "メモ",
+          "reading": "メモ",
+          "en": "memo; note",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-7",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 7
+            },
+            "exact": {
+              "words": "メモ",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "メモ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "メモします",
+          "reading": "メモする",
+          "en": "to take notes",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-8",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 8
+            },
+            "exact": {
+              "words": "メモします",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "メモします",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ガム",
+          "reading": "ガム",
+          "en": "chewing gum",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-9",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 9
+            },
+            "exact": {
+              "words": "ガム",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ガム",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ガムを かみます",
+          "reading": "ガムをかむ",
+          "en": "to chew gum",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-10",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 10
+            },
+            "exact": {
+              "words": "ガムを かみます",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ガムを かみます",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ちゅういします（注意します）",
+          "reading": "ちゅういする",
+          "en": "to warn; to pay attention",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-11",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 11
+            },
+            "exact": {
+              "words": "ちゅういします（注意します）",
+              "pronunciation": null,
+              "meaning": "warn, pay/give attention to\nsomething, carefully, be careful of,\ntake care of"
+            },
+            "normalizedStudySurface": "ちゅういします（注意します）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "スピーチ",
+          "reading": "スピーチ",
+          "en": "speech",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-12",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 12
+            },
+            "exact": {
+              "words": "スピーチ",
+              "pronunciation": null,
+              "meaning": "speech"
+            },
+            "normalizedStudySurface": "スピーチ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "げんこう（原稿）",
+          "reading": "げんこう",
+          "en": "manuscript; draft",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-13",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 13
+            },
+            "exact": {
+              "words": "げんこう（原稿）",
+              "pronunciation": null,
+              "meaning": "manuscript, draft"
+            },
+            "normalizedStudySurface": "げんこう（原稿）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょうらい（将来）",
+          "reading": "しょうらい",
+          "en": "future",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-14",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 14
+            },
+            "exact": {
+              "words": "しょうらい（将来）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しょうらい（将来）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ゆめ（夢）",
+          "reading": "ゆめ",
+          "en": "dream",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-15",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 15
+            },
+            "exact": {
+              "words": "ゆめ（夢）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "ゆめ（夢）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "しょうらい の ゆめ（ 将来 の 夢 ）",
+          "reading": "しょうらいのゆめ",
+          "en": "dream for the future",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p1:row-16",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 1,
+              "row": 16
+            },
+            "exact": {
+              "words": "しょうらい の ゆめ（ 将来 の 夢 ）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "しょうらい の ゆめ（ 将来 の 夢 ）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うります（売ります）",
+          "reading": "うる",
+          "en": "to sell",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-17",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 17
+            },
+            "exact": {
+              "words": "うります（売ります）",
+              "pronunciation": null,
+              "meaning": "to sell"
+            },
+            "normalizedStudySurface": "うります（売ります）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "うれます（売れます）",
+          "reading": "うれる",
+          "en": "to sell; to be sold",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-18",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 18
+            },
+            "exact": {
+              "words": "うれます（売れます）",
+              "pronunciation": null,
+              "meaning": "sell, be sold\n*intransitive verb\n(自動詞／じどうし)"
+            },
+            "normalizedStudySurface": "うれます（売れます）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ばんぐみ（番組）",
+          "reading": "ばんぐみ",
+          "en": "programme",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-19",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 19
+            },
+            "exact": {
+              "words": "ばんぐみ（番組）",
+              "pronunciation": null,
+              "meaning": "programme"
+            },
+            "normalizedStudySurface": "ばんぐみ（番組）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "ドラマ",
+          "reading": "ドラマ",
+          "en": "drama",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-20",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 20
+            },
+            "exact": {
+              "words": "ドラマ",
+              "pronunciation": null,
+              "meaning": "drama"
+            },
+            "normalizedStudySurface": "ドラマ",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "むすめ（娘）",
+          "reading": "むすめ",
+          "en": "daughter",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-21",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 21
+            },
+            "exact": {
+              "words": "むすめ（娘）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "むすめ（娘）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "むすこ（息⼦）",
+          "reading": "むすこ",
+          "en": "son",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-22",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 22
+            },
+            "exact": {
+              "words": "むすこ（息⼦）",
+              "pronunciation": null,
+              "meaning": null
+            },
+            "normalizedStudySurface": "むすこ（息⼦）",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "yomu-support"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "たいてい",
+          "reading": "たいてい",
+          "en": "usually; mostly",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-23",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 23
+            },
+            "exact": {
+              "words": "たいてい",
+              "pronunciation": null,
+              "meaning": "usually, mostly\nfrequency ratio 70-80%\n*it’s about your habit"
+            },
+            "normalizedStudySurface": "たいてい",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        },
+        {
+          "ja": "よく",
+          "reading": "よく",
+          "en": "often",
+          "tags": [
+            "prestudy",
+            "source-vocabulary",
+            "chapter-28-1"
+          ],
+          "source": {
+            "itemId": "moodle-vocabulary:8121261:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:p2:row-24",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "locus": {
+              "page": 2,
+              "row": 24
+            },
+            "exact": {
+              "words": "よく",
+              "pronunciation": null,
+              "meaning": "often\nfrequency ratio 70-80%\n*it’s more about how frequents"
+            },
+            "normalizedStudySurface": "よく",
+            "fieldProvenance": {
+              "words": "source-provided",
+              "reading": "yomu-support",
+              "meaning": "source-provided"
+            },
+            "answerVisibility": "after-attempt"
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l01-vocab",
+          "kind": "match",
+          "prompt": {
+            "en": "Match the routine words.",
+            "ja": "習慣の ことばと 意味を あわせましょう。"
+          },
+          "explanation": "通う is repeated travel to a place; 集中する is to focus attention.",
+          "reviewTag": "ch28-vocab",
+          "autoGraded": true,
+          "pairs": [
+            {
+              "id": "p1",
+              "left": {
+                "ja": "習慣"
+              },
+              "right": {
+                "en": "habit"
+              }
+            },
+            {
+              "id": "p2",
+              "left": {
+                "ja": "通う"
+              },
+              "right": {
+                "en": "attend or commute regularly"
+              }
+            },
+            {
+              "id": "p3",
+              "left": {
+                "ja": "集中する"
+              },
+              "right": {
+                "en": "concentrate"
+              }
+            },
+            {
+              "id": "p4",
+              "left": {
+                "ja": "洗濯"
+              },
+              "right": {
+                "en": "laundry"
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "通う",
+              "message": "通う describes repeated travel, such as commuting to work."
+            },
+            {
+              "trigger": "集中する",
+              "message": "集中する is about attention, not travel or housework."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction",
+      "preStudyVocabulary": {
+        "schema": "yomu-academy.canonical-vocabulary-sheet.v1",
+        "sourceOrderPolicy": "sensei-sheet-order",
+        "projectionStatus": "verbatim-source-rows-projected-with-labeled-yomu-support",
+        "itemPolicy": "Do not add, delete, translate, reorder, or normalise a vocabulary item outside the canonical source-sheet page projection.",
+        "sheets": [
+          {
+            "sourceItemId": "moodle:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:page:1",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "sourceTitle": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "sourceRole": "vocabulary",
+            "page": 1,
+            "sourceOrder": 1,
+            "verbatimText": "                          Chapter 28-1 Vocabulary Sheet\nNo         Words (with accent)       Pronunciation                Meaning\n\n1\n     ねころがります\n     （寝転がります）\n\n2\n     おどります\n     （踊ります）\n\n3    しょうせつ（⼩説）\n\n4\n     しょうせつか\n     （⼩説家）\n\n5    〜か（〜家）\n                                                     commute from place 1 to place 2 /\n\n6\n     かよいます                                           between place 1 and place 2, make\n                                                     a trip to and from, go\n     （通います）                                          to/visit/attend a place\n                                                     frequently/regularly\n\n7    メモ\n\n8    メモします\n\n9    ガム\n\n10   ガムを かみます\n\n11\n     ちゅういします\n     *\n                                                     warn, pay/give attention to\n                                                     something, carefully, be careful of,\n     （注意します）                                         take care of\n\n\n12   スピーチ                                            speech\n\n\n\n13   げんこう（原稿）                                        manuscript, draft\n\n     *review\n14\n     しょうらい（将来）\n15   *review   ゆめ（夢）\n\n16\n     しょうらい の ゆめ\n     （ 将来 の 夢 ）\n                                                                         Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "sourceItemId": "moodle:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5:page:2",
+            "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+            "sourceTitle": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+            "sourceRole": "vocabulary",
+            "page": 2,
+            "sourceOrder": 2,
+            "verbatimText": "No         Words (with accent)   Pronunciation               Meaning\n     *review\n17   うります（売ります）                                  to sell\n\n                                                 sell, be sold\n18   うれます（売れます）                                  *intransitive verb\n                                                 (自動詞／じどうし)\n\n19   ばんぐみ（番組）                                    programme\n\n\n20   ドラマ                                         drama\n\n\n21   むすめ（娘）\n\n22   むすこ（息⼦）\n                                                 usually, mostly\n23   たいてい                                        frequency ratio 70-80%\n                                                 *it’s about your habit\n                                                 often\n24   *よく                                         frequency ratio 70-80%\n                                                 *it’s more about how frequents\n\n\n25\n\n\n26\n\n\n27\n\n\n28\n\n\n29\n\n\n30\n\n\n31\n\n\n32\n\n\n\n\n                                                                   Rie Tsuruta-Barratt\n",
+            "pageCoordinates": {
+              "coordinateSystem": "pdf-census-layout-pixels",
+              "region": "full-page",
+              "width": 892,
+              "height": 1262
+            },
+            "visualFidelity": {
+              "imageObjectCount": 0,
+              "vectorReviewState": "vector-heavy-review-required",
+              "policy": "render-the-canonical-vocabulary-sheet-page-with-its-original-layout"
+            },
+            "status": "verbatim-source-page-recorded",
+            "answerPolicy": "not-applicable-vocabulary-teaching-sheet"
+          }
+        ]
+      }
+    },
+    {
+      "type": "grammar",
+      "order": 30,
+      "title": {
+        "en": "While doing; as a habit",
+        "ja": "〜ながら・習慣の 〜ています"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original exercises cover the source 〜ながら speaking/grammar and habitual 〜ています materials."
+      },
+      "practiceFor": [
+        "〜ながら",
+        "habitual 〜ています"
+      ],
+      "exercises": [
+        {
+          "id": "ex-l01-nagara",
+          "kind": "exact",
+          "prompt": {
+            "en": "Combine the sentences with 〜ながら.",
+            "ja": "二つの 文を 〜ながらで つなぎましょう。"
+          },
+          "japanese": "音楽を 聞きます。料理します。",
+          "explanation": "Use the ます-stem 聞き plus ながら; the main action 料理します stays last.",
+          "reviewTag": "nagara",
+          "autoGraded": true,
+          "answer": {
+            "primary": "音楽を聞きながら料理します",
+            "alternatives": [
+              "音楽を聞きながら、料理します",
+              "音楽を 聞きながら、料理します。",
+              "音楽を聞きながら料理します。"
+            ]
+          },
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "音楽を聞いてながら料理します",
+              "message": "ながら attaches to the ます-stem: 聞きながら, not 聞いてながら."
+            },
+            {
+              "trigger": "料理しながら音楽を聞きます",
+              "message": "This is grammatical, but it changes the main action. Keep 料理します last for the requested meaning."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "guided-practice"
+        },
+        {
+          "id": "ex-l01-same-subject",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which sentence uses 〜ながら correctly?",
+            "ja": "同じ 人が 二つの 動作を している 文は どれですか。"
+          },
+          "explanation": "In the correct sentence, Aakash both listens and walks.",
+          "reviewTag": "nagara-subject",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "アーカシュは 音楽を 聞きながら 歩きます。",
+                "en": "Aakash walks while listening to music."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "アーカシュが 音楽を 聞きながら、ヘンリーは 歩きます。",
+                "en": "While Aakash listens, Henry walks."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The two actions have different subjects. 〜ながら normally needs one person doing both."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l01-habit",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Complete the habitual form.",
+            "ja": "習慣の 〜ていますで うめましょう。"
+          },
+          "japanese": "普段、電車で 本を ＿＿＿。",
+          "explanation": "A repeated routine uses 読んでいます in this context.",
+          "reviewTag": "habitual-teiru",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "読んでいます",
+                "alternatives": [
+                  "よんでいます"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "読みます",
+              "message": "読みます states a general action, but this task asks for the habitual 〜ています form: 読んでいます."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "instruction"
+    },
+    {
+      "type": "listening",
+      "order": 40,
+      "title": {
+        "en": "Listening held for verification",
+        "ja": "音声は 確認中"
+      },
+      "provenance": {
+        "reuse": "quarantined",
+        "note": "Archive audio exists, but exact worksheet pairing, transcript, duration and answers are unresolved. No audio, transcript or answer is exposed."
+      },
+      "availability": {
+        "status": "unavailable",
+        "reason": "unresolved-transcript-pairing-and-answers"
+      },
+      "sourceAudioCount": 4,
+      "exercises": [],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "reading",
+      "order": 50,
+      "title": {
+        "en": "A habit that fits the work",
+        "ja": "仕事に 合う 習慣"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original profile reading for habitual behaviour and simultaneous actions."
+      },
+      "passage": {
+        "title": {
+          "en": "Rose keeps the sound",
+          "ja": "ローズさんは 音を 残す"
+        },
+        "gloss": "A short profile that distinguishes past experience from a current habit.",
+        "lines": [
+          {
+            "ja": "ローズさんは 前に 日本に 住んでいたので、町の ことばを 少し 覚えています。",
+            "reading": "ローズさんは まえに にほんに すんで いたので、まちの ことばを すこし おぼえて います。",
+            "en": "Because Rose used to live in Japan, she remembers some everyday words."
+          },
+          {
+            "ja": "農場で 働きながら、日本語の ラジオを 聞いています。",
+            "reading": "のうじょうで はたらきながら、にほんごの ラジオを きいて います。",
+            "en": "She listens to Japanese radio while working on the farm."
+          },
+          {
+            "ja": "全部 分からなくても、気にしません。",
+            "reading": "ぜんぶ わからなくても、きに しません。",
+            "en": "She does not mind if she cannot understand everything."
+          },
+          {
+            "ja": "同じ 番組を 何回か 聞いて、好きな 表現を まねしています。",
+            "reading": "おなじ ばんぐみを なんかいか きいて、すきな ひょうげんを まねして います。",
+            "en": "She listens to the same programme several times and imitates expressions she likes."
+          }
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l01-read-routine",
+          "kind": "choice",
+          "prompt": {
+            "en": "What does Rose listen to while working?",
+            "ja": "ローズさんは 働きながら 何を 聞きますか。"
+          },
+          "explanation": "She listens to a short Japanese radio programme.",
+          "reviewTag": "reading-detail",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "短い 日本語の ラジオ",
+                "en": "A short Japanese radio programme"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "英語の 映画",
+                "en": "An English film"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "No film appears in the passage. The repeated listening habit is Japanese radio."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l01-read-history",
+          "kind": "choice",
+          "prompt": {
+            "en": "Why are some words familiar to Rose?",
+            "ja": "どうして ローズさんは いくつかの ことばを 知っていますか。"
+          },
+          "explanation": "She previously lived in Japan, so some everyday words are familiar.",
+          "reviewTag": "reading-inference",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "前に 日本に 住んでいたから",
+                "en": "She used to live in Japan"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "辞書を 全部 覚えたから",
+                "en": "She memorised a whole dictionary"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "The passage gives lived experience, not memorising a dictionary, as the reason."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "guided-practice"
+    },
+    {
+      "type": "speaking",
+      "order": 60,
+      "title": {
+        "en": "One real routine",
+        "ja": "自分の 習慣を 話す"
+      },
+      "provenance": {
+        "reuse": "practice-shape",
+        "note": "Original speaking task covers the source 〜ながら speaking-practice function."
+      },
+      "prompt": "Describe one regular routine. Say what two things you do at once, which action is the main one, and why the combination works or does not work.",
+      "targets": [
+        "〜ながら",
+        "habitual 〜ています",
+        "same subject"
+      ],
+      "recording": {
+        "minSeconds": 25,
+        "maxSeconds": 60
+      },
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "ja": "普段、電車に 乗りながら 本を 読んでいます。でも、立っているときは 読みません。音楽を 聞きながら 外を 見ています。",
+        "reading": "ふだん、でんしゃに のりながら ほんを よんで います。でも、たって いる ときは よみません。おんがくを ききながら そとを みて います。",
+        "en": "I usually read while riding the train. But I do not read when I am standing. I listen to music while looking outside."
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "routine",
+            "label": {
+              "en": "Describes a clear same-subject routine with 〜ながら"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "The target is not shown yet"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "The target is present with a small slip"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "The target is clear and accurate"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "writing",
+      "order": 70,
+      "title": {
+        "en": "My two-action habit",
+        "ja": "二つの 動作を 書く"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original homework-style production covers 〜ながら and habitual behaviour."
+      },
+      "prompt": "Write four sentences about a routine. Use 〜ながら twice and habitual 〜ています once. Add one sentence about when the combination does not work.",
+      "minChars": 80,
+      "maxChars": 240,
+      "reviewMode": "self-review",
+      "autoGraded": false,
+      "modelAnswer": {
+        "revealAfterFirstAttempt": true,
+        "body": "普段、朝ごはんを 食べながら ニュースを 読んでいます。歩きながら 音楽も 聞きます。でも、道が こんでいるときは、音楽を 聞きません。安全に 気をつけています。"
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "id": "writing",
+            "label": {
+              "en": "Uses two 〜ながら sentences and one clear habit"
+            },
+            "levels": [
+              {
+                "score": 0,
+                "description": {
+                  "en": "The target is not shown yet"
+                }
+              },
+              {
+                "score": 1,
+                "description": {
+                  "en": "The target is present with a small slip"
+                }
+              },
+              {
+                "score": 2,
+                "description": {
+                  "en": "The target is clear and accurate"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "curriculumPhase": "assessed-production"
+    },
+    {
+      "type": "kanji",
+      "order": 80,
+      "title": {
+        "en": "Habit and work",
+        "ja": "習・働"
+      },
+      "provenance": {
+        "reuse": "scope-only",
+        "note": "Original kanji support from the lesson's routine vocabulary."
+      },
+      "items": [
+        {
+          "character": "習",
+          "readings": {
+            "on": [
+              "シュウ"
+            ],
+            "kun": [
+              "なら-う"
+            ]
+          },
+          "meaning": "learn, practise",
+          "exampleWord": {
+            "ja": "習慣",
+            "reading": "しゅうかん",
+            "en": "habit"
+          },
+          "recognition": {
+            "prompt": "Which kanji begins 習慣 (しゅうかん)?",
+            "answer": "習"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 11,
+            "mnemonic": "White 白 wings 羽 repeat a movement until it is learned.",
+            "tracePrompt": "Trace 習, then write 習慣 once."
+          }
+        },
+        {
+          "character": "働",
+          "readings": {
+            "on": [
+              "ドウ"
+            ],
+            "kun": [
+              "はたら-く"
+            ]
+          },
+          "meaning": "work",
+          "exampleWord": {
+            "ja": "働く",
+            "reading": "はたらく",
+            "en": "to work"
+          },
+          "recognition": {
+            "prompt": "Which kanji writes はたらく?",
+            "answer": "働"
+          },
+          "handwriting": {
+            "required": true,
+            "strokeCount": 13,
+            "mnemonic": "A person 亻 uses strength 動 to work.",
+            "tracePrompt": "Trace 働, then write 働く once."
+          }
+        }
+      ],
+      "exercises": [
+        {
+          "id": "ex-l01-kanji",
+          "kind": "choice",
+          "prompt": {
+            "en": "Which kanji combines a person with movement to mean work?",
+            "ja": "人と 動きから できた「はたらく」は どれですか。"
+          },
+          "explanation": "働 combines 亻 with 動 and is read はたらく.",
+          "reviewTag": "ch28-kanji",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "働",
+                "en": "work"
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "習",
+                "en": "learn"
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "習 appears in 習慣. The person-plus-movement kanji for work is 働."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    },
+    {
+      "type": "review",
+      "order": 90,
+      "title": {
+        "en": "Chapter 27 returns",
+        "ja": "しか・見えるの 復習"
+      },
+      "provenance": {
+        "reuse": "original-yomu",
+        "note": "Original spiral review of the prerequisite self-study week."
+      },
+      "reviewFrom": [
+        "l3-2-selfstudy-ch27"
+      ],
+      "cumulativeCheckpoint": {
+        "isCheckpoint": false,
+        "targetsWeekIds": [],
+        "srsIntervalDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ]
+      },
+      "exercises": [
+        {
+          "id": "ex-l01-review-shika",
+          "kind": "choice",
+          "prompt": {
+            "en": "Review しか: choose the correct ending.",
+            "ja": "〜しかの あとに 何が 来ますか。"
+          },
+          "explanation": "しか requires a negative ending: 時間しかありません.",
+          "reviewTag": "shika",
+          "autoGraded": true,
+          "options": [
+            {
+              "id": "a",
+              "label": {
+                "ja": "時間しか ありません。",
+                "en": "There is only time."
+              },
+              "correct": true
+            },
+            {
+              "id": "b",
+              "label": {
+                "ja": "時間しか あります。",
+                "en": "There is only time."
+              },
+              "correct": false
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "b",
+              "message": "しか and the negative work together. Change あります to ありません."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        },
+        {
+          "id": "ex-l01-review-visible",
+          "kind": "cloze",
+          "prompt": {
+            "en": "Complete the natural-visibility sentence.",
+            "ja": "見えますで うめましょう。"
+          },
+          "japanese": "窓から 山が ＿＿＿。",
+          "explanation": "A mountain reaches the eye naturally, so use 見えます.",
+          "reviewTag": "mieru",
+          "autoGraded": true,
+          "blanks": [
+            {
+              "id": "b1",
+              "answer": {
+                "primary": "見えます",
+                "alternatives": [
+                  "みえます"
+                ]
+              }
+            }
+          ],
+          "wrongAnswerExplanations": [
+            {
+              "trigger": "見られます",
+              "message": "見られます is an opportunity to watch or look. A view that simply reaches you uses 見えます."
+            }
+          ],
+          "provenance": {
+            "reuse": "original-yomu",
+            "sourceAnswerUsed": false,
+            "donorPackageSha256": "159a6b7e557a23857af904b0d50ccb1b05ad6d47d13ed295f2f692a2a3673634"
+          },
+          "curriculumPhase": "assessed-recognition"
+        }
+      ],
+      "curriculumPhase": "assessed-recognition"
+    }
+  ],
+  "mission": {
+    "title": "The routine postcard",
+    "framedBy": "aakash",
+    "prompt": "Record a short audio postcard about a routine that includes music, reading, travel, work, or cooking. Explain two simultaneous actions and one repeated habit.",
+    "successCriteria": [
+      "You use 〜ながら with the same person doing both actions.",
+      "You put the main action after 〜ながら.",
+      "You use 〜ています with clear habitual context.",
+      "You add one honest reason the routine works or does not work."
+    ],
+    "modelAnswer": {
+      "revealAfterFirstAttempt": true,
+      "ja": "仕事へ 行くとき、音楽を 聞きながら 歩いています。好きな 曲を 聞くと、元気に なります。でも、道を 渡りながら けいたいは 見ません。",
+      "reading": "しごとへ いく とき、おんがくを ききながら あるいて います。すきな きょくを きくと、げんきに なります。でも、みちを わたりながら けいたいは みません。",
+      "en": "On the way to work, I walk while listening to music. A favourite song gives me energy. But I do not look at my phone while crossing the road."
+    },
+    "rubric": {
+      "criteria": [
+        {
+          "id": "mission",
+          "label": {
+            "en": "Explains a safe, clear routine with both target forms"
+          },
+          "levels": [
+            {
+              "score": 0,
+              "description": {
+                "en": "The target is not shown yet"
+              }
+            },
+            {
+              "score": 1,
+              "description": {
+                "en": "The target is present with a small slip"
+              }
+            },
+            {
+              "score": 2,
+              "description": {
+                "en": "The target is clear and accurate"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "srs": {
+    "intervalDays": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "extracted": [
+      {
+        "kind": "grammar",
+        "front": "Verb-stem + ながら",
+        "back": "while doing; same subject, main action last",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "grammar",
+        "front": "habitual 〜ています",
+        "back": "regularly do; ongoing routine",
+        "reading": "",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01",
+          "grammar"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "習慣",
+        "back": "habit",
+        "reading": "しゅうかん",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "普段",
+        "back": "usually, ordinarily",
+        "reading": "ふだん",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "通う",
+        "back": "commute or attend regularly",
+        "reading": "かよう",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "働く",
+        "back": "to work",
+        "reading": "はたらく",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "集中する",
+        "back": "to concentrate",
+        "reading": "しゅうちゅうする",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "vocabulary",
+        "front": "口座",
+        "back": "bank account",
+        "reading": "こうざ",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "習",
+        "back": "learn, practise — シュウ / ならう",
+        "reading": "シュウ",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01",
+          "kanji"
+        ]
+      },
+      {
+        "kind": "kanji",
+        "front": "働",
+        "back": "work — ドウ / はたらく",
+        "reading": "ドウ",
+        "tags": [
+          "academy",
+          "academy:lesson:l3-2-l01",
+          "kanji"
+        ]
+      }
+    ],
+    "canonicalVocabularyPolicy": "derive-only-from-verbatim-source-sheet-items-after-item-level-projection"
+  },
+  "casting": {
+    "sensei": "rie",
+    "participants": [
+      "rie",
+      "aakash",
+      "henry",
+      "jodi"
+    ]
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l3-2-l01",
+    "groundedSourceQuestionCount": 12,
+    "playableSourceQuestionCount": 12,
+    "sourceQuestions": [
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-1",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-1",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 1 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-2",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-2",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 2 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-3",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-3",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 3 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-4",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-4",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 4 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-5",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-5",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 5 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-6",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-6",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 6 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-7",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-7",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 7 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-8",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-8",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet blank 8 is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:choice",
+        "sourceId": "source-moodle-track-78-bank",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:choice",
+        "reuse": "verbatim-moodle",
+        "note": "The worksheet's final 1–4 comprehension check is paired with byte-verified Track 78; completed transcript and answer remain after-attempt only.",
+        "answerStatus": "original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-78",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-78.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-1",
+        "sourceId": "source-moodle-track-79-favor-direction",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-1",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet picture item 1 is paired with byte-verified Track 79 section (2); beneficiary direction, completed phrase, and transcript remain after-attempt only.",
+        "answerStatus": "worksheet-direction-and-original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-79",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-79.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-2",
+        "sourceId": "source-moodle-track-79-favor-direction",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-2",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet picture item 2 is paired with byte-verified Track 79 section (2); beneficiary direction, completed phrase, and transcript remain after-attempt only.",
+        "answerStatus": "worksheet-direction-and-original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-79",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-79.mp3"
+      },
+      {
+        "id": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-3",
+        "sourceId": "source-moodle-track-79-favor-direction",
+        "reference": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-3",
+        "reuse": "verbatim-moodle",
+        "note": "Exact worksheet picture item 3 is paired with byte-verified Track 79 section (2); beneficiary direction, completed phrase, and transcript remain after-attempt only.",
+        "answerStatus": "worksheet-direction-and-original-audio-reviewed",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "moodle-l2-l12-track-79",
+        "audioRef": "academy/content/moodle/audio/l2-l12-track-79.mp3"
+      }
+    ],
+    "quarantine": {
+      "sourceDocumentsWithoutVerifiedAnswers": [
+        {
+          "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+          "title": "〜ながら word card.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591",
+          "title": "Handouts/Chapter 28 listening-1.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77",
+          "title": "Handouts/Chapter 28-1 〜ながら speaking exercise.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+          "title": "Handouts/Chapter 28-1 〜ながら_grammar_exercise.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+          "title": "Handouts/Chapter 28-2 〜ている-4_habitual behaviour grammar exercise.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+          "title": "Handouts/New_Chapter 28-1 Vocabulary Sheet.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+          "title": "Homework/New_Homework_listening口座を開く_て あげます_て くれます_て もらいます.pdf",
+          "reason": "Section II Track 78 is promoted with nine exact source items and Section III Track 79 part (2) with three exact picture items. Track 79 part (1) remains excluded because the worksheet explicitly says to skip it."
+        },
+        {
+          "payloadSha256": "9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+          "title": "Homework/New_HW Chapter 28 〜ながら grammar exercise.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        },
+        {
+          "payloadSha256": "48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915",
+          "title": "Homework/New_HW Chapter 28 habitual behavior.pdf",
+          "reason": "No independently verified source answer projection is available; source prompts and answers are not imported."
+        }
+      ],
+      "unresolvedMedia": [
+        {
+          "assetId": "source-audio-7d671f08e4c2",
+          "payloadSha256": "7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+          "locator": "academy://quarantine/l3-2-l01/7d671f08e4c2b741f6cbb7b996494fe3cfa26a426ec33bed7466fb6871194721",
+          "title": "audio materials/10 A-10.mp3",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        },
+        {
+          "assetId": "source-audio-3d8ef49fffb0",
+          "payloadSha256": "3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+          "locator": "academy://quarantine/l3-2-l01/3d8ef49fffb0d06952437263046b9141dd25200401cb287e2bebba5bce4f416e",
+          "title": "audio materials/9-A-9.mp3",
+          "reason": "Exact worksheet pairing, transcript, duration and answers are unresolved; audio is not playable."
+        }
+      ]
+    }
+  },
+  "pedagogy": {
+    "schema": "yomu-academy.pedagogy.v1",
+    "concepts": [
+      {
+        "id": "concept:l2-l12:simultaneous-action",
+        "context": {
+          "componentOrder": 10,
+          "purpose": "Notice the target in a meaningful original Yomu situation before being asked to use it."
+        },
+        "instruction": {
+          "componentOrder": 30,
+          "form": "Vます-stem + ながら / Vています",
+          "meaning": "say that two actions happen together and identify the main action",
+          "register": "neutral routine description",
+          "commonContrast": "ながら joins simultaneous actions; ています can describe a continuing habit or state",
+          "workedExamples": [
+            {
+              "ja": "音楽を 聞きながら、スープを 作っています。",
+              "reading": "おんがくを ききながら、スープを つくって います。",
+              "en": "An original Yomu context model; use it to notice the target before creating your own response."
+            }
+          ]
+        },
+        "guidedPractice": {
+          "componentOrder": 50,
+          "mode": "notice-then-supported-retrieval",
+          "prompt": "First find the target in context. Then make a parallel attempt from a cue; the completed response remains hidden until after the attempt."
+        }
+      }
+    ],
+    "productionSupport": {
+      "curriculumPhase": "assessed-production",
+      "appliesTo": [
+        "component:speaking",
+        "component:writing",
+        "mission"
+      ],
+      "deferredModelPolicy": "reveal-after-first-attempt",
+      "progressiveHints": [
+        {
+          "level": 1,
+          "text": "Choose one situation where you would naturally use Vます-stem + ながら / Vています; do not write the whole sentence yet."
+        },
+        {
+          "level": 2,
+          "text": "Build the sentence in parts: choose the content first, then check the form that carries say that two actions happen together and identify the main action."
+        },
+        {
+          "level": 3,
+          "text": "Compare your form, meaning, and neutral routine description with the worked model. Change the content so the response is your own."
+        }
+      ],
+      "retryFeedback": {
+        "diagnostic": "Check the form and meaning again. A common mix-up is this: ながら joins simultaneous actions; ています can describe a continuing habit or state",
+        "retryPrompt": "Revise one part at a time, then try again with your own content."
+      }
+    }
+  },
+  "yomuAugmentation": {
+    "schema": "yomu-academy.augmentation-boundary.v1",
+    "role": "scaffold-only",
+    "note": "Scene framing, reading support, progressive hints, SRS, and retry feedback supplement canonical Moodle material. They are not a substitute for a canonical source item.",
+    "appliesAfterCanonicalItem": true
+  },
+  "assessmentOrchestration": {
+    "schema": "yomu-academy.source-anchored-assessment.v1",
+    "canonicalSequencePolicy": "complete-the-verbatim-Moodle-item-before-any-Yomu-mode",
+    "sourceAnchor": {
+      "sourceItemId": "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1",
+      "payloadSha256": "da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+      "answerPolicy": "gate-until-attempt"
+    },
+    "narrativeIntroduction": {
+      "location": "A shared kitchen with a speaker on the counter",
+      "characterId": "aakash",
+      "beat": "Aakash has music, soup, and one free hand.",
+      "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
+    },
+    "activities": [
+      {
+        "id": "assessment:l2-l12:1:drag-drop",
+        "mode": "drag-drop",
+        "responseMode": "drag-drop",
+        "sourceItemIds": [
+          "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+        ],
+        "sequence": 1,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l12:2:kanji-doodle",
+        "mode": "kanji-doodle",
+        "responseMode": "draw-kanji",
+        "sourceItemIds": [
+          "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+        ],
+        "sequence": 2,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      },
+      {
+        "id": "assessment:l2-l12:3:matching",
+        "mode": "matching",
+        "responseMode": "tap-pair",
+        "sourceItemIds": [
+          "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+        ],
+        "sequence": 3,
+        "taskIntentPolicy": "Use the canonical Moodle item and its original task intent. Do not substitute a new prompt, answer, example, or ordering.",
+        "answerPolicy": "gate-until-attempt"
+      }
+    ]
+  },
+  "sourceActivityBindings": [
+    {
+      "id": "source-binding:assessment:l2-l12:1:drag-drop",
+      "activityIds": [
+        "assessment:l2-l12:1:drag-drop"
+      ],
+      "sourceItemIds": [
+        "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "aakash",
+        "henry"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Begin the canonical drag-drop task with aakash as your classmate partner.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l12:2:kanji-doodle",
+      "activityIds": [
+        "assessment:l2-l12:2:kanji-doodle"
+      ],
+      "sourceItemIds": [
+        "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "aakash",
+        "henry"
+      ],
+      "grouping": "peer-pair",
+      "beat": "Keep the original task order while henry takes the partner role.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    },
+    {
+      "id": "source-binding:assessment:l2-l12:3:matching",
+      "activityIds": [
+        "assessment:l2-l12:3:matching"
+      ],
+      "sourceItemIds": [
+        "moodle:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276:page:1"
+      ],
+      "place": "academy/world/home",
+      "cast": [
+        "henry",
+        "aakash"
+      ],
+      "grouping": "peer-pair-role-switch",
+      "beat": "Swap roles with henry; the cast simulates the missing peer without changing the source task.",
+      "sourceTaskPolicy": "Present the exact canonical Moodle task, examples, diagram, media pairing, and response order. The cast supplies only the partner role.",
+      "answerPolicy": "gate-until-attempt",
+      "peerSimulationPolicy": "When a live peer is unavailable, the listed classmate cast member supplies the partner or group turn; no generic quiz substitute is introduced."
+    }
+  ]
+}

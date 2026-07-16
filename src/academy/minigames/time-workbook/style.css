@@ -1,0 +1,128 @@
+.academy-time-workbook {
+    display: grid;
+    gap: 20px;
+}
+
+.academy-time-teaching,
+.academy-time-assessment,
+.academy-time-form,
+.academy-time-group {
+    display: grid;
+    gap: 16px;
+}
+
+.academy-time-teaching {
+    padding-block: 16px;
+    border-block: 1px solid var(--academy-border, #c9c4b8);
+}
+
+.academy-time-teaching-grid,
+.academy-time-round-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.academy-time-teaching-step {
+    min-width: 0;
+    padding: 12px;
+    border-inline-start: 3px solid var(--academy-accent, #146b58);
+}
+
+.academy-time-teaching-step h4,
+.academy-time-teaching-step p,
+.academy-time-question-frame {
+    margin: 0 0 8px;
+}
+
+.academy-time-model {
+    font-weight: 700;
+}
+
+.academy-time-round {
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    background: var(--academy-surface, #fff);
+}
+
+.academy-time-round legend {
+    max-width: 100%;
+    padding: 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+}
+
+.academy-time-range-builder {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) auto minmax(120px, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.academy-time-select,
+.academy-time-select select,
+.academy-time-typed,
+.academy-time-typed input {
+    min-width: 0;
+    width: 100%;
+}
+
+.academy-time-select select,
+.academy-time-typed input,
+.academy-time-opening-option,
+.academy-time-continue,
+.academy-time-check {
+    min-height: 44px;
+}
+
+.academy-time-typed {
+    display: grid;
+    gap: 6px;
+}
+
+.academy-time-opening-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.academy-time-opening-option {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--academy-border, #c9c4b8);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.academy-time-opening-option:has(input:checked) {
+    border-color: var(--academy-accent, #146b58);
+    background: var(--academy-accent-soft, #e7f2ee);
+}
+
+.academy-time-check,
+.academy-time-feedback {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+    .academy-time-teaching-grid,
+    .academy-time-round-grid,
+    .academy-time-opening-options,
+    .academy-time-range-builder {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-time-opening-option,
+    .academy-time-select select,
+    .academy-time-typed input {
+        transition: none;
+    }
+}

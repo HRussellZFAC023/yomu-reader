@@ -14,6 +14,8 @@ describe('Academy interface copy', () => {
         expect(academyText('en', 'navReview')).toBe('Study');
         expect(academyText('ja', 'navReview')).toBe('学習');
         expect(academyText('en', 'navSwitchToCourse')).toBe('Switch to course view');
+        expect(academyText('en', 'startManualBody')).toBe('From N5 basics to N1 advanced.');
+        expect(academyText('ja', 'startManualBody')).toBe('N5（初級）からN1（最上級）まで。');
     });
 
     it('uses the confirmed Latin display name for Aakash in Japanese copy', () => {

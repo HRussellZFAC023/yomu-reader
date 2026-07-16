@@ -383,6 +383,8 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
+  --jpdb-reader-study-fail: #d92d20;
+  --jpdb-reader-study-pass: #168a45;
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -428,7 +430,7 @@
   left: 0;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--jpdb-reader-state-failed) 62%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-study-fail) 62%, transparent),
     transparent
   );
 }
@@ -437,40 +439,21 @@
   right: 0;
   background: linear-gradient(
     270deg,
-    color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-study-pass) 62%, transparent),
     transparent
   );
 }
 
-/* Fail/pass colour only when the swipe is actually armed to grade
-   (final reveal). A step-nav swipe reuses the same drag but must not flash
-   red "fail" — data-newtab-swipe-mode="grade" gates the coloured glow. */
+/* Every Study drag keeps the same directional language: left is red and right
+   is green. Only grade mode submits an SRS result; navigation mode merely moves
+   between steps. */
 .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="left"]::before,
 .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="right"]::after {
   opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
-/* Neutral edge hint while dragging between study steps (no grade colour). The
-   hint appears on the edge the content slides toward: swipe LEFT (next) glows
-   the right edge (::after), swipe RIGHT (previous) glows the left (::before). */
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::before {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
-    transparent
-  );
-}
-
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::after {
-  background: linear-gradient(
-    270deg,
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
-    transparent
-  );
-}
-
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::after,
-.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::before {
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::before,
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::after {
   opacity: calc(0.18 + 0.5 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
@@ -1473,6 +1456,39 @@
      before the swipe threshold, so swipe-to-grade never completed. */
   touch-action: pan-y;
   padding-top: clamp(16px, 3vh, 32px);
+}
+
+.jpdb-reader-newtab:not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-study {
+  grid-template-rows: auto auto auto auto;
+}
+
+.jpdb-reader-newtab[data-study-surface="academy"] {
+  min-height: 0;
+  overflow: visible;
+}
+
+.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-shell {
+  width: 100%;
+  min-height: 0;
+  gap: 12px;
+  padding: 0 0 12px;
+}
+
+.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-study {
+  padding-top: 8px;
+}
+
+.jpdb-reader-newtab[data-study-surface="academy"] .jpdb-reader-newtab-controls {
+  max-width: 100%;
+}
+
+.jpdb-reader-newtab[data-study-surface="academy"]
+  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
+  position: sticky;
+  left: auto;
+  bottom: 8px;
+  transform: none;
+  width: min(100%, 860px);
 }
 
 .jpdb-reader-newtab-study-anki-card {
@@ -2557,6 +2573,18 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   visibility: hidden;
 }
 
+/* Type is a production step, not a hidden-answer Word front. Its form lives in
+   the shared answer slot, so restore that slot while the type cloze is active. */
+.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed)
+  .jpdb-reader-newtab-study[data-newtab-study-step="type-word"]
+  .jpdb-reader-newtab-answer {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  pointer-events: auto;
+  visibility: visible;
+}
+
 .jpdb-reader-newtab-recall-form {
   width: min(100%, 560px);
   display: grid;
@@ -2689,42 +2717,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-muted);
   font-size: 13px;
   font-weight: 820;
-}
-
-/* ----- Final-reveal per-step results strip + suggested-grade highlight ----- */
-.jpdb-reader-newtab-study-summary {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.jpdb-reader-newtab-study-summary-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--jpdb-reader-border);
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
-  color: var(--jpdb-reader-muted);
-  font: 820 11px / 1 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="correct"] {
-  color: var(--jpdb-reader-state-known);
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-known) 45%, var(--jpdb-reader-border));
-}
-
-.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="wrong"] {
-  color: var(--jpdb-reader-state-failed);
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed) 45%, var(--jpdb-reader-border));
-}
-
-.jpdb-reader-newtab-study-summary-icon {
-  font-weight: 900;
 }
 
 [data-newtab-action="grade"][data-suggested="true"] {
@@ -3097,16 +3089,16 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-controls button[data-grade="fail"],
 .jpdb-reader-newtab-controls button[data-grade="nothing"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-fail);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="pass"],
 .jpdb-reader-newtab-controls button[data-grade="okay"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="easy"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known);
+  --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass);
 }
 
 .jpdb-reader-newtab-controls button[data-grade="something"] {
@@ -5517,9 +5509,11 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-stats {
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   display: grid;
   gap: 16px;
+  overflow-x: clip;
 }
 
 .jpdb-reader-stats-header {
@@ -5571,6 +5565,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-stats-tabs {
   justify-self: start;
+  max-width: 100%;
   display: inline-grid;
   grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(88px, 1fr));
   gap: 2px;
@@ -5681,7 +5676,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-stats-panel-actions {
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -6259,6 +6254,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-stats-tabs {
     width: 100%;
     grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(0, 1fr));
+  }
+
+  .jpdb-reader-stats-panel-actions {
+    flex-wrap: wrap;
   }
 
   .jpdb-reader-stats-metrics,

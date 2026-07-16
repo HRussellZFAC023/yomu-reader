@@ -116,7 +116,7 @@ describe('Academy media manifest integrity', () => {
     it('accepts the checked-in manifest and pins its shape', () => {
         expect(MEDIA_MANIFEST.version).toBe(1);
         expect(MEDIA_MANIFEST.bucket).toBe('yomu-academy-archive');
-        expect(MEDIA_MANIFEST.objects).toHaveLength(24);
+        expect(MEDIA_MANIFEST.objects).toHaveLength(27);
         for (const object of MEDIA_MANIFEST.objects) {
             expect(object.key).toMatch(/^[a-z0-9][a-z0-9/_.-]*$/);
             expect(object.sha256).toMatch(/^[a-f0-9]{64}$/);

@@ -1,4 +1,11 @@
-export type AcademySpriteExpression = 'neutral' | 'encouraging' | 'happy' | 'repair';
+export type AcademySpriteExpression =
+    | 'neutral'
+    | 'encouraging'
+    | 'happy'
+    | 'repair'
+    | 'determined'
+    | 'sad-vulnerable'
+    | 'comedic';
 
 export interface AcademySpriteSource {
     readonly still: string;
@@ -31,9 +38,20 @@ export function createAcademySprite(options: AcademySpriteOptions): HTMLPictureE
     image.decoding = 'async';
     image.dataset.character = options.characterId;
     picture.append(animated, image);
-    Object.defineProperty(picture, 'academySpriteSources', { value: options.expressions });
+    Object.defineProperty(picture, 'academySpriteSources', { value: options.expressions, writable: true });
     setAcademySpriteExpression(picture, options.initialExpression ?? 'neutral');
     return picture;
+}
+
+/** Refresh an existing sprite when a cast member changes to a new art contract. */
+export function setAcademySpriteSources(
+    picture: HTMLPictureElement,
+    expressions: AcademySpriteOptions['expressions'],
+): void {
+    const sprite = picture as AcademySpriteElement;
+    if (spriteSourcesEqual(sprite.academySpriteSources, expressions)) return;
+    sprite.academySpriteSources = expressions;
+    delete picture.dataset.expression;
 }
 
 export function setAcademySpriteExpression(
@@ -45,12 +63,25 @@ export function setAcademySpriteExpression(
     const image = picture.querySelector<HTMLImageElement>('img');
     const animated = picture.querySelector<HTMLSourceElement>('[data-sprite-animated-source]');
     if (!source || !image || !animated) throw new TypeError('Academy sprite is missing its source contract.');
+    if (picture.dataset.expression === expression) return;
     picture.dataset.expression = expression;
+    delete picture.dataset.expressionTransition;
+    void picture.offsetWidth;
+    picture.dataset.expressionTransition = 'true';
     image.src = source.still;
     if (source.animated) animated.srcset = source.animated;
     else animated.removeAttribute('srcset');
 }
 
 interface AcademySpriteElement extends HTMLPictureElement {
-    readonly academySpriteSources?: AcademySpriteOptions['expressions'];
+    academySpriteSources?: AcademySpriteOptions['expressions'];
+}
+
+function spriteSourcesEqual(
+    left: AcademySpriteOptions['expressions'] | undefined,
+    right: AcademySpriteOptions['expressions'],
+): boolean {
+    const keys = new Set([...Object.keys(left ?? {}), ...Object.keys(right)]);
+    return [...keys].every(key => left?.[key as AcademySpriteExpression]?.still === right[key as AcademySpriteExpression]?.still
+        && left?.[key as AcademySpriteExpression]?.animated === right[key as AcademySpriteExpression]?.animated);
 }

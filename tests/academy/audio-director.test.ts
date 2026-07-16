@@ -27,6 +27,15 @@ class FakeSfx implements SfxPlayback {
     dispose(): void { this.calls.push('dispose'); }
 }
 
+class RejectingBus extends FakeBus {
+    unavailable = true;
+
+    async play(track: AudioTrack, volume: number, fadeMs: number): Promise<void> {
+        await super.play(track, volume, fadeMs);
+        if (this.unavailable) throw new Error('media unavailable');
+    }
+}
+
 const releaseRights = {
     owner: 'Yomu',
     licence: 'CC0-1.0',
@@ -112,6 +121,30 @@ describe('audio director', () => {
         await director.setTheme('campus.evening');
         expect(music.track).toBe('campus');
         expect(director.state).toBe('playing');
+    });
+
+    it('does not restart a settled location theme, but crossfades when the place changes', async () => {
+        const music = new FakeBus();
+        const director = new AudioDirector({
+            catalog: createAudioCatalog({
+                'world.cafe': { music: track('cafe') },
+                'world.station': { music: track('station') },
+            }),
+            music,
+            ambience: new FakeBus(),
+            lesson: new FakeBus(),
+            sfx: new FakeSfx(),
+        });
+
+        await director.unlock();
+        await director.setTheme('world.cafe');
+        await director.setTheme('world.cafe');
+        await director.setTheme('world.station');
+
+        expect(music.calls.filter(call => call.startsWith('play:'))).toEqual([
+            'play:cafe:950',
+            'play:station:700',
+        ]);
     });
 
     it('suspends all buses on visibility loss and resumes without spawning another track', async () => {
@@ -205,5 +238,52 @@ describe('audio director', () => {
         });
         await silent.unlock();
         expect(silent.state).toBe('silent');
+    });
+
+    it('does not touch the SFX engine while muted or at zero SFX volume', async () => {
+        const sfx = new FakeSfx();
+        const director = new AudioDirector({
+            catalog: SILENT_AUDIO_CATALOG,
+            music: new FakeBus(),
+            ambience: new FakeBus(),
+            lesson: new FakeBus(),
+            sfx,
+        });
+        const events: string[] = [];
+        director.onEvent(event => { if (event.type === 'sfx') events.push(event.cue); });
+        await director.unlock();
+
+        director.setMuted(true);
+        director.playSfx('menu.confirm');
+        director.setMuted(false);
+        director.setVolume('sfx', 0);
+        director.playSfx('menu.confirm');
+
+        expect(sfx.calls).toEqual(['unlock']);
+        expect(events).toEqual([]);
+    });
+
+    it('settles into silence when protected media is unavailable offline', async () => {
+        const errors: string[] = [];
+        const music = new RejectingBus();
+        const director = new AudioDirector({
+            catalog: createAudioCatalog({ 'world.station': { music: track('station') } }),
+            music,
+            ambience: new FakeBus(),
+            lesson: new FakeBus(),
+            sfx: new FakeSfx(),
+        });
+        director.onEvent(event => { if (event.type === 'error') errors.push(event.operation); });
+
+        await director.setTheme('world.station');
+        await expect(director.unlock()).resolves.toBeUndefined();
+
+        expect(director.state).toBe('silent');
+        expect(errors).toEqual(['theme-music']);
+
+        music.unavailable = false;
+        await director.setTheme(director.theme);
+        expect(director.state).toBe('playing');
+        expect(music.track).toBe('station');
     });
 });

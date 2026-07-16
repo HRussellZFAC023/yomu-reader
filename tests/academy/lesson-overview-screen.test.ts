@@ -17,7 +17,7 @@ function overview(boundActivityIds = new Set<string>()): LessonOverviewModel {
 }
 
 describe('lesson overview screen', () => {
-    it('keeps goals, all sections, ready materials, people and places on one continuous page', () => {
+    it('keeps the complete class-day roster beside one continuous lesson scene', () => {
         const screen = renderLessonOverviewScreen({
             language: 'en',
             model: overview(new Set(['activity:lesson-zero-reconstruct-repair'])),
@@ -27,14 +27,40 @@ describe('lesson overview screen', () => {
 
         expect(screen.dataset.academyScreen).toBe('lesson-overview');
         expect(screen.querySelectorAll('.academy-lesson-overview-paper')).toHaveLength(1);
+        expect(screen.querySelectorAll('.academy-lesson-overview-scene')).toHaveLength(1);
         expect(screen.querySelectorAll('.academy-lesson-overview-section')).toHaveLength(9);
         expect(screen.querySelectorAll('.academy-lesson-overview-goal')).toHaveLength(5);
         expect(screen.textContent).toContain('Classroom language handout');
         expect(screen.textContent).toContain('Name card');
         expect(screen.textContent).not.toContain('Class introductions');
-        expect(screen.textContent).toContain('Rie-sensei · Xingyu · Mika · Sophie · Ruparna · Aakash · Sam');
-        expect(screen.textContent).toContain('教室 · LL教室 · 図書館 · 教室前');
+        expect(screen.querySelector('.academy-lesson-overview-prerequisite')?.textContent)
+            .toContain('No prerequisites. Lesson 0 starts from the beginning.');
+        expect(screen.querySelector('.academy-lesson-overview-progress')).toBeNull();
+        expect(screen.querySelector('.academy-lesson-overview-section-number')).toBeNull();
+        expect([...screen.querySelectorAll<HTMLElement>('.academy-lesson-overview-roster-member')]
+            .map(node => node.dataset.castId)).toEqual(['rie', 'xingyu', 'mika', 'sophie', 'ruparna', 'aakash', 'sam']);
+        expect([...screen.querySelectorAll('.academy-lesson-overview-roster-name')]
+            .map(node => node.textContent)).toEqual([
+            'Rie-sensei', 'Xingyu', 'Mika', 'Sophie', 'Ruparna', 'Aakash', 'Sam',
+        ]);
+        expect(screen.textContent).toContain('教室 · 語学ラボ · 図書館 · 教室前');
         expect(screen.textContent).not.toContain('blocker:');
+    });
+
+    it('uses only approved likeness art and keeps pending classmates visibly rostered', () => {
+        const screen = renderLessonOverviewScreen({
+            language: 'en',
+            model: overview(),
+            onBack: vi.fn(),
+            onOpenActivity: vi.fn(),
+        });
+
+        expect(screen.querySelector('[data-cast-id="rie"] img')?.getAttribute('src'))
+            .toBe('/academy/art/characters/rie/rie__neutral__halfbody__v001.png');
+        expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
+        expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
+        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(6);
+        expect(screen.querySelector('[data-cast-id="aakash"] img')).toBeNull();
     });
 
     it('does not expose activity actions while academic grounding remains blocked', () => {
@@ -62,6 +88,8 @@ describe('lesson overview screen', () => {
         const action = screen.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action');
 
         expect(action?.textContent).toBe('始める');
+        expect(action?.dataset.actionPriority).toBe('primary');
+        expect(screen.querySelectorAll('[data-action-priority="primary"]')).toHaveLength(1);
         action?.click();
         expect(open).toHaveBeenCalledWith('activity:lesson-zero-reconstruct-repair');
     });
@@ -76,5 +104,17 @@ describe('lesson overview screen', () => {
         });
         screen.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
         expect(back).toHaveBeenCalledOnce();
+    });
+
+    it('defines responsive scene choreography with a reduced-motion exit', () => {
+        const css = fs.readFileSync(path.resolve('src/academy/styles/activity.css'), 'utf8');
+        expect(css).toMatch(/\.academy-lesson-overview-screen \.academy-lesson-overview-roster\s*\{/);
+        expect(css).toMatch(/\.academy-lesson-overview-screen \.academy-lesson-overview-paper\s*\{[^}]*background:/s);
+        expect(css).toMatch(/\.academy-lesson-overview-screen \.academy-lesson-overview-header,[\s\S]*background:\s*transparent/s);
+        expect(css).toMatch(/\.academy-lesson-overview-screen \.academy-lesson-overview-roster-portrait img\s*\{/);
+        expect(css).not.toContain('.academy-lesson-overview-section-number');
+        expect(css).toMatch(/@media \(max-width: 980px\)/);
+        expect(css).toMatch(/@media \(max-width: 620px\)/);
+        expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*academy-lesson-overview/);
     });
 });

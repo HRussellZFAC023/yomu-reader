@@ -1,0 +1,153 @@
+{
+  "schema": "yomu-academy.permitted-corpus.manifest/v1",
+  "revision": "yomu-academy.permitted-corpus/2026-07-16.1",
+  "policy": {
+    "progressionOrder": [
+      "moodle-raw",
+      "japanese-minna",
+      "japanese-genki",
+      "japanese-library",
+      "soya-research",
+      "provided-stories"
+    ],
+    "foundationScopes": [
+      "moodle-raw",
+      "japanese-minna",
+      "japanese-genki"
+    ],
+    "advancedProgressionScopes": [
+      "japanese-library",
+      "soya-research",
+      "provided-stories"
+    ],
+    "rules": [
+      "Moodle chronology is authoritative for the class and N5-N4 foundation.",
+      "Minna no Nihongo and Genki are prerequisite anchors inside that foundation.",
+      "After the N4 foundation, vetted Japanese-library textbooks, Soya and JLPT banks, graded readers, and native media may advance N3-N1 progression.",
+      "Every advanced progression item must declare its level, prerequisite concepts, source locus, and rights state.",
+      "Source answers and model answers remain concealed until a learner attempt.",
+      "A missing or ambiguous source field remains an explicit gap."
+    ],
+    "answerGate": "after-attempt"
+  },
+  "sources": [
+    {
+      "id": "moodle-raw",
+      "role": "progression-anchor",
+      "sequenceAuthority": 1
+    },
+    {
+      "id": "moodle-digitized",
+      "role": "exact-derivative",
+      "sequenceAuthority": null
+    },
+    {
+      "id": "japanese-minna",
+      "role": "progression-anchor",
+      "sequenceAuthority": 3
+    },
+    {
+      "id": "japanese-genki",
+      "role": "progression-anchor",
+      "sequenceAuthority": 4
+    },
+    {
+      "id": "japanese-library",
+      "role": "advanced-progression-anchor",
+      "sequenceAuthority": 5
+    },
+    {
+      "id": "soya-research",
+      "role": "assessment-and-progression-anchor",
+      "sequenceAuthority": 6
+    },
+    {
+      "id": "provided-stories",
+      "role": "graded-reading-anchor",
+      "sequenceAuthority": 7
+    }
+  ],
+  "evidence": {
+    "moodle": {
+      "manifestSha256": "2400b43ef8b022e525272a4e0f2331da09e9ade5f72d7f9a0c70c9e7b1329a78",
+      "archiveOccurrences": 96,
+      "memberOccurrences": 916,
+      "uniquePayloads": 689
+    },
+    "digitized": {
+      "schema": "yomu-academy.source-pipeline.pack-candidates/v1",
+      "packCount": 44,
+      "sourceCandidateCount": 879,
+      "sourceDocumentIds": [
+        "moodle-digitized:b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48",
+        "moodle-digitized:a435698fa042bf9f6a2b8beb3fdcd9c9cf4e9fc102921aafd3c50a34ed12cf77",
+        "moodle-digitized:d6849a3ac202fa4af493d82ad0759f9f450a6139428c6a57a80ea48303d61a23",
+        "moodle-digitized:f04f3f4e3e7fa483f5fa8f5fedc5a33c3d3be2b48eaa028de084b7c137362125",
+        "moodle-digitized:f69d392828ffd3274b4df814665d32279fd5679d001b15f0779c241f37010fe6",
+        "moodle-digitized:f301f31d455dbade8348ef2ee571bca354ee1dcbc9c5e8d79e7a5ecb14fcab56",
+        "moodle-digitized:1bbab7f1d57fe82b5ef9402ce242b1ad9183590599d5be628c1805c1f37a4da4",
+        "moodle-digitized:8153eb5216e507b6a8443556c59f6fac78075c9faae11d853e18614db5618591",
+        "moodle-digitized:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9",
+        "moodle-digitized:c41e4dd83224a8c29a3e6eb07e7e7955a086e3fccbf4a93a5260efaedcf4e3b8",
+        "moodle-digitized:c41bd1a9ea5c4429c257de75a7210cb89577083963572d4da901bda2d38b8f5d",
+        "moodle-digitized:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499",
+        "moodle-digitized:97ee8863419693af22c40f7a6bd00f35e039cd6d9e5bb4b691f7f5efd17dd886",
+        "moodle-digitized:0db539c444b66c4e83424da858d8206c2dfa0e34f80c3d4342605a20ff9ecada",
+        "moodle-digitized:1c3abd70bbd7971c9bdb119d400634d088356bb22c68495daf9a722b46ed9cf9",
+        "moodle-digitized:a24f5e14a09ee74f45855296fa1a0df00775a7e9037c0ec6fc350e6b98a26db8",
+        "moodle-digitized:90b589e71a04e270602824c2c12497ca171baa8a347b251dc0ce9f1ec4e32eb3",
+        "moodle-digitized:46a2d4445826046b564660774854fa065595dc103c2baaa2f2aa3ec3c5646bb6",
+        "moodle-digitized:9c762b7bb3006aecea3042a03543cea7ada22a84609eaca4ddc231ec1ace3691",
+        "moodle-digitized:ec9736ce5fe4c09b825ad9d47cf216821f7ac96ac461b05f5ab5a85f63ac898e",
+        "moodle-digitized:f538a0325f609e599dca2247f15ba9c0e3bd170f5c580e1d4963beaa64ea9ab5",
+        "moodle-digitized:d499d23a38de00c939d7746e4536e9de5db1823e6c577ba896b102a97149134a",
+        "moodle-digitized:b4cb5c109d9891d6e58f15f9e32032002cbcb701cd6d9c7e3b0b58f9bf0113b8",
+        "moodle-digitized:e241f0cead09659bab29ad9acb6fdb5f37cea8fafebc07a0bf6c906d353d0df8",
+        "moodle-digitized:b0a1787aef4f8fdc1205948a25d9781555849c54cb45fdde256cb2ae187c77cc",
+        "moodle-digitized:dba35855b6438b4496bbec2690092103e1756e1a08e0dc5dd52fca03aba6bae9",
+        "moodle-digitized:da0333f5801034c95d79cda390d284abc4f5158bc1e6f9171878d6b11c5f9276",
+        "moodle-digitized:b6446cd4695a506e9ff357f64b6f471496fb30690c42836f2480b13857c4b7aa",
+        "moodle-digitized:fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5",
+        "moodle-digitized:40568a1fe04d69eb9454ad6718e1f1b33a9d0e0036bcc5c3c6970532d4a28707",
+        "moodle-digitized:e79fd045af744b01827b8bb12cf72e90e06dde48435f3bbc357e2c3698fed2ff",
+        "moodle-digitized:3b6d33916d8db01f3aa529f0d908f32cdff051c259f7e3c53f0e90f54e685605",
+        "moodle-digitized:8881424ea8009aec174aee22a0b404d89fc177e1422cd6986ff51ad7e4426eb4",
+        "moodle-digitized:114e30bfdeab6d33cdde8509bb484413ccb742567744beb6194dc7afcde8b540",
+        "moodle-digitized:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617",
+        "moodle-digitized:48aff6c487f47275b5745f3c6dd018779d6460158c485838e04d148f0bae3915",
+        "moodle-digitized:cc1cf8bba5ffcc456060d75b802fc09977ed0797cca2e4a50b158699ae897fe8",
+        "moodle-digitized:9348540f4b1ed28b035c8fac6f25db199df8d93ef8ff514bce2156675dfb9ad0",
+        "moodle-digitized:35c2a9a99a796b88868a77f4e977d40a770921f025df25ccd1821a0fd2384732",
+        "moodle-digitized:16525189dd80228ac12cd25654fd5240a963d26b836cc98b716425eb774dec0d",
+        "moodle-digitized:a8c105a884046ca4acf9599724cf92137c243d4a9136f198e9823e290f3919ee",
+        "moodle-digitized:ab7787233e5c075a7eaacde989434f8b4df12efb580639606533d670a6334714",
+        "moodle-digitized:72ca90caa4a5e1ab06bed128fd03eb13dc574d9264267b0bb8af7fb6be6c9e9b",
+        "moodle-digitized:a17f77170c30fa222ac3fbe19bfa1083bd96aa1c11443b5e8e2842623f4d5135"
+      ]
+    },
+    "japanese": {
+      "schema": "yomu-academy.library.private-ledger/v1",
+      "scanRevision": "yomu-academy.library.scan/v1",
+      "entryCount": 15791,
+      "uniquePayloadCount": 11085,
+      "minnaPayloadCount": 58,
+      "genkiPayloadCount": 2391,
+      "storyPayloadCount": 319
+    },
+    "soya": {
+      "mapSha256": "05c8155d0e2538b95f6985e30bd05366c55ca60a1959ca369a772ed1f9d2860e",
+      "questionCount": 509,
+      "mapFailureCount": 0,
+      "rightsState": "item-review-required"
+    },
+    "providedStories": {
+      "sourceDocumentIds": [
+        "provided-story:7f645e81da0a06347c90eecad406e3f0de5584f7ad368608bf17f0f93e6707d7",
+        "provided-story:e9e5bfb5aef5fa57795133bb465957afb1a344e0f9db8fea60ba29f10a758924",
+        "provided-story:3b7e29ce71fff063ecec0ac5d3ce506de84f7152de9eba70031a9b96be6ab670",
+        "provided-story:2f5c50952459f95fb020d41505aac6c64bd696d883c625a2018efe6f89cb5042",
+        "provided-story:8da528675f4df2624514991121e5e484d96a3d36fce984ce0b5d0d8dc17e630a"
+      ]
+    }
+  }
+}

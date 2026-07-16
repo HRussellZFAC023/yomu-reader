@@ -28,7 +28,7 @@ describe('LocalYomuSrsRepository semantic collection', () => {
                     reviews: 1,
                     intervalDays: 2,
                     lastReviewAt: now - 1,
-                    dueAt: now + 86_400_000,
+                    dueAt: now,
                     createdAt: now - 3,
                     updatedAt: now - 1,
                 }),
@@ -42,7 +42,7 @@ describe('LocalYomuSrsRepository semantic collection', () => {
             providerCardId: semanticId,
             expression: 'A読む',
             reading: 'よむ',
-            state: ['learning'],
+            state: ['due'],
         });
         expect(queue.cards[0]?.meanings[0]?.glosses).toEqual(['read A', 'A reading']);
 
@@ -79,6 +79,23 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         expect((await firstRepository.queue(10)).cards).toHaveLength(0);
     });
 
+    it('keeps a stable review-seed provenance across a lapse followed by a pass', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const base = academyInput('review:lesson-zero-repeat', 'source:classroom-09', 'もう一度お願いします', 'もういちどおねがいします');
+
+        await repository.collectAcademyVocabulary({
+            ...base,
+            provenance: { ...base.provenance, kind: 'review-seed', conceptId: 'expression:classroom-09', reason: 'repair' },
+        });
+        const retried = await repository.collectAcademyVocabulary({
+            ...base,
+            provenance: { ...base.provenance, kind: 'review-seed', conceptId: 'expression:classroom-09', reason: 'new-learning' },
+        });
+
+        expect(retried).toMatchObject({ cardCreated: false, provenanceAdded: false, provenanceCount: 1 });
+    });
+
     it('retains a reviewed Academy card after its last provenance is undone', async () => {
         let now = Date.parse('2026-07-13T10:00:00.000Z');
         const repository = new LocalYomuSrsRepository(() => now);
@@ -89,9 +106,71 @@ describe('LocalYomuSrsRepository semantic collection', () => {
 
         const removed = await repository.removeAcademyVocabularyProvenance(collected.cardId, 'lesson:a');
         expect(removed).toMatchObject({ provenanceRemoved: true, cardDeleted: false, reason: 'study-history' });
+        expect((await repository.queue(10)).cards).toHaveLength(0);
+        expect((await repository.stats()).reviewsToday).toBe(1);
+        now += 2 * 86_400_000;
         const reloaded = new LocalYomuSrsRepository(() => now);
         expect((await reloaded.queue(10)).cards).toHaveLength(1);
-        expect((await reloaded.stats()).reviewsToday).toBe(1);
+    });
+
+    it.each([
+        ['again', 10 * 60_000, 0],
+        ['hard', 86_400_000, 1],
+        ['good', 2 * 86_400_000, 2],
+        ['easy', 4 * 86_400_000, 4],
+    ] as const)('schedules a new-card %s grade at its real due time', async (grade, delay, intervalDays) => {
+        let now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const collected = await repository.collectAcademyVocabulary({
+            ...academyInput(`lesson:${grade}`, `source:${grade}`, `読む${grade}`, 'よむ'),
+            meanings: [],
+        });
+
+        const reviewed = await repository.review({ card: collected.card, grade });
+        expect(reviewed.card).toMatchObject({ dueAt: now + delay, state: ['learning'] });
+        expect(reviewed.card?.raw).toMatchObject({ intervalDays, reviews: 1 });
+        expect((await repository.queue(10)).cards).toHaveLength(0);
+
+        now += delay - 1;
+        expect((await repository.queue(10)).cards).toHaveLength(0);
+        now += 1;
+        expect((await repository.queue(10)).cards).toHaveLength(1);
+    });
+
+    it('reports the complete due queue even when the returned page is bounded', async () => {
+        const now = 1_000_000;
+        const dueReviewId = canonicalStudyCardKey('読む', 'よむ');
+        const dueNewId = canonicalStudyCardKey('書く', 'かく');
+        const secondDueNewId = canonicalStudyCardKey('聞く', 'きく');
+        const futureNewId = canonicalStudyCardKey('話す', 'はなす');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            version: 1,
+            cards: {
+                [dueReviewId]: storedCard({ id: dueReviewId, expression: '読む', reading: 'よむ', reviews: 1, dueAt: now - 4 }),
+                [dueNewId]: storedCard({ id: dueNewId, expression: '書く', reading: 'かく', dueAt: now - 3 }),
+                [secondDueNewId]: storedCard({ id: secondDueNewId, expression: '聞く', reading: 'きく', dueAt: now - 2 }),
+                [futureNewId]: storedCard({ id: futureNewId, expression: '話す', reading: 'はなす', dueAt: now + 1 }),
+            },
+        }));
+
+        const queue = await new LocalYomuSrsRepository(() => now).queue(1);
+        expect(queue.cards).toHaveLength(1);
+        expect(queue).toMatchObject({ dueCount: 1, newCount: 2, reviewCount: 3 });
+        expect(queue.cards[0]?.expression).toBe('読む');
+    });
+
+    it('reports syllabus rows already present in the shared deck without changing their schedule', async () => {
+        let now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const collected = await repository.collectAcademyVocabulary(academyInput('lesson:a', 'source:a'));
+        await repository.review({ card: collected.card, grade: 'good' });
+        now += 1;
+
+        await expect(repository.academySyllabusProgress([
+            { expression: '読む', reading: 'よむ' },
+            { expression: '書く', reading: 'かく' },
+        ])).resolves.toEqual({ total: 2, seeded: 1, unseeded: 1 });
+        expect((await repository.queue(10)).cards).toEqual([]);
     });
 
     it('never deletes an independently mined card when Academy provenance is undone', async () => {

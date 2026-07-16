@@ -11,6 +11,11 @@ export interface AccessGateway {
     exchange(code: string, signal?: AbortSignal): Promise<InviteSession>;
 }
 
+/** UCL2026 is the single Academy invitation that may remain account-free. */
+export function isAnonymousAcademyCode(code: string): boolean {
+    return normalizeCode(code) === 'UCL2026';
+}
+
 export class AccessError extends Error {
     constructor(readonly code: 'invalid' | 'unavailable' | 'malformed', message: string) {
         super(message);
