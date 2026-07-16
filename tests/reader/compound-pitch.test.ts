@@ -5,8 +5,8 @@ import { alignedExpressionComponentPitches, renderExpressionComponentPitches } f
 import type { JPDBCard } from '../../src/reader/app/types';
 import type { YomitanMetaEntry } from '../../src/reader/dictionaries/yomitan';
 
-function pitchEntry(reading: string, position: number): YomitanMetaEntry {
-    return { mode: 'pitch', data: { reading, pitches: [{ position }] } } as unknown as YomitanMetaEntry;
+function pitchEntry(expression: string, reading: string, position: number): YomitanMetaEntry {
+    return { expression, mode: 'pitch', data: { reading, pitches: [{ position }] }, dictionary: 'probe-pitch' };
 }
 
 function bankLookup(bank: Record<string, YomitanMetaEntry[]>) {
@@ -16,9 +16,9 @@ function bankLookup(bank: Record<string, YomitanMetaEntry[]>) {
 describe('whole-word pitch evidence', () => {
     it('uses an exact expression-and-reading row as the whole-word contour', async () => {
         const lookup = bankLookup({
-            双子座流星群: [pitchEntry('ふたござりゅうせいぐん', 3)],
-            双子座: [pitchEntry('ふたござ', 0)],
-            流星群: [pitchEntry('りゅうせいぐん', 3)],
+            双子座流星群: [pitchEntry('双子座流星群', 'ふたござりゅうせいぐん', 3)],
+            双子座: [pitchEntry('双子座', 'ふたござ', 0)],
+            流星群: [pitchEntry('流星群', 'りゅうせいぐん', 3)],
         });
 
         const resolution = await localPitchResolutionFromMetaLookup('双子座流星群', 'ふたござりゅうせいぐん', lookup);
@@ -31,29 +31,42 @@ describe('whole-word pitch evidence', () => {
 
     it('keeps the whole word unknown when only component pitch rows exist', async () => {
         const lookup = bankLookup({
-            登録: [pitchEntry('とうろく', 0)],
-            者: [pitchEntry('しゃ', 1)],
-            数: [pitchEntry('すう', 1)],
+            登録: [pitchEntry('登録', 'とうろく', 0)],
+            者: [pitchEntry('者', 'しゃ', 1)],
+            数: [pitchEntry('数', 'すう', 1)],
         });
 
         await expect(localPitchPatternsFromMetaLookup('登録者数', 'とうろくしゃすう', lookup)).resolves.toEqual([]);
         expect(lookup).toHaveBeenCalledWith('登録者数');
-        expect(lookup).toHaveBeenCalledWith('とうろくしゃすう');
+        expect(lookup).not.toHaveBeenCalledWith('とうろくしゃすう');
         expect(lookup).not.toHaveBeenCalledWith('登録');
         expect(lookup).not.toHaveBeenCalledWith('者');
         expect(lookup).not.toHaveBeenCalledWith('数');
     });
 
-    it('accepts an exact reading-key row without consulting components', async () => {
+    it('does not substitute a reading-key row for missing exact-expression evidence', async () => {
         const lookup = bankLookup({
-            これら: [pitchEntry('これら', 1)],
-            これ: [pitchEntry('これ', 1)],
-            等: [pitchEntry('ら', 1)],
+            これら: [pitchEntry('これら', 'これら', 1)],
+            これ: [pitchEntry('これ', 'これ', 1)],
+            等: [pitchEntry('等', 'ら', 1)],
         });
 
-        await expect(localPitchPatternsFromMetaLookup('これ等', 'これら', lookup)).resolves.toEqual(['HLLL']);
+        await expect(localPitchPatternsFromMetaLookup('これ等', 'これら', lookup)).resolves.toEqual([]);
+        expect(lookup).toHaveBeenCalledTimes(1);
+        expect(lookup).toHaveBeenCalledWith('これ等');
+        expect(lookup).not.toHaveBeenCalledWith('これら');
         expect(lookup).not.toHaveBeenCalledWith('これ');
         expect(lookup).not.toHaveBeenCalledWith('等');
+    });
+
+    it('rejects a lone mismatched stored reading instead of reshaping its contour for the target', async () => {
+        const lookup = bankLookup({
+            日本代表: [pitchEntry('日本代表', 'にほんだいひょう', 2)],
+        });
+
+        await expect(localPitchPatternsFromMetaLookup('日本代表', 'にっぽんだいひょう', lookup)).resolves.toEqual([]);
+        expect(lookup).toHaveBeenCalledTimes(1);
+        expect(lookup).toHaveBeenCalledWith('日本代表');
     });
 });
 

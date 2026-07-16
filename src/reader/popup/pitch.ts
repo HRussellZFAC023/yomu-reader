@@ -22,7 +22,7 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
     if (!reading) return '';
     const variants = collectPitchVariants(reading, [
         ...(card.pitchAccent ?? []),
-        ...localPitchPatternsFromMeta(reading, metaEntries),
+        ...localPitchPatternsFromMeta(card.spelling, reading, metaEntries),
     ], MAX_PITCH_VARIANTS);
     return renderPitchVariantGraphs(reading, variants);
 }
