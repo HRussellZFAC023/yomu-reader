@@ -28,43 +28,35 @@ export async function localPitchResolutionFromMetaLookup(
 ): Promise<LocalPitchResolution> {
     const expression = spelling.trim();
     const pronunciation = reading.trim();
+    if (!expression || !pronunciation) return { patterns: [] };
     const initialEntries = options.initialEntries ?? await lookupMeta(expression);
-    let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-    if (patterns.length) return { patterns };
-
-    if (pronunciation && pronunciation !== expression) {
-        const readingEntries = await lookupMeta(pronunciation);
-        patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-        if (patterns.length) return { patterns };
-    }
-
-    return { patterns: [] };
+    return { patterns: localPitchPatternsFromMeta(expression, pronunciation, initialEntries) };
 }
 
-export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
-    return localPitchPatternsFromMeta(reading, entries)[0] ?? '';
+export function localPitchPatternFromMeta(expression: string, reading: string, entries: YomitanMetaEntry[]): string {
+    return localPitchPatternsFromMeta(expression, reading, entries)[0] ?? '';
 }
 
 // UT-65: words commonly carry several accepted accents — pitch dictionaries
 // list them all, so surface every distinct pattern instead of the first hit.
-export function localPitchPatternsFromMeta(reading: string, entries: YomitanMetaEntry[]): string[] {
-    const patterns = collectPitchPatterns(reading, entries, false);
-    if (patterns.length) return patterns;
-    // A stored reading that disagrees usually means the parser derived a
-    // different orthography for the same word (katakana surface, inflection
-    // base). When the bank lists exactly one reading for this expression there
-    // is no homograph to mis-colour, so accept its positions instead of
-    // silently dropping a resolvable pitch.
-    return distinctMetadataReadings(entries).length === 1
-        ? collectPitchPatterns(reading, entries, true)
-        : patterns;
+export function localPitchPatternsFromMeta(expression: string, reading: string, entries: YomitanMetaEntry[]): string[] {
+    const normalizedExpression = expressionIdentity(expression);
+    const normalizedReading = readingIdentity(reading);
+    if (!normalizedExpression || !normalizedReading) return [];
+    return collectPitchPatterns(normalizedExpression, normalizedReading, reading, entries);
 }
 
-function collectPitchPatterns(reading: string, entries: YomitanMetaEntry[], ignoreReadingMismatch: boolean): string[] {
+function collectPitchPatterns(
+    normalizedExpression: string,
+    normalizedReading: string,
+    reading: string,
+    entries: YomitanMetaEntry[],
+): string[] {
     const patterns: string[] = [];
     for (const entry of entries) {
         if (entry.mode !== 'pitch') continue;
-        for (const candidate of readPitchCandidates(entry.data, reading, ignoreReadingMismatch)) {
+        if (expressionIdentity(entry.expression ?? '') !== normalizedExpression) continue;
+        for (const candidate of readPitchCandidates(entry.data, normalizedReading)) {
             const pattern = pitchPatternFromCandidate(reading, candidate);
             if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
         }
@@ -72,24 +64,9 @@ function collectPitchPatterns(reading: string, entries: YomitanMetaEntry[], igno
     return patterns;
 }
 
-function distinctMetadataReadings(entries: YomitanMetaEntry[]): string[] {
-    const readings = new Set<string>();
-    for (const entry of entries) {
-        if (entry.mode !== 'pitch') continue;
-        const record = objectRecord(entry.data);
-        const reading = typeof record?.reading === 'string' ? kanaNormalized(record.reading) : '';
-        if (reading) readings.add(reading);
-    }
-    return [...readings];
-}
-
-function readPitchCandidates(value: unknown, reading: string, ignoreReadingMismatch: boolean): Array<number | string> {
+function readPitchCandidates(value: unknown, normalizedReading: string): Array<number | string> {
     const record = objectRecord(value);
-    if (!record) {
-        const candidate = pitchCandidateFromValue(value);
-        return candidate == null ? [] : [candidate];
-    }
-    if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
+    if (!record || !pitchMetadataReadingMatches(record, normalizedReading)) return [];
     const candidates = pitchPositionCandidates(record)
         .map(candidate => pitchCandidateFromValue(candidate))
         .filter((candidate): candidate is number | string => candidate != null);
@@ -104,15 +81,20 @@ function pitchPatternFromCandidate(reading: string, candidate: number | string):
         : normalizePitchPatternsForReading([candidate], reading)[0] ?? '';
 }
 
-function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
+function pitchMetadataReadingMatches(record: Record<string, unknown>, normalizedReading: string): boolean {
     const metadataReading = typeof record.reading === 'string' ? record.reading : '';
     // Kanjium stores hiragana readings while parsed cards often carry the
     // katakana surface — a script difference is not a different reading.
-    return !metadataReading || !reading || kanaNormalized(metadataReading) === kanaNormalized(reading);
+    return readingIdentity(metadataReading) === normalizedReading;
 }
 
-function kanaNormalized(value: string): string {
-    return value.replace(/[ァ-ヶ]/gu, character => String.fromCharCode(character.charCodeAt(0) - 0x60));
+function expressionIdentity(value: string): string {
+    return value.trim().normalize('NFKC');
+}
+
+function readingIdentity(value: string): string {
+    return expressionIdentity(value)
+        .replace(/[ァ-ヶ]/gu, character => String.fromCharCode(character.charCodeAt(0) - 0x60));
 }
 
 function pitchPositionCandidates(record: Record<string, unknown>): unknown[] {

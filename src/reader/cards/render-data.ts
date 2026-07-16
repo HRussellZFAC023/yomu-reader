@@ -572,7 +572,7 @@ export class CardRenderDataLoader {
                 ? await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
                     .catch(() => [] as YomitanMetaEntry[])
                 : [];
-            const localPitch = localPitchPatternFromMeta(component.reading, meta);
+            const localPitch = localPitchPatternFromMeta(component.text, component.reading, meta);
             if (localPitch) {
                 pitches.push({ text: component.text, reading: component.reading, pitch: localPitch });
                 continue;
