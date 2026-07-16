@@ -13,6 +13,7 @@ import {
 } from './lib/smoke-harness.mjs';
 import { loadLocalEnv } from './lib/qa-env.mjs';
 import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const usage = `Usage: node scripts/youtube-sidebar-resize-profile.mjs
 
@@ -77,6 +78,18 @@ const requestBridgeName = '__yomuYoutubeSidebarResizeRequest';
 const jpdbParseUrl = 'https://jpdb.io/api/v1/parse';
 const fixtureWatchUrl = 'https://www.youtube.com/watch?v=p044fixture';
 const fixtureMobileWatchUrl = 'https://m.youtube.com/watch?v=p044fixture';
+const youtubeTimedTextLines = [
+    ['今日は', '日本語', '字幕', 'を', '確認', 'します'],
+    ['左側', 'でも', '動画', 'を', '隠しません'],
+    ['下側', 'では', '説明', 'と', '操作', 'を', '広げません'],
+    ['向き', '変更', 'しても', '余白', 'を', '保ちます'],
+];
+const youtubeTimedTextFixture = youtubeTimedText(Array.from({ length: 132 }, (_, index) => ({
+    start: 1000 + index * 2100,
+    duration: 1900,
+    segments: youtubeTimedTextLines[index % youtubeTimedTextLines.length]
+        .map((text, wordIndex) => ({ offset: wordIndex * 280, text })),
+})), { surroundingNewlines: false });
 const vocabulary = [
     ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
     ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['known'], ['LHHH']],
@@ -1267,19 +1280,27 @@ async function installFixtureRoutes(page, requestLog) {
         return route.fulfill({ status: 204, body: '' });
     });
     await page.route('https://www.youtube.com/watch**', route => route.fulfill({
-        body: youtubeFixtureHtml(false),
+        body: youtubeWatchHtml({
+            fixture: 'sidebar-resize',
+            mobile: false,
+            playerResponse: youtubePlayerResponse('p044fixture'),
+        }),
         contentType: 'text/html; charset=utf-8',
     }));
     await page.route('https://m.youtube.com/watch**', route => route.fulfill({
-        body: youtubeFixtureHtml(true),
+        body: youtubeWatchHtml({
+            fixture: 'sidebar-resize',
+            mobile: true,
+            playerResponse: youtubePlayerResponse('p044fixture', { host: 'm' }),
+        }),
         contentType: 'text/html; charset=utf-8',
     }));
     await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({
-        body: youtubeTimedText(),
+        body: youtubeTimedTextFixture,
         contentType: 'text/xml; charset=utf-8',
     }));
     await page.route('https://m.youtube.com/api/timedtext**', route => route.fulfill({
-        body: youtubeTimedText(),
+        body: youtubeTimedTextFixture,
         contentType: 'text/xml; charset=utf-8',
     }));
 }
@@ -1314,7 +1335,7 @@ function routeBridgeResponse(request, requestLog) {
         requestLog.push({ kind: 'youtube-timedtext-bridge', url: redactUrl(target.href) });
         return {
             status: 200,
-            responseText: youtubeTimedText(),
+            responseText: youtubeTimedTextFixture,
             contentType: 'text/xml; charset=utf-8',
         };
     }
@@ -1640,127 +1661,4 @@ function redactUrl(url) {
 
 function writeReport(value) {
     writeFileSync(join(outputRoot, 'report.json'), `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function youtubeTimedText() {
-    const lines = [
-        ['今日は', '日本語', '字幕', 'を', '確認', 'します'],
-        ['左側', 'でも', '動画', 'を', '隠しません'],
-        ['下側', 'では', '説明', 'と', '操作', 'を', '広げません'],
-        ['向き', '変更', 'しても', '余白', 'を', '保ちます'],
-    ];
-    const body = Array.from({ length: 132 }, (_, index) => {
-        const words = lines[index % lines.length];
-        const start = 1000 + index * 2100;
-        const segments = words.map((word, wordIndex) => `<s t="${wordIndex * 280}">${word}</s>`).join('');
-        return `<p t="${start}" d="1900">${segments}</p>`;
-    }).join('\n');
-    return `<timedtext><body>${body}</body></timedtext>`;
-}
-
-function youtubeFixtureHtml(mobile) {
-    const playerResponse = {
-        videoDetails: { videoId: 'p044fixture' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: `https://${mobile ? 'm' : 'www'}.youtube.com/api/timedtext?v=p044fixture&lang=ja`,
-                    languageCode: 'ja',
-                    vssId: '.ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YouTube sidebar resize fixture</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; overflow-x: hidden; }
-    ytd-watch-flexy, ytm-watch { display: block; }
-    #columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 24px; max-width: 1720px; margin: 0 auto; padding: 72px 24px 32px; box-sizing: border-box; align-items: start; }
-    #primary, #primary-inner { min-width: 0; box-sizing: border-box; }
-    #player, #player-container-outer, #player-container-inner, ytd-player { display: block; min-width: 0; }
-    #movie_player { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px; background: #000; overflow: hidden; }
-    #movie_player .html5-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
-    #movie_player video { position: absolute; display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #111, #252525); }
-    .ytp-caption-window-container { position: absolute; left: 20%; right: 20%; bottom: 64px; text-align: center; font-size: 28px; text-shadow: 0 2px 4px #000; }
-    ytd-watch-metadata, ytm-slim-video-metadata-renderer { display: block; min-width: 0; padding-top: 18px; }
-    ytd-watch-metadata h1, ytm-slim-video-metadata-renderer h2 { margin: 0 0 14px; font-size: 24px; line-height: 1.28; font-weight: 650; overflow-wrap: anywhere; }
-    #actions, ytm-slim-video-action-bar-renderer { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; min-width: 0; }
-    #actions button, ytm-slim-video-action-bar-renderer button { border: 0; border-radius: 18px; padding: 8px 14px; color: #f1f1f1; background: #272727; font: inherit; }
-    #description, ytm-expandable-video-description-body-renderer { display: block; max-width: 100%; box-sizing: border-box; border-radius: 8px; padding: 12px 14px; background: #272727; color: #ddd; line-height: 1.5; overflow-wrap: anywhere; }
-    #secondary { display: grid; gap: 14px; min-width: 0; color: #ddd; }
-    ytd-compact-video-renderer { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; min-width: 0; }
-    .thumb { min-height: 78px; border-radius: 8px; background: #303030; }
-    ytd-compact-video-renderer a { color: #f1f1f1; text-decoration: none; line-height: 1.35; }
-    @media (max-width: 699px) {
-      #columns { display: block; padding: 56px 12px 24px; }
-      #secondary { margin-top: 18px; }
-      #movie_player { min-height: 210px; }
-      ytd-watch-metadata h1, ytm-slim-video-metadata-renderer h2 { font-size: 19px; }
-    }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};
-    for (const name of ['ytd-watch-flexy', 'ytm-watch', 'ytd-player', 'ytd-watch-metadata', 'ytm-slim-video-metadata-renderer', 'ytm-slim-video-action-bar-renderer', 'ytm-expandable-video-description-body-renderer', 'ytd-compact-video-renderer']) {
-      if (!customElements.get(name)) customElements.define(name, class extends HTMLElement {});
-    }
-  </script>
-</head>
-<body>
-  <${mobile ? 'ytm-watch' : 'ytd-watch-flexy'} video-id="p044fixture">
-    <main id="columns">
-      <section id="primary">
-        <div id="primary-inner">
-          <div id="player"><div id="player-container-outer"><div id="player-container-inner"><ytd-player>
-            <div id="movie_player">
-              <div class="html5-video-container" style="width:1008px;height:567px">
-                <video class="html5-main-video" controls muted playsinline style="left:0;top:0;width:1008px;height:567px;object-fit:cover"></video>
-              </div>
-              <div class="ytp-caption-window-container"><span class="ytp-caption-segment">今日は日本語字幕を確認します</span></div>
-            </div>
-          </ytd-player></div></div></div>
-          <${mobile ? 'ytm-slim-video-metadata-renderer' : 'ytd-watch-metadata'}>
-            <${mobile ? 'h2' : 'h1'}>日本語タイトルと説明を確認するための動画</${mobile ? 'h2' : 'h1'}>
-            <${mobile ? 'ytm-slim-video-action-bar-renderer' : 'div'} id="actions">
-              <button type="button">Like</button><button type="button">Share</button><button type="button">Save</button><button type="button">Clip</button>
-            </${mobile ? 'ytm-slim-video-action-bar-renderer' : 'div'}>
-            <${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'} id="description">これは説明欄です。下側の文字起こしパネルでも横幅が異常に広がらず、ボタンやタイトルと同じ列に収まります。</${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'}>
-          </${mobile ? 'ytm-slim-video-metadata-renderer' : 'ytd-watch-metadata'}>
-        </div>
-      </section>
-      <aside id="secondary">
-        ${Array.from({ length: 24 }, (_, index) => `<ytd-compact-video-renderer><div class="thumb"></div><a href="/watch?v=${index}">おすすめ動画 ${index + 1} と日本語の説明</a></ytd-compact-video-renderer>`).join('')}
-      </aside>
-    </main>
-  </${mobile ? 'ytm-watch' : 'ytd-watch-flexy'}>
-  <script>
-    const player = document.querySelector('#movie_player');
-    const video = document.querySelector('video');
-    globalThis.__yomuSetSizeCalls = [];
-    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-    Object.defineProperty(video, 'duration', { configurable: true, value: 12 });
-    Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 1.4 });
-    Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1920 });
-    Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1080 });
-    player.getVideoData = () => ({ video_id: 'p044fixture' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.setOption = () => {};
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => {
-      globalThis.__yomuSetSizeCalls.push({ width, height, at: performance.now() });
-      player.style.width = width + 'px';
-      player.style.height = height + 'px';
-    };
-    video.dispatchEvent(new Event('loadedmetadata'));
-    video.dispatchEvent(new Event('loadeddata'));
-  </script>
-</body>
-</html>`;
 }

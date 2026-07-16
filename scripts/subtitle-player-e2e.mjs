@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { assert } from './lib/smoke-harness.mjs';
 import { createYomuPaths } from './lib/paths.mjs';
 import { dragTranscriptResizeHandle, panelSizeDelta } from './lib/subtitle-layout-test-utils.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
@@ -53,12 +54,12 @@ This little person is standing.
 Then they are holding a camera.
 `;
 
-const youtubeTimedText = `<timedtext><body>
-<p t="5040000" d="2000"><s t="0">これは一つ目です。</s></p>
-<p t="5044000" d="2200"><s t="0">次の行も表示します。</s></p>
-<p t="5049000" d="2400"><s t="0">前後の行を保ちます。</s></p>
-<p t="5054000" d="2600"><s t="0">これは狭いサイドバーでも折り返して読める長い字幕行です。</s></p>
-</body></timedtext>`;
+const youtubeTimedTextFixture = youtubeTimedText([
+    { start: 5040000, duration: 2000, text: 'これは一つ目です。' },
+    { start: 5044000, duration: 2200, text: '次の行も表示します。' },
+    { start: 5049000, duration: 2400, text: '前後の行を保ちます。' },
+    { start: 5054000, duration: 2600, text: 'これは狭いサイドバーでも折り返して読める長い字幕行です。' },
+]);
 
 const FIXTURE_ROUTES = new Map([
     ['/generic', origin => ({ body: genericHtml(origin), contentType: 'text/html' })],
@@ -301,122 +302,6 @@ function cijHtml() {
 </html>`;
 }
 
-function youtubeFixtureHtml() {
-    const response = {
-        videoDetails: { videoId: 'TAorfFcb8_g' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: 'https://www.youtube.com/api/timedtext?v=TAorfFcb8_g&lang=ja',
-                    languageCode: 'ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>YouTube fixture</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: white; font-family: Roboto, Arial, sans-serif; }
-    #columns { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 22px; padding: 56px 24px 24px; box-sizing: border-box; }
-    #movie_player { position: relative; background: #000; aspect-ratio: 16 / 9; min-height: 420px; }
-    #movie_player video { width: 100%; height: 100%; display: block; background: #050505; }
-    .caption-window { position: absolute; left: 20%; right: 20%; bottom: 76px; font-size: 32px; text-align: center; text-shadow: 0 2px 4px black; }
-    aside { color: #aaa; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(response)};
-    customElements.define('ytd-watch-flexy', class extends HTMLElement {});
-  </script>
-</head>
-<body>
-  <ytd-watch-flexy>
-    <div id="columns">
-      <div id="primary">
-        <div id="player"><div id="player-container-outer"><div id="player-container-inner">
-          <div id="movie_player">
-            <video controls muted ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}></video>
-            <div class="caption-window"><span class="ytp-caption-segment">ルーターと同じ</span></div>
-          </div>
-        </div></div></div>
-      </div>
-      <aside id="secondary"><div id="secondary-inner"><h2>Recommended</h2><p>Sidebar content</p></div></aside>
-    </div>
-  </ytd-watch-flexy>
-  <script>
-    const player = document.querySelector('#movie_player');
-    player.getVideoData = () => ({ video_id: 'TAorfFcb8_g' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.setOption = () => {};
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => { player.style.width = width + 'px'; player.style.height = height + 'px'; };
-  </script>
-</body>
-</html>`;
-}
-
-function mobileYouTubeFixtureHtml() {
-    const response = {
-        videoDetails: { videoId: '_fXQ8TquRWo' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: 'https://m.youtube.com/api/timedtext?v=_fXQ8TquRWo&lang=ja',
-                    languageCode: 'ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Mobile YouTube fixture</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: white; font-family: Roboto, Arial, sans-serif; }
-    .mobile-watch { width: 390px; min-height: 900px; padding-top: 48px; background: #0f0f0f; }
-    #movie_player { position: relative; width: 390px; height: 219px; background: #000; }
-    #movie_player video { width: 100%; height: 100%; display: block; background: #050505; }
-    .caption-window { position: absolute; left: 12%; right: 12%; bottom: 42px; font-size: 22px; text-align: center; text-shadow: 0 2px 4px black; }
-    .metadata { padding: 16px 20px; font-size: 16px; line-height: 1.45; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(response)};
-  </script>
-</head>
-<body>
-  <main class="mobile-watch">
-    <div id="player"><div id="player-container-outer"><div id="player-container-inner">
-      <div id="movie_player">
-        <video controls muted ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}></video>
-        <div class="caption-window"><span class="ytp-caption-segment">今から体を描きます。</span></div>
-      </div>
-    </div></div></div>
-    <section class="metadata">
-      <h1>Body Parts | Complete Beginner Japanese Comprehensible Input</h1>
-      <p>にほんごのじかん</p>
-    </section>
-  </main>
-  <script>
-    const player = document.querySelector('#movie_player');
-    player.getVideoData = () => ({ video_id: '_fXQ8TquRWo' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.setOption = () => {};
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => { player.style.width = width + 'px'; player.style.height = height + 'px'; };
-  </script>
-</body>
-</html>`;
-}
-
 async function startFixtureServer() {
     const server = http.createServer(serveFixtureRequest);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -538,13 +423,34 @@ async function installFixtureRoutes(page) {
 }
 
 async function installYouTubeFixtureRoutes(page) {
-    await page.route('https://www.youtube.com/watch**', route => route.fulfill({ body: youtubeFixtureHtml(), contentType: 'text/html' }));
-    await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedText, contentType: 'text/xml' }));
+    await page.route('https://www.youtube.com/watch**', route => route.fulfill({
+        body: youtubeWatchHtml({
+            fixture: 'subtitle-e2e',
+            mobile: false,
+            fixtureVideoUrl,
+            playerResponse: youtubePlayerResponse('TAorfFcb8_g', {
+                captionTracks: [{ languageCode: 'ja', vssId: null, name: 'Japanese' }],
+            }),
+        }),
+        contentType: 'text/html',
+    }));
+    await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedTextFixture, contentType: 'text/xml' }));
 }
 
 async function installMobileYouTubeFixtureRoutes(page) {
-    await page.route('https://m.youtube.com/watch**', route => route.fulfill({ body: mobileYouTubeFixtureHtml(), contentType: 'text/html' }));
-    await page.route('https://m.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedText, contentType: 'text/xml' }));
+    await page.route('https://m.youtube.com/watch**', route => route.fulfill({
+        body: youtubeWatchHtml({
+            fixture: 'subtitle-e2e',
+            mobile: true,
+            fixtureVideoUrl,
+            playerResponse: youtubePlayerResponse('_fXQ8TquRWo', {
+                host: 'm',
+                captionTracks: [{ languageCode: 'ja', vssId: null, name: 'Japanese' }],
+            }),
+        }),
+        contentType: 'text/html',
+    }));
+    await page.route('https://m.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedTextFixture, contentType: 'text/xml' }));
 }
 
 async function openAndReady(page, site) {

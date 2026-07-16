@@ -13,6 +13,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const {
     root: ROOT,
@@ -141,7 +142,11 @@ async function installRoutes(page, requestsLog) {
         return route.abort();
     });
     await page.route(WATCH_URL, route => route.fulfill({
-        body: youtubeWatchHtml(),
+        body: youtubeWatchHtml({
+            fixture: 'keyless-jiten-detail',
+            title: TITLE,
+            description: DESCRIPTION,
+        }),
         contentType: 'text/html; charset=utf-8',
     }));
     await page.route('https://api.jiten.moe/api/**', route => {
@@ -241,42 +246,4 @@ async function readState(page) {
         parseRequests: requests.filter(request => request.kind === 'jiten-parse').length,
         detailRequests: requests.filter(request => request.kind === 'jiten-detail').length,
     }));
-}
-
-function youtubeWatchHtml() {
-    return `<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <title>Keyless Jiten detail smoke</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
-    #page { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; padding: 64px 28px; }
-    #movie_player { min-height: 330px; background: #050505; border-radius: 12px; }
-    ytd-watch-metadata { display: block; margin-top: 22px; }
-    ytd-watch-metadata h1 { margin: 0 0 16px; font-size: 28px; line-height: 1.45; }
-    #description-inline-expander { padding: 14px 16px; border-radius: 10px; background: #272727; font-size: 18px; line-height: 1.55; }
-    aside { display: grid; gap: 14px; align-content: start; }
-    ytd-compact-video-renderer { display: block; min-height: 72px; padding: 12px; border-radius: 10px; background: #202020; }
-  </style>
-</head>
-<body>
-  <ytd-watch-flexy video-id="keyless-jiten-detail">
-    <main id="page">
-      <section id="primary">
-        <div id="movie_player"></div>
-        <ytd-watch-metadata>
-          <h1><yt-formatted-string title="${TITLE}">${TITLE}</yt-formatted-string></h1>
-          <div id="description-inline-expander">
-            <yt-attributed-string id="attributed-snippet-text">${DESCRIPTION}</yt-attributed-string>
-          </div>
-        </ytd-watch-metadata>
-      </section>
-      <aside id="secondary">
-        <ytd-compact-video-renderer><a id="video-title" href="/watch?v=side">日本語の動画</a></ytd-compact-video-renderer>
-      </aside>
-    </main>
-  </ytd-watch-flexy>
-</body>
-</html>`;
 }

@@ -11,6 +11,7 @@ import {
     resolveAnkiAction,
 } from './lib/smoke-harness.mjs';
 import { createYomuPaths } from './lib/paths.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const artifactLabel = process.env.YOMU_PROFILE_LABEL ?? 'working';
@@ -33,6 +34,24 @@ const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const REQUEST_BRIDGE_NAME = '__yomuYoutubePerfRequest';
 const JPDB_PARSE_URL = 'https://jpdb.io/api/v1/parse';
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765';
+const YOUTUBE_PROFILE_CAPTION_TRACKS = [
+    { languageCode: 'ja', vssId: '.ja', name: 'Japanese' },
+    { languageCode: 'en', vssId: '.en', name: 'English' },
+];
+const YOUTUBE_TIMED_TEXT = {
+    en: youtubeTimedText([
+        { start: 0, duration: 1800, text: 'Thank you, teacher.' },
+        { start: 2200, duration: 1800, text: 'We check Japanese subtitles.' },
+        { start: 4500, duration: 1800, text: 'A story about taping pickled plums.' },
+        { start: 6800, duration: 1800, text: 'Today we read books too.' },
+    ]),
+    ja: youtubeTimedText([
+        { start: 0, duration: 1800, text: '先生いつもありがとうございました。' },
+        { start: 2200, duration: 1800, text: '日本語の字幕を確認します。' },
+        { start: 4500, duration: 1800, text: '梅干しをセロハンテープで貼る話。' },
+        { start: 6800, duration: 1800, text: '今日も本を読みます。' },
+    ]),
+};
 
 for (const path of [userscriptPath, cssPath]) {
     if (!existsSync(path)) throw new Error(`Missing profile artifact: ${path}`);
@@ -510,13 +529,13 @@ function routeResponse(url, rawBody, scenario, method = 'GET') {
     const target = proxiedTargetUrl(parsed) ?? parsed;
     if (method === 'OPTIONS') return textResponse('', 'text/plain', 204);
     if ((target.hostname === 'www.youtube.com' || target.hostname === 'm.youtube.com') && target.pathname === '/watch') {
-        return textResponse(youtubeWatchHtml({ mobile: target.hostname === 'm.youtube.com' }), 'text/html; charset=utf-8');
+        return textResponse(performanceWatchFixture(target.hostname === 'm.youtube.com'), 'text/html; charset=utf-8');
     }
     if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
-        return textResponse(youtubeTimedText(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+        return textResponse(timedTextForLanguage(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
     }
     if (target.hostname === 'www.youtube.com' && target.pathname === '/youtubei/v1/player') {
-        return jsonResponse(youtubePlayerResponse());
+        return jsonResponse(youtubePlayerResponse('profile123', { captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS }));
     }
     if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
         return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
@@ -533,7 +552,7 @@ function responseForRequest(url, rawBody, scenario) {
     if (target.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
     if (isAnkiConnectUrl(parsed)) return ankiConnectResponse(rawBody, scenario);
     if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
-        return textResponse(youtubeTimedText(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+        return textResponse(timedTextForLanguage(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
     }
     if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
         return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
@@ -1340,198 +1359,21 @@ function validateYoutubeCommentState(state, scenario, label, options = {}) {
     }
 }
 
-function youtubePlayerResponse() {
-    return {
-        videoDetails: { videoId: 'profile123' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: 'https://www.youtube.com/api/timedtext?v=profile123&lang=ja',
-                    languageCode: 'ja',
-                    vssId: '.ja',
-                    name: { simpleText: 'Japanese' },
-                }, {
-                    baseUrl: 'https://www.youtube.com/api/timedtext?v=profile123&lang=en',
-                    languageCode: 'en',
-                    vssId: '.en',
-                    name: { simpleText: 'English' },
-                }],
-            },
-        },
-    };
+function timedTextForLanguage(language) {
+    return YOUTUBE_TIMED_TEXT[language === 'en' ? 'en' : 'ja'];
 }
 
-function youtubeTimedText(lang = 'ja') {
-    if (lang === 'en') {
-        return `<timedtext><body>
-<p t="0" d="1800"><s t="0">Thank you, teacher.</s></p>
-<p t="2200" d="1800"><s t="0">We check Japanese subtitles.</s></p>
-<p t="4500" d="1800"><s t="0">A story about taping pickled plums.</s></p>
-<p t="6800" d="1800"><s t="0">Today we read books too.</s></p>
-</body></timedtext>`;
-    }
-    return `<timedtext><body>
-<p t="0" d="1800"><s t="0">先生いつもありがとうございました。</s></p>
-<p t="2200" d="1800"><s t="0">日本語の字幕を確認します。</s></p>
-<p t="4500" d="1800"><s t="0">梅干しをセロハンテープで貼る話。</s></p>
-<p t="6800" d="1800"><s t="0">今日も本を読みます。</s></p>
-</body></timedtext>`;
-}
-
-function youtubeWatchHtml({ mobile = false } = {}) {
-    const playerResponse = youtubePlayerResponse();
+function performanceWatchFixture(mobile) {
     const shortDescription = '復習用のPodcastでは、日本語で説明しています。今日も本を読みます。';
-    const longDescription = youtubeLongDescriptionText();
-    const comments = youtubeCommentFixtures();
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>YouTube Performance Fixture</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
-    #page { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; padding: 72px 24px 48px; box-sizing: border-box; }
-    ${mobile ? '#page { display: block; padding: 88px 12px 32px; } #secondary { display: none; } #movie_player { min-height: auto; }' : ''}
-    #movie_player { position: relative; min-height: 480px; aspect-ratio: 16 / 9; background: #000; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
-    .ytp-caption-window-container { position: absolute; left: 0; right: 0; bottom: 72px; text-align: center; }
-    .ytp-caption-segment { padding: 4px 10px; background: rgba(0,0,0,.76); color: white; font-size: 32px; text-shadow: 0 2px 4px black; }
-    ytd-watch-metadata { display: block; margin-top: 20px; }
-    ytd-watch-metadata h1 { font-size: 24px; margin: 0 0 16px; }
-    #description-inline-expander { margin: 16px 0; padding: 14px 16px; border-radius: 10px; background: #272727; line-height: 1.5; white-space: pre-wrap; }
-    #description-expand { margin-top: 8px; padding: 8px 12px; border: 0; border-radius: 999px; background: #3f3f3f; color: #fff; }
-    ytd-comment-view-model { display: block; margin-top: 18px; padding: 16px 0; border-top: 1px solid #333; }
-    #content-text { display: block; line-height: 1.6; }
-    #secondary { display: grid; gap: 14px; align-content: start; }
-    ytd-compact-video-renderer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; min-height: 84px; }
-    ytd-compact-video-renderer .thumb { border-radius: 8px; background: #333; }
-    ytd-compact-video-renderer a { color: #f1f1f1; text-decoration: none; line-height: 1.35; font-weight: 600; }
-    #profile-ocr-slot { position: fixed; left: 36px; top: 112px; z-index: 1; }
-    #profile-ocr-slot img { width: 560px; height: 118px; object-fit: cover; opacity: .2; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};
-    customElements.define('ytd-watch-flexy', class extends HTMLElement {});
-  </script>
-</head>
-<body>
-  <ytd-watch-flexy video-id="profile123">
-    <main id="page">
-      <section id="primary">
-        <div id="player"><div id="player-container-outer"><div id="player-container-inner">
-          <div id="movie_player">
-            <video controls muted playsinline></video>
-            <div class="ytp-caption-window-container"><span class="ytp-caption-segment">先生いつもありがとうございました。</span></div>
-          </div>
-        </div></div></div>
-        <ytd-watch-metadata>
-          <h1><yt-formatted-string title="日本語タイトル">日本語タイトル</yt-formatted-string></h1>
-          <${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'} id="description-inline-expander" data-profile-volatile-text="${escapeHtmlForFixture(shortDescription)}" data-profile-expanded-text="${escapeHtmlForFixture(longDescription)}">
-            <yt-attributed-string id="attributed-snippet-text">${escapeHtmlForFixture(shortDescription)}</yt-attributed-string>
-            <button id="description-expand" type="button">もっと見る</button>
-          </${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'}>
-        </ytd-watch-metadata>
-        <section id="comments">
-          ${comments.map((text, index) => commentHtml(text, index, mobile)).join('')}
-        </section>
-        <yt-live-chat-app>
-          <yt-live-chat-text-message-renderer>
-            <span id="author-name">先生</span>
-            <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
-          </yt-live-chat-text-message-renderer>
-        </yt-live-chat-app>
-      </section>
-      <aside id="secondary">
-        ${Array.from({ length: 18 }, (_, index) => sidebarCard(index)).join('')}
-      </aside>
-    </main>
-  </ytd-watch-flexy>
-  <script>
-    const player = document.querySelector('#movie_player');
-    const video = document.querySelector('video');
-    let currentTime = 0.4;
-    let playbackTimer = 0;
-    let rehydrateTimer = 0;
-    const ocrLines = JSON.stringify([
-      { text: 'でも今回はこれまでと日本語を読む', box: { left: 0.02, top: 0.18, width: 0.92, height: 0.58 } },
-    ]);
-    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-    Object.defineProperty(video, 'duration', { configurable: true, value: 12 });
-    Object.defineProperty(video, 'paused', { configurable: true, get: () => playbackTimer === 0 });
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => currentTime,
-      set: value => { currentTime = Number(value) || 0; },
+    return youtubeWatchHtml({
+        fixture: 'performance',
+        mobile,
+        playerResponse: youtubePlayerResponse('profile123', { captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS }),
+        shortDescription: escapeHtmlForFixture(shortDescription),
+        longDescription: escapeHtmlForFixture(youtubeLongDescriptionText()),
+        commentsHtml: youtubeCommentFixtures().map((text, index) => commentHtml(text, index, mobile)).join(''),
+        sidebarHtml: Array.from({ length: 18 }, (_, index) => sidebarCard(index)).join(''),
     });
-    player.getVideoData = () => ({ video_id: 'profile123' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.setOption = () => {};
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => {
-      player.style.width = width + 'px';
-      player.style.height = height + 'px';
-    };
-    window.__yomuProfileHostRestores = 0;
-    window.__yomuProfileStartPlayback = () => {
-      if (playbackTimer) return;
-      playbackTimer = window.setInterval(() => {
-        currentTime = (currentTime + 0.25) % 10;
-        video.dispatchEvent(new Event('timeupdate'));
-      }, 250);
-      video.dispatchEvent(new Event('play'));
-      video.dispatchEvent(new Event('playing'));
-    };
-    window.__yomuProfileStopPlayback = () => {
-      if (!playbackTimer) return;
-      window.clearInterval(playbackTimer);
-      playbackTimer = 0;
-      video.dispatchEvent(new Event('pause'));
-    };
-    window.__yomuProfileStartHostRehydrate = ({ intervalMs = 200 } = {}) => {
-      if (rehydrateTimer) return;
-      rehydrateTimer = window.setInterval(() => {
-        document.querySelectorAll('[data-profile-volatile-text]').forEach(element => {
-          if (!element.querySelector('.jpdb-reader-word')) return;
-          element.textContent = element.getAttribute('data-profile-volatile-text') || '';
-          window.__yomuProfileHostRestores += 1;
-        });
-      }, intervalMs);
-    };
-    window.__yomuProfileStopHostRehydrate = () => {
-      window.clearInterval(rehydrateTimer);
-      rehydrateTimer = 0;
-    };
-    window.__yomuProfileExpandDescription = () => {
-      const description = document.querySelector('#description-inline-expander');
-      if (!description) return;
-      const text = description.getAttribute('data-profile-expanded-text') || '';
-      description.setAttribute('data-profile-volatile-text', text);
-      description.textContent = text;
-      const button = document.createElement('button');
-      button.id = 'description-expand';
-      button.type = 'button';
-      button.textContent = '一部を表示';
-      description.append(document.createTextNode('\\n'), button);
-    };
-    document.querySelector('#description-expand')?.addEventListener('click', () => window.__yomuProfileExpandDescription());
-    window.__yomuProfileInstallOcrImage = () => {
-      if (document.querySelector('#profile-ocr-image')) return;
-      const slot = document.createElement('div');
-      slot.id = 'profile-ocr-slot';
-      const image = document.createElement('img');
-      image.id = 'profile-ocr-image';
-      image.alt = '';
-      image.dataset.yomuVideoFrame = 'true';
-      image.dataset.ocrLines = ocrLines;
-      image.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="560" height="118"%3E%3Crect width="560" height="118" fill="%23000"/%3E%3C/svg%3E';
-      slot.append(image);
-      document.body.append(slot);
-    };
-  </script>
-</body>
-</html>`;
 }
 
 function youtubeLongDescriptionText() {

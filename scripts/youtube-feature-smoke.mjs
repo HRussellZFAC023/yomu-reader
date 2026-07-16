@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 import { assert } from './lib/smoke-harness.mjs';
 import { waitForYoutubeTranscriptRows } from './lib/smoke-wait-helpers.mjs';
 import { dragTranscriptResizeHandle } from './lib/subtitle-layout-test-utils.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
@@ -61,11 +62,11 @@ const baseSettings = {
     ],
 };
 
-const youtubeTimedText = `<timedtext><body>
-<p t="0" d="1800"><s t="0">先生いつもありがとうございました。</s></p>
-<p t="2200" d="1800"><s t="0">日本語の字幕を確認します。</s></p>
-<p t="4500" d="1800"><s t="0">梅干しをセロハンテープで貼る話。</s></p>
-</body></timedtext>`;
+const youtubeTimedTextFixture = youtubeTimedText([
+    { start: 0, duration: 1800, text: '先生いつもありがとうございました。' },
+    { start: 2200, duration: 1800, text: '日本語の字幕を確認します。' },
+    { start: 4500, duration: 1800, text: '梅干しをセロハンテープで貼る話。' },
+]);
 
 const youtubePublicPitchHtml = `
 <div class="results search">
@@ -86,21 +87,6 @@ function publicPitchResult(id, spelling, reading, [low, high]) {
     </div>`;
 }
 
-function youtubePlayerResponse(videoId = 'feature123') {
-    return {
-        videoDetails: { videoId },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja`,
-                    languageCode: 'ja',
-                    vssId: '.ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
-}
 
 function youtubeHomeHtml() {
     return `<!doctype html>
@@ -167,115 +153,6 @@ function desktopThumbnail(videoId) {
     return `<ytd-thumbnail><a class="thumb" href="/watch?v=${videoId}"><img src="${THUMBNAIL_DATA_URL}" alt="" data-ocr-lines='${THUMBNAIL_OCR_LINES}'></a></ytd-thumbnail>`;
 }
 
-function youtubeWatchHtml() {
-    const playerResponse = youtubePlayerResponse('feature123');
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Feature YouTube Watch</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
-    ytd-watch-flexy { display: block; }
-    #page { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; padding: 68px 24px 48px; box-sizing: border-box; }
-    #movie_player { position: relative; min-height: 480px; aspect-ratio: 16 / 9; background: #000; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
-    .ytp-caption-window-container { position: absolute; left: 0; right: 0; bottom: 72px; text-align: center; }
-    .ytp-caption-segment { padding: 4px 10px; background: rgba(0,0,0,.76); color: white; font-size: 32px; text-shadow: 0 2px 4px black; }
-    ytd-watch-metadata { display: block; margin-top: 20px; }
-    ytd-watch-metadata h1 { font-size: 24px; margin: 0 0 16px; }
-    #description-inline-expander { margin: 16px 0; padding: 14px 16px; border-radius: 10px; background: #272727; line-height: 1.5; }
-    ytd-comment-view-model { display: block; margin-top: 18px; padding: 16px 0; border-top: 1px solid #333; }
-    #content-text { display: block; line-height: 1.6; }
-    ytd-live-chat-frame { display: block; margin-top: 18px; padding: 20px; border-radius: 18px; background: #272727; overflow: hidden; }
-    ytd-live-chat-frame #header { margin-bottom: 18px; font-size: 22px; font-weight: 600; }
-    ytd-live-chat-frame #panel-pages { display: block; }
-    .live-chat-preview-row { display: flex; align-items: center; gap: 16px; min-width: 0; }
-    .live-chat-card-icon { flex: 0 0 auto; width: 32px; height: 32px; border: 2px solid #f1f1f1; border-radius: 6px; }
-    .live-chat-card-copy { flex: 1 1 auto; min-width: 0; line-height: 1.4; white-space: normal; }
-    ytd-live-chat-frame #show-hide-button { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: #3f3f3f; color: #f1f1f1; font: inherit; white-space: nowrap; }
-    aside { display: grid; gap: 16px; align-content: start; }
-    ytd-compact-video-renderer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; min-height: 84px; }
-    ytd-compact-video-renderer .thumb { border-radius: 8px; background: #333; }
-    ytd-compact-video-renderer a { color: #f1f1f1; text-decoration: none; line-height: 1.35; font-weight: 600; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};
-    customElements.define('ytd-watch-flexy', class extends HTMLElement {});
-  </script>
-</head>
-<body>
-  <ytd-watch-flexy video-id="feature123">
-    <main id="page">
-      <section id="primary">
-        <div id="player"><div id="player-container-outer"><div id="player-container-inner">
-          <div id="movie_player">
-            <video controls muted></video>
-            <div class="ytp-caption-window-container"><span class="ytp-caption-segment">先生いつもありがとうございました。</span></div>
-          </div>
-        </div></div></div>
-        <ytd-watch-metadata>
-          <h1><yt-formatted-string title="日本の習慣｜おばあちゃんが今も大切にしていること">日本の習慣｜おばあちゃんが今も大切にしていること</yt-formatted-string></h1>
-          <div id="description-inline-expander">
-            <yt-attributed-string id="attributed-snippet-text">復習用のPodcastでは、日本語で説明しています。</yt-attributed-string>
-          </div>
-        </ytd-watch-metadata>
-        <section id="comments">
-          <ytd-comment-view-model>
-            <yt-attributed-string id="content-text">先生いつもありがとうございました。✨</yt-attributed-string>
-            <span class="more-button style-scope ytd-comment-view-model" slot="more-button">詳細</span>
-            <ytd-tri-state-button-view-model class="translate-button style-scope ytd-comment-view-model" state="untoggled">
-              <tp-yt-paper-button noink class="style-scope ytd-tri-state-button-view-model" role="button" tabindex="0" aria-disabled="false">英語に翻訳</tp-yt-paper-button>
-            </ytd-tri-state-button-view-model>
-          </ytd-comment-view-model>
-        </section>
-        <yt-live-chat-app>
-          <yt-live-chat-text-message-renderer>
-            <span id="author-name">先生</span>
-            <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
-            <button type="button" aria-label="返信">返信</button>
-          </yt-live-chat-text-message-renderer>
-        </yt-live-chat-app>
-        <ytd-live-chat-frame>
-          <div id="header"><yt-formatted-string>チャット</yt-formatted-string></div>
-          <div id="panel-pages">
-            <div class="live-chat-preview-row">
-              <span class="live-chat-card-icon" aria-hidden="true"></span>
-              <yt-formatted-string id="message" class="live-chat-card-copy">会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流できます。</yt-formatted-string>
-              <button id="show-hide-button" type="button"><yt-formatted-string>チャットを開く</yt-formatted-string></button>
-            </div>
-          </div>
-        </ytd-live-chat-frame>
-      </section>
-      <aside id="secondary">
-        <ytd-compact-video-renderer data-case="side-jp">
-          <div class="thumb"></div><a id="video-title" href="/watch?v=side-jp">梅干しを貼る話、インパクト強すぎる</a>
-        </ytd-compact-video-renderer>
-        <ytd-compact-video-renderer data-case="side-en">
-          <div class="thumb"></div><a id="video-title" href="/watch?v=side-en">Desk setup tour for focus</a>
-        </ytd-compact-video-renderer>
-      </aside>
-    </main>
-  </ytd-watch-flexy>
-  <script>
-    const player = document.querySelector('#movie_player');
-    const video = document.querySelector('video');
-    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-    Object.defineProperty(video, 'duration', { configurable: true, value: 10 });
-    player.getVideoData = () => ({ video_id: 'feature123' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.setOption = () => {};
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => {
-      player.style.width = width + 'px';
-      player.style.height = height + 'px';
-    };
-  </script>
-</body>
-</html>`;
-}
 
 function youtubeMobileHomeHtml() {
     return `<!doctype html>
@@ -859,22 +736,16 @@ async function installRoutes(page) {
         body: JSON.stringify({ title: youtubeOEmbedTitleForRequest(route.request().url()) }),
         contentType: 'application/json',
     }));
-    await page.route('https://www.youtube.com/watch**', route => route.fulfill({ body: youtubeWatchHtml(), contentType: 'text/html' }));
-    await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedText, contentType: 'text/xml' }));
-    await page.route('https://www.youtube.com/youtubei/v1/player**', route => route.fulfill({
-        body: JSON.stringify({
-            videoDetails: { videoId: 'feature123' },
-            captions: {
-                playerCaptionsTracklistRenderer: {
-                    captionTracks: [{
-                        baseUrl: 'https://www.youtube.com/api/timedtext?v=feature123&lang=ja',
-                        languageCode: 'ja',
-                        vssId: '.ja',
-                        name: { simpleText: 'Japanese' },
-                    }],
-                },
-            },
+    await page.route('https://www.youtube.com/watch**', route => route.fulfill({
+        body: youtubeWatchHtml({
+            fixture: 'feature',
+            playerResponse: youtubePlayerResponse('feature123'),
         }),
+        contentType: 'text/html',
+    }));
+    await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedTextFixture, contentType: 'text/xml' }));
+    await page.route('https://www.youtube.com/youtubei/v1/player**', route => route.fulfill({
+        body: JSON.stringify(youtubePlayerResponse('feature123')),
         contentType: 'application/json',
     }));
     await page.route('https://www.youtube.com/youtubei/v1/navigation/resolve_url**', route => route.fulfill({

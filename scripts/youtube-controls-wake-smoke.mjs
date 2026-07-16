@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const USERSCRIPT_PATH = resolve('dist/yomu.user.js');
 const CSS_PATH = resolve('dist/yomu.css');
@@ -34,218 +35,13 @@ const baseSettings = {
     subtitleControlsMode: 'auto',
 };
 
-const youtubeTimedText = `<timedtext><body>
-<p t="0" d="1500"><s t="0">こんにちは、今日は良い天気です。</s></p>
-<p t="2000" d="1500"><s t="0">日本語の字幕を確認します。</s></p>
-<p t="4000" d="1500"><s t="0">三番目の字幕行です。</s></p>
-<p t="6000" d="1500"><s t="0">四番目の字幕行です。</s></p>
-<p t="8000" d="1500"><s t="0">五番目の字幕行です。</s></p>
-</body></timedtext>`;
-
-function playerResponse() {
-    return {
-        videoDetails: { videoId: 'wake123' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: 'https://www.youtube.com/api/timedtext?v=wake123&lang=ja',
-                    languageCode: 'ja',
-                    vssId: '.ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
-}
-
-function watchHtml() {
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Controls Wake Watch</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
-    ytd-watch-flexy { display: block; }
-    #page { display: grid; grid-template-columns: minmax(0, 1fr); padding: 60px 24px; }
-    /* Responsive like YouTube's flexy player: width follows the viewport so a
-       viewport nudge changes the docked player box (and the inset signature). */
-    #movie_player { position: relative; width: min(960px, calc(100vw - 48px)); aspect-ratio: 16 / 9; background: #000; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse())};
-    customElements.define('ytd-watch-flexy', class extends HTMLElement {});
-  </script>
-</head>
-<body>
-  <ytd-watch-flexy video-id="wake123">
-    <main id="page">
-      <section id="primary">
-        <div id="player"><div id="player-container-outer"><div id="player-container-inner">
-          <div id="movie_player">
-            <video muted></video>
-          </div>
-        </div></div></div>
-      </section>
-    </main>
-  </ytd-watch-flexy>
-  <script>
-    const player = document.querySelector('#movie_player');
-    const video = document.querySelector('video');
-
-    // ---- simulated playback ----
-    let playing = false;
-    let mediaTime = 0;
-    let lastTick = performance.now();
-    setInterval(() => {
-      const now = performance.now();
-      if (playing) mediaTime = Math.min(10, mediaTime + (now - lastTick) / 1000);
-      lastTick = now;
-    }, 100);
-    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-    Object.defineProperty(video, 'duration', { configurable: true, value: 10 });
-    Object.defineProperty(video, 'paused', { configurable: true, get: () => !playing });
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => mediaTime,
-      set: (value) => { mediaTime = value; window.__wake.seeks++; wakeControls('seek'); video.dispatchEvent(new Event('seeking')); video.dispatchEvent(new Event('seeked')); },
-    });
-    video.play = () => { if (!playing) { playing = true; window.__wake.plays++; wakeControls('play'); video.dispatchEvent(new Event('play')); video.dispatchEvent(new Event('playing')); } return Promise.resolve(); };
-    video.pause = () => { if (playing) { playing = false; window.__wake.pauses++; wakeControls('pause'); video.dispatchEvent(new Event('pause')); } };
-
-    // ---- emulated YouTube control auto-hide ----
-    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 };
-    let hideTimer;
-    function wakeControls(reason) {
-      window.__wake.wakes.push({ reason, t: Math.round(performance.now()) });
-      player.classList.remove('ytp-autohide');
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => { if (playing) player.classList.add('ytp-autohide'); }, 3000);
-    }
-    window.addEventListener('resize', (e) => {
-      window.__wake.resizes++;
-      if (!e.isTrusted) window.__wake.syntheticResizes++;
-      wakeControls('resize');
-    });
-
-    player.getVideoData = () => ({ video_id: 'wake123' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.setOption = () => {};
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => {
-      window.__wake.setSizes++;
-      wakeControls('setSize');
-      player.style.width = width + 'px';
-      player.style.height = height + 'px';
-    };
-
-    // sample controls visibility every 500ms while playing
-    setInterval(() => {
-      if (!playing) return;
-      window.__wake.samples++;
-      if (!player.classList.contains('ytp-autohide')) window.__wake.visibleSamples++;
-    }, 500);
-  </script>
-</body>
-</html>`;
-}
-
-function mobileWatchHtml() {
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Controls Wake Mobile Watch</title>
-  <style>
-    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
-    ytm-app { display: block; }
-    ytm-player { display: block; position: relative; width: 100vw; aspect-ratio: 16 / 9; background: #000; }
-    #movie_player { position: absolute; inset: 0; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
-    #player-control-overlay { position: absolute; inset: 0; opacity: 0; transition: opacity .15s; pointer-events: none; }
-    #player-control-overlay.fadein { opacity: 1; pointer-events: auto; }
-    main { min-height: 1600px; }
-  </style>
-  <script>
-    window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse())};
-  </script>
-</head>
-<body>
-  <ytm-app>
-    <main>
-      <ytm-player>
-        <div id="movie_player">
-          <video muted playsinline></video>
-          <div id="player-control-overlay" class="fadein"><button aria-label="Play">play</button></div>
-        </div>
-      </ytm-player>
-      <ytm-slim-video-metadata-renderer><h2>モバイル字幕テスト</h2></ytm-slim-video-metadata-renderer>
-    </main>
-  </ytm-app>
-  <script>
-    const player = document.querySelector('#movie_player');
-    const overlay = document.querySelector('#player-control-overlay');
-    const video = document.querySelector('video');
-
-    let playing = false;
-    let mediaTime = 0;
-    let lastTick = performance.now();
-    setInterval(() => {
-      const now = performance.now();
-      if (playing) mediaTime = Math.min(10, mediaTime + (now - lastTick) / 1000);
-      lastTick = now;
-    }, 100);
-    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-    Object.defineProperty(video, 'duration', { configurable: true, value: 10 });
-    Object.defineProperty(video, 'paused', { configurable: true, get: () => !playing });
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => mediaTime,
-      set: (value) => { mediaTime = value; window.__wake.seeks++; wakeControls('seek'); video.dispatchEvent(new Event('seeking')); video.dispatchEvent(new Event('seeked')); },
-    });
-    video.play = () => { if (!playing) { playing = true; window.__wake.plays++; wakeControls('play'); video.dispatchEvent(new Event('play')); video.dispatchEvent(new Event('playing')); } return Promise.resolve(); };
-    video.pause = () => { if (playing) { playing = false; window.__wake.pauses++; wakeControls('pause'); video.dispatchEvent(new Event('pause')); } };
-
-    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 };
-    let hideTimer;
-    function wakeControls(reason) {
-      window.__wake.wakes.push({ reason, t: Math.round(performance.now()) });
-      overlay.classList.add('fadein');
-      clearTimeout(hideTimer);
-      // m.youtube.com keeps controls while paused; only fades while playing
-      hideTimer = setTimeout(() => { if (playing) overlay.classList.remove('fadein'); }, 3000);
-    }
-    window.addEventListener('resize', (e) => {
-      window.__wake.resizes++;
-      if (!e.isTrusted) window.__wake.syntheticResizes++;
-      wakeControls('resize');
-    });
-
-    player.getVideoData = () => ({ video_id: 'wake123' });
-    player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
-    player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
-    player.setOption = () => {};
-    player.loadModule = () => {};
-    player.unloadModule = () => {};
-    player.setSize = (width, height) => { window.__wake.setSizes++; wakeControls('setSize'); };
-    player.pauseVideo = () => { video.pause(); };
-    player.playVideo = () => { video.play(); };
-
-    setInterval(() => {
-      if (!playing) return;
-      window.__wake.samples++;
-      if (overlay.classList.contains('fadein')) window.__wake.visibleSamples++;
-    }, 500);
-    // initial state: user just tapped play
-    setTimeout(() => wakeControls('initial'), 0);
-  </script>
-</body>
-</html>`;
-}
+const youtubeTimedTextFixture = youtubeTimedText([
+    { start: 0, duration: 1500, text: 'こんにちは、今日は良い天気です。' },
+    { start: 2000, duration: 1500, text: '日本語の字幕を確認します。' },
+    { start: 4000, duration: 1500, text: '三番目の字幕行です。' },
+    { start: 6000, duration: 1500, text: '四番目の字幕行です。' },
+    { start: 8000, duration: 1500, text: '五番目の字幕行です。' },
+]);
 
 async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport }) {
     const ctx = await browser.newContext({
@@ -254,10 +50,24 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         isMobile: (viewport?.width ?? 1180) < 900,
         bypassCSP: true,
     });
-    await ctx.route('https://www.youtube.com/watch*', route => route.fulfill({ contentType: 'text/html', body: watchHtml() }));
-    await ctx.route('https://m.youtube.com/watch*', route => route.fulfill({ contentType: 'text/html', body: mobileWatchHtml() }));
-    await ctx.route(/https:\/\/m\.youtube\.com\/api\/timedtext.*/, route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedText }));
-    await ctx.route('https://www.youtube.com/api/timedtext*', route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedText }));
+    await ctx.route('https://www.youtube.com/watch*', route => route.fulfill({
+        contentType: 'text/html',
+        body: youtubeWatchHtml({
+            fixture: 'controls-wake',
+            mobile: false,
+            playerResponse: youtubePlayerResponse('wake123'),
+        }),
+    }));
+    await ctx.route('https://m.youtube.com/watch*', route => route.fulfill({
+        contentType: 'text/html',
+        body: youtubeWatchHtml({
+            fixture: 'controls-wake',
+            mobile: true,
+            playerResponse: youtubePlayerResponse('wake123'),
+        }),
+    }));
+    await ctx.route(/https:\/\/m\.youtube\.com\/api\/timedtext.*/, route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
+    await ctx.route('https://www.youtube.com/api/timedtext*', route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
     await ctx.route(/https:\/\/m\.youtube\.com\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
     await ctx.route(/https:\/\/(www\.)?(youtube\.com|google\.com|gstatic\.com|ytimg\.com)\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
 
