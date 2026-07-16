@@ -83,6 +83,19 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
+    it('routes a HORIZONTALLY clipped ellipsis label to detached readings (no in-flow ruby)', () => {
+        // The share-button class: overflow-x:hidden + ellipsis + nowrap with
+        // overflow-y left visible. In-flow ruby spreads the 2-kanji base to
+        // the reading width and the box truncates it (共有 → 共…). Horizontal
+        // clipping must be as ruby-fragile as vertical.
+        document.body.innerHTML = '<div><span id="share" style="display:block;overflow-x:hidden;overflow-y:visible;text-overflow:ellipsis;white-space:nowrap;width:40px">共有</span></div>';
+        const row = document.querySelector<HTMLElement>('#share')!;
+        applyTokensToScanTarget(fragmentTarget(row, '共有', 'content-ruby'), [token('共有', 0, '共有', 'きょうゆう')], FURI);
+
+        expect(row.querySelector('ruby')).toBeNull();
+        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('きょうゆう');
+    });
+
     it('keeps a definite-height clip row rest-hidden even for content (in-flow growth impossible)', () => {
         document.body.innerHTML = `<main><p id="fixed" style="overflow:hidden;max-height:44px;line-height:22px">${SNIPPET}</p></main>`;
         const row = document.querySelector<HTMLElement>('#fixed')!;

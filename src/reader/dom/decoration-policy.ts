@@ -84,10 +84,15 @@ export function isEllipsisTextRow(style: CSSStyleDeclaration): boolean {
 }
 
 function clipsOverflow(style: CSSStyleDeclaration): boolean {
+    // Both axes matter: a nowrap label with overflow-x:hidden + ellipsis
+    // (overflow-y left visible) truncates sideways when in-flow ruby spreads
+    // its base, so horizontal clipping is as ruby-fragile as vertical.
     return style.overflow === 'hidden'
         || style.overflow === 'clip'
         || style.overflowY === 'hidden'
-        || style.overflowY === 'clip';
+        || style.overflowY === 'clip'
+        || style.overflowX === 'hidden'
+        || style.overflowX === 'clip';
 }
 
 export function hasDefiniteCssSize(value: string): boolean {
