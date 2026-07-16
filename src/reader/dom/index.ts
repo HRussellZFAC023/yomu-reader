@@ -954,11 +954,19 @@ const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 
 function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
-    if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
     // element.shadowRoot is null for a closed root (mode:'closed') — silently
     // skip, it is unreachable and not an error.
     const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
+    if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
+        // Depth-capped: never silently drop the branch. The host is queued for
+        // a deferred continuation walk that re-roots HERE (its own walk starts
+        // at shadowDepth 0), so arbitrarily deep component trees are covered
+        // a bounded slice at a time instead of truncated at depth 4 (the
+        // Reddit sort-dropdown/pinned-label drop).
+        deferDepthCappedShadowHost(element);
+        return;
+    }
     // Fast path: never walk a shadow branch with no Japanese. textContent does
     // not cross a nested shadow boundary, so use a bounded one-level lookahead
     // when another descent is available (the shreddit shell -> Join button
@@ -995,7 +1003,13 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
 
 function shadowBranchHasJapanese(root: ShadowRoot, remainingDepth: number): boolean {
     if (HAS_JAPANESE.test(root.textContent ?? '')) return true;
-    if (remainingDepth <= 1) return false;
+    if (remainingDepth <= 1) {
+        // No shallow Japanese and no depth budget left to look inside nested
+        // roots. If a nested root EXISTS, descend anyway ("maybe"): the walk
+        // will hit the depth cap at that nested host and queue it for the
+        // deferred continuation instead of dropping the branch.
+        return shadowRootHasNestedShadowRoot(root);
+    }
     // TreeWalker enforces the element budget while traversing. querySelectorAll
     // would first allocate every descendant in a large component root and only
     // then let us stop at 160, defeating the mobile performance bound.
@@ -1006,8 +1020,50 @@ function shadowBranchHasJapanese(root: ShadowRoot, remainingDepth: number): bool
         const element = node as HTMLElement;
         const nested = element.shadowRoot;
         if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+        if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
+            // Budget exhausted before a verdict: "unknown, budget spent" must
+            // read as "maybe has Japanese" (descend; the walk has its own
+            // global caps), never as "no Japanese, drop the branch".
+            return true;
+        }
     }
     return false;
+}
+
+function shadowRootHasNestedShadowRoot(root: ShadowRoot): boolean {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode();
+        node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT;
+        inspected += 1, node = walker.nextNode()) {
+        if ((node as HTMLElement).shadowRoot) return true;
+    }
+    return false;
+}
+
+// Hosts whose open shadow root the walk could not enter because the depth cap
+// was reached. Drained by the scan-target collection driver, which re-roots a
+// bounded continuation walk at each host. Per-collection, not persistent:
+// every scan rediscovers live deep hosts, so stale entries cannot accrete.
+const depthCappedShadowHosts = new Set<WeakRef<HTMLElement>>();
+const depthCappedShadowHostSeen = new WeakSet<HTMLElement>();
+
+function deferDepthCappedShadowHost(element: HTMLElement): void {
+    if (depthCappedShadowHostSeen.has(element)) return;
+    depthCappedShadowHostSeen.add(element);
+    depthCappedShadowHosts.add(new WeakRef(element));
+}
+
+export function drainDepthCappedShadowHosts(): HTMLElement[] {
+    const hosts: HTMLElement[] = [];
+    for (const ref of depthCappedShadowHosts) {
+        const host = ref.deref();
+        // Every drained entry becomes queueable again — including currently
+        // detached hosts, which recyclers may reconnect before the next scan.
+        if (host) depthCappedShadowHostSeen.delete(host);
+        if (host?.isConnected) hosts.push(host);
+    }
+    depthCappedShadowHosts.clear();
+    return hosts;
 }
 
 function shouldIgnoreFragmentElement(

@@ -2,6 +2,7 @@ import {
     classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
+    drainDepthCappedShadowHosts,
     collectVisibleTextTargets,
     isYouTubeHost,
     textMirrorAlreadyRenders,
@@ -1509,7 +1510,54 @@ export function collectScanTargetsInSteps(
     return scanTargetCollectionSteps(limit, href, options);
 }
 
+const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
+
 function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
+    const matchingProfiles = getMatchingSiteParsers(href);
+    const targets = yield* scanTargetPhaseSteps(limit, href, options);
+    return yield* withDeferredShadowScanTargets(targets, effectiveScanTargetLimit(matchingProfiles, limit), matchingProfiles);
+}
+
+// Depth-capped shadow hosts queued during any phase above get a bounded
+// continuation: each round re-roots the fragment walk at the queued hosts
+// (their own walk restarts at shadow depth 0, covering four more levels), and
+// hosts capped again re-queue for the next round. Arbitrarily deep component
+// trees are fully covered in O(depth/4) yielded rounds while any single round
+// stays finite — silent truncation is not an acceptable coverage outcome.
+function* withDeferredShadowScanTargets(
+    baseTargets: ScanTextTarget[],
+    effectiveLimit: number,
+    profiles: SiteParserProfile[],
+): Generator<void, ScanTextTarget[]> {
+    let targets = baseTargets;
+    const nonDestructive = profiles.some(profile => profile.nonDestructive);
+    for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
+        const remaining = effectiveLimit - targets.length;
+        const hosts = drainDepthCappedShadowHosts();
+        if (!hosts.length || remaining <= 0) break;
+        yield;
+        const seen = seenTextNodes(targets);
+        const collected: FragmentTextTarget[] = [];
+        for (const host of hosts) {
+            if (collected.length >= remaining) break;
+            const hostTargets = collectFragmentTextTargetsIn(host, remaining - collected.length, true, residualVisibleJapaneseExcludeSelector(profiles), {
+                allowUiText: true,
+                includeUiChrome: true,
+                includeFormChrome: true,
+                includeTabChrome: true,
+                includePassiveInteractions: true,
+                heading: true,
+                minLength: 1,
+            }).filter(target => target.fragments.every(fragment => !seen.has(fragment.node)));
+            collected.push(...hostTargets);
+        }
+        if (!collected.length) continue;
+        targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
+    }
+    return targets;
+}
+
+function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);

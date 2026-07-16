@@ -8,6 +8,7 @@ import {
     withMirrorTokenApply,
     type FragmentTextTarget,
 } from '../../src/reader/dom/index';
+import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -219,7 +220,35 @@ describe('shadow DOM scanner (Phase 1)', () => {
         document.body.innerHTML = '<yomu-depth-one-deep-host></yomu-depth-one-deep-host>';
         const deeplyCappedTargets = collectFragmentTextTargetsIn(document.body, 40, false, '', { allowUiText: true, minLength: 1 });
         expect(deeplyCappedTargets.some(t => t.text.includes('第四階層')), 'depth-4 shadow text should be collected').toBe(true);
-        expect(deeplyCappedTargets.some(t => t.text.includes('第五階層')), 'depth-5 shadow text must remain outside the bounded scan').toBe(false);
+        // A SINGLE walk still caps at depth 4 (per-frame bound); coverage of
+        // deeper levels is the collection driver's deferred continuation, not
+        // this walk's job — see the pipeline test below.
+        expect(deeplyCappedTargets.some(t => t.text.includes('第五階層')), 'a single bounded walk still stops at depth 4').toBe(false);
+    });
+
+    it('covers depth-5+ shadow text through the deferred continuation (full pipeline)', () => {
+        defineShadowHost('yomu-p-depth-six-host', 'open', `<p>第六階層</p>`);
+        defineShadowHost('yomu-p-depth-five-host', 'open', `<p>第五階層</p><yomu-p-depth-six-host></yomu-p-depth-six-host>`);
+        defineShadowHost('yomu-p-depth-four-host', 'open', `<p>第四階層</p><yomu-p-depth-five-host></yomu-p-depth-five-host>`);
+        defineShadowHost('yomu-p-depth-three-host', 'open', `<p>第三階層</p><yomu-p-depth-four-host></yomu-p-depth-four-host>`);
+        defineShadowHost('yomu-p-depth-two-host', 'open', `<p>第二階層</p><yomu-p-depth-three-host></yomu-p-depth-three-host>`);
+        defineShadowHost('yomu-p-depth-one-host', 'open', `<p>第一階層</p><yomu-p-depth-two-host></yomu-p-depth-two-host>`);
+        document.body.innerHTML = '<yomu-p-depth-one-host></yomu-p-depth-one-host>';
+
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0, y: 0, width: 240, height: 24, top: 0, right: 240, bottom: 24, left: 0, toJSON: () => ({}),
+        } as DOMRect);
+        try {
+            const targets = collectScanTargets(80, 'https://example.com/');
+            const texts = targets.map(target => target.text);
+            expect(texts.some(text => text.includes('第五階層')), 'depth-5 must be covered by the deferred continuation').toBe(true);
+            expect(texts.some(text => text.includes('第六階層')), 'depth-6 must be covered across rounds').toBe(true);
+            const deep = targets.find(target => target.text.includes('第五階層'));
+            expect(deep?.passiveInteraction, 'deferred deep coverage stays passive').toBe(true);
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
     });
 
     it('looks through a Latin-only outer shell to reach Reddit-style nested Japanese controls', () => {
