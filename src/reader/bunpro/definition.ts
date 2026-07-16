@@ -34,6 +34,28 @@ export interface BunproDefinitionInfo {
     examples: BunproExampleSentence[];
 }
 
+export type BunproDefinitionNoMatchReason =
+    | 'no-results'
+    | 'selection-not-found'
+    | 'expression-mismatch'
+    | 'reading-mismatch'
+    | 'ambiguous';
+
+export type BunproDefinitionLookupResult =
+    | { state: 'success'; info: BunproDefinitionInfo }
+    | { state: 'no-match'; reason: BunproDefinitionNoMatchReason; info: null };
+
+export type BunproDefinitionStatus =
+    | { state: 'loading' }
+    | { state: 'disabled'; reason: 'definitions-disabled' | 'load-excluded' }
+    | { state: 'client-unavailable' }
+    | { state: 'auth-missing' }
+    | { state: 'auth-expired' }
+    | { state: 'success' }
+    | { state: 'no-match'; reason: BunproDefinitionNoMatchReason }
+    | { state: 'timeout' }
+    | { state: 'error' };
+
 const BUNPRO_EXAMPLE_LIMIT = 10;
 
 interface BunproDefinitionSelection {
@@ -42,18 +64,24 @@ interface BunproDefinitionSelection {
 }
 
 export async function lookupBunproDefinition(client: BunproClient, card: JPDBCard): Promise<BunproDefinitionInfo | null> {
+    const result = await lookupBunproDefinitionResult(client, card);
+    return result.info;
+}
+
+export async function lookupBunproDefinitionResult(client: BunproClient, card: JPDBCard): Promise<BunproDefinitionLookupResult> {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
-    const info = normalizeBunproDefinitionSearch(raw, card.spelling, card.reading, {
+    const result = selectBunproDefinitionSearch(raw, card.spelling, card.reading, {
         id: card.bunproReviewableId,
         kind: bunproDefinitionKind(card.bunproReviewableType),
     });
-    if (!info) return null;
+    if (!result.info) return result;
+    const info = result.info;
     // Example sentences (with audio) live on the reviewable detail endpoint,
     // not in the search envelope. A failed detail fetch degrades to an
     // examples-free card rather than dropping the whole Bunpro source.
     const detail = await bunproReviewableDetail(client, info).catch(() => null);
     if (detail !== null) info.examples = normalizeBunproExampleSentences(detail);
-    return info;
+    return { state: 'success', info };
 }
 
 function bunproReviewableDetail(client: BunproClient, info: BunproDefinitionInfo): Promise<unknown> {
@@ -133,33 +161,79 @@ export function normalizeBunproDefinitionSearch(
     reading = '',
     selection: BunproDefinitionSelection = {},
 ): BunproDefinitionInfo | null {
-    const candidates = [
+    return selectBunproDefinitionSearch(raw, expression, reading, selection).info;
+}
+
+function selectBunproDefinitionSearch(
+    raw: unknown,
+    expression: string,
+    reading = '',
+    selection: BunproDefinitionSelection = {},
+): BunproDefinitionLookupResult {
+    const candidates = bunproDefinitionCandidates(raw);
+    if (!candidates.length) return noBunproMatch('no-results');
+
+    const selectedById = selectBunproDefinitionById(candidates, selection);
+    if (selectedById) return selectedById;
+
+    const eligible = selection.kind ? candidates.filter(item => item.kind === selection.kind) : candidates;
+    return selectExactBunproDefinition(eligible, expression, reading);
+}
+
+function bunproDefinitionCandidates(raw: unknown): BunproDefinitionInfo[] {
+    return [
         ...searchItems(raw, 'vocabs').map(item => definitionInfo(item, 'vocabulary')),
         ...searchItems(raw, 'grammar_points').map(item => definitionInfo(item, 'grammar')),
     ].filter((item): item is BunproDefinitionInfo => item !== null);
-    if (!candidates.length) return null;
+}
 
-    const expectedKind = selection.kind;
+function selectBunproDefinitionById(
+    candidates: BunproDefinitionInfo[],
+    selection: BunproDefinitionSelection,
+): BunproDefinitionLookupResult | null {
     const expectedId = numberValue(selection.id);
-    if (expectedId) {
-        return candidates.find(item => item.id === expectedId && (!expectedKind || item.kind === expectedKind)) ?? null;
-    }
+    if (!expectedId) return null;
+    const info = candidates.find(item => item.id === expectedId && (!selection.kind || item.kind === selection.kind));
+    return info ? bunproMatch(info) : noBunproMatch('selection-not-found');
+}
 
-    const eligible = expectedKind ? candidates.filter(item => item.kind === expectedKind) : candidates;
+function selectExactBunproDefinition(
+    candidates: BunproDefinitionInfo[],
+    expression: string,
+    reading: string,
+): BunproDefinitionLookupResult {
     const normalizedExpression = normalizedLookupText(expression);
-    const exactExpression = eligible.filter(item => normalizedLookupText(item.expression) === normalizedExpression);
-    if (!exactExpression.length) return null;
-    if (reading) {
-        const normalizedReading = normalizedLookupText(reading);
-        const exactReading = exactExpression.filter(item => normalizedLookupText(item.reading) === normalizedReading);
-        if (exactReading.length === 1) return exactReading[0] ?? null;
-        if (exactReading.length > 1 && sameDefinitionIdentity(exactReading)) return exactReading[0] ?? null;
-        return null;
-    }
-    if (exactExpression.length === 1 || sameDefinitionIdentity(exactExpression)) return exactExpression[0] ?? null;
+    const exactExpression = candidates.filter(item => normalizedLookupText(item.expression) === normalizedExpression);
+    if (!exactExpression.length) return noBunproMatch('expression-mismatch');
+    return reading
+        ? selectExactBunproReading(exactExpression, reading)
+        : selectUnambiguousBunproDefinition(exactExpression, 'ambiguous');
+}
+
+function selectExactBunproReading(candidates: BunproDefinitionInfo[], reading: string): BunproDefinitionLookupResult {
+    const normalizedReading = normalizedLookupText(reading);
+    const exactReading = candidates.filter(item => normalizedLookupText(item.reading) === normalizedReading);
+    return exactReading.length
+        ? selectUnambiguousBunproDefinition(exactReading, 'ambiguous')
+        : noBunproMatch('reading-mismatch');
+}
+
+function selectUnambiguousBunproDefinition(
+    candidates: BunproDefinitionInfo[],
+    ambiguousReason: BunproDefinitionNoMatchReason,
+): BunproDefinitionLookupResult {
+    if (candidates.length === 1 || sameDefinitionIdentity(candidates)) return bunproMatch(candidates[0]!);
     // A spelling can be both vocabulary and grammar. Without a known Bunpro
     // id/type, showing neither is safer than silently displaying the wrong one.
-    return null;
+    return noBunproMatch(ambiguousReason);
+}
+
+function bunproMatch(info: BunproDefinitionInfo): BunproDefinitionLookupResult {
+    return { state: 'success', info };
+}
+
+function noBunproMatch(reason: BunproDefinitionNoMatchReason): BunproDefinitionLookupResult {
+    return { state: 'no-match', reason, info: null };
 }
 
 export function renderBunproDefinitionSource(

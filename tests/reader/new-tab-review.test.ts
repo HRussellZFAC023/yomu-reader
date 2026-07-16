@@ -11197,7 +11197,7 @@ describe('new tab review helpers', () => {
                 null,
                 expect.objectContaining({ expression: '猫', sourceUrl: 'https://bunpro.jp/vocabs/%E7%8C%AB' }),
             );
-            expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array), searchAnkiLookup);
+            expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array), searchAnkiLookup, undefined);
             expect(installSearchDetailSources).toHaveBeenCalledWith(wordDetail(), catCard, '猫', expect.any(Object));
 
             root.querySelector<HTMLButtonElement>('[data-action="jpdb-example-audio"]')?.click();

@@ -28,6 +28,7 @@ import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 
 export interface NewTabSearchKanjiResult {
     character: string;
@@ -174,7 +175,9 @@ export interface NewTabSearchWordDetailData {
     ankiLookup?: CardRenderData['ankiLookup'];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
     jitenVocabularyInfo?: JitenVocabularyInfo | null;
+    frequencyRanks?: CardRenderData['frequencyRanks'];
     bunproDefinitionInfo?: import('../bunpro/definition').BunproDefinitionInfo | null;
+    bunproDefinitionStatus?: CardRenderData['bunproDefinitionStatus'];
     loading?: boolean;
 }
 
@@ -185,7 +188,7 @@ export interface NewTabSearchDetailViewContext {
     dictionaryLabel: (name: string) => string;
     kanjiSourceTitle: (sourceId: string) => string;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null) => string;
-    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
+    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup'], frequencyRanks?: CardRenderData['frequencyRanks']) => string;
 }
 
 export function searchWordDetailHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
@@ -215,9 +218,10 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     const metaItems = searchWordMetaItems(card, state, detail, settings);
     const visibleReading = searchWordVisibleReading(card, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
-    const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? '';
+    const pills = searchWordPillsHtml(card, detail, context);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
-    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header">
+    const bunproStatusAttributes = bunproDefinitionStatusAttributes(detail.bunproDefinitionStatus);
+    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${escapeHtml(card.spelling)}</div>
@@ -231,6 +235,14 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
             <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml(cardKey(card))}" type="button" aria-label="${escapeHtml(audioTitle)}" title="${escapeHtml(audioTitle)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
         </div>
     </div>`;
+}
+
+function searchWordPillsHtml(
+    card: JPDBCard,
+    detail: NewTabSearchWordDetailData,
+    context: NewTabSearchDetailViewContext,
+): string {
+    return context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? '';
 }
 
 export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings): string[] {

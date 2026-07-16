@@ -6,8 +6,9 @@ import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResul
 import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
 import type { JPDBCard, ReaderSettings } from '../app/types';
-import type { JitenVocabularyInfo } from '../dictionaries/jiten';
+import { frequencyProviderForLookupId, type FrequencyProvider, type ProviderFrequencyRanks } from '../cards/frequency-ranks';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
+import { extractFrequency } from '../dictionaries/yomitan/ranking';
 
 interface WordPillContext {
     query: string;
@@ -25,7 +26,7 @@ export interface WordPillRenderOptions {
     overrideQuery?: string;
     inert?: boolean;
     ankiLookup?: AnkiLookupResult;
-    jitenVocabularyInfo?: JitenVocabularyInfo | null;
+    frequencyRanks?: ProviderFrequencyRanks;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
 }
@@ -249,36 +250,77 @@ function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: st
 }
 
 function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<string, string>; mergedLiveRanks: Map<'jiten' | 'jpdb', number> } {
-    const localLabel = (dictionary: string) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
-    const pills = new Map<string, string>();
-    const mergedLiveRanks = new Map<'jiten' | 'jpdb', number>();
-    const localProviders = new Set<'jiten' | 'jpdb'>();
-    for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
-        if (entry.mode !== 'freq' || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
-        const html = renderFrequencyPill(entry, localLabel);
-        if (html) {
-            pills.set(localFrequencyLookupPillId(entry.dictionary), html);
-            const provider = localFrequencyProvider(entry.dictionary);
-            if (provider) localProviders.add(provider);
-        }
+    const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
+    const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter(link => link.enabled).map(link => link.id));
+    const state = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
+    if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
+        mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds);
     }
-    // The merged rank is the whole-word frequency; on a single-kanji lookup that
-    // is the parent word's rank, not the kanji's, so don't surface it there.
-    if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
+    return { pills: state.pills, mergedLiveRanks: state.mergedLiveRanks };
+}
+
+interface FrequencyPillState {
+    pills: Map<string, string>;
+    mergedLiveRanks: Map<FrequencyProvider, number>;
+    localProviders: Set<FrequencyProvider>;
+}
+
+function localFrequencyPills(
+    options: WordPillRenderOptions,
+    mergeIntoLinkPill: boolean,
+    enabledLinkIds: Set<string>,
+): FrequencyPillState {
+    const localLabel = (dictionary: string) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
+    const state: FrequencyPillState = {
+        pills: new Map(),
+        mergedLiveRanks: new Map(),
+        localProviders: new Set(),
+    };
+    for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
+        mergeLocalFrequencyEntry(options, state, entry, localLabel, mergeIntoLinkPill, enabledLinkIds);
+    }
+    return state;
+}
+
+function mergeLocalFrequencyEntry(
+    options: WordPillRenderOptions,
+    state: FrequencyPillState,
+    entry: YomitanMetaEntry,
+    localLabel: (dictionary: string) => string,
+    mergeIntoLinkPill: boolean,
+    enabledLinkIds: Set<string>,
+): void {
+    if (entry.mode !== 'freq' || !localFrequencyEnabled(options.settings, entry.dictionary)) return;
+    const provider = localFrequencyProvider(entry.dictionary);
+    const rank = extractFrequency(entry.data);
+    if (provider && rank && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
+        state.mergedLiveRanks.set(provider, rank);
+        state.localProviders.add(provider);
+        return;
+    }
+    const html = renderFrequencyPill(entry, localLabel);
+    if (!html) return;
+    state.pills.set(localFrequencyLookupPillId(entry.dictionary), html);
+    if (provider) state.localProviders.add(provider);
+}
+
+function mergeLiveFrequencyRanks(
+    options: WordPillRenderOptions,
+    state: FrequencyPillState,
+    mergeIntoLinkPill: boolean,
+    enabledLinkIds: Set<string>,
+): void {
     // When the toggle is on, fold each live rank into its sibling link pill.
     // Disabled lookup/frequency pills intentionally do not fall back to a
     // standalone chip; the rank should live with the lookup pill or stay hidden.
-    const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
-    const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter(link => link.enabled).map(link => link.id));
     for (const link of options.settings.dictionaryLookupLinks) {
         if (link.action !== 'frequency-live' || !link.enabled) continue;
         const provider = liveFrequencyProvider(link);
-        if (!provider || localProviders.has(provider)) continue;
-        const rank = provider === 'jiten' ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+        if (!provider || state.localProviders.has(provider)) continue;
+        const rank = liveFrequencyRank(options, provider);
         if (!rank) continue;
-        if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
+        if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, rank);
     }
-    return { pills, mergedLiveRanks };
 }
 
 function localFrequencyEnabled(settings: ReaderSettings, dictionary: string): boolean {
@@ -296,19 +338,11 @@ function localFrequencyLookupPillId(dictionary: string): string {
 }
 
 function liveFrequencyProvider(link: ReaderSettings['dictionaryLookupLinks'][number]): 'jiten' | 'jpdb' | null {
-    if (link.id === 'jiten-frequency') return 'jiten';
-    if (link.id === 'jpdb-frequency') return 'jpdb';
-    return null;
+    return frequencyProviderForLookupId(link.id);
 }
 
-function liveJitenFrequencyRank(options: WordPillRenderOptions): number | null {
-    if (options.card.source === 'jiten' || options.card.reviewSource === 'jiten-api') return options.card.frequencyRank;
-    return options.jitenVocabularyInfo?.mainReading?.frequencyRank ?? null;
-}
-
-function liveJpdbFrequencyRank(options: WordPillRenderOptions): number | null {
-    if (options.card.source === 'jiten' || options.card.reviewSource === 'jiten-api') return null;
-    return options.card.frequencyRank;
+function liveFrequencyRank(options: WordPillRenderOptions, provider: FrequencyProvider): number | null {
+    return options.frequencyRanks?.[provider]?.rank ?? null;
 }
 
 function localFrequencyProvider(dictionary: string): 'jiten' | 'jpdb' | null {

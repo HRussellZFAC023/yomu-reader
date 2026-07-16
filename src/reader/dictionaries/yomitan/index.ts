@@ -260,7 +260,7 @@ export class YomitanDictionaryStore {
 
                     const rank = dictionaryRank(preferences);
                     const seen = new Set<string>();
-                    const results = rankedDictionaryEntries(
+                    const ranked = rankedDictionaryEntries(
                         entries,
                         rank,
                         undefined,
@@ -274,9 +274,8 @@ export class YomitanDictionaryStore {
                             if (seen.has(key)) return false;
                             seen.add(key);
                             return true;
-                        })
-                        .slice(0, limit);
-                    return results;
+                        });
+                    return selectTermLookupResults(ranked, expression, reading, limit);
                 } catch (error) {
                     log.warn('Term lookup failed', { expression, reading, error });
                     throw error;
@@ -1875,6 +1874,49 @@ function termLookupDedupKey(entry: YomitanTermEntry): string {
     return entry.sequence !== undefined
         ? `${entry.dictionary}\nsequence:${entry.sequence}\n${glossaryKey}`
         : `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${glossaryKey}`;
+}
+
+function selectTermLookupResults(
+    ranked: YomitanTermEntry[],
+    expression: string,
+    reading: string,
+    limit: number,
+): YomitanTermEntry[] {
+    const boundedLimit = Math.max(0, Math.floor(limit));
+    if (!boundedLimit || ranked.length <= boundedLimit) return ranked.slice(0, boundedLimit);
+
+    // Preserve one exact spelling+reading result per enabled term dictionary
+    // before filling the remaining global cap. This keeps a lower-priority
+    // source from disappearing merely because a higher-priority dictionary has
+    // many senses for the same headword; it does not create empty source cards.
+    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
+    fillTermLookupSelection(selected, ranked, boundedLimit);
+    return ranked.filter(entry => selected.has(entry)).slice(0, boundedLimit);
+}
+
+function firstExactTermEntriesByDictionary(
+    ranked: YomitanTermEntry[],
+    expression: string,
+    reading: string,
+): YomitanTermEntry[] {
+    const firstExactByDictionary = new Map<string, YomitanTermEntry>();
+    for (const entry of ranked) {
+        if (!isExactTermLookupEntry(entry, expression, reading)) continue;
+        if (!firstExactByDictionary.has(entry.dictionary)) firstExactByDictionary.set(entry.dictionary, entry);
+    }
+    return Array.from(firstExactByDictionary.values());
+}
+
+function fillTermLookupSelection(selected: Set<YomitanTermEntry>, ranked: YomitanTermEntry[], limit: number): void {
+    for (const entry of ranked) {
+        if (selected.size >= limit) break;
+        selected.add(entry);
+    }
+}
+
+function isExactTermLookupEntry(entry: YomitanTermEntry, expression: string, reading: string): boolean {
+    const hasKnownReading = Boolean(reading && reading !== expression);
+    return entry.expression === expression && (!hasKnownReading || entry.reading === reading);
 }
 
 function bestTermLookupEntry(

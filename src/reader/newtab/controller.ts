@@ -462,11 +462,16 @@ export interface NewTabControllerDependencies {
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard, options?: CardRenderDataLoadOptions) => Promise<CardRenderData>;
+    hydrateFrequencyRanks?: (card: JPDBCard) => Promise<NonNullable<CardRenderData['frequencyRanks']>>;
     hydrateBunproDefinitionInfo?: (card: JPDBCard) => Promise<import('../bunpro/definition').BunproDefinitionInfo | null>;
+    hydrateBunproDefinitionResult?: (card: JPDBCard) => Promise<{
+        info: import('../bunpro/definition').BunproDefinitionInfo | null;
+        status: NonNullable<CardRenderData['bunproDefinitionStatus']>;
+    }>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null) => string;
     renderStudyDefinitionSources?: (card: JPDBCard, data: CardRenderData, sentence: string | undefined) => string;
-    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
-    renderStudyWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
+    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup'], frequencyRanks?: CardRenderData['frequencyRanks']) => string;
+    renderStudyWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup'], frequencyRanks?: CardRenderData['frequencyRanks']) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     lookupStudyCard?: (term: string, reading?: string) => Promise<JPDBCard | null | undefined>;
     preloadWordAudio?: (card: JPDBCard) => void;
@@ -9560,7 +9565,30 @@ export class NewTabController {
                 wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails),
             };
             renderCurrentDetail();
-            if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+            if (this.dependencies.hydrateFrequencyRanks) {
+                void this.dependencies.hydrateFrequencyRanks(card).then(frequencyRanks => {
+                    if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
+                    renderedDetail = { ...renderedDetail, frequencyRanks };
+                    renderCurrentDetail();
+                }).catch(error => {
+                    log.debug('Search provider frequency hydration failed', { term: card.spelling, error });
+                });
+            }
+            if (this.dependencies.hydrateBunproDefinitionResult) {
+                void this.dependencies.hydrateBunproDefinitionResult(card).then(result => {
+                    const unchangedInfo = renderedDetail.bunproDefinitionInfo === result.info;
+                    const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result.status);
+                    if (unchangedInfo && unchangedStatus) return;
+                    renderedDetail = {
+                        ...renderedDetail,
+                        bunproDefinitionInfo: result.info,
+                        bunproDefinitionStatus: result.status,
+                    };
+                    renderCurrentDetail();
+                }).catch(error => {
+                    log.debug('Search Bunpro definition hydration failed', { term: card.spelling, error });
+                });
+            } else if (!detail.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
                 void this.dependencies.hydrateBunproDefinitionInfo(card).then(info => {
                     if (!info) return;
                     renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
@@ -11932,6 +11960,8 @@ function searchWordDetailFromRenderedData(data: CardRenderData): NewTabSearchWor
         jpdbVocabularyInfo: data.jpdbVocabularyInfo,
         jitenVocabularyInfo: data.jitenVocabularyInfo ?? null,
         bunproDefinitionInfo: data.bunproDefinitionInfo ?? null,
+        bunproDefinitionStatus: data.bunproDefinitionStatus,
+        frequencyRanks: data.frequencyRanks,
     };
 }
 
