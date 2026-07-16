@@ -9,7 +9,6 @@ import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-voca
 import { lookupBunproDefinitionResult, type BunproDefinitionInfo, type BunproDefinitionStatus } from '../bunpro/definition';
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
-import { fallbackLookupTermsForCard } from '../lookup/parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
 import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
@@ -260,26 +259,10 @@ export class CardRenderDataLoader {
     private loadLocalTermEntries(card: JPDBCard): Promise<YomitanTermEntry[]> {
         const settings = this.settings();
         if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-        return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local term dictionary', this.lookupLocalTermEntries(card, settings).catch(error => {
+        return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local term dictionary', this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(error => {
             log.warn('Local term lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as YomitanTermEntry[]);
-    }
-
-    private async lookupLocalTermEntries(card: JPDBCard, settings: ReaderSettings): Promise<YomitanTermEntry[]> {
-        const terms = card.source === 'fallback'
-            ? fallbackLookupTermsForCard(card)
-            : [card.spelling];
-        for (const term of terms) {
-            const entries = await this.dependencies.dictionaries.lookup(
-                term,
-                term === card.spelling ? card.reading : term,
-                settings.localDictionaryMaxResults,
-                settings.dictionaryPreferences,
-            );
-            if (entries.length) return entries;
-        }
-        return [];
     }
 
     private loadLocalKanjiEntries(card: JPDBCard): Promise<YomitanKanjiEntry[]> {

@@ -22,18 +22,7 @@ export interface AcademyStudyMountContext {
     readonly surface: AcademyStudySurface;
     /** The canonical Study clock; Academy and Reader controls share this instance. */
     readonly countdown: AcademyStudyCountdown;
-    /** Academy's grounded snapshot for this session; scheduling stays in Reader Study. */
-    readonly sessionVocabulary?: readonly AcademyStudyVocabulary[];
     readonly onExit: () => void;
-}
-
-export interface AcademyStudyVocabulary {
-    readonly id: string;
-    readonly expression: string;
-    readonly reading?: string;
-    readonly meaning?: string;
-    readonly source?: string;
-    readonly audioAvailable: boolean;
 }
 
 /** The canonical Reader Study module implements this seam; Academy never recreates its cards or grading. */
@@ -47,15 +36,12 @@ export interface AcademyStudyMountOptions {
     readonly now?: () => number;
     readonly onExit: () => void;
     readonly onSessionComplete?: () => void;
-    readonly sessionVocabulary?: readonly AcademyStudyVocabulary[];
-    readonly onOpenVocabularySheet?: () => void;
 }
 
 interface CanonicalStudyRuntimeModule {
     mountNewTabStudySurface(host: HTMLElement, options: {
         readonly language: AcademyLanguage;
         readonly sessionClock: StudySessionClock;
-        readonly sessionVocabulary?: readonly AcademyStudyVocabulary[];
     }): Promise<Disposable>;
 }
 
@@ -71,7 +57,6 @@ export function createCanonicalAcademyStudyModule(
             return runtime.mountNewTabStudySurface(host, {
                 language: context.language,
                 sessionClock: context.countdown,
-                ...(context.sessionVocabulary?.length ? { sessionVocabulary: context.sessionVocabulary } : {}),
             });
         },
     };
@@ -100,14 +85,9 @@ export async function mountAcademyStudyModule(
     back.type = 'button';
     back.className = 'academy-study-back';
     back.textContent = academyText(options.language, 'back');
-    const vocabulary = document.createElement('button');
-    vocabulary.type = 'button';
-    vocabulary.className = 'academy-study-vocabulary';
-    vocabulary.textContent = options.language === 'ja' ? '単語帳' : 'Words';
-    vocabulary.hidden = !options.onOpenVocabularySheet;
     const clockHost = document.createElement('div');
     clockHost.className = 'academy-study-clock-host';
-    chrome.append(back, vocabulary, clockHost);
+    chrome.append(back, clockHost);
     const completionStatus = document.createElement('span');
     completionStatus.className = 'academy-sr-only';
     completionStatus.setAttribute('role', 'status');
@@ -123,7 +103,6 @@ export async function mountAcademyStudyModule(
 
     const onExit = (): void => options.onExit();
     back.addEventListener('click', onExit);
-    vocabulary.addEventListener('click', () => options.onOpenVocabularySheet?.());
     const clockControl = mountStudySessionClockControl(clockHost, countdown, {
         labels: {
             pause: newTabText(options.language, 'sessionPause'),
@@ -144,7 +123,6 @@ export async function mountAcademyStudyModule(
             language: options.language,
             surface: { id: 'academy', theme: 'living-paper' },
             countdown,
-            sessionVocabulary: options.sessionVocabulary ?? [],
             onExit: options.onExit,
         });
     } catch (error) {

@@ -1,37 +1,5 @@
 import type { JlptBand, PlacementSkill } from '../domain/learner-record';
 import type { LocalizedText } from '../domain/source-library';
-import { resolvePackagedAcademyListeningLocator } from '../content/listening/listening-crosswalk';
-import { ORIENTATION_SOURCE_ITEMS } from './orientation-bank';
-
-export type ReceptivePlacementSkill = Exclude<PlacementSkill, 'speaking-confidence' | 'writing-confidence'>;
-export type PlacementRecommendation = JlptBand | 'lesson-zero';
-
-export interface PlacementItemProvenance {
-    readonly sourceScope: 'soya-research';
-    readonly sourceItemId: string;
-    readonly sourceFile: string;
-    readonly sourceFileSha256: string;
-    readonly contentFidelity: 'exact';
-    readonly choiceOrder: 'source' | 'deterministic-derived';
-    readonly answerGate: 'after-attempt';
-    readonly corpusRightsState: 'item-review-required';
-    readonly useAuthorization: 'user-permitted';
-}
-
-export interface PlacementAudioProvenance {
-    readonly sourceAvailability: 'recorded-source' | 'source-text-only';
-    readonly runtimeDelivery: 'packaged-source-recording' | 'browser-speech-synthesis';
-    readonly transcriptFidelity: 'exact-utterance-text';
-    /** Completed listening-crosswalk identity; never derive this from a remote source path. */
-    readonly deliveryLocator?: string;
-    readonly sourcePath?: string;
-    readonly remoteUrl?: string;
-    readonly sha256?: string;
-}
-
-export type PlacementAudioDelivery =
-    | Readonly<{ kind: 'source-recording'; url: string; sha256: string }>
-    | Readonly<{ kind: 'browser-speech'; text: string }>;
 
 export interface PlacementOption {
     readonly id: string;
@@ -41,150 +9,70 @@ export interface PlacementOption {
 
 export interface PlacementItem {
     readonly id: string;
-    readonly band: JlptBand;
     readonly skill: Exclude<PlacementSkill, 'speaking-confidence' | 'writing-confidence'>;
     readonly prompt: LocalizedText;
     readonly passage?: LocalizedText;
     readonly spokenJapanese?: string;
-    readonly audio?: PlacementAudioProvenance;
-    readonly referenceId: string;
-    readonly provenance: PlacementItemProvenance;
     readonly options: readonly PlacementOption[];
 }
 
-export interface PlacementMockDraft {
-    readonly targetBand: JlptBand;
-    readonly responses: Readonly<Record<string, string>>;
-    readonly confidence: Readonly<{ speaking: number; writing: number }>;
-}
-
-export interface PlacementSkillRecommendation {
-    readonly skill: ReceptivePlacementSkill;
-    readonly attempted: number;
-    readonly correct: number;
-    readonly available: number;
-    readonly score: number;
-    readonly recommendedStart: PlacementRecommendation;
-}
-
-export const ORIENTATION_MOCK_POLICY = Object.freeze({
-    optional: true,
-    entryChoices: ['lesson-zero', 'n5', 'n4', 'n3', 'n2', 'n1'] as const,
-    sections: ['language-knowledge', 'reading', 'listening'] as const,
-    caveats: [
-        'This compact orientation is a heuristic, not an official JLPT score or pass prediction.',
-        'Speaking and writing are not directly assessed; their confidence values are self-report only.',
-        'Each receptive recommendation is based on a small sample and should be treated as a starting suggestion.',
-        'Listening uses byte-verified source recordings only where the completed audio registry has an exact packaged match; other levels use browser speech from exact source text.',
-    ] as const,
-    storyProgression: 'preserve' as const,
-    canSkipStory: false,
-    revisit: 'always-available' as const,
-});
-
-export type PlacementEntryChoice =
-    | { readonly kind: 'lesson-zero' }
-    | { readonly kind: 'mock'; readonly targetBand: JlptBand };
-
-export function placementEntryChoice(value: PlacementRecommendation): PlacementEntryChoice {
-    return value === 'lesson-zero' ? { kind: 'lesson-zero' } : { kind: 'mock', targetBand: value };
-}
-
 export interface OrientationMockResult {
-    readonly assessmentId: 'academy-orientation-mock:v1' | 'academy-orientation-mock:v2';
+    readonly assessmentId: 'academy-orientation-mock:v1';
     readonly targetBand: JlptBand;
     readonly itemIds: readonly string[];
     readonly scores: Readonly<Record<PlacementSkill, number>>;
-    /** Kept for compatibility with v1 evidence and band-only projections. */
     readonly recommendedBand: JlptBand;
-    readonly recommendedStart: PlacementRecommendation;
     readonly calibration: 'vertical-slice';
-    /** Optional so persisted v1/v2 events can still be reconstructed by existing routing. */
-    readonly skillRecommendations?: Readonly<Record<ReceptivePlacementSkill, PlacementSkillRecommendation>>;
-    readonly storyProgression?: 'preserve';
-    readonly mockRevisit?: 'always-available';
-    readonly caveats?: readonly string[];
 }
 
-export const ORIENTATION_MOCK_ITEMS: readonly PlacementItem[] = ORIENTATION_SOURCE_ITEMS;
-
-validateOrientationMockItems(ORIENTATION_MOCK_ITEMS);
-
-export function orientationItemsForBand(band: JlptBand): readonly PlacementItem[] {
-    return ORIENTATION_MOCK_ITEMS.filter(item => item.band === band);
-}
-
-/** Uses only the completed listening registry; an authored recording never silently falls back to speech. */
-export function placementAudioDelivery(item: PlacementItem): PlacementAudioDelivery | undefined {
-    if (!item.spokenJapanese || !item.audio) return undefined;
-    if (item.audio.runtimeDelivery === 'browser-speech-synthesis') {
-        return { kind: 'browser-speech', text: item.spokenJapanese };
-    }
-    const locator = item.audio.deliveryLocator;
-    const expectedSha256 = item.audio.sha256;
-    if (!locator || !expectedSha256) {
-        throw new TypeError(`Placement recording ${item.id} is missing its exact delivery identity.`);
-    }
-    const resolution = resolvePackagedAcademyListeningLocator(locator);
-    if (resolution.status !== 'ready' || resolution.entry.source.sha256 !== expectedSha256) {
-        throw new TypeError(`Placement recording ${item.id} does not match the listening crosswalk.`);
-    }
-    return { kind: 'source-recording', url: resolution.url, sha256: expectedSha256 };
-}
-
-/**
- * Keeps the compact mock bank structurally honest before any choice reaches
- * the learner. This deliberately checks labels as well as ids: repeated
- * labels make a multiple-choice item ambiguous even when its ids differ.
- */
-export function validateOrientationMockItems(items: readonly PlacementItem[]): void {
-    const itemIds = new Set<string>();
-    const referenceIds = new Set<string>();
-    for (const item of items) {
-        if (itemIds.has(item.id)) throw new TypeError(`Duplicate placement item id: ${item.id}`);
-        if (referenceIds.has(item.referenceId)) throw new TypeError(`Duplicate placement source item: ${item.referenceId}`);
-        itemIds.add(item.id);
-        referenceIds.add(item.referenceId);
-
-        const optionIds = new Set<string>();
-        const labels = {
-            en: new Set<string>(),
-            ja: new Set<string>(),
-        };
-        for (const option of item.options) {
-            if (optionIds.has(option.id)) throw new TypeError(`Duplicate option id in ${item.id}: ${option.id}`);
-            for (const language of ['en', 'ja'] as const) {
-                const label = option.label[language].trim();
-                if (!label || labels[language].has(label)) {
-                    throw new TypeError(`Duplicate or empty option (${language}) in ${item.id}: ${label}`);
-                }
-                labels[language].add(label);
-            }
-            optionIds.add(option.id);
-        }
-        if (item.options.length < 3) throw new TypeError(`Placement item needs at least three options: ${item.id}`);
-        if (item.options.filter(option => option.correct).length !== 1) {
-            throw new TypeError(`Placement item needs exactly one correct option: ${item.id}`);
-        }
-        if (item.audio?.runtimeDelivery === 'packaged-source-recording') placementAudioDelivery(item);
-    }
-
-    for (const band of ['n5', 'n4', 'n3', 'n2', 'n1'] as const) {
-        for (const skill of ORIENTATION_MOCK_POLICY.sections) {
-            const count = items.filter(item => item.band === band && item.skill === skill).length;
-            if (count !== 2) throw new TypeError(`Placement bank needs two ${skill} items for ${band}; found ${count}`);
-        }
-    }
-}
+export const ORIENTATION_MOCK_ITEMS: readonly PlacementItem[] = [
+    {
+        id: 'orientation:knowledge:reason',
+        skill: 'language-knowledge',
+        prompt: {
+            en: 'Choose the form that naturally completes the sentence: 昨日は雨＿＿、出かけませんでした。',
+            ja: '自然な文になる形を選んでください：昨日は雨＿＿、出かけませんでした。',
+        },
+        options: [
+            { id: 'because', label: { en: 'だったので', ja: 'だったので' }, correct: true },
+            { id: 'although', label: { en: 'なのに', ja: 'なのに' }, correct: false },
+            { id: 'while', label: { en: 'ながら', ja: 'ながら' }, correct: false },
+        ],
+    },
+    {
+        id: 'orientation:reading:change',
+        skill: 'reading',
+        passage: {
+            en: 'The meeting was going to begin at six, but Alex’s train stopped, so everyone changed it to half past six.',
+            ja: '会議は六時に始まる予定でしたが、Alexさんの電車が止まったので、みんなで六時半に変えました。',
+        },
+        prompt: { en: 'When will the meeting begin?', ja: '会議は何時に始まりますか。' },
+        options: [
+            { id: 'six', label: { en: '6:00', ja: '六時' }, correct: false },
+            { id: 'six-thirty', label: { en: '6:30', ja: '六時半' }, correct: true },
+            { id: 'cancelled', label: { en: 'It was cancelled', ja: '中止になりました' }, correct: false },
+        ],
+    },
+    {
+        id: 'orientation:listening:library',
+        skill: 'listening',
+        spokenJapanese: '図書館は七時に閉まります。六時五十分までに本を返してください。',
+        prompt: { en: 'Listen: when does the library close?', ja: '聞いてください：図書館は何時に閉まりますか。' },
+        options: [
+            { id: 'six-fifty', label: { en: '6:50', ja: '六時五十分' }, correct: false },
+            { id: 'seven', label: { en: '7:00', ja: '七時' }, correct: true },
+            { id: 'seven-ten', label: { en: '7:10', ja: '七時十分' }, correct: false },
+        ],
+    },
+];
 
 export function scoreOrientationMock(
     targetBand: JlptBand,
     responses: Readonly<Record<string, string>>,
     confidence: Readonly<{ speaking: number; writing: number }>,
 ): OrientationMockResult {
-    const assessmentItems = orientationItemsForBand(targetBand);
     const scoreFor = (skill: PlacementItem['skill']): number => {
-        const items = assessmentItems.filter(item => item.skill === skill);
+        const items = ORIENTATION_MOCK_ITEMS.filter(item => item.skill === skill);
         const correct = items.filter(item => item.options.some(option => option.id === responses[item.id] && option.correct)).length;
         return items.length ? correct / items.length : 0;
     };
@@ -195,49 +83,21 @@ export function scoreOrientationMock(
         'speaking-confidence': clamp(confidence.speaking),
         'writing-confidence': clamp(confidence.writing),
     } satisfies Record<PlacementSkill, number>;
-    const recommendationFor = (skill: ReceptivePlacementSkill): PlacementSkillRecommendation => {
-        const items = assessmentItems.filter(item => item.skill === skill);
-        const selections = items.map(item => item.options.find(option => option.id === responses[item.id]));
-        const attempted = selections.filter(Boolean).length;
-        const correct = selections.filter(option => option?.correct).length;
-        const score = items.length ? correct / items.length : 0;
-        const recommendedStart = attempted === 0
-            ? 'lesson-zero'
-            : lowerRecommendation(targetBand, score === 1 ? 0 : score >= 0.5 ? 1 : 2);
-        return { skill, attempted, correct, available: items.length, score, recommendedStart };
-    };
-    const skillRecommendations: Record<ReceptivePlacementSkill, PlacementSkillRecommendation> = {
-        'language-knowledge': recommendationFor('language-knowledge'),
-        reading: recommendationFor('reading'),
-        listening: recommendationFor('listening'),
-    };
-    const recommendedStart = lowestRecommendation(Object.values(skillRecommendations).map(entry => entry.recommendedStart));
+    const receptive = (scores['language-knowledge'] + scores.reading + scores.listening) / 3;
+    const retreat = receptive >= 2 / 3 ? 0 : receptive >= 1 / 3 ? 1 : 2;
     return {
-        assessmentId: 'academy-orientation-mock:v2',
+        assessmentId: 'academy-orientation-mock:v1',
         targetBand,
-        itemIds: assessmentItems.map(item => item.id),
+        itemIds: ORIENTATION_MOCK_ITEMS.map(item => item.id),
         scores,
-        recommendedBand: recommendedStart === 'lesson-zero' ? 'n5' : recommendedStart,
-        recommendedStart,
+        recommendedBand: lowerBand(targetBand, retreat),
         calibration: 'vertical-slice',
-        skillRecommendations,
-        storyProgression: ORIENTATION_MOCK_POLICY.storyProgression,
-        mockRevisit: ORIENTATION_MOCK_POLICY.revisit,
-        caveats: ORIENTATION_MOCK_POLICY.caveats,
     };
 }
 
-function lowerRecommendation(target: JlptBand, steps: number): PlacementRecommendation {
+function lowerBand(target: JlptBand, steps: number): JlptBand {
     const bands: readonly JlptBand[] = ['n5', 'n4', 'n3', 'n2', 'n1'];
-    const index = bands.indexOf(target) - steps;
-    return index < 0 ? 'lesson-zero' : bands[index]!;
-}
-
-function lowestRecommendation(recommendations: readonly PlacementRecommendation[]): PlacementRecommendation {
-    const order: readonly PlacementRecommendation[] = ['lesson-zero', 'n5', 'n4', 'n3', 'n2', 'n1'];
-    return recommendations.reduce((lowest, value) => (
-        order.indexOf(value) < order.indexOf(lowest) ? value : lowest
-    ), 'n1');
+    return bands[Math.max(0, bands.indexOf(target) - steps)];
 }
 
 function clamp(value: number): number {

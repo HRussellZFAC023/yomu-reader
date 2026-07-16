@@ -40,66 +40,6 @@ export interface AcademyClassBoardView {
     readonly members: readonly AcademyClassBoardMember[];
 }
 
-export interface AcademyProfileView {
-    readonly profileId: string;
-    readonly deviceId: string;
-    readonly accountId: string | null;
-    readonly keyVersion: number;
-    readonly createdAt: number;
-}
-
-export type AcademyEntitlementView =
-    | { readonly entitlement: 'none' }
-    | { readonly entitlement: 'academy'; readonly status: 'active'; readonly redeemedAt: number };
-
-export interface AcademyPairingKeyEnvelope {
-    readonly keyVersion: number;
-    readonly salt: string;
-    readonly nonce: string;
-    readonly ciphertext: string;
-}
-
-export interface AcademyPairingTicket {
-    readonly pairingId: string;
-    readonly code: string;
-    readonly expiresAt: number;
-}
-
-export interface AcademyPairingClaim {
-    readonly pairingId: string;
-    readonly profileId: string;
-    readonly deviceId: string;
-    readonly keyEnvelope: AcademyPairingKeyEnvelope;
-}
-
-/** The plaintext learner event is inside ciphertext and never crosses this boundary. */
-export interface AcademyEncryptedSyncEventInput {
-    readonly id: string;
-    readonly occurredAt: number;
-    readonly keyVersion: number;
-    readonly nonce: string;
-    readonly ciphertext: string;
-}
-
-export interface AcademyEncryptedSyncEvent extends AcademyEncryptedSyncEventInput {
-    readonly cursor: number;
-    readonly sourceDeviceId: string | null;
-    readonly receivedAt: number;
-}
-
-export interface AcademySyncPage {
-    readonly events: readonly AcademyEncryptedSyncEvent[];
-    readonly nextCursor: number;
-    readonly hasMore: boolean;
-}
-
-export interface AcademySyncPushResult {
-    readonly accepted: number;
-    readonly inserted: number;
-    readonly duplicates: number;
-    readonly conflicts: readonly string[];
-}
-
 function normalizeClassDisplayName(value: string): string {
     const normalized = value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
     if (!normalized || [...normalized].length > 32 || /[#\p{Cc}\p{Cf}\p{Cs}]/u.test(normalized)) {
@@ -136,98 +76,6 @@ export function parseAcademyClassBoardView(value: unknown): AcademyClassBoardVie
     return {
         classId: classId(record.classId),
         members: array(record.members, 'members').map(parseBoardMember),
-    };
-}
-
-export function parseAcademyProfileView(value: unknown): AcademyProfileView {
-    const record = object(value, 'Academy profile');
-    return {
-        profileId: uuid(record.profileId, 'profileId'),
-        deviceId: uuid(record.deviceId, 'deviceId'),
-        accountId: record.accountId === null ? null : uuid(record.accountId, 'accountId'),
-        keyVersion: integer(record.keyVersion, 'keyVersion', 1, 1_000_000),
-        createdAt: integer(record.createdAt, 'createdAt', 0, Number.MAX_SAFE_INTEGER),
-    };
-}
-
-export function parseAcademyEntitlementView(value: unknown): AcademyEntitlementView {
-    const record = object(value, 'Academy entitlement');
-    if (record.entitlement === 'none') return { entitlement: 'none' };
-    if (record.entitlement !== 'academy' || record.status !== 'active') {
-        throw new TypeError('Academy entitlement is invalid.');
-    }
-    return {
-        entitlement: 'academy',
-        status: 'active',
-        redeemedAt: integer(record.redeemedAt, 'redeemedAt', 0, Number.MAX_SAFE_INTEGER),
-    };
-}
-
-export function parseAcademyPairingTicket(value: unknown): AcademyPairingTicket {
-    const record = object(value, 'Academy pairing ticket');
-    const code = text(record.code, 'code');
-    if (!/^[023456789A-HJ-KM-NP-Z]{4}(?:-[023456789A-HJ-KM-NP-Z]{4}){4}$/u.test(code)) {
-        throw new TypeError('Academy pairing code is invalid.');
-    }
-    return {
-        pairingId: uuid(record.pairingId, 'pairingId'),
-        code,
-        expiresAt: integer(record.expiresAt, 'expiresAt', 0, Number.MAX_SAFE_INTEGER),
-    };
-}
-
-export function parseAcademyPairingClaim(value: unknown): AcademyPairingClaim {
-    const record = object(value, 'Academy pairing claim');
-    return {
-        pairingId: uuid(record.pairingId, 'pairingId'),
-        profileId: uuid(record.profileId, 'profileId'),
-        deviceId: uuid(record.deviceId, 'deviceId'),
-        keyEnvelope: parseKeyEnvelope(record.keyEnvelope),
-    };
-}
-
-export function parseAcademySyncPage(value: unknown): AcademySyncPage {
-    const record = object(value, 'Academy sync page');
-    return {
-        events: array(record.events, 'events').map(parseEncryptedEvent),
-        nextCursor: integer(record.nextCursor, 'nextCursor', 0, Number.MAX_SAFE_INTEGER),
-        hasMore: boolean(record.hasMore, 'hasMore'),
-    };
-}
-
-export function parseAcademySyncPushResult(value: unknown): AcademySyncPushResult {
-    const record = object(value, 'Academy sync result');
-    const result = {
-        accepted: count(record.accepted, 'accepted'),
-        inserted: count(record.inserted, 'inserted'),
-        duplicates: count(record.duplicates, 'duplicates'),
-        conflicts: array(record.conflicts, 'conflicts').map((item, index) => uuidV4(item, `conflicts[${index}]`)),
-    };
-    if (result.accepted !== result.inserted + result.duplicates) throw new TypeError('Academy sync counts are inconsistent.');
-    return result;
-}
-
-function parseKeyEnvelope(value: unknown): AcademyPairingKeyEnvelope {
-    const record = object(value, 'Academy key envelope');
-    return {
-        keyVersion: integer(record.keyVersion, 'keyVersion', 1, 1_000_000),
-        salt: base64UrlBytes(record.salt, 'salt', 16, 16),
-        nonce: base64UrlBytes(record.nonce, 'nonce', 12, 12),
-        ciphertext: base64UrlBytes(record.ciphertext, 'ciphertext', 48, 48),
-    };
-}
-
-function parseEncryptedEvent(value: unknown): AcademyEncryptedSyncEvent {
-    const record = object(value, 'Academy encrypted event');
-    return {
-        cursor: integer(record.cursor, 'cursor', 1, Number.MAX_SAFE_INTEGER),
-        id: uuidV4(record.id, 'id'),
-        occurredAt: integer(record.occurredAt, 'occurredAt', 0, Number.MAX_SAFE_INTEGER),
-        keyVersion: integer(record.keyVersion, 'keyVersion', 1, 1_000_000),
-        nonce: base64UrlBytes(record.nonce, 'nonce', 12, 12),
-        ciphertext: base64UrlBytes(record.ciphertext, 'ciphertext', 17, 16 * 1024),
-        sourceDeviceId: record.sourceDeviceId === null ? null : uuid(record.sourceDeviceId, 'sourceDeviceId'),
-        receivedAt: integer(record.receivedAt, 'receivedAt', 0, Number.MAX_SAFE_INTEGER),
     };
 }
 
@@ -306,36 +154,9 @@ function count(value: unknown, field: string): number {
     return value as number;
 }
 
-function integer(value: unknown, field: string, minimum: number, maximum: number): number {
-    if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
-        throw new TypeError(`${field} must be an integer from ${minimum} to ${maximum}.`);
-    }
-    return value as number;
-}
-
 function uuid(value: unknown, field: string): string {
     if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
         throw new TypeError(`${field} must be a UUID.`);
-    }
-    return value;
-}
-
-function uuidV4(value: unknown, field: string): string {
-    if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
-        throw new TypeError(`${field} must be a UUIDv4.`);
-    }
-    return value;
-}
-
-function base64UrlBytes(value: unknown, field: string, minimumBytes: number, maximumBytes: number): string {
-    if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/u.test(value)) throw new TypeError(`${field} must be base64url text.`);
-    try {
-        const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - value.length % 4) % 4);
-        const byteLength = atob(padded).length;
-        if (byteLength < minimumBytes || byteLength > maximumBytes) throw new TypeError(`${field} has an invalid byte length.`);
-    } catch (error) {
-        if (error instanceof TypeError) throw error;
-        throw new TypeError(`${field} must be base64url text.`);
     }
     return value;
 }

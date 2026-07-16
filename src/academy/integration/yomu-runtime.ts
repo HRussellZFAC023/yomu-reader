@@ -14,7 +14,6 @@ import {
     encodeAuthoredVocabularyAnnotations,
 } from '../../reader/lookup/authored-vocabulary';
 import { academyAuthoredVocabularyForText } from './authored-reader-vocabulary';
-import { prepareAcademyReadingSurface } from './reader-markup';
 import { ACADEMY_READER_COMPANIONS } from './yomu-runtime-companions';
 
 const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
@@ -22,11 +21,20 @@ const CORE_SCRIPT_ID = 'yomu-hosted-academy-runtime';
 const CSS_ATTRIBUTE = 'data-yomu-hosted-academy-css';
 const SCRIPT_ATTRIBUTE = 'data-yomu-hosted-academy-script';
 const COMPANION_ATTRIBUTE = 'data-yomu-hosted-academy-settings';
-const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface], .academy-japanese';
+const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface]';
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const RUNTIME_READY_TIMEOUT_MS = 6_000;
 const SURFACE_WAIT_TIMEOUT_MS = 15_000;
 const ACADEMY_ROOT_ID = 'yomu-academy';
+const READER_OWNED_SURFACE_QUERY = [
+    '[data-jpdb-reader-root]',
+    '.jpdb-reader-word',
+    '.jpdb-reader-text-mirror',
+    '.jpdb-reader-control-text-mirror',
+    '.jpdb-reader-furi',
+    '.jpdb-ocr-furi',
+].join(',');
+const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
 let bootPromise: Promise<boolean> | null = null;
 let annotationLifecycle: { readonly root: HTMLElement; readonly dispose: () => void } | null = null;
@@ -56,7 +64,7 @@ export function observeAcademyAnnotationSurfaces(root: HTMLElement): { dispose()
         subtree: true,
         characterData: true,
         attributes: true,
-        attributeFilter: ['lang', 'data-reading-support', 'data-yomu-runtime-surface'],
+        attributeFilter: ['lang', 'data-yomu-runtime-surface'],
     });
     return { dispose: () => observer.disconnect() };
 }
@@ -67,18 +75,35 @@ export function refreshAcademyAnnotationSurfaces(root: ParentNode): number {
         : Array.from(root.querySelectorAll<HTMLElement>(JAPANESE_SURFACE_SELECTOR));
     let marked = 0;
     for (const element of candidates) {
-        const changed = prepareAcademyReadingSurface(element);
-        if (!changed) continue;
+        if (!isAcademyJapaneseSurface(element)) continue;
+        let changed = false;
+        if (element.dataset.yomuRuntimeSurface === undefined) {
+            element.dataset.yomuRuntimeSurface = 'academy-copy';
+            changed = true;
+        }
+        if (element.dataset.yomuFuriganaMode !== 'all') {
+            element.dataset.yomuFuriganaMode = 'all';
+            changed = true;
+        }
         const annotations = academyAuthoredVocabularyForText(element.textContent ?? '');
         const encodedAnnotations = annotations.length ? encodeAuthoredVocabularyAnnotations(annotations) : '';
         if (encodedAnnotations && element.getAttribute(AUTHORED_VOCABULARY_ATTRIBUTE) !== encodedAnnotations) {
             element.setAttribute(AUTHORED_VOCABULARY_ATTRIBUTE, encodedAnnotations);
+            changed = true;
         } else if (!encodedAnnotations && element.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) {
             element.removeAttribute(AUTHORED_VOCABULARY_ATTRIBUTE);
+            changed = true;
         }
-        marked += 1;
+        if (changed) marked += 1;
     }
     return marked;
+}
+
+function isAcademyJapaneseSurface(element: HTMLElement): boolean {
+    if (element.closest('[data-jpdb-reader-surface-ignore]')) return false;
+    if (element.matches('script, style, noscript, textarea, input, select, option, [aria-hidden="true"]')) return false;
+    if (element.closest(READER_OWNED_SURFACE_QUERY)) return false;
+    return HAS_JAPANESE.test(element.textContent ?? '');
 }
 
 function ensureAcademyAnnotationLifecycle(): void {

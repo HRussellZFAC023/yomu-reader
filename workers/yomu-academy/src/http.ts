@@ -59,23 +59,18 @@ export async function readJsonBody(request: Request, maxBytes = 4096): Promise<R
     }
 }
 
-interface BoundedBody {
-    readonly headers: Headers;
-    readonly body: ReadableStream<Uint8Array> | null;
+export async function readBoundedText(request: Request, maxBytes: number): Promise<string> {
+    return new TextDecoder().decode(await readBoundedBytes(request, maxBytes));
 }
 
-export async function readBoundedText(source: BoundedBody, maxBytes: number): Promise<string> {
-    return new TextDecoder().decode(await readBoundedBytes(source, maxBytes));
-}
-
-async function readBoundedBytes(source: BoundedBody, maxBytes: number): Promise<Uint8Array> {
-    const declaredLength = source.headers.get('content-length');
+async function readBoundedBytes(request: Request, maxBytes: number): Promise<Uint8Array> {
+    const declaredLength = request.headers.get('content-length');
     if (declaredLength && /^\d+$/.test(declaredLength) && Number(declaredLength) > maxBytes) {
         throw new HttpError(413, 'Request body too large.');
     }
-    if (!source.body) return new Uint8Array();
+    if (!request.body) return new Uint8Array();
 
-    const reader = source.body.getReader();
+    const reader = request.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
     try {

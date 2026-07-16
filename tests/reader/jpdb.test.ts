@@ -337,7 +337,6 @@ type TestRenderedWordInternals = {
     parseJapanese?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
     publicLookupCard: (term: string, exact?: boolean, options?: unknown) => Promise<JPDBCard | undefined>;
     jitenPublicVocabulary?: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
-    dictionaries?: { lookup: (text: string, reading: string, limit: number, preferences?: unknown) => Promise<YomitanTermEntry[]> };
     showRenderedWordCard: (
         lookupCard: JPDBCard,
         context?: unknown,
@@ -20064,47 +20063,6 @@ describe('reader helpers', () => {
                 app.destroy();
                 document.body.replaceChildren();
             }
-        }
-    });
-
-    it('uses an authored inflection lemma when opening an installed dictionary entry', async () => {
-        const app = new ReaderApp();
-        const inflected = testFallbackCard({
-            vid: -1505800,
-            sid: -1505800,
-            spelling: '聞き取れませんでした',
-            reading: 'ききとれませんでした',
-            fallbackLookupTerms: ['聞き取る'],
-        });
-        const word = appendRenderedReaderWord(inflected, { text: '聞き取れませんでした' });
-        word.dataset.sentence = '聞き取れませんでしたか。';
-        const entry: YomitanTermEntry = {
-            expression: '聞き取る',
-            reading: 'ききとる',
-            glossary: ['to catch; to make out'],
-            dictionary: 'Installed terms',
-        };
-        const lookup = vi.fn(async (term: string) => term === '聞き取る' ? [entry] : []);
-        const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [inflected],
-            settings: { localDictionariesEnabled: true },
-        });
-        internals.dictionaries = { lookup };
-
-        try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-            expect(lookup).toHaveBeenCalledWith('聞き取る', '聞き取る', expect.any(Number), expect.any(Array));
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(showRenderedWordCard).toHaveBeenCalledWith(
-                expect.objectContaining({ spelling: '聞き取る', reading: 'ききとる', source: 'local' }),
-                expect.objectContaining({ sentence: '聞き取れませんでしたか。', anchor: word }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
-                false,
-            );
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
         }
     });
 

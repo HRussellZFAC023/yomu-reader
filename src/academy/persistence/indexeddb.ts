@@ -6,17 +6,12 @@ import {
     type AcademyRoute,
     type AcademyRouteHistoryState,
 } from '../routing/route-history';
-import { isWorldPlaceId, type WorldPlaceId } from '../domain/world-locations';
 
 export type { AcademyRoute } from '../routing/route-history';
 
 export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly schemaVersion: 2;
     readonly session?: InviteSession;
-    /** Durable one-time scene/action introductions. Kept out of route history. */
-    readonly seenIntroductions?: readonly string[];
-    /** Deterministic revisit state for the location world; not route history. */
-    readonly worldVisits?: Readonly<Partial<Record<WorldPlaceId, number>>>;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -219,16 +214,6 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
         throw new TypeError('Academy checkpoint has an invalid route history.');
     }
     if (!isAcademyPresentationMode(value.presentationMode)) throw new TypeError('Academy checkpoint has an invalid presentation mode.');
-    if (value.seenIntroductions !== undefined && (!Array.isArray(value.seenIntroductions)
-        || value.seenIntroductions.some(id => typeof id !== 'string' || !id.trim())
-        || new Set(value.seenIntroductions).size !== value.seenIntroductions.length)) {
-        throw new TypeError('Academy checkpoint has invalid seen introductions.');
-    }
-    if (value.worldVisits !== undefined && (!value.worldVisits || typeof value.worldVisits !== 'object'
-        || Object.entries(value.worldVisits).some(([place, visits]) => !isWorldPlaceId(place)
-            || !Number.isSafeInteger(visits) || visits < 0))) {
-        throw new TypeError('Academy checkpoint has invalid world visits.');
-    }
     validateRouteContext(value);
 }
 
@@ -242,7 +227,6 @@ function routeFrameIsValid(value: unknown): boolean {
         'lessonId',
         'sectionId',
         'activityId',
-        'worldPlace',
     ]);
     if (Object.keys(value).some(key => !allowedKeys.has(key))) return false;
     try {
@@ -255,7 +239,7 @@ function routeFrameIsValid(value: unknown): boolean {
 
 function validateRouteContext(value: Pick<
     AcademyCheckpoint,
-    'selectedBand' | 'selectedFork' | 'placementOverride' | 'lessonId' | 'sectionId' | 'activityId' | 'worldPlace'
+    'selectedBand' | 'selectedFork' | 'placementOverride' | 'lessonId' | 'sectionId' | 'activityId'
 >): void {
     if (value.selectedBand !== undefined && !['n5', 'n4', 'n3', 'n2', 'n1'].includes(value.selectedBand)) {
         throw new TypeError('Academy checkpoint has an invalid selected band.');
@@ -274,9 +258,6 @@ function validateRouteContext(value: Pick<
     }
     if (value.activityId !== undefined && (typeof value.activityId !== 'string' || value.activityId.length === 0)) {
         throw new TypeError('Academy checkpoint has an invalid activity id.');
-    }
-    if (value.worldPlace !== undefined && !isWorldPlaceId(value.worldPlace)) {
-        throw new TypeError('Academy checkpoint has an invalid world place.');
     }
 }
 

@@ -1,5 +1,4 @@
 import type { LearnerEventInput } from './learner-record';
-import type { LearnerSupportUse } from './learner-support';
 import type { LocalizedText } from './source-library';
 
 export interface ActivityModel {
@@ -8,23 +7,9 @@ export interface ActivityModel {
     readonly sourceQuestionId?: string;
     readonly conceptIds: readonly string[];
     readonly responseKind: string;
-    readonly curriculumPhase?: 'context' | 'instruction' | 'guided-practice' | 'assessed-recognition' | 'assessed-production';
     readonly prompt: LocalizedText;
     readonly payload: unknown;
     readonly answerSupport?: AnswerSupportContract;
-    readonly teachingSupport?: ActivityTeachingSupport;
-}
-
-export interface ActivityTeachingSupportEntry {
-    readonly japanese: string;
-    readonly reading?: string;
-    readonly translation?: string;
-}
-
-export interface ActivityTeachingSupport {
-    readonly kind: 'example' | 'vocabulary' | 'pattern' | 'context';
-    readonly title: LocalizedText;
-    readonly entries: readonly ActivityTeachingSupportEntry[];
 }
 
 export interface AnswerSupportContract {
@@ -105,13 +90,7 @@ export interface ActivityHost {
         supportKind: 'hint';
         choiceId: string;
     }>): void | Promise<void>;
-    /** Persisted support evidence, supplied when a host can resume an activity. */
-    readonly learnerSupportUses?: readonly LearnerSupportUse[];
     react?(reaction: Readonly<{ speakerId: 'rie'; expression: 'neutral' | 'encouraging' | 'happy' | 'repair' }>): void;
-    /** Lets a containing VN own the single readings control for embedded work. */
-    registerReadingSurface?(surface: HTMLElement): () => void;
-    /** Plays one injected Japanese target through the canonical Yomu bridge. */
-    playPronunciation?(term: string, reading?: string): Promise<{ dispose(): void }>;
 }
 
 export interface ActivityController {

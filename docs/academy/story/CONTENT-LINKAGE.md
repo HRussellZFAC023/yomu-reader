@@ -21,28 +21,6 @@ A story chapter is not a lesson wrapper. It names a small set of language functi
 - Component hooks resolve to the actual `authentic-input`, `vocabulary`, `grammar`, `listening`, `reading`, `speaking`, `writing`, `kanji`, `review`, or original `transfer` component.
 - Listening with held/unverified audio cannot gate a story scene as if audio evidence existed.
 
-## Location truth and hooks
-
-`src/academy/domain/world-locations.ts` is the executable place registry. Nine places currently carry grounded curriculum references: `courtyard`, `classroom`, `library`, `cafe`, `street`, `station`, `konbini`, `ramen`, and `home`. Every other registered place is `planned` until its activity has evidence, source, rights, and presentation coverage.
-
-Story packages currently use a second prefixed location vocabulary such as `location:classroom` and `location:language-lab`. The target compiler must resolve those through one explicit alias table to `WorldPlaceId`; prose cannot treat a plausible location string as a registered hook.
-
-| Season | Grounded homes available now | Planned story homes | Narrative use |
-| --- | --- | --- | --- |
-| 1 | courtyard, classroom, library, cafe, street, home | language lab | establish the room, first routes, after-class talk, journal return, and sound work; the lab cannot gate progress until grounded |
-| 2 | all Season 1 homes plus station, konbini, ramen | bookshop, park, restaurant, museum | move rebuilt-map language into ordinary public use and prepare the first exhibition |
-| 3 | reuse grounded campus and commute places | office, post office, museum venue | make editing, scheduling, correspondence, and permission visible as work rather than abstract debate |
-| 4 | return to classroom, courtyard, library, cafe, station, and home | one approved public venue | let early places show changed roles, stage the public evening, close the atlas, and return to the journal after graduation |
-
-A location hook is valid only when the place contributes all four of these:
-
-1. a visible or audible language-bearing surface;
-2. an action the learner can perform there;
-3. a state change or return object after the action;
-4. a later revisit whose meaning or difficulty changes.
-
-No Japan-region place is required for the finite ending. Shrine, temple, ryokan, festival, shopping-street, and Tokyo-station content remains optional/planned and cannot make travel the prize for high performance.
-
 ## Seasons 1 and 2: registered reservoirs
 
 | Story chapter | Registered package reservoir | Transfer function |
@@ -100,23 +78,10 @@ Every linked chapter uses this order:
 3. **Lesson:** the registered activity teaches and checks the function.
 4. **Repair:** the same scene reacts to the learner's evidence.
 5. **Transfer:** the source surface disappears and the function solves a changed situation.
-6. **Consequence:** plot, relationship, callback, or world state changes.
+6. **Consequence:** plot, bond, callback, or world state changes.
 7. **Return:** relevant items enter Study silently through the shared event/evidence path.
 
 The story cannot skip step 3 for a required new function, and the lesson cannot use step 6 as decoration unrelated to the learner's action.
-
-## Class-thread hooks
-
-Class-thread scenes use the same evidence boundary as live scenes. They are short transfer or coordination surfaces, never lesson-completion shortcuts.
-
-| Season | Safe thread jobs | Required language grounding |
-| --- | --- | --- |
-| 1 | clarify class time/place, request repetition, welcome a return, compare one study preference | Foundation-N5 greetings, time, place, preference, invitation, and repair |
-| 2 | pass on a changed plan, identify an item/person, compare two accounts, reopen a paused conversation | N4 report, condition, relative clause, reason, advice, and continuation functions |
-| 3 | state audience/scope, separate edit from publication, decline a role, summarize what may be said | registered N3-N2 condition, refusal, quotation, evidentiality, and permission content |
-| 4 | acknowledge a bounded reply, coordinate public repair, confirm a future plan without demanding certainty | registered N2-N1 correspondence, concession, mediation, calibrated certainty, and omission content |
-
-A thread may present a target before assessment and may host changed-context transfer after assessment. If the learner has not met required evidence, the thread offers a lesson/repair route or a simpler authored variant; it does not mark the function understood because a message was opened.
 
 ## Placement bridges
 
@@ -124,8 +89,8 @@ A thread may present a target before assessment and may host changed-context tra
 | --- | --- | --- |
 | Foundation/N5 | Chapter 1 opening and selected Lesson 0 route | played normally |
 | N4 | Rie opens the rebuilt-map work, introduces the present leads, and lets the learner repair one missing route | Seasons 1 memories are available chronologically and remain unseen until played |
-| N3 | public-evening invitation arrives while the learner verifies one attributed caption | Seasons 1–2 remain replayable; no continuity or appointment progress is auto-earned |
+| N3 | public-evening invitation arrives while the learner verifies one attributed caption | Seasons 1–2 remain replayable; no bond is auto-earned |
 | N2 | permission dispute begins with two defensible edits | prior plot is summarized only as needed for the live choice |
 | N1 | final inquiry begins with three accounts and a bounded reply | all earlier memories are available at selected language layers |
 
-The bridge writes `story.arrivedAtBand`, not completion for skipped chapters. Future canonical chapters use fallback variants when a prior optional appointment has not been played.
+The bridge writes `story.arrivedAtBand`, not completion for skipped chapters. Future canonical chapters use fallback variants when a prior optional bond has not been played.

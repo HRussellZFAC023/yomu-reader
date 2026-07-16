@@ -563,7 +563,7 @@
     // Reader CSS cache (version-suffixed → prefix family).
     { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
     // Study / grammar / mining stores.
-    { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
+    { owner: "study/tools-impl", kind: "gm", key: "yomu.grammarPreferences.v1" },
     { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
     { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
     // Popup / drawer geometry.
@@ -12500,135 +12500,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     ]
   };
-  function expandGrammarGuideUrl(url) {
-    if (!url) return "";
-    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
-  }
-  function parseGrammarRule(row) {
-    const [ruleId, level, name, patternSource, priority, confidence = "m", url = ""] = row.split("	");
-    if (!ruleId || !name || !patternSource || !priority) throw new TypeError(`Invalid Yomu grammar registry row: ${row}`);
-    if (!["Core", "N5", "N4", "N3", "N2", "N1"].includes(level)) {
-      throw new TypeError(`Invalid Yomu grammar level for ${ruleId}: ${level}`);
-    }
-    return Object.freeze({
-      ruleId,
-      level,
-      name,
-      patternSource,
-      priority: parseInt(priority, 36),
-      confidence: confidence === "h" ? "high" : "medium",
-      url: expandGrammarGuideUrl(url),
-      examples: Object.freeze([...GRAMMAR_RULE_EXAMPLES[ruleId] ?? []])
-    });
-  }
-  function createGrammarRegistry() {
-    const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
-    const ids = new Set(rules.map((rule) => rule.ruleId));
-    if (ids.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
-    return Object.freeze(rules);
-  }
-  const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
-  const GRAMMAR_RULES_BY_ID = new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
-  function isYomuGrammarRuleId(ruleId) {
-    return GRAMMAR_RULES_BY_ID.has(ruleId);
-  }
-  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
-  const KNOWLEDGE_VALUES = /* @__PURE__ */ new Set(["unknown", "learning", "known", "mastered"]);
-  function readGrammarKnowledge() {
-    return normalizeGrammarKnowledge(gmStorageGetSync(GRAMMAR_PREFERENCES_KEY, null));
-  }
-  function readGrammarPreferences() {
-    const snapshot = readGrammarKnowledge();
-    return {
-      knownRuleIds: Object.entries(snapshot.entries).filter(([, entry]) => entry.knowledge === "known" || entry.knowledge === "mastered").map(([ruleId]) => ruleId).sort(),
-      showKnown: snapshot.showKnown
-    };
-  }
-  function setGrammarRuleKnowledge(ruleId, knowledge, change = {}) {
-    if (!isYomuGrammarRuleId(ruleId)) throw new TypeError(`Unknown Yomu grammar rule: ${ruleId}`);
-    const snapshot = readGrammarKnowledge();
-    const previous = snapshot.entries[ruleId];
-    if (previous?.knowledge === knowledge && change.at === void 0 && change.changeId === void 0) return snapshot;
-    const at = validTimestamp(change.at) ? change.at : Date.now();
-    const entry = {
-      knowledge,
-      at,
-      changeId: change.changeId?.trim() || createGrammarChangeId()
-    };
-    const next = { ...snapshot, entries: { ...snapshot.entries, [ruleId]: entry } };
-    writeGrammarKnowledge(next);
-    return next;
-  }
-  function setGrammarRuleKnown$1(ruleId, known) {
-    const snapshot = setGrammarRuleKnowledge(ruleId, known ? "known" : "unknown");
-    return preferencesFromSnapshot(snapshot);
-  }
-  function setKnownGrammarVisible$1(showKnown) {
-    const snapshot = readGrammarKnowledge();
-    const next = { ...snapshot, showKnown };
-    writeGrammarKnowledge(next);
-    return preferencesFromSnapshot(next);
-  }
-  function normalizeGrammarKnowledge(value) {
-    const record = objectRecord(value);
-    const entries = record?.version === 2 ? normalizeEntries(record.entries) : migrateLegacyKnownRules(record?.knownRuleIds);
-    return {
-      entries,
-      showKnown: record?.showKnown === true
-    };
-  }
-  function normalizeEntries(value) {
-    const entries = objectRecord(value);
-    if (!entries) return {};
-    const normalized = {};
-    for (const [ruleId, candidate] of Object.entries(entries)) {
-      const entry = objectRecord(candidate);
-      if (!isYomuGrammarRuleId(ruleId) || !KNOWLEDGE_VALUES.has(entry?.knowledge) || !validTimestamp(entry?.at) || typeof entry?.changeId !== "string" || !entry.changeId.trim()) continue;
-      normalized[ruleId] = {
-        knowledge: entry.knowledge,
-        at: entry.at,
-        changeId: entry.changeId.trim()
-      };
-    }
-    return normalized;
-  }
-  function migrateLegacyKnownRules(value) {
-    if (!Array.isArray(value)) return {};
-    return Object.fromEntries(value.filter((ruleId) => typeof ruleId === "string" && isYomuGrammarRuleId(ruleId)).map((ruleId) => [ruleId, {
-      knowledge: "known",
-      at: 0,
-      changeId: `grammar-known:legacy:${ruleId}`
-    }]));
-  }
-  function writeGrammarKnowledge(snapshot) {
-    const knownRuleIds = Object.entries(snapshot.entries).filter(([, entry]) => entry.knowledge === "known" || entry.knowledge === "mastered").map(([ruleId]) => ruleId).sort();
-    gmStorageSetSync(GRAMMAR_PREFERENCES_KEY, {
-      version: 2,
-      entries: snapshot.entries,
-      // Older Yomu builds can still read the authoritative map's boolean projection.
-      knownRuleIds,
-      showKnown: snapshot.showKnown
-    });
-  }
-  function preferencesFromSnapshot(snapshot) {
-    return {
-      knownRuleIds: Object.entries(snapshot.entries).filter(([, entry]) => entry.knowledge === "known" || entry.knowledge === "mastered").map(([ruleId]) => ruleId).sort(),
-      showKnown: snapshot.showKnown
-    };
-  }
-  function objectRecord(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
-  }
-  function validTimestamp(value) {
-    return Number.isSafeInteger(value) && value >= 0;
-  }
-  function createGrammarChangeId() {
-    const uuid = globalThis.crypto?.randomUUID?.();
-    return uuid ? `grammar-known:${uuid}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  }
   const log$3 = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
+  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
   const GRAMMAR_HINT_CACHE_LIMIT = 240;
   const TRANSLATION_CACHE_LIMIT = 160;
@@ -12640,18 +12515,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function gp(ruleId, level, name, source, url = "", confidence = "medium", priority = 30) {
     return { ruleId, level, pattern: new RegExp(source, "gu"), name, url, confidence, priority };
   }
-  function grammarPatternFromRule(rule) {
+  function grammarPatternFromRow(row) {
+    const [ruleId, level, name, source, priority, confidence = "m", url = ""] = row.split("	");
     return gp(
-      rule.ruleId,
-      rule.level,
-      rule.name,
-      rule.patternSource.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
-      rule.url,
-      rule.confidence,
-      rule.priority
+      ruleId,
+      level,
+      name,
+      source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
+      expandGrammarGuideUrl(url),
+      confidence === "h" ? "high" : "medium",
+      parseInt(priority, 36)
     );
   }
-  const GRAMMAR_PATTERNS = YOMU_GRAMMAR_REGISTRY.map(grammarPatternFromRule);
+  function expandGrammarGuideUrl(url) {
+    if (!url) return "";
+    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
+  }
+  const GRAMMAR_PATTERNS = GRAMMAR_PATTERN_DATA.trim().split("\n").map(grammarPatternFromRow);
   const translationCache = /* @__PURE__ */ new Map();
   const translationInFlight = /* @__PURE__ */ new Map();
   const grammarHintCache = /* @__PURE__ */ new Map();
@@ -12660,7 +12540,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     grammarRuleDataPromise = void 0;
   }
   function listLocalGrammarRuleExamples() {
-    return YOMU_GRAMMAR_REGISTRY.flatMap((rule) => rule.examples.map((example) => ({
+    return GRAMMAR_PATTERNS.flatMap((rule) => (GRAMMAR_RULE_EXAMPLES[rule.ruleId] ?? []).map((example) => ({
       ruleId: rule.ruleId,
       name: rule.name,
       level: rule.level,
@@ -12668,11 +12548,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     })));
   }
   function listLocalGrammarRules() {
-    return YOMU_GRAMMAR_REGISTRY.map((rule) => ({
+    return GRAMMAR_PATTERNS.map((rule) => ({
       ruleId: rule.ruleId,
       name: rule.name,
       level: rule.level,
-      exampleCount: rule.examples.length
+      exampleCount: GRAMMAR_RULE_EXAMPLES[rule.ruleId]?.length ?? 0
     }));
   }
   function detectGrammarHints$1(sentence) {
@@ -12757,11 +12637,45 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function grammarHintEnd(hint) {
     return hint.index + hint.match.length;
   }
+  function readGrammarPreferences() {
+    const fallback = { knownRuleIds: [], showKnown: false };
+    try {
+      const raw = globalThis.localStorage?.getItem(GRAMMAR_PREFERENCES_KEY);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return {
+        knownRuleIds: Array.isArray(parsed.knownRuleIds) ? parsed.knownRuleIds.filter((id) => typeof id === "string" && id.length > 0) : [],
+        showKnown: parsed.showKnown === true
+      };
+    } catch (error) {
+      log$3.warn("Grammar preference read failed", { error });
+      return fallback;
+    }
+  }
+  function writeGrammarPreferences(preferences) {
+    try {
+      const uniqueKnownRuleIds = Array.from(new Set(preferences.knownRuleIds)).sort();
+      globalThis.localStorage?.setItem(GRAMMAR_PREFERENCES_KEY, JSON.stringify({
+        knownRuleIds: uniqueKnownRuleIds,
+        showKnown: preferences.showKnown
+      }));
+    } catch (error) {
+      log$3.warn("Grammar preference write failed", { error });
+    }
+  }
   function setGrammarRuleKnown(ruleId, known) {
-    return setGrammarRuleKnown$1(ruleId, known);
+    const preferences = readGrammarPreferences();
+    const knownRuleIds = new Set(preferences.knownRuleIds);
+    if (known) knownRuleIds.add(ruleId);
+    else knownRuleIds.delete(ruleId);
+    const next = { ...preferences, knownRuleIds: Array.from(knownRuleIds) };
+    writeGrammarPreferences(next);
+    return next;
   }
   function setKnownGrammarVisible(showKnown) {
-    return setKnownGrammarVisible$1(showKnown);
+    const next = { ...readGrammarPreferences(), showKnown };
+    writeGrammarPreferences(next);
+    return next;
   }
   const JAPANESE_CHAR = /[぀-ヿ㐀-鿿]/g;
   function isTranslatableJapaneseSentence(sentence) {

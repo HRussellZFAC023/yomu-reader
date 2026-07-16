@@ -1,106 +1,44 @@
 {
   "assetId": "xingyu__neutral__halfbody__v001",
   "characterId": "xingyu",
-  "verdict": "owner-rejected-wrong-likeness",
+  "verdict": "review-candidate",
   "runtimeBinding": false,
-  "recoveryDecision": "blocked-no-defensible-candidate",
-  "auditDate": "2026-07-15",
-  "rejection": {
-    "date": "2026-07-14",
-    "outputSha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132",
-    "policy": "must-not-bind-or-use-as-generation-reference"
-  },
   "identityEvidence": {
-    "confidence": "blocked-owner-match-required",
-    "reason": "The preserved class photos and approved ensemble support only the broad short-hair and round-glasses identity lock. They do not establish an owner-confirmed exact Xingyu crop, and the generated neutral based on the prior inference was owner-rejected.",
-    "previouslyInferredPhotoCrop": {
+    "confidence": "sufficient-for-neutral-review-candidate",
+    "reason": "The same short-haired, round-glasses classmate appears in the preserved class-group-05 photo and as the third foreground classmate from the left in the approved campus ensemble calibration. Both agree with the dossier lock for Xingyu.",
+    "photoCrop": {
       "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
-      "bbox": [450, 430, 1120, 1320],
-      "gate": "not-owner-confirmed-do-not-use-for-generation"
+      "bbox": [450, 430, 1120, 1320]
     }
   },
-  "auditedCandidates": [
-    {
-      "family": "direct-openai-neutral-v001",
-      "sha256": [
-        "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132"
-      ],
-      "outcome": "owner-rejected-wrong-likeness",
-      "recover": false
-    },
-    {
-      "family": "legacy-portrait-and-generic-sprites",
-      "sha256": [
-        "c6ccc7c9d6bfeabfd56c1881afbc5ab3b08bc43a41cf9a271a7549d094df8b44",
-        "d2eb4ee9943e9089eb656ef4e07531521b7ec5017b7b6ef2e263e7c83109d6f4",
-        "d5abfe1776a3e97a0dd07a30a50a9dfa186ed079956ae59a31951655d17497dc"
-      ],
-      "outcome": "rejected-wrong-style-and-insufficient-provenance",
-      "recover": false
-    },
-    {
-      "family": "pollinations-flux-v2-sprites",
-      "sha256": [
-        "047e66717dfbf3d71b07c62f51ca6b7dce9291c245816f5c8f23e8332d48c5e1",
-        "111612c251c11b4f142107d9679edcfda3e1d076cda5f7013759cd7e375ecae3",
-        "1e04a1520adeab137c3dee8b3dc65e7554ae1a46af21a7e16035256037e94433",
-        "1fe83a42847026b5b00c28974d2625fd4f7a13b06eee4ecf93dbe87ad4dc0bc9",
-        "216073ae50c7859841a40c336b46a870fa0ef8022a76da4762346963b21fb980",
-        "4297844f18bdd06b991b81f73505313488d34b4e894c318b8ddf21f2fdc735d4",
-        "557a32be99f442310be95da30db3d65885ca596b993fa1d05caab9794ca2fb28",
-        "665a4562425fc28ad5d7e6514893ea317f6b1dccae9fa1146771ce818b30605d",
-        "6fd8a89f3a0bc981c3da46113c63d8dc7513b0385953b2c7af03717d0e1da804",
-        "7d61eca04f208afb489671e3161cdeb8b45ac09098a3a554223c3c0fdfab0461",
-        "7e089294054f11931bc92ced1924686620cc2ae7b124d75c91794e5bd799ccaf",
-        "a349a1f2cd0c7bfe558b65c4206ca458f3132a8487e1272460094c2c15ad5928",
-        "b069e718da37ee3ab722276dce318eace4832f2af6be5fb83a52e5d84adc9ab2",
-        "ba7363875a57ad0621414ed46df65f6efec5334c051120ea10256d5b11d4ba11",
-        "bbdde6e670ab738a83367163183bc2ffd5c5d36b1646fd9540e1a499203d3756",
-        "d0e412121f4bd1d629511ae91e3faebd0caeb30b438798fd0280faac1bebbff4",
-        "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a"
-      ],
-      "outcome": "rejected-wrong-style-and-not-approved",
-      "recover": false
-    },
-    {
-      "family": "event-first-class-v001",
-      "sha256": [
-        "9046a532c6e8f934f34c47c637644afc04e269ed3d3d02b8a9e94eb6b3a9632d"
-      ],
-      "outcome": "multi-character-event-art-generated-from-rejected-legacy-portrait-not-a-standalone-likeness-candidate",
-      "recover": false
-    },
-    {
-      "family": "approved-campus-ensemble-evidence",
-      "sha256": [
-        "8d7907e4a05a8e5b915883ac6bb5a52e738eaf6fd17af858b498493974195ff9"
-      ],
-      "outcome": "broad-identity-and-style-evidence-only-not-a-standalone-asset-or-owner-confirmed-likeness-anchor",
-      "recover": false
-    }
-  ],
   "sourceReferences": [
-    "docs/academy/discovery/CHARACTER-ASSET-DOSSIER.md#real-class-ensemble",
-    "docs/academy/recovery/ASSET-CARRYOVER.json",
-    "docs/academy/evidence/direction-reset/README.md",
-    "public/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
-    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-01.webp..class-group-06.webp"
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/class-group-05.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+    "/Users/heru/Documents/Projects/yomu/apps/yomu-reader/docs/academy/discovery/CHARACTER-ASSET-DOSSIER.md",
+    "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v2/sprites/source-map.json"
   ],
-  "generationRecord": {
+  "generation": {
     "method": "openai-built-in-imagegen",
+    "source": "/Users/heru/.codex/generated_images/019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
     "sourceSha256": "cb2f0d8586faec524b4448b85cca9cf34a53f1be27096256f87eda31ef58c5f1",
-    "promptRetention": "removed-from-active-review-record-after-owner-rejection"
+    "prompt": "Create one neutral half-body sprite of the same adult classmate shown at the center of the class-photo crop and third from the left among the approved campus ensemble foreground group. Preserve her recognizable identity: East Asian woman, short light-brown/blond undercut with longer swept fringe, round thin-frame glasses, softly rounded face, joyful approachable energy. Translate her faithfully into locked Yomu Academy warm pixel-painted anime realism. Relaxed front three-quarter pose, head through mid-thigh, empty hands, neutral attentive expression with a small genuine smile. Teal cardigan over a cream top with restrained periwinkle accent. Equal intended scale to Rie. Warm classroom key with cool evening rim. Flat solid #ff00ff chroma-key background. No props, text, watermark, branded objects, childlike proportions, cosplay, generic anime face, or identity drift."
   },
-  "blockedGap": {
-    "reason": "No audited standalone Xingyu payload passes both provenance and owner-confirmed likeness review.",
-    "requiredEvidence": [
-      "Owner confirmation of Xingyu's exact class-photo crops",
-      "A clean neutral generated without any rejected Xingyu raster as a reference",
-      "Owner likeness approval and equal-stage cast review before registration"
-    ]
+  "postProcessing": {
+    "method": "remove_chroma_key.py",
+    "key": "#fc02fa",
+    "softMatte": true,
+    "despill": true,
+    "edgeContract": 1
+  },
+  "output": {
+    "path": "public/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
+    "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132",
+    "dimensions": [886, 1775],
+    "mode": "RGBA"
   },
   "reviewNotes": [
-    "The rejected output remains recorded by hash as a tombstone only; its public and docs-mirror files stay absent.",
-    "No historical or approved-evidence image was recovered or registered by this audit."
+    "Candidate is explicitly ledgered as a release-blocked preview and is not runtime-bound.",
+    "Owner likeness approval and equal-stage cast review are still required before expression expansion."
   ]
 }

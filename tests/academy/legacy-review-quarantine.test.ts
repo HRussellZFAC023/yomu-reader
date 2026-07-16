@@ -48,7 +48,7 @@ describe('legacy ungrounded review quarantine', () => {
             provenance: { id: `academy:review-seed:${seedId}`, kind: 'review-seed' },
         });
         await repository.review({ card: collected.card, grade: 'good' });
-        now += 2 * 86_400_000 + 1;
+        now += 1;
 
         await expect(quarantineLegacyUngroundedReviews({ reviewRepository: repository })).resolves.toEqual({
             provenanceRemoved: 1,

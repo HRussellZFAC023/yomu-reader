@@ -8,7 +8,6 @@ import {
     type ValidationIssue,
 } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import { appendProgressiveFeedback } from '../ui/lesson-activity-support';
 
 export interface ChoiceOption {
     readonly id: string;
@@ -143,7 +142,7 @@ function renderChoice(
                     expression: evaluation.result.outcome === 'pass' ? 'happy' : 'repair',
                 });
                 feedback.removeAttribute('aria-label');
-                showFeedback(feedback, evaluation, model, host);
+                showFeedback(feedback, evaluation);
                 host.announce([
                     evaluation.result.feedback.explanation.ja,
                     evaluation.result.feedback.explanation.en,
@@ -173,21 +172,11 @@ function renderChoice(
     };
 }
 
-function showFeedback(
-    root: HTMLElement,
-    evaluation: ActivityEvaluation,
-    model: ChoiceActivityModel,
-    host: ActivityHost,
-): void {
+function showFeedback(root: HTMLElement, evaluation: ActivityEvaluation): void {
     const { feedback } = evaluation.result;
     root.replaceChildren(localizedParagraph(feedback.explanation, 'academy-feedback-explanation'));
-    if (evaluation.result.outcome === 'lapse') {
-        appendProgressiveFeedback(root, feedback, {
-            language: host.language ?? 'en',
-            activityId: model.id,
-            host,
-        });
-    }
+    if (feedback.repairPrompt) root.append(localizedParagraph(feedback.repairPrompt, 'academy-feedback-repair'));
+    if (feedback.nearbyExample) root.append(localizedParagraph(feedback.nearbyExample, 'academy-feedback-example'));
 }
 
 function localizedParagraph(value: LocalizedText, className: string): HTMLParagraphElement {

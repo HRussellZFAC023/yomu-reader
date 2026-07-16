@@ -55,7 +55,6 @@ export function createNewTabStudySession(card: JPDBCard, options: NewTabStudySes
 
 function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOptions): NewTabStudyStep[] {
     const available = new Set<NewTabStudyChallengeStep>();
-    const disabled = new Set(options.disabledSteps ?? []);
     if (options.renderAsKanji || containsKanji(card.spelling)) available.add('kanji-doodle');
     available.add('word');
     if (options.hasRecallCloze) available.add('recall-cloze');
@@ -65,10 +64,12 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     // (owner: "listen and speak should always be there, whether jiten or jpdb").
     available.add('listen-pitch');
     available.add('speaking');
-    // Type is part of the stable Word flow even while a sourced N+1 sentence
-    // is still loading. The prompt upgrades to that cloze when it arrives;
-    // without one, the learner can still reproduce the word itself.
-    if (!disabled.has('word')) available.add('type-word');
+    // Type-word is a production drill on the SAME example sentence as recall: it
+    // blanks the target word and asks the learner to reproduce it (typed or
+    // handwritten). No cloze means no sentence to blank, so gate it exactly like
+    // recall-cloze rather than on a separate flag.
+    if (options.hasRecallCloze) available.add('type-word');
+    const disabled = new Set(options.disabledSteps ?? []);
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
     const kanji = kanjiCharacters(card.spelling);
     const steps = ordered.flatMap(kind => {
@@ -122,7 +123,7 @@ function studyStep(kind: NewTabStudyStepKind, mode: NewTabMode, gradeable = fals
 
 function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrder']): NewTabStudyChallengeStep[] {
     const configured = Array.isArray(order) ? order : [];
-    const steps = dedupeChallengeSteps([
+    return dedupeChallengeSteps([
         ...configured,
         'kanji-doodle',
         'word',
@@ -131,10 +132,6 @@ function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrde
         'listen-pitch',
         'speaking',
     ]);
-    const withoutType: NewTabStudyChallengeStep[] = steps.filter(step => step !== 'type-word');
-    const wordIndex = withoutType.indexOf('word');
-    withoutType.splice(wordIndex < 0 ? 0 : wordIndex + 1, 0, 'type-word');
-    return withoutType;
 }
 
 function dedupeChallengeSteps(steps: NewTabStudyChallengeStep[]): NewTabStudyChallengeStep[] {

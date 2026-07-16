@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "generatedAt": "2026-07-15T00:00:00+01:00",
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-12T16:25:00+01:00",
   "status": "stage-1-runtime",
   "rules": {
     "runtimeRequiresExplicitEntry": true,
@@ -18,57 +18,18 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 47,
-    "runtimeFiles": 61,
-    "nonRuntimeReviewFiles": 1,
-    "approvedReferenceOnly": 4,
+    "runtimeAssetHomes": 19,
+    "runtimeFiles": 25,
+    "approvedReferenceOnly": 3,
     "explicitlyRejectedFamilies": 4
   },
   "assets": [
-    {
-      "id": "sprite-batch-manifest-v1",
-      "source": "repo-authored:public/academy/art/SPRITE-BATCH-MANIFEST.json",
-      "provenance": "repo-authored-runtime-metadata",
-      "verdict": "approved-runtime-data",
-      "runtimeHome": ["runtime:sprite-performance-contract", "production:sprite-generation-batches"],
-      "deliveries": [{
-        "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-        "sha256": "9265c1448119cf33a7051328d09894eaf568135c38bc3521c3c676bc3733fc6f"
-      }],
-      "status": "bound-and-schema-validated"
-    },
-    {
-      "id": "academy-asset-registry-v1",
-      "source": "generated:scripts/academy-asset-registry.mjs",
-      "provenance": "repo-authored-generated-conformance-metadata",
-      "verdict": "generated-conformance-data/non-runtime",
-      "runtimeHome": [],
-      "reviewHome": ["conformance:academy-asset-registry"],
-      "deliveries": [{
-        "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
-        "sha256": "16b4f9f61b1f7a1112090273dbe869e5d210c9a5e9f8b81b64cb5b4e99ece8f8"
-      }],
-      "status": "generated-mirrored-and-conformance-validated; not-runtime-bound"
-    },
-    {
-      "id": "classmate-sprite-inventory-v1",
-      "source": "generated:scripts/academy-sprite-migration-ledger.mjs",
-      "provenance": "repo-authored-generated-conformance-metadata",
-      "verdict": "generated-conformance-data/non-runtime",
-      "runtimeHome": [],
-      "reviewHome": ["conformance:academy-cast-sprite-migration"],
-      "deliveries": [{
-        "path": "/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
-        "sha256": "8ff6951ef29c3c0126addc272aa507a122d559513f041b2f369fb47029e308ed"
-      }],
-      "status": "generated-mirrored-and-conformance-validated; 28-character-588-slot-target; not-runtime-bound"
-    },
     {
       "id": "rie-neutral-halfbody-v001",
       "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"],
+      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge"],
       "deliveries": [{
         "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
         "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
@@ -112,59 +73,6 @@
       "status": "release-blocked-pending-owner-approval"
     },
     {
-      "id": "rie-thinking-halfbody-v001",
-      "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
-      "sourceSha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
-      "provenance": "historical-academy-tree; original generation record not recovered",
-      "verdict": "review-candidate/non-runtime",
-      "runtimeHome": [],
-      "reviewHome": ["production:sprite-performance-contract", "production:sprite-batch-manifest"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
-        "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d"
-      }],
-      "status": "recovered-clean-alpha-review-evidence; not-runtime-bound; release-blocked-pending-owner-likeness-provenance-and-runtime-owner-approval"
-    },
-    {
-      "id": "rie-determined-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
-      "sourceSha256": "3faa1f515a45c1e549ee554f539aa24bcdc4bf5e104c4722275ed1275a03468c",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-    },
-    {
-      "id": "rie-sad-vulnerable-front-near-front-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
-      "sourceSha256": "213ef0df3a09497b38307a855a2e1982fa61589c4768e87ae59bc55636d76900",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
-        "sha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-    },
-    {
-      "id": "rie-comedic-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
-      "sourceSha256": "edf8858e7867c877b1a7801a2dfb5700f89cd08be73172f3d09c75af58f4a8fa",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
-        "sha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-    },
-    {
       "id": "aakash-neutral-halfbody-v001",
       "source": "/Users/heru/.codex/generated_images/019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
       "provenance": "direct-openai-image-generation",
@@ -190,133 +98,16 @@
       "status": "owner-requested-preview; release-blocked-pending-likeness-and-cast-scale-approval"
     },
     {
-      "id": "sophie-bookshop-neutral-right-three-quarter-halfbody-v003",
-      "source": "current-production:approved-Sophie-painted-neutral",
-      "sourceSha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["world:bookshop:sophie", "journal:sophie", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
-        "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7"
-      }],
-      "status": "approved-painterly-identity-anchor; right-three-quarter-neutral; bound-and-responsive-reviewed"
-    },
-    {
-      "id": "sophie-encouraging-front-near-front-halfbody-v003",
-      "source": "/Users/heru/.codex/generated_images/019f6809-715b-7911-99bf-b1211a580b07/exec-d2a30f91-d841-4537-ba56-d3c59e1620b0.png",
-      "sourceSha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:sophie-support", "journal:sophie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
-        "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-16; front-encouraging-performance-bound"
-    },
-    {
-      "id": "sophie-determined-left-three-quarter-halfbody-v003",
-      "source": "/Users/heru/.codex/generated_images/019f6809-715b-7911-99bf-b1211a580b07/exec-f9825ee1-bc15-492d-8aee-a78691204d08.png",
-      "sourceSha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:sophie-research", "journal:sophie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
-        "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-16; left-determined-performance-bound"
-    },
-    {
       "id": "xingyu-neutral-halfbody-v001",
       "source": "/Users/heru/.codex/generated_images/019f5959-0743-7031-84dd-2f8b6b65593a/exec-29b4cc39-2ca7-4c9c-b0e3-b8e9cbdac246.png",
       "provenance": "direct-openai-image-generation",
-      "verdict": "rejected-wrong-likeness",
-      "runtimeHome": [],
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["mission:lesson-zero-sound-host"],
       "deliveries": [{
         "path": "/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
         "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132"
       }],
-      "status": "owner-rejected-2026-07-14; must-not-bind-or-use-as-generation-reference"
-    },
-    {
-      "id": "peter-neutral-halfbody-v002",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-4640771b-6435-4a84-b8b7-2b49f8e6509c.png",
-      "sourceSha256": "9f5b505a92b66d0e044374f7ad089ccbc87e751f65e587776329ce58c0ba8d4d",
-      "provenance": "direct-openai-image-edit-from-owner-correction",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter", "journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
-        "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480"
-      }],
-      "status": "owner-corrected-age-26-and-lighter-hair; release-blocked-pending-final-likeness-approval"
-    },
-    {
-      "id": "felix-neutral-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/exec-c0e7b1b2-04a2-4062-a165-a57b00b1b5a8.png",
-      "sourceSha256": "2ce611919b12a28a27e66456cefec480ad8fe5415c5875a7980bb9696000e576",
-      "provenance": "direct-openai-image-generation-from-owner-written-brief",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-after-meeting", "journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
-        "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4"
-      }],
-      "status": "owner-described-fictional-preview; hidden-until-character-meeting"
-    },
-    {
-      "id": "felix-happy-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-1af208f4-17d9-4aa3-8c7b-5b0bbea6dc4f.png",
-      "sourceSha256": "24edd0ec10856a5a685fcc68e362fb7143d4e22a37b75303203ccbc335532fcd",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
-        "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582"
-      }],
-      "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
-    },
-    {
-      "id": "felix-surprised-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-3d878cc4-afc3-41dd-a7ed-a0bcc3e16be4.png",
-      "sourceSha256": "3890cd09d702ef9a72a5ba1b56fbaab1a97e69ca2be2786cc797123cdf5d94e5",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
-        "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e"
-      }],
-      "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
-    },
-    {
-      "id": "peter-encouraging-right-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-49ce316c-f943-40c3-9891-ac93cabddbaf.png",
-      "sourceSha256": "bbe28f48018ad74ebca6495520f1374ec00ca3654d55b55fd87748387927f10a",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
-        "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e"
-      }],
-      "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
-    },
-    {
-      "id": "peter-thoughtful-left-three-quarter-halfbody-v001",
-      "source": "/Users/heru/.codex/generated_images/019f632f-8dc5-7240-bb93-1867b491d683/exec-3942d014-b952-47ff-8a92-45b5d0fad22a.png",
-      "sourceSha256": "c445d473a34e56256622c8bffe401346739a318dbb561d7e51429f742c90413e",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
-        "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a"
-      }],
-      "status": "clean-alpha-review-preview; thoughtful gesture maps to the neutral performance cell; owner-approval-required-before-story-runtime"
+      "status": "not-runtime-bound; release-blocked-pending-owner-likeness-and-cast-scale-approval"
     },
     {
       "id": "protagonist-quality-2",
@@ -371,45 +162,12 @@
       "source": "/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp",
       "provenance": "owner-approved-existing-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["access:campus-ensemble"],
+      "runtimeHome": ["access:home"],
       "deliveries": [{
         "path": "/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
         "sha256": "8d7907e4a05a8e5b915883ac6bb5a52e738eaf6fd17af858b498493974195ff9"
       }],
-      "responsivePresentation": {
-        "mobile": {
-          "strategy": "art-directed-crop",
-          "sourceVariant": "wide",
-          "objectPosition": "72% center",
-          "purpose": "Keep the five classmates in frame so the class is the first-viewport signal on the access gate."
-        }
-      },
-      "status": "restored-owner-preferred-class-ensemble-entrance; approved single-source mobile art direction; bound-to-access-route"
-    },
-    {
-      "id": "home-morning-desk-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/home-morning-desk.jpg",
-      "sourceSha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:home", "lesson:l2-l03"],
-      "recoveryArchive": {
-        "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/home-morning-desk.jpg",
-        "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
-      },
-      "deliveries": [{
-        "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
-        "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
-      }],
-      "responsivePresentation": {
-        "mobile": {
-          "strategy": "art-directed-crop",
-          "sourceVariant": "wide",
-          "objectPosition": "62% center",
-          "purpose": "Keep the clock, notebook, phone, and morning drink legible for Lesson 28 routine recall."
-        }
-      },
-      "status": "manifest-hash-verified; no-cast-likeness; approved single-source mobile art direction; bound-to-world-and-lesson-routes; access entrance restored to campus-home-ensemble-spring"
+      "status": "bound; responsive focal-crop review pending"
     },
     {
       "id": "campus-entrance-blue-hour-arrival",
@@ -424,100 +182,11 @@
       "status": "bound-and-responsive-reviewed"
     },
     {
-      "id": "bloomsbury-street-day-route",
-      "source": "donor-a:codex-production-v1/backgrounds/bloomsbury-street__day-route",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:street", "activity:rainy-directions"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp", "sha256": "b5ed1510766f1ed1a0b01529db228b6bcf855f4f2fec2e9b74ae6df613664dd6"},
-        {"path": "/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp", "sha256": "18705904e2e3ef46295ded7960bdb6739e3b2970b5616679f3df6ec4e984dd72"}
-      ],
-      "status": "recovered-manifest-hash-verified-and-bound-to-open-rainy-directions-route"
-    },
-    {
-      "id": "railway-station-day-commute",
-      "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:station", "activity:station-announcements", "lesson:l2-l02", "lesson:l2-l05", "lesson:l2-l10", "lesson:l2-l11"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp", "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"},
-        {"path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp", "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"}
-      ],
-      "status": "recovered-manifest-hash-verified-and-bound-to-open-station-route"
-    },
-    {
-      "id": "tube-platform-blue-hour-rain",
-      "source": "donor-a:codex-production-v1/backgrounds/tube-platform__blue-hour-rain",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:station-platform", "activity:station-platform-transfer"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp", "sha256": "08fb7f255467425eea6606a4676a070ca4a9356af403cf839ee750fc730983f5"},
-        {"path": "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp", "sha256": "4838e50466da14cf55c9e3c08f98739f7c945a6332d5cb648718a0c830079eef"}
-      ],
-      "status": "recovered-manifest-hash-verified-and-bound-to-open-station-platform-transfer-route"
-    },
-    {
-      "id": "ramen-evening-steam",
-      "source": "donor-a:codex-production-v1/backgrounds/ramen__evening-steam",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:ramen", "activity:ramen-ordering", "lesson:l2-l07"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/ramen__evening-steam--wide.webp", "sha256": "837cfa0c472fae122f660af6cc72952b164fe4d40169e171a99d7ed08d9a3833"},
-        {"path": "/academy/art/locations/mobile/ramen__evening-steam--mobile.webp", "sha256": "70dbcbd9c45701821d6836c55b4a80c3d362c0c33eaea31e7334315081c41725"}
-      ],
-      "status": "recovered-manifest-hash-verified; no-cast-likeness; bound-to-open-ramen-ordering-route"
-    },
-    {
-      "id": "park-day-overcast",
-      "source": "donor-a:codex-production-v1/backgrounds/park__day-overcast",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:park", "activity:park-weather-sketchbook", "lesson:l2-l08"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/park__day-overcast--wide.webp", "sha256": "08497720548dd98c872f6787aada425b4c511395a0d0123da00fecb1027abb9f"},
-        {"path": "/academy/art/locations/mobile/park__day-overcast--mobile.webp", "sha256": "416f6016001be41c59e9f111b5de90b56609b8d03968ee09d94dd27e4669ed53"}
-      ],
-      "status": "recovered-manifest-hash-verified; no-cast-likeness; bound-to-open-park-weather-sketchbook"
-    },
-    {
-      "id": "konbini-rain-evening-checkout",
-      "source": "openai-image-generation:019f62fa-ae33-78b1-98a9-860c40411b06",
-      "provenance": "direct-openai-image-generation-responsive-pair",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:konbini", "activity:counter-shopping"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp", "sha256": "0ea3ba199e2144bfaa8cde1db68640f7ba4395363cbf79f400461c9b9b3ba2e4"},
-        {"path": "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp", "sha256": "4085dce6e04e749fbfdc2fa82a0ceec1d2afa4e625fdbf02f71a86adfebad9ae"}
-      ],
-      "status": "purpose-composed-wide-and-phone-plates; responsive-world-reviewed"
-    },
-    {
-      "id": "japan-centre-rain-evening-gifts-v001",
-      "source": "approved-local:public/academy/art/items/japan-centre-omiyage-tag__v001.png",
-      "sourceSha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd",
-      "sourceArtifacts": [
-        {"variant": "wide", "path": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-4994d99a-c4c5-4e0c-be82-81eb2bc6a2cb.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
-        {"variant": "mobile", "path": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-efe1ace7-c154-4211-b6e0-881e3434018b.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
-      ],
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:japan-centre", "activity:gift-counter"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
-        {"path": "/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
-      ],
-      "status": "purpose-composed-wide-and-phone-plates; no-cast-likeness; no people, hands, brands, or readable copy; bound-to-japan-centre-gift-counter"
-    },
-    {
       "id": "classroom-evening-lamplit",
       "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"],
+      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"},
         {"path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp", "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"}
@@ -529,7 +198,7 @@
       "source": "donor-a:codex-production-v1/backgrounds/library__rain-evening",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:library", "review:due-queue", "lesson:l2-l06"],
+      "runtimeHome": ["location:library", "review:due-queue"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/library__rain-evening--wide.webp", "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"},
         {"path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp", "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"}
@@ -537,23 +206,11 @@
       "status": "bound-and-responsive-reviewed"
     },
     {
-      "id": "bookshop-rain-evening-shelves",
-      "source": "direct-openai-image-generation:bookshop-rain-evening-shelves",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["location:bookshop", "activity:bookshop-catalogue"],
-      "deliveries": [
-        {"path": "/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp", "sha256": "bb0029f3f6b3c06c8af867ca4ceb77698628d9710316099c0df79e60a4eaea2e"},
-        {"path": "/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp", "sha256": "446dbddaac1bef713bed2fadf1d9e843b7492d3fd680d74be3f456b297dbf588"}
-      ],
-      "status": "purpose-composed-wide-and-phone-plates; bound-to-bookshop-catalogue"
-    },
-    {
       "id": "cafe-night-rain",
       "source": "donor-a:codex-production-v1/backgrounds/cafe__night-rain",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:cafe", "lesson:l2-l13"],
+      "runtimeHome": ["location:cafe"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/cafe__night-rain--wide.webp", "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"},
         {"path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp", "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"}
@@ -565,7 +222,7 @@
       "source": "donor-a:codex-production-v1/backgrounds/japan-office__evening-close",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime-adaptation",
-      "runtimeHome": ["location:language-lab", "activity:listening-shadowing", "lesson:l2-l09", "lesson:l2-l14"],
+      "runtimeHome": ["location:language-lab", "activity:listening-shadowing"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp", "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"},
         {"path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp", "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"}
@@ -577,7 +234,7 @@
       "source": "donor-a:codex-production-v1/backgrounds/student-room__rain-night",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime-adaptation",
-      "runtimeHome": ["location:writing-studio", "activity:kanji-doodle", "lesson:l2-l12"],
+      "runtimeHome": ["location:writing-studio", "activity:kanji-doodle"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp", "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"},
         {"path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp", "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"}
@@ -595,137 +252,6 @@
         "sha256": "efac4f699510441bc8d33e00cf5d3ea346276c25b09469ab682f9b4e13ec9872"
       }],
       "status": "approved-calibration-cg; bound-to-rainy-scene-unlock-and-memory"
-    },
-    {
-      "id": "station-ticket-memory-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/mobile/travel-ticket-memory.jpg",
-      "sourceSha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:station:platform-ticket"],
-      "deliveries": [{
-        "path": "/academy/art/items/station-ticket-memory__v001.jpg",
-        "sha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663"
-      }],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-station-reward"
-    },
-    {
-      "id": "konbini-shopping-list-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/handwriting-food-backplate.jpg",
-      "sourceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:konbini:shopping-receipt"],
-      "deliveries": [{
-        "path": "/academy/art/items/konbini-shopping-list__v001.jpg",
-        "sha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8"
-      }],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-konbini-counter-reward"
-    },
-    {
-      "id": "ramen-quantity-board-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/kanji-size-quantity-mnemonic.jpg",
-      "sourceSha256": "bfef798562d0797c182a2ff714b3e2e19a403990b4f062704d85eda14a97b57c",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:ramen:order-ticket"],
-      "deliveries": [{
-        "path": "/academy/art/items/ramen-quantity-board__v001.jpg",
-        "sha256": "bfef798562d0797c182a2ff714b3e2e19a403990b4f062704d85eda14a97b57c"
-      }],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-ramen-ordering-reward"
-    },
-    {
-      "id": "classroom-belongings-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/classroom-belongings.jpg",
-      "sourceSha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:classroom:board-note"],
-      "deliveries": [{
-        "path": "/academy/art/items/classroom-belongings__v001.jpg",
-        "sha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75"
-      }],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-classroom-note-reward"
-    },
-    {
-      "id": "library-photo-album-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/class-keepsake-photo-album.jpg",
-      "sourceSha256": "874c636fb65975cfd790eabca70c4e0571769da44ac40a988d60d6ee6f9ee457",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:library:review-bookmark"],
-      "deliveries": [{
-        "path": "/academy/art/items/library-photo-album__v001.jpg",
-        "sha256": "874c636fb65975cfd790eabca70c4e0571769da44ac40a988d60d6ee6f9ee457"
-      }],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-library-review-reward"
-    },
-    {
-      "id": "street-direction-map-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/direction-map-tabletop.jpg",
-      "sourceSha256": "216a75b37dd745fde640d3821433ee4c460efc7b0a13da5d498f2246bc4b97d1",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "reward:street:directions-map"
-      ],
-      "recoveryArchive": {
-        "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/direction-map-tabletop.jpg",
-        "sha256": "216a75b37dd745fde640d3821433ee4c460efc7b0a13da5d498f2246bc4b97d1"
-      },
-      "deliveries": [
-        {
-          "path": "/academy/art/items/street-direction-map__v001.jpg",
-          "sha256": "216a75b37dd745fde640d3821433ee4c460efc7b0a13da5d498f2246bc4b97d1"
-        }
-      ],
-      "status": "manifest-hash-verified; no-cast-likeness; bound-to-open-street-directions-reward"
-    },
-    {
-      "id": "japan-centre-omiyage-tag-v001",
-      "source": "/Users/heru/.codex/generated_images/019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-458f45ca-fa3a-4787-b2d7-69585d29bf1e.png",
-      "sourceSha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd",
-      "reference": "donor-a:codex-production-v1/lesson-assets/wide/handwriting-food-backplate.jpg",
-      "referenceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:japan-centre:omiyage-tag"],
-      "deliveries": [{
-        "path": "/academy/art/items/japan-centre-omiyage-tag__v001.png",
-        "sha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd"
-      }],
-      "status": "approved-no-likeness-prop; no-cast-likeness; no people, hands, brands, or readable copy; bound-to-japan-centre-counter-reward"
-    },
-    {
-      "id": "cafe-order-scene-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/food-cafe-order.jpg",
-      "sourceSha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["reward:cafe:inspectable-order-scene"],
-      "recoveryArchive": {
-        "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/food-cafe-order.jpg",
-        "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
-      },
-      "deliveries": [{
-        "path": "/academy/art/items/cafe-order-scene__v001.jpg",
-        "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
-      }],
-      "status": "manifest-hash-verified original generation; owner-directed exact cafe order-scene inspector; unnamed non-cast figures do not authorize character likeness reuse"
-    },
-    {
-      "id": "mission-ticket-letter-v001",
-      "source": "donor-a:codex-production-v1/lesson-assets/wide/mission-ticket-letter.jpg",
-      "sourceSha256": "f2c1348655e3145eb8e2722ce0a9708330adf1b6124831ecee4dbc9d0e62a795",
-      "provenance": "direct-openai-image-generation-manifest-recovered",
-      "verdict": "review-candidate/recovery-only",
-      "runtimeHome": [],
-      "recoveryArchive": {
-        "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/mission-ticket-letter.jpg",
-        "sha256": "f2c1348655e3145eb8e2722ce0a9708330adf1b6124831ecee4dbc9d0e62a795"
-      },
-      "status": "manifest-hash-verified-purposeful-vn-candidate; not-runtime-bound; release-blocked-pending-human-visual-rights-and-runtime-owner-signoff"
     },
     {
       "id": "calibration-campus-ensemble",

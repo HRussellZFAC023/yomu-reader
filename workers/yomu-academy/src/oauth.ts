@@ -1,8 +1,7 @@
 import { fromBase64Url, hmacSha256Hex, randomToken, sha256Base64Url, timingSafeEqual } from './crypto';
 import type { Clock, Env } from './env';
-import { clearHostCookie, hostCookie, HttpError, readBoundedText } from './http';
+import { clearHostCookie, hostCookie, HttpError } from './http';
 import { linkGoogleSubject } from './accounts';
-import { clientSubject, enforceRateLimit, OAUTH_RATE } from './rate-limit';
 import { activeSession } from './sessions';
 
 const AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -46,20 +45,14 @@ export async function handleGoogleStart(request: Request, env: Env, clock: Clock
         throw new HttpError(403, 'Google sign-in must begin inside Academy.');
     }
     const now = clock();
-    await enforceRateLimit(env, await clientSubject(request, env), OAUTH_RATE, now);
     const session = await activeSession(request, env, now);
-    if (!session) throw new HttpError(401, 'Start account recovery or enter an Academy code first.');
+    if (!session) throw new HttpError(401, 'Enter a class code before creating an account.');
     assertGoogleConfig(env);
 
     const flow: FlowCookie = { state: randomToken(32), nonce: randomToken(32), verifier: randomToken(48) };
-    await env.ACADEMY_DB.batch([
-        env.ACADEMY_DB.prepare(
-            'DELETE FROM oauth_flows WHERE expires_at <= ?1 OR (consumed_at IS NOT NULL AND consumed_at <= ?2)',
-        ).bind(now, now - FLOW_TTL_MS),
-        env.ACADEMY_DB.prepare(
-            'INSERT INTO oauth_flows (state_hash, session_public_id, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)',
-        ).bind(await flowStateHash(env, flow.state), session.public_id, now, now + FLOW_TTL_MS),
-    ]);
+    await env.ACADEMY_DB.prepare(
+        'INSERT INTO oauth_flows (state_hash, session_public_id, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)',
+    ).bind(await flowStateHash(env, flow.state), session.public_id, now, now + FLOW_TTL_MS).run();
 
     const callback = callbackUrl(env);
     const url = new URL(AUTHORIZATION_ENDPOINT);
@@ -67,7 +60,7 @@ export async function handleGoogleStart(request: Request, env: Env, clock: Clock
         client_id: env.GOOGLE_OIDC_CLIENT_ID,
         redirect_uri: callback,
         response_type: 'code',
-        scope: 'openid',
+        scope: 'openid email',
         access_type: 'online',
         include_granted_scopes: 'false',
         state: flow.state,
@@ -85,7 +78,6 @@ export async function handleGoogleCallback(
     fetcher: Fetcher = fetch,
 ): Promise<Response> {
     const now = clock();
-    await enforceRateLimit(env, await clientSubject(request, env), OAUTH_RATE, now);
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'Your Academy session expired.');
     assertGoogleConfig(env);
@@ -107,30 +99,20 @@ export async function handleGoogleCallback(
     ).bind(now, await flowStateHash(env, flow.state), session.public_id).run();
     if ((consumed.meta.changes ?? 0) !== 1) throw new HttpError(400, 'Google sign-in state expired.');
 
-    let tokenResponse: Response;
-    try {
-        tokenResponse = await fetcher(TOKEN_ENDPOINT, {
-            method: 'POST',
-            headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
-            body: new URLSearchParams({
-                code,
-                client_id: env.GOOGLE_OIDC_CLIENT_ID,
-                client_secret: env.GOOGLE_OIDC_CLIENT_SECRET,
-                redirect_uri: callbackUrl(env),
-                grant_type: 'authorization_code',
-                code_verifier: flow.verifier,
-            }),
-        });
-    } catch {
-        throw new HttpError(502, 'Google sign-in could not be verified.');
-    }
-    let tokenText: string;
-    try {
-        tokenText = await readBoundedText(tokenResponse, 64_000);
-    } catch {
-        throw new HttpError(502, 'Google sign-in could not be verified.');
-    }
-    if (!tokenResponse.ok) throw new HttpError(502, 'Google sign-in could not be verified.');
+    const tokenResponse = await fetcher(TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+        body: new URLSearchParams({
+            code,
+            client_id: env.GOOGLE_OIDC_CLIENT_ID,
+            client_secret: env.GOOGLE_OIDC_CLIENT_SECRET,
+            redirect_uri: callbackUrl(env),
+            grant_type: 'authorization_code',
+            code_verifier: flow.verifier,
+        }),
+    });
+    const tokenText = await tokenResponse.text();
+    if (!tokenResponse.ok || tokenText.length > 64_000) throw new HttpError(502, 'Google sign-in could not be verified.');
     let tokenBody: unknown;
     try {
         tokenBody = JSON.parse(tokenText);
@@ -182,7 +164,7 @@ export async function verifyGoogleIdToken(
     if (
         !GOOGLE_ISSUERS.has(claims.iss)
         || !audience.includes(clientId)
-        || ((audience.length > 1 || claims.azp !== undefined) && claims.azp !== clientId)
+        || (audience.length > 1 && claims.azp !== clientId)
         || claims.exp <= nowSeconds
         || claims.iat > nowSeconds + 300
         || claims.iat < nowSeconds - 86_400
@@ -216,19 +198,9 @@ function isGoogleClaims(value: unknown): value is GoogleClaims {
 
 async function googleJwks(fetcher: Fetcher, now: number): Promise<GoogleJwk[]> {
     if (fetcher === fetch && cachedJwks && cachedJwks.expiresAt > now) return cachedJwks.keys;
-    let response: Response;
-    try {
-        response = await fetcher(JWKS_ENDPOINT, { headers: { accept: 'application/json' } });
-    } catch {
-        throw new HttpError(502, 'Google signing keys were unavailable.');
-    }
-    let text: string;
-    try {
-        text = await readBoundedText(response, 128_000);
-    } catch {
-        throw new HttpError(502, 'Google signing keys were unavailable.');
-    }
-    if (!response.ok) throw new HttpError(502, 'Google signing keys were unavailable.');
+    const response = await fetcher(JWKS_ENDPOINT, { headers: { accept: 'application/json' } });
+    const text = await response.text();
+    if (!response.ok || text.length > 128_000) throw new HttpError(502, 'Google signing keys were unavailable.');
     let body: unknown;
     try {
         body = JSON.parse(text);

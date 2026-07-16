@@ -2,49 +2,18 @@ import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { installKanjiDoodle, type DoodleStroke } from '../../reader/kanji/doodle';
 import { assessKanjiStrokes, type KanjiStrokeAssessment } from '../../reader/kanji/stroke-grader';
 import type { KanjiVGStrokeShape } from '../../reader/kanji/vg';
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityModel,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
+import type {
+    ActivityController,
+    ActivityEvaluation,
+    ActivityHost,
+    ActivityModel,
+    ActivityPlugin,
+    GradeResult,
+    ReviewSeed,
+    ValidationIssue,
 } from '../domain/activity-runtime';
 import type { KanjiWritingModel } from '../integration/yomu-bridge';
 import { element, localizedElement } from '../ui/dom';
-
-type Localized = { readonly en: string; readonly ja: string };
-
-export interface KanjiWritingActivityConfig {
-    readonly id: string;
-    readonly conceptId: string;
-    readonly prompt: Localized;
-    readonly reading: string;
-    readonly meaning: Localized;
-    readonly strokeInstruction: Localized;
-    readonly readingPrompt: Localized;
-    readonly writingFeedback: Readonly<{
-        pass: Localized;
-        lapse: Localized;
-        repair: Localized;
-        example: Localized;
-    }>;
-    readonly readingFeedback: Readonly<{
-        pass: Localized;
-        lapse: Localized;
-        repair: Localized;
-        example: Localized;
-    }>;
-    readonly review: Readonly<{
-        id: string;
-        expression: string;
-        reading: string;
-        meanings: readonly string[];
-    }>;
-}
 
 export interface KanjiWritingActivityModel extends ActivityModel {
     readonly kind: 'kanji-writing';
@@ -54,11 +23,6 @@ export interface KanjiWritingActivityModel extends ActivityModel {
         readonly language: AcademyLanguage;
         readonly reading: string;
         readonly meaning: { readonly en: string; readonly ja: string };
-        readonly strokeInstruction: Localized;
-        readonly readingPrompt: Localized;
-        readonly writingFeedback: KanjiWritingActivityConfig['writingFeedback'];
-        readonly readingFeedback: KanjiWritingActivityConfig['readingFeedback'];
-        readonly review: KanjiWritingActivityConfig['review'];
     };
 }
 
@@ -76,61 +40,20 @@ export interface KanjiReadingRecallResponse {
 export type KanjiWritingResponse = KanjiDoodleWritingResponse | KanjiReadingRecallResponse;
 
 export function createOpeningKanjiActivity(trace: KanjiWritingModel, language: AcademyLanguage = 'en'): KanjiWritingActivityModel {
-    return createKanjiWritingActivity(trace, {
+    return {
         id: 'activity:lesson-zero-kanji-one',
-        conceptId: 'concept:kanji-one',
+        kind: 'kanji-writing',
+        responseKind: 'doodle-then-reading',
+        conceptIds: ['concept:kanji-one'],
         prompt: {
             en: 'Write 一, then enter its reading.',
             ja: '「一」を書いてから、読み方を入力してください。',
         },
-        reading: 'いち',
-        meaning: { en: 'one', ja: 'ひとつ' },
-        strokeInstruction: { en: 'Write the character as one stroke from left to right.', ja: '左から右へ、一画で書いてください。' },
-        readingPrompt: { en: 'How do you read 一?', ja: '「一」はどう読みますか。' },
-        writingFeedback: {
-            pass: { en: 'One clean stroke, left to right.', ja: '左から右へ、きれいな一画です。' },
-            lapse: { en: 'Check the stroke count, shape, and direction.', ja: '画数・形・書く方向をもう一度確認しましょう。' },
-            repair: { en: 'Clear the desk, then draw one long line from left to right.', ja: '消してから、左から右へ長い線を一本書いてください。' },
-            example: { en: 'The KanjiVG ghost shows the exact path and direction.', ja: 'KanjiVGの見本で、線の形と方向を確認できます。' },
-        },
-        readingFeedback: {
-            pass: { en: 'Yes: 一 is read いち here.', ja: 'はい。「一」はここでは「いち」と読みます。' },
-            lapse: { en: 'That reading does not match this character yet.', ja: 'その読み方は、まだこの漢字と合っていません。' },
-            repair: { en: 'Say the cue once, then type it in hiragana.', ja: '最初の手がかりを一度声に出してから、ひらがなで入力してください。' },
-            example: { en: '一月 begins with いち.', ja: '「一月」は「いち」から始まります。' },
-        },
-        review: { id: 'review:kanji-one', expression: '一', reading: 'いち', meanings: ['one'] },
-    }, language);
-}
-
-export function createKanjiWritingActivity(
-    trace: KanjiWritingModel,
-    config: KanjiWritingActivityConfig,
-    language: AcademyLanguage = 'en',
-): KanjiWritingActivityModel {
-    return {
-        id: config.id,
-        kind: 'kanji-writing',
-        responseKind: 'doodle-then-reading',
-        conceptIds: [config.conceptId],
-        curriculumPhase: 'assessed-production',
-        prompt: config.prompt,
-        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
-        teachingSupport: {
-            kind: 'pattern',
-            title: { en: 'Stroke form before recall', ja: '思い出す前の字形' },
-            entries: [{ japanese: trace.character }],
-        },
         payload: {
             trace,
             language,
-            reading: config.reading,
-            meaning: config.meaning,
-            strokeInstruction: config.strokeInstruction,
-            readingPrompt: config.readingPrompt,
-            writingFeedback: config.writingFeedback,
-            readingFeedback: config.readingFeedback,
-            review: config.review,
+            reading: 'いち',
+            meaning: { en: 'one', ja: 'ひとつ' },
         },
     };
 }
@@ -142,12 +65,6 @@ export const kanjiWritingActivityPlugin: ActivityPlugin<KanjiWritingActivityMode
         if (!model.payload?.trace?.svg) issues.push({ path: 'payload.trace.svg', message: 'A KanjiVG trace is required.' });
         if (model.payload?.trace?.strokeCount < 1) issues.push({ path: 'payload.trace.strokeCount', message: 'A stroke count is required.' });
         if (!model.payload?.reading?.trim()) issues.push({ path: 'payload.reading', message: 'A target reading is required.' });
-        if (!model.payload?.strokeInstruction?.en?.trim() || !model.payload?.strokeInstruction?.ja?.trim()) {
-            issues.push({ path: 'payload.strokeInstruction', message: 'Bilingual stroke guidance is required.' });
-        }
-        if (!model.payload?.review?.id?.trim() || !model.payload?.review?.meanings?.length) {
-            issues.push({ path: 'payload.review', message: 'A reusable review target is required.' });
-        }
         return issues;
     },
     render(model, host, submit) {
@@ -155,12 +72,12 @@ export const kanjiWritingActivityPlugin: ActivityPlugin<KanjiWritingActivityMode
     },
     grade(model, response) {
         const parsed = parseKanjiWritingResponse(response);
-        if (parsed.phase === 'writing') return gradeWriting(model, parsed.assessment);
+        if (parsed.phase === 'writing') return gradeWriting(parsed.assessment);
         return gradeReading(model, parsed.reading);
     },
     toReviewSeeds(model, result) {
         if (result.outcome !== 'pass' || !result.errorTags.includes('kanji-writing-complete')) return [];
-        return [kanjiReviewSeed(model)];
+        return [openingKanjiReviewSeed(model)];
     },
 };
 
@@ -177,7 +94,10 @@ function renderKanjiWritingActivity(
     const cue = element('h2', 'academy-kanji-cue');
     cue.textContent = language === 'ja' ? model.payload.meaning.ja : model.payload.meaning.en;
     cue.dataset.jpdbReaderSurfaceIgnore = '';
-    const writingPrompt = localizedElement('p', 'academy-kanji-writing-instruction', language, model.payload.strokeInstruction);
+    const writingPrompt = localizedElement('p', 'academy-kanji-writing-instruction', language, {
+        en: 'Write the character as one stroke from left to right.',
+        ja: '左から右へ、一画で書いてください。',
+    });
     const practice = renderDoodleShell(model, language);
     const writingStatus = practice.querySelector<HTMLElement>('[data-newtab-doodle-result]')!;
     const continueToReading = localizedElement('button', 'academy-button academy-button-primary academy-kanji-next', language, {
@@ -190,7 +110,10 @@ function renderKanjiWritingActivity(
 
     const recall = element('form', 'academy-kanji-recall');
     recall.hidden = true;
-    const recallPrompt = localizedElement('h2', '', language, model.payload.readingPrompt);
+    const recallPrompt = localizedElement('h2', '', language, {
+        en: 'How do you read 一?',
+        ja: '「一」はどう読みますか。',
+    });
     const character = element('div', 'academy-kanji-recall-character');
     character.lang = 'ja';
     character.textContent = model.payload.trace.character;
@@ -200,9 +123,7 @@ function renderKanjiWritingActivity(
     readingInput.type = 'text';
     readingInput.autocomplete = 'off';
     readingInput.inputMode = 'text';
-    readingInput.setAttribute('aria-label', language === 'ja'
-        ? `「${model.payload.trace.character}」の読み方`
-        : `Reading of ${model.payload.trace.character}`);
+    readingInput.setAttribute('aria-label', language === 'ja' ? '「一」の読み方' : 'Reading of 一');
     readingLabel.append(readingInput);
     const readingSubmit = localizedElement('button', 'academy-button academy-button-primary', language, { en: 'Check reading', ja: '読み方を確認' });
     readingSubmit.type = 'submit';
@@ -291,15 +212,11 @@ function renderDoodleShell(model: KanjiWritingActivityModel, language: AcademyLa
     ghost.innerHTML = model.payload.trace.svg;
     const canvas = element('canvas', 'jpdb-reader-doodle-canvas');
     canvas.tabIndex = 0;
-    canvas.setAttribute('aria-label', language === 'ja'
-        ? `「${model.payload.trace.character}」を書くキャンバス`
-        : `Canvas for writing ${model.payload.trace.character}`);
+    canvas.setAttribute('aria-label', language === 'ja' ? '「一」を書くキャンバス' : 'Canvas for writing 一');
     stage.append(ghost, canvas);
     const tools = element('div', 'jpdb-reader-doodle-tools');
     const help = element('span', 'jpdb-reader-help');
-    help.textContent = language === 'ja'
-        ? `${model.payload.trace.strokeCount}画`
-        : `${model.payload.trace.strokeCount} ${model.payload.trace.strokeCount === 1 ? 'stroke' : 'strokes'}`;
+    help.textContent = language === 'ja' ? '1画・左から右' : '1 stroke · left to right';
     const trace = element('button', 'academy-button academy-button-quiet jpdb-reader-doodle-control');
     trace.type = 'button';
     trace.dataset.doodleTrace = '';
@@ -326,42 +243,39 @@ function assessWriting(trace: KanjiWritingModel, strokes: DoodleStroke[]): Kanji
     );
 }
 
-function gradeWriting(model: KanjiWritingActivityModel, assessment: KanjiStrokeAssessment): GradeResult {
-    const feedback = model.payload.writingFeedback;
+function gradeWriting(assessment: KanjiStrokeAssessment): GradeResult {
     return assessment.passed ? {
         outcome: 'pass',
         score: assessment.score / 100,
         errorTags: ['kanji-writing-complete', 'kanji-writing-doodle'],
-        feedback: { explanation: feedback.pass },
+        feedback: { explanation: { en: 'One clean stroke, left to right.', ja: '左から右へ、きれいな一画です。' } },
     } : {
         outcome: 'lapse',
         score: assessment.score / 100,
         errorTags: [assessment.actualStrokes === assessment.expectedStrokes ? 'stroke-shape-or-direction' : 'stroke-count'],
         feedback: {
-            explanation: { en: assessment.message || feedback.lapse.en, ja: feedback.lapse.ja },
-            repairPrompt: feedback.repair,
-            nearbyExample: feedback.example,
+            explanation: { en: assessment.message, ja: '画数・形・書く方向をもう一度確認しましょう。' },
+            repairPrompt: { en: 'Clear the desk, then draw one long line from left to right.', ja: '消してから、左から右へ長い線を一本書いてください。' },
+            nearbyExample: { en: 'The KanjiVG ghost shows the exact path and direction.', ja: 'KanjiVGの見本で、線の形と方向を確認できます。' },
         },
     };
 }
 
 function gradeReading(model: KanjiWritingActivityModel, reading: string): GradeResult {
-    const normalized = normalizeReading(reading);
-    const expected = normalizeReading(model.payload.reading);
-    const feedback = model.payload.readingFeedback;
-    return normalized === expected ? {
+    const normalized = reading.trim().normalize('NFKC').replaceAll('イチ', 'いち');
+    return normalized === model.payload.reading ? {
         outcome: 'pass',
         score: 1,
         errorTags: ['kanji-reading-recalled'],
-        feedback: { explanation: feedback.pass },
+        feedback: { explanation: { en: 'Yes: 一 is read いち here.', ja: 'はい。「一」はここでは「いち」と読みます。' } },
     } : {
         outcome: 'lapse',
         score: 0,
         errorTags: ['kanji-reading-recall'],
         feedback: {
-            explanation: feedback.lapse,
-            repairPrompt: feedback.repair,
-            nearbyExample: feedback.example,
+            explanation: { en: 'That reading does not match this character yet.', ja: 'その読み方は、まだこの漢字と合っていません。' },
+            repairPrompt: { en: 'Say the cue once, then type it in hiragana.', ja: '最初の手がかりを一度声に出してから、ひらがなで入力してください。' },
+            nearbyExample: { en: '一月 begins with いち.', ja: '「一月」は「いち」から始まります。' },
         },
     };
 }
@@ -418,22 +332,17 @@ function finiteNumber(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value);
 }
 
-function kanjiReviewSeed(model: KanjiWritingActivityModel): ReviewSeed {
+function openingKanjiReviewSeed(model: KanjiWritingActivityModel): ReviewSeed {
     return {
-        id: model.payload.review.id,
-        conceptId: model.conceptIds[0],
+        id: 'review:kanji-one',
+        conceptId: 'concept:kanji-one',
         reason: 'new-learning',
         content: {
-            expression: model.payload.review.expression,
-            reading: model.payload.review.reading,
-            meanings: [...model.payload.review.meanings],
+            expression: model.payload.trace.character,
+            reading: model.payload.reading,
+            meanings: [model.payload.meaning.en],
         },
     };
-}
-
-function normalizeReading(value: string): string {
-    return value.trim().normalize('NFKC').replace(/[ァ-ヶ]/gu, character =>
-        String.fromCodePoint(character.codePointAt(0)! - 0x60));
 }
 
 function localizedFeedback(evaluation: ActivityEvaluation, language: AcademyLanguage): string {

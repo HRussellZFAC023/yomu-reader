@@ -1,7 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
-import { serializeStoryCursor } from '../../src/academy/content/story-runner';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
 import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
@@ -21,10 +19,7 @@ function shell(): AcademyShell & { current?: HTMLElement } {
     return value;
 }
 
-function checkpoint(
-    lessonId = 'lesson:foundation-00',
-    update: Partial<AcademyCheckpoint> = {},
-): AcademyCheckpoint {
+function checkpoint(lessonId = 'lesson:foundation-00'): AcademyCheckpoint {
     return {
         schemaVersion: 2,
         route: 'lesson-overview',
@@ -32,22 +27,17 @@ function checkpoint(
         presentationMode: 'course',
         lessonId,
         updatedAt: 1,
-        ...update,
     };
 }
 
-function context(
-    lessonId?: string,
-    update: Partial<AcademyCheckpoint> = {},
-    projection = projectLearnerRecord([]),
-) {
+function context(lessonId?: string) {
     const appShell = shell();
     const go = vi.fn(async () => undefined);
     const back = vi.fn(async () => undefined);
     const value: AcademyRouteContext = {
         language: 'en',
-        checkpoint: checkpoint(lessonId, update),
-        projection,
+        checkpoint: checkpoint(lessonId),
+        projection: projectLearnerRecord([]),
         shell: appShell,
         go,
         back,
@@ -55,47 +45,23 @@ function context(
     return { value, shell: appShell, go, back };
 }
 
-async function completeSpeakingFork(route: ReturnType<typeof context>): Promise<void> {
-    const flow = createLessonFlow({
-        evidence: {
-            recordActivity: vi.fn(async () => undefined),
-            recordSupportUse: vi.fn(async () => undefined),
-        } as never,
-        pronunciation: {} as never,
-        kanjiWriting: {} as never,
-    });
-    await flow.render('source-activity', route.value);
-    route.shell.current?.querySelector<HTMLButtonElement>('.academy-fork-prelude .academy-button-secondary')?.click();
-    route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="repeat"]')?.click();
-    await vi.waitFor(() => expect(
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-source-completion .academy-button-primary'),
-    ).not.toBeNull());
-    route.shell.current?.querySelector<HTMLButtonElement>('.academy-source-completion .academy-button-primary')?.click();
-}
-
 describe('Academy lesson flow', () => {
     beforeEach(() => {
-        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
-            const requestPath = String(value);
-            const sourcePath = requestPath.includes('/vertical-slice/')
-                ? path.resolve('public/academy/content/vertical-slice', requestPath.split('/').at(-1) ?? '')
-                : LESSON_PATH;
-            return new Response(fs.readFileSync(sourcePath), {
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-            });
-        }));
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(fs.readFileSync(LESSON_PATH), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        })));
     });
 
     afterEach(() => { vi.unstubAllGlobals(); });
 
-    it('renders the complete Lesson 0 overview with its trusted-source activity available', async () => {
+    it('renders the complete Lesson 0 overview without exposing blocked activity controls', async () => {
         const route = context();
         await expect(createLessonFlow().render('lesson-overview', route.value)).resolves.toBe(true);
 
         expect(route.shell.current?.dataset.academyScreen).toBe('lesson-overview');
         expect(route.shell.current?.querySelectorAll('.academy-lesson-overview-section')).toHaveLength(9);
-        expect(route.shell.current?.querySelector('.academy-lesson-overview-section-action')).not.toBeNull();
+        expect(route.shell.current?.querySelector('.academy-lesson-overview-section-action')).toBeNull();
         expect(route.shell.current?.textContent).not.toContain('blocker:');
     });
 
@@ -106,129 +72,11 @@ describe('Academy lesson flow', () => {
         expect(route.back).toHaveBeenCalledOnce();
     });
 
-    it('wires the Lesson 0 VN Back action to persisted route history', async () => {
-        const route = context('lesson:foundation-00', {
-            route: 'source-activity',
-            selectedFork: 'text',
-            activityId: 'activity:lesson-zero-reconstruct-repair',
-        });
-        const flow = createLessonFlow({
-            evidence: { recordActivity: vi.fn(), recordSupportUse: vi.fn() } as never,
-            pronunciation: {} as never,
-            kanjiWriting: {} as never,
-        });
-
-        await flow.render('source-activity', route.value);
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-vn-back')?.click();
-
-        expect(route.back).toHaveBeenCalledOnce();
-    });
-
-    it('clears pending lesson state when first completion continues to Aakash', async () => {
-        const route = context('lesson:foundation-00', {
-            route: 'source-activity',
-            selectedFork: 'speaking',
-            activityId: 'activity:lesson-zero-first-repair-speaking',
-        });
-
-        await completeSpeakingFork(route);
-
-        expect(route.go).toHaveBeenCalledWith('aakash-meet', {
-            lessonId: undefined,
-            sectionId: undefined,
-            activityId: undefined,
-        });
-    });
-
-    it('clears pending lesson state when a returning learner goes to campus', async () => {
-        const projection = projectLearnerRecord([{
-            schemaVersion: 1,
-            kind: 'scene-completed',
-            eventId: 'test:aakash-complete',
-            at: 1,
-            sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
-        }]);
-        const route = context('lesson:foundation-00', {
-            route: 'source-activity',
-            selectedFork: 'speaking',
-            activityId: 'activity:lesson-zero-first-repair-speaking',
-        }, projection);
-
-        await completeSpeakingFork(route);
-
-        expect(route.go).toHaveBeenCalledWith('campus', {
-            lessonId: undefined,
-            sectionId: undefined,
-            activityId: undefined,
-        });
-    });
-
-    it('preserves a story cursor while clearing pending lesson state', async () => {
-        const sectionId = serializeStoryCursor({
-            version: 1,
-            arcId: 'opening',
-            sceneId: 'scene:opening',
-            nodeId: 'activity:lesson-zero',
-            choices: {},
-            storyOnlyActivityIds: [],
-        });
-        const route = context('lesson:foundation-00', {
-            route: 'source-activity',
-            selectedFork: 'speaking',
-            sectionId,
-            activityId: 'activity:lesson-zero-first-repair-speaking',
-        });
-
-        await completeSpeakingFork(route);
-
-        expect(route.go).toHaveBeenCalledWith('story', {
-            sectionId,
-            lessonId: undefined,
-            activityId: undefined,
-        });
-    });
-
     it('returns an unknown lesson id to Class instead of showing generic content', async () => {
         const route = context('lesson:unknown');
         await createLessonFlow().render('lesson-overview', route.value);
         expect(route.back).toHaveBeenCalledOnce();
         expect(route.go).not.toHaveBeenCalled();
-    });
-
-    it('shows the Sensei sheet and seeds it before mounting an authored lesson activity screen', async () => {
-        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
-            const requestPath = String(value);
-            const sourcePath = requestPath.endsWith('002-l1-l01.json')
-                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
-                : requestPath.endsWith('class-week-cast.v1.json')
-                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
-                    : LESSON_PATH;
-            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
-        }));
-        const route = context('authored-week:l1-l01');
-        const seedVocabularyPrerequisite = vi.fn(async () => undefined);
-        const flow = createLessonFlow({
-            evidence: {
-                seedVocabularyPrerequisite,
-                recordActivity: vi.fn(async () => undefined),
-                recordSupportUse: vi.fn(async () => undefined),
-                recordEncounter: vi.fn(async () => undefined),
-            } as never,
-            pronunciation: {} as never,
-            kanjiWriting: {} as never,
-        });
-
-        await flow.render('lesson-overview', route.value);
-        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-vocabulary-prerequisite');
-        expect(route.shell.current?.dataset.sourceStatus).toBe('exact-source');
-        expect(seedVocabularyPrerequisite).not.toHaveBeenCalled();
-
-        route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
-        await vi.waitFor(() => expect(seedVocabularyPrerequisite).toHaveBeenCalledWith(
-            'authored-week:l1-l01',
-            expect.arrayContaining([expect.objectContaining({ sourceQuestionId: expect.stringMatching(/^moodle-vocabulary:/u) })]),
-        ));
-        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
     });
 
     it('does not claim unrelated routes', async () => {

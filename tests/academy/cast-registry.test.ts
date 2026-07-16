@@ -1,7 +1,6 @@
 import {
     ACADEMY_CAST,
     canRenderAcademyCastPortrait,
-    displayAcademyCastName,
     getAcademyCastMember,
     isAcademyCastMemberId,
     validateAcademyCastReference,
@@ -30,7 +29,6 @@ describe('Academy canonical cast registry', () => {
             ['ruparna', 'Ruparna'],
             ['rose', 'Rose'],
             ['peter', 'Peter'],
-            ['felix', 'Felix'],
             ['shaun', 'Shaun'],
             ['nanako', 'Nanako'],
             ['mira', 'Mira'],
@@ -49,7 +47,7 @@ describe('Academy canonical cast registry', () => {
         expect(new Set(ACADEMY_CAST.map(member => member.id)).size).toBe(ACADEMY_CAST.length);
         expect(new Set(ACADEMY_CAST.map(member => member.firstName)).size).toBe(ACADEMY_CAST.length);
         expect(ACADEMY_CAST.every(member => Object.keys(member).every(key =>
-            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence', 'visualBrief'].includes(key),
+            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence'].includes(key),
         ))).toBe(true);
         expect(validateAcademyCastReference({ id: 'aakash', firstName: 'Aakash' }).id).toBe('aakash');
         expect(() => validateAcademyCastReference({ id: 'aakash', firstName: 'Akash' })).toThrow('expected Aakash');
@@ -59,11 +57,6 @@ describe('Academy canonical cast registry', () => {
     });
 
     it('keeps extended members useful while withholding unapproved likenesses', () => {
-        expect(getAcademyCastMember('sophie')).toMatchObject({
-            visualEvidence: 'candidate-needs-owner',
-            eligibility: { story: true, lessons: true, likenessRuntime: false },
-        });
-        expect(canRenderAcademyCastPortrait('sophie', 'story-runtime')).toBe(false);
         expect(getAcademyCastMember('shaun')).toMatchObject({
             firstName: 'Shaun',
             category: 'classmate',
@@ -95,12 +88,5 @@ describe('Academy canonical cast registry', () => {
             ja: 'りえ先生',
         });
         expect(ACADEMY_CAST.filter(member => member.id !== 'rie').every(member => !('teacherSalutation' in member))).toBe(true);
-    });
-
-    it('uses one honorific policy for teachers and classmates', () => {
-        expect(displayAcademyCastName('rie', 'en')).toBe('Rie-sensei');
-        expect(displayAcademyCastName('rie', 'ja')).toBe('りえ先生');
-        expect(displayAcademyCastName('aakash', 'en')).toBe('Aakash-san');
-        expect(displayAcademyCastName('xingyu', 'ja')).toBe('Xingyu-san');
     });
 });

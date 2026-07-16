@@ -10,7 +10,6 @@ import {
 } from './japanese-segments';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
-import { inferredInflectedSurfaceRubies } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
@@ -368,17 +367,11 @@ export class ReaderParser {
 
     private async localTokenFromMatch(text: string, match: YomitanTermMatch, options: ReaderParserParseOptions): Promise<JPDBToken> {
         const card = this.localCardFromEntry(match.entry);
-        const reading = card.reading && card.reading !== match.surface ? card.reading : '';
+        const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : '';
         const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
         if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const rubies = reading
-            ? match.deinflected
-                ? inferredInflectedSurfaceRubies(match.surface, card.spelling, reading).map(ruby => ({
-                    ...ruby,
-                    start: match.start + ruby.start,
-                    end: match.start + ruby.end,
-                }))
-                : await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end))
+            ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end))
             : [];
         return {
             card,

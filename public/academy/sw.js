@@ -1,60 +1,4 @@
 const VERSION = 'yomu-academy-shell-__ACADEMY_REVISION__';
-const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
-const AUDIO_PRECACHE_BYTES = 378672515;
-const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
-const AUDIO_PRECACHE = [
-    '/academy/media/audio/media/audio/v1/persona/royal-days.flac',
-    '/academy/media/audio/media/audio/v1/persona/prison-labor.flac',
-    '/academy/media/audio/media/audio/v1/persona/no-more-what-ifs.flac',
-    '/academy/media/audio/media/audio/v1/persona/kichijoji-199x.flac',
-    '/academy/media/audio/media/audio/v1/persona/so-happy-world.flac',
-    '/academy/media/audio/media/audio/v1/persona/mementos-upper.flac',
-    '/academy/media/audio/media/audio/v1/persona/mementos-middle.flac',
-    '/academy/media/audio/media/audio/v1/persona/out-of-kindness.flac',
-    '/academy/media/audio/media/audio/v1/persona/i-believe.flac',
-    '/academy/media/audio/media/audio/v1/persona/ideal-and-the-real-end.flac',
-    '/academy/media/audio/media/audio/v1/persona/ideal-and-the-real.flac',
-    '/academy/media/audio/media/audio/v1/persona/no-more-what-ifs-instrumental.flac',
-    '/academy/media/audio/media/audio/v1/persona/take-over.flac',
-    '/academy/media/audio/media/audio/v1/shinday/menu-cursor-move.wav',
-    '/academy/media/audio/media/audio/v1/shinday/menu-option-select.wav',
-    '/academy/media/audio/media/audio/v1/shinday/popup-close.wav',
-    '/academy/media/audio/media/audio/v1/shinday/unavailable.wav',
-    '/academy/media/audio/media/audio/v1/shinday/menu-change.wav',
-    '/academy/media/audio/media/audio/v1/shinday/module-change-1.wav',
-    '/academy/media/audio/media/audio/v1/shinday/result-clear.wav',
-    '/academy/media/audio/media/audio/v1/shinday/result-not-clear.wav',
-    '/academy/media/audio/media/audio/v1/shinday/score-tally.wav',
-    '/academy/media/audio/media/audio/v1/shinday/module-change-2.wav',
-    '/academy/media/audio/media/audio/v1/shinday/clap.wav',
-    '/academy/media/audio/media/audio/v1/shinday/click.wav',
-    '/academy/media/audio/media/audio/v1/shinday/sonar-beeps-1.wav',
-    '/academy/media/audio/media/audio/v1/shinday/camera.wav',
-];
-const CAST_SPRITE_PRECACHE = [
-    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-    '/academy/art/ACADEMY-ASSET-REGISTRY.json',
-    '/academy/art/ASSET-USAGE.json',
-    '/academy/art/SPRITE-BATCH-MANIFEST.json',
-    '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
-    '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
-    '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/peter/peter__neutral__halfbody__v002.png',
-    '/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
-];
-
 const CORE = [
     '/yomu.user.js',
     '/yomu.css',
@@ -68,399 +12,37 @@ const CORE = [
     '/academy/app.js?v=__ACADEMY_REVISION__',
     '/academy/style.css?v=__ACADEMY_REVISION__',
     '/academy/manifest.webmanifest',
-    ...CAST_SPRITE_PRECACHE,
+    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
+    '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+    '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
     '/academy/art/protagonists/quality-2__picker__v001.png',
     '/academy/art/protagonists/quality-3__picker__v001.png',
     '/academy/art/protagonists/quality-4__picker__v001.png',
     '/academy/art/protagonists/quality-5__picker__v001.png',
-    '/academy/art/locations/wide/home-morning-desk__routine--wide.jpg',
     '/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp',
     '/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp',
     '/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp',
-    '/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp',
-    '/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp',
-    '/academy/art/locations/wide/railway-station__day-commute--wide.webp',
-    '/academy/art/locations/mobile/railway-station__day-commute--mobile.webp',
-    '/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp',
-    '/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp',
-    '/academy/art/locations/wide/ramen__evening-steam--wide.webp',
-    '/academy/art/locations/mobile/ramen__evening-steam--mobile.webp',
-    '/academy/art/locations/wide/park__day-overcast--wide.webp',
-    '/academy/art/locations/mobile/park__day-overcast--mobile.webp',
     '/academy/art/locations/wide/classroom__evening-lamplit--wide.webp',
     '/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp',
     '/academy/art/locations/wide/library__rain-evening--wide.webp',
     '/academy/art/locations/mobile/library__rain-evening--mobile.webp',
-    '/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp',
-    '/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp',
     '/academy/art/locations/wide/cafe__night-rain--wide.webp',
     '/academy/art/locations/mobile/cafe__night-rain--mobile.webp',
     '/academy/art/locations/wide/language-lab__evening-listening--wide.webp',
     '/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp',
     '/academy/art/locations/wide/writing-studio__rain-night--wide.webp',
     '/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp',
-    '/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp',
-    '/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp',
-    '/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png',
-    '/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png',
     '/academy/art/events/rainy-directions__rie-aakash__v001.png',
-    '/academy/art/items/station-ticket-memory__v001.jpg',
-    '/academy/art/items/konbini-shopping-list__v001.jpg',
-    '/academy/art/items/ramen-quantity-board__v001.jpg',
-    '/academy/art/items/classroom-belongings__v001.jpg',
-    '/academy/art/items/library-photo-album__v001.jpg',
-    '/academy/art/items/street-direction-map__v001.jpg',
-    '/academy/art/items/japan-centre-omiyage-tag__v001.png',
-    '/academy/art/items/cafe-order-scene__v001.jpg',
     '/academy/content/vertical-slice/source-library.v1.json',
     '/academy/content/vertical-slice/augmentation.v1.json',
-    '/academy/content/curriculum/class-week-cast.v1.json',
-    '/academy/content/n1-sound-discrimination/package.v1.json',
-    '/academy/content/n2-extensive-reading/package.v1.json',
-    '/academy/content/listening/listening-crosswalk.v1.json',
-    '/academy/content/listening/listening-task-bindings.v1.json',
-    '/academy/content/listening/media/academy-listening-75b031947b395f44.mp3',
-    '/academy/content/listening/media/academy-listening-b076fb0e90d9e1b2.mp3',
-    '/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3',
-    '/academy/content/listening/media/academy-listening-4f292de0dd3a5791.mp3',
-    '/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3',
-    '/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3',
-    '/academy/content/listening/media/academy-listening-596a4499996bd959.mp3',
-    '/academy/content/audio/sfx-catalog.json',
     '/academy/content/lessons/lesson-zero.v1.json',
-    '/academy/content/lessons/002-l1-l01.json',
-    '/academy/content/lessons/003-l1-l02.json',
-    '/academy/content/lessons/004-l1-l03.json',
-    '/academy/content/lessons/005-l1-l04.json',
-    '/academy/content/lessons/006-l1-l05.json',
-    '/academy/content/lessons/007-l1-l06.json',
-    '/academy/content/lessons/008-l1-l07.json',
-    '/academy/content/lessons/009-l1-l08.json',
-    '/academy/content/lessons/010-l1-l09.json',
-    '/academy/content/lessons/011-l1-l10.json',
-    '/academy/content/lessons/012-l1-l11.json',
-    '/academy/content/lessons/013-l1-l12.json',
-    '/academy/content/lessons/014-l1-l13.json',
-    '/academy/content/lessons/015-l1-l14.json',
-    '/academy/content/lessons/016-l1-l15.json',
-    '/academy/content/lessons/017-l1-l16.json',
-    '/academy/content/lessons/018-l1-l17.json',
-    '/academy/content/lessons/l1-l17/moodle-position-picture-strip.png',
-    '/academy/content/lessons/l1-l17/moodle-position-room-garden.png',
-    '/academy/content/lessons/l1-l17/moodle-museum-object-panels.png',
-    '/academy/content/lessons/019-l1-l18.json',
-    '/academy/content/lessons/020-l1-l19.json',
-    '/academy/content/lessons/l1-l19/moodle-chapter-11-2-ordering-food-page-2.png',
-    '/academy/content/lessons/l1-l19/moodle-43-a-43.mp3',
-    '/academy/content/lessons/l1-l19/moodle-44-a-44.mp3',
-    '/academy/content/lessons/021-l1-l20.json',
-    '/academy/content/lessons/l1-l20/moodle-chapter-11-3-frequency-page-1.png',
-    '/academy/content/lessons/l1-l20/moodle-45-a-45.mp3',
-    '/academy/content/lessons/l1-l20/moodle-minna-039.mp3',
-    '/academy/content/lessons/022-l1-l21.json',
-    '/academy/content/lessons/l1-l21/moodle-chapter-11-4-duration-page-1.png',
-    '/academy/content/lessons/l1-l21/moodle-chapter-11-4-duration-page-3.png',
-    '/academy/content/lessons/l1-l21/moodle-46-a-46.mp3',
-    '/academy/content/lessons/023-l1-l22.json',
-    '/academy/content/lessons/l1-l22/moodle-katakana-writing-basic-page-1.png',
-    '/academy/content/lessons/l1-l22/moodle-katakana-list-page-1.png',
-    '/academy/content/lessons/024-l1-l23.json',
-    '/academy/content/lessons/l1-l23/moodle-katakana-worksheets-a-ka-ga-page-1.png',
-    '/academy/content/lessons/l1-l23/moodle-katakana-writing-ka-page-2.png',
-    '/academy/content/lessons/025-l1-l24.json',
-    '/academy/content/lessons/l1-l24/moodle-katakana-worksheets-sa-za-ta-da-page-1.png',
-    '/academy/content/lessons/l1-l24/moodle-katakana-writing-sa-page-1.png',
-    '/academy/content/lessons/l1-l24/moodle-katakana-writing-ta-page-2.png',
-    '/academy/content/lessons/026-l1-l25.json',
-    '/academy/content/lessons/l1-l25/moodle-katakana-worksheets-na-ha-pa-ba-page-1.png',
-    '/academy/content/lessons/l1-l25/moodle-katakana-writing-na-page-1.png',
-    '/academy/content/lessons/l1-l25/moodle-katakana-writing-ha-page-2.png',
-    '/academy/content/lessons/027-l1-l26.json',
-    '/academy/content/lessons/l1-l26/moodle-katakana-worksheets-ma-ya-ra-wa-page-1.png',
-    '/academy/content/lessons/l1-l26/moodle-katakana-writing-ma-ya-page-1.png',
-    '/academy/content/lessons/l1-l26/moodle-katakana-writing-ra-wa-page-2.png',
-    '/academy/content/lessons/028-l2-l01.json',
-    '/academy/content/lessons/029-l2-l02.json',
-    '/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png',
-    '/academy/content/lessons/l2-l02/moodle-b-21.mp3',
-    '/academy/content/lessons/030-l2-l03.json',
-    '/academy/content/lessons/l2-l03/moodle-chapter-19-2-3-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l03/moodle-chapter-19-2-tari-grammar-page-3.png',
-    '/academy/content/listening/media/academy-listening-6dccd9517dc4e10f.mp3',
-    '/academy/content/listening/media/academy-listening-2e5d1ee1e18a31b7.mp3',
-    '/academy/content/lessons/031-l2-l04.json',
-    '/academy/content/lessons/l2-l04/moodle-chapter-20-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l04/moodle-chapter-20-1-plain-style-verb-page-3.png',
-    '/academy/content/lessons/032-l2-l05.json',
-    '/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png',
-    '/academy/content/lessons/l2-l05/moodle-chapter-20-conversation-page-1.png',
-    '/academy/content/lessons/l2-l05/moodle-b-24.mp3',
-    '/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3',
-    '/academy/content/lessons/033-l2-l06.json',
-    '/academy/content/lessons/l2-l06/moodle-chapter-21-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-teaching-page-1.png',
-    '/academy/content/lessons/l2-l06/moodle-chapter-21-opinion-task-page-2.png',
-    '/academy/content/lessons/l2-l06/moodle-chapter-21-conversation-page-1.png',
-    '/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3',
-    '/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3',
-    '/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3',
-    '/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3',
-    '/academy/content/lessons/034-l2-l07.json',
-    '/academy/content/lessons/l2-l07/moodle-chapter-21-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l07/moodle-chapter-21-deshou-teaching-task-page-1.png',
-    '/academy/content/lessons/035-l2-l08.json',
-    '/academy/content/lessons/l2-l08/moodle-chapter-22-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l08/moodle-chapter-22-1-clause-rail-page-1.png',
-    '/academy/content/lessons/036-l2-l09.json',
-    '/academy/content/lessons/l2-l09/moodle-chapter-22-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l09/moodle-chapter-22-2-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l09/moodle-chapter-22-2-particle-mixer-page-1.png',
-    '/academy/content/lessons/l2-l09/moodle-chapter-22-2-particle-mixer-page-3.png',
-    '/academy/content/lessons/l2-l09/moodle-chapter-22-conversation-page-1.png',
-    '/academy/content/lessons/037-l2-l10.json',
-    '/academy/content/lessons/l2-l10/moodle-chapter-23-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l10/moodle-chapter-23-1-toki-threshold-page-4.png',
-    '/academy/content/lessons/l2-l10/moodle-chapter-23-1-toki-threshold-page-5.png',
-    '/academy/content/lessons/038-l2-l11.json',
-    '/academy/content/lessons/l2-l11/moodle-new-chapter-23-1-toki-page-1.png',
-    '/academy/content/lessons/l2-l11/moodle-new-chapter-23-1-vocabulary-page-1.png',
-    '/academy/content/lessons/039-l2-l12.json',
-    '/academy/content/lessons/l2-l12/moodle-chapter-28-1-nagara-page-1.png',
-    '/academy/content/lessons/l2-l12/moodle-chapter-28-1-nagara-page-2.png',
-    '/academy/content/lessons/l2-l12/moodle-track-78-bank-listening-page-1.png',
-    '/academy/content/lessons/l2-l12/moodle-track-79-favor-direction-page-2.png',
-    '/academy/content/lessons/l2-l12/moodle-new-chapter-28-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l12/moodle-new-chapter-28-1-vocabulary-page-2.png',
-    '/academy/content/lessons/040-l2-l13.json',
-    '/academy/content/lessons/l2-l13/moodle-chapter-28-2-shi-page-1.png',
-    '/academy/content/lessons/l2-l13/moodle-chapter-28-2-shi-page-2.png',
-    '/academy/content/lessons/l2-l13/moodle-a11-meal-survey-page-1.png',
-    '/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-3.png',
-    '/academy/content/lessons/041-l2-l14.json',
-    '/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-1.png',
-    '/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-2.png',
-    '/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-3.png',
-    '/academy/content/lessons/l2-l14/moodle-chapter-29-1-states-page-4.png',
-    '/academy/content/lessons/042-l2-l15.json',
-    '/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-1.png',
-    '/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-2.png',
-    '/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-3.png',
-    '/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-4.png',
-    '/academy/content/lessons/l2-l15/moodle-chapter-29-2-completion-repair-page-5.png',
-    '/academy/content/lessons/043-l2-l16.json',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-1-page-1.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-1-page-2.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-1.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-2.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-3.png',
-    '/academy/content/lessons/l2-l16/moodle-chapter-30-information-gap-page-1.png',
-    '/academy/content/lessons/044-l2-l17.json',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-speaking-page-1.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-1.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-2.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-3.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-4.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-teoku-grammar-page-5.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l17/moodle-chapter-30-2-vocabulary-page-2.png',
-    '/academy/content/lessons/044-l2-l17.json',
-    '/academy/content/lessons/045-l2-l18.json',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-3-toka-grammar-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-3-toka-grammar-2.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-3-vocabulary-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-3-vocabulary-2.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-emergency-vocabulary-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-conversation-script-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-message-memo-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-message-memo-2.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-conversation-listening-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-26-30-review-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-state-review-1.png',
-    '/academy/content/lessons/l2-l18/moodle-chapter-30-answer-1.png',
-    '/academy/content/lessons/l2-l18/moodle-track-13.mp3',
-    '/academy/content/lessons/046-l2-l19.json',
-    '/academy/content/lessons/l2-l19/moodle-chapter-31-volitional-page-1.png',
-    '/academy/content/lessons/l2-l19/moodle-chapter-31-volitional-page-2.png',
-    '/academy/content/lessons/l2-l19/moodle-chapter-31-form-sheet-page-1.png',
-    '/academy/content/lessons/l2-l19/moodle-chapter-31-form-sheet-page-2.png',
-    '/academy/content/lessons/047-l2-l20.json',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-intention-grammar-page-1.png',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-intention-grammar-page-2.png',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-volitional-exercise-page-1.png',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-volitional-exercise-page-2.png',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l20/moodle-chapter-31-vocabulary-page-2.png',
-    '/academy/content/lessons/048-l2-l21.json',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-tsumori-yotei-page-1.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-tsumori-yotei-page-2.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-tsumori-yotei-page-3.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-2-tsumori-yotei-page-4.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-3-tsumori-conviction-page-1.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-homework-plan-review-page-1.png',
-    '/academy/content/lessons/l2-l21/moodle-chapter-31-homework-plan-review-page-2.png',
-    '/academy/content/lessons/049-l2-l22.json',
-    '/academy/content/lessons/050-l2-l23.json',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-homework-1-page-1.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-homework-1-page-2.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-homework-2-page-1.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-homework-2-page-2.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-worksheet-page-1.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-worksheet-page-2.png',
-    '/academy/content/lessons/l2-l23/moodle-kanji-6-worksheet-page-3.png',
-    '/academy/content/lessons/051-l2-l24.json',
-    '/academy/content/lessons/052-l2-l25.json',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-2-deshou-page-1.png',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-2-deshou-page-2.png',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-2-deshou-page-3.png',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-3-kamoshiremasen-page-1.png',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-3-kamoshiremasen-page-2.png',
-    '/academy/content/lessons/l2-l25/moodle-chapter-32-3-kamoshiremasen-page-3.png',
-    '/academy/content/lessons/053-l2-l26.json',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-imperative-prohibitive-form-page-1.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-imperative-prohibitive-form-page-2.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-1-imperative-prohibitive-exercise-page-1.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-1-imperative-prohibitive-exercise-page-2.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-1-imperative-prohibitive-exercise-page-3.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-1-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-1-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-imperative-prohibitive-homework-page-1.png',
-    '/academy/content/lessons/l2-l26/moodle-chapter-33-imperative-prohibitive-homework-page-2.png',
-    '/academy/content/lessons/054-l2-l27.json',
-    '/academy/content/lessons/l2-l27/moodle-chapter-33-2-message-page-1.png',
-    '/academy/content/lessons/l2-l27/moodle-chapter-33-2-message-page-2.png',
-    '/academy/content/lessons/l2-l27/moodle-chapter-33-2-meaning-page-1.png',
-    '/academy/content/lessons/l2-l27/moodle-chapter-33-2-meaning-page-2.png',
-    '/academy/content/lessons/055-l2-l28.json',
-    '/academy/content/lessons/l2-l28/moodle-chapter-34-1-toori-page-1.png',
-    '/academy/content/lessons/l2-l28/moodle-chapter-34-1-toori-page-2.png',
-    '/academy/content/lessons/l2-l28/moodle-chapter-34-1-atode-page-1.png',
-    '/academy/content/lessons/l2-l28/moodle-chapter-34-1-atode-page-2.png',
-    '/academy/content/lessons/l2-l28/moodle-chapter-34-1-atode-page-3.png',
-    '/academy/content/lessons/056-l2-l29.json',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-vocabulary-1.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-vocabulary-2.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-te-de-naide-1.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-te-de-naide-2.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-te-de-naide-3.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-alternative-naide-1.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-2-speaking-1.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-tea-listening-1.png',
-    '/academy/content/lessons/l2-l29/moodle-chapter-34-tea-script-1.png',
-    '/academy/content/lessons/l2-l29/moodle-track-27.mp3',
-    '/academy/content/lessons/057-l2-l30.json',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-conditional-1.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-conditional-2.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-proverbs-1.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-1-conditional-exercise-1.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-1-conditional-exercise-2.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-1-conditional-exercise-3.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-1-conditional-exercise-4.png',
-    '/academy/content/lessons/l2-l30/moodle-chapter-35-1-conditional-exercise-5.png',
-    '/academy/content/lessons/058-l2-l31.json',
-    '/academy/content/lessons/l2-l31/moodle-chapter-35-2-vocabulary-1.png',
-    '/academy/content/lessons/l2-l31/moodle-chapter-35-2-vocabulary-2.png',
-    '/academy/content/lessons/l2-l31/moodle-chapter-35-2-adjective-noun-conditional-1.png',
-    '/academy/content/lessons/l2-l31/moodle-chapter-35-2-adjective-noun-conditional-2.png',
-    '/academy/content/lessons/059-l2-l32.json',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-2-vocabulary-page-1.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-2-vocabulary-page-2.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-2-adjective-noun-conditional-page-1.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-2-adjective-noun-conditional-page-2.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-3-noun-nara-suggestions-page-1.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-35-3-noun-nara-suggestions-page-2.png',
-    '/academy/content/lessons/l2-l32/moodle-chapter-36-health-vocabulary-page-1.png',
-    '/academy/content/lessons/060-l2-l33.json',
-    '/academy/content/lessons/l2-l33/moodle-hw-chapter-35-grammar-review-page-1.png',
-    '/academy/content/lessons/l2-l33/moodle-hw-chapter-35-grammar-review-page-2.png',
-    '/academy/content/lessons/061-l2-l34.json',
-    '/academy/content/lessons/l2-l34/moodle-kanji-7-worksheet-page-1.png',
-    '/academy/content/lessons/l2-l34/moodle-kanji-7-worksheet-page-2.png',
-    '/academy/content/lessons/l2-l35/moodle-chapter-35-3-arimasenka-grammar-page-1.png',
-    '/academy/content/lessons/l2-l35/moodle-chapter-35-3-arimasenka-grammar-page-2.png',
-    '/academy/content/lessons/l2-l35/moodle-chapter-35-conversation-listening-script-page-1.png',
-    '/academy/content/lessons/l2-l35/moodle-chapter-35-conversation-listening-worksheet-page-1.png',
-    '/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-1.png',
-    '/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-2.png',
-    '/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-3.png',
-    '/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png',
     '/academy/vendor/kanjivg/04e00.svg',
     '/academy/vendor/kanjivg/ATTRIBUTION.md',
     '/academy/vendor/kanjivg/LICENSE.txt',
 ];
-
-let audioPrecachePromise;
-let audioPrecacheGeneration = 0;
-
-function precacheAudio() {
-    if (audioPrecachePromise) return audioPrecachePromise;
-    const generation = audioPrecacheGeneration;
-    audioPrecachePromise = caches.open(AUDIO_CACHE).then(async cache => {
-        const connection = self.navigator.connection;
-        if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? '')) return;
-        try {
-            const hasCachedAudio = (await Promise.all(
-                AUDIO_PRECACHE.map(path => cache.match(path, { ignoreVary: true })),
-            )).some(Boolean);
-            const estimate = await self.navigator.storage?.estimate?.();
-            if (!hasCachedAudio && estimate?.quota
-                && estimate.quota - (estimate.usage ?? 0) < AUDIO_PRECACHE_BYTES + AUDIO_QUOTA_HEADROOM_BYTES) return;
-        } catch {
-            // Browsers without storage estimates still get best-effort per-object quota handling below.
-        }
-        for (const path of AUDIO_PRECACHE) {
-            if (generation !== audioPrecacheGeneration) return;
-            if (await cache.match(path, { ignoreVary: true })) continue;
-            try {
-                const request = new Request(path, { credentials: 'include', cache: 'no-store' });
-                const response = await fetch(request);
-                if (response.status === 401 || response.status === 403) break;
-                if (response.status !== 200 || !response.headers.get('content-type')?.startsWith('audio/')) continue;
-                if (generation !== audioPrecacheGeneration) return;
-                await cache.put(request, response);
-            } catch {
-                // Optional audio never blocks the shell when auth, media, network, or quota is unavailable.
-            }
-        }
-    }).finally(() => { audioPrecachePromise = undefined; });
-    return audioPrecachePromise;
-}
-
-function purgeAudioCache() {
-    audioPrecacheGeneration += 1;
-    return caches.delete(AUDIO_CACHE);
-}
-
-async function cachedAudioResponse(response, rangeHeader) {
-    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader?.trim() ?? '');
-    if (!match || (match[1] === '' && match[2] === '')) return response;
-    const body = await response.blob();
-    let start;
-    let end;
-    if (match[1] === '') {
-        const suffix = Math.min(Number(match[2]), body.size);
-        if (suffix === 0) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${body.size}` } });
-        start = body.size - suffix;
-        end = body.size - 1;
-    } else {
-        start = Number(match[1]);
-        if (start >= body.size) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${body.size}` } });
-        end = match[2] === '' ? body.size - 1 : Math.min(Number(match[2]), body.size - 1);
-        if (end < start) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${body.size}` } });
-    }
-    const headers = new Headers(response.headers);
-    headers.set('accept-ranges', 'bytes');
-    headers.set('content-length', String(end - start + 1));
-    headers.set('content-range', `bytes ${start}-${end}/${body.size}`);
-    return new Response(body.slice(start, end + 1, body.type), { status: 206, headers });
-}
 
 self.addEventListener('install', event => {
     event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
@@ -469,31 +51,15 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys()
-            .then(keys => Promise.all(keys.filter(key => (
-                key.startsWith('yomu-academy-') && key !== VERSION && key !== AUDIO_CACHE
-            )).map(key => caches.delete(key))))
+            .then(keys => Promise.all(keys.filter(key => key.startsWith('yomu-academy-') && key !== VERSION).map(key => caches.delete(key))))
             .then(() => self.clients.claim()),
     );
 });
 
 self.addEventListener('fetch', event => {
     const request = event.request;
-    const url = new URL(request.url);
-    if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === '/academy/api/logout') {
-        event.respondWith(fetch(request).then(response => {
-            if (response.ok) event.waitUntil(purgeAudioCache());
-            return response;
-        }));
-        return;
-    }
-    if (request.method === 'GET' && url.origin === self.location.origin && url.pathname === '/academy/api/session') {
-        event.respondWith(fetch(request).then(response => {
-            if (response.status === 401) event.waitUntil(purgeAudioCache());
-            return response;
-        }));
-        return;
-    }
     if (request.method !== 'GET') return;
+    const url = new URL(request.url);
     const isReaderRuntime = url.pathname === '/yomu.user.js'
         || url.pathname === '/yomu.css'
         || url.pathname === '/greasyfork/yomu-ui-copy.user.js'
@@ -501,24 +67,9 @@ self.addEventListener('fetch', event => {
         || url.pathname === '/greasyfork/yomu-kanji-study.user.js'
         || url.pathname === '/greasyfork/yomu-anki.user.js';
     if (url.origin !== self.location.origin || (!url.pathname.startsWith('/academy/') && !isReaderRuntime)) return;
-    if (url.pathname.startsWith('/academy/media/')) {
-        if (!AUDIO_PRECACHE.includes(url.pathname)) return;
-        event.respondWith(caches.open(AUDIO_CACHE).then(async cache => {
-            const cached = await cache.match(url.pathname, { ignoreVary: true });
-            if (cached) return cachedAudioResponse(cached, request.headers.get('range'));
-            try {
-                const response = await fetch(request);
-                if (response.ok) event.waitUntil(precacheAudio());
-                return response;
-            } catch {
-                return new Response(null, { status: 503 });
-            }
-        }));
-        return;
-    }
     // Authentication and byte-range semantics stay with the Worker/R2
-    // boundary. Generic shell caching never persists protected media.
-    if (url.pathname.startsWith('/academy/api/')) return;
+    // boundary. Generic shell caching must never persist protected media.
+    if (url.pathname.startsWith('/academy/api/') || url.pathname.startsWith('/academy/media/')) return;
     if (request.mode === 'navigate') {
         event.respondWith(fetch(request).then(response => {
             if (!response.ok) return response;

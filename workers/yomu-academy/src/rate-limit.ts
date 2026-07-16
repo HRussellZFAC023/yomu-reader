@@ -10,15 +10,6 @@ export interface RateRule {
 
 export const SESSION_RATE: RateRule = { bucket: 'session', limit: 10, windowMs: 10 * 60_000 };
 export const CHECKOUT_RATE: RateRule = { bucket: 'checkout', limit: 5, windowMs: 10 * 60_000 };
-export const CLAIM_RATE: RateRule = { bucket: 'payment-claim', limit: 30, windowMs: 10 * 60_000 };
-export const OAUTH_RATE: RateRule = { bucket: 'google-oauth', limit: 20, windowMs: 10 * 60_000 };
-export const ENTITLEMENT_RATE: RateRule = { bucket: 'entitlement', limit: 10, windowMs: 10 * 60_000 };
-export const PAIR_CREATE_RATE: RateRule = { bucket: 'pair-create', limit: 5, windowMs: 10 * 60_000 };
-export const PAIR_CLAIM_RATE: RateRule = { bucket: 'pair-claim', limit: 10, windowMs: 10 * 60_000 };
-export const SYNC_PUSH_RATE: RateRule = { bucket: 'sync-push', limit: 120, windowMs: 10 * 60_000 };
-export const SYNC_PULL_RATE: RateRule = { bucket: 'sync-pull', limit: 300, windowMs: 10 * 60_000 };
-export const EXPORT_RATE: RateRule = { bucket: 'privacy-export', limit: 120, windowMs: 60 * 60_000 };
-export const LIFECYCLE_RATE: RateRule = { bucket: 'privacy-delete', limit: 5, windowMs: 60 * 60_000 };
 
 /**
  * Derive a pseudonymous client subject. The raw IP is HMACed with a secret

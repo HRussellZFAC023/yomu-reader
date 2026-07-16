@@ -4,7 +4,7 @@
 
 Yomu Academy is an adult evening class where Japanese is how people make plans, recover from mistakes, understand one another, and decide what may be shared. The story begins with one open chair and a half-working exhibition atlas. It ends four seasons later with graduation, a completed record, and a blank page offered to the next class under terms the current class chose together.
 
-The central plot is finite: 48 canonical chapters, 12 per season. The learner may arrive at any curriculum band through a playable bridge, but the story remains chronological. Choices change trust, phrasing, scene ownership, optional perspective, and relationship callbacks. They do not create incompatible universes or prevent the authored ending.
+The central plot is finite: 48 canonical chapters, 12 per season. The learner may arrive at any curriculum band through a playable bridge, but the story remains chronological. Choices change trust, phrasing, scene ownership, optional perspective, and bond callbacks. They do not create incompatible universes or prevent the authored ending.
 
 The tone is warm adult friendship, practical comedy, quiet mystery, and earned emotion. No magic is required. The atlas's light, missing labels, and responsive routes come from a deliberately temperamental projection/tool chain plus many human contributors. The mature mystery is not “who enchanted it?” but “whose voice is this, and who may carry it forward?”
 
@@ -18,23 +18,12 @@ Every chapter combines at least two of four lines:
 
 - **Atlas:** build, recover, verify, attribute, present, and finally close the shared work.
 - **Class:** learn Japanese for a real immediate purpose, then use it away from the teaching surface.
-- **Relationship:** one person risks a preference, limit, mistake, disagreement, or request.
+- **Bond:** one person risks a preference, limit, mistake, disagreement, or request.
 - **World:** a room, route, object, season, time, or public commitment changes.
 
 No chapter may advance only a lore flag. Story earns its time by changing what the learner can do or how someone can act with them.
 
 ## Season structure
-
-The four seasons are both production arcs and visible school terms. They do not use real-world dates, streaks, or attendance pressure.
-
-| Story season | Campus time | Irreversible turn | Dominant social distance |
-| --- | --- | --- | --- |
-| 1. Open Doors | autumn rain and earlier evenings | the learner's first route becomes part of the atlas | unfamiliar classmates learning how to ask |
-| 2. The Rebuilt Map | winter dark and indoor public preparation | the first exhibition succeeds and exposes the unattributed page | a functioning class learning how to disagree |
-| 3. Borrowed Voices | spring light and a wider public invitation | the class withholds unconsented material and publishes terms | collaborators learning where help must stop |
-| 4. The Next Page | summer evenings and graduation | the atlas closes once; the next blank page is offered, not assigned | friends making room for separate futures |
-
-Time advances through canonical chapters, never through wall-clock absence. A returning learner resumes on the same evening beat with a short diegetic recap and no guilt text.
 
 ### Season 1: Open Doors
 
@@ -48,7 +37,7 @@ Time advances through canonical chapters, never through wall-clock absence. A re
 
 The first twelve runtime IDs are retained.
 
-| Ch | Canonical ID and title | Plot turn | Learning and relationship job |
+| Ch | Canonical ID and title | Plot turn | Learning and bond job |
 | --- | --- | --- | --- |
 | 1 | `s1e01-the-blank-atlas` - The Blank Atlas | Rie introduces the stalled lantern-atlas exhibition and one empty route. | Greetings, classroom repair, and route choice make the learner's first contribution; Rie unlocks. |
 | 2 | `s1e02-margin-map` - Map in the Margins | Henry's dense kana system produces an unreadable route. | Hiragana and reason-giving; editing an idea is separated from rejecting its maker. |
@@ -75,7 +64,7 @@ The first twelve runtime IDs are retained.
 
 Existing episodes 13-24 are retained but move from “Season One finale” to the second season.
 
-| Ch | Canonical ID and title | Plot turn | Learning and relationship job |
+| Ch | Canonical ID and title | Plot turn | Learning and bond job |
 | --- | --- | --- | --- |
 | 13 | `s1e13-dinner-by-if` - Dinner by If | A surprise ingredient breaks Robert's perfect conditional sequence. | Requests and conditionals; hosting becomes listening. |
 | 14 | `s1e14-two-answers` - Two Answers, One Context | Sophie puts two plausible particles on contextual trial. | Evidence and explanation; precision survives without one universal answer. |
@@ -100,7 +89,7 @@ Existing episodes 13-24 are retained but move from “Season One finale” to th
 
 **End state:** the class publishes a permission page and withholds material that is not theirs to expose. They learn the old caption has at least three contributors, including Rie, but not yet why it was left unfinished.
 
-| Ch | Target ID and title | Plot turn | Learning and relationship job |
+| Ch | Target ID and title | Plot turn | Learning and bond job |
 | --- | --- | --- | --- |
 | 25 | `s3e01-after-the-applause` - After the Applause | Exhibition feedback uses the same polite phrase to imply praise, doubt, and refusal. | Reported speech, tone, and inference; Mika and Francis compare what they heard. |
 | 26 | `s3e02-caption-without-owner` - A Caption Without an Owner | Rose reveals the old caption; Henry finds no reliable author field. | Nominalization and source description; provenance is absence, not a puzzle shortcut. |
@@ -125,7 +114,7 @@ Existing episodes 13-24 are retained but move from “Season One finale” to th
 
 **End state:** the atlas is complete and closed. A new blank page is left with explicit permission and no demand that the next class repeat this one.
 
-| Ch | Target ID and title | Plot turn | Learning and relationship job |
+| Ch | Target ID and title | Plot turn | Learning and bond job |
 | --- | --- | --- | --- |
 | 37 | `s4e01-return-address` - The Return Address | A former learner answers the class's questions selectively and declines one. | Formal correspondence, omission, and respecting a bounded reply. |
 | 38 | `s4e02-map-of-claims` - A Map of Claims | Sophie and Henry build an evidence map that marks confidence instead of hiding gaps. | Synthesis, source quality, and calibrated certainty. |
@@ -135,26 +124,10 @@ Existing episodes 13-24 are retained but move from “Season One finale” to th
 | 42 | `s4e06-open-question` - The Open Question | Peter asks whether finishing the atlas requires naming a single owner. | Argument structure and counterfactuals; the class rejects the false premise. |
 | 43 | `s4e07-journey-not-everyone-takes` - The Journey Not Everyone Takes | Japan-related opportunities separate the ensemble into people leaving, staying, and undecided. | Plans, uncertainty, and non-comparative futures; Alex's arc resolves without making departure the “brave” choice. |
 | 44 | `s4e08-last-revision` - The Last Revision | Stasi, Ruparna, and Xingyu make the public version vivid without restoring withdrawn detail. | Editing, adaptation, and artistic rationale; constraints create the final form. |
-| 45 | `s4e09-rehearsal-for-leaving` - Rehearsal for Leaving | Relationship callbacks surface as practical acts while the class rehearses both event and goodbye. | Mastery-aware production; support is shown before it is named. |
+| 45 | `s4e09-rehearsal-for-leaving` - Rehearsal for Leaving | Bond callbacks surface as practical acts while the class rehearses both event and goodbye. | Mastery-aware production; support is shown before it is named. |
 | 46 | `s4e10-public-evening` - The Public Japanese Evening | The event succeeds after one live misunderstanding forces a transparent repair. | Integrated N1 listening, response, source explanation, and audience negotiation. |
 | 47 | `s4e11-atlas-closes` - The Atlas Closes | Rie confirms she made the blank teaching template; an earlier learner added the first route; later classes layered the rest. | Final synthesis and uncertainty statement; provenance resolves without claiming every mark. |
-| 48 | `s4e12-next-page` - The Next Page | At graduation, the learner writes or records one bounded contribution, then leaves a blank page under the class's permission terms. | Graduation performance, class-continuity and elective-bond payoffs, and a final choice of tone rather than outcome. |
-
-## Causal spine
-
-The seasons are one plot, not four adjacent projects.
-
-1. Chapter 1 proves that a small repaired contribution can enter the atlas.
-2. Chapter 12 proves the class can recover a route together, which justifies attempting a public exhibition rather than merely continuing lessons.
-3. Chapter 24's successful live narration exposes the old caption because the rebuilt backing is finally opened and used; success, not a random clue, creates the next problem.
-4. The public-evening invitation makes authorship and permission consequential. Without an audience, the caption could remain an internal uncertainty.
-5. Chapter 32's contained wrong-draft incident proves that good intentions and internal access are insufficient safeguards, forcing the explicit permission page in Chapter 36.
-6. The permission page makes a responsible public event possible but cannot answer provenance, so the class seeks bounded testimony rather than treating consent paperwork as historical truth.
-7. The former learner's selective reply and the physical evidence support a layered account while leaving some marks unresolved.
-8. Chapter 46 tests the class's terms under live pressure; Chapter 47 can close the atlas only because the class repairs transparently without exposing withheld material.
-9. Chapter 48 offers a new blank page under explicit terms. It does not continue the mystery, because accepting uncertainty is the resolution.
-
-Removing any numbered link must break the motivation for the next. If a chapter can be moved to another season without changing cause, consequence, or relationship state, its outline is not yet load-bearing.
+| 48 | `s4e12-next-page` - The Next Page | At graduation, the learner writes or records one bounded contribution, then leaves a blank page under the class's permission terms. | Graduation performance, ten-chapter bond payoffs, and a final choice of tone rather than outcome. |
 
 ## The ending
 
@@ -170,53 +143,29 @@ The finale establishes these facts:
 
 The learner's final choice selects one of four authored forms: gratitude, practical advice, an open question, or a sound/visual contribution. Each is original Japanese calibrated to the learner's band. The page is accepted in every case. There is no “best” emotional answer.
 
-## Relationship lattice
+## Ten-chapter bond contract
 
-The Academy does not turn a large adult class into twenty-four parallel ten-rank ladders. Relationships have two interoperable forms: **class continuity** for the whole eligible roster and **elective appointments** for learner-chosen depth.
+Every non-textbook person who is eligible for story receives ten authored bond chapters. They may occur inside a main chapter, as an optional after-class scene, or as a replayable memory, but each chapter is canonical and has one durable relationship change.
 
-### Class continuity
-
-Every story-eligible non-textbook person receives five visible beats in the finite plot. A beat may be a lead scene, a support action, one class-thread exchange, or a behavioral callback; it is not automatically a private disclosure.
-
-| Beat | Story job | Earliest placement | Durable evidence |
-| --- | --- | --- | --- |
-| Arrival | establish what they notice and how they enter a task | Season 1, or their actual arrival chapter | the learner can recognize their attention pattern |
-| Contribution | let their competence change shared work | after Arrival | a later scene may ask for that bounded help |
-| Limit | show a disagreement, uncertainty, refusal, or unavailable role | Season 2 | the ensemble changes its action without punishing them |
-| Return | show changed behavior after the limit | Season 3 | one prior detail becomes a practical callback |
-| Future | give them an open next possibility | Season 4 | graduation acknowledges them without claiming a finished life |
-
-Supporting beats count only when the person's action changes the scene. Standing in an ensemble shot, agreeing with a summary, or delivering a catchphrase does not count. The continuity matrix is audited by season so late arrivals are paced honestly rather than backfilled with instant intimacy.
-
-### Elective appointments
-
-A character with a consent-cleared `bond-authored` relationship route may offer six optional appointments. The UI names the activity, place, expected mode, and easy way to defer; it never displays affection points or a romance-coded rank.
-
-| Appointment | Function | Required change |
+| Bond chapter | Function | Required change |
 | --- | --- | --- |
-| 1. Ordinary task | do something small together | one practical preference becomes reusable state |
-| 2. Different route | see how their method differs from the learner's | a new support style becomes available |
-| 3. Reciprocity | they remember a bounded learner choice | one callback enters the shared voice set |
-| 4. Friction | encounter a crossed assumption or defensible disagreement | neither option is framed as the flattering answer |
-| 5. Repair | act differently because of the friction | trust appears as changed work, not a confession speech |
-| 6. Future | make one voluntary next appointment beyond class | graduation and alumni wording can acknowledge the route |
+| 1. Recognition | notice what the person attends to | journal entry unlocks; no intimacy claim |
+| 2. Preference | complete an ordinary activity their way | one preference becomes reusable scene state |
+| 3. Competence | let them teach or lead something bounded | learner can later ask for that help |
+| 4. Reciprocity | they notice or remember a learner choice | one callback enters their voice set |
+| 5. Friction | a real disagreement or crossed assumption | neither side is reduced to a wrong-answer option |
+| 6. Boundary | someone declines, limits, or changes the activity | relationship improves through hearing the limit |
+| 7. Repair | act on what went wrong, without a summary speech | later scene wording changes |
+| 8. Trust | share responsibility, uncertainty, or unfinished work | a new cooperative action unlocks |
+| 9. Support | earlier choices shape a harder act of help | learner produces more independent Japanese |
+| 10. Future | name a next possibility without closing the person | graduation callback and alumni eligibility unlock |
 
-Pacing rules:
-
-- at most one new appointment is offered after a canonical chapter;
-- only one invitation waits for an answer at a time, but deferred invitations do not expire;
-- the same person cannot advance twice without at least two main-plot chapters between appointments;
-- Appointment 4 cannot occur before that person's class-continuity Limit beat, and Appointment 6 cannot occur before Season 4;
-- a chapter never requires an appointment, and every main-plot line has a first-meeting or classmate fallback;
-- completing more routes changes breadth of callbacks, not the quality of the ending;
-- only routes marked `bond-authored` in the relationship manifest may issue invitations. Story eligibility alone does not promise an appointment route.
-
-Wrong Japanese triggers repair, not relationship loss. Skipping, deferring, failing an activity, changing support level, or returning after absence cannot make a character colder. Replay never duplicates relationship events.
+Bond completion is evidence, not currency. Wrong Japanese triggers repair, not affection loss. A learner may skip or defer a bond scene without the character sulking, and may replay it without duplicating relationship events.
 
 ## Main-plot pacing
 
 - **Normal chapter:** 8–14 minutes of story distributed around one or two learning actions; 18–36 story turns per uninterrupted scenelet.
-- **Elective appointment:** 6–10 minutes and 36–60 turns, usually in one recurring place.
+- **Bond scene:** 6–10 minutes and 36–60 turns, usually in one recurring place.
 - **Season hinge:** at most 18 minutes and 70 turns, with a resumable boundary before and after the emotional turn.
 - **Ensemble cap:** one lead, one or two supports, and at most two reactive background voices. Larger casts appear only in visual staging, event montages, or finales with assigned jobs.
 - **Cadence:** two setup chapters, one complication, two relationship/skill chapters, midpoint reversal, two consequence chapters, one quiet regroup, two convergence chapters, finale.
@@ -228,7 +177,7 @@ Story never opens while the learner is typing, recording, reading a committed an
 Every callback is tracked as `seed -> echo -> transform -> payoff`.
 
 - A normal chapter may seed one callback and echo two.
-- An elective route must transform an existing detail by Appointment 5.
+- A bond chapter must transform an existing detail by chapter 7.
 - A season finale pays off one plot object, one relationship behavior, and one language function.
 - Recurring comedy stops during a boundary or vulnerable disclosure and may return only after the other person has changed the action.
 - The final season favors behavioral callbacks: Henry edits first, Sam asks once, Sophie states confidence, Robert leaves space, Peter asks the framing question, and Rie accepts help.

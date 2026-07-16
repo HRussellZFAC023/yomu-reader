@@ -59,12 +59,6 @@ describe('Google OIDC token verification', () => {
         const wrongAudience = await signedGoogleToken({ aud: 'other.apps.googleusercontent.com' });
         await expect(verifyGoogleIdToken(wrongAudience.token, clientId, nonce, now, wrongAudience.fetcher)).rejects.toMatchObject({ status: 401 });
 
-        const wrongAuthorizedParty = await signedGoogleToken({ azp: 'other.apps.googleusercontent.com' });
-        await expect(verifyGoogleIdToken(wrongAuthorizedParty.token, clientId, nonce, now, wrongAuthorizedParty.fetcher)).rejects.toMatchObject({ status: 401 });
-
-        const missingAuthorizedParty = await signedGoogleToken({ aud: [clientId, 'other.apps.googleusercontent.com'] });
-        await expect(verifyGoogleIdToken(missingAuthorizedParty.token, clientId, nonce, now, missingAuthorizedParty.fetcher)).rejects.toMatchObject({ status: 401 });
-
         const expired = await signedGoogleToken({ exp: Math.floor(now / 1000) - 1 });
         await expect(verifyGoogleIdToken(expired.token, clientId, nonce, now, expired.fetcher)).rejects.toMatchObject({ status: 401 });
 

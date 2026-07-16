@@ -50,17 +50,6 @@ export interface AcademyVocabularyProvenanceRemovalResult {
     readonly card?: YomuSrsReviewable;
 }
 
-export interface AcademySyllabusItem {
-    readonly expression: string;
-    readonly reading?: string;
-}
-
-export interface AcademySyllabusProgress {
-    readonly total: number;
-    readonly seeded: number;
-    readonly unseeded: number;
-}
-
 export class LocalYomuSrsRepository {
     constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -98,14 +87,6 @@ export class LocalYomuSrsRepository {
         });
     }
 
-    /** Reads the shared deck without changing any card or schedule. */
-    async academySyllabusProgress(items: readonly AcademySyllabusItem[]): Promise<AcademySyllabusProgress> {
-        const deck = await this.readDeck();
-        const identities = new Set(items.map(item => canonicalStudyCardIdentity(item.expression, item.reading).key));
-        const seeded = [...identities].filter(id => Boolean(deck.cards[id])).length;
-        return { total: identities.size, seeded, unseeded: identities.size - seeded };
-    }
-
     /**
      * Removes only the requested provenance. Independent, multiply-sourced,
      * or reviewed cards are retained even when their final Academy source is undone.
@@ -129,19 +110,21 @@ export class LocalYomuSrsRepository {
     async queue(limit = 50): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
-        const cap = normalizedQueueLimit(limit);
+        const cap = Math.max(0, Math.floor(limit));
         const byDue = (a: StoredYomuSrsCard, b: StoredYomuSrsCard): number => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
         const due = cards.filter(card => card.dueAt <= now).sort(byDue);
-        const dueNew = due.filter(card => card.reviews === 0).length;
-        const dueReviews = due.length - dueNew;
-        const queue = due.slice(0, cap).map(card => this.toReviewable(card, now));
+        // Review-ahead fill: once the due cards run out the rest of the deck
+        // (soonest-due first) keeps the practice queue going, so the study tab
+        // never strands at "N words" when the learner has mined far more.
+        const ahead = cards.filter(card => card.dueAt > now).sort(byDue);
+        const queue = [...due, ...ahead].slice(0, cap).map(card => this.toReviewable(card, now));
         return {
             providerId: 'yomu-local',
             fetchedAt: now,
             cards: queue,
-            dueCount: dueReviews,
-            newCount: dueNew,
-            reviewCount: due.length,
+            dueCount: cards.filter(card => card.dueAt <= now && card.reviews > 0).length,
+            newCount: cards.filter(card => card.reviews === 0).length,
+            reviewCount: Math.min(due.length, cap),
         };
     }
 
@@ -283,7 +266,6 @@ export class LocalYomuSrsRepository {
             expression: card.expression,
             reading: card.reading,
             meanings: meaningsFromGlosses(card.meanings),
-            sentence: card.sentence,
             state: localCardState(card, now),
             srsLevel: localSrsLevel(card),
             dueAt: card.dueAt,
@@ -386,9 +368,4 @@ function startOfLocalDay(now: number): number {
 
 function uniqueStrings(values: string[]): string[] {
     return [...new Set(values.map(value => value.trim()).filter(Boolean))];
-}
-
-function normalizedQueueLimit(limit: number): number {
-    if (Number.isNaN(limit) || limit <= 0) return 0;
-    return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
 }

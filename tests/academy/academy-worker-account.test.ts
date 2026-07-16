@@ -72,13 +72,6 @@ describe('Academy optional accounts', () => {
         expect(again.id).toBe(fixture.account.id);
         expect(again.discriminator).toBe(fixture.account.discriminator);
         expect(fixture.academy.db.accounts).toHaveLength(1);
-        const refreshedSession = await activeSession(
-            get('/academy/api/session', fixture.cookie), fixture.academy.env, now + 1,
-        );
-        if (!refreshedSession) throw new Error('linked session missing');
-        await expect(linkGoogleSubject(fixture.academy.env, refreshedSession, 'different-google-sub', now + 2))
-            .rejects.toMatchObject({ status: 409 });
-        expect(fixture.academy.db.accounts).toHaveLength(1);
 
         const patched = await handlePatchAccount(mutation('/academy/api/account', 'PATCH', fixture.cookie, {
             displayName: '  Aakash  ',

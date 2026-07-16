@@ -52,7 +52,7 @@ describe('Academy Google OIDC flow', () => {
         expect(auth.searchParams.get('code_challenge_method')).toBe('S256');
         expect(auth.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(auth.searchParams.get('nonce')).toMatch(/^[A-Za-z0-9_-]{43}$/);
-        expect(auth.searchParams.get('scope')).toBe('openid');
+        expect(auth.searchParams.get('scope')).toBe('openid email');
         const flowCookie = (start.headers.get('set-cookie') ?? '').split(';')[0];
         expect(start.headers.get('set-cookie')).toContain('HttpOnly');
 
