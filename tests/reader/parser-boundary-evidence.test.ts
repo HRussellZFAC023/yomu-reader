@@ -99,16 +99,20 @@ function tokenSnapshot(tokens: JPDBToken[]) {
     }));
 }
 
+function expectExactTimeBoundary(tokens: JPDBToken[], trailingSource: JPDBCard['source']) {
+    expect(tokenSnapshot(tokens)).toEqual([
+        { surface: '時間', expression: '時間', reading: 'じかん', source: 'local', range: [1, 3] },
+        { surface: '前', expression: '前', reading: 'まえ', source: trailingSource, range: [3, 4] },
+    ]);
+}
+
 describe('exact local boundary evidence for remote parse fragments', () => {
     it.each(['jpdb', 'jiten'] as const)('reconciles a %s split only when an exact longer local expression crosses the boundary', async provider => {
         const { parser } = parserHarness({ provider, localMatches: [exactTimeMatch()] });
 
         const [tokens] = await parser.parse([SENTENCE]);
 
-        expect(tokenSnapshot(tokens)).toEqual([
-            { surface: '時間', expression: '時間', reading: 'じかん', source: 'local', range: [1, 3] },
-            { surface: '前', expression: '前', reading: 'まえ', source: provider, range: [3, 4] },
-        ]);
+        expectExactTimeBoundary(tokens, provider);
         const root = document.createElement('div');
         root.innerHTML = renderTokensToHtml(SENTENCE, tokens, DEFAULT_SETTINGS);
         const word = root.querySelector<HTMLElement>('[data-expression="時間"]');
@@ -127,10 +131,7 @@ describe('exact local boundary evidence for remote parse fragments', () => {
 
         const [tokens] = await parser.parse([SENTENCE]);
 
-        expect(tokenSnapshot(tokens)).toEqual([
-            { surface: '時間', expression: '時間', reading: 'じかん', source: 'local', range: [1, 3] },
-            { surface: '前', expression: '前', reading: 'まえ', source: 'fallback', range: [3, 4] },
-        ]);
+        expectExactTimeBoundary(tokens, 'fallback');
     });
 
     it('keeps remote fragments when the local dictionary has no exact whole-expression evidence', async () => {

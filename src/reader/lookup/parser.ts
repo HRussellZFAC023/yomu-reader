@@ -756,22 +756,26 @@ function boundaryEvidenceCandidates(text: string, tokens: JPDBToken[]): Boundary
     const candidates: BoundaryEvidenceCandidate[] = [];
     const seen = new Set<string>();
     for (let index = 1; index < sorted.length; index += 1) {
-        const first = sorted[index - 1];
-        const second = sorted[index];
-        if (first.end !== second.start || !isReconciliableParseToken(first) || !isReconciliableParseToken(second)) continue;
-        const firstSurface = text.slice(first.start, first.end);
-        const secondSurface = text.slice(second.start, second.end);
-        const left = text.slice(first.end - 1, first.end);
-        const right = text.slice(second.start, second.start + 1);
-        if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) continue;
-        if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) continue;
-        const surface = text.slice(first.start, second.end);
-        const key = `${first.start}:${second.end}:${surface}`;
+        const candidate = boundaryEvidenceCandidate(text, sorted[index - 1], sorted[index]);
+        if (!candidate) continue;
+        const key = `${candidate.start}:${candidate.surface}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        candidates.push({ surface, start: first.start });
+        candidates.push(candidate);
     }
     return candidates;
+}
+
+function boundaryEvidenceCandidate(text: string, first: JPDBToken, second: JPDBToken): BoundaryEvidenceCandidate | null {
+    if (first.end !== second.start) return null;
+    if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
+    const left = text.slice(first.end - 1, first.end);
+    const right = text.slice(second.start, second.start + 1);
+    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
+    const firstSurface = text.slice(first.start, first.end);
+    const secondSurface = text.slice(second.start, second.end);
+    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
+    return { surface: text.slice(first.start, second.end), start: first.start };
 }
 
 function isReconciliableParseToken(token: JPDBToken): boolean {

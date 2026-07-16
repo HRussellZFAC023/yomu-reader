@@ -144,11 +144,12 @@ async function runCoveragePage(pagePath, name) {
 
     const state = await page.evaluate(() => {
         const words = [...document.querySelectorAll('.jpdb-reader-word')].filter(word => word instanceof HTMLElement);
+        const pitchCount = words.filter(word => ['heiban', 'atamadaka', 'nakadaka', 'odaka'].includes(word.dataset.pitchClass ?? '')).length;
         return {
             url: location.href,
             wordCount: words.length,
             rubyCount: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
-            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
+            pitchCount,
             surfaces: words.map(word => ({
                 text: word.dataset.expression || word.textContent?.trim() || '',
                 passive: word.dataset.jpdbReaderPassive === 'true',

@@ -50,6 +50,7 @@ The pitch audit found that all valid downstep positions already resolve to four 
 - Live geometry covered 493 annotated words across three real ecommerce pages with no text loss, clipping, or overlap failures.
 - Docs accessibility passed 66/66. Two earlier attempts each had one transient local-resource failure on a different page and viewport; the clean rerun covered every desktop, iPad, and iPhone target.
 - Complexity reported only the unchanged existing `scripts/chip-mirror-fidelity-smoke.mjs:runEngine` score of 56 over the threshold of 30. Neither that script nor the audit threshold is changed by this branch.
+- The CI Fallow dead-code and new-only diff audit both pass with zero introduced findings after extracting the boundary predicate and shared test assertion; six inherited changed-file findings remain excluded by the repository's existing new-only gate.
 - `npm run qa:live` was not run because this isolated worktree has no JPDB key; the live JPDB source-path observation above was captured during diagnosis.
 
 The remaining release gates are the complete pull-request CI matrix, Deploy Docs at the merged SHA, and a latest non-draft GitHub Release with the userscript and desktop assets.
