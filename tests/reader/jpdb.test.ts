@@ -30016,7 +30016,7 @@ describe('reader helpers', () => {
         const lookupTermMeta = vi.fn(async (expression: string) => [{
             expression,
             mode: 'pitch',
-            data: { pitches: [{ position: 1 }] },
+            data: { reading: 'ねこ', pitches: [{ position: 1 }] },
             dictionary: 'Pitch',
         }]);
         const publicPitch = vi.fn(async () => ['HLL']);

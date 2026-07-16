@@ -16217,52 +16217,34 @@ function looksCharacterAlignedPitch(levels, chars) {
 async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
   const expression = spelling.trim();
   const pronunciation = reading.trim();
+  if (!expression || !pronunciation) return { patterns: [] };
   const initialEntries = options.initialEntries ?? await lookupMeta(expression);
-  let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
-  if (patterns.length) return { patterns };
-  if (pronunciation && pronunciation !== expression) {
-  const readingEntries = await lookupMeta(pronunciation);
-  patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
-  if (patterns.length) return { patterns };
-  }
-  return { patterns: [] };
+  return { patterns: localPitchPatternsFromMeta(expression, pronunciation, initialEntries) };
 }
-function localPitchPatternFromMeta(reading, entries2) {
-  return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
+function localPitchPatternFromMeta(expression, reading, entries2) {
+  return localPitchPatternsFromMeta(expression, reading, entries2)[0] ?? "";
 }
-function localPitchPatternsFromMeta(reading, entries2) {
-  const patterns = collectPitchPatterns(reading, entries2, false);
-  if (patterns.length) return patterns;
-  return distinctMetadataReadings(entries2).length === 1 ? collectPitchPatterns(reading, entries2, true) : patterns;
+function localPitchPatternsFromMeta(expression, reading, entries2) {
+  const normalizedExpression = expressionIdentity(expression);
+  const normalizedReading = readingIdentity(reading);
+  if (!normalizedExpression || !normalizedReading) return [];
+  return collectPitchPatterns(normalizedExpression, normalizedReading, reading, entries2);
 }
-function collectPitchPatterns(reading, entries2, ignoreReadingMismatch) {
+function collectPitchPatterns(normalizedExpression, normalizedReading, reading, entries2) {
   const patterns = [];
   for (const entry of entries2) {
   if (entry.mode !== "pitch") continue;
-  for (const candidate of readPitchCandidates(entry.data, reading, ignoreReadingMismatch)) {
+  if (expressionIdentity(entry.expression ?? "") !== normalizedExpression) continue;
+  for (const candidate of readPitchCandidates(entry.data, normalizedReading)) {
     const pattern = pitchPatternFromCandidate(reading, candidate);
     if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
   }
   }
   return patterns;
 }
-function distinctMetadataReadings(entries2) {
-  const readings = new Set();
-  for (const entry of entries2) {
-  if (entry.mode !== "pitch") continue;
-  const record = objectRecord$1(entry.data);
-  const reading = typeof record?.reading === "string" ? kanaNormalized(record.reading) : "";
-  if (reading) readings.add(reading);
-  }
-  return [...readings];
-}
-function readPitchCandidates(value, reading, ignoreReadingMismatch) {
+function readPitchCandidates(value, normalizedReading) {
   const record = objectRecord$1(value);
-  if (!record) {
-  const candidate = pitchCandidateFromValue(value);
-  return candidate == null ? [] : [candidate];
-  }
-  if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
+  if (!record || !pitchMetadataReadingMatches(record, normalizedReading)) return [];
   const candidates = pitchPositionCandidates(record).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
   if (candidates.length) return candidates;
   const direct = pitchCandidateFromValue(record.position);
@@ -16271,12 +16253,15 @@ function readPitchCandidates(value, reading, ignoreReadingMismatch) {
 function pitchPatternFromCandidate(reading, candidate) {
   return typeof candidate === "number" ? pitchPatternFromPosition(reading, candidate) : normalizePitchPatternsForReading([candidate], reading)[0] ?? "";
 }
-function pitchMetadataReadingMatches(record, reading) {
+function pitchMetadataReadingMatches(record, normalizedReading) {
   const metadataReading = typeof record.reading === "string" ? record.reading : "";
-  return !metadataReading || !reading || kanaNormalized(metadataReading) === kanaNormalized(reading);
+  return readingIdentity(metadataReading) === normalizedReading;
 }
-function kanaNormalized(value) {
-  return value.replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
+function expressionIdentity(value) {
+  return value.trim().normalize("NFKC");
+}
+function readingIdentity(value) {
+  return expressionIdentity(value).replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
 }
 function pitchPositionCandidates(record) {
   if (Array.isArray(record.pitches)) return record.pitches;
@@ -16310,7 +16295,7 @@ function renderPitch(card, metaEntries = []) {
   if (!reading) return "";
   const variants = collectPitchVariants(reading, [
   ...card.pitchAccent ?? [],
-  ...localPitchPatternsFromMeta(reading, metaEntries)
+  ...localPitchPatternsFromMeta(card.spelling, reading, metaEntries)
   ], MAX_PITCH_VARIANTS);
   return renderPitchVariantGraphs(reading, variants);
 }
@@ -18024,7 +18009,7 @@ class CardRenderDataLoader {
       continue;
     }
     const meta = settings.localDictionariesEnabled ? await this.dependencies.dictionaries.lookupTermMeta(component.text, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(() => []) : [];
-    const localPitch = localPitchPatternFromMeta(component.reading, meta);
+    const localPitch = localPitchPatternFromMeta(component.text, component.reading, meta);
     if (localPitch) {
       pitches.push({ text: component.text, reading: component.reading, pitch: localPitch });
       continue;
@@ -21711,6 +21696,8 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
 const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
+const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
+const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
@@ -21723,6 +21710,7 @@ const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
 const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
 const log$c = Logger.scope("ReaderParser");
+const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
   const requireApi = options.requireApi ?? options.requireJpdb ?? true;
   return { includeLocalPitch: false, ...options, requireApi };
@@ -21993,27 +21981,29 @@ ${spelling}`);
   if (!await this.hasLocalTermDictionaries(true)) return parsed;
   const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
     const text2 = paragraphs[paragraphIndex] ?? "";
-    const replacements = await mapLimited(candidates[paragraphIndex], 4, async (candidate) => {
-      const relative = await this.exactLocalBoundaryMatch(candidate.surface);
+    const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
+      const relative = await this.exactLocalBoundaryMatch(candidate);
       if (!relative) return null;
       const match = offsetTermMatch(relative, candidate.start);
       if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
       return this.localTokenFromMatch(text2, match, options);
-    });
+    }));
     return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
   }));
   return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
   }
-  exactLocalBoundaryMatch(surface) {
+  exactLocalBoundaryMatch(candidate) {
   const settings = this.dependencies.getSettings();
-  const key = localBoundaryEvidenceCacheKey(surface, settings);
+  const { surface, boundary } = candidate;
+  const key = localBoundaryEvidenceCacheKey(surface, boundary, settings);
   const cached = this.localBoundaryEvidenceCache.get(key);
   if (cached) return cached;
-  const promise = this.dependencies.dictionaries.findTermMatches(
+  const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
     surface,
     LOCAL_BOUNDARY_MATCH_LIMIT,
     settings.dictionaryPreferences
-  ).then((matches) => exactBoundaryMatch(surface, matches)).catch((error) => {
+  )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
+    if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
     log$c.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
     return null;
   });
@@ -22292,6 +22282,7 @@ function boundaryEvidenceCandidates(text2, tokens) {
   if (seen.has(key)) continue;
   seen.add(key);
   candidates.push(candidate);
+  if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
   }
   return candidates;
 }
@@ -22304,7 +22295,11 @@ function boundaryEvidenceCandidate(text2, first, second) {
   const firstSurface = text2.slice(first.start, first.end);
   const secondSurface = text2.slice(second.start, second.end);
   if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-  return { surface: text2.slice(first.start, second.end), start: first.start };
+  return {
+  surface: text2.slice(first.start, second.end),
+  start: first.start,
+  boundary: first.end - first.start
+  };
 }
 function isReconciliableParseToken(token) {
   return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
@@ -22313,8 +22308,15 @@ function isSingleJapaneseCharacter(surface) {
   const characters = Array.from(surface);
   return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
 }
-function exactBoundaryMatch(surface, matches) {
-  return matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim())).sort((first, second) => second.end - second.start - (first.end - first.start) || first.start - second.start)[0] ?? null;
+function exactBoundaryMatch(surface, boundary, matches) {
+  const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
+  const identities = new Set(accepted.map((match) => boundaryMatchIdentity(match)));
+  if (identities.size !== 1) return null;
+  return accepted.sort((first, second) => second.end - second.start - (first.end - first.start) || first.start - second.start)[0] ?? null;
+}
+function boundaryMatchIdentity(match) {
+  return `${match.entry.expression.normalize("NFKC").trim()}
+${match.entry.reading.normalize("NFKC").trim()}`;
 }
 function offsetTermMatch(match, offset) {
   return {
@@ -22345,9 +22347,10 @@ function replaceRemoteFragments(tokens, candidates) {
   ...accepted
   ].sort(compareTokensByOffset);
 }
-function localBoundaryEvidenceCacheKey(surface, settings) {
+function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
   return JSON.stringify({
   surface,
+  boundary,
   dictionaries: settings.dictionaryPreferences.map((preference) => ({
     name: preference.name,
     enabled: preference.enabled,
