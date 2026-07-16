@@ -35734,7 +35734,7 @@ describe('reader helpers', () => {
         const titleWord = document.querySelector<HTMLElement>('ytd-watch-metadata h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('新卒');
         expect(titleWord.dataset.cardSource).toBe('jpdb');
-        expect(titleWord.querySelector('rt')?.textContent).toBe('しんそつ');
+        expect(titleWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('しんそつ');
         expectRenderedPitchWord(titleWord, 'heiban');
         applyTokensToScanTarget(title!, [{
             card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ', source: 'jpdb' },
@@ -36053,7 +36053,7 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
-        expect(commentWord.querySelector('rt')?.textContent).toBe('はいしん');
+        expect(commentWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
@@ -36151,8 +36151,7 @@ describe('reader helpers', () => {
 
         const viewerWord = document.querySelector<HTMLElement>('ytd-watch-info-text .jpdb-reader-text-mirror .jpdb-reader-word')!;
         const engagementWord = document.querySelector<HTMLElement>('yt-live-chat-viewer-engagement-message-renderer .jpdb-reader-text-mirror .jpdb-reader-word')!;
-        expect(Array.from(document.querySelector('ytd-watch-info-text')!.children)
-            .some(child => child.matches('.jpdb-reader-text-mirror'))).toBe(true);
+        expect(document.querySelector('ytd-watch-info-text .jpdb-reader-text-mirror')).not.toBeNull();
         expect(readerWordSurfaceText(viewerWord)).toBe('視聴');
         // The viewer-count chip is a control (role="button"); its reading is
         // rendered through the detached channel so the chip is not resized.
@@ -36161,7 +36160,7 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(viewerWord, 'heiban');
         // The engagement message is reading content, so it keeps inline ruby.
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
-        expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
+        expect(engagementWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('かいわ');
         expect(document.querySelector('yt-live-chat-viewer-engagement-message-renderer button .jpdb-reader-word')).toBeNull();
     });
 
@@ -36551,7 +36550,7 @@ describe('reader helpers', () => {
 
         const engagementWord = document.querySelector<HTMLElement>('yt-text-carousel-item-view-model .jpdb-reader-text-mirror .jpdb-reader-word')!;
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
-        expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
+        expect(engagementWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('かいわ');
         expectRenderedPitchWord(engagementWord, 'heiban');
     });
 
@@ -36696,7 +36695,7 @@ describe('reader helpers', () => {
 
             const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
             expect(readerWordSurfaceText(word)).toBe('東京');
-            expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
+            expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
             expectRenderedPitchWord(word, 'heiban');
         } finally {
             vi.unstubAllGlobals();
@@ -36752,7 +36751,7 @@ describe('reader helpers', () => {
 
             const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
             expect(readerWordSurfaceText(word)).toBe('東京');
-            expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
+            expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
             expectRenderedPitchWord(word, 'heiban');
         } finally {
             vi.unstubAllGlobals();
@@ -36794,7 +36793,7 @@ describe('reader helpers', () => {
 
         const word = document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('字幕');
-        expect(word.querySelector('rt')?.textContent).toBe('じまく');
+        expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('じまく');
         expectRenderedPitchWord(word, 'heiban');
         expect(document.querySelector('.ytp-caption-segment .jpdb-reader-word')).toBeNull();
     });
@@ -36868,7 +36867,7 @@ describe('reader helpers', () => {
 
         const headerWord = document.querySelector<HTMLElement>('ytd-comments-header-renderer .jpdb-reader-word')!;
         expect(readerWordSurfaceText(headerWord)).toBe('件');
-        expect(headerWord.querySelector('rt')?.textContent).toBe('けん');
+        expect(headerWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('けん');
         expectRenderedPitchWord(headerWord, 'heiban');
     });
 
@@ -37149,11 +37148,11 @@ describe('reader helpers', () => {
 
             const lockupWord = document.querySelector<HTMLElement>('yt-lockup-view-model .jpdb-reader-word')!;
             expect(readerWordSurfaceText(lockupWord)).toBe('朝');
-            expect(lockupWord.querySelector('rt')?.textContent).toBe('あさ');
+            expect(lockupWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('あさ');
             expect(document.querySelector('yt-lockup-view-model .jpdb-reader-text-mirror')).not.toBeNull();
             const word = document.querySelector<HTMLElement>('ytm-shorts-lockup-view-model .jpdb-reader-word')!;
             expect(readerWordSurfaceText(word)).toBe('日本語');
-            expect(word.querySelector('rt')?.textContent).toBe('にほんご');
+            expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -37522,7 +37521,7 @@ describe('reader helpers', () => {
 
         const titleWord = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('英語');
-        expect(titleWord.querySelector('rt')?.textContent).toBe('えいご');
+        expect(titleWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('えいご');
         expect(document.querySelector('yt-touch-feedback-shape .jpdb-reader-word')).toBeNull();
     });
 
