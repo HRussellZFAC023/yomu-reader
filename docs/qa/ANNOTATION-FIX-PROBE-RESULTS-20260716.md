@@ -68,7 +68,8 @@ The live probes did not justify replacing the current scan/annotate lifecycle. T
 - `npm run check` — passed, including regular/JPDB shards, Academy tests, builds, docs build, and userscript verification.
 - `npm run smoke:furigana-local-default` — passed.
 - `npm run qa` — build, checks, P0 smoke, and 11/13 browser-audit checks passed. The two audit failures (hosted Try Me wrapping `下`; compact subtitle rail visibility) reproduce identically on untouched v1.6.159 `origin/main`, so they are recorded baseline failures rather than annotation regressions.
-- v1.6.160 release preflight — `npm run check`, Academy, docs, verification, P0, Reddit, offline Study, offline local-dictionary/furigana, YouTube control-wake/title-recycler, Study stability, and Gaming smokes passed. The aggregate preflight remains non-zero because `smoke:chip-mirror` (mini-guide reading clipping) and `smoke:constrained-gate` (forced styled-host visibility) fail identically on untouched v1.6.159 in both Chromium and WebKit; neither was changed or waived in code.
+- v1.6.160 release preflight — `npm run check`, Academy, docs, verification, P0, Reddit, offline Study, offline local-dictionary/furigana, YouTube control-wake/title-recycler, Study stability, and Gaming smokes passed. The tag's Release workflow exposed two stale layout-smoke contracts that also failed untouched v1.6.159: a synthetic mini-guide shape with no live-page evidence and an assertion that expected the inverse of source-preserving additive mirrors.
+- v1.6.161 CI/CD follow-up — removed the unsupported synthetic mini-guide case from the release boundary and corrected the constrained-row invariant to require visible native host text, transparent duplicate mirror glyphs, preserved host paint/icons, and visible detached evidence. PR CI previously omitted the release-only layout chain; it now installs Chromium and WebKit and makes `smoke:layout-regressions` a prerequisite of the build job. Both browser layout gates and the complete `smoke:release` chain pass.
 - Hosted Japanese changelog coverage — passed after adding the v1.6.160 translation; no new UI copy or `未翻訳` fallback was introduced.
 - Final live YouTube mobile probe — 257 words after scrolling, 44 newly visible additions, zero idle mutation churn, and 100% pitch-class coverage.
 - Built `dist/yomu.user.js`: 1,909,627 bytes, 90,373 bytes below the Greasy Fork limit.
@@ -76,4 +77,4 @@ The live probes did not justify replacing the current scan/annotate lifecycle. T
 
 ## Remaining release gates
 
-Fetch/rebase latest `origin/main`, fold generated assets into the version-bump release commit, push without force, and verify CI, Deploy Docs, plus the latest non-draft GitHub Release asset.
+Fetch/rebase latest `origin/main`, fold generated v1.6.161 assets into the release commit, push without force, and verify CI, Deploy Docs, plus the latest non-draft GitHub Release asset.

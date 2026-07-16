@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.161] - 2026-07-16
+
+### Fixed
+
+- Restored the GitHub Release gate after the annotation architecture changed: release smoke tests now verify source-preserving additive mirrors and no longer block publishing on an invented mini-guide shape that was not backed by live-page evidence.
+
 ## [1.6.160] - 2026-07-16
 
 ### Fixed

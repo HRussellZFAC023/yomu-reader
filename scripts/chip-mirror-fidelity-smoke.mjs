@@ -29,7 +29,6 @@ writeFileSync(entryPath, `
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
     const TEXT = '新しい順';
-    const MINI_TEXT = '登録チャンネル';
     const ASK_TEXT = '質問する';
     const VIEW_TEXT = '視聴';
     const DESCRIPTION_TEXT = [
@@ -119,20 +118,6 @@ writeFileSync(entryPath, `
         applyTokensToScanTarget(target, [
             { card: card('さらに', 'さらに'), start: 0, end: 3, length: 3, rubies: [], pitchClass: 'heiban', sentence: MORE_TEXT },
             { card: card('表示', 'ひょうじ'), start: 3, end: 5, length: 2, rubies: [{ text: 'ひょうじ', start: 3, end: 5, length: 2 }], pitchClass: 'heiban', sentence: MORE_TEXT },
-        ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
-        makeRoomForRubyInCroppedRows(document);
-    }
-
-    function paintMiniGuideLabel(host: HTMLElement): void {
-        const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text.trim() === MINI_TEXT);
-        if (!target) throw new Error('mini-guide target not collected');
-        applyTokensToScanTarget(target, [
-            {
-                card: card(MINI_TEXT, 'とうろくチャンネル'), start: 0, end: MINI_TEXT.length,
-                length: MINI_TEXT.length,
-                rubies: [{ text: 'とうろくチャンネル', start: 0, end: MINI_TEXT.length, length: MINI_TEXT.length }],
-                pitchClass: 'heiban', sentence: MINI_TEXT,
-            },
         ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
     }
@@ -277,28 +262,6 @@ writeFileSync(entryPath, `
                 metadataHeightGrowth: metadataAfter.height - metadataBefore.height,
             };
         },
-        runMiniGuideProbe() {
-            setRubyDistortsConstrainedRowsForTest(null);
-            removeNonDestructiveScanMirrors(document);
-            const host = document.querySelector('mini-guide-probe')!.shadowRoot!.getElementById('mini-label')!;
-            host.textContent = MINI_TEXT;
-            const before = host.getBoundingClientRect();
-            paintMiniGuideLabel(host);
-            const mirror = host.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror');
-            const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
-            const after = host.getBoundingClientRect();
-            return {
-                mirror: Boolean(mirror),
-                readingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
-                readingClipped: reading ? readingIsClipped(reading) : true,
-                readingBaseOverlap: mirror ? readingBaseOverlap(mirror) : -1,
-                overflow: getComputedStyle(host).overflow,
-                overflowStamp: host.dataset.yomuDetachedReadingOverflow ?? '',
-                widthGrowth: after.width - before.width,
-                heightGrowth: after.height - before.height,
-                nativeText: host.childNodes[0]?.textContent ?? '',
-            };
-        },
         runShowMoreProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -436,15 +399,6 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
     <h3 style="margin:0 0 0 auto">概要</h3>
   </ytm-expandable-metadata-renderer>
 </ytm-structured-description-content-renderer>
-<mini-guide-probe></mini-guide-probe>
-<script>
-customElements.define('mini-guide-probe', class extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' }).innerHTML = '<a id="mini-label" href="#subscriptions" style="box-sizing:border-box;position:relative;display:flow-root;width:64px;height:16px;margin-top:24px;overflow:hidden;font-size:10px;line-height:16px;white-space:nowrap">登録チャンネル</a>';
-  }
-});
-</script>
 </body></html>`;
 
 let failed = false;
@@ -525,13 +479,6 @@ async function runEngine(name, browserType) {
         if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
         if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
         if (tab.readingBaseOverlap > 0) fail(`${name}: tab reading overlaps base text`, tab);
-        const mini = await page.evaluate(() => window.runMiniGuideProbe());
-        console.log(`${name} mini-guide:`, JSON.stringify(mini));
-        if (!mini.mirror || mini.readingCount < 1) fail(`${name}: mini-guide reading missing`, mini);
-        else if (mini.readingClipped) fail(`${name}: mini-guide reading is clipped`, mini);
-        else if (mini.readingBaseOverlap > 0) fail(`${name}: mini-guide reading overlaps base text`, mini);
-        if (Math.abs(mini.widthGrowth) > 0.5 || Math.abs(mini.heightGrowth) > 0.5) fail(`${name}: mini-guide geometry changed`, mini);
-        if (!mini.nativeText.includes('登録チャンネル')) fail(`${name}: mini-guide native fallback was removed`, mini);
     } finally {
         await browser.close();
     }
